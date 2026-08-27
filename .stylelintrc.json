@@ -1,0 +1,11 @@
+{
+  "extends": ["stylelint-config-standard", "stylelint-config-recommended-vue"],
+  "ignoreFiles": ["node_modules/**", ".output/**", ".wxt/**", "build/**"],
+  "rules": {
+    "custom-property-pattern": "^(fat|el)-[a-z0-9-]+$",
+    "selector-class-pattern": null,
+    "rule-empty-line-before": null,
+    "declaration-property-value-no-unknown": null,
+    "no-descending-specificity": null
+  }
+}

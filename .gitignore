@@ -1,0 +1,9 @@
+node_modules
+build
+dist
+.cache
+.output
+.wxt
+*.local
+.test-files
+.DS_Store

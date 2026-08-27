@@ -1,0 +1,52 @@
+import { converterRegistry } from '~/utils/core/registry';
+import mdToHtmlConverter from '~/utils/converters/md-to-html';
+import htmlToMdConverter from '~/utils/converters/html-to-md';
+import csvToXlsxConverter from '~/utils/converters/csv-to-xlsx';
+import xlsxToCsvConverter from '~/utils/converters/xlsx-to-csv';
+import imageConverters from '~/utils/converters/image-convert';
+import textFormatConverters from '~/utils/converters/text-formats';
+import docxToHtmlConverter from '~/utils/converters/docx-to-html';
+import htmlToDocxConverter from '~/utils/converters/html-to-docx';
+import htmlToPdfConverter from '~/utils/converters/html-to-pdf';
+import pdfToHtmlConverter from '~/utils/converters/pdf-to-html';
+import { htmlToPngConverter } from '~/utils/converters/html-to-png';
+import { pngToPdfConverter } from '~/utils/converters/png-to-pdf';
+import imageToHtmlConverter from '~/utils/converters/image-to-html';
+
+let convertersInitialized = false;
+
+/** Register all available converters. Call once at app startup. */
+export function initConverters(): void {
+  if (convertersInitialized) return;
+  convertersInitialized = true;
+  // Markdown <-> HTML
+  converterRegistry.register(mdToHtmlConverter);
+  converterRegistry.register(htmlToMdConverter);
+
+  // DOCX <-> HTML
+  converterRegistry.register(docxToHtmlConverter);
+  converterRegistry.register(htmlToDocxConverter);
+
+  // HTML <-> PDF
+  converterRegistry.register(htmlToPdfConverter);
+  converterRegistry.register(pdfToHtmlConverter);
+
+  // CSV <-> XLSX
+  converterRegistry.register(csvToXlsxConverter);
+  converterRegistry.register(xlsxToCsvConverter);
+
+  // Image format converters (PNG, JPG, WEBP, BMP)
+  for (const converter of imageConverters) {
+    converterRegistry.register(converter);
+  }
+
+  // Text format converters (TXT->HTML, TXT->MD, HTML->TXT)
+  for (const converter of textFormatConverters) {
+    converterRegistry.register(converter);
+  }
+
+  // Bridge converters (connect document/image clusters)
+  converterRegistry.register(htmlToPngConverter);
+  converterRegistry.register(pngToPdfConverter);
+  converterRegistry.register(imageToHtmlConverter);
+}

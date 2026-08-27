@@ -1,0 +1,170 @@
+:root {
+  /* ---- Theme: blue (default, Flat design) ---- */
+  --fat-primary: #2563eb;
+  --fat-primary-hover: #3b82f6;
+  --fat-primary-active: #1d4ed8;
+  --fat-primary-rgb: 37 99 235;
+  --fat-primary-bg: #eff6ff;
+  --fat-primary-border: #bfdbfe;
+
+  /* Neutral surfaces */
+  --fat-surface: #f8fafc;
+  --fat-surface-2: #f1f5f9;
+  --fat-surface-line: #e2e8f0;
+  --fat-surface-hover: #f1f5f9;
+
+  /* Text colors */
+  --fat-text-primary: #0f172a;
+  --fat-text-regular: #1e293b;
+  --fat-text-secondary: #64748b;
+  --fat-text-placeholder: #94a3b8;
+  --fat-text-disabled: #cbd5e1;
+
+  /* Borders */
+  --fat-border: #e2e8f0;
+  --fat-border-light: #f1f5f9;
+
+  /* Backgrounds */
+  --fat-bg-page: #f8fafc;
+  --fat-bg-card: #fff;
+  --fat-bg-hover: #f1f5f9;
+
+  /* Spacing (8px grid) */
+  --fat-space-xs: 4px;
+  --fat-space-sm: 8px;
+  --fat-space-md: 12px;
+  --fat-space-lg: 16px;
+  --fat-space-xl: 24px;
+
+  /* Border radius */
+  --fat-radius-sm: 6px;
+  --fat-radius-md: 8px;
+  --fat-radius-lg: 12px;
+  --fat-radius-xl: 16px;
+  --fat-radius-pill: 20px;
+
+  /* Shadows - flat design keeps these subtle */
+  --fat-shadow-sm: 0 1px 2px rgb(15 23 42 / 5%);
+  --fat-shadow-md: 0 2px 6px rgb(15 23 42 / 7%);
+  --fat-shadow-lg: 0 4px 12px rgb(15 23 42 / 8%);
+  --fat-shadow-primary: 0 2px 8px rgb(var(--fat-primary-rgb) / 22%);
+
+  /* Transitions - flat design: fast, clean (150-200ms) */
+  --fat-transition: all 0.18s ease;
+  --fat-transition-fast: all 0.15s ease;
+
+  /* Typography */
+  --fat-font-family: -apple-system, blinkmacsystemfont, 'Segoe UI', roboto, 'Helvetica Neue', sans-serif;
+  --fat-font-mono: 'SF Mono', monaco, consolas, 'Liberation Mono', monospace;
+
+  /* Map brand tokens onto Element Plus theme variables */
+  --el-color-primary: var(--fat-primary);
+  --el-color-primary-light-3: color-mix(in srgb, var(--fat-primary) 70%, white);
+  --el-color-primary-light-5: color-mix(in srgb, var(--fat-primary) 50%, white);
+  --el-color-primary-light-7: color-mix(in srgb, var(--fat-primary) 30%, white);
+  --el-color-primary-light-8: color-mix(in srgb, var(--fat-primary) 20%, white);
+  --el-color-primary-light-9: color-mix(in srgb, var(--fat-primary) 10%, white);
+  --el-color-primary-dark-2: color-mix(in srgb, var(--fat-primary) 80%, black);
+  --el-border-radius-base: var(--fat-radius-md);
+}
+
+/* ---- Theme variants ---- */
+:root[data-theme='green'] {
+  --fat-primary: #10b981;
+  --fat-primary-hover: #34d399;
+  --fat-primary-active: #059669;
+  --fat-primary-rgb: 16 185 129;
+  --fat-primary-bg: #ecfdf5;
+  --fat-primary-border: #a7f3d0;
+  --fat-surface: #f0fdf4;
+  --fat-surface-2: #f7fdf9;
+  --fat-surface-line: #dcfce7;
+  --fat-surface-hover: #f0fdf4;
+  --el-color-primary: #10b981;
+  --el-color-primary-light-3: color-mix(in srgb, #10b981 70%, white);
+  --el-color-primary-light-5: color-mix(in srgb, #10b981 50%, white);
+  --el-color-primary-light-7: color-mix(in srgb, #10b981 30%, white);
+  --el-color-primary-light-8: color-mix(in srgb, #10b981 20%, white);
+  --el-color-primary-light-9: color-mix(in srgb, #10b981 10%, white);
+  --el-color-primary-dark-2: color-mix(in srgb, #10b981 80%, black);
+}
+
+:root[data-theme='purple'] {
+  --fat-primary: #7c3aed;
+  --fat-primary-hover: #8b5cf6;
+  --fat-primary-active: #6d28d9;
+  --fat-primary-rgb: 124 58 237;
+  --fat-primary-bg: #f5f3ff;
+  --fat-primary-border: #ddd6fe;
+  --fat-surface: #faf5ff;
+  --fat-surface-2: #fdf8ff;
+  --fat-surface-line: #f3e8ff;
+  --fat-surface-hover: #faf5ff;
+  --el-color-primary: #7c3aed;
+  --el-color-primary-light-3: color-mix(in srgb, #7c3aed 70%, white);
+  --el-color-primary-light-5: color-mix(in srgb, #7c3aed 50%, white);
+  --el-color-primary-light-7: color-mix(in srgb, #7c3aed 30%, white);
+  --el-color-primary-light-8: color-mix(in srgb, #7c3aed 20%, white);
+  --el-color-primary-light-9: color-mix(in srgb, #7c3aed 10%, white);
+  --el-color-primary-dark-2: color-mix(in srgb, #7c3aed 80%, black);
+}
+
+:root[data-theme='orange'] {
+  --fat-primary: #ea580c;
+  --fat-primary-hover: #f97316;
+  --fat-primary-active: #c2410c;
+  --fat-primary-rgb: 234 88 12;
+  --fat-primary-bg: #fff7ed;
+  --fat-primary-border: #fed7aa;
+  --fat-surface: #fffbeb;
+  --fat-surface-2: #fffdf7;
+  --fat-surface-line: #fef3c7;
+  --fat-surface-hover: #fffbeb;
+  --el-color-primary: #ea580c;
+  --el-color-primary-light-3: color-mix(in srgb, #ea580c 70%, white);
+  --el-color-primary-light-5: color-mix(in srgb, #ea580c 50%, white);
+  --el-color-primary-light-7: color-mix(in srgb, #ea580c 30%, white);
+  --el-color-primary-light-8: color-mix(in srgb, #ea580c 20%, white);
+  --el-color-primary-light-9: color-mix(in srgb, #ea580c 10%, white);
+  --el-color-primary-dark-2: color-mix(in srgb, #ea580c 80%, black);
+}
+
+:root[data-theme='rose'] {
+  --fat-primary: #e11d48;
+  --fat-primary-hover: #f43f5e;
+  --fat-primary-active: #be123c;
+  --fat-primary-rgb: 225 29 72;
+  --fat-primary-bg: #fff1f2;
+  --fat-primary-border: #fecdd3;
+  --fat-surface: #fff1f2;
+  --fat-surface-2: #fff8f9;
+  --fat-surface-line: #ffe4e6;
+  --fat-surface-hover: #fff1f2;
+  --el-color-primary: #e11d48;
+  --el-color-primary-light-3: color-mix(in srgb, #e11d48 70%, white);
+  --el-color-primary-light-5: color-mix(in srgb, #e11d48 50%, white);
+  --el-color-primary-light-7: color-mix(in srgb, #e11d48 30%, white);
+  --el-color-primary-light-8: color-mix(in srgb, #e11d48 20%, white);
+  --el-color-primary-light-9: color-mix(in srgb, #e11d48 10%, white);
+  --el-color-primary-dark-2: color-mix(in srgb, #e11d48 80%, black);
+}
+
+:root[data-theme='slate'] {
+  --fat-primary: #475569;
+  --fat-primary-hover: #64748b;
+  --fat-primary-active: #334155;
+  --fat-primary-rgb: 71 85 105;
+  --fat-primary-bg: #f8fafc;
+  --fat-primary-border: #cbd5e1;
+  --fat-surface: #f8fafc;
+  --fat-surface-2: #fbfcfd;
+  --fat-surface-line: #f1f5f9;
+  --fat-surface-hover: #f8fafc;
+  --el-color-primary: #475569;
+  --el-color-primary-light-3: color-mix(in srgb, #475569 70%, white);
+  --el-color-primary-light-5: color-mix(in srgb, #475569 50%, white);
+  --el-color-primary-light-7: color-mix(in srgb, #475569 30%, white);
+  --el-color-primary-light-8: color-mix(in srgb, #475569 20%, white);
+  --el-color-primary-light-9: color-mix(in srgb, #475569 10%, white);
+  --el-color-primary-dark-2: color-mix(in srgb, #475569 80%, black);
+}

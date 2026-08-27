@@ -1,0 +1,134 @@
+/* Import tokens */
+@import url('../theme/tokens.css');
+
+/* Base styles */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: var(--fat-font-family);
+  font-size: 14px;
+  color: var(--fat-text-regular);
+  background: var(--fat-bg-page);
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Scrollbar styling - thin 4px */
+::-webkit-scrollbar {
+  width: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 2px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* Element Plus popper dropdowns need wider scrollbar */
+.el-popper ::-webkit-scrollbar {
+  width: 6px;
+}
+
+/* Element Plus overrides */
+
+/* Input fields */
+.el-input__wrapper {
+  border: 1px solid var(--fat-border) !important;
+  border-radius: var(--fat-radius-sm) !important;
+  transition: var(--fat-transition) !important;
+}
+
+.el-input__wrapper:not(.is-disabled) {
+  box-shadow: none !important;
+}
+
+.el-input__wrapper:hover {
+  border-color: var(--fat-primary) !important;
+}
+
+.el-input__wrapper.is-focus {
+  border-color: var(--fat-primary) !important;
+  box-shadow: 0 0 0 2px rgb(var(--fat-primary-rgb) / 10%) !important;
+}
+
+/* Select dropdown */
+.el-select .el-input__wrapper {
+  cursor: pointer;
+}
+
+/* Buttons - flat design: color shift only, no lift */
+.el-button {
+  border-radius: var(--fat-radius-md) !important;
+  transition: var(--fat-transition) !important;
+  font-weight: 500;
+}
+
+.el-button--primary {
+  background: var(--fat-primary) !important;
+  border-color: var(--fat-primary) !important;
+}
+
+.el-button--primary:hover {
+  background: var(--fat-primary-hover) !important;
+  border-color: var(--fat-primary-hover) !important;
+}
+
+.el-button--primary:active {
+  background: var(--fat-primary-active) !important;
+  border-color: var(--fat-primary-active) !important;
+}
+
+/* Text button hover */
+.el-button--text:hover {
+  color: var(--fat-primary) !important;
+}
+
+/* Alert styling */
+.el-alert {
+  border-radius: var(--fat-radius-md) !important;
+}
+
+/* Tag styling */
+.el-tag {
+  border-radius: var(--fat-radius-sm) !important;
+  font-weight: 500;
+}
+
+/* Loading spinner */
+@keyframes fat-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Pulse animation for skeleton */
+@keyframes fat-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
