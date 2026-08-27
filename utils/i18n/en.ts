@@ -55,6 +55,7 @@ const en: typeof zh = {
     categoryDocument: 'Document',
     categoryImage: 'Image',
     categoryData: 'Data',
+    conversionPath: 'Path:',
   },
 
   convert: {

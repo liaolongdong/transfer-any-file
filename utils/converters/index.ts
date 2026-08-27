@@ -12,6 +12,9 @@ import pdfToHtmlConverter from '~/utils/converters/pdf-to-html';
 import { htmlToPngConverter } from '~/utils/converters/html-to-png';
 import { pngToPdfConverter } from '~/utils/converters/png-to-pdf';
 import imageToHtmlConverter from '~/utils/converters/image-to-html';
+import { imageToPngConverters } from '~/utils/converters/image-to-png';
+import { imageToHtmlConverters } from '~/utils/converters/image-to-html';
+import { imageToPdfConverters } from '~/utils/converters/image-to-pdf';
 
 let convertersInitialized = false;
 
@@ -49,4 +52,19 @@ export function initConverters(): void {
   converterRegistry.register(htmlToPngConverter);
   converterRegistry.register(pngToPdfConverter);
   converterRegistry.register(imageToHtmlConverter);
+
+  // Image-to-PNG bridges: JPG/WEBP/BMP → PNG (enables paths to HTML/PDF/DOCX)
+  for (const converter of imageToPngConverters) {
+    converterRegistry.register(converter);
+  }
+
+  // Direct image-to-HTML bridges for all image formats
+  for (const converter of imageToHtmlConverters) {
+    converterRegistry.register(converter);
+  }
+
+  // Direct image-to-PDF bridges for all image formats
+  for (const converter of imageToPdfConverters) {
+    converterRegistry.register(converter);
+  }
 }

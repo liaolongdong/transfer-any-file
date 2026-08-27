@@ -1,19 +1,22 @@
 import { FileFormat } from '~/utils/core/types';
 import type { Converter, ConvertResult } from '~/utils/core/types';
 
-const imageToHtmlConverter: Converter = {
-  from: FileFormat.PNG,
-  to: FileFormat.HTML,
+async function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
 
-  async convert(input: Blob): Promise<ConvertResult> {
-    const dataUrl = await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = reject;
-      reader.readAsDataURL(input);
-    });
-
-    const htmlDoc = `<!DOCTYPE html>
+function createImageToHtmlConverter(from: FileFormat): Converter {
+  return {
+    from,
+    to: FileFormat.HTML,
+    async convert(input: Blob): Promise<ConvertResult> {
+      const dataUrl = await blobToDataUrl(input);
+      const htmlDoc = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -41,10 +44,17 @@ const imageToHtmlConverter: Converter = {
   <img src="${dataUrl}" alt="Embedded image" />
 </body>
 </html>`;
+      const blob = new Blob([htmlDoc], { type: 'text/html' });
+      return { blob, filename: 'converted.html' };
+    },
+  };
+}
 
-    const blob = new Blob([htmlDoc], { type: 'text/html' });
-    return { blob, filename: 'converted.html' };
-  },
-};
-
+const imageToHtmlConverter: Converter = createImageToHtmlConverter(FileFormat.PNG);
 export default imageToHtmlConverter;
+
+export const imageToHtmlConverters: Converter[] = [
+  createImageToHtmlConverter(FileFormat.JPG),
+  createImageToHtmlConverter(FileFormat.WEBP),
+  createImageToHtmlConverter(FileFormat.BMP),
+];

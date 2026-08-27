@@ -59,6 +59,7 @@ export default {
     categoryDocument: '文档',
     categoryImage: '图片',
     categoryData: '数据',
+    conversionPath: '转换路径:',
   },
 
   // Conversion
