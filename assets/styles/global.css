@@ -37,12 +37,12 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #c1c1c1;
+  background: var(--fat-text-disabled, #c1c1c1);
   border-radius: 2px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #a8a8a8;
+  background: var(--fat-text-placeholder, #a8a8a8);
 }
 
 /* Element Plus popper dropdowns need wider scrollbar */

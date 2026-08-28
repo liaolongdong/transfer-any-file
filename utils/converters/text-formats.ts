@@ -1,12 +1,14 @@
 import { FileFormat } from '~/utils/core/types';
 import type { Converter, ConvertResult } from '~/utils/core/types';
+import { DOCUMENT_CSS } from '~/utils/converters/md-to-html';
+import { decodeTextBlob } from '~/utils/core/text-decode';
 
 const txtToHtmlConverter: Converter = {
   from: FileFormat.TXT,
   to: FileFormat.HTML,
 
   async convert(input: Blob): Promise<ConvertResult> {
-    const text = await input.text();
+    const text = await decodeTextBlob(input, 'errors.unknown');
     const escaped = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
     const html = `<!DOCTYPE html>
 <html lang="en">
@@ -14,6 +16,7 @@ const txtToHtmlConverter: Converter = {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Converted Document</title>
+  <style>${DOCUMENT_CSS}</style>
 </head>
 <body>
 <pre>${escaped}</pre>
@@ -29,7 +32,7 @@ const txtToMdConverter: Converter = {
   to: FileFormat.MD,
 
   async convert(input: Blob): Promise<ConvertResult> {
-    const text = await input.text();
+    const text = await decodeTextBlob(input, 'errors.unknown');
     // Wrap in a code block to preserve formatting; extend the fence when
     // the content itself contains backtick runs
     const runs = text.match(/`{3,}/g);
@@ -71,10 +74,17 @@ function extractText(node: Node): string {
   const tag = el.tagName.toLowerCase();
   if (tag === 'script' || tag === 'style' || tag === 'noscript') return '';
   if (tag === 'br') return '\n';
+  if (tag === 'img') {
+    // Plain text cannot embed images; keep a placeholder so image→TXT
+    // outputs are not silently empty
+    const alt = el.getAttribute('alt')?.trim();
+    return alt ? `[Image: ${alt}]\n` : '[Image]\n';
+  }
   let text = '';
   for (const child of Array.from(el.childNodes)) {
     text += extractText(child);
   }
+  if (tag === 'td' || tag === 'th') text += '\t';
   if (BLOCK_TAGS.has(tag)) text += '\n';
   return text;
 }

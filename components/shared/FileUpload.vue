@@ -188,10 +188,12 @@ function getFormatLabelSafe(format: FileFormat | null): string {
       <p class="paste-hint">{{ t('upload.pasteHint', { key: pasteKey }) }}</p>
     </div>
     <input
+      id="file-upload-input"
       ref="fileInput"
       type="file"
       :multiple="multiple"
       :accept="acceptExtensions"
+      aria-label="Upload files"
       style="display: none"
       @change="handleFileSelect"
     />
@@ -202,7 +204,7 @@ function getFormatLabelSafe(format: FileFormat | null): string {
       tag="div"
       class="file-list"
     >
-      <div class="file-list-header" key="header">
+      <div key="header" class="file-list-header">
         <span>{{ t('upload.selectedCount', { count: selectedFiles.length }) }}</span>
       </div>
       <div

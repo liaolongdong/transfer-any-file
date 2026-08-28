@@ -3,8 +3,10 @@ import { browser } from 'wxt/browser';
 /** Keys used in browser.storage.local */
 export const STORAGE_KEYS = {
   theme: 'fat:theme',
+  colorMode: 'fat:colorMode',
   locale: 'fat:locale',
   history: 'fat:history',
+  splitPosition: 'fat:splitPosition',
 } as const;
 
 /** Read a value from local storage with a fallback */

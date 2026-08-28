@@ -7,14 +7,16 @@ import imageConverters from '~/utils/converters/image-convert';
 import textFormatConverters from '~/utils/converters/text-formats';
 import docxToHtmlConverter from '~/utils/converters/docx-to-html';
 import htmlToDocxConverter from '~/utils/converters/html-to-docx';
+import { csvToHtmlConverter, xlsxToHtmlConverter } from '~/utils/converters/data-to-html';
 import htmlToPdfConverter from '~/utils/converters/html-to-pdf';
 import pdfToHtmlConverter from '~/utils/converters/pdf-to-html';
 import { htmlToPngConverter } from '~/utils/converters/html-to-png';
 import { pngToPdfConverter } from '~/utils/converters/png-to-pdf';
 import imageToHtmlConverter from '~/utils/converters/image-to-html';
-import { imageToPngConverters } from '~/utils/converters/image-to-png';
 import { imageToHtmlConverters } from '~/utils/converters/image-to-html';
 import { imageToPdfConverters } from '~/utils/converters/image-to-pdf';
+import { jsonToHtmlConverter, htmlToJsonConverter } from '~/utils/converters/json-to-html';
+import { jsonToCsvConverter, csvToJsonConverter } from '~/utils/converters/json-to-csv';
 
 let convertersInitialized = false;
 
@@ -38,6 +40,16 @@ export function initConverters(): void {
   converterRegistry.register(csvToXlsxConverter);
   converterRegistry.register(xlsxToCsvConverter);
 
+  // JSON <-> HTML / CSV (connect JSON to both document and data clusters)
+  converterRegistry.register(jsonToHtmlConverter);
+  converterRegistry.register(htmlToJsonConverter);
+  converterRegistry.register(jsonToCsvConverter);
+  converterRegistry.register(csvToJsonConverter);
+
+  // CSV/XLSX → HTML bridges (connect the data cluster to document formats)
+  converterRegistry.register(csvToHtmlConverter);
+  converterRegistry.register(xlsxToHtmlConverter);
+
   // Image format converters (PNG, JPG, WEBP, BMP)
   for (const converter of imageConverters) {
     converterRegistry.register(converter);
@@ -52,11 +64,6 @@ export function initConverters(): void {
   converterRegistry.register(htmlToPngConverter);
   converterRegistry.register(pngToPdfConverter);
   converterRegistry.register(imageToHtmlConverter);
-
-  // Image-to-PNG bridges: JPG/WEBP/BMP → PNG (enables paths to HTML/PDF/DOCX)
-  for (const converter of imageToPngConverters) {
-    converterRegistry.register(converter);
-  }
 
   // Direct image-to-HTML bridges for all image formats
   for (const converter of imageToHtmlConverters) {

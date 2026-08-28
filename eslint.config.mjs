@@ -78,6 +78,22 @@ export default [
     },
   },
 
+  // Node globals for dev scripts (eslint-env comments don't work in flat config)
+  {
+    files: ['scripts/**/*.cjs'],
+    languageOptions: {
+      globals: {
+        require: 'readonly',
+        module: 'readonly',
+        exports: 'readonly',
+        process: 'readonly',
+        Buffer: 'readonly',
+        __dirname: 'readonly',
+        console: 'readonly',
+      },
+    },
+  },
+
   // Prettier config (must be last to override)
   eslintConfigPrettier,
 ]

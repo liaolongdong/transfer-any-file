@@ -8,11 +8,16 @@ const htmlToMdConverter: Converter = {
 
   async convert(input: Blob): Promise<ConvertResult> {
     const html = await input.text();
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const bodyHtml = doc.body?.innerHTML ?? html;
+
+    // Images are kept as ![alt](src) so image/docx→MD outputs preserve
+    // content instead of coming out empty.
     const turndown = new TurndownService({
       headingStyle: 'atx',
       codeBlockStyle: 'fenced',
     });
-    const markdown = turndown.turndown(html);
+    const markdown = turndown.turndown(bodyHtml);
     const blob = new Blob([markdown], { type: 'text/markdown' });
     return { blob, filename: 'converted.md' };
   },

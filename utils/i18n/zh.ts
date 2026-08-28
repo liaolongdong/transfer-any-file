@@ -49,6 +49,28 @@ export default {
     dialogTitle: '文件预览',
     download: '下载',
     docxPlaceholder: '[DOCX] {filename}\n文件大小: {size}\n请下载后用 Word 打开。',
+    renderFailed: '预览渲染失败，请下载后查看',
+    zoomIn: '放大',
+    zoomOut: '缩小',
+  },
+
+  // Comparison view
+  comparison: {
+    sourceTitle: '原始文件',
+    resultTitle: '转换结果',
+    editMode: '编辑',
+    viewMode: '预览',
+    syncScroll: '同步滚动',
+    rendered: '渲染',
+    source: '源码',
+    copy: '复制',
+    copied: '已复制到剪贴板',
+    noPreview: '当前格式不支持预览',
+    collapse: '收起',
+    expand: '展开',
+    sourceOnly: '仅显示原文件',
+    splitView: '并排视图',
+    resultOnly: '仅显示结果',
   },
 
   // Format selector
@@ -67,6 +89,8 @@ export default {
     start: '开始转换',
     startMulti: '开始转换 ({count} 个文件)',
     converting: '转换中 ({done}/{total})...',
+    cancelling: '正在取消...',
+    cancel: '取消转换',
     inProgress: '正在转换中，请稍候...',
     reconvert: '重新转换',
   },
@@ -91,6 +115,7 @@ export default {
     reuseUnavailable: '当前文件无法转换为该格式',
     reusePending: '已记住目标格式，上传匹配文件后自动应用',
     clear: '清空历史',
+    clearConfirm: '确定要清空所有转换历史吗？此操作不可撤销。',
     delete: '删除',
     filesCount: '{count} 个文件',
   },
@@ -100,6 +125,10 @@ export default {
     title: '偏好设置',
     theme: '主题色',
     language: '界面语言',
+    mode: '显示模式',
+    modeLight: '亮色',
+    modeDark: '暗色',
+    modeSystem: '跟随系统',
     themeNames: {
       blue: '经典蓝',
       green: '森林绿',
@@ -123,6 +152,9 @@ export default {
     imageDecode: '图片解码失败，文件可能已损坏',
     imageEncode: '图片编码失败，浏览器不支持该输出格式',
     zipFail: 'ZIP 打包失败',
+    jsonParse: 'JSON 解析失败，请检查文件格式',
+    jsonNotArray: 'JSON 内容必须是对象数组才能转换为 CSV',
+    htmlToJson: '无法从 HTML 中提取有效的 JSON 数据',
   },
 
   // Footer

@@ -1,20 +1,18 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import { Setting, RefreshRight } from '@element-plus/icons-vue';
+import { Setting, RefreshRight, CircleClose } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
 import { initConverters } from '~/utils/converters';
 import { useConversion, CONVERSION_ERROR_KEYS } from '~/composables/useConversion';
 import { useI18n } from '~/composables/useI18n';
 import { converterRegistry } from '~/utils/core/registry';
 import { FileFormat } from '~/utils/core/types';
-import { getFormatCategory } from '~/utils/core/format-labels';
 import type { ConvertResult } from '~/utils/core/types';
 import FileUpload from '~/components/shared/FileUpload.vue';
-import FilePreview from '~/components/shared/FilePreview.vue';
 import FormatSelector from '~/components/shared/FormatSelector.vue';
 import ConversionProgress from '~/components/shared/ConversionProgress.vue';
 import ResultDownload from '~/components/shared/ResultDownload.vue';
-import ResultPreview from '~/components/shared/ResultPreview.vue';
+import ComparisonView from '~/components/shared/ComparisonView.vue';
 import CollapsibleCard from '~/components/shared/CollapsibleCard.vue';
 import PreferencesMenu from '~/components/shared/PreferencesMenu.vue';
 import HistoryPanel from '~/components/options/HistoryPanel.vue';
@@ -39,6 +37,7 @@ const {
   setFiles,
   setTargetFormat,
   convert,
+  cancelConversion,
   downloadResult,
   downloadAllZip,
   updateResult,
@@ -74,12 +73,9 @@ const canConvert = computed(
   () => !isConverting.value && uniqueSourceFormats.value.length > 0 && targetFormat.value !== null,
 );
 
-// Right-side preview panels
-const showFilePreview = computed(() => sourceFile.value !== null && sourceFormat.value !== null && isSingleFile.value);
-const PREVIEWABLE_TEXT = new Set<FileFormat>([FileFormat.MD, FileFormat.HTML, FileFormat.TXT, FileFormat.CSV]);
-const showResultPreview = computed(() => {
-  if (!isDone.value || batchResults.value.length !== 1 || !targetFormat.value) return false;
-  return getFormatCategory(targetFormat.value) === 'image' || PREVIEWABLE_TEXT.has(targetFormat.value);
+// Comparison view: shown when single file conversion is done
+const showComparison = computed(() => {
+  return isDone.value && isSingleFile.value && batchResults.value.length === 1 && targetFormat.value !== null;
 });
 
 const convertButtonText = computed(() => {
@@ -161,7 +157,7 @@ function handleReuse(payload: { sourceFormat: FileFormat; targetFormat: FileForm
     </header>
 
     <main class="content">
-      <section class="col col-main">
+      <div class="col col-main">
         <div class="card">
           <FileUpload
             :disabled="isConverting"
@@ -172,34 +168,37 @@ function handleReuse(payload: { sourceFormat: FileFormat; targetFormat: FileForm
         <Transition name="card" mode="out-in">
           <div
             v-if="hasFiles"
-            key="format-selector"
-            class="card"
+            key="action-bar"
+            class="card action-bar"
           >
-            <FormatSelector
-              :source-formats="uniqueSourceFormats"
-              :available-targets="availableTargets"
-              :target-format="targetFormat"
-              @update:target-format="setTargetFormat"
-            />
-          </div>
-        </Transition>
-
-        <Transition name="card" mode="out-in">
-          <div
-            v-if="hasFiles && targetFormat && !isDone"
-            key="convert-btn"
-            class="card"
-          >
-            <el-button
-              type="primary"
-              :icon="RefreshRight"
-              :loading="isConverting"
-              :disabled="!canConvert"
-              class="convert-btn"
-              @click="convert"
-            >
-              {{ convertButtonText }}
-            </el-button>
+            <div class="action-row">
+              <FormatSelector
+                :source-formats="uniqueSourceFormats"
+                :available-targets="availableTargets"
+                :target-format="targetFormat"
+                @update:target-format="setTargetFormat"
+              />
+              <el-button
+                type="primary"
+                :icon="RefreshRight"
+                :loading="isConverting"
+                :disabled="!canConvert"
+                class="convert-btn"
+                @click="convert"
+              >
+                {{ convertButtonText }}
+              </el-button>
+              <el-button
+                v-if="isConverting"
+                :icon="CircleClose"
+                type="danger"
+                plain
+                class="cancel-btn"
+                @click="cancelConversion"
+              >
+                {{ t('convert.cancel') }}
+              </el-button>
+            </div>
             <div
               v-if="showBatchProgress"
               class="batch-progress"
@@ -248,34 +247,23 @@ function handleReuse(payload: { sourceFormat: FileFormat; targetFormat: FileForm
             </el-button>
           </div>
         </Transition>
-      </section>
 
-      <aside class="col col-side">
-        <CollapsibleCard
-          v-if="showFilePreview"
-          :title="t('preview.fileTitle')"
-        >
-          <FilePreview
-            :file="sourceFile"
-            :format="sourceFormat"
-          />
-        </CollapsibleCard>
-
-        <CollapsibleCard
-          v-if="showResultPreview"
-          :title="t('preview.resultTitle')"
-        >
-          <ResultPreview
+        <Transition name="card">
+          <ComparisonView
+            v-if="showComparison"
+            key="comparison"
+            :source-file="sourceFile"
+            :source-format="sourceFormat"
             :result="batchResults[0]"
             :target-format="targetFormat"
             @update:result="handleResultUpdate"
           />
-        </CollapsibleCard>
+        </Transition>
 
         <CollapsibleCard :title="t('history.title')">
           <HistoryPanel @reuse="handleReuse" />
         </CollapsibleCard>
-      </aside>
+      </div>
     </main>
 
     <footer class="footer">
@@ -298,7 +286,7 @@ function handleReuse(payload: { sourceFormat: FileFormat; targetFormat: FileForm
 }
 
 .topbar-inner {
-  max-width: 1080px;
+  max-width: 1200px;
   margin: 0 auto;
   display: flex;
   align-items: center;
@@ -324,13 +312,9 @@ function handleReuse(payload: { sourceFormat: FileFormat; targetFormat: FileForm
 }
 
 .content {
-  max-width: 1080px;
+  max-width: 1200px;
   margin: 0 auto;
   padding: var(--fat-space-lg);
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 360px;
-  gap: var(--fat-space-lg);
-  align-items: start;
 }
 
 .col {
@@ -348,12 +332,32 @@ function handleReuse(payload: { sourceFormat: FileFormat; targetFormat: FileForm
   padding: var(--fat-space-md);
 }
 
-.convert-btn,
-.reset-btn {
-  width: 100%;
+.action-bar {
+  padding: var(--fat-space-md);
+}
+
+.action-row {
+  display: flex;
+  align-items: center;
+  gap: var(--fat-space-md);
+}
+
+.action-row :deep(.format-selector) {
+  flex: 1;
+  min-width: 0;
+}
+
+.convert-btn {
+  flex-shrink: 0;
+  min-width: 140px;
+}
+
+.cancel-btn {
+  flex-shrink: 0;
 }
 
 .reset-btn {
+  width: 100%;
   margin-top: var(--fat-space-sm);
 }
 
@@ -362,18 +366,12 @@ function handleReuse(payload: { sourceFormat: FileFormat; targetFormat: FileForm
 }
 
 .footer {
-  max-width: 1080px;
+  max-width: 1200px;
   margin: 0 auto;
   text-align: center;
   padding: var(--fat-space-lg);
   font-size: 12px;
   color: var(--fat-text-placeholder);
-}
-
-@media (width <= 900px) {
-  .content {
-    grid-template-columns: minmax(0, 1fr);
-  }
 }
 
 .card-enter-active,
@@ -389,5 +387,16 @@ function handleReuse(payload: { sourceFormat: FileFormat; targetFormat: FileForm
 .card-leave-to {
   opacity: 0;
   transform: translateY(-8px);
+}
+
+@media (max-width: 640px) {
+  .action-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .convert-btn {
+    width: 100%;
+  }
 }
 </style>

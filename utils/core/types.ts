@@ -7,6 +7,7 @@ export enum FileFormat {
   XLSX = 'xlsx',
   CSV = 'csv',
   TXT = 'txt',
+  JSON = 'json',
   PNG = 'png',
   JPG = 'jpg',
   WEBP = 'webp',

@@ -6,4 +6,6 @@ dist
 .wxt
 *.local
 .test-files
+.test-screenshots
+.tmp-e2e-profile
 .DS_Store

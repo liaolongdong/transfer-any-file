@@ -11,7 +11,8 @@
     "lint": "eslint .",
     "lint:style": "stylelint \"assets/**/*.css\" \"{components,entrypoints}/**/*.vue\"",
     "lint:all": "pnpm typecheck && pnpm lint && pnpm lint:style",
-    "fix:all": "eslint . --fix && stylelint --fix \"assets/**/*.css\" \"{components,entrypoints}/**/*.vue\" && prettier --write ."
+    "fix:all": "eslint . --fix && stylelint --fix \"assets/**/*.css\" \"{components,entrypoints}/**/*.vue\" && prettier --write .",
+    "test:e2e": "pnpm build && node scripts/e2e-test.mjs"
   },
   "keywords": [],
   "author": "",
@@ -55,6 +56,7 @@
     "eslint": "^10.8.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-vue": "^10.10.0",
+    "playwright": "^1.62.1",
     "postcss-html": "^1.8.1",
     "prettier": "^3.9.6",
     "stylelint": "^17.14.1",

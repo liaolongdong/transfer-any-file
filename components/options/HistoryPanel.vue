@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { Delete, Right } from '@element-plus/icons-vue';
+import { ElMessageBox } from 'element-plus';
 import { useHistory } from '~/composables/useHistory';
 import type { HistoryRecord } from '~/composables/useHistory';
 import { useI18n } from '~/composables/useI18n';
@@ -37,8 +38,17 @@ function handleRemove(id: string): void {
   void removeRecord(id);
 }
 
-function handleClear(): void {
-  void clear();
+async function handleClear(): Promise<void> {
+  try {
+    await ElMessageBox.confirm(t('history.clearConfirm'), t('history.clear'), {
+      confirmButtonText: t('history.clear'),
+      cancelButtonText: t('common.close'),
+      type: 'warning',
+    });
+    await clear();
+  } catch {
+    // user cancelled
+  }
 }
 </script>
 

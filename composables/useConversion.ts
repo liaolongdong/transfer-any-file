@@ -22,6 +22,9 @@ export const CONVERSION_ERROR_KEYS = new Set([
   'errors.imageDecode',
   'errors.imageEncode',
   'errors.zipFail',
+  'errors.jsonParse',
+  'errors.jsonNotArray',
+  'errors.htmlToJson',
 ]);
 
 /** A single file that failed during batch conversion */
@@ -45,6 +48,8 @@ export function useConversion() {
   const batchFailures: Ref<ConversionFailure[]> = ref([]);
   const currentIndex: Ref<number> = ref(-1);
   const completedCount: Ref<number> = ref(0);
+
+  let abortController: AbortController | null = null;
 
   const sourceFile: ComputedRef<File | null> = computed(() => sourceFiles.value[0] ?? null);
   const sourceFormat: ComputedRef<FileFormat | null> = computed(() => sourceFormats.value[0] ?? null);
@@ -103,6 +108,7 @@ export function useConversion() {
     batchResults.value = [];
     batchFailures.value = [];
     completedCount.value = 0;
+    abortController = new AbortController();
 
     // Snapshot the batch so uploads/pastes during conversion can't mutate it mid-loop
     const files = [...sourceFiles.value];
@@ -111,13 +117,23 @@ export function useConversion() {
     const results: ConvertResult[] = [];
     const failures: ConversionFailure[] = [];
 
-    // Keep output names unique; suffix only when a name is already taken
+    // Keep output names unique with timestamp; suffix only when a name is already taken
     const usedNames = new Set<string>();
     function uniqueName(base: string, ext: string): string {
-      let name = `${base}.${ext}`;
+      const now = new Date();
+      const timestamp = [
+        now.getFullYear(),
+        String(now.getMonth() + 1).padStart(2, '0'),
+        String(now.getDate()).padStart(2, '0'),
+        '_',
+        String(now.getHours()).padStart(2, '0'),
+        String(now.getMinutes()).padStart(2, '0'),
+        String(now.getSeconds()).padStart(2, '0'),
+      ].join('');
+      let name = `${base}_${timestamp}.${ext}`;
       let n = 2;
       while (usedNames.has(name)) {
-        name = `${base}_${n}.${ext}`;
+        name = `${base}_${timestamp}_${n}.${ext}`;
         n++;
       }
       usedNames.add(name);
@@ -126,6 +142,7 @@ export function useConversion() {
 
     try {
       for (let i = 0; i < files.length; i++) {
+        if (abortController.signal.aborted) break;
         currentIndex.value = i;
         const file = files[i];
         const format = formats[i];
@@ -178,7 +195,12 @@ export function useConversion() {
     } finally {
       isConverting.value = false;
       currentIndex.value = -1;
+      abortController = null;
     }
+  }
+
+  function cancelConversion(): void {
+    abortController?.abort();
   }
 
   function downloadResult(index: number = 0): void {
@@ -257,6 +279,7 @@ export function useConversion() {
     setFiles,
     setTargetFormat,
     convert,
+    cancelConversion,
     downloadResult,
     downloadAllZip,
     updateResult,

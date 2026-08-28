@@ -69,8 +69,9 @@ const htmlToPdfConverter: Converter = {
 
     try {
       await new Promise<void>((resolve, reject) => {
-        iframe.onload = () => resolve();
-        iframe.onerror = () => reject(new Error('errors.unknown'));
+        const timer = setTimeout(() => reject(new Error('errors.unknown')), 10_000);
+        iframe.onload = () => { clearTimeout(timer); resolve(); };
+        iframe.onerror = () => { clearTimeout(timer); reject(new Error('errors.unknown')); };
         iframe.srcdoc = sanitizedHtml;
       });
 
@@ -92,25 +93,32 @@ const htmlToPdfConverter: Converter = {
         cacheBust: true,
       });
 
-      // Create PDF from canvas
-      const imgData = canvas.toDataURL('image/jpeg', 0.95);
+      // Create PDF from canvas — slice into A4-sized pages
       const imgWidth = 210; // A4 width in mm
-      const pageHeight = 297; // A4 height in mm
+      const pageHeightMm = 297; // A4 height in mm
       const imgHeight = (canvas.height * imgWidth) / canvas.width;
-
-      // Calculate how many pages we need
-      const totalPages = Math.ceil(imgHeight / pageHeight);
+      const totalPages = Math.ceil(imgHeight / pageHeightMm);
       const pdf = new jsPDF('p', 'mm', 'a4');
 
-      // Add first page
-      pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, imgHeight, undefined, 'FAST');
+      const pageCanvas = document.createElement('canvas');
+      const pageCtx = pageCanvas.getContext('2d')!;
+      const sliceHeightPx = Math.round((pageHeightMm / imgWidth) * canvas.width);
 
-      // Add additional pages if needed
-      for (let page = 1; page < totalPages; page++) {
-        pdf.addPage();
-        // For subsequent pages, we need to shift the image up
-        const yOffset = -(page * pageHeight);
-        pdf.addImage(imgData, 'JPEG', 0, yOffset, imgWidth, imgHeight, undefined, 'FAST');
+      for (let page = 0; page < totalPages; page++) {
+        if (page > 0) pdf.addPage();
+
+        const yStart = page * sliceHeightPx;
+        const remainingH = Math.min(sliceHeightPx, canvas.height - yStart);
+
+        pageCanvas.width = canvas.width;
+        pageCanvas.height = remainingH;
+        pageCtx.fillStyle = '#ffffff';
+        pageCtx.fillRect(0, 0, canvas.width, remainingH);
+        pageCtx.drawImage(canvas, 0, yStart, canvas.width, remainingH, 0, 0, canvas.width, remainingH);
+
+        const pageImgData = pageCanvas.toDataURL('image/jpeg', 0.92);
+        const pageImgHeightMm = (remainingH * imgWidth) / canvas.width;
+        pdf.addImage(pageImgData, 'JPEG', 0, 0, imgWidth, pageImgHeightMm, undefined, 'FAST');
       }
 
       // Get PDF as blob
