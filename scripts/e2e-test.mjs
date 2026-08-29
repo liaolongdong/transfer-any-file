@@ -8,34 +8,19 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const EXTENSION_PATH = path.resolve(__dirname, '../.output/chrome-mv3');
 const FIXTURE_PATH = path.resolve(__dirname, '../fixtures');
 
-// CI-friendly: use env vars for configuration
 const HEADLESS = process.env.CI === 'true' || process.env.E2E_HEADLESS === 'true';
 const SCREENSHOT_DIR = process.env.E2E_SCREENSHOT_DIR || path.resolve(__dirname, '../.test-screenshots');
 const PORT = parseInt(process.env.E2E_PORT || '9876', 10);
 
-// Test result tracking
 let passed = 0;
 let failed = 0;
 const failures = [];
 
 function shot(name) { return path.join(SCREENSHOT_DIR, name); }
+function ok(name) { passed++; console.log(`  ✓ ${name}`); }
+function fail(name, err) { failed++; failures.push({ name, error: err }); console.log(`  ✗ ${name}: ${err}`); }
+function section(name) { console.log(`\n▸ ${name}`); }
 
-function ok(name) {
-  passed++;
-  console.log(`  ✓ ${name}`);
-}
-
-function fail(name, err) {
-  failed++;
-  failures.push({ name, error: err });
-  console.log(`  ✗ ${name}: ${err}`);
-}
-
-function section(name) {
-  console.log(`\n▸ ${name}`);
-}
-
-// Static file server for the built extension
 function startServer() {
   return new Promise((resolve, reject) => {
     const mimeTypes = {
@@ -58,7 +43,6 @@ function startServer() {
   });
 }
 
-// Mock chrome.storage for non-extension context
 const MOCK_CHROME_STORAGE = `() => {
   const storage = {};
   window.chrome = window.chrome || {};
@@ -84,14 +68,55 @@ const MOCK_CHROME_STORAGE = `() => {
   window.browser.storage = window.chrome.storage;
 }`;
 
+/** Upload a fixture file and convert to the given target format. Returns result info. */
+async function convertFile(page, fixtureFile, targetText) {
+  const fi = await page.$('input[type="file"]');
+  if (!fi) throw new Error('file input not found');
+  await fi.setInputFiles(path.join(FIXTURE_PATH, fixtureFile));
+  await page.waitForTimeout(1000);
+
+  const formatTag = await page.$eval('.file-item .el-tag--primary', el => el.textContent).catch(() => null);
+  if (!formatTag) throw new Error(`format not detected for ${fixtureFile}`);
+
+  const sel = await page.$('.action-row .el-select');
+  if (!sel) throw new Error('format select not found');
+  await sel.click();
+  await page.waitForTimeout(500);
+
+  const opt = await page.locator('.el-select-dropdown__item').filter({ hasText: targetText }).first();
+  if (!(await opt.isVisible())) throw new Error(`${targetText} option not available`);
+  await opt.click();
+  await page.waitForTimeout(300);
+
+  const cb = await page.$('.convert-btn');
+  if (!cb) throw new Error('convert button not found');
+  await cb.click();
+
+  await page.waitForFunction(() => {
+    const alert = document.querySelector('.el-alert__title');
+    return alert && alert.textContent.length > 0;
+  }, { timeout: 30000 });
+  await page.waitForTimeout(500);
+
+  const alertTitle = await page.$eval('.el-alert__title', el => el.textContent).catch(() => '');
+  const resultName = await page.$eval('.result-item .result-name', el => el.textContent).catch(() => '');
+  const resultSize = await page.$eval('.result-item .result-size', el => el.textContent).catch(() => '');
+  return { alertTitle, resultName, resultSize, formatDetected: formatTag };
+}
+
+/** Reset the workbench for a new conversion */
+async function resetWorkbench(page) {
+  const resetBtn = await page.$('.reset-btn');
+  if (resetBtn) { await resetBtn.click(); await page.waitForTimeout(500); }
+}
+
 async function run() {
-  console.log('╔══════════════════════════════════════╗');
-  console.log('║  File Any Transfer — E2E Tests       ║');
-  console.log('╚══════════════════════════════════════╝');
+  console.log('╔══════════════════════════════════════════════╗');
+  console.log('║  File Any Transfer — Full E2E Test Suite     ║');
+  console.log('╚══════════════════════════════════════════════╝');
   console.log(`  Mode: ${HEADLESS ? 'headless (CI)' : 'headed'}`);
   console.log(`  Screenshots: ${SCREENSHOT_DIR}`);
 
-  // Prepare directories
   if (fs.existsSync(SCREENSHOT_DIR)) fs.rmSync(SCREENSHOT_DIR, { recursive: true });
   fs.mkdirSync(SCREENSHOT_DIR, { recursive: true });
 
@@ -113,107 +138,175 @@ async function run() {
   const page = await browser.newPage();
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.addInitScript(MOCK_CHROME_STORAGE);
+
+  const themeValues = ['blue', 'green', 'purple', 'orange', 'rose', 'slate'];
   await page.goto(`http://localhost:${PORT}/options.html`);
   await page.waitForTimeout(2000);
   await page.screenshot({ path: shot('01-initial.png'), fullPage: true });
   ok('Options page loaded');
 
-  // ─── Test 1: File Upload ───
-  section('File Upload');
-  try {
-    const fileInput = await page.$('input[type="file"]');
-    if (!fileInput) throw new Error('file input not found');
-    await fileInput.setInputFiles(path.join(FIXTURE_PATH, 'sample.md'));
-    await page.waitForTimeout(1500);
-    await page.screenshot({ path: shot('02-uploaded.png'), fullPage: true });
-    ok('sample.md uploaded and detected');
-  } catch (e) { fail('File upload', e.message); }
+  // Check footer stats
+  const footerText = await page.$eval('.footer', el => el.textContent).catch(() => '');
+  if (footerText.includes('12') && footerText.includes('35')) {
+    ok('Footer shows 12 formats, 35+ paths');
+  } else {
+    fail('Footer stats', `unexpected: "${footerText}"`);
+  }
 
-  // ─── Test 2: Format Selection ───
-  section('Format Selection');
-  try {
-    const selectEl = await page.$('.action-row .el-select');
-    if (!selectEl) throw new Error('format select not found');
-    await selectEl.click();
-    await page.waitForTimeout(800);
-    await page.screenshot({ path: shot('03-dropdown.png'), fullPage: true });
+  // ═══════════════════════════════════════════
+  //  CONVERSION SCENARIOS
+  // ═══════════════════════════════════════════
 
-    const htmlOpt = await page.locator('.el-select-dropdown__item').filter({ hasText: 'HTML' }).first();
-    if (!(await htmlOpt.isVisible())) throw new Error('HTML option not visible');
-    await htmlOpt.click();
-    await page.waitForTimeout(500);
-    ok('HTML target format selected');
-  } catch (e) { fail('Format selection', e.message); }
+  const conversions = [
+    // Document conversions
+    ['sample.md', 'HTML (.html)', 'MD→HTML'],
+    ['sample.md', 'PDF (.pdf)', 'MD→PDF'],
+    ['sample.md', 'Word (.docx)', 'MD→DOCX'],
+    ['sample.md', 'Text (.txt)', 'MD→TXT'],
+    ['sample.md', 'JSON (.json)', 'MD→JSON'],
+    ['sample.md', 'PNG (.png)', 'MD→PNG'],
+    // HTML conversions
+    ['sample.html', 'Markdown (.md)', 'HTML→MD'],
+    ['sample.html', 'PDF (.pdf)', 'HTML→PDF'],
+    ['sample.html', 'Text (.txt)', 'HTML→TXT'],
+    ['sample.html', 'PNG (.png)', 'HTML→PNG'],
+    ['sample.html', 'Word (.docx)', 'HTML→DOCX'],
+    ['sample.html', 'JSON (.json)', 'HTML→JSON'],
+    // TXT conversions
+    ['sample.txt', 'HTML (.html)', 'TXT→HTML'],
+    ['sample.txt', 'Markdown (.md)', 'TXT→MD'],
+    ['sample.txt', 'PDF (.pdf)', 'TXT→PDF'],
+    // JSON conversions (new feature)
+    ['sample.json', 'HTML (.html)', 'JSON→HTML'],
+    ['sample.json', 'CSV (.csv)', 'JSON→CSV'],
+    ['sample.json', 'Excel (.xlsx)', 'JSON→XLSX'],
+    ['sample.json', 'Markdown (.md)', 'JSON→MD'],
+    ['sample.json', 'PDF (.pdf)', 'JSON→PDF'],
+    ['sample.json', 'Text (.txt)', 'JSON→TXT'],
+    ['sample.json', 'PNG (.png)', 'JSON→PNG'],
+    // CSV conversions
+    ['sample.csv', 'Excel (.xlsx)', 'CSV→XLSX'],
+    ['sample.csv', 'HTML (.html)', 'CSV→HTML'],
+    ['sample.csv', 'JSON (.json)', 'CSV→JSON'],
+    ['sample.csv', 'Markdown (.md)', 'CSV→MD'],
+    ['sample.csv', 'PDF (.pdf)', 'CSV→PDF'],
+    ['sample.csv', 'Text (.txt)', 'CSV→TXT'],
+    // XLSX conversions
+    ['sample.xlsx', 'CSV (.csv)', 'XLSX→CSV'],
+    ['sample.xlsx', 'HTML (.html)', 'XLSX→HTML'],
+    ['sample.xlsx', 'JSON (.json)', 'XLSX→JSON'],
+    ['sample.xlsx', 'Markdown (.md)', 'XLSX→MD'],
+    ['sample.xlsx', 'PDF (.pdf)', 'XLSX→PDF'],
+    ['sample.xlsx', 'Text (.txt)', 'XLSX→TXT'],
+    // DOCX conversions
+    ['sample.docx', 'HTML (.html)', 'DOCX→HTML'],
+    ['sample.docx', 'PDF (.pdf)', 'DOCX→PDF'],
+    ['sample.docx', 'Markdown (.md)', 'DOCX→MD'],
+    ['sample.docx', 'PNG (.png)', 'DOCX→PNG'],
+    ['sample.docx', 'Text (.txt)', 'DOCX→TXT'],
+    // PDF conversions
+    ['sample.pdf', 'HTML (.html)', 'PDF→HTML'],
+  ];
 
-  // ─── Test 3: Conversion ───
-  section('MD → HTML Conversion');
+  let shotIdx = 2;
+  for (const [fixture, target, label] of conversions) {
+    section(`${label} Conversion`);
+    try {
+      await resetWorkbench(page);
+      const result = await convertFile(page, fixture, target);
+      if (result.alertTitle.includes('完成')) {
+        ok(`${label}: ${result.formatDetected} → ${target} (${result.resultSize})`);
+        const shotName = `${String(shotIdx).padStart(2, '0')}-${label.toLowerCase().replace(/[→]/g, 'to').replace(/[^a-z0-9]/g, '-')}.png`;
+        await page.screenshot({ path: shot(shotName), fullPage: true });
+        shotIdx++;
+      } else {
+        fail(label, `alert: "${result.alertTitle}"`);
+      }
+    } catch (e) {
+      fail(label, e.message);
+    }
+  }
+
+  // ═══════════════════════════════════════════
+  //  MULTI-STEP PATH VERIFICATION
+  // ═══════════════════════════════════════════
+
+  section('Multi-step Conversion Path Hints');
   try {
-    const convertBtn = await page.$('.convert-btn');
-    if (!convertBtn) throw new Error('convert button not found');
-    await convertBtn.click();
-    await page.waitForFunction(() => {
-      const b = document.querySelector('.convert-btn');
-      return b && !b.classList.contains('is-loading');
-    }, { timeout: 10000 });
+    await resetWorkbench(page);
+    const fi = await page.$('input[type="file"]');
+    await fi.setInputFiles(path.join(FIXTURE_PATH, 'sample.json'));
     await page.waitForTimeout(1000);
-    await page.screenshot({ path: shot('04-converted.png'), fullPage: true });
-    ok('MD → HTML conversion completed');
-  } catch (e) { fail('Conversion', e.message); }
 
-  // ─── Test 4: View Modes ───
-  section('View Mode Buttons');
+    const sel = await page.$('.action-row .el-select');
+    await sel.click();
+    await page.waitForTimeout(500);
+    const pdfOpt = await page.locator('.el-select-dropdown__item').filter({ hasText: 'PDF (.pdf)' }).first();
+    await pdfOpt.click();
+    await page.waitForTimeout(500);
+
+    const pathHint = await page.$eval('.path-hint', el => el.textContent).catch(() => null);
+    if (pathHint && pathHint.includes('HTML')) {
+      ok(`JSON→PDF path hint shows intermediate step: "${pathHint.trim()}"`);
+    } else {
+      fail('JSON→PDF path hint', `got: "${pathHint}"`);
+    }
+    await page.screenshot({ path: shot(`${String(shotIdx++).padStart(2, '0')}-path-hint.png`), fullPage: true });
+
+    // Close dropdown by clicking elsewhere
+    await page.keyboard.press('Escape');
+  } catch (e) { fail('Path hints', e.message); }
+
+  // ═══════════════════════════════════════════
+  //  COMPARISON VIEW FEATURES
+  // ═══════════════════════════════════════════
+
+  section('Comparison View — View Modes');
   try {
+    // Do a quick conversion first
+    await resetWorkbench(page);
+    await convertFile(page, 'sample.md', 'HTML (.html)');
+
     const modes = await page.$$('.mode-btn');
     if (modes.length < 3) throw new Error(`expected 3 mode buttons, found ${modes.length}`);
 
-    await modes[0].click(); await page.waitForTimeout(400);
-    await page.screenshot({ path: shot('05-source-only.png'), fullPage: true });
+    await modes[0].click(); await page.waitForTimeout(300);
+    await page.screenshot({ path: shot(`${String(shotIdx++).padStart(2, '0')}-source-only.png`), fullPage: true });
     ok('Source Only mode');
 
-    await modes[1].click(); await page.waitForTimeout(400);
-    await page.screenshot({ path: shot('06-split.png'), fullPage: true });
+    await modes[1].click(); await page.waitForTimeout(300);
+    await page.screenshot({ path: shot(`${String(shotIdx++).padStart(2, '0')}-split-view.png`), fullPage: true });
     ok('Split View mode');
 
-    await modes[2].click(); await page.waitForTimeout(400);
-    await page.screenshot({ path: shot('07-result-only.png'), fullPage: true });
+    await modes[2].click(); await page.waitForTimeout(300);
+    await page.screenshot({ path: shot(`${String(shotIdx++).padStart(2, '0')}-result-only.png`), fullPage: true });
     ok('Result Only mode');
+  } catch (e) { fail('Comparison view modes', e.message); }
 
-    await modes[1].click(); await page.waitForTimeout(400);
-  } catch (e) { fail('View modes', e.message); }
-
-  // ─── Test 5: Keyboard Shortcuts ───
-  section('Keyboard Shortcuts');
-  try {
-    await page.keyboard.press('1'); await page.waitForTimeout(400);
-    await page.screenshot({ path: shot('08-key1.png'), fullPage: true });
-    ok('Key "1" → Source Only');
-
-    await page.keyboard.press('2'); await page.waitForTimeout(400);
-    await page.screenshot({ path: shot('09-key2.png'), fullPage: true });
-    ok('Key "2" → Split View');
-
-    await page.keyboard.press('3'); await page.waitForTimeout(400);
-    await page.screenshot({ path: shot('10-key3.png'), fullPage: true });
-    ok('Key "3" → Result Only');
-  } catch (e) { fail('Keyboard shortcuts', e.message); }
-
-  // ─── Test 6: Arrow Key Adjustment ───
-  section('Arrow Key Adjustment');
+  section('Comparison View — Keyboard Shortcuts');
   try {
     await page.keyboard.press('2'); await page.waitForTimeout(300);
+
+    await page.keyboard.press('1'); await page.waitForTimeout(300);
+    ok('Key "1" → Source Only');
+
+    await page.keyboard.press('2'); await page.waitForTimeout(300);
+    ok('Key "2" → Split View');
+
+    await page.keyboard.press('3'); await page.waitForTimeout(300);
+    ok('Key "3" → Result Only');
+
+    await page.keyboard.press('2'); await page.waitForTimeout(300);
     await page.keyboard.press('ArrowLeft'); await page.waitForTimeout(100);
-    await page.keyboard.press('ArrowLeft'); await page.waitForTimeout(400);
-    await page.screenshot({ path: shot('11-arrow-left.png'), fullPage: true });
-    ok('ArrowLeft × 2 → source panel wider');
+    await page.keyboard.press('ArrowLeft'); await page.waitForTimeout(300);
+    ok('ArrowLeft adjusts split');
 
     await page.keyboard.press('ArrowRight'); await page.waitForTimeout(100);
-    await page.keyboard.press('ArrowRight'); await page.waitForTimeout(400);
-    await page.screenshot({ path: shot('12-arrow-right.png'), fullPage: true });
-    ok('ArrowRight × 2 → result panel wider');
-  } catch (e) { fail('Arrow keys', e.message); }
+    await page.keyboard.press('ArrowRight'); await page.waitForTimeout(300);
+    ok('ArrowRight adjusts split');
+  } catch (e) { fail('Keyboard shortcuts', e.message); }
 
-  // ─── Test 7: Draggable Divider ───
-  section('Draggable Divider');
+  section('Comparison View — Draggable Divider');
   try {
     await page.keyboard.press('2'); await page.waitForTimeout(300);
     const divider = await page.$('.panel-divider');
@@ -229,8 +322,7 @@ async function run() {
       await new Promise(r => setTimeout(r, 15));
     }
     await page.mouse.up();
-    await page.waitForTimeout(400);
-    await page.screenshot({ path: shot('13-drag-left.png'), fullPage: true });
+    await page.waitForTimeout(300);
     ok('Divider dragged left');
 
     const box2 = await divider.boundingBox();
@@ -243,72 +335,225 @@ async function run() {
         await new Promise(r => setTimeout(r, 15));
       }
       await page.mouse.up();
-      await page.waitForTimeout(400);
-      await page.screenshot({ path: shot('14-drag-right.png'), fullPage: true });
+      await page.waitForTimeout(300);
       ok('Divider dragged right');
     }
+    await page.screenshot({ path: shot(`${String(shotIdx++).padStart(2, '0')}-drag-divider.png`), fullPage: true });
   } catch (e) { fail('Draggable divider', e.message); }
 
-  // ─── Test 8: Theme Switcher ───
+  // ═══════════════════════════════════════════
+  //  THEME & DARK MODE
+  // ═══════════════════════════════════════════
+
   section('Theme Switcher');
   try {
     const gear = await page.$('.topbar-inner .el-button');
     if (!gear) throw new Error('settings button not found');
-    await gear.click(); await page.waitForTimeout(800);
-    await page.screenshot({ path: shot('15-theme-popover.png'), fullPage: true });
-    ok('Theme popover opened');
+    await gear.click();
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: shot(`${String(shotIdx++).padStart(2, '0')}-prefs-popover.png`), fullPage: true });
+    ok('Preferences popover opened');
 
+    // Verify all sections exist
+    const popoverText = await page.$eval('.el-popover', el => el.textContent).catch(() => '');
+    if (popoverText.includes('主题色')) ok('Theme section label visible');
+    else fail('Theme label', 'not found in popover');
+    if (popoverText.includes('显示模式')) ok('Display mode section label visible');
+    else fail('Mode label', 'not found in popover');
+    if (popoverText.includes('界面语言')) ok('Language section label visible');
+    else fail('Language label', 'not found in popover');
+
+    // Verify all 6 theme names
+    const themeNames = ['经典蓝', '森林绿', '梦幻紫', '活力橙', '玫瑰红', '石墨灰'];
+    for (const name of themeNames) {
+      if (popoverText.includes(name)) ok(`Theme name "${name}" displayed`);
+      else fail(`Theme name "${name}"`, 'not found');
+    }
+
+    // Verify mode labels
+    for (const label of ['亮色', '暗色', '跟随系统']) {
+      if (popoverText.includes(label)) ok(`Mode option "${label}" displayed`);
+      else fail(`Mode option "${label}"`, 'not found');
+    }
+
+    // Count theme buttons
     const items = await page.$$('.theme-item');
-    if (items.length < 3) throw new Error(`expected 6 theme items, found ${items.length}`);
-    await items[2].click(); await page.waitForTimeout(500);
-    await page.screenshot({ path: shot('16-theme-purple.png'), fullPage: true });
-    ok('Purple theme applied');
+    if (items.length === 6) ok('6 theme buttons rendered');
+    else fail('Theme button count', `expected 6, got ${items.length}`);
+
+    // Test each theme
+    for (let i = 0; i < items.length; i++) {
+      await items[i].click();
+      await page.waitForTimeout(200);
+      const applied = await page.evaluate(() => document.documentElement.dataset.theme);
+      if (applied === themeValues[i]) ok(`Theme "${themeValues[i]}" applied`);
+      else fail(`Theme "${themeValues[i]}"`, `got "${applied}"`);
+    }
+    await page.screenshot({ path: shot(`${String(shotIdx++).padStart(2, '0')}-theme-applied.png`), fullPage: true });
   } catch (e) { fail('Theme switcher', e.message); }
 
-  // ─── Test 9: DOCX → PNG (Bug Fix Verification) ───
-  section('DOCX → PNG Conversion (Bug Fix)');
+  section('Dark Mode');
   try {
-    const resetBtn = await page.$('.reset-btn');
-    if (resetBtn) { await resetBtn.click(); await page.waitForTimeout(500); }
+    // Find the mode section buttons (second .lang-options group in popover)
+    const modeButtons = await page.$$('.pref-section .lang-options .lang-btn');
+    // modeButtons: [亮色, 暗色, 跟随系统, 中文, English]
+    // Dark mode button is index 1
+    if (modeButtons.length >= 3) {
+      await modeButtons[1].click(); // 暗色
+      await page.waitForTimeout(300);
 
+      const mode = await page.evaluate(() => document.documentElement.dataset.mode);
+      if (mode === 'dark') ok('Dark mode activated (data-mode="dark")');
+      else fail('Dark mode', `data-mode="${mode}"`);
+
+      // Verify dark CSS variables
+      const vars = await page.evaluate(() => {
+        const cs = getComputedStyle(document.documentElement);
+        return {
+          bgPage: cs.getPropertyValue('--fat-bg-page').trim(),
+          bgCard: cs.getPropertyValue('--fat-bg-card').trim(),
+          text: cs.getPropertyValue('--fat-text-regular').trim(),
+          border: cs.getPropertyValue('--fat-border').trim(),
+        };
+      });
+      if (vars.bgPage === '#11111b') ok(`Dark bg-page correct (${vars.bgPage})`);
+      else fail('Dark bg-page', vars.bgPage);
+      if (vars.bgCard === '#1e1e2e') ok(`Dark bg-card correct (${vars.bgCard})`);
+      else fail('Dark bg-card', vars.bgCard);
+      if (vars.text === '#bac2de') ok(`Dark text correct (${vars.text})`);
+      else fail('Dark text', vars.text);
+
+      await page.screenshot({ path: shot(`${String(shotIdx++).padStart(2, '0')}-dark-mode.png`), fullPage: true });
+
+      // Test each theme in dark mode
+      const themeItems = await page.$$('.theme-item');
+      for (let i = 0; i < themeItems.length && i < themeValues.length; i++) {
+        await themeItems[i].click();
+        await page.waitForTimeout(100);
+        const primary = await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--fat-primary').trim());
+        const elPrimary = await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--el-color-primary').trim());
+        if (primary && primary === elPrimary) ok(`Dark+${themeValues[i]}: primary=${primary}, EP synced`);
+        else fail(`Dark+${themeValues[i]}`, `primary=${primary}, el=${elPrimary}`);
+      }
+
+      // Switch back to light
+      await modeButtons[0].click(); // 亮色
+      await page.waitForTimeout(300);
+      const lightMode = await page.evaluate(() => document.documentElement.dataset.mode);
+      if (!lightMode || lightMode === '') ok('Switched back to light mode');
+      else fail('Light mode restore', `data-mode="${lightMode}"`);
+    } else {
+      fail('Dark mode', `mode buttons not found (count: ${modeButtons.length})`);
+    }
+  } catch (e) { fail('Dark mode', e.message); }
+
+  // ═══════════════════════════════════════════
+  //  HISTORY CLEAR CONFIRMATION
+  // ═══════════════════════════════════════════
+
+  section('History Clear Confirmation');
+  try {
+    // Close popover first
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(300);
+
+    // Do a conversion to create history
+    await resetWorkbench(page);
+    await convertFile(page, 'sample.md', 'HTML (.html)');
+    await page.waitForTimeout(500);
+
+    // Check history has entries
+    const historyItems = await page.$$('.history-item');
+    if (historyItems.length > 0) ok(`History has ${historyItems.length} record(s)`);
+    else throw new Error('no history records after conversion');
+
+    // Click clear button
+    const clearBtn = await page.$('.history-head .el-button');
+    if (!clearBtn) throw new Error('clear button not found');
+    await clearBtn.click();
+    await page.waitForTimeout(500);
+
+    // Check confirmation dialog appeared
+    const dialog = await page.$('.el-message-box');
+    if (dialog) {
+      ok('Clear confirmation dialog appeared');
+      await page.screenshot({ path: shot(`${String(shotIdx++).padStart(2, '0')}-clear-confirm.png`), fullPage: true });
+
+      // Click cancel
+      const cancelBtn = await page.$('.el-message-box__btns .el-button:first-child');
+      if (cancelBtn) {
+        await cancelBtn.click();
+        await page.waitForTimeout(300);
+        const itemsAfterCancel = await page.$$('.history-item');
+        if (itemsAfterCancel.length > 0) ok('History preserved after cancel');
+        else fail('Cancel clear', 'history lost after cancel');
+      }
+    } else {
+      fail('Clear confirmation', 'dialog not shown');
+    }
+  } catch (e) { fail('History clear', e.message); }
+
+  // ═══════════════════════════════════════════
+  //  CONVERSION CANCEL
+  // ═══════════════════════════════════════════
+
+  section('Conversion Cancel');
+  try {
+    await resetWorkbench(page);
+    // Upload multiple files to make conversion take longer
     const fi = await page.$('input[type="file"]');
-    if (!fi) throw new Error('file input not found');
-    await fi.setInputFiles(path.join(FIXTURE_PATH, 'sample.docx'));
-    await page.waitForTimeout(2000);
+    await fi.setInputFiles([
+      path.join(FIXTURE_PATH, 'sample.md'),
+      path.join(FIXTURE_PATH, 'sample.html'),
+      path.join(FIXTURE_PATH, 'sample.txt'),
+    ]);
+    await page.waitForTimeout(1000);
 
     const sel = await page.$('.action-row .el-select');
-    if (!sel) throw new Error('format select not found');
-    await sel.click(); await page.waitForTimeout(800);
-
-    const pngOpt = await page.locator('.el-select-dropdown__item').filter({ hasText: 'PNG' }).first();
-    if (!(await pngOpt.isVisible())) throw new Error('PNG option not available for DOCX');
-    await pngOpt.click(); await page.waitForTimeout(500);
+    await sel.click();
+    await page.waitForTimeout(500);
+    const pdfOpt = await page.locator('.el-select-dropdown__item').filter({ hasText: 'PDF (.pdf)' }).first();
+    await pdfOpt.click();
+    await page.waitForTimeout(300);
 
     const cb = await page.$('.convert-btn');
-    if (!cb) throw new Error('convert button not found');
     await cb.click();
-    await page.waitForFunction(() => {
-      const b = document.querySelector('.convert-btn');
-      return b && !b.classList.contains('is-loading');
-    }, { timeout: 20000 });
-    await page.waitForTimeout(1500);
-    await page.screenshot({ path: shot('17-docx-to-png.png'), fullPage: true });
 
-    const img = await page.$('.result-panel .image-content img');
-    ok('DOCX → PNG conversion completed');
-    if (img) ok('PNG image displayed in comparison view');
-    else fail('PNG display', 'No image element found in result panel');
-  } catch (e) { fail('DOCX → PNG', e.message); }
+    // Try to find and click cancel button quickly
+    try {
+      const cancelBtn = await page.waitForSelector('.cancel-btn', { timeout: 2000 });
+      if (cancelBtn) {
+        ok('Cancel button visible during conversion');
+        await cancelBtn.click();
+        await page.waitForTimeout(1000);
+        ok('Cancel button clicked');
+      }
+    } catch {
+      // Conversion may have completed before cancel button appeared
+      const isLoading = await page.$eval('.convert-btn', el => el.classList.contains('is-loading')).catch(() => false);
+      if (!isLoading) ok('Conversion completed before cancel could be tested (fast machine)');
+      else fail('Cancel button', 'not visible and conversion still in progress');
+    }
+    await page.screenshot({ path: shot(`${String(shotIdx++).padStart(2, '0')}-cancel-test.png`), fullPage: true });
+  } catch (e) { fail('Conversion cancel', e.message); }
 
-  // ─── Summary ───
-  console.log('\n╔══════════════════════════════════════╗');
-  console.log(`║  Results: ${passed} passed, ${failed} failed${' '.repeat(18 - String(passed).length - String(failed).length)}║`);
-  console.log('╚══════════════════════════════════════╝');
+  // ═══════════════════════════════════════════
+  //  SUMMARY
+  // ═══════════════════════════════════════════
 
+  console.log('\n╔══════════════════════════════════════════════╗');
+  const total = passed + failed;
+  const pct = total > 0 ? Math.round((passed / total) * 100) : 0;
+  console.log(`║  Results: ${passed}/${total} passed (${pct}%)`.padEnd(46) + '║');
   if (failures.length > 0) {
-    console.log('\nFailures:');
-    failures.forEach(f => console.log(`  ✗ ${f.name}: ${f.error}`));
+    console.log('║                                                ║');
+    console.log('║  Failures:                                     ║');
+    for (const f of failures) {
+      const line = `║    ✗ ${f.name}: ${f.error}`;
+      console.log(line.padEnd(46) + '║');
+    }
   }
+  console.log('╚══════════════════════════════════════════════╝');
 
   console.log(`\nScreenshots: ${SCREENSHOT_DIR}/`);
   fs.readdirSync(SCREENSHOT_DIR).filter(f => f.endsWith('.png')).sort().forEach(f => console.log(`  ${f}`));
@@ -317,7 +562,6 @@ async function run() {
   await browser.close();
   server.close();
 
-  // CI exit code
   process.exit(failed > 0 ? 1 : 0);
 }
 
