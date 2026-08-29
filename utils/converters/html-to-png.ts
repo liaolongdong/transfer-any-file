@@ -8,6 +8,8 @@ const RENDER_WIDTH = 800;
 /** Wait until all images inside an element have loaded */
 async function waitForImages(element: HTMLElement): Promise<void> {
   const images = Array.from(element.querySelectorAll('img'));
+
+  // Wait for all images to load or fail
   await Promise.all(
     images.map(
       (img) =>
@@ -22,16 +24,53 @@ async function waitForImages(element: HTMLElement): Promise<void> {
         }),
     ),
   );
-  // Small delay to allow layout to settle
-  await new Promise((resolve) => setTimeout(resolve, 100));
+
+  // Wait for fonts to load
+  if (document.fonts?.ready) {
+    try {
+      await document.fonts.ready;
+    } catch {
+      // fonts API unavailable; proceed
+    }
+  }
+
+  // Longer delay to allow layout to fully settle after images and fonts load
+  await new Promise((resolve) => setTimeout(resolve, 200));
 }
 
 /** Extract all CSS text from style elements and linked stylesheets in head */
-function extractStyles(doc: Document): string {
+async function extractStyles(doc: Document): Promise<string> {
   const styles: string[] = [];
+
   doc.querySelectorAll('style').forEach((el) => {
     styles.push(el.textContent || '');
   });
+
+  const linkHrefs: string[] = [];
+  doc.querySelectorAll('link[rel="stylesheet"]').forEach((el) => {
+    const href = (el as HTMLLinkElement).href;
+    if (href) linkHrefs.push(href);
+  });
+
+  if (linkHrefs.length > 0) {
+    const results = await Promise.allSettled(
+      linkHrefs.map(async (href) => {
+        try {
+          const resp = await fetch(href);
+          if (resp.ok) return await resp.text();
+          return '';
+        } catch {
+          return '';
+        }
+      }),
+    );
+    for (const result of results) {
+      if (result.status === 'fulfilled' && result.value) {
+        styles.push(result.value);
+      }
+    }
+  }
+
   return styles.join('\n');
 }
 
@@ -43,12 +82,13 @@ export const htmlToPngConverter: Converter = {
     const doc = new DOMParser().parseFromString(htmlString, 'text/html');
 
     // Extract styles from the original document head
-    const originalStyles = extractStyles(doc);
+    const originalStyles = await extractStyles(doc);
 
     // Create rendering container with original styles plus rendering defaults
     const container = document.createElement('div');
     container.style.cssText = `
       width: ${RENDER_WIDTH}px;
+      min-height: 100px;
       position: absolute;
       left: -9999px;
       top: 0;
@@ -77,6 +117,12 @@ export const htmlToPngConverter: Converter = {
 
     try {
       await waitForImages(container);
+
+      // Ensure container has content and dimensions
+      const rect = container.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) {
+        throw new Error('Container has zero dimensions - content may be empty');
+      }
 
       const dataUrl = await toPng(container, {
         width: RENDER_WIDTH,

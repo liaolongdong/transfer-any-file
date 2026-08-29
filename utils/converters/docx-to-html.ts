@@ -37,14 +37,13 @@ const docxToHtmlConverter: Converter = {
           ],
           convertImage: mammoth.images.imgElement(async (image) => {
               const buffer = await image.readAsArrayBuffer();
-              const bytes = new Uint8Array(buffer);
-              let binary = '';
-              const CHUNK = 0x8000;
-              for (let i = 0; i < bytes.length; i += CHUNK) {
-                binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
-              }
-              const base64 = btoa(binary);
-              return { src: `data:${image.contentType};base64,${base64}` };
+              const blob = new Blob([buffer], { type: image.contentType });
+              return new Promise<{ src: string }>((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve({ src: reader.result as string });
+                reader.onerror = () => reject(new Error('Failed to encode image'));
+                reader.readAsDataURL(blob);
+              });
           }),
         },
       );

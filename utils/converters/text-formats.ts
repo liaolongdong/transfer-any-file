@@ -75,14 +75,18 @@ function extractText(node: Node): string {
   if (tag === 'script' || tag === 'style' || tag === 'noscript') return '';
   if (tag === 'br') return '\n';
   if (tag === 'img') {
-    // Plain text cannot embed images; keep a placeholder so image→TXT
-    // outputs are not silently empty
     const alt = el.getAttribute('alt')?.trim();
     return alt ? `[Image: ${alt}]\n` : '[Image]\n';
   }
   let text = '';
   for (const child of Array.from(el.childNodes)) {
     text += extractText(child);
+  }
+  if (tag === 'a') {
+    const href = el.getAttribute('href')?.trim();
+    if (href && !href.startsWith('#') && !href.startsWith('mailto:')) {
+      text += ` [${href}]`;
+    }
   }
   if (tag === 'td' || tag === 'th') text += '\t';
   if (BLOCK_TAGS.has(tag)) text += '\n';

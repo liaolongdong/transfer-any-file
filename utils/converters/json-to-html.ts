@@ -113,30 +113,49 @@ const htmlToJsonConverter: Converter = {
 
     const tables = doc.querySelectorAll('table');
     if (tables.length > 0) {
-      const result: Record<string, unknown>[] = [];
-      const table = tables[0];
-      const headers: string[] = [];
-      const headerRow = table.querySelector('tr');
-      if (headerRow) {
-        headerRow.querySelectorAll('th, td').forEach(cell => {
-          headers.push(cell.textContent?.trim() ?? '');
+      const parseTable = (table: Element): Record<string, string>[] => {
+        const result: Record<string, string>[] = [];
+        const headers: string[] = [];
+        const headerRow = table.querySelector('tr');
+        if (headerRow) {
+          headerRow.querySelectorAll('th, td').forEach(cell => {
+            headers.push(cell.textContent?.trim() ?? '');
+          });
+        }
+        const rows = table.querySelectorAll('tr');
+        for (let i = 1; i < rows.length; i++) {
+          const obj: Record<string, string> = {};
+          const cells = rows[i].querySelectorAll('td');
+          cells.forEach((cell, j) => {
+            if (j < headers.length) {
+              obj[headers[j]] = cell.textContent?.trim() ?? '';
+            }
+          });
+          if (Object.keys(obj).length > 0) result.push(obj);
+        }
+        return result;
+      };
+
+      if (tables.length === 1) {
+        const result = parseTable(tables[0]);
+        if (result.length > 0) {
+          const jsonStr = JSON.stringify(result, null, 2);
+          const blob = new Blob([jsonStr], { type: 'application/json' });
+          return { blob, filename: 'converted.json' };
+        }
+      } else {
+        const sheets: Record<string, Record<string, string>[]> = {};
+        const headings = doc.querySelectorAll('h2');
+        tables.forEach((table, idx) => {
+          const name = headings[idx]?.textContent?.trim() || `Sheet${idx + 1}`;
+          const rows = parseTable(table);
+          if (rows.length > 0) sheets[name] = rows;
         });
-      }
-      const rows = table.querySelectorAll('tr');
-      for (let i = 1; i < rows.length; i++) {
-        const obj: Record<string, string> = {};
-        const cells = rows[i].querySelectorAll('td');
-        cells.forEach((cell, j) => {
-          if (j < headers.length) {
-            obj[headers[j]] = cell.textContent?.trim() ?? '';
-          }
-        });
-        if (Object.keys(obj).length > 0) result.push(obj);
-      }
-      if (result.length > 0) {
-        const jsonStr = JSON.stringify(result, null, 2);
-        const blob = new Blob([jsonStr], { type: 'application/json' });
-        return { blob, filename: 'converted.json' };
+        if (Object.keys(sheets).length > 0) {
+          const jsonStr = JSON.stringify(sheets, null, 2);
+          const blob = new Blob([jsonStr], { type: 'application/json' });
+          return { blob, filename: 'converted.json' };
+        }
       }
     }
 
@@ -146,8 +165,8 @@ const htmlToJsonConverter: Converter = {
     const trimmed = textContent.trim();
 
     try {
-      JSON.parse(trimmed);
-      const formatted = JSON.stringify(JSON.parse(trimmed), null, 2);
+      const parsed = JSON.parse(trimmed);
+      const formatted = JSON.stringify(parsed, null, 2);
       const blob = new Blob([formatted], { type: 'application/json' });
       return { blob, filename: 'converted.json' };
     } catch {

@@ -178,7 +178,7 @@ function handleLocale(next: Locale): void {
 }
 
 .theme-item.active .swatch-label {
-  color: var(--fat-primary);
+  color: var(--fat-text-primary);
   font-weight: 600;
 }
 
@@ -207,7 +207,7 @@ function handleLocale(next: Locale): void {
 .lang-btn.active {
   border-color: var(--fat-primary);
   background: var(--fat-primary-bg);
-  color: var(--fat-primary);
+  color: var(--fat-text-primary);
   font-weight: 600;
 }
 </style>

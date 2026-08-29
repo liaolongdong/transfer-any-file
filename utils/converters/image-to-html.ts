@@ -17,6 +17,7 @@ function createImageToHtmlConverter(from: FileFormat): Converter {
     to: FileFormat.HTML,
     async convert(input: Blob): Promise<ConvertResult> {
       const dataUrl = await blobToDataUrl(input);
+      const formatName = from.toUpperCase();
       const htmlDoc = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -24,12 +25,12 @@ function createImageToHtmlConverter(from: FileFormat): Converter {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Image Document</title>
   <style>${DOCUMENT_CSS}
-    body { text-align: center; }
-    img { display: block; margin: 0 auto; }
+    body { text-align: center; padding: 2rem; }
+    img { display: block; margin: 0 auto; max-width: 100%; height: auto; }
   </style>
 </head>
 <body>
-  <img src="${dataUrl}" alt="Embedded image" />
+  <img src="${dataUrl}" alt="${formatName} image" title="${formatName} image" />
 </body>
 </html>`;
       const blob = new Blob([htmlDoc], { type: 'text/html' });
@@ -45,4 +46,5 @@ export const imageToHtmlConverters: Converter[] = [
   createImageToHtmlConverter(FileFormat.JPG),
   createImageToHtmlConverter(FileFormat.WEBP),
   createImageToHtmlConverter(FileFormat.BMP),
+  createImageToHtmlConverter(FileFormat.GIF),
 ];
