@@ -154,13 +154,19 @@ export function useConversion() {
           if (!steps || steps.length === 0) throw new Error('errors.noPath');
 
           let currentBlob: Blob = file;
+          // The final step's filename carries the real container extension
+          // (e.g. a multi-sheet XLSX→CSV yields a .zip, not a .csv)
+          let outExt: string = target;
           for (const step of steps) {
+            if (abortController.signal.aborted) break;
             const stepResult = await step.converter.convert(currentBlob);
             currentBlob = stepResult.blob;
+            outExt = stepResult.filename.split('.').pop() || target;
           }
+          if (abortController.signal.aborted) break;
 
           const base = file.name.replace(/\.[^.]+$/, '');
-          results.push({ blob: currentBlob, filename: uniqueName(base, target) });
+          results.push({ blob: currentBlob, filename: uniqueName(base, outExt) });
           batchResults.value = [...results];
         } catch (e) {
           // Isolate per-file errors: keep converting the remaining files

@@ -6,31 +6,29 @@ export const pngToPdfConverter: Converter = {
   from: FileFormat.PNG,
   to: FileFormat.PDF,
   convert: async (blob: Blob): Promise<ConvertResult> => {
-    const dataUrl = await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
-    });
+    const objectUrl = URL.createObjectURL(blob);
+    try {
+      const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = () => reject(new Error('errors.imageDecode'));
+        img.src = objectUrl;
+      });
 
-    const img = new Image();
-    await new Promise<void>((resolve, reject) => {
-      img.onload = () => resolve();
-      img.onerror = reject;
-      img.src = dataUrl;
-    });
+      const widthPt = (img.width * 72) / 96;
+      const heightPt = (img.height * 72) / 96;
 
-    const widthPt = (img.width * 72) / 96;
-    const heightPt = (img.height * 72) / 96;
+      const pdf = new jsPDF({
+        orientation: widthPt > heightPt ? 'landscape' : 'portrait',
+        unit: 'pt',
+        format: [widthPt, heightPt],
+      });
 
-    const pdf = new jsPDF({
-      orientation: widthPt > heightPt ? 'landscape' : 'portrait',
-      unit: 'pt',
-      format: [widthPt, heightPt],
-    });
-
-    pdf.addImage(dataUrl, 'PNG', 0, 0, widthPt, heightPt);
-    const pdfBlob = pdf.output('blob');
-    return { blob: pdfBlob, filename: 'converted.pdf' };
+      pdf.addImage(objectUrl, 'PNG', 0, 0, widthPt, heightPt);
+      const pdfBlob = pdf.output('blob');
+      return { blob: pdfBlob, filename: 'converted.pdf' };
+    } finally {
+      URL.revokeObjectURL(objectUrl);
+    }
   },
 };

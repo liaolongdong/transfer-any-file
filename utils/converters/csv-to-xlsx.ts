@@ -8,8 +8,10 @@ const csvToXlsxConverter: Converter = {
   to: FileFormat.XLSX,
 
   async convert(input: Blob): Promise<ConvertResult> {
-    // UTF-8 with GBK fallback so Chinese Excel exports don't turn to mojibake
     const text = await decodeTextBlob(input, 'errors.csvDecode');
+    if (!text.trim()) {
+      throw new Error('errors.csvDecode');
+    }
     const workbook = XLSX.read(text, { type: 'string' });
     const xlsxBuffer = XLSX.write(workbook, {
       type: 'array',

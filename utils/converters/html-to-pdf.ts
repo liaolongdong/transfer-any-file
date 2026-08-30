@@ -69,14 +69,14 @@ const htmlToPdfConverter: Converter = {
 
     try {
       await new Promise<void>((resolve, reject) => {
-        const timer = setTimeout(() => reject(new Error('errors.unknown')), 10_000);
+        const timer = setTimeout(() => reject(new Error('errors.imageEncode')), 10_000);
         iframe.onload = () => { clearTimeout(timer); resolve(); };
-        iframe.onerror = () => { clearTimeout(timer); reject(new Error('errors.unknown')); };
+        iframe.onerror = () => { clearTimeout(timer); reject(new Error('errors.imageEncode')); };
         iframe.srcdoc = sanitizedHtml;
       });
 
       const doc = iframe.contentDocument;
-      if (!doc || !doc.documentElement) throw new Error('errors.unknown');
+      if (!doc || !doc.documentElement) throw new Error('errors.imageEncode');
 
       await waitForAssets(doc);
 
@@ -101,7 +101,8 @@ const htmlToPdfConverter: Converter = {
       const pdf = new jsPDF('p', 'mm', 'a4');
 
       const pageCanvas = document.createElement('canvas');
-      const pageCtx = pageCanvas.getContext('2d')!;
+      const pageCtx = pageCanvas.getContext('2d');
+      if (!pageCtx) throw new Error('errors.imageEncode');
       const sliceHeightPx = Math.round((pageHeightMm / imgWidth) * canvas.width);
 
       for (let page = 0; page < totalPages; page++) {

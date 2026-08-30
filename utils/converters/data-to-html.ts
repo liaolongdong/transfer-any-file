@@ -26,8 +26,10 @@ function escapeHtml(text: string): string {
 
 /** sheet_to_html wraps output in a nested html/head/body; keep only tables */
 function tablesOnly(html: string): string {
-  const tables = html.match(/<table[\s\S]*?<\/table>/gi);
-  return tables ? tables.join('\n') : html;
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  const tables = doc.querySelectorAll('table');
+  if (tables.length === 0) return html;
+  return Array.from(tables).map(t => t.outerHTML).join('\n');
 }
 
 function workbookToHtmlBody(workbook: XLSX.WorkBook): string {
@@ -38,6 +40,7 @@ function workbookToHtmlBody(workbook: XLSX.WorkBook): string {
     if (workbook.SheetNames.length > 1) {
       parts.push(`<h2>${escapeHtml(name)}</h2>`);
     }
+    // Use editable: false to preserve formatting, and the sheet already has formatted values from raw:false
     parts.push(tablesOnly(XLSX.utils.sheet_to_html(sheet, { editable: false })));
   }
   if (parts.length === 0) throw new Error('errors.xlsxEmpty');
