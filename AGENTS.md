@@ -1,4 +1,4 @@
-# AGENTS.md · File Any Transfer
+# AGENTS.md · File Format Converter
 
 > **完全离线的 Chrome MV3 文件格式转换扩展**。点击工具栏图标在新标签页打开转换工作台（options 页面），在浏览器本地完成文档 / 数据 / 图片三大类格式的批量与多步转换，支持预览编辑、历史记录与 ZIP 打包。无网络请求、无账号，文件不出本机。
 >
