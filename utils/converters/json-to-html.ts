@@ -1,6 +1,6 @@
 import { FileFormat } from '~/utils/core/types';
 import type { Converter, ConvertResult } from '~/utils/core/types';
-import { DOCUMENT_CSS } from '~/utils/converters/md-to-html';
+import { wrapHtmlDocument, escapeHtml } from '~/utils/core/html-document';
 import { decodeTextBlob } from '~/utils/core/text-decode';
 
 const JSON_VIEWER_CSS = `
@@ -21,10 +21,6 @@ const JSON_VIEWER_CSS = `
   details.json-group:not([open]) > summary::before { transform: rotate(-90deg); }
   details.json-group > summary:hover { background: #f0f0f0; border-radius: 3px; }
 `;
-
-function escapeHtml(text: string): string {
-  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
 
 function renderJsonValue(value: unknown): string {
   if (value === null) {
@@ -84,21 +80,7 @@ const jsonToHtmlConverter: Converter = {
     }
 
     const body = `<div class="json-viewer">${renderJsonValue(parsed)}</div>`;
-
-    const htmlDoc = `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>JSON Document</title>
-  <style>${DOCUMENT_CSS}${JSON_VIEWER_CSS}</style>
-</head>
-<body>
-${body}
-</body>
-</html>`;
-
-    const blob = new Blob([htmlDoc], { type: 'text/html' });
+    const blob = wrapHtmlDocument(body, { title: 'JSON Document', extraCss: JSON_VIEWER_CSS });
     return { blob, filename: 'converted.html' };
   },
 };

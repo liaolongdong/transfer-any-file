@@ -24,17 +24,21 @@ File Any Transfer 是一款 Chrome 扩展（Manifest V3），在本地完成文�
 - **预览与编辑** — 源文件与结果均可预览；文本类结果（Markdown / HTML / TXT / CSV）可在下载前内联编辑
 - **转换历史** — 保留最近 50 条记录（仅元数据），支持一键"复用此格式"
 - **CSV 编码友好** — 读取时 UTF-8 失败自动回退 GBK，输出带 UTF-8 BOM，Excel 直接打开不乱码
+- **压缩包解包** — 拖入 `.zip` 自动解出其中可转换的文件，直接整批转换
+- **多工作表感知** — XLSX → CSV 导出全部工作表（多表工作簿输出"每表一个 CSV"的 ZIP 包）
+- **PDF 转图片** — PDF 逐页光栅化为 PNG，多页文档自动打包为"每页一张图"的 ZIP
+- **批量操作增强** — 一键追加文件 / 清空批次；<kbd>Ctrl/⌘</kbd> + <kbd>Enter</kbd> 快捷开始转换
 - **个性化** — 6 种主题色，中英文界面切换
 
 ## 支持的转换
 
 | 类别 | 源格式 | 目标格式 |
 |---|---|---|
-| 文档 | Markdown、HTML、Word (.docx)、PDF、TXT | 以 HTML 为枢纽互转（如 MD → DOCX、PDF → MD、TXT → PDF） |
-| 数据 | CSV ⇄ Excel (.xlsx) | |
-| 图片 | PNG、JPEG、WebP、BMP | PNG、JPEG、WebP |
+| 文档 | Markdown、HTML、Word (.docx)、PDF、TXT | 以 HTML 为枢纽互转（如 MD → DOCX、PDF → MD、TXT → PDF）；PDF 还可逐页转为 PNG/JPEG/WebP |
+| 数据 | CSV ⇄ Excel (.xlsx)、JSON | 互相转换，并经 HTML/CSV 桥接进入文档簇 |
+| 图片 | PNG、JPEG、WebP、BMP、GIF、SVG | PNG、JPEG、WebP（GIF 取首帧、SVG 光栅化） |
 
-> 说明：PDF 输出为图片渲染（文字不可选中）；PDF 输入仅提取文本（不保留版式与图片）；BMP 仅支持作为输入——浏览器无法编码 BMP；XLSX → CSV 导出第一个工作表。
+> 说明：PDF 输出为图片渲染（文字不可选中）；PDF 输入仅提取文本（不保留版式与图片）；PDF → 图片逐页渲染，多页文档下载为"每页一张 PNG"的 ZIP 包；BMP、GIF、SVG 仅支持作为输入——浏览器无法编码它们；多工作表 XLSX → CSV 会下载包含"每表一个 CSV"的 ZIP 包。
 
 ## 隐私
 

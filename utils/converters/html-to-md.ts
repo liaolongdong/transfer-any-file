@@ -1,4 +1,3 @@
-import TurndownService from 'turndown';
 import { FileFormat } from '~/utils/core/types';
 import type { Converter, ConvertResult } from '~/utils/core/types';
 
@@ -7,6 +6,7 @@ const htmlToMdConverter: Converter = {
   to: FileFormat.MD,
 
   async convert(input: Blob): Promise<ConvertResult> {
+    const { default: TurndownService } = await import('turndown');
     const html = await input.text();
     const doc = new DOMParser().parseFromString(html, 'text/html');
     const bodyHtml = doc.body?.innerHTML ?? html;

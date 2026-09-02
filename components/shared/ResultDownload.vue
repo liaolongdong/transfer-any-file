@@ -53,8 +53,8 @@ function handleDownload(): void {
   }
 }
 
-function detectFormatFromFilename(name: string): FileFormat {
-  return detectFormat(new File([], name)) ?? FileFormat.HTML;
+function detectFormatFromFilename(name: string): FileFormat | null {
+  return detectFormat(new File([], name));
 }
 
 const previewVisible = ref(false);
@@ -63,8 +63,10 @@ const previewFormat = ref(FileFormat.HTML);
 const previewFilename = ref('');
 
 function openPreview(result: ConvertResult): void {
+  const format = detectFormatFromFilename(result.filename);
+  if (!format) return;
   previewBlob.value = result.blob;
-  previewFormat.value = detectFormatFromFilename(result.filename);
+  previewFormat.value = format;
   previewFilename.value = result.filename;
   previewVisible.value = true;
 }
@@ -90,6 +92,7 @@ function openPreview(result: ConvertResult): void {
           <span class="result-name">{{ result.filename }}</span>
           <span class="result-size">{{ formatSize(result.blob.size) }}</span>
           <el-button
+            v-if="detectFormatFromFilename(result.filename)"
             :icon="View"
             size="small"
             text

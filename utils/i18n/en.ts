@@ -23,6 +23,12 @@ const en: typeof zh = {
     unknownFormat: 'Unknown format',
     tooLarge: 'File "{name}" exceeds 100MB and cannot be processed',
     largeWarning: 'File "{name}" is large ({size}), conversion may be slow',
+    zipExtracted: 'Extracted {count} convertible file(s) from "{name}"',
+    zipNoFiles: 'No convertible files found in "{name}"',
+    zipReadFail: 'Could not read archive "{name}"; it may be corrupted',
+    addMore: 'Add files',
+    clearAll: 'Clear',
+    batchCap: 'Up to {max} files per batch; extra files were ignored',
   },
 
   preview: {
@@ -41,6 +47,7 @@ const en: typeof zh = {
     size: 'Size',
     format: 'Format',
     docxHint: 'File size: {size}. Please download and open with Word.',
+    xlsxHint: 'File size: {size}. Please download and open with Excel.',
     fileSize: 'File size: {size}',
     openPreview: 'Preview',
     dialogTitle: 'File Preview',
@@ -87,6 +94,7 @@ const en: typeof zh = {
     cancel: 'Cancel',
     inProgress: 'Converting, please wait...',
     reconvert: 'Convert Again',
+    shortcutHint: 'Shortcut: Ctrl/⌘ + Enter',
   },
 
   result: {

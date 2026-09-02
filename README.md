@@ -24,17 +24,21 @@ File Any Transfer is a Chrome extension (Manifest V3) that converts documents, s
 - **Preview & edit** — preview source files and results; text results (Markdown / HTML / TXT / CSV) can be edited inline before downloading
 - **Conversion history** — the last 50 conversions (metadata only) with one-click "reuse this format"
 - **Encoding-aware CSV** — reads UTF-8 with GBK fallback, writes UTF-8 with BOM so Excel opens it correctly
+- **Archive intake** — drop a `.zip` and its supported files are extracted into the batch automatically
+- **Multi-sheet aware** — XLSX → CSV exports every worksheet (a ZIP of per-sheet CSVs for multi-sheet workbooks)
+- **PDF to image** — rasterize PDF pages to PNG; multi-page documents export as a ZIP of per-page images
+- **Batch control** — append more files or clear the batch in one click; <kbd>Ctrl/⌘</kbd> + <kbd>Enter</kbd> starts conversion
 - **Personalization** — 6 theme colors, Chinese/English interface
 
 ## Supported conversions
 
 | Category | From | To |
 |---|---|---|
-| Documents | Markdown, HTML, Word (.docx), PDF, TXT | Each other via HTML hub (e.g. MD → DOCX, PDF → MD, TXT → PDF) |
-| Data | CSV ⇄ Excel (.xlsx) | |
-| Images | PNG, JPEG, WebP, BMP | PNG, JPEG, WebP |
+| Documents | Markdown, HTML, Word (.docx), PDF, TXT | Each other via HTML hub (e.g. MD → DOCX, PDF → MD, TXT → PDF); PDF also rasterizes to PNG/JPEG/WebP |
+| Data | CSV ⇄ Excel (.xlsx), JSON | Each other and the document cluster via HTML/CSV bridges |
+| Images | PNG, JPEG, WebP, BMP, GIF, SVG | PNG, JPEG, WebP (GIF renders its first frame; SVG is rasterized) |
 
-> Notes: PDF output is rendered as images (text is not selectable). PDF input extracts text only (layout/images are not preserved). BMP is supported as input only — browsers cannot encode BMP. XLSX → CSV exports the first worksheet.
+> Notes: PDF output is rendered as images (text is not selectable). PDF input extracts text only (layout/images are not preserved). PDF → image renders each page; multi-page documents download as a ZIP of per-page PNGs. BMP, GIF and SVG are supported as input only — browsers cannot encode them. Multi-sheet XLSX → CSV downloads a ZIP containing one CSV per worksheet.
 
 ## Privacy
 

@@ -1,8 +1,7 @@
-import mammoth from 'mammoth';
-import DOMPurify, { type Config as SanitizeConfig } from 'dompurify';
+import type { Config as SanitizeConfig } from 'dompurify';
 import { FileFormat } from '~/utils/core/types';
 import type { Converter, ConvertResult } from '~/utils/core/types';
-import { DOCUMENT_CSS } from '~/utils/converters/md-to-html';
+import { wrapHtmlDocument } from '~/utils/core/html-document';
 import { extractAltChunkHtml } from '~/utils/core/alt-chunk';
 
 const SANITIZE_OPTIONS: SanitizeConfig = {
@@ -15,6 +14,10 @@ const docxToHtmlConverter: Converter = {
   to: FileFormat.HTML,
 
   async convert(input: Blob): Promise<ConvertResult> {
+    const [mammothModule, purifyModule] = await Promise.all([import('mammoth'), import('dompurify')]);
+    const mammoth = mammothModule.default;
+    const DOMPurify = purifyModule.default;
+
     const arrayBuffer = await input.arrayBuffer();
 
     let htmlBody: string;
@@ -62,20 +65,7 @@ const docxToHtmlConverter: Converter = {
       throw new Error('errors.docxParse', { cause: error });
     }
 
-    const htmlDoc = `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Converted Document</title>
-  <style>${DOCUMENT_CSS}</style>
-</head>
-<body>
-${htmlBody}
-</body>
-</html>`;
-
-    const blob = new Blob([htmlDoc], { type: 'text/html' });
+    const blob = wrapHtmlDocument(htmlBody);
     return { blob, filename: 'converted.html' };
   },
 };

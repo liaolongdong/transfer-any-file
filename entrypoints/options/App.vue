@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref, defineAsyncComponent, onMounted, onUnmounted } from 'vue';
 import { Setting, RefreshRight, CircleClose } from '@element-plus/icons-vue';
-import { ElMessage } from 'element-plus';
 import { initConverters } from '~/utils/converters';
 import { useConversion, CONVERSION_ERROR_KEYS } from '~/composables/useConversion';
 import { useI18n } from '~/composables/useI18n';
@@ -9,13 +8,16 @@ import { converterRegistry } from '~/utils/core/registry';
 import { FileFormat } from '~/utils/core/types';
 import type { ConvertResult } from '~/utils/core/types';
 import FileUpload from '~/components/shared/FileUpload.vue';
-import FormatSelector from '~/components/shared/FormatSelector.vue';
 import ConversionProgress from '~/components/shared/ConversionProgress.vue';
-import ResultDownload from '~/components/shared/ResultDownload.vue';
-import ComparisonView from '~/components/shared/ComparisonView.vue';
 import CollapsibleCard from '~/components/shared/CollapsibleCard.vue';
 import PreferencesMenu from '~/components/shared/PreferencesMenu.vue';
 import HistoryPanel from '~/components/options/HistoryPanel.vue';
+
+// Rendered only after files are uploaded / conversion finishes, so their code
+// (including the heavy document-preview chain) stays out of the initial bundle
+const FormatSelector = defineAsyncComponent(() => import('~/components/shared/FormatSelector.vue'));
+const ResultDownload = defineAsyncComponent(() => import('~/components/shared/ResultDownload.vue'));
+const ComparisonView = defineAsyncComponent(() => import('~/components/shared/ComparisonView.vue'));
 
 initConverters();
 
@@ -129,6 +131,24 @@ function handleReuse(payload: { sourceFormat: FileFormat; targetFormat: FileForm
   reusedTarget.value = payload.targetFormat;
   ElMessage.info(t('history.reusePending'));
 }
+
+function handleGlobalKeydown(event: KeyboardEvent): void {
+  if (event.key !== 'Enter' || !(event.ctrlKey || event.metaKey)) return;
+  const target = event.target as HTMLElement | null;
+  // Don't steal the shortcut while the user is typing somewhere
+  if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return;
+  if (!canConvert.value) return;
+  event.preventDefault();
+  convert();
+}
+
+onMounted(() => {
+  document.addEventListener('keydown', handleGlobalKeydown);
+});
+
+onUnmounted(() => {
+  document.removeEventListener('keydown', handleGlobalKeydown);
+});
 </script>
 
 <template>
@@ -184,6 +204,7 @@ function handleReuse(payload: { sourceFormat: FileFormat; targetFormat: FileForm
                 :loading="isConverting"
                 :disabled="!canConvert"
                 class="convert-btn"
+                :title="t('convert.shortcutHint')"
                 @click="convert"
               >
                 {{ convertButtonText }}
@@ -389,7 +410,7 @@ function handleReuse(payload: { sourceFormat: FileFormat; targetFormat: FileForm
   transform: translateY(-8px);
 }
 
-@media (max-width: 640px) {
+@media (width <= 640px) {
   .action-row {
     flex-direction: column;
     align-items: stretch;

@@ -1,23 +1,13 @@
-import jsPDF from 'jspdf';
 import { FileFormat } from '~/utils/core/types';
 import type { Converter, ConvertResult } from '~/utils/core/types';
-
-const MAX_DIM = 8192;
-
-function loadImage(src: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error('errors.imageDecode'));
-    img.src = src;
-  });
-}
+import { loadImage, MAX_DIM } from '~/utils/core/image-utils';
 
 function createImageToPdfConverter(from: FileFormat): Converter {
   return {
     from,
     to: FileFormat.PDF,
     async convert(input: Blob): Promise<ConvertResult> {
+      const { default: jsPDF } = await import('jspdf');
       const objectUrl = URL.createObjectURL(input);
       let img: HTMLImageElement;
       try {
@@ -70,4 +60,5 @@ export const imageToPdfConverters: Converter[] = [
   createImageToPdfConverter(FileFormat.JPG),
   createImageToPdfConverter(FileFormat.WEBP),
   createImageToPdfConverter(FileFormat.BMP),
+  createImageToPdfConverter(FileFormat.GIF),
 ];

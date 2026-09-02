@@ -1,6 +1,3 @@
-import jsPDF from 'jspdf';
-import { toCanvas } from 'html-to-image';
-import DOMPurify from 'dompurify';
 import { FileFormat } from '~/utils/core/types';
 import type { Converter, ConvertResult } from '~/utils/core/types';
 
@@ -50,6 +47,15 @@ const htmlToPdfConverter: Converter = {
   to: FileFormat.PDF,
 
   async convert(input: Blob): Promise<ConvertResult> {
+    const [jspdfModule, htmlToImage, purifyModule] = await Promise.all([
+      import('jspdf'),
+      import('html-to-image'),
+      import('dompurify'),
+    ]);
+    const jsPDF = jspdfModule.default;
+    const { toCanvas } = htmlToImage;
+    const DOMPurify = purifyModule.default;
+
     const htmlContent = await input.text();
 
     // Keep the WHOLE document (head, <style>, <link>) so the page renders

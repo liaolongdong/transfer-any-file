@@ -6,7 +6,7 @@ import { FileFormat } from '~/utils/core/types';
 import { getFormatLabel } from '~/utils/core/format-labels';
 import { formatSize } from '~/utils/core/format';
 import { docxToPreviewHtml, xlsxToPreviewHtml } from '~/utils/core/preview';
-import { DOCUMENT_CSS } from '~/utils/converters/md-to-html';
+import { DOCUMENT_CSS } from '~/utils/core/html-document';
 import { useI18n } from '~/composables/useI18n';
 
 const props = defineProps<{
@@ -31,12 +31,19 @@ const htmlView = ref<'rendered' | 'source'>('rendered');
 const renderError = ref(false);
 
 const isText = computed(() =>
-  [FileFormat.TXT, FileFormat.CSV].includes(props.format),
+  [FileFormat.TXT, FileFormat.CSV, FileFormat.JSON].includes(props.format),
 );
 const isMarkdown = computed(() => props.format === FileFormat.MD);
 const isHtml = computed(() => props.format === FileFormat.HTML);
 const isImage = computed(() =>
-  [FileFormat.PNG, FileFormat.JPG, FileFormat.WEBP, FileFormat.BMP].includes(props.format),
+  [
+    FileFormat.PNG,
+    FileFormat.JPG,
+    FileFormat.WEBP,
+    FileFormat.BMP,
+    FileFormat.GIF,
+    FileFormat.SVG,
+  ].includes(props.format),
 );
 const isPdf = computed(() => props.format === FileFormat.PDF);
 const isDocx = computed(() => props.format === FileFormat.DOCX);
@@ -55,7 +62,16 @@ watch([() => props.visible, () => props.blob], async ([vis, blob]) => {
   htmlView.value = 'rendered';
 
   if (isText.value) {
-    textContent.value = await blob.text();
+    const raw = await blob.text();
+    if (props.format === FileFormat.JSON) {
+      try {
+        textContent.value = JSON.stringify(JSON.parse(raw), null, 2);
+      } catch {
+        textContent.value = raw;
+      }
+    } else {
+      textContent.value = raw;
+    }
   } else if (isMarkdown.value) {
     textContent.value = await blob.text();
     const htmlBody = await marked(textContent.value);
@@ -103,7 +119,7 @@ function download(): void {
   a.href = url;
   a.download = props.filename;
   a.click();
-  URL.revokeObjectURL(url);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 </script>
 

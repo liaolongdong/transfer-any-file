@@ -1,5 +1,3 @@
-import { asBlob } from 'html-docx-js-typescript';
-import DOMPurify from 'dompurify';
 import { FileFormat } from '~/utils/core/types';
 import type { Converter, ConvertResult } from '~/utils/core/types';
 
@@ -8,6 +6,12 @@ const htmlToDocxConverter: Converter = {
   to: FileFormat.DOCX,
 
   async convert(input: Blob): Promise<ConvertResult> {
+    const [{ asBlob }, purifyModule] = await Promise.all([
+      import('html-docx-js-typescript'),
+      import('dompurify'),
+    ]);
+    const DOMPurify = purifyModule.default;
+
     const htmlString = await input.text();
 
     const sanitized = DOMPurify.sanitize(htmlString, {

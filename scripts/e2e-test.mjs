@@ -147,8 +147,8 @@ async function run() {
 
   // Check footer stats
   const footerText = await page.$eval('.footer', el => el.textContent).catch(() => '');
-  if (footerText.includes('12') && footerText.includes('35')) {
-    ok('Footer shows 12 formats, 35+ paths');
+  if (footerText.includes('14') && footerText.includes('46')) {
+    ok('Footer shows 14 formats, 46+ paths');
   } else {
     fail('Footer stats', `unexpected: "${footerText}"`);
   }
@@ -206,6 +206,16 @@ async function run() {
     ['sample.docx', 'Text (.txt)', 'DOCX→TXT'],
     // PDF conversions
     ['sample.pdf', 'HTML (.html)', 'PDF→HTML'],
+    ['sample.pdf', 'PNG (.png)', 'PDF→PNG'],
+    // SVG conversions (new format)
+    ['sample.svg', 'PNG (.png)', 'SVG→PNG'],
+    ['sample.svg', 'HTML (.html)', 'SVG→HTML'],
+    ['sample.svg', 'PDF (.pdf)', 'SVG→PDF'],
+    // GIF conversions (new format)
+    ['sample.gif', 'PNG (.png)', 'GIF→PNG'],
+    ['sample.gif', 'PDF (.pdf)', 'GIF→PDF'],
+    // Single-sheet workbook keeps the plain CSV output
+    ['single-sheet.xlsx', 'CSV (.csv)', 'XLSX1→CSV'],
   ];
 
   let shotIdx = 2;
@@ -226,6 +236,183 @@ async function run() {
       fail(label, e.message);
     }
   }
+
+  // ═══════════════════════════════════════════
+  //  MULTI-SHEET XLSX → CSV (ZIP bundle)
+  // ═══════════════════════════════════════════
+
+  section('Multi-sheet XLSX → CSV exports ZIP');
+  try {
+    await resetWorkbench(page);
+    const result = await convertFile(page, 'sample.xlsx', 'CSV (.csv)');
+    if (result.alertTitle.includes('完成') && result.resultName.endsWith('.zip')) {
+      ok(`Multi-sheet workbook exported as ZIP: ${result.resultName}`);
+    } else {
+      fail('Multi-sheet XLSX→CSV', `alert="${result.alertTitle}" name="${result.resultName}"`);
+    }
+    await page.screenshot({ path: shot(`${String(shotIdx++).padStart(2, '0')}-xlsx-zip.png`), fullPage: true });
+  } catch (e) { fail('Multi-sheet XLSX→CSV', e.message); }
+
+  // ═══════════════════════════════════════════
+  //  ZIP ARCHIVE EXPANSION
+  // ═══════════════════════════════════════════
+
+  section('ZIP Archive Expansion');
+  try {
+    await resetWorkbench(page);
+    const fi = await page.$('input[type="file"]');
+    await fi.setInputFiles(path.join(FIXTURE_PATH, 'sample-archive.zip'));
+    await page.waitForTimeout(1000);
+
+    const itemCount = await page.$$eval('.file-item', els => els.length);
+    if (itemCount === 2) ok('ZIP expanded to its 2 supported files (unsupported entry skipped)');
+    else fail('ZIP expansion', `expected 2 files, got ${itemCount}`);
+
+    // Batch-convert the extracted files to HTML
+    const sel = await page.$('.action-row .el-select');
+    await sel.click();
+    await page.waitForTimeout(500);
+    const opt = await page.locator('.el-select-dropdown__item').filter({ hasText: 'HTML (.html)' }).first();
+    await opt.click();
+    await page.waitForTimeout(300);
+    await (await page.$('.convert-btn')).click();
+    await page.waitForFunction(() => {
+      const alert = document.querySelector('.el-alert__title');
+      return alert && alert.textContent.length > 0;
+    }, { timeout: 30000 });
+    const resultCount = await page.$$eval('.result-item', els => els.length);
+    if (resultCount === 2) ok('Extracted batch converted: 2 results');
+    else fail('ZIP batch conversion', `expected 2 results, got ${resultCount}`);
+    await page.screenshot({ path: shot(`${String(shotIdx++).padStart(2, '0')}-zip-batch.png`), fullPage: true });
+  } catch (e) { fail('ZIP archive expansion', e.message); }
+
+  // ═══════════════════════════════════════════
+  //  MULTI-PAGE PDF → PNG (ZIP bundle)
+  // ═══════════════════════════════════════════
+
+  section('Multi-page PDF → PNG exports ZIP');
+  try {
+    await resetWorkbench(page);
+    const result = await convertFile(page, 'sample-2page.pdf', 'PNG (.png)');
+    if (result.alertTitle.includes('完成') && result.resultName.endsWith('.zip')) {
+      ok(`Two-page PDF exported as ZIP: ${result.resultName}`);
+    } else {
+      fail('Multi-page PDF→PNG', `alert="${result.alertTitle}" name="${result.resultName}"`);
+    }
+    await page.screenshot({ path: shot(`${String(shotIdx++).padStart(2, '0')}-pdf-to-png-zip.png`), fullPage: true });
+  } catch (e) { fail('Multi-page PDF→PNG ZIP', e.message); }
+
+  // ═══════════════════════════════════════════
+  //  JSON RESULT PREVIEW (regression: was blank)
+  // ═══════════════════════════════════════════
+
+  section('JSON Result Preview');
+  try {
+    await resetWorkbench(page);
+    await convertFile(page, 'sample.csv', 'JSON (.json)');
+
+    const previewBtn = await page.$('.result-item button[title="预览"]');
+    if (!previewBtn) throw new Error('result preview button not found');
+    await previewBtn.click();
+    await page.waitForTimeout(800);
+
+    const text = await page.$eval('.preview-dialog .text-preview', el => el.textContent).catch(() => '');
+    if (text && text.trim().length > 0) {
+      ok(`JSON preview shows content (${text.trim().length} chars)`);
+    } else {
+      fail('JSON result preview', 'preview content is blank');
+    }
+    await page.screenshot({ path: shot(`${String(shotIdx++).padStart(2, '0')}-json-preview.png`), fullPage: true });
+
+    // Close the dialog
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(400);
+  } catch (e) { fail('JSON result preview', e.message); }
+
+  // ═══════════════════════════════════════════
+  //  APPEND & CLEAR FILES
+  // ═══════════════════════════════════════════
+
+  section('Append & Clear Files');
+  try {
+    await resetWorkbench(page);
+    const fi = await page.$('input[type="file"]');
+    await fi.setInputFiles(path.join(FIXTURE_PATH, 'sample.md'));
+    await page.waitForTimeout(1000);
+
+    const addBtn = await page.$('.add-files-btn');
+    if (!addBtn) throw new Error('add-files button not found');
+    await addBtn.click();
+    await page.waitForTimeout(300);
+    await fi.setInputFiles(path.join(FIXTURE_PATH, 'sample.txt'));
+    await page.waitForTimeout(1000);
+
+    const itemCount = await page.$$eval('.file-item', els => els.length);
+    if (itemCount === 2) ok('Appended file merged into existing batch (2 files)');
+    else fail('Append files', `expected 2 files, got ${itemCount}`);
+    await page.screenshot({ path: shot(`${String(shotIdx++).padStart(2, '0')}-append-files.png`), fullPage: true });
+
+    const clearBtn = await page.$('.clear-files-btn');
+    if (!clearBtn) throw new Error('clear-files button not found');
+    await clearBtn.click();
+    await page.waitForTimeout(500);
+
+    const remaining = await page.$$eval('.file-item', els => els.length);
+    if (remaining === 0) ok('Clear button removed all files');
+    else fail('Clear files', `${remaining} file(s) remained`);
+  } catch (e) { fail('Append & clear files', e.message); }
+
+  // ═══════════════════════════════════════════
+  //  CTRL/⌘ + ENTER SHORTCUT
+  // ═══════════════════════════════════════════
+
+  section('Ctrl+Enter Convert Shortcut');
+  try {
+    await resetWorkbench(page);
+    const fi = await page.$('input[type="file"]');
+    await fi.setInputFiles(path.join(FIXTURE_PATH, 'sample.md'));
+    await page.waitForTimeout(1000);
+
+    const sel = await page.$('.action-row .el-select');
+    await sel.click();
+    await page.waitForTimeout(500);
+    const opt = await page.locator('.el-select-dropdown__item').filter({ hasText: 'HTML (.html)' }).first();
+    await opt.click();
+    await page.waitForTimeout(300);
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(200);
+
+    // Move focus off the select so the global shortcut handler isn't skipped
+    await page.evaluate(() => {
+      if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+    });
+
+    await page.keyboard.press('Control+Enter');
+
+    await page.waitForFunction(() => {
+      const alert = document.querySelector('.el-alert__title');
+      return alert && alert.textContent.length > 0;
+    }, { timeout: 30000 });
+    const alertTitle = await page.$eval('.el-alert__title', el => el.textContent).catch(() => '');
+    if (alertTitle.includes('完成')) ok('Ctrl+Enter triggered conversion');
+    else fail('Ctrl+Enter shortcut', `alert: "${alertTitle}"`);
+  } catch (e) { fail('Ctrl+Enter shortcut', e.message); }
+
+  // ═══════════════════════════════════════════
+  //  PDF TEXT SPACING REGRESSION
+  // ═══════════════════════════════════════════
+
+  section('PDF → HTML word spacing');
+  try {
+    await resetWorkbench(page);
+    await convertFile(page, 'sample.pdf', 'HTML (.html)');
+    const srcdoc = await page.getAttribute('.result-panel iframe.html-frame', 'srcdoc').catch(() => null);
+    if (srcdoc && srcdoc.includes('first body line') && srcdoc.includes('Sample PDF Title')) {
+      ok('PDF extraction preserves word spacing');
+    } else {
+      fail('PDF spacing', 'extracted text lost spaces');
+    }
+  } catch (e) { fail('PDF spacing', e.message); }
 
   // ═══════════════════════════════════════════
   //  MULTI-STEP PATH VERIFICATION

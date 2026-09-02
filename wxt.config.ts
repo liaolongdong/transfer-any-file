@@ -1,7 +1,12 @@
+import { fileURLToPath } from "node:url"
 import { defineConfig } from "wxt"
 import AutoImport from "unplugin-auto-import/vite"
 import Components from "unplugin-vue-components/vite"
 import { ElementPlusResolver } from "unplugin-vue-components/resolvers"
+
+// jspdf only imports these from its unused .html() API; stubbing them
+// keeps ~200KB out of the bundle. Remove the aliases if .html() is ever needed.
+const unbundledDepStub = fileURLToPath(new URL("./utils/stubs/unbundled-dep.ts", import.meta.url))
 
 export default defineConfig({
   modules: ["@wxt-dev/module-vue"],
@@ -29,5 +34,11 @@ export default defineConfig({
         dts: "components.d.ts",
       }),
     ],
+    resolve: {
+      alias: {
+        html2canvas: unbundledDepStub,
+        canvg: unbundledDepStub,
+      },
+    },
   }),
 })

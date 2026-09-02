@@ -1,4 +1,3 @@
-import * as XLSX from 'xlsx';
 import { FileFormat } from '~/utils/core/types';
 import type { Converter, ConvertResult } from '~/utils/core/types';
 import { decodeTextBlob } from '~/utils/core/text-decode';
@@ -8,7 +7,7 @@ const csvToXlsxConverter: Converter = {
   to: FileFormat.XLSX,
 
   async convert(input: Blob): Promise<ConvertResult> {
-    const text = await decodeTextBlob(input, 'errors.csvDecode');
+    const [XLSX, text] = await Promise.all([import('xlsx'), decodeTextBlob(input, 'errors.csvDecode')]);
     if (!text.trim()) {
       throw new Error('errors.csvDecode');
     }

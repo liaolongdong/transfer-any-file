@@ -1,6 +1,6 @@
 import { FileFormat } from '~/utils/core/types';
 import type { Converter, ConvertResult } from '~/utils/core/types';
-import { DOCUMENT_CSS } from '~/utils/converters/md-to-html';
+import { wrapHtmlDocument } from '~/utils/core/html-document';
 import { decodeTextBlob } from '~/utils/core/text-decode';
 
 const txtToHtmlConverter: Converter = {
@@ -10,19 +10,7 @@ const txtToHtmlConverter: Converter = {
   async convert(input: Blob): Promise<ConvertResult> {
     const text = await decodeTextBlob(input, 'errors.unknown');
     const escaped = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
-    const html = `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Converted Document</title>
-  <style>${DOCUMENT_CSS}</style>
-</head>
-<body>
-<pre>${escaped}</pre>
-</body>
-</html>`;
-    const blob = new Blob([html], { type: 'text/html' });
+    const blob = wrapHtmlDocument(`<pre>${escaped}</pre>`);
     return { blob, filename: 'converted.html' };
   },
 };

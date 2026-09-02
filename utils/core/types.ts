@@ -12,6 +12,8 @@ export enum FileFormat {
   JPG = 'jpg',
   WEBP = 'webp',
   BMP = 'bmp',
+  GIF = 'gif',
+  SVG = 'svg',
 }
 
 // Result of a conversion

@@ -1,5 +1,4 @@
 /* One-off icon renderer: SVG masters -> public/icon PNGs (run: node scripts/render-icons.mjs) */
-/* global console */
 import { createRequire } from 'node:module';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';

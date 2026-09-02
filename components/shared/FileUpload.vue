@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import type { Component } from 'vue';
-import { UploadFilled, Delete, Picture, Document, Grid } from '@element-plus/icons-vue';
-import { ElMessage } from 'element-plus';
+import { UploadFilled, Delete, Plus, Picture, Document, Grid } from '@element-plus/icons-vue';
+import { unzipSync } from 'fflate';
 import { FileFormat } from '~/utils/core/types';
 import { getFormatLabel, getFormatCategory } from '~/utils/core/format-labels';
 import { formatSize } from '~/utils/core/format';
@@ -29,8 +29,9 @@ const fileInput = ref<HTMLInputElement | null>(null);
 const selectedFiles = ref<File[]>([]);
 const detectedFormats = ref<(FileFormat | null)[]>([]);
 const isDragging = ref(false);
+const appendMode = ref(false);
 
-const acceptExtensions = SUPPORTED_EXTENSIONS.join(',');
+const acceptExtensions = [...SUPPORTED_EXTENSIONS, '.zip'].join(',');
 const pasteKey = /mac/i.test(navigator.platform) ? '⌘V' : 'Ctrl+V';
 
 const dropText = computed(() => (selectedFiles.value.length === 0 ? t('upload.drop') : t('upload.replace')));
@@ -85,18 +86,32 @@ onUnmounted(() => {
   document.removeEventListener('paste', handlePaste);
 });
 
-function triggerFileInput(): void {
+function triggerFileInput(append = false): void {
   if (props.disabled) return;
+  appendMode.value = append;
   fileInput.value?.click();
 }
 
 function handleFileSelect(event: Event): void {
   const input = event.target as HTMLInputElement;
   const files = Array.from(input.files ?? []);
+  const append = appendMode.value;
+  appendMode.value = false;
   if (files.length > 0) {
-    selectFiles(files);
+    if (append && selectedFiles.value.length > 0) {
+      void applyFiles([...selectedFiles.value, ...files]);
+    } else {
+      selectFiles(files);
+    }
   }
   input.value = '';
+}
+
+function clearAll(): void {
+  if (props.disabled) return;
+  selectedFiles.value = [];
+  detectedFormats.value = [];
+  emit('update:files', []);
 }
 
 function handleDrop(event: DragEvent): void {
@@ -118,10 +133,46 @@ function handleDragLeave(): void {
 
 const MAX_WARN_SIZE = 20 * 1024 * 1024; // 20MB
 const MAX_REJECT_SIZE = 100 * 1024 * 1024; // 100MB
+const MAX_BATCH_FILES = 200;
+
+/** Unpack .zip uploads so archives of documents/images convert as a batch */
+async function expandArchives(files: File[]): Promise<File[]> {
+  const out: File[] = [];
+  for (const file of files) {
+    if (!file.name.toLowerCase().endsWith('.zip')) {
+      out.push(file);
+      continue;
+    }
+    try {
+      const entries = unzipSync(new Uint8Array(await file.arrayBuffer()));
+      let added = 0;
+      for (const [entryName, data] of Object.entries(entries)) {
+        if (entryName.endsWith('/') || entryName.startsWith('__MACOSX/')) continue;
+        const base = entryName.split('/').pop() ?? entryName;
+        const dot = base.lastIndexOf('.');
+        const ext = dot === -1 ? '' : base.slice(dot).toLowerCase();
+        if (!SUPPORTED_EXTENSIONS.includes(ext)) continue;
+        out.push(new File([data], base));
+        added++;
+        if (out.length >= MAX_BATCH_FILES) break;
+      }
+      if (added === 0) ElMessage.warning(t('upload.zipNoFiles', { name: file.name }));
+      else ElMessage.success(t('upload.zipExtracted', { name: file.name, count: added }));
+    } catch {
+      ElMessage.error(t('upload.zipReadFail', { name: file.name }));
+    }
+  }
+  return out;
+}
 
 function selectFiles(files: File[]): void {
+  void applyFiles(files);
+}
+
+async function applyFiles(files: File[]): Promise<void> {
+  const expanded = await expandArchives(files);
   const validFiles: File[] = [];
-  for (const file of files) {
+  for (const file of expanded) {
     if (file.size > MAX_REJECT_SIZE) {
       ElMessage.error(t('upload.tooLarge', { name: file.name }));
       continue;
@@ -131,7 +182,11 @@ function selectFiles(files: File[]): void {
     }
     validFiles.push(file);
   }
-  const next = props.multiple ? validFiles : validFiles.slice(0, 1);
+  let next = props.multiple ? validFiles : validFiles.slice(0, 1);
+  if (next.length > MAX_BATCH_FILES) {
+    next = next.slice(0, MAX_BATCH_FILES);
+    ElMessage.warning(t('upload.batchCap', { max: MAX_BATCH_FILES }));
+  }
   selectedFiles.value = next;
   detectedFormats.value = next.map(f => detectFormat(f));
   emit('update:files', next);
@@ -174,9 +229,9 @@ function getFormatLabelSafe(format: FileFormat | null): string {
       @drop.prevent="handleDrop"
       @dragover.prevent="handleDragOver"
       @dragleave="handleDragLeave"
-      @click="triggerFileInput"
-      @keydown.enter.prevent="triggerFileInput"
-      @keydown.space.prevent="triggerFileInput"
+      @click="() => triggerFileInput()"
+      @keydown.enter.prevent="() => triggerFileInput()"
+      @keydown.space.prevent="() => triggerFileInput()"
     >
       <el-icon
         :size="36"
@@ -206,6 +261,31 @@ function getFormatLabelSafe(format: FileFormat | null): string {
     >
       <div key="header" class="file-list-header">
         <span>{{ t('upload.selectedCount', { count: selectedFiles.length }) }}</span>
+        <span class="header-actions">
+          <el-button
+            v-if="multiple"
+            class="add-files-btn"
+            size="small"
+            text
+            type="primary"
+            :icon="Plus"
+            :disabled="disabled"
+            @click.stop="triggerFileInput(true)"
+          >
+            {{ t('upload.addMore') }}
+          </el-button>
+          <el-button
+            class="clear-files-btn"
+            size="small"
+            text
+            type="danger"
+            :icon="Delete"
+            :disabled="disabled"
+            @click.stop="clearAll"
+          >
+            {{ t('upload.clearAll') }}
+          </el-button>
+        </span>
       </div>
       <div
         v-for="(file, index) in selectedFiles"
@@ -304,6 +384,12 @@ function getFormatLabelSafe(format: FileFormat | null): string {
   opacity: 0.6;
 }
 
+/* Children must not intercept drag events, or dragleave fires when the
+   pointer crosses them and the highlight flickers */
+.drop-zone > * {
+  pointer-events: none;
+}
+
 .file-list {
   margin-top: var(--fat-space-sm);
   border: 1px solid var(--fat-border);
@@ -312,11 +398,21 @@ function getFormatLabelSafe(format: FileFormat | null): string {
 }
 
 .file-list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--fat-space-sm);
   padding: var(--fat-space-xs) var(--fat-space-md);
   background: var(--fat-surface);
   font-size: 12px;
   color: var(--fat-text-secondary);
   border-bottom: 1px solid var(--fat-border);
+}
+
+.header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--fat-space-xs);
 }
 
 .file-item {

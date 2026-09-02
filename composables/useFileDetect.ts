@@ -16,6 +16,8 @@ const EXTENSION_MAP: Record<string, FileFormat> = {
   '.jpeg': FileFormat.JPG,
   '.webp': FileFormat.WEBP,
   '.bmp': FileFormat.BMP,
+  '.gif': FileFormat.GIF,
+  '.svg': FileFormat.SVG,
 };
 
 /** MIME type to FileFormat mapping (fallback) */
@@ -32,6 +34,8 @@ const MIME_MAP: Record<string, FileFormat> = {
   'image/jpeg': FileFormat.JPG,
   'image/webp': FileFormat.WEBP,
   'image/bmp': FileFormat.BMP,
+  'image/gif': FileFormat.GIF,
+  'image/svg+xml': FileFormat.SVG,
 };
 
 /** All supported file extensions, e.g. for <input accept> filtering */

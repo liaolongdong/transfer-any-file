@@ -87,21 +87,64 @@ body {
 .el-button--primary {
   background: var(--fat-primary) !important;
   border-color: var(--fat-primary) !important;
+  color: #fff !important;
 }
 
 .el-button--primary:hover {
   background: var(--fat-primary-hover) !important;
   border-color: var(--fat-primary-hover) !important;
+  color: #fff !important;
 }
 
 .el-button--primary:active {
   background: var(--fat-primary-active) !important;
   border-color: var(--fat-primary-active) !important;
+  color: #fff !important;
+}
+
+.el-button--default {
+  border-color: var(--fat-primary-border) !important;
+  color: var(--fat-text-regular) !important;
+}
+
+.el-button--default:hover {
+  border-color: var(--fat-primary) !important;
+  color: var(--fat-primary) !important;
 }
 
 /* Text button hover */
 .el-button--text:hover {
   color: var(--fat-primary) !important;
+}
+
+/* Dark mode button enhancements */
+:root[data-mode='dark'] .el-button--primary {
+  background: var(--fat-primary-active) !important;
+  border-color: var(--fat-primary-active) !important;
+}
+
+:root[data-mode='dark'] .el-button--primary:hover {
+  background: color-mix(in srgb, var(--fat-primary-active) 80%, var(--fat-primary)) !important;
+  border-color: color-mix(in srgb, var(--fat-primary-active) 80%, var(--fat-primary)) !important;
+}
+
+:root[data-mode='dark'] .el-button--default {
+  border-color: var(--fat-border) !important;
+  color: var(--fat-text-regular) !important;
+}
+
+:root[data-mode='dark'] .el-button--default:hover {
+  border-color: var(--fat-primary) !important;
+  color: var(--fat-primary) !important;
+  background: var(--fat-primary-bg) !important;
+}
+
+:root[data-mode='dark'] .el-button--text {
+  color: var(--fat-primary) !important;
+}
+
+:root[data-mode='dark'] .el-button--text:hover {
+  color: var(--fat-primary-hover) !important;
 }
 
 /* Alert styling */

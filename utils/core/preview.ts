@@ -1,5 +1,5 @@
-import * as XLSX from 'xlsx';
-import docxToHtmlConverter from '~/utils/converters/docx-to-html';
+import type { WorkBook } from 'xlsx';
+import { escapeHtml } from '~/utils/core/html-document';
 
 const PREVIEW_CSS = `
   body {
@@ -34,14 +34,15 @@ ${body}
 
 /** Render a DOCX blob as a standalone HTML document (for iframe srcdoc) */
 export async function docxToPreviewHtml(blob: Blob): Promise<string> {
+  const { default: docxToHtmlConverter } = await import('~/utils/converters/docx-to-html');
   const result = await docxToHtmlConverter.convert(blob);
   return result.blob.text();
 }
 
 /** Render every sheet of an XLSX/CSV workbook as HTML tables */
 export async function xlsxToPreviewHtml(blob: Blob): Promise<string> {
-  const buffer = await blob.arrayBuffer();
-  const workbook = XLSX.read(buffer, { type: 'array' });
+  const [XLSX, buffer] = await Promise.all([import('xlsx'), blob.arrayBuffer()]);
+  const workbook: WorkBook = XLSX.read(buffer, { type: 'array' });
   if (workbook.SheetNames.length === 0) {
     return wrapDocument('<p>No sheets found.</p>');
   }
@@ -54,8 +55,4 @@ export async function xlsxToPreviewHtml(blob: Blob): Promise<string> {
     parts.push(XLSX.utils.sheet_to_html(sheet, { editable: false }));
   }
   return wrapDocument(parts.join('\n'));
-}
-
-function escapeHtml(text: string): string {
-  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }

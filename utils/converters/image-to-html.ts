@@ -1,6 +1,11 @@
 import { FileFormat } from '~/utils/core/types';
 import type { Converter, ConvertResult } from '~/utils/core/types';
-import { DOCUMENT_CSS } from '~/utils/converters/md-to-html';
+import { wrapHtmlDocument } from '~/utils/core/html-document';
+
+const IMAGE_DOC_CSS = `
+    body { text-align: center; padding: 2rem; }
+    img { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+`;
 
 async function blobToDataUrl(blob: Blob): Promise<string> {
   return new Promise<string>((resolve, reject) => {
@@ -18,22 +23,8 @@ function createImageToHtmlConverter(from: FileFormat): Converter {
     async convert(input: Blob): Promise<ConvertResult> {
       const dataUrl = await blobToDataUrl(input);
       const formatName = from.toUpperCase();
-      const htmlDoc = `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Image Document</title>
-  <style>${DOCUMENT_CSS}
-    body { text-align: center; padding: 2rem; }
-    img { display: block; margin: 0 auto; max-width: 100%; height: auto; }
-  </style>
-</head>
-<body>
-  <img src="${dataUrl}" alt="${formatName} image" title="${formatName} image" />
-</body>
-</html>`;
-      const blob = new Blob([htmlDoc], { type: 'text/html' });
+      const body = `  <img src="${dataUrl}" alt="${formatName} image" title="${formatName} image" />`;
+      const blob = wrapHtmlDocument(body, { title: 'Image Document', extraCss: IMAGE_DOC_CSS });
       return { blob, filename: 'converted.html' };
     },
   };

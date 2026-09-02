@@ -210,4 +210,17 @@ function handleLocale(next: Locale): void {
   color: var(--fat-text-primary);
   font-weight: 600;
 }
+
+:global(:root[data-mode='dark']) .theme-item.active {
+  border-color: var(--fat-primary);
+  background: var(--fat-primary-bg);
+  box-shadow: 0 0 0 1px var(--fat-primary-border);
+}
+
+:global(:root[data-mode='dark']) .lang-btn.active {
+  border-color: var(--fat-primary);
+  background: var(--fat-primary-bg);
+  color: var(--fat-primary);
+  font-weight: 600;
+}
 </style>

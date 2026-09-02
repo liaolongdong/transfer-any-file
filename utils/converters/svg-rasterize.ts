@@ -1,30 +1,8 @@
 import { FileFormat } from '~/utils/core/types';
 import type { Converter, ConvertResult } from '~/utils/core/types';
+import { loadImage, canvasToBlob, MAX_DIM } from '~/utils/core/image-utils';
 
-const MAX_DIM = 8192;
 const DEFAULT_DIM = 1024;
-
-function loadImage(src: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error('errors.imageDecode'));
-    img.src = src;
-  });
-}
-
-function canvasToBlob(canvas: HTMLCanvasElement, mimeType: string, quality?: number): Promise<Blob> {
-  return new Promise((resolve, reject) => {
-    canvas.toBlob(
-      blob => {
-        if (blob) resolve(blob);
-        else reject(new Error('errors.imageEncode'));
-      },
-      mimeType,
-      quality,
-    );
-  });
-}
 
 /**
  * Normalize an SVG document for rasterization: strip scripts, and give the

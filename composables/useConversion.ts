@@ -167,14 +167,15 @@ export function useConversion() {
 
           const base = file.name.replace(/\.[^.]+$/, '');
           results.push({ blob: currentBlob, filename: uniqueName(base, outExt) });
-          batchResults.value = [...results];
+          batchResults.value.push(results[results.length - 1]);
         } catch (e) {
           // Isolate per-file errors: keep converting the remaining files
-          failures.push({
+          const failure: ConversionFailure = {
             fileName: file.name,
             reason: e instanceof Error && e.message ? e.message : 'errors.unknown',
-          });
-          batchFailures.value = [...failures];
+          };
+          failures.push(failure);
+          batchFailures.value.push(failure);
         }
         completedCount.value = i + 1;
       }
@@ -241,7 +242,6 @@ export function useConversion() {
   function updateResult(index: number, newResult: ConvertResult): void {
     if (index >= 0 && index < batchResults.value.length) {
       batchResults.value[index] = newResult;
-      batchResults.value = [...batchResults.value];
     }
   }
 

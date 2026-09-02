@@ -1,33 +1,12 @@
 import { FileFormat } from '~/utils/core/types';
 import type { Converter, ConvertResult } from '~/utils/core/types';
+import { loadImage, canvasToBlob, MAX_DIM } from '~/utils/core/image-utils';
 
 const MIME_TYPES: Record<string, string> = {
   [FileFormat.PNG]: 'image/png',
   [FileFormat.JPG]: 'image/jpeg',
   [FileFormat.WEBP]: 'image/webp',
 };
-
-function loadImage(src: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error('errors.imageDecode'));
-    img.src = src;
-  });
-}
-
-function canvasToBlob(canvas: HTMLCanvasElement, mimeType: string, quality?: number): Promise<Blob> {
-  return new Promise((resolve, reject) => {
-    canvas.toBlob(
-      blob => {
-        if (blob) resolve(blob);
-        else reject(new Error('errors.imageEncode'));
-      },
-      mimeType,
-      quality,
-    );
-  });
-}
 
 function createImageConverter(from: FileFormat, to: FileFormat, mimeType: string): Converter {
   return {
@@ -43,7 +22,6 @@ function createImageConverter(from: FileFormat, to: FileFormat, mimeType: string
         URL.revokeObjectURL(objectUrl);
       }
 
-      const MAX_DIM = 8192;
       let { naturalWidth: w, naturalHeight: h } = img;
       if (w > MAX_DIM || h > MAX_DIM) {
         const scale = Math.min(MAX_DIM / w, MAX_DIM / h);
@@ -72,9 +50,10 @@ function createImageConverter(from: FileFormat, to: FileFormat, mimeType: string
   };
 }
 
-// BMP can be decoded as a source, but Canvas cannot encode image/bmp in
-// most browsers, so BMP is intentionally NOT an output target.
-const sourceFormats = [FileFormat.PNG, FileFormat.JPG, FileFormat.WEBP, FileFormat.BMP];
+// GIF decodes its first frame via <img>; BMP can be decoded as a source, but
+// Canvas cannot encode image/bmp in most browsers, so BMP is intentionally
+// NOT an output target.
+const sourceFormats = [FileFormat.PNG, FileFormat.JPG, FileFormat.WEBP, FileFormat.BMP, FileFormat.GIF];
 const targetFormats = [FileFormat.PNG, FileFormat.JPG, FileFormat.WEBP];
 
 const imageConverters: Converter[] = [];

@@ -1,4 +1,3 @@
-import * as XLSX from 'xlsx';
 import { FileFormat } from '~/utils/core/types';
 import type { Converter, ConvertResult } from '~/utils/core/types';
 import { decodeTextBlob } from '~/utils/core/text-decode';
@@ -8,7 +7,7 @@ const jsonToCsvConverter: Converter = {
   to: FileFormat.CSV,
 
   async convert(input: Blob): Promise<ConvertResult> {
-    const text = await decodeTextBlob(input, 'errors.unknown');
+    const [XLSX, text] = await Promise.all([import('xlsx'), decodeTextBlob(input, 'errors.unknown')]);
 
     let parsed: unknown;
     try {
@@ -60,7 +59,7 @@ const csvToJsonConverter: Converter = {
   to: FileFormat.JSON,
 
   async convert(input: Blob): Promise<ConvertResult> {
-    const text = await decodeTextBlob(input, 'errors.csvDecode');
+    const [XLSX, text] = await Promise.all([import('xlsx'), decodeTextBlob(input, 'errors.csvDecode')]);
     const workbook = XLSX.read(text, { type: 'string' });
     const firstSheetName = workbook.SheetNames[0];
     if (!firstSheetName) throw new Error('errors.csvDecode');

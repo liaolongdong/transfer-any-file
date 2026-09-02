@@ -25,6 +25,12 @@ export default {
     unknownFormat: '未知格式',
     tooLarge: '文件 "{name}" 超过 100MB，无法处理',
     largeWarning: '文件 "{name}" 较大（{size}），转换可能较慢',
+    zipExtracted: '已从 "{name}" 解出 {count} 个可转换文件',
+    zipNoFiles: '"{name}" 中没有可转换的文件',
+    zipReadFail: '无法读取压缩包 "{name}"，文件可能已损坏',
+    addMore: '追加文件',
+    clearAll: '清空',
+    batchCap: '一次最多处理 {max} 个文件，超出部分已忽略',
   },
 
   // Preview
@@ -44,6 +50,7 @@ export default {
     size: '大小',
     format: '格式',
     docxHint: '文件大小: {size}，请下载后用 Word 打开查看。',
+    xlsxHint: '文件大小: {size}，请下载后用 Excel 打开查看。',
     fileSize: '文件大小: {size}',
     openPreview: '预览',
     dialogTitle: '文件预览',
@@ -93,6 +100,7 @@ export default {
     cancel: '取消转换',
     inProgress: '正在转换中，请稍候...',
     reconvert: '重新转换',
+    shortcutHint: '快捷键 Ctrl/⌘ + Enter',
   },
 
   // Result / download

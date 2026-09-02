@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ref, watch, computed, onMounted, onUnmounted, onBeforeUnmount, nextTick } from 'vue';
 import { Edit, View, CopyDocument, ArrowLeft, ArrowRight } from '@element-plus/icons-vue';
-import { ElMessage } from 'element-plus';
 import { FileFormat } from '~/utils/core/types';
 import type { ConvertResult } from '~/utils/core/types';
 import { getFormatLabel, getFormatCategory } from '~/utils/core/format-labels';
@@ -57,6 +56,10 @@ const isSourceXlsx = computed(() => props.sourceFormat === FileFormat.XLSX);
 const isResultXlsx = computed(() => props.targetFormat === FileFormat.XLSX);
 const isResultHtml = computed(() => props.targetFormat === FileFormat.HTML);
 const isResultEditable = computed(() => isResultText.value);
+
+function docHintKey(fmt: FileFormat): 'preview.docxHint' | 'preview.xlsxHint' {
+  return fmt === FileFormat.XLSX ? 'preview.xlsxHint' : 'preview.docxHint';
+}
 
 const htmlView = ref<'rendered' | 'source'>('rendered');
 
@@ -115,6 +118,7 @@ watch(
     resultPdfUrl.value = '';
     resultText.value = '';
     resultDocHtml.value = '';
+    if (result.blob.type === 'application/zip') return;
     if (getFormatCategory(format) === 'image') {
       resultImageUrl.value = URL.createObjectURL(result.blob);
     } else if (format === FileFormat.PDF) {
@@ -341,7 +345,7 @@ function toggleEdit(): void {
           <div v-else-if="(isSourceDocx || isSourceXlsx) && sourceFile" class="docx-info">
             <p class="docx-name">{{ sourceFile.name }}</p>
             <p class="docx-size">{{ formatSize(sourceFile.size) }}</p>
-            <p class="docx-hint">{{ t('preview.docxHint', { size: formatSize(sourceFile.size) }) }}</p>
+            <p class="docx-hint">{{ t(docHintKey(sourceFormat!), { size: formatSize(sourceFile.size) }) }}</p>
           </div>
           <!-- Text source -->
           <pre v-else-if="isSourceText && sourceText" class="text-content">{{ sourceText }}</pre>
@@ -474,7 +478,7 @@ function toggleEdit(): void {
           <div v-else-if="(isResultDocx || isResultXlsx) && result" class="docx-info">
             <p class="docx-name">{{ result.filename }}</p>
             <p class="docx-size">{{ formatSize(result.blob.size) }}</p>
-            <p class="docx-hint">{{ t('preview.docxHint', { size: formatSize(result.blob.size) }) }}</p>
+            <p class="docx-hint">{{ t(docHintKey(targetFormat!), { size: formatSize(result.blob.size) }) }}</p>
           </div>
           <!-- Editable text (takes priority over rendered view) -->
           <div v-else-if="isResultEditable && isEditing" class="edit-content">
@@ -847,6 +851,33 @@ function toggleEdit(): void {
   background: var(--fat-bg-card);
   font-weight: 600;
   box-shadow: var(--fat-shadow-sm);
+}
+
+:global(:root[data-mode='dark']) .mode-btn {
+  color: var(--fat-text-secondary);
+}
+
+:global(:root[data-mode='dark']) .mode-btn:hover {
+  color: var(--fat-text-primary);
+  background: var(--fat-surface-hover);
+}
+
+:global(:root[data-mode='dark']) .mode-btn.active {
+  color: var(--fat-primary);
+  background: var(--fat-primary-bg);
+  box-shadow: inset 0 0 0 1px var(--fat-primary-border);
+}
+
+:global(:root[data-mode='dark']) .divider-btn {
+  border-color: var(--fat-border);
+  background: var(--fat-surface);
+  color: var(--fat-text-secondary);
+}
+
+:global(:root[data-mode='dark']) .divider-btn:hover {
+  border-color: var(--fat-primary);
+  color: var(--fat-primary);
+  background: var(--fat-primary-bg);
 }
 
 .sync-toggle {

@@ -1,4 +1,3 @@
-import * as XLSX from 'xlsx';
 import { zipSync, strToU8 } from 'fflate';
 import type { Zippable } from 'fflate';
 import { FileFormat } from '~/utils/core/types';
@@ -26,7 +25,7 @@ const xlsxToCsvConverter: Converter = {
   to: FileFormat.CSV,
 
   async convert(input: Blob): Promise<ConvertResult> {
-    const buffer = await input.arrayBuffer();
+    const [XLSX, buffer] = await Promise.all([import('xlsx'), input.arrayBuffer()]);
     const workbook = XLSX.read(buffer, { type: 'array', cellDates: true, raw: false });
     const sheetNames = workbook.SheetNames.filter(name => workbook.Sheets[name]);
     if (sheetNames.length === 0) {

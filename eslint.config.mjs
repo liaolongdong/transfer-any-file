@@ -93,6 +93,22 @@ export default [
       },
     },
   },
+  {
+    // e2e scripts run in Node but embed browser code in page.evaluate callbacks
+    files: ['scripts/**/*.mjs'],
+    languageOptions: {
+      globals: {
+        process: 'readonly',
+        console: 'readonly',
+        setTimeout: 'readonly',
+        clearTimeout: 'readonly',
+        URL: 'readonly',
+        document: 'readonly',
+        getComputedStyle: 'readonly',
+        HTMLElement: 'readonly',
+      },
+    },
+  },
 
   // Prettier config (must be last to override)
   eslintConfigPrettier,

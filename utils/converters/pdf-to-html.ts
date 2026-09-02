@@ -1,13 +1,7 @@
-import * as pdfjsLib from 'pdfjs-dist';
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { FileFormat } from '~/utils/core/types';
 import type { Converter, ConvertResult } from '~/utils/core/types';
-
-function ensureWorker(): void {
-  if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
-    pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
-  }
-}
+import { escapeHtml, escapeAttr } from '~/utils/core/html-document';
 
 interface LinkRect {
   x1: number;
@@ -15,14 +9,6 @@ interface LinkRect {
   x2: number;
   y2: number;
   url: string;
-}
-
-function escapeHtml(text: string): string {
-  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
-
-function escapeAttr(url: string): string {
-  return url.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 function findLinkForPosition(x: number, y: number, links: LinkRect[]): string | null {
@@ -59,7 +45,10 @@ const pdfToHtmlConverter: Converter = {
   to: FileFormat.HTML,
 
   async convert(input: Blob): Promise<ConvertResult> {
-    ensureWorker();
+    const pdfjsLib = await import('pdfjs-dist');
+    if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
+      pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
+    }
     const arrayBuffer = await input.arrayBuffer();
     const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
 

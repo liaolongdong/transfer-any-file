@@ -11,13 +11,17 @@ export class ConverterRegistry {
 
   register(converter: Converter): void {
     const key = this.makeKey(converter.from, converter.to);
-    this.converters.set(key, converter);
     const targets = this.adjacency.get(converter.from);
     if (targets) {
+      if (targets.includes(converter.to)) {
+        this.converters.set(key, converter);
+        return;
+      }
       targets.push(converter.to);
     } else {
       this.adjacency.set(converter.from, [converter.to]);
     }
+    this.converters.set(key, converter);
   }
 
   /** Find a direct converter for from→to */

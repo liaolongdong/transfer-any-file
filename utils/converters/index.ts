@@ -10,6 +10,7 @@ import htmlToDocxConverter from '~/utils/converters/html-to-docx';
 import { csvToHtmlConverter, xlsxToHtmlConverter } from '~/utils/converters/data-to-html';
 import htmlToPdfConverter from '~/utils/converters/html-to-pdf';
 import pdfToHtmlConverter from '~/utils/converters/pdf-to-html';
+import pdfToPngConverter from '~/utils/converters/pdf-to-image';
 import { htmlToPngConverter } from '~/utils/converters/html-to-png';
 import { pngToPdfConverter } from '~/utils/converters/png-to-pdf';
 import imageToHtmlConverter from '~/utils/converters/image-to-html';
@@ -17,6 +18,9 @@ import { imageToHtmlConverters } from '~/utils/converters/image-to-html';
 import { imageToPdfConverters } from '~/utils/converters/image-to-pdf';
 import { jsonToHtmlConverter, htmlToJsonConverter } from '~/utils/converters/json-to-html';
 import { jsonToCsvConverter, csvToJsonConverter } from '~/utils/converters/json-to-csv';
+import xlsxToJsonConverter from '~/utils/converters/xlsx-to-json';
+import { svgRasterConverters } from '~/utils/converters/svg-rasterize';
+import svgToHtmlConverter from '~/utils/converters/svg-to-html';
 
 let convertersInitialized = false;
 
@@ -36,6 +40,9 @@ export function initConverters(): void {
   converterRegistry.register(htmlToPdfConverter);
   converterRegistry.register(pdfToHtmlConverter);
 
+  // PDF -> PNG (JPG/WEBP/BMP/GIF-SVG targets then reachable via image graph)
+  converterRegistry.register(pdfToPngConverter);
+
   // CSV <-> XLSX
   converterRegistry.register(csvToXlsxConverter);
   converterRegistry.register(xlsxToCsvConverter);
@@ -45,6 +52,7 @@ export function initConverters(): void {
   converterRegistry.register(htmlToJsonConverter);
   converterRegistry.register(jsonToCsvConverter);
   converterRegistry.register(csvToJsonConverter);
+  converterRegistry.register(xlsxToJsonConverter);
 
   // CSV/XLSX → HTML bridges (connect the data cluster to document formats)
   converterRegistry.register(csvToHtmlConverter);
@@ -74,4 +82,11 @@ export function initConverters(): void {
   for (const converter of imageToPdfConverters) {
     converterRegistry.register(converter);
   }
+
+  // SVG sources: raster targets plus an HTML bridge (other document formats
+  // are then reachable through multi-step paths)
+  for (const converter of svgRasterConverters) {
+    converterRegistry.register(converter);
+  }
+  converterRegistry.register(svgToHtmlConverter);
 }
