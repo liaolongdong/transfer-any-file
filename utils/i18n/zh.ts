@@ -89,6 +89,10 @@ export default {
     categoryImage: '图片',
     categoryData: '数据',
     conversionPath: '转换路径:',
+    disabledSameSource: '与源格式相同',
+    disabledUnsupported: '暂不支持转换为该格式',
+    disabledImageNoText: '图片无法转换为文本或表格数据（需 OCR，暂不支持）',
+    disabledPdfNoData: 'PDF 无法可靠转换为表格/结构化数据',
   },
 
   // Conversion

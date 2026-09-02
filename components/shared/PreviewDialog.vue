@@ -126,7 +126,8 @@ function download(): void {
 <template>
   <ElDialog
     :model-value="visible"
-    width="85%"
+    width="min(1200px, 92vw)"
+    align-center
     destroy-on-close
     class="preview-dialog"
     @update:model-value="emit('update:visible', $event)"

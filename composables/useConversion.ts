@@ -6,6 +6,7 @@ import type { Zippable } from 'fflate';
 import { FileFormat } from '~/utils/core/types';
 import type { ConvertResult } from '~/utils/core/types';
 import { converterRegistry } from '~/utils/core/registry';
+import { getBlockedReason } from '~/utils/core/conversion-policy';
 import { useFileDetect } from '~/composables/useFileDetect';
 import { useHistory } from '~/composables/useHistory';
 
@@ -64,7 +65,9 @@ export function useConversion() {
   /**
    * Targets reachable from EVERY detected source format (intersection),
    * so a mixed-format batch only offers targets valid for all files.
-   * Formats already present in the sources are excluded.
+   * Formats already present in the sources are excluded, as are pairs blocked by the
+   * semantic conversion policy (e.g. image -> data), which are reachable in the graph
+   * but always fail or yield a useless placeholder.
    */
   const availableTargets: ComputedRef<FileFormat[]> = computed(() => {
     const formats = uniqueSourceFormats.value;
@@ -74,7 +77,7 @@ export function useConversion() {
       const reachable = new Set(converterRegistry.getAllSupportedTargets(format));
       targets = targets.filter(t => reachable.has(t));
     }
-    return targets.filter(t => !formats.includes(t));
+    return targets.filter(t => !formats.includes(t) && !formats.some(f => getBlockedReason(f, t) !== null));
   });
 
   function setFiles(files: File[]): void {

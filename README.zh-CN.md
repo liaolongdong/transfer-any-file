@@ -38,7 +38,7 @@ File Any Transfer 是一款 Chrome 扩展（Manifest V3），在本地完成文�
 | 数据 | CSV ⇄ Excel (.xlsx)、JSON | 互相转换，并经 HTML/CSV 桥接进入文档簇 |
 | 图片 | PNG、JPEG、WebP、BMP、GIF、SVG | PNG、JPEG、WebP（GIF 取首帧、SVG 光栅化） |
 
-> 说明：PDF 输出为图片渲染（文字不可选中）；PDF 输入仅提取文本（不保留版式与图片）；PDF → 图片逐页渲染，多页文档下载为"每页一张 PNG"的 ZIP 包；BMP、GIF、SVG 仅支持作为输入——浏览器无法编码它们；多工作表 XLSX → CSV 会下载包含"每表一个 CSV"的 ZIP 包。
+> 说明：PDF 输出为图片渲染（文字不可选中）；PDF 输入仅提取文本（不保留版式与图片）；PDF → 图片逐页渲染，多页文档下载为"每页一张 PNG"的 ZIP 包；BMP、GIF、SVG 仅支持作为输入——浏览器无法编码它们；多工作表 XLSX → CSV 会下载包含"每表一个 CSV"的 ZIP 包。目标格式下拉会列出全部格式，并对不支持的转换置灰、给出原因：图片无法转换为文本或表格数据（这需要 OCR，本扩展完全离线、未内置），PDF 也无法可靠转换为表格/结构化数据。
 
 ## 隐私
 

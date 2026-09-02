@@ -12,18 +12,20 @@ const emit = defineEmits<{
 }>();
 
 const { records, removeRecord, clear } = useHistory();
-const { t, locale } = useI18n();
+const { t } = useI18n();
 
 const hasRecords = computed(() => records.value.length > 0);
 
+/** Fixed YYYY-MM-DD HH:mm:ss (24h) — locale-independent so both zh/en UIs stay aligned */
 function formatTime(time: number): string {
   const d = new Date(time);
-  return d.toLocaleString(locale.value === 'zh' ? 'zh-CN' : 'en-US', {
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  const pad = (n: number): string => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+
+/** Machine-readable ISO timestamp backing the semantic `<time>` element */
+function isoTime(time: number): string {
+  return new Date(time).toISOString();
 }
 
 function handleReuse(record: HistoryRecord): void {
@@ -96,14 +98,24 @@ async function handleClear(): Promise<void> {
             <span class="fmt-badge target">{{ getFormatLabel(record.targetFormat) }}</span>
           </div>
           <div class="history-meta">
-            <span class="history-name">{{ record.fileName }}</span>
+            <span
+              class="history-name"
+              :title="record.fileName"
+            >
+              {{ record.fileName }}
+            </span>
             <span
               v-if="record.fileCount > 1"
               class="history-count"
             >
               {{ t('history.filesCount', { count: record.fileCount }) }}
             </span>
-            <span class="history-time">{{ formatTime(record.time) }}</span>
+            <time
+              class="history-time"
+              :datetime="isoTime(record.time)"
+            >
+              {{ formatTime(record.time) }}
+            </time>
           </div>
         </div>
         <div class="history-actions">
@@ -142,15 +154,6 @@ async function handleClear(): Promise<void> {
   justify-content: flex-end;
 }
 
-.history-title {
-  display: flex;
-  align-items: center;
-  gap: var(--fat-space-xs);
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--fat-text-primary);
-}
-
 .history-empty {
   padding: var(--fat-space-xl) 0;
   text-align: center;
@@ -164,7 +167,7 @@ async function handleClear(): Promise<void> {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--fat-space-xs);
+  gap: var(--fat-space-sm);
 }
 
 .history-item {
@@ -181,6 +184,7 @@ async function handleClear(): Promise<void> {
 
 .history-item:hover {
   border-color: var(--fat-primary-border);
+  background: var(--fat-bg-hover);
 }
 
 .history-main {
@@ -188,7 +192,7 @@ async function handleClear(): Promise<void> {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--fat-space-xs);
 }
 
 .history-formats {
@@ -210,17 +214,25 @@ async function handleClear(): Promise<void> {
 .history-meta {
   display: flex;
   align-items: center;
-  gap: var(--fat-space-sm);
-  font-size: 11px;
-  color: var(--fat-text-placeholder);
+  gap: var(--fat-space-xs);
+  font-size: 12px;
+  color: var(--fat-text-secondary);
   min-width: 0;
 }
 
+/* Dot separator between meta items — robust to the conditional file-count */
+.history-meta > *:not(:first-child)::before {
+  content: '·';
+  margin-right: var(--fat-space-xs);
+  color: var(--fat-text-placeholder);
+}
+
 .history-name {
+  flex: 0 1 auto;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 140px;
 }
 
 .history-count {
@@ -229,7 +241,7 @@ async function handleClear(): Promise<void> {
 
 .history-time {
   flex-shrink: 0;
-  margin-left: auto;
+  font-variant-numeric: tabular-nums;
 }
 
 .history-actions {

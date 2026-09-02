@@ -84,6 +84,10 @@ const en: typeof zh = {
     categoryImage: 'Image',
     categoryData: 'Data',
     conversionPath: 'Path:',
+    disabledSameSource: 'Same as the source format',
+    disabledUnsupported: 'Conversion to this format is not supported',
+    disabledImageNoText: 'Images cannot become text or tabular data (needs OCR, not supported)',
+    disabledPdfNoData: 'PDF cannot be reliably converted to tabular data',
   },
 
   convert: {

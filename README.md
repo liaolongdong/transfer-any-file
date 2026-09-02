@@ -38,7 +38,7 @@ File Any Transfer is a Chrome extension (Manifest V3) that converts documents, s
 | Data | CSV ⇄ Excel (.xlsx), JSON | Each other and the document cluster via HTML/CSV bridges |
 | Images | PNG, JPEG, WebP, BMP, GIF, SVG | PNG, JPEG, WebP (GIF renders its first frame; SVG is rasterized) |
 
-> Notes: PDF output is rendered as images (text is not selectable). PDF input extracts text only (layout/images are not preserved). PDF → image renders each page; multi-page documents download as a ZIP of per-page PNGs. BMP, GIF and SVG are supported as input only — browsers cannot encode them. Multi-sheet XLSX → CSV downloads a ZIP containing one CSV per worksheet.
+> Notes: PDF output is rendered as images (text is not selectable). PDF input extracts text only (layout/images are not preserved). PDF → image renders each page; multi-page documents download as a ZIP of per-page PNGs. BMP, GIF and SVG are supported as input only — browsers cannot encode them. Multi-sheet XLSX → CSV downloads a ZIP containing one CSV per worksheet. The target dropdown lists every format and greys out unsupported ones with a reason: images cannot become text or tabular data (that needs OCR, which this offline extension does not bundle), and PDF cannot be reliably converted to tabular/structured data.
 
 ## Privacy
 

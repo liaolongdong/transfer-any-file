@@ -2,9 +2,10 @@
 import { computed } from 'vue';
 import { Right } from '@element-plus/icons-vue';
 import { FileFormat } from '~/utils/core/types';
-import type { FileFormat as FileFormatType } from '~/utils/core/types';
-import { getFormatLabel, getFormatCategory } from '~/utils/core/format-labels';
+import type { FileFormat as FileFormatType, FileCategory } from '~/utils/core/types';
+import { getFormatLabel, getFormatCategory, FORMAT_INFO } from '~/utils/core/format-labels';
 import { converterRegistry } from '~/utils/core/registry';
+import { getBlockedReason } from '~/utils/core/conversion-policy';
 import { useI18n } from '~/composables/useI18n';
 
 const props = defineProps<{
@@ -22,24 +23,44 @@ const { t } = useI18n();
 const hasSource = computed(() => props.sourceFormats.length > 0);
 const isMixed = computed(() => props.sourceFormats.length > 1);
 
-const CATEGORY_LABEL_KEYS: Record<string, string> = {
+const CATEGORY_LABEL_KEYS: Record<FileCategory, string> = {
   document: 'format.categoryDocument',
   image: 'format.categoryImage',
   data: 'format.categoryData',
 };
 
+/** Fixed display order keeps the dropdown layout stable regardless of the source */
+const CATEGORY_ORDER: FileCategory[] = ['document', 'image', 'data'];
+
+/** Every known format, so unsupported targets are shown greyed-out instead of hidden */
+const ALL_FORMATS = Object.keys(FORMAT_INFO) as FileFormatType[];
+
 const formatGroups = computed(() => {
-  const groups: Record<string, FileFormatType[]> = {};
-  for (const format of props.availableTargets) {
+  const groups = new Map<FileCategory, FileFormatType[]>();
+  for (const format of ALL_FORMATS) {
     const category = getFormatCategory(format);
-    if (!groups[category]) groups[category] = [];
-    groups[category].push(format);
+    const list = groups.get(category);
+    if (list) list.push(format);
+    else groups.set(category, [format]);
   }
-  return Object.entries(groups).map(([key, options]) => ({
-    label: t(CATEGORY_LABEL_KEYS[key] ?? key),
-    options,
+  return CATEGORY_ORDER.filter(category => groups.has(category)).map(category => ({
+    label: t(CATEGORY_LABEL_KEYS[category]),
+    options: groups.get(category) ?? [],
   }));
 });
+
+/** Targets that are actually selectable: reachable in the graph AND semantically valid */
+const selectableSet = computed(() => new Set(props.availableTargets));
+
+/** Why an option is disabled: same as source, blocked by policy, or simply unreachable */
+function disabledReason(format: FileFormatType): string {
+  if (props.sourceFormats.includes(format)) return t('format.disabledSameSource');
+  if (props.sourceFormats.length === 1) {
+    const blocked = getBlockedReason(props.sourceFormats[0], format);
+    if (blocked) return t(blocked);
+  }
+  return t('format.disabledUnsupported');
+}
 
 const conversionPathLabels = computed(() => {
   if (!props.targetFormat || props.sourceFormats.length === 0) return [];
@@ -106,7 +127,12 @@ function handleChange(format: FileFormat): void {
               :key="format"
               :label="getFormatLabel(format)"
               :value="format"
-            />
+              :disabled="!selectableSet.has(format)"
+            >
+              <span :title="selectableSet.has(format) ? undefined : disabledReason(format)">
+                {{ getFormatLabel(format) }}
+              </span>
+            </el-option>
           </el-option-group>
         </el-select>
       </div>
