@@ -1,14 +1,14 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import { Download, View, CircleCloseFilled } from '@element-plus/icons-vue';
+import { Download, View, CopyDocument } from '@element-plus/icons-vue';
 import type { ConvertResult } from '~/utils/core/types';
 import type { ConversionFailure } from '~/composables/useConversion';
-import { CONVERSION_ERROR_KEYS } from '~/composables/useConversion';
 import { useI18n } from '~/composables/useI18n';
 import { useFileDetect } from '~/composables/useFileDetect';
-import { formatSize } from '~/utils/core/format';
+import { formatSize, TEXT_FORMATS } from '~/utils/core/format';
 import { FileFormat } from '~/utils/core/types';
 import PreviewDialog from '~/components/shared/PreviewDialog.vue';
+import FailureDiagnosticItem from '~/components/shared/FailureDiagnosticItem.vue';
 
 const props = defineProps<{
   results: ConvertResult[];
@@ -41,9 +41,7 @@ const downloadButtonText = computed(() => {
   return t('result.downloadZip', { count: props.results.length });
 });
 
-function failureReason(reason: string): string {
-  return CONVERSION_ERROR_KEYS.has(reason) ? t(reason) : reason;
-}
+/** Text-readable result formats are defined in ~/utils/core/format. */
 
 function handleDownload(): void {
   if (props.results.length === 1) {
@@ -55,6 +53,25 @@ function handleDownload(): void {
 
 function detectFormatFromFilename(name: string): FileFormat | null {
   return detectFormat(new File([], name));
+}
+
+function isTextResult(result: ConvertResult): boolean {
+  const format = detectFormatFromFilename(result.filename);
+  return format !== null && TEXT_FORMATS.has(format);
+}
+
+async function copyResult(result: ConvertResult): Promise<void> {
+  if (!isTextResult(result)) {
+    ElMessage.warning(t('result.copyUnavailable'));
+    return;
+  }
+  try {
+    const text = await result.blob.text();
+    await navigator.clipboard.writeText(text);
+    ElMessage.success(t('preview.copied'));
+  } catch {
+    ElMessage.error(t('errors.unknown'));
+  }
 }
 
 const previewVisible = ref(false);
@@ -98,7 +115,18 @@ function openPreview(result: ConvertResult): void {
             text
             type="primary"
             :title="t('result.preview')"
+            :aria-label="t('a11y.preview')"
             @click="openPreview(result)"
+          />
+          <el-button
+            v-if="isTextResult(result)"
+            :icon="CopyDocument"
+            size="small"
+            text
+            type="primary"
+            :title="t('result.copy')"
+            :aria-label="t('a11y.copy')"
+            @click="copyResult(result)"
           />
           <el-button
             v-if="results.length > 1"
@@ -107,23 +135,16 @@ function openPreview(result: ConvertResult): void {
             text
             type="primary"
             :title="t('result.download')"
+            :aria-label="t('a11y.download')"
             @click="emit('download', index)"
           />
         </div>
-        <div
+        <template
           v-for="(failure, index) in failures"
           :key="index"
-          class="result-item failed"
         >
-          <el-icon
-            :size="14"
-            color="var(--el-color-danger)"
-          >
-            <CircleCloseFilled />
-          </el-icon>
-          <span class="result-name">{{ failure.fileName }}</span>
-          <span class="result-reason">{{ failureReason(failure.reason) }}</span>
-        </div>
+          <FailureDiagnosticItem :failure="failure" />
+        </template>
       </div>
     </el-alert>
 
@@ -182,15 +203,6 @@ function openPreview(result: ConvertResult): void {
 .result-size {
   flex-shrink: 0;
   color: var(--fat-text-secondary);
-}
-
-.result-item.failed .result-name {
-  color: var(--el-color-danger);
-}
-
-.result-reason {
-  flex-shrink: 0;
-  color: var(--el-color-danger);
 }
 
 .download-actions {

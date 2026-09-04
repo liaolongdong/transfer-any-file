@@ -1,21 +1,61 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, onMounted, onUnmounted, watch } from 'vue';
 import { ArrowDown } from '@element-plus/icons-vue';
+import { STORAGE_KEYS, storageGet, storageSet } from '~/utils/storage';
 
 const props = withDefaults(
   defineProps<{
     title: string;
-    /** Initial expanded state */
+    /** Initial expanded state, used only when no persisted state exists. */
     defaultOpen?: boolean;
+    /**
+     * Optional stable identifier; when set, the open/closed state is persisted
+     * under STORAGE_KEYS.collapsedState and restored on next mount.
+     */
+    cardId?: string;
   }>(),
-  { defaultOpen: true },
+  { defaultOpen: true, cardId: '' },
 );
 
 const isOpen = ref(props.defaultOpen);
+let persistDebounce: ReturnType<typeof setTimeout> | undefined;
+let isMounted = false;
 
 function toggle(): void {
   isOpen.value = !isOpen.value;
 }
+
+onMounted(async () => {
+  isMounted = true;
+  if (!props.cardId) return;
+  const map = await storageGet<Record<string, boolean>>(STORAGE_KEYS.collapsedState, {});
+  if (props.cardId in map) {
+    isOpen.value = Boolean(map[props.cardId]);
+  }
+});
+
+onUnmounted(() => {
+  isMounted = false;
+  if (persistDebounce !== undefined) {
+    clearTimeout(persistDebounce);
+    persistDebounce = undefined;
+  }
+});
+
+watch(isOpen, (value) => {
+  if (!props.cardId) return;
+  clearTimeout(persistDebounce);
+  persistDebounce = setTimeout(() => {
+    persistDebounce = undefined;
+    // The component may have unmounted between the debounce and the callback
+    if (!isMounted) return;
+    void (async () => {
+      const map = await storageGet<Record<string, boolean>>(STORAGE_KEYS.collapsedState, {});
+      map[props.cardId] = value;
+      await storageSet(STORAGE_KEYS.collapsedState, map);
+    })();
+  }, 200);
+});
 </script>
 
 <template>

@@ -61,7 +61,6 @@ const docxToHtmlConverter: Converter = {
         }
       }
     } catch (error) {
-      console.error('DOCX parse failed:', error);
       throw new Error('errors.docxParse', { cause: error });
     }
 

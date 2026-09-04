@@ -4,7 +4,7 @@ import { Edit, View, CopyDocument, ArrowLeft, ArrowRight } from '@element-plus/i
 import { FileFormat } from '~/utils/core/types';
 import type { ConvertResult } from '~/utils/core/types';
 import { getFormatLabel, getFormatCategory } from '~/utils/core/format-labels';
-import { formatSize } from '~/utils/core/format';
+import { formatSize, TEXT_FORMATS } from '~/utils/core/format';
 import { docxToPreviewHtml, xlsxToPreviewHtml } from '~/utils/core/preview';
 import { useI18n } from '~/composables/useI18n';
 import { STORAGE_KEYS, storageGet, storageSet } from '~/utils/storage';
@@ -42,7 +42,7 @@ const panelsContainer = ref<HTMLElement | null>(null);
 const splitPercent = ref(50);
 const isDragging = ref(false);
 
-const TEXT_FORMATS = new Set<FileFormat>([FileFormat.MD, FileFormat.HTML, FileFormat.TXT, FileFormat.CSV, FileFormat.JSON]);
+// TEXT_FORMATS is shared via ~/utils/core/format.
 
 const isSourceImage = computed(() => props.sourceFormat !== null && getFormatCategory(props.sourceFormat) === 'image');
 const isResultImage = computed(() => props.targetFormat !== null && getFormatCategory(props.targetFormat) === 'image');
@@ -209,9 +209,19 @@ function showResultOnly(): void {
 
 // --- Keyboard shortcuts ---
 function handleKeydown(e: KeyboardEvent): void {
-  // Don't intercept when user is typing in an input/textarea
-  const tag = (e.target as HTMLElement)?.tagName;
-  if (tag === 'INPUT' || tag === 'TEXTAREA' || (e.target as HTMLElement)?.isContentEditable) return;
+  // Ignore when the user is composing a shortcut with a modifier (Ctrl/⌘/Alt/Shift);
+  // those combinations are reserved for the browser, OS, or extension shortcuts.
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+
+  // Don't intercept when user is typing in an input/textarea/contenteditable,
+  // or interacting with Element Plus combobox/listbox widgets (el-select, dropdown menus).
+  const target = e.target as HTMLElement | null;
+  if (!target) return;
+  const tag = target.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || target.isContentEditable) return;
+  const role = target.getAttribute('role');
+  if (role === 'combobox' || role === 'listbox' || role === 'menu' || role === 'menuitem') return;
+  if (target.closest('.el-select, .el-dropdown, .el-popper')) return;
 
   switch (e.key) {
     case '1': showSourceOnly(); break;
@@ -374,6 +384,8 @@ function toggleEdit(): void {
           class="divider-btn"
           :class="{ active: isSourceOnly }"
           :title="t('comparison.sourceOnly')"
+          :aria-label="t('a11y.sourceOnly')"
+          :aria-pressed="isSourceOnly"
           type="button"
           @click.stop="showSourceOnly"
         >
@@ -385,6 +397,8 @@ function toggleEdit(): void {
           class="divider-btn"
           :class="{ active: !isSourceOnly && !isResultOnly }"
           :title="t('comparison.splitView')"
+          :aria-label="t('a11y.splitView')"
+          :aria-pressed="!isSourceOnly && !isResultOnly"
           type="button"
           @click.stop="showSplitView"
         >
@@ -397,6 +411,8 @@ function toggleEdit(): void {
           class="divider-btn"
           :class="{ active: isResultOnly }"
           :title="t('comparison.resultOnly')"
+          :aria-label="t('a11y.resultOnly')"
+          :aria-pressed="isResultOnly"
           type="button"
           @click.stop="showResultOnly"
         >
@@ -515,6 +531,8 @@ function toggleEdit(): void {
           :class="{ active: isSourceOnly }"
           type="button"
           :title="t('comparison.sourceOnly') + ' (1)'"
+          :aria-label="t('a11y.sourceOnly') + ' (1)'"
+          :aria-pressed="isSourceOnly"
           @click="showSourceOnly"
         >
           <el-icon :size="14">
@@ -527,6 +545,8 @@ function toggleEdit(): void {
           :class="{ active: !isSourceOnly && !isResultOnly }"
           type="button"
           :title="t('comparison.splitView') + ' (2)'"
+          :aria-label="t('a11y.splitView') + ' (2)'"
+          :aria-pressed="!isSourceOnly && !isResultOnly"
           @click="showSplitView"
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -540,6 +560,8 @@ function toggleEdit(): void {
           :class="{ active: isResultOnly }"
           type="button"
           :title="t('comparison.resultOnly') + ' (3)'"
+          :aria-label="t('a11y.resultOnly') + ' (3)'"
+          :aria-pressed="isResultOnly"
           @click="showResultOnly"
         >
           <el-icon :size="14">

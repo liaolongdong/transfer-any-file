@@ -1,14 +1,23 @@
 import { ref, computed } from 'vue';
 import type { Ref, ComputedRef } from 'vue';
 import { saveAs } from 'file-saver';
-import { zip } from 'fflate';
-import type { Zippable } from 'fflate';
+import { Zip, ZipPassThrough } from 'fflate';
 import { FileFormat } from '~/utils/core/types';
 import type { ConvertResult } from '~/utils/core/types';
 import { converterRegistry } from '~/utils/core/registry';
 import { getBlockedReason } from '~/utils/core/conversion-policy';
 import { useFileDetect } from '~/composables/useFileDetect';
 import { useHistory } from '~/composables/useHistory';
+import { useRecentTargets } from '~/composables/useRecentTargets';
+import { useNotification } from '~/composables/useNotification';
+import { useI18n } from '~/composables/useI18n';
+import { formatSize } from '~/utils/core/format';
+import { getFormatLabel } from '~/utils/core/format-labels';
+import { STORAGE_KEYS, storageGet } from '~/utils/storage';
+
+// F15 — pre-conversion confirmation thresholds. Any of these triggers the dialog.
+const CONFIRM_FILE_COUNT = 5;
+const CONFIRM_TOTAL_BYTES = 20 * 1024 * 1024;
 
 /** i18n keys for known conversion errors */
 export const CONVERSION_ERROR_KEYS = new Set([
@@ -33,11 +42,24 @@ export interface ConversionFailure {
   fileName: string;
   /** Either an i18n key from CONVERSION_ERROR_KEYS or a raw error message */
   reason: string;
+  /**
+   * Planned conversion path including start (`path[0]`) and end (`path[path.length - 1]`).
+   * Empty when the chain never ran (unknown source format, no path found).
+   */
+  path: FileFormat[];
+  /**
+   * 1-indexed step that failed within the chain (e.g. 2 of 3 for MD→HTML→PNG
+   * when the HTML→PNG step throws). Undefined when no chain ran.
+   */
+  failedStep?: number;
 }
 
 export function useConversion() {
   const { detectFormat } = useFileDetect();
   const { addRecord } = useHistory();
+  const { recordTarget } = useRecentTargets();
+  const { t } = useI18n();
+  const { notify } = useNotification();
 
   const sourceFiles: Ref<File[]> = ref([]);
   const sourceFormats: Ref<(FileFormat | null)[]> = ref([]);
@@ -49,6 +71,18 @@ export function useConversion() {
   const batchFailures: Ref<ConversionFailure[]> = ref([]);
   const currentIndex: Ref<number> = ref(-1);
   const completedCount: Ref<number> = ref(0);
+
+  // Undo: snapshot of the previous successful batch (results + failures + target).
+  // null when nothing to undo. Cleared on clearResults/reset and overwritten
+  // whenever a new convert() overwrites a populated batch.
+  interface BatchSnapshot {
+    results: ConvertResult[];
+    failures: ConversionFailure[];
+    completedCount: number;
+    currentIndex: number;
+    target: FileFormat;
+  }
+  const previousBatch: Ref<BatchSnapshot | null> = ref(null);
 
   let abortController: AbortController | null = null;
 
@@ -106,16 +140,74 @@ export function useConversion() {
     }
     if (isConverting.value) return;
 
+    // F15 — pre-conversion confirmation. The user opts in once via the
+    // PreferencesMenu toggle (stored as fat:confirmConvert, default true).
+    // Skip the dialog entirely when the toggle is off OR when the batch is
+    // small (≤5 files AND ≤20MB). Most conversions are multi-step under the
+    // hood, so multi-step alone is not a trigger — it just gets mentioned in
+    // the message when present.
+    const files = [...sourceFiles.value];
+    const formats = [...sourceFormats.value];
+    const totalBytes = files.reduce((sum, f) => sum + f.size, 0);
+    const hasMultiStep = formats.some((fmt): boolean => {
+      if (fmt === null) return false;
+      const steps = converterRegistry.findConversionPath(fmt, target);
+      return !!steps && steps.length > 1;
+    });
+    const overThreshold =
+      files.length > CONFIRM_FILE_COUNT || totalBytes > CONFIRM_TOTAL_BYTES;
+    if (overThreshold) {
+      const confirmEnabled = await storageGet<boolean>(STORAGE_KEYS.confirmConvert, true);
+      if (confirmEnabled) {
+        try {
+          const messageKey = hasMultiStep ? 'convert.confirmSummaryMultiStep' : 'convert.confirmSummary';
+          await ElMessageBox.confirm(
+            t(messageKey, {
+              count: files.length,
+              size: formatSize(totalBytes),
+              target: getFormatLabel(target),
+            }),
+            t('convert.confirmTitle'),
+            {
+              confirmButtonText: t('convert.confirmOk'),
+              cancelButtonText: t('convert.confirmCancel'),
+              type: 'info',
+            },
+          );
+        } catch {
+          ElMessage.info(t('convert.confirmCancelled'));
+          return;
+        }
+      }
+    }
+
+    // Capture the current batch as the undo target before this run overwrites it.
+    // Only snapshot when there's something to restore AND the target is known
+    // (a snapshot with target=null wouldn't be useful to undo).
+    if (targetFormat.value !== null && (batchResults.value.length > 0 || batchFailures.value.length > 0)) {
+      previousBatch.value = {
+        results: [...batchResults.value],
+        failures: [...batchFailures.value],
+        completedCount: completedCount.value,
+        currentIndex: currentIndex.value,
+        target: targetFormat.value,
+      };
+    } else {
+      previousBatch.value = null;
+    }
+
     isConverting.value = true;
     error.value = null;
     batchResults.value = [];
     batchFailures.value = [];
     completedCount.value = 0;
+    // Defensive: a leftover controller (e.g. if reset() was called mid-flight)
+    // would otherwise orphan its signal. Aborting it lets the abandoned loop
+    // break at its next signal check instead of doing wasted work.
+    if (abortController && !abortController.signal.aborted) {
+      abortController.abort();
+    }
     abortController = new AbortController();
-
-    // Snapshot the batch so uploads/pastes during conversion can't mutate it mid-loop
-    const files = [...sourceFiles.value];
-    const formats = [...sourceFormats.value];
 
     const results: ConvertResult[] = [];
     const failures: ConversionFailure[] = [];
@@ -149,6 +241,11 @@ export function useConversion() {
         currentIndex.value = i;
         const file = files[i];
         const format = formats[i];
+        // Closure-local diagnostic state: written by the inner step-level catch
+        // and read by the outer per-file catch so the UI can show the planned
+        // path and which step blew up. Stays []/undefined when the chain never ran.
+        let stepPath: FileFormat[] = [];
+        let stepFailedAt: number | undefined;
         try {
           if (!format) throw new Error('errors.unknownFormat');
 
@@ -156,32 +253,48 @@ export function useConversion() {
           const steps = converterRegistry.findConversionPath(format, target);
           if (!steps || steps.length === 0) throw new Error('errors.noPath');
 
+          // Build the format chain: every step's `to`, prefixed with the source format.
+          // path[0] is the source, path[path.length-1] is the target, path.length-1 is the
+          // number of steps — handy for F19's diagnostic panel.
+          stepPath = [format, ...steps.map(s => s.to)];
+
           let currentBlob: Blob = file;
           // The final step's filename carries the real container extension
           // (e.g. a multi-sheet XLSX→CSV yields a .zip, not a .csv)
+          // Regex picks up only the trailing extension; names without a dot fall back to target.
           let outExt: string = target;
-          for (const step of steps) {
+          for (let stepIndex = 0; stepIndex < steps.length; stepIndex++) {
             if (abortController.signal.aborted) break;
-            const stepResult = await step.converter.convert(currentBlob);
-            currentBlob = stepResult.blob;
-            outExt = stepResult.filename.split('.').pop() || target;
+            const step = steps[stepIndex];
+            try {
+              const stepResult = await step.converter.convert(currentBlob);
+              currentBlob = stepResult.blob;
+              const m = /\.([^.]+)$/.exec(stepResult.filename);
+              if (m && m[1]) outExt = m[1];
+            } catch (stepError) {
+              stepFailedAt = stepIndex + 1;
+              throw stepError;
+            }
           }
           if (abortController.signal.aborted) break;
 
           const base = file.name.replace(/\.[^.]+$/, '');
           results.push({ blob: currentBlob, filename: uniqueName(base, outExt) });
-          batchResults.value.push(results[results.length - 1]);
         } catch (e) {
           // Isolate per-file errors: keep converting the remaining files
           const failure: ConversionFailure = {
             fileName: file.name,
             reason: e instanceof Error && e.message ? e.message : 'errors.unknown',
+            path: stepPath,
+            failedStep: stepFailedAt,
           };
           failures.push(failure);
           batchFailures.value.push(failure);
         }
         completedCount.value = i + 1;
       }
+      // B2: assign once after the loop so Vue only fires one reactive update
+      batchResults.value = results;
 
       // Record successful conversions in history (metadata only, no blob);
       // a storage failure must never leave the UI stuck in "converting"
@@ -190,8 +303,12 @@ export function useConversion() {
         try {
           const totalSourceSize = files.reduce((sum, f) => sum + f.size, 0);
           const totalResultSize = results.reduce((sum, r) => sum + r.blob.size, 0);
+          // For a batch, fold the remaining count into the stored name so the raw
+          // history field stays self-describing (UI and tooltip both render it as-is).
+          const firstName = files[0].name;
+          const batchName = files.length > 1 ? `${firstName} + ${files.length - 1}` : firstName;
           await addRecord({
-            fileName: files[0].name,
+            fileName: batchName,
             sourceFormat: firstFormat,
             targetFormat: target,
             fileSize: totalSourceSize,
@@ -201,11 +318,31 @@ export function useConversion() {
         } catch {
           // History is best-effort; ignore storage errors
         }
+        // Refresh the recently-used list for the FormatSelector quick-pick group.
+        // Best-effort, fire-and-forget: failures here cannot affect the batch.
+        void recordTarget(target);
       }
     } finally {
+      const wasCancelled = abortController?.signal.aborted ?? false;
       isConverting.value = false;
       currentIndex.value = -1;
       abortController = null;
+      // Desktop notification on natural completion (skip when user cancelled or batch was empty).
+      // The composable internally no-ops if permission is missing or the tab is already focused.
+      if (!wasCancelled && (results.length > 0 || failures.length > 0)) {
+        const title = t('prefs.notificationTitle');
+        let body: string;
+        if (failures.length === 0) {
+          body = t('prefs.notificationBodyAllOk', { count: results.length });
+        } else if (results.length === 0) {
+          body = t('prefs.notificationBodyAllFail', { count: failures.length });
+        } else {
+          body = t('prefs.notificationBodyPartial', { ok: results.length, fail: failures.length });
+        }
+        notify(title, body, () => {
+          window.focus();
+        });
+      }
     }
   }
 
@@ -219,7 +356,10 @@ export function useConversion() {
     saveAs(r.blob, r.filename);
   }
 
-  /** Bundle all results into a single ZIP so the browser fires one download */
+  /** Bundle all results into a single ZIP so the browser fires one download.
+   *  Uses fflate's streaming Zip + ZipPassThrough so a large batch doesn't have
+   *  to materialize every entry's bytes and the final archive in memory at
+   *  the same time. */
   async function downloadAllZip(): Promise<void> {
     const items = batchResults.value;
     if (items.length === 0) return;
@@ -228,15 +368,28 @@ export function useConversion() {
       return;
     }
     try {
-      const entries: Zippable = {};
-      for (const r of items) {
-        entries[r.filename] = new Uint8Array(await r.blob.arrayBuffer());
-      }
-      const zipped = await new Promise<Uint8Array>((resolve, reject) => {
-        zip(entries, { level: 6 }, (err, data) => (err ? reject(err) : resolve(data)));
+      const chunks: BlobPart[] = [];
+      await new Promise<void>((resolve, reject) => {
+        const zipStream = new Zip((err, chunk, final) => {
+          if (err) { reject(err); return; }
+          if (chunk) chunks.push(chunk);
+          if (final) resolve();
+        });
+        (async () => {
+          try {
+            for (const r of items) {
+              const passthrough = new ZipPassThrough(r.filename);
+              zipStream.add(passthrough);
+              passthrough.push(new Uint8Array(await r.blob.arrayBuffer()), true);
+            }
+            zipStream.end();
+          } catch (e) {
+            reject(e);
+          }
+        })();
       });
       const stamp = new Date().toISOString().slice(0, 10);
-      saveAs(new Blob([zipped as BlobPart], { type: 'application/zip' }), `converted-${stamp}.zip`);
+      saveAs(new Blob(chunks, { type: 'application/zip' }), `converted-${stamp}.zip`);
     } catch {
       error.value = 'errors.zipFail';
     }
@@ -256,6 +409,7 @@ export function useConversion() {
     error.value = null;
     completedCount.value = 0;
     currentIndex.value = -1;
+    previousBatch.value = null;
   }
 
   function reset(): void {
@@ -268,7 +422,27 @@ export function useConversion() {
     error.value = null;
     completedCount.value = 0;
     currentIndex.value = -1;
+    previousBatch.value = null;
   }
+
+  /** Restore the previously converted batch. Returns true on success, false if
+   *  there's nothing to undo or the snapshot doesn't apply (e.g. files were
+   *  swapped in the meantime). */
+  function undo(): boolean {
+    if (isConverting.value) return false;
+    const snap = previousBatch.value;
+    if (!snap) return false;
+    batchResults.value = snap.results;
+    batchFailures.value = snap.failures;
+    completedCount.value = snap.completedCount;
+    currentIndex.value = snap.currentIndex;
+    targetFormat.value = snap.target;
+    error.value = null;
+    previousBatch.value = null;
+    return true;
+  }
+
+  const hasUndo: ComputedRef<boolean> = computed(() => previousBatch.value !== null && !isConverting.value);
 
   return {
     sourceFile,
@@ -294,5 +468,7 @@ export function useConversion() {
     updateResult,
     clearResults,
     reset,
+    undo,
+    hasUndo,
   };
 }

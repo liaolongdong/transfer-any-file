@@ -7,6 +7,11 @@ export const STORAGE_KEYS = {
   locale: 'fat:locale',
   history: 'fat:history',
   splitPosition: 'fat:splitPosition',
+  collapsedState: 'fat:collapsedState',
+  recentTargets: 'fat:recentTargets',
+  notifyOnComplete: 'fat:notifyOnComplete',
+  confirmConvert: 'fat:confirmConvert',
+  shortcuts: 'fat:shortcuts',
 } as const;
 
 /** Read a value from local storage with a fallback */

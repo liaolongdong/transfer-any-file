@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { computed, ref, defineAsyncComponent, onMounted, onUnmounted } from 'vue';
-import { Setting, RefreshRight, CircleClose } from '@element-plus/icons-vue';
+import { Setting, RefreshRight, CircleClose, UploadFilled } from '@element-plus/icons-vue';
 import { initConverters } from '~/utils/converters';
 import { useConversion, CONVERSION_ERROR_KEYS } from '~/composables/useConversion';
 import { useI18n } from '~/composables/useI18n';
+import { useRecentTargets } from '~/composables/useRecentTargets';
+import { useShortcuts } from '~/composables/useShortcuts';
 import { converterRegistry } from '~/utils/core/registry';
 import { FileFormat } from '~/utils/core/types';
 import type { ConvertResult } from '~/utils/core/types';
@@ -22,6 +24,10 @@ const ComparisonView = defineAsyncComponent(() => import('~/components/shared/Co
 initConverters();
 
 const { t } = useI18n();
+const { recent: recentTargets } = useRecentTargets();
+const { matches: shortcutMatches, formatAction: formatConvertShortcut } = useShortcuts();
+
+const fileUploadRef = ref<InstanceType<typeof FileUpload> | null>(null);
 
 const {
   sourceFile,
@@ -36,6 +42,7 @@ const {
   batchFailures,
   completedCount,
   totalCount,
+  currentIndex,
   setFiles,
   setTargetFormat,
   convert,
@@ -45,6 +52,8 @@ const {
   updateResult,
   clearResults,
   reset,
+  undo,
+  hasUndo,
 } = useConversion();
 
 const registeredPairs = converterRegistry.getRegisteredFormats();
@@ -70,6 +79,13 @@ const batchProgressPercent = computed(() => {
   if (totalCount.value === 0) return 0;
   return Math.round((completedCount.value / totalCount.value) * 100);
 });
+/** Name of the file currently being processed, for the F6 single-file progress hint. */
+const currentFileName = computed(() => {
+  if (!isConverting.value) return null;
+  const idx = currentIndex.value;
+  if (idx < 0 || idx >= sourceFiles.value.length) return null;
+  return sourceFiles.value[idx]?.name ?? null;
+});
 // At least one recognizable file is enough; unknown ones fail per-file
 const canConvert = computed(
   () => !isConverting.value && uniqueSourceFormats.value.length > 0 && targetFormat.value !== null,
@@ -89,6 +105,27 @@ const convertButtonText = computed(() => {
 const displayError = computed(() => {
   if (!error.value) return null;
   return CONVERSION_ERROR_KEYS.has(error.value) ? t(error.value) : error.value;
+});
+
+// F10 — live region announcement. Only flips when the message actually changes,
+// so screen readers don't re-read it on every intermediate state tick.
+const statusAnnouncement = computed<string | null>(() => {
+  if (isConverting.value) {
+    return t('a11y.converting', {
+      current: Math.min(currentIndex.value + 1, totalCount.value || 1),
+      total: totalCount.value || 1,
+    });
+  }
+  if (isDone.value) {
+    const ok = batchResults.value.length;
+    const fail = batchFailures.value.length;
+    const total = ok + fail;
+    if (total === 0) return null;
+    if (fail === 0) return t('a11y.convertAllOk', { count: ok });
+    if (ok === 0) return t('a11y.convertAllFail', { count: fail });
+    return t('a11y.convertCompleted', { ok, fail });
+  }
+  return null;
 });
 
 function progressFormat(): string {
@@ -132,8 +169,16 @@ function handleReuse(payload: { sourceFormat: FileFormat; targetFormat: FileForm
   ElMessage.info(t('history.reusePending'));
 }
 
+function handleUndo(): void {
+  if (undo()) {
+    ElMessage.success(t('convert.undone'));
+  } else {
+    ElMessage.info(t('convert.undoUnavailable'));
+  }
+}
+
 function handleGlobalKeydown(event: KeyboardEvent): void {
-  if (event.key !== 'Enter' || !(event.ctrlKey || event.metaKey)) return;
+  if (!shortcutMatches('convert', event)) return;
   const target = event.target as HTMLElement | null;
   // Don't steal the shortcut while the user is typing somewhere
   if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return;
@@ -142,17 +187,77 @@ function handleGlobalKeydown(event: KeyboardEvent): void {
   convert();
 }
 
+// --- Workspace-level drag-and-drop ---------------------------------------
+// The FileUpload's own drop zone works, but users often miss it on a tall
+// page. A page-wide overlay lets them drop anywhere. The counter pattern
+// tolerates nested enter/leave events fired on every child element.
+const isWorkspaceDragging = ref(false);
+let dragCounter = 0;
+
+function isFileDrag(event: DragEvent): boolean {
+  const types = event.dataTransfer?.types;
+  if (!types) return false;
+  // DataTransferItemList is array-like, DataTransfer.types is DOMStringList in
+  // some engines; Array.from covers both.
+  return Array.from(types).includes('Files');
+}
+
+function handleWorkspaceDragEnter(event: DragEvent): void {
+  if (!isFileDrag(event)) return;
+  event.preventDefault();
+  dragCounter += 1;
+  if (!isConverting.value) isWorkspaceDragging.value = true;
+}
+
+function handleWorkspaceDragOver(event: DragEvent): void {
+  if (!isFileDrag(event)) return;
+  // Without preventDefault the browser refuses the drop
+  event.preventDefault();
+  if (event.dataTransfer) event.dataTransfer.dropEffect = isConverting.value ? 'none' : 'copy';
+}
+
+function handleWorkspaceDragLeave(event: DragEvent): void {
+  if (!isFileDrag(event)) return;
+  event.preventDefault();
+  dragCounter = Math.max(0, dragCounter - 1);
+  if (dragCounter === 0) isWorkspaceDragging.value = false;
+}
+
+function handleWorkspaceDrop(event: DragEvent): void {
+  if (!isFileDrag(event)) return;
+  event.preventDefault();
+  dragCounter = 0;
+  isWorkspaceDragging.value = false;
+  if (isConverting.value) return;
+  const files = Array.from(event.dataTransfer?.files ?? []);
+  if (files.length === 0) return;
+  fileUploadRef.value?.addFiles(files);
+}
+
 onMounted(() => {
   document.addEventListener('keydown', handleGlobalKeydown);
+  document.addEventListener('dragenter', handleWorkspaceDragEnter);
+  document.addEventListener('dragover', handleWorkspaceDragOver);
+  document.addEventListener('dragleave', handleWorkspaceDragLeave);
+  document.addEventListener('drop', handleWorkspaceDrop);
 });
 
 onUnmounted(() => {
   document.removeEventListener('keydown', handleGlobalKeydown);
+  document.removeEventListener('dragenter', handleWorkspaceDragEnter);
+  document.removeEventListener('dragover', handleWorkspaceDragOver);
+  document.removeEventListener('dragleave', handleWorkspaceDragLeave);
+  document.removeEventListener('drop', handleWorkspaceDrop);
 });
 </script>
 
 <template>
   <div class="workbench">
+    <a
+      href="#main-content"
+      class="skip-link"
+    >{{ t('a11y.skipToContent') }}</a>
+
     <header class="topbar">
       <div class="topbar-inner">
         <div class="brand">
@@ -169,6 +274,7 @@ onUnmounted(() => {
               :icon="Setting"
               circle
               :title="t('options.preferences')"
+              :aria-label="t('options.preferences')"
             />
           </template>
           <PreferencesMenu />
@@ -176,14 +282,28 @@ onUnmounted(() => {
       </div>
     </header>
 
-    <main class="content">
+    <main
+      id="main-content"
+      class="content"
+      tabindex="-1"
+    >
       <div class="col col-main">
         <div class="card">
           <FileUpload
+            ref="fileUploadRef"
             :disabled="isConverting"
             @update:files="handleFilesUpdate"
           />
         </div>
+
+        <!-- F10 — live region for conversion status. Visually hidden, but
+             announced by screen readers whenever statusAnnouncement changes. -->
+        <div
+          class="sr-only"
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+        >{{ statusAnnouncement ?? '' }}</div>
 
         <Transition name="card" mode="out-in">
           <div
@@ -196,6 +316,7 @@ onUnmounted(() => {
                 :source-formats="uniqueSourceFormats"
                 :available-targets="availableTargets"
                 :target-format="targetFormat"
+                :recent-targets="recentTargets"
                 @update:target-format="setTargetFormat"
               />
               <el-button
@@ -204,7 +325,7 @@ onUnmounted(() => {
                 :loading="isConverting"
                 :disabled="!canConvert"
                 class="convert-btn"
-                :title="t('convert.shortcutHint')"
+                :title="t('convert.shortcutHint', { shortcut: formatConvertShortcut('convert') })"
                 @click="convert"
               >
                 {{ convertButtonText }}
@@ -242,6 +363,7 @@ onUnmounted(() => {
             <ConversionProgress
               :is-converting="isConverting"
               :error="displayError"
+              :current-file-name="currentFileName"
             />
           </div>
         </Transition>
@@ -258,14 +380,25 @@ onUnmounted(() => {
               @download="downloadResult"
               @download-all="downloadAllZip"
             />
-            <el-button
-              text
-              type="info"
-              class="reset-btn"
-              @click="clearResults"
-            >
-              {{ t('convert.reconvert') }}
-            </el-button>
+            <div class="result-actions">
+              <el-button
+                text
+                type="info"
+                class="reset-btn"
+                @click="clearResults"
+              >
+                {{ t('convert.reconvert') }}
+              </el-button>
+              <el-button
+                v-if="hasUndo"
+                text
+                type="warning"
+                class="undo-btn"
+                @click="handleUndo"
+              >
+                {{ t('convert.undo') }}
+              </el-button>
+            </div>
           </div>
         </Transition>
 
@@ -281,7 +414,10 @@ onUnmounted(() => {
           />
         </Transition>
 
-        <CollapsibleCard :title="t('history.title')">
+        <CollapsibleCard
+          card-id="history"
+          :title="t('history.title')"
+        >
           <HistoryPanel @reuse="handleReuse" />
         </CollapsibleCard>
       </div>
@@ -290,6 +426,21 @@ onUnmounted(() => {
     <footer class="footer">
       {{ t('footer.stats', { formats: formatCount, paths: pathCount }) }}
     </footer>
+
+    <Transition name="fade">
+      <div
+        v-if="isWorkspaceDragging"
+        class="drop-overlay"
+        aria-hidden="true"
+      >
+        <div class="drop-overlay-inner">
+          <el-icon :size="64">
+            <UploadFilled />
+          </el-icon>
+          <p>{{ t('workspace.dropHint') }}</p>
+        </div>
+      </div>
+    </Transition>
   </div>
 </template>
 
@@ -300,6 +451,44 @@ onUnmounted(() => {
   background: var(--fat-bg-page);
   font-family: var(--fat-font-family);
   color: var(--fat-text-regular);
+}
+
+/* F10 — visually hidden until focused. Skip link lets keyboard users jump
+   past the topbar to the main content area in one keystroke. */
+.skip-link {
+  position: absolute;
+  top: var(--fat-space-sm);
+  left: var(--fat-space-sm);
+  z-index: 10000;
+  padding: var(--fat-space-xs) var(--fat-space-sm);
+  background: var(--fat-primary);
+  color: #fff;
+  border-radius: var(--fat-radius-sm);
+  text-decoration: none;
+  font-weight: 600;
+  transform: translateY(-200%);
+  transition: transform 0.15s ease;
+}
+
+.skip-link:focus-visible {
+  transform: translateY(0);
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+
+/* Visually hidden but exposed to assistive tech (live region, screen-reader-only
+   labels, etc.). Standard 1px clip pattern — display:none / visibility:hidden
+   would actually hide the content from screen readers as well. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
 }
 
 .topbar {
@@ -382,6 +571,18 @@ onUnmounted(() => {
   margin-top: var(--fat-space-sm);
 }
 
+.result-actions {
+  display: flex;
+  gap: var(--fat-space-sm);
+  margin-top: var(--fat-space-sm);
+}
+
+.result-actions .reset-btn,
+.result-actions .undo-btn {
+  flex: 1;
+  margin-top: 0;
+}
+
 .batch-progress {
   padding: var(--fat-space-sm) 0 0;
 }
@@ -408,6 +609,44 @@ onUnmounted(() => {
 .card-leave-to {
   opacity: 0;
   transform: translateY(-8px);
+}
+
+/* Workspace-wide drag-and-drop hint. The wrapper is pointer-events: none so
+   the browser still receives the drop on the underlying element. */
+.drop-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--fat-primary-bg);
+  border: 4px dashed var(--fat-primary);
+  pointer-events: none;
+}
+
+.drop-overlay-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--fat-space-md);
+  padding: var(--fat-space-xl) calc(var(--fat-space-xl) * 1.5);
+  background: var(--fat-bg-card);
+  border-radius: var(--fat-radius-lg);
+  box-shadow: var(--fat-shadow-lg);
+  color: var(--fat-primary);
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.15s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
 }
 
 @media (width <= 640px) {

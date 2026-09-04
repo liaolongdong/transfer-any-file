@@ -13,11 +13,9 @@ export class ConverterRegistry {
     const key = this.makeKey(converter.from, converter.to);
     const targets = this.adjacency.get(converter.from);
     if (targets) {
-      if (targets.includes(converter.to)) {
-        this.converters.set(key, converter);
-        return;
+      if (!targets.includes(converter.to)) {
+        targets.push(converter.to);
       }
-      targets.push(converter.to);
     } else {
       this.adjacency.set(converter.from, [converter.to]);
     }
@@ -38,9 +36,10 @@ export class ConverterRegistry {
     const visited = new Set<FileFormat>([from]);
     const queue: FileFormat[] = [from];
     const result: FileFormat[] = [];
+    let head = 0;
 
-    while (queue.length > 0) {
-      const current = queue.shift()!;
+    while (head < queue.length) {
+      const current = queue[head++];
       const directTargets = this.getDirectTargets(current);
 
       for (const target of directTargets) {
@@ -72,9 +71,10 @@ export class ConverterRegistry {
     const visited = new Set<FileFormat>([from]);
     // Queue stores: [currentFormat, pathToHere]
     const queue: [FileFormat, ConversionStep[]][] = [[from, []]];
+    let head = 0;
 
-    while (queue.length > 0) {
-      const [current, path] = queue.shift()!;
+    while (head < queue.length) {
+      const [current, path] = queue[head++];
       const directTargets = this.getDirectTargets(current);
 
       for (const target of directTargets) {

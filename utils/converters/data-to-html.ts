@@ -12,7 +12,7 @@ function tablesOnly(html: string): string {
   return Array.from(tables).map(t => t.outerHTML).join('\n');
 }
 
-function workbookToHtmlBody(XLSX: typeof import('xlsx'), workbook: WorkBook): string {
+async function workbookToHtmlBody(XLSX: typeof import('xlsx'), workbook: WorkBook): Promise<string> {
   const parts: string[] = [];
   for (const name of workbook.SheetNames) {
     const sheet = workbook.Sheets[name];
@@ -24,7 +24,12 @@ function workbookToHtmlBody(XLSX: typeof import('xlsx'), workbook: WorkBook): st
     parts.push(tablesOnly(XLSX.utils.sheet_to_html(sheet, { editable: false })));
   }
   if (parts.length === 0) throw new Error('errors.xlsxEmpty');
-  return parts.join('\n');
+  // sheet_to_html's output is structurally safe (tables only) but the cell
+  // values flow in raw; sanitize once here so the wrapped document and any
+  // downstream converter (DOCX/PDF/PNG) starts from trusted HTML.
+  const purifyModule = await import('dompurify');
+  const DOMPurify = purifyModule.default;
+  return DOMPurify.sanitize(parts.join('\n'), { USE_PROFILES: { html: true } }) as string;
 }
 
 /** CSV → HTML bridges the data cluster into all document formats */
@@ -35,7 +40,7 @@ const csvToHtmlConverter: Converter = {
   async convert(input: Blob): Promise<ConvertResult> {
     const [XLSX, text] = await Promise.all([import('xlsx'), decodeTextBlob(input, 'errors.csvDecode')]);
     const workbook = XLSX.read(text, { type: 'string', raw: false });
-    const blob = wrapHtmlDocument(workbookToHtmlBody(XLSX, workbook));
+    const blob = wrapHtmlDocument(await workbookToHtmlBody(XLSX, workbook));
     return { blob, filename: 'converted.html' };
   },
 };
@@ -47,7 +52,7 @@ const xlsxToHtmlConverter: Converter = {
   async convert(input: Blob): Promise<ConvertResult> {
     const [XLSX, buffer] = await Promise.all([import('xlsx'), input.arrayBuffer()]);
     const workbook = XLSX.read(buffer, { type: 'array', raw: false });
-    const blob = wrapHtmlDocument(workbookToHtmlBody(XLSX, workbook));
+    const blob = wrapHtmlDocument(await workbookToHtmlBody(XLSX, workbook));
     return { blob, filename: 'converted.html' };
   },
 };

@@ -83,7 +83,7 @@ async function convertFile(page, fixtureFile, targetText) {
   await sel.click();
   await page.waitForTimeout(500);
 
-  const opt = await page.locator('.el-select-dropdown__item').filter({ hasText: targetText }).first();
+  const opt = await page.locator('.el-select-dropdown__item:visible').filter({ hasText: targetText }).first();
   if (!(await opt.isVisible())) throw new Error(`${targetText} option not available`);
   await opt.click();
   await page.waitForTimeout(300);
@@ -272,7 +272,7 @@ async function run() {
     const sel = await page.$('.action-row .el-select');
     await sel.click();
     await page.waitForTimeout(500);
-    const opt = await page.locator('.el-select-dropdown__item').filter({ hasText: 'HTML (.html)' }).first();
+    const opt = await page.locator('.el-select-dropdown__item:visible').filter({ hasText: 'HTML (.html)' }).first();
     await opt.click();
     await page.waitForTimeout(300);
     await (await page.$('.convert-btn')).click();
@@ -376,7 +376,7 @@ async function run() {
     const sel = await page.$('.action-row .el-select');
     await sel.click();
     await page.waitForTimeout(500);
-    const opt = await page.locator('.el-select-dropdown__item').filter({ hasText: 'HTML (.html)' }).first();
+    const opt = await page.locator('.el-select-dropdown__item:visible').filter({ hasText: 'HTML (.html)' }).first();
     await opt.click();
     await page.waitForTimeout(300);
     await page.keyboard.press('Escape');
@@ -387,7 +387,7 @@ async function run() {
       if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
     });
 
-    await page.keyboard.press('Control+Enter');
+    await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Enter' : 'Control+Enter');
 
     await page.waitForFunction(() => {
       const alert = document.querySelector('.el-alert__title');
@@ -428,7 +428,7 @@ async function run() {
     const sel = await page.$('.action-row .el-select');
     await sel.click();
     await page.waitForTimeout(500);
-    const pdfOpt = await page.locator('.el-select-dropdown__item').filter({ hasText: 'PDF (.pdf)' }).first();
+    const pdfOpt = await page.locator('.el-select-dropdown__item:visible').filter({ hasText: 'PDF (.pdf)' }).first();
     await pdfOpt.click();
     await page.waitForTimeout(500);
 
@@ -654,8 +654,8 @@ async function run() {
     if (historyItems.length > 0) ok(`History has ${historyItems.length} record(s)`);
     else throw new Error('no history records after conversion');
 
-    // Click clear button
-    const clearBtn = await page.$('.history-head .el-button');
+    // Click clear button (third action: Export, Import, Clear)
+    const clearBtn = await page.$('.history-head-actions .el-button:last-child');
     if (!clearBtn) throw new Error('clear button not found');
     await clearBtn.click();
     await page.waitForTimeout(500);
@@ -699,7 +699,7 @@ async function run() {
     const sel = await page.$('.action-row .el-select');
     await sel.click();
     await page.waitForTimeout(500);
-    const pdfOpt = await page.locator('.el-select-dropdown__item').filter({ hasText: 'PDF (.pdf)' }).first();
+    const pdfOpt = await page.locator('.el-select-dropdown__item:visible').filter({ hasText: 'PDF (.pdf)' }).first();
     await pdfOpt.click();
     await page.waitForTimeout(300);
 

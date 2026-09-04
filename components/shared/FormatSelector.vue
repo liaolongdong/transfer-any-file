@@ -8,11 +8,16 @@ import { converterRegistry } from '~/utils/core/registry';
 import { getBlockedReason } from '~/utils/core/conversion-policy';
 import { useI18n } from '~/composables/useI18n';
 
-const props = defineProps<{
-  sourceFormats: FileFormat[];
-  availableTargets: FileFormat[];
-  targetFormat: FileFormat | null;
-}>();
+const props = withDefaults(
+  defineProps<{
+    sourceFormats: FileFormat[];
+    availableTargets: FileFormat[];
+    targetFormat: FileFormat | null;
+    /** Most recently used targets, ordered newest-first. */
+    recentTargets?: FileFormat[];
+  }>(),
+  { recentTargets: () => [] },
+);
 
 const emit = defineEmits<{
   (e: 'update:targetFormat', format: FileFormat): void;
@@ -61,6 +66,11 @@ function disabledReason(format: FileFormatType): string {
   }
   return t('format.disabledUnsupported');
 }
+
+/** F17: recent targets that are still selectable for the current source. */
+const recentOptions = computed<FileFormatType[]>(() => {
+  return props.recentTargets.filter(f => selectableSet.value.has(f));
+});
 
 const conversionPathLabels = computed(() => {
   if (!props.targetFormat || props.sourceFormats.length === 0) return [];
@@ -117,6 +127,20 @@ function handleChange(format: FileFormat): void {
           style="width: 100%"
           @change="handleChange"
         >
+          <el-option-group
+            v-if="recentOptions.length > 0"
+            :key="'recent'"
+            :label="t('format.recentUsed')"
+          >
+            <el-option
+              v-for="format in recentOptions"
+              :key="`recent-${format}`"
+              :label="getFormatLabel(format)"
+              :value="format"
+            >
+              {{ getFormatLabel(format) }}
+            </el-option>
+          </el-option-group>
           <el-option-group
             v-for="group in formatGroups"
             :key="group.label"

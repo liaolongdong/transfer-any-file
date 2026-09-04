@@ -100,7 +100,6 @@ export const htmlToPngConverter: Converter = {
       const pngBlob = await canvasToBlob(canvas, 'image/png');
       return { blob: pngBlob, filename: 'converted.png' };
     } catch (error) {
-      console.error('HTML to PNG conversion failed:', error);
       throw new Error('errors.imageEncode', { cause: error });
     } finally {
       if (iframe.parentNode) {

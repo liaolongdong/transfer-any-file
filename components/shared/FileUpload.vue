@@ -1,13 +1,17 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted, defineAsyncComponent } from 'vue';
 import type { Component } from 'vue';
-import { UploadFilled, Delete, Plus, Picture, Document, Grid } from '@element-plus/icons-vue';
+import { UploadFilled, Delete, Plus, Picture, Document, Grid, View } from '@element-plus/icons-vue';
 import { unzipSync } from 'fflate';
 import { FileFormat } from '~/utils/core/types';
 import { getFormatLabel, getFormatCategory } from '~/utils/core/format-labels';
 import { formatSize } from '~/utils/core/format';
 import { useFileDetect, SUPPORTED_EXTENSIONS } from '~/composables/useFileDetect';
 import { useI18n } from '~/composables/useI18n';
+
+// Heavy component — only loaded when the user actually opens a source preview,
+// so the document/image rendering deps stay out of the initial bundle.
+const PreviewDialog = defineAsyncComponent(() => import('~/components/shared/PreviewDialog.vue'));
 
 const props = withDefaults(
   defineProps<{
@@ -32,7 +36,9 @@ const isDragging = ref(false);
 const appendMode = ref(false);
 
 const acceptExtensions = [...SUPPORTED_EXTENSIONS, '.zip'].join(',');
-const pasteKey = /mac/i.test(navigator.platform) ? '⌘V' : 'Ctrl+V';
+// navigator.platform is deprecated; userAgent is the portable, broadly-supported way to
+// detect macOS for the paste shortcut hint.
+const pasteKey = /mac/i.test(navigator.userAgent) ? '⌘V' : 'Ctrl+V';
 
 const dropText = computed(() => (selectedFiles.value.length === 0 ? t('upload.drop') : t('upload.replace')));
 
@@ -138,9 +144,15 @@ const MAX_BATCH_FILES = 200;
 /** Unpack .zip uploads so archives of documents/images convert as a batch */
 async function expandArchives(files: File[]): Promise<File[]> {
   const out: File[] = [];
+  // `done` short-circuits both the inner entries loop and the outer zip loop,
+  // so a cap hit stops processing every remaining archive instead of silently
+  // pushing past MAX_BATCH_FILES.
+  let done = false;
   for (const file of files) {
+    if (done) break;
     if (!file.name.toLowerCase().endsWith('.zip')) {
       out.push(file);
+      if (out.length >= MAX_BATCH_FILES) done = true;
       continue;
     }
     try {
@@ -154,7 +166,10 @@ async function expandArchives(files: File[]): Promise<File[]> {
         if (!SUPPORTED_EXTENSIONS.includes(ext)) continue;
         out.push(new File([data], base));
         added++;
-        if (out.length >= MAX_BATCH_FILES) break;
+        if (out.length >= MAX_BATCH_FILES) {
+          done = true;
+          break;
+        }
       }
       if (added === 0) ElMessage.warning(t('upload.zipNoFiles', { name: file.name }));
       else ElMessage.success(t('upload.zipExtracted', { name: file.name, count: added }));
@@ -189,6 +204,10 @@ async function applyFiles(files: File[]): Promise<void> {
   }
   selectedFiles.value = next;
   detectedFormats.value = next.map(f => detectFormat(f));
+  const unknownCount = detectedFormats.value.filter(f => f === null).length;
+  if (unknownCount > 0) {
+    ElMessage.warning(t('upload.unknownFormatNotice', { count: unknownCount }));
+  }
   emit('update:files', next);
 }
 
@@ -205,6 +224,28 @@ function removeFile(index: number): void {
   }
 }
 
+// --- Source file preview (F12) -------------------------------------------
+// Lets users confirm they picked the right file before committing to a
+// (potentially long) conversion. The dialog reuses PreviewDialog and is only
+// opened when the source format is known.
+const previewVisible = ref(false);
+const previewBlob = ref<Blob | null>(null);
+const previewFormat = ref<FileFormat>(FileFormat.TXT);
+const previewFilename = ref('');
+
+function previewFile(index: number): void {
+  const file = selectedFiles.value[index];
+  const format = detectedFormats.value[index];
+  if (!file || !format) {
+    ElMessage.warning(t('upload.previewUnsupported'));
+    return;
+  }
+  previewBlob.value = file;
+  previewFormat.value = format;
+  previewFilename.value = file.name;
+  previewVisible.value = true;
+}
+
 function getFileIcon(format: FileFormat | null): Component {
   if (!format) return Document;
   const category = getFormatCategory(format);
@@ -217,6 +258,15 @@ function getFormatLabelSafe(format: FileFormat | null): string {
   if (!format) return t('upload.unknownFormat');
   return getFormatLabel(format);
 }
+
+/** Public entry point: let parents hand us files from a global drop without
+ *  bypassing the archive-expand / size-validate / batch-cap pipeline. */
+defineExpose({
+  addFiles(files: File[]): void {
+    if (props.disabled) return;
+    selectFiles(files);
+  },
+});
 </script>
 
 <template>
@@ -248,7 +298,7 @@ function getFormatLabelSafe(format: FileFormat | null): string {
       type="file"
       :multiple="multiple"
       :accept="acceptExtensions"
-      aria-label="Upload files"
+      :aria-label="t('upload.ariaLabel')"
       style="display: none"
       @change="handleFileSelect"
     />
@@ -322,14 +372,32 @@ function getFormatLabelSafe(format: FileFormat | null): string {
           </span>
         </div>
         <el-button
+          v-if="detectedFormats[index]"
+          :icon="View"
+          size="small"
+          text
+          type="primary"
+          :title="t('upload.preview')"
+          :aria-label="t('a11y.preview')"
+          @click.stop="previewFile(index)"
+        />
+        <el-button
           :icon="Delete"
           size="small"
           text
           type="danger"
+          :aria-label="t('a11y.remove')"
           @click.stop="removeFile(index)"
         />
       </div>
     </TransitionGroup>
+
+    <PreviewDialog
+      v-model:visible="previewVisible"
+      :blob="previewBlob"
+      :format="previewFormat"
+      :filename="previewFilename"
+    />
   </div>
 </template>
 

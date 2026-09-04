@@ -27,6 +27,8 @@ let initialized = false;
 const darkMq = typeof window !== 'undefined'
   ? window.matchMedia('(prefers-color-scheme: dark)')
   : null;
+let darkModeListener: ((event: MediaQueryListEvent) => void) | null = null;
+const storageUnsubs: Array<() => void> = [];
 
 function resolveMode(mode: ColorMode): 'light' | 'dark' {
   if (mode === 'system') {
@@ -63,22 +65,38 @@ async function initTheme(): Promise<void> {
   applyTheme(state.theme);
   applyMode(state.mode);
 
-  darkMq?.addEventListener('change', () => {
+  darkModeListener = () => {
     if (state.mode === 'system') applyMode('system');
-  });
+  };
+  darkMq?.addEventListener('change', darkModeListener);
 
-  onStorageChange<ThemeName>(STORAGE_KEYS.theme, value => {
-    if (value && VALID_THEMES.has(value)) {
-      state.theme = value;
-      applyTheme(value);
-    }
-  });
+  storageUnsubs.push(
+    onStorageChange<ThemeName>(STORAGE_KEYS.theme, value => {
+      if (value && VALID_THEMES.has(value)) {
+        state.theme = value;
+        applyTheme(value);
+      }
+    }),
+    onStorageChange<ColorMode>(STORAGE_KEYS.colorMode, value => {
+      if (value && VALID_MODES.has(value)) {
+        state.mode = value;
+        applyMode(value);
+      }
+    }),
+  );
+}
 
-  onStorageChange<ColorMode>(STORAGE_KEYS.colorMode, value => {
-    if (value && VALID_MODES.has(value)) {
-      state.mode = value;
-      applyMode(value);
+// HMR: detach the media-query listener and storage subscriptions so hot
+// replacement doesn't pile up duplicates.
+if (import.meta.hot) {
+  import.meta.hot.dispose(() => {
+    if (darkMq && darkModeListener) {
+      darkMq.removeEventListener('change', darkModeListener);
+      darkModeListener = null;
     }
+    for (const off of storageUnsubs) off();
+    storageUnsubs.length = 0;
+    initialized = false;
   });
 }
 

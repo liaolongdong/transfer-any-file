@@ -16,6 +16,7 @@ const state = reactive<{ locale: Locale; ready: boolean }>({
 });
 
 let initialized = false;
+let unsubscribe: (() => void) | null = null;
 
 function resolveKey(dict: Messages, path: string): string {
   const value = path.split('.').reduce<unknown>((acc, key) => {
@@ -37,8 +38,16 @@ async function initLocale(): Promise<void> {
   initialized = true;
   state.locale = await storageGet<Locale>(STORAGE_KEYS.locale, DEFAULT_LOCALE);
   state.ready = true;
-  onStorageChange<Locale>(STORAGE_KEYS.locale, value => {
+  unsubscribe = onStorageChange<Locale>(STORAGE_KEYS.locale, value => {
     if (value === 'zh' || value === 'en') state.locale = value;
+  });
+}
+
+if (import.meta.hot) {
+  import.meta.hot.dispose(() => {
+    unsubscribe?.();
+    unsubscribe = null;
+    initialized = false;
   });
 }
 

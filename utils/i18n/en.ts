@@ -21,6 +21,7 @@ const en: typeof zh = {
     pasteHint: 'You can also paste an image or text with {key}',
     selectedCount: '{count} file(s) selected',
     unknownFormat: 'Unknown format',
+    unknownFormatNotice: '{count} file(s) have an unrecognized format and cannot be converted',
     tooLarge: 'File "{name}" exceeds 100MB and cannot be processed',
     largeWarning: 'File "{name}" is large ({size}), conversion may be slow',
     zipExtracted: 'Extracted {count} convertible file(s) from "{name}"',
@@ -29,6 +30,14 @@ const en: typeof zh = {
     addMore: 'Add files',
     clearAll: 'Clear',
     batchCap: 'Up to {max} files per batch; extra files were ignored',
+    ariaLabel: 'Select files',
+    preview: 'Preview',
+    previewUnsupported: 'Preview is not available for this format',
+  },
+
+  // Workspace drop overlay (F9)
+  workspace: {
+    dropHint: 'Release to add to workspace',
   },
 
   preview: {
@@ -88,6 +97,7 @@ const en: typeof zh = {
     disabledUnsupported: 'Conversion to this format is not supported',
     disabledImageNoText: 'Images cannot become text or tabular data (needs OCR, not supported)',
     disabledPdfNoData: 'PDF cannot be reliably converted to tabular data',
+    recentUsed: 'Recently used',
   },
 
   convert: {
@@ -97,8 +107,21 @@ const en: typeof zh = {
     cancelling: 'Cancelling...',
     cancel: 'Cancel',
     inProgress: 'Converting, please wait...',
+    currentFile: 'Processing: {name}',
     reconvert: 'Convert Again',
-    shortcutHint: 'Shortcut: Ctrl/⌘ + Enter',
+    undo: 'Undo',
+    undone: 'Last result undone',
+    undoUnavailable: 'No result to undo',
+    shortcutHint: 'Shortcut: {shortcut}',
+    // F15 — pre-conversion confirmation
+    confirmTitle: 'Start conversion?',
+    confirmSummary: 'About to convert {count} files ({size}) to {target} format.',
+    confirmSummaryMultiStep:
+      'About to convert {count} files ({size}) to {target} format.\nSome files need multiple steps and may take longer.',
+    confirmOk: 'Continue',
+    confirmCancel: 'Cancel',
+    confirmDontAsk: 'Don\'t ask again',
+    confirmCancelled: 'Conversion cancelled',
   },
 
   result: {
@@ -110,6 +133,20 @@ const en: typeof zh = {
     download: 'Download',
     downloadZip: 'Download ZIP ({count})',
     preview: 'Preview',
+    copy: 'Copy',
+    copyUnavailable: 'Result is not a text format and cannot be copied',
+    // F19 — failure diagnostic panel
+    failureSummary: 'Failed to convert {file}',
+    expandDetails: 'Show diagnostic details',
+    collapseDetails: 'Hide diagnostic details',
+    failurePath: 'Conversion path',
+    failureAtStep: 'Failed at step',
+    failureStepOf: 'Step {current} of {total}',
+    failureNoPath: 'No conversion path found',
+    failurePathArrow: ' → ',
+    copyDiagnostic: 'Copy diagnostic info',
+    diagnosticCopied: 'Diagnostic info copied',
+    diagnosticCopyFail: 'Copy failed; please select the text manually',
   },
 
   history: {
@@ -121,7 +158,21 @@ const en: typeof zh = {
     clear: 'Clear History',
     clearConfirm: 'Are you sure you want to clear all conversion history? This cannot be undone.',
     delete: 'Delete',
-    filesCount: '{count} file(s)',
+    trend: 'Size trend',
+    searchPlaceholder: 'Search by file name',
+    filterAll: 'All',
+    filterSource: 'Source',
+    filterTarget: 'Target',
+    noMatch: 'No matching records',
+    // F5 — export / import
+    export: 'Export',
+    import: 'Import',
+    exportEmpty: 'No history to export',
+    exportSuccess: 'Exported {count} record(s)',
+    importSuccess: 'Merged {count} record(s)',
+    importConfirm: 'Imported records will be merged with the current history by ID (duplicates will be overwritten). Continue?',
+    importInvalid: 'Invalid file format. Please select a history JSON exported by this extension.',
+    importFailed: 'Import failed: {error}',
   },
 
   prefs: {
@@ -132,6 +183,27 @@ const en: typeof zh = {
     modeLight: 'Light',
     modeDark: 'Dark',
     modeSystem: 'System',
+    notifyOnComplete: 'Show desktop notification when conversion finishes',
+    confirmConvert: 'Ask before large-batch conversions',
+    shortcutsTitle: 'Keyboard Shortcuts',
+    shortcutAction: {
+      convert: 'Start conversion',
+    },
+    shortcutChange: 'Change',
+    shortcutReset: 'Reset',
+    shortcutRecording: 'Press a new shortcut (Esc to cancel)',
+    shortcutInvalid: 'Invalid shortcut. Please use a combination that includes a modifier key',
+    shortcutReserved: 'That shortcut is reserved by the browser or extension and cannot be used',
+    shortcutError: 'Failed to save shortcut',
+    shortcutResetDone: 'Shortcut reset to default',
+    notifyGranted: 'Enabled',
+    notifyDenied: 'Notifications are blocked in your browser; enable them in site settings',
+    notifyUnsupported: 'Notifications are not supported in this environment',
+    notificationTitle: 'Conversion complete',
+    notificationBodyAllOk: '{count} file(s) converted successfully',
+    notificationBodyPartial: '{ok} succeeded, {fail} failed',
+    notificationBodyAllFail: 'All {count} file(s) failed to convert',
+    notificationClickHint: 'Click to view',
     themeNames: {
       blue: 'Classic Blue',
       green: 'Forest Green',
@@ -157,6 +229,47 @@ const en: typeof zh = {
     jsonParse: 'Failed to parse JSON; please check the file format',
     jsonNotArray: 'JSON must be an array of objects to convert to CSV',
     htmlToJson: 'Could not extract valid JSON data from the HTML',
+  },
+
+  // F10 — accessibility (ARIA labels & live-region messages)
+  a11y: {
+    skipToContent: 'Skip to main content',
+    // Icon-only buttons (overrides bare :title for screen readers)
+    delete: 'Delete',
+    remove: 'Remove',
+    preview: 'Preview',
+    copy: 'Copy',
+    download: 'Download',
+    import: 'Import',
+    export: 'Export',
+    clear: 'Clear',
+    collapse: 'Collapse',
+    expand: 'Expand',
+    cancel: 'Cancel',
+    close: 'Close',
+    // Toggle buttons (aria-pressed)
+    theme: 'Theme: {name}',
+    language: 'Language: {name}',
+    mode: 'Display mode: {name}',
+    // Comparison view modes
+    sourceOnly: 'Source only',
+    splitView: 'Split view',
+    resultOnly: 'Result only',
+    // Live region announcements
+    converting: 'Converting {current} of {total}',
+    convertStarted: 'Started converting {count} file(s)',
+    convertCompleted: 'Conversion complete: {ok} succeeded, {fail} failed',
+    convertAllOk: 'All {count} file(s) converted successfully',
+    convertAllFail: 'All {count} file(s) failed to convert',
+    convertCancelled: 'Conversion cancelled',
+    fileAdded: 'File added: {name}',
+    fileRemoved: 'File removed',
+    filesCleared: 'File list cleared',
+    targetChanged: 'Target format changed to {name}',
+    historyDeleted: 'History entry deleted',
+    historyCleared: 'History cleared',
+    historyExported: 'Exported {count} history entry/entries',
+    historyImported: 'Imported {count} history entry/entries',
   },
 
   footer: {

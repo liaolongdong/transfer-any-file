@@ -29,7 +29,6 @@ const htmlToDocxConverter: Converter = {
       }
       blob = result;
     } catch (error) {
-      console.error('DOCX generation failed:', error);
       throw new Error('errors.docxGen', { cause: error });
     }
 

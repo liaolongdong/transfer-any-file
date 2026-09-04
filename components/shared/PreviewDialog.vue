@@ -50,7 +50,7 @@ const isDocx = computed(() => props.format === FileFormat.DOCX);
 const isXlsx = computed(() => props.format === FileFormat.XLSX);
 const isRenderedDoc = computed(() => isHtml.value || isMarkdown.value || isDocx.value || isXlsx.value);
 
-watch([() => props.visible, () => props.blob], async ([vis, blob]) => {
+watch([() => props.visible, () => props.blob], async ([vis, blob], _prev, onCleanup) => {
   if (!vis || !blob) return;
   if (imageUrl.value) URL.revokeObjectURL(imageUrl.value);
   if (pdfUrl.value) URL.revokeObjectURL(pdfUrl.value);
@@ -61,8 +61,16 @@ watch([() => props.visible, () => props.blob], async ([vis, blob]) => {
   renderError.value = false;
   htmlView.value = 'rendered';
 
+  // Drop the result of this watch run if a newer run starts or the component
+  // is torn down before the async pipeline finishes.
+  let cancelled = false;
+  onCleanup(() => {
+    cancelled = true;
+  });
+
   if (isText.value) {
     const raw = await blob.text();
+    if (cancelled) return;
     if (props.format === FileFormat.JSON) {
       try {
         textContent.value = JSON.stringify(JSON.parse(raw), null, 2);
@@ -74,11 +82,20 @@ watch([() => props.visible, () => props.blob], async ([vis, blob]) => {
     }
   } else if (isMarkdown.value) {
     textContent.value = await blob.text();
-    const htmlBody = await marked(textContent.value);
+    if (cancelled) return;
+    const purifyModule = await import('dompurify');
+    const DOMPurify = purifyModule.default;
+    const htmlBody = DOMPurify.sanitize(await marked(textContent.value), { USE_PROFILES: { html: true } });
+    if (cancelled) return;
     renderedHtml.value = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>${DOCUMENT_CSS}</style></head><body>${htmlBody}</body></html>`;
   } else if (isHtml.value) {
     textContent.value = await blob.text();
-    renderedHtml.value = textContent.value;
+    if (cancelled) return;
+    const purifyModule = await import('dompurify');
+    const DOMPurify = purifyModule.default;
+    const htmlBody = DOMPurify.sanitize(textContent.value, { USE_PROFILES: { html: true } });
+    if (cancelled) return;
+    renderedHtml.value = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>${DOCUMENT_CSS}</style></head><body>${htmlBody}</body></html>`;
   } else if (isImage.value) {
     imageUrl.value = URL.createObjectURL(blob);
     scale.value = 1;
@@ -86,15 +103,19 @@ watch([() => props.visible, () => props.blob], async ([vis, blob]) => {
     pdfUrl.value = URL.createObjectURL(blob);
   } else if (isDocx.value) {
     try {
-      renderedHtml.value = await docxToPreviewHtml(blob);
+      const html = await docxToPreviewHtml(blob);
+      if (cancelled) return;
+      renderedHtml.value = html;
     } catch {
-      renderError.value = true;
+      if (!cancelled) renderError.value = true;
     }
   } else if (isXlsx.value) {
     try {
-      renderedHtml.value = await xlsxToPreviewHtml(blob);
+      const html = await xlsxToPreviewHtml(blob);
+      if (cancelled) return;
+      renderedHtml.value = html;
     } catch {
-      renderError.value = true;
+      if (!cancelled) renderError.value = true;
     }
   }
 });
@@ -149,13 +170,25 @@ function download(): void {
             <ElRadioButton value="rendered">{{ t('preview.renderedTab') }}</ElRadioButton>
             <ElRadioButton value="source">{{ t('preview.sourceTab') }}</ElRadioButton>
           </ElRadioGroup>
-          <ElButton v-if="isImage" text :title="t('preview.zoomOut')" @click="scale = Math.max(scale - 0.25, 0.25)">
+          <ElButton
+            v-if="isImage"
+            text
+            :title="t('preview.zoomOut')"
+            :aria-label="t('preview.zoomOut')"
+            @click="scale = Math.max(scale - 0.25, 0.25)"
+          >
             <ZoomOut />
           </ElButton>
-          <ElButton v-if="isImage" text :title="t('preview.zoomIn')" @click="scale = Math.min(scale + 0.25, 3)">
+          <ElButton
+            v-if="isImage"
+            text
+            :title="t('preview.zoomIn')"
+            :aria-label="t('preview.zoomIn')"
+            @click="scale = Math.min(scale + 0.25, 3)"
+          >
             <ZoomIn />
           </ElButton>
-          <ElButton text @click="download">
+          <ElButton text :aria-label="t('preview.download')" @click="download">
             <Download /> {{ t('preview.download') }}
           </ElButton>
         </div>

@@ -4,6 +4,8 @@ import { useI18n } from '~/composables/useI18n';
 defineProps<{
   isConverting: boolean;
   error: string | null;
+  /** Name of the file currently being processed (batch progress hint). */
+  currentFileName?: string | null;
 }>();
 
 const { t } = useI18n();
@@ -14,6 +16,9 @@ const { t } = useI18n();
     <div
       v-if="isConverting"
       class="loading-state"
+      role="status"
+      aria-live="polite"
+      aria-atomic="true"
     >
       <el-icon
         class="is-loading"
@@ -31,6 +36,13 @@ const { t } = useI18n();
         </svg>
       </el-icon>
       <p>{{ t('convert.inProgress') }}</p>
+      <p
+        v-if="currentFileName"
+        class="current-file"
+        :title="currentFileName"
+      >
+        {{ t('convert.currentFile', { name: currentFileName }) }}
+      </p>
     </div>
     <el-alert
       v-if="error"
@@ -59,5 +71,16 @@ const { t } = useI18n();
 
 .loading-state .is-loading {
   animation: fat-spin 1s linear infinite;
+}
+
+.current-file {
+  margin: 0;
+  max-width: 100%;
+  font-size: 12px;
+  color: var(--fat-text-placeholder);
+  font-family: var(--fat-font-mono);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 </style>

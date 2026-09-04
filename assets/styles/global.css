@@ -117,6 +117,52 @@ body {
   color: var(--fat-primary) !important;
 }
 
+/* F10 — global keyboard focus ring. :focus-visible only fires for keyboard
+   navigation, so mouse clicks stay clean. Tokens must stay in sync with
+   tokens.css so the ring matches the active theme. */
+:focus-visible {
+  outline: 2px solid var(--fat-primary);
+  outline-offset: 2px;
+  border-radius: var(--fat-radius-sm);
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+[tabindex]:focus-visible:not([tabindex='-1']) {
+  outline: 2px solid var(--fat-primary);
+  outline-offset: 2px;
+}
+
+/* Element Plus buttons already have their own border; outline without offset
+   sits on the border and disappears. Use a thicker offset so it stays visible. */
+.el-button:focus-visible {
+  outline: 2px solid var(--fat-primary) !important;
+  outline-offset: 2px !important;
+}
+
+.el-input__wrapper:focus-visible,
+.el-textarea__inner:focus-visible,
+.el-select__wrapper:focus-visible {
+  outline: 2px solid var(--fat-primary) !important;
+  outline-offset: 1px !important;
+}
+
+/* Toggle chips (e.g. theme picker) need a visible ring even when they are
+   not buttons — but :focus-visible is enough; .active stays as a visual cue. */
+.el-tag:focus-visible,
+[role='button']:focus-visible {
+  outline: 2px solid var(--fat-primary);
+  outline-offset: 2px;
+}
+
+/* Dark mode: lighter primary tint for better contrast against dark surfaces. */
+:root[data-mode='dark'] :focus-visible {
+  outline-color: var(--fat-primary-hover);
+}
+
 /* Dark mode button enhancements */
 :root[data-mode='dark'] .el-button--primary {
   background: var(--fat-primary-active) !important;
