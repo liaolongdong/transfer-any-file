@@ -52,7 +52,8 @@ const pdfToPngConverter: Converter = {
         pagePngs.push(new Uint8Array(await blob.arrayBuffer()));
       }
     } catch (error) {
-      console.error('PDF to PNG conversion failed:', error);
+      // The original failure travels with the thrown error via `cause`, so no
+      // console output is needed here (runtime code must stay free of `console`).
       throw new Error('errors.imageEncode', { cause: error });
     } finally {
       await loadingTask.destroy();

@@ -2,7 +2,7 @@
 import { ref, computed } from 'vue';
 import { Delete, Download, Right, Search, Upload } from '@element-plus/icons-vue';
 import { saveAs } from 'file-saver';
-import { useHistory } from '~/composables/useHistory';
+import { useHistory, HISTORY_IMPORT_ERROR_KEYS, searchableFileNames } from '~/composables/useHistory';
 import type { HistoryRecord } from '~/composables/useHistory';
 import { useI18n } from '~/composables/useI18n';
 import { getFormatLabel } from '~/utils/core/format-labels';
@@ -40,8 +40,14 @@ const filteredRecords = computed<HistoryRecord[]>(() => {
   const mode = filterMode.value;
   const fmt = filterFormat.value;
   return records.value.filter(r => {
-    if (query && !r.fileName.toLowerCase().includes(query)) return false;
+    // Match any file in the batch, not just the `"<first> + N"` display label —
+    // otherwise the 2nd..Nth files of a multi-file conversion are unfindable.
+    if (query && !searchableFileNames(r).some(n => n.toLowerCase().includes(query))) return false;
     if (fmt) {
+      // 'all' means the format may appear in either position. Without this branch both
+      // inner conditions are false and the dropdown silently filters nothing whenever
+      // the mode is left on its default.
+      if (mode === 'all' && r.sourceFormat !== fmt && r.targetFormat !== fmt) return false;
       if (mode === 'source' && r.sourceFormat !== fmt) return false;
       if (mode === 'target' && r.targetFormat !== fmt) return false;
     }
@@ -65,6 +71,13 @@ function formatTime(time: number): string {
 /** Machine-readable ISO timestamp backing the semantic `<time>` element */
 function isoTime(time: number): string {
   return new Date(time).toISOString();
+}
+
+/** Tooltip for the row label. A batch row reveals every member file on hover — the
+ *  visible text is compact by design, so this is the only place the full list lives. */
+function fileNamesTooltip(record: HistoryRecord): string {
+  const names = searchableFileNames(record);
+  return names.length > 1 ? names.join('\n') : record.fileName;
 }
 
 function handleReuse(record: HistoryRecord): void {
@@ -141,8 +154,10 @@ async function handleImportChange(e: Event): Promise<void> {
     }
     ElMessage.success(t('history.importSuccess', { count: result.merged }));
   } catch (err) {
+    // importData throws i18n keys for its known failures (HISTORY_IMPORT_ERROR_KEYS);
+    // anything else is unexpected, so it keeps the generic wrapper.
     const detail = err instanceof Error ? err.message : String(err);
-    ElMessage.error(t('history.importFailed', { error: detail }));
+    ElMessage.error(HISTORY_IMPORT_ERROR_KEYS.has(detail) ? t(detail) : t('history.importFailed', { error: detail }));
   }
 }
 </script>
@@ -270,7 +285,7 @@ async function handleImportChange(e: Event): Promise<void> {
           <div class="history-meta">
             <span
               class="history-name"
-              :title="record.fileName"
+              :title="fileNamesTooltip(record)"
             >
               {{ record.fileName }}
             </span>

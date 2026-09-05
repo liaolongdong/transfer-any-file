@@ -6,6 +6,7 @@ import { unzipSync } from 'fflate';
 import { FileFormat } from '~/utils/core/types';
 import { getFormatLabel, getFormatCategory } from '~/utils/core/format-labels';
 import { formatSize } from '~/utils/core/format';
+import { isMac } from '~/utils/core/platform';
 import { useFileDetect, SUPPORTED_EXTENSIONS } from '~/composables/useFileDetect';
 import { useI18n } from '~/composables/useI18n';
 
@@ -36,9 +37,9 @@ const isDragging = ref(false);
 const appendMode = ref(false);
 
 const acceptExtensions = [...SUPPORTED_EXTENSIONS, '.zip'].join(',');
-// navigator.platform is deprecated; userAgent is the portable, broadly-supported way to
-// detect macOS for the paste shortcut hint.
-const pasteKey = /mac/i.test(navigator.userAgent) ? '⌘V' : 'Ctrl+V';
+// Shared platform detection — see ~/utils/core/platform for why UA sniffing alone is
+// not enough (it misses iPadOS and Chromium builds with a reduced UA).
+const pasteKey = isMac ? '⌘V' : 'Ctrl+V';
 
 const dropText = computed(() => (selectedFiles.value.length === 0 ? t('upload.drop') : t('upload.replace')));
 

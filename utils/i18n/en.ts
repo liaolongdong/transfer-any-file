@@ -172,6 +172,9 @@ const en: typeof zh = {
     importSuccess: 'Merged {count} record(s)',
     importConfirm: 'Imported records will be merged with the current history by ID (duplicates will be overwritten). Continue?',
     importInvalid: 'Invalid file format. Please select a history JSON exported by this extension.',
+    importErrPayload: 'The file does not contain valid history data',
+    importErrVersion: 'History file version mismatch. Please select a JSON exported by this version.',
+    importErrRecords: 'No history records found in the file',
     importFailed: 'Import failed: {error}',
   },
 

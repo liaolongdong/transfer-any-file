@@ -283,11 +283,9 @@ function toggle(): void {
   color: var(--fat-text-regular);
 }
 
-.path-segment.is-source {
-  border-color: var(--fat-primary-border, var(--fat-primary));
-  color: var(--fat-primary);
-}
-
+/* Source and target endpoints are highlighted identically; only the mid-path
+   segments stay neutral. */
+.path-segment.is-source,
 .path-segment.is-target {
   border-color: var(--fat-primary-border, var(--fat-primary));
   color: var(--fat-primary);

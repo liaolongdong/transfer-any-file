@@ -725,6 +725,466 @@ async function run() {
   } catch (e) { fail('Conversion cancel', e.message); }
 
   // ═══════════════════════════════════════════
+  //  LARGE BATCH CONFIRMATION (F15)
+  // ═══════════════════════════════════════════
+
+  section('Large Batch Confirmation Dialog');
+  try {
+    await resetWorkbench(page);
+    // 6 files is one over CONFIRM_FILE_COUNT (5), so the dialog must appear. All six are
+    // small, so the byte threshold stays out of it and the count trigger is isolated.
+    // PDF is the target because it is reachable from every source here, and — unlike
+    // HTML — it is not itself one of the sources (a format present in the batch is
+    // excluded from its own target list).
+    const fi = await page.$('input[type="file"]');
+    await fi.setInputFiles([
+      path.join(FIXTURE_PATH, 'sample.md'),
+      path.join(FIXTURE_PATH, 'sample.html'),
+      path.join(FIXTURE_PATH, 'sample.txt'),
+      path.join(FIXTURE_PATH, 'sample.csv'),
+      path.join(FIXTURE_PATH, 'sample.json'),
+      path.join(FIXTURE_PATH, 'sample.svg'),
+    ]);
+    await page.waitForTimeout(1500);
+
+    const sel = await page.$('.action-row .el-select');
+    await sel.click();
+    await page.waitForTimeout(500);
+    const opt = await page.locator('.el-select-dropdown__item:visible').filter({ hasText: 'PDF (.pdf)' }).first();
+    await opt.click();
+    await page.waitForTimeout(300);
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(200);
+
+    await (await page.$('.convert-btn')).click();
+    await page.waitForSelector('.el-message-box', { timeout: 5000 });
+    const summary = await page.$eval('.el-message-box__message', el => el.textContent || '');
+    if (summary.includes('6')) ok('Confirm dialog summarises the 6-file batch');
+    else fail('Confirm dialog summary', `message: "${summary}"`);
+    await page.screenshot({ path: shot(`${String(shotIdx++).padStart(2, '0')}-confirm-dialog.png`), fullPage: true });
+
+    // Cancel: the first button is "cancel", and convert() must bail out with a toast.
+    await page.click('.el-message-box__btns .el-button:first-child');
+    await page.waitForFunction(
+      () => [...document.querySelectorAll('.el-message')].some(m => (m.textContent || '').includes('已取消')),
+      { timeout: 5000 },
+    );
+    ok('Cancelling the dialog aborts the conversion');
+
+    // Accept: the last button is "confirm" and the batch then runs to completion.
+    await (await page.$('.convert-btn')).click();
+    await page.waitForSelector('.el-message-box', { timeout: 5000 });
+    await page.click('.el-message-box__btns .el-button:last-child');
+    await page.waitForFunction(() => {
+      const alert = document.querySelector('.el-alert__title');
+      return alert && alert.textContent.includes('完成');
+    }, { timeout: 90000 });
+    ok('Accepting the dialog runs the batch');
+    await page.screenshot({ path: shot(`${String(shotIdx++).padStart(2, '0')}-confirm-accepted.png`), fullPage: true });
+  } catch (e) { fail('Large batch confirmation', e.message); }
+
+  // ═══════════════════════════════════════════
+  //  UNDO PREVIOUS BATCH
+  // ═══════════════════════════════════════════
+
+  section('Undo Previous Batch');
+  try {
+    await resetWorkbench(page);
+    await convertFile(page, 'sample.md', 'HTML (.html)');
+    await page.waitForTimeout(600);
+
+    const undoBefore = await page.$('.undo-btn');
+    if (!undoBefore) ok('Undo hidden after the first conversion of a batch');
+    else fail('Undo visibility', 'undo offered with no previous batch to restore');
+
+    // Re-convert: the run that just finished becomes the undo snapshot. `.undo-btn`
+    // only appears once isConverting flips back to false, so it doubles as the
+    // completion signal here.
+    await (await page.$('.convert-btn')).click();
+    await page.waitForSelector('.undo-btn', { timeout: 60000 });
+    ok('Undo available after re-converting the same batch');
+
+    // Replacing the files must invalidate the snapshot — otherwise undo restores results
+    // for files that are no longer selected while the file list shows the new ones.
+    const fi2 = await page.$('input[type="file"]');
+    await fi2.setInputFiles(path.join(FIXTURE_PATH, 'sample.txt'));
+    await page.waitForFunction(() => !document.querySelector('.undo-btn'), { timeout: 5000 });
+    ok('Undo invalidated after the file set changed');
+
+    // Now exercise the restore itself.
+    await convertFile(page, 'sample.txt', 'HTML (.html)');
+    await page.waitForTimeout(400);
+    await (await page.$('.convert-btn')).click();
+    await page.waitForSelector('.undo-btn', { timeout: 60000 });
+    await page.screenshot({ path: shot(`${String(shotIdx++).padStart(2, '0')}-undo-available.png`), fullPage: true });
+    await (await page.$('.undo-btn')).click();
+    await page.waitForFunction(
+      () => [...document.querySelectorAll('.el-message')].some(m => (m.textContent || '').includes('已撤销')),
+      { timeout: 5000 },
+    );
+    ok('Undo restored the previous batch and reported success');
+    await page.waitForFunction(() => !document.querySelector('.undo-btn'), { timeout: 5000 });
+    ok('Undo is one-shot — the snapshot is consumed');
+    await page.screenshot({ path: shot(`${String(shotIdx++).padStart(2, '0')}-undo-done.png`), fullPage: true });
+  } catch (e) { fail('Undo previous batch', e.message); }
+
+  // ═══════════════════════════════════════════
+  //  HISTORY SEARCH & FORMAT FILTER
+  // ═══════════════════════════════════════════
+
+  section('History Search & Filter');
+  try {
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(300);
+
+    // Seed a small deterministic history so the assertions don't depend on whatever the
+    // earlier sections happened to convert.
+    const clearBtn = await page.$('.history-head-actions .el-button:last-child');
+    if (clearBtn) {
+      await clearBtn.click();
+      await page.waitForTimeout(400);
+      await page.click('.el-message-box__btns .el-button:last-child');
+      await page.waitForTimeout(600);
+    }
+    await resetWorkbench(page);
+    await convertFile(page, 'sample.md', 'HTML (.html)');
+    await page.waitForTimeout(400);
+    await resetWorkbench(page);
+    await convertFile(page, 'sample.csv', 'Excel (.xlsx)');
+    await page.waitForTimeout(800);
+
+    const seededCount = (await page.$$('.history-item')).length;
+    if (seededCount < 2) throw new Error(`expected >= 2 seeded records, got ${seededCount}`);
+    ok(`Seeded ${seededCount} deterministic history record(s)`);
+
+    const searchInput = await page.$('.history-search input');
+    if (!searchInput) throw new Error('history search input not found');
+
+    await searchInput.fill('zzz-no-such-file');
+    await page.waitForTimeout(500);
+    const hitsNone = (await page.$$('.history-item')).length;
+    const emptyText = await page.$eval('.history-empty', el => el.textContent || '').catch(() => '');
+    if (hitsNone === 0 && emptyText.includes('没有匹配')) ok('Search with no hits shows the no-match state');
+    else fail('History search (no match)', `${hitsNone} items, empty text="${emptyText}"`);
+
+    await searchInput.fill('sample.csv');
+    await page.waitForTimeout(500);
+    const hitsOne = (await page.$$('.history-item')).length;
+    if (hitsOne === 1) ok('Search by file name narrows to the single match');
+    else fail('History search (match)', `expected 1 record, got ${hitsOne}`);
+
+    await searchInput.fill('');
+    await page.waitForTimeout(400);
+
+    // Format filter in the default "all" mode must match source OR target. It used to
+    // fall through both inner conditions and filter nothing at all, which is why the
+    // count is asserted against the seeded total rather than just "non-zero".
+    const fmtSel = await page.$('.history-format');
+    if (!fmtSel) throw new Error('history format filter not found');
+    await fmtSel.click();
+    await page.waitForTimeout(500);
+    const fmtOpt = await page.locator('.el-select-dropdown__item:visible').filter({ hasText: 'Excel (.xlsx)' }).first();
+    await fmtOpt.click();
+    await page.waitForTimeout(700);
+
+    const filteredCount = (await page.$$('.history-item')).length;
+    if (filteredCount === seededCount) {
+      fail('History format filter', `no-op: still ${filteredCount} of ${seededCount} records`);
+    } else if (filteredCount === 1) {
+      ok(`Format filter ("all" mode) narrowed ${seededCount} → 1 record`);
+    } else {
+      fail('History format filter', `expected 1 record, got ${filteredCount} of ${seededCount}`);
+    }
+    const allRelevant = await page.$$eval('.history-item', els => els.every(e => (e.textContent || '').includes('Excel')));
+    if (allRelevant) ok('Every surviving record actually involves the filtered format');
+    else fail('History format filter', 'a record without the format survived');
+    await page.screenshot({ path: shot(`${String(shotIdx++).padStart(2, '0')}-history-filter.png`), fullPage: true });
+  } catch (e) { fail('History search & filter', e.message); }
+
+  // ═══════════════════════════════════════════
+  //  HISTORY: FIND A BATCH MEMBER BY ITS REAL FILE NAME
+  // ═══════════════════════════════════════════
+
+  section('History search matches non-first batch file');
+  try {
+    await resetWorkbench(page);
+    const fi = await page.$('input[type="file"]');
+    await fi.setInputFiles([
+      path.join(FIXTURE_PATH, 'sample.md'),
+      path.join(FIXTURE_PATH, 'sample.txt'),
+    ]);
+    await page.waitForTimeout(1200);
+
+    const sel = await page.$('.action-row .el-select');
+    await sel.click();
+    await page.waitForTimeout(500);
+    const opt = await page.locator('.el-select-dropdown__item:visible').filter({ hasText: 'HTML (.html)' }).first();
+    await opt.click();
+    await page.waitForTimeout(300);
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(200);
+    await (await page.$('.convert-btn')).click();
+    // hasUndo/`.undo-btn` would work too, but the completion alert is the direct signal.
+    await page.waitForFunction(() => {
+      const el = document.querySelector('.el-alert__title');
+      return !!el && (el.textContent || '').includes('完成');
+    }, { timeout: 60000 });
+    await page.waitForTimeout(800);
+
+    const searchInput = await page.$('.history-search input');
+    if (!searchInput) throw new Error('history search input not found');
+
+    // The previous section leaves the format filter pinned to Excel, which would AND away
+    // this HTML-target record and make the search look broken. Clear every filter through
+    // the only affordance the UI offers for it — the reset button inside the no-match
+    // state — which puts that path under coverage too.
+    await searchInput.fill('zzz-no-such-file');
+    await page.waitForTimeout(600);
+    const resetBtn = await page.$('.history-empty .el-button');
+    if (!resetBtn) throw new Error('no-match state offers no reset button');
+    await resetBtn.click();
+    await page.waitForTimeout(500);
+
+    await searchInput.fill('sample.txt');
+    await page.waitForTimeout(600);
+
+    const hits = await page.$$('.history-item');
+    if (hits.length !== 1) {
+      fail('Batch-member search', `expected exactly 1 record for "sample.txt", got ${hits.length}`);
+    } else {
+      // The row's visible text is the compact label `"sample.md + 1"`, which does NOT
+      // contain the query. Proving that is what makes this a lock for the `fileNames`
+      // field rather than an accident of the label matching.
+      const label = (await hits[0].$eval('.history-name', el => el.textContent || '')).trim();
+      const tooltip = await hits[0].$eval('.history-name', el => el.getAttribute('title') || '');
+      if (!label.includes('sample.txt')) {
+        ok(`Found the batch via a file hidden by its label (row shows "${label}")`);
+      } else {
+        fail('Batch-member search', `label already contained the query, so this proves nothing: "${label}"`);
+      }
+      // The tooltip is the only place the full member list is surfaced in the UI.
+      if (tooltip.includes('sample.txt') && tooltip.includes('sample.md'))
+        ok('Row tooltip lists every file in the batch');
+      else fail('Batch tooltip', `title="${tooltip}"`);
+    }
+
+    await searchInput.fill('');
+    await page.waitForTimeout(400);
+    await page.screenshot({ path: shot(`${String(shotIdx++).padStart(2, '0')}-history-batch-search.png`), fullPage: true });
+  } catch (e) { fail('History batch-member search', e.message); }
+
+  // ═══════════════════════════════════════════
+  //  CUSTOM SHORTCUT RECORDING (F16)
+  // ═══════════════════════════════════════════
+
+  section('Custom Shortcut Recording');
+  try {
+    const gear = await page.$('.topbar-inner .el-button');
+    if (!gear) throw new Error('settings button not found');
+    await gear.click();
+    await page.waitForTimeout(800);
+
+    // `page.$eval` rejects when the selector is missing; an empty label is a softer
+    // failure than aborting the whole section. Two things to get right here: the `.catch`
+    // must be attached to the promise BEFORE `await` (awaiting first yields a string,
+    // which has no `.catch`), and the label must be re-queried rather than read off a
+    // cached handle — `.shortcut-key` is a v-if/v-else pair, so entering the recording
+    // state replaces the node and stale handles would throw.
+    const keyLabel = async () => (await page.$eval('.shortcut-key', el => el.textContent || '').catch(() => '')).trim();
+
+    if (!(await page.$('.shortcut-key'))) throw new Error('shortcut button not found in preferences');
+    const defaultLabel = await keyLabel();
+
+    await (await page.$('.shortcut-key')).click();
+    await page.waitForTimeout(300);
+    if (await page.$('.shortcut-key.recording')) ok('Shortcut button entered the recording state');
+    else fail('Shortcut recording', 'button did not enter the recording state');
+
+    // Rebind. The capture-phase listener stops this from reaching App.vue's convert
+    // handler, so the batch must not start converting mid-recording.
+    await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Shift+K' : 'Control+Shift+K');
+    await page.waitForTimeout(700);
+    const rebound = await keyLabel();
+    if (rebound && rebound !== defaultLabel) ok(`Shortcut rebound: "${defaultLabel}" → "${rebound}"`);
+    else fail('Shortcut rebind', `label unchanged: "${rebound}"`);
+    await page.screenshot({ path: shot(`${String(shotIdx++).padStart(2, '0')}-shortcut-rebound.png`), fullPage: true });
+
+    // A reserved bare key must be rejected. Only the RESERVED_LOWER path is exercised:
+    // RESERVED_COMBOS are all real browser shortcuts (Ctrl+T/W/N…), and dispatching them
+    // risks the driver acting on them and losing the tab under test.
+    await (await page.$('.shortcut-key')).click();
+    await page.waitForTimeout(300);
+    await page.keyboard.press('Tab');
+    await page.waitForTimeout(600);
+    const afterReserved = await keyLabel();
+    if (afterReserved === rebound) ok('Reserved key rejected — the binding was kept');
+    else fail('Reserved key', `binding changed to "${afterReserved}"`);
+
+    // Escape must cancel recording without saving.
+    await (await page.$('.shortcut-key')).click();
+    await page.waitForTimeout(300);
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(400);
+    if (!(await page.$('.shortcut-key.recording'))) ok('Escape cancelled the recording');
+    else fail('Escape cancel', 'still in the recording state');
+
+    // Restore the default so later sections (and re-runs) see the shipped binding.
+    const resetBtn = await page.$('.shortcut-reset');
+    if (!resetBtn) throw new Error('shortcut reset button not found');
+    await resetBtn.click();
+    await page.waitForTimeout(600);
+    const afterReset = await keyLabel();
+    if (afterReset === defaultLabel) ok(`Reset restored the default "${defaultLabel}"`);
+    else fail('Shortcut reset', `"${afterReset}" != "${defaultLabel}"`);
+
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(400);
+  } catch (e) { fail('Custom shortcut', e.message); }
+
+  // ═══════════════════════════════════════════
+  //  SKIP LINK & FOCUS RING (F10)
+  // ═══════════════════════════════════════════
+
+  section('Skip Link & Focus Ring');
+  try {
+    // Reload first so this section cannot inherit state from the previous one: a popover
+    // left open owns the tab order (Element Plus teleports it to the end of <body>) and
+    // the skip link would never be reached. addInitScript re-runs on every navigation, so
+    // the mocked chrome.storage survives.
+    await page.reload();
+    await page.waitForTimeout(2000);
+    // .skip-link is the first focusable node in the template, so one Tab from a freshly
+    // loaded document must land on it. Its slide-in is driven by :focus-visible, which a
+    // real keypress satisfies but a programmatic .focus() would not.
+    await page.keyboard.press('Tab');
+    await page.waitForTimeout(500);
+
+    const linkState = await page.evaluate(() => {
+      const el = document.querySelector('.skip-link');
+      if (!el) return null;
+      const cs = getComputedStyle(el);
+      return {
+        focused: document.activeElement === el,
+        top: el.getBoundingClientRect().top,
+        transform: cs.transform,
+        outlineStyle: cs.outlineStyle,
+      };
+    });
+    if (!linkState) throw new Error('skip link not found');
+    if (linkState.focused) ok('First Tab lands on the skip link');
+    else fail('Skip link focus', `activeElement is not .skip-link (top=${linkState.top})`);
+    if (linkState.top >= 0) ok(`Skip link slid into view (top=${Math.round(linkState.top)}px)`);
+    else fail('Skip link visibility', `still off-screen: top=${Math.round(linkState.top)}, transform=${linkState.transform}`);
+    // A skip link is useless if nobody can see where focus went. Read while still focused —
+    // the evaluate blocks below move focus away.
+    if (linkState.outlineStyle === 'solid') ok('Skip link shows a visible focus ring');
+    else fail('Skip link ring', `outline-style="${linkState.outlineStyle}"`);
+    await page.screenshot({ path: shot(`${String(shotIdx++).padStart(2, '0')}-skip-link-focus.png`), fullPage: true });
+
+    // The skip link's own target carries tabindex="-1": it only ever receives focus
+    // programmatically, so no ring should be drawn on it at all. Two regressions to catch
+    // here: the global rule matching it again (→ our 2px solid ring), and dropping the
+    // explicit suppression, which lets the user-agent draw a heavy box around the entire
+    // content area — that reads as a rendering bug.
+    await page.evaluate(() => document.querySelector('#main-content')?.focus());
+    await page.waitForTimeout(500);
+    const mainOutline = await page.evaluate(() => {
+      const m = document.querySelector('#main-content');
+      if (!(m instanceof HTMLElement)) return null;
+      const cs = getComputedStyle(m);
+      return { style: cs.outlineStyle, width: cs.outlineWidth };
+    });
+    if (!mainOutline) throw new Error('#main-content not found');
+    if (mainOutline.style === 'none') ok('#main-content has no focus ring (programmatic target)');
+    else fail('Focus ring exclusion', `#main-content outline: ${mainOutline.style} ${mainOutline.width}`);
+
+    // Positive half of the same invariant: excluding tabindex="-1" must not have disabled
+    // the ring for real interactive controls. Target the topbar button rather than
+    // .convert-btn — the latter lives inside `v-if="hasFiles"` and the reload above left
+    // the workbench empty; both are `el-button`, so they exercise the same !important rule.
+    // Focus and read MUST be separate round-trips: EP's `.el-button:focus-visible` declares
+    // `transition: outline-offset, outline`, so reading in the same task as .focus() returns
+    // an interpolation frame (width still `medium`=3px, colour still `currentcolor`)
+    // instead of the cascaded result.
+    await page.evaluate(() => document.querySelector('.topbar-inner .el-button')?.focus());
+    await page.waitForTimeout(500);
+    const btnOutline = await page.evaluate(() => {
+      const b = document.querySelector('.topbar-inner .el-button');
+      if (!(b instanceof HTMLElement)) return null;
+      const cs = getComputedStyle(b);
+      return { style: cs.outlineStyle, width: cs.outlineWidth, color: cs.outlineColor };
+    });
+    if (!btnOutline) throw new Error('.topbar-inner .el-button not found');
+    if (btnOutline.style === 'solid' && btnOutline.width === '2px')
+      ok(`Interactive controls keep the 2px primary ring (${btnOutline.color})`);
+    else fail('Focus ring', `topbar button outline: ${btnOutline.style} ${btnOutline.width} ${btnOutline.color}`);
+
+    // ── Skip-link chip + mode-aware ring, checked in BOTH modes ─────────────────
+    // Both are colour assertions, so compare resolved colours rather than token names:
+    // every value is normalised through a scratch element to `rgb(...)` first.
+    // Flipping [data-mode] directly is sound here — useTheme only ever writes that
+    // attribute and every dark rule in the stylesheet is keyed off it.
+    const probe = mode => page.evaluate(m => {
+      const root = document.documentElement;
+      const prev = root.getAttribute('data-mode');
+      if (m === 'dark') root.setAttribute('data-mode', 'dark');
+      else root.removeAttribute('data-mode');
+
+      const rgbOf = value => {
+        const scratch = document.createElement('span');
+        scratch.style.color = value;
+        scratch.style.display = 'none';
+        root.append(scratch);
+        const rgb = getComputedStyle(scratch).color;
+        scratch.remove();
+        return rgb;
+      };
+      const tokens = getComputedStyle(root);
+      const link = document.querySelector('.skip-link');
+      const button = document.querySelector('.topbar-inner .el-button');
+      button?.focus();
+      // Same transition caveat as above: EP animates `outline`, so the cascaded colour
+      // is only readable after it settles.
+      return new Promise(resolve => setTimeout(() => {
+        const out = {
+          chipBg: link ? getComputedStyle(link).backgroundColor : '',
+          chipColor: link ? getComputedStyle(link).color : '',
+          expectChipBg: rgbOf(tokens.getPropertyValue('--fat-bg-card').trim()),
+          expectChipColor: rgbOf(tokens.getPropertyValue('--fat-text-primary').trim()),
+          // What the buggy version rendered: white text on --fat-primary.
+          legacyColor: rgbOf('#fff'),
+          legacyBg: rgbOf(tokens.getPropertyValue('--fat-primary').trim()),
+          ringColor: button ? getComputedStyle(button).outlineColor : '',
+          ringFromToken: rgbOf(tokens.getPropertyValue('--fat-focus-ring').trim()),
+        };
+        if (prev === null) root.removeAttribute('data-mode');
+        else root.setAttribute('data-mode', prev);
+        resolve(out);
+      }, 600));
+    }, mode);
+
+    for (const mode of ['light', 'dark']) {
+      const s = await probe(mode);
+      // The chip must never fall back to the legacy white-on-primary pair, which measured
+      // 1.69–2.67:1 in dark mode because the dark primaries are deliberately light tints.
+      if (s.chipBg === s.expectChipBg && s.chipColor === s.expectChipColor)
+        ok(`[${mode}] Skip link uses the inverted AAA chip (${s.chipColor} on ${s.chipBg})`);
+      else if (s.chipColor === s.legacyColor && s.chipBg === s.legacyBg)
+        fail(`[${mode}] Skip link contrast`, 'regressed to white on --fat-primary');
+      else fail(`[${mode}] Skip link contrast`, `got ${s.chipColor} on ${s.chipBg}`);
+      // The ring colour resolves per mode from --fat-focus-ring. In dark that is
+      // --fat-primary-hover, and EP's `!important` outline must not defeat it — the old
+      // non-!important tint rule did exactly that.
+      if (s.ringColor === s.ringFromToken)
+        ok(`[${mode}] Element Plus ring resolves to --fat-focus-ring (${s.ringColor})`);
+      else fail(`[${mode}] Element Plus ring`, `expected ${s.ringFromToken}, got ${s.ringColor}`);
+    }
+    const modesDiffer = (await probe('light')).ringFromToken !== (await probe('dark')).ringFromToken;
+    if (modesDiffer) ok('--fat-focus-ring actually differs between light and dark (not a no-op token)');
+    else fail('--fat-focus-ring', 'resolves to the same colour in both modes');
+  } catch (e) { fail('Skip link & focus ring', e.message); }
+
+  // ═══════════════════════════════════════════
   //  SUMMARY
   // ═══════════════════════════════════════════
 

@@ -19,16 +19,21 @@ File Any Transfer is a Chrome extension (Manifest V3) that converts documents, s
 - **Batch conversion** — convert multiple files at once, even with mixed source formats; each file resolves its own conversion path
 - **Smart conversion chains** — multi-step paths are found automatically (e.g. Markdown → HTML → PDF), powered by a BFS-based converter registry
 - **Per-file error isolation** — one broken file never blocks the rest of the batch; failures are listed with clear reasons
-- **ZIP download** — batch results are bundled into a single ZIP, or download each file individually
+- **ZIP download** — batch results are bundled into a single ZIP, or download each file individually. The method is chosen per entry: text results (TXT / CSV / JSON / HTML / Markdown) are deflated and come out roughly 10× smaller, while already-compressed targets (PNG / JPEG / PDF / XLSX / DOCX) are stored as-is so no CPU is spent for no gain
 - **Paste to convert** — press <kbd>⌘V</kbd> / <kbd>Ctrl+V</kbd> to drop in a clipboard image or text snippet
 - **Preview & edit** — preview source files and results; text results (Markdown / HTML / TXT / CSV) can be edited inline before downloading
-- **Conversion history** — the last 50 conversions (metadata only) with one-click "reuse this format"
+- **Conversion history** — the last 50 conversions (metadata only) with one-click "reuse this format", search by file name, filter by source/target format, per-record delete, a size-trend sparkline, and JSON export/import (merged by record ID). A multi-file batch is labelled `"<first file> +N"`; new records also keep the full file list, so every file in the batch is searchable and all of them show on hover. Records saved by earlier versions can only match that label
 - **Encoding-aware CSV** — reads UTF-8 with GBK fallback, writes UTF-8 with BOM so Excel opens it correctly
 - **Archive intake** — drop a `.zip` and its supported files are extracted into the batch automatically
 - **Multi-sheet aware** — XLSX → CSV exports every worksheet (a ZIP of per-sheet CSVs for multi-sheet workbooks)
 - **PDF to image** — rasterize PDF pages to PNG; multi-page documents export as a ZIP of per-page images
 - **Batch control** — append more files or clear the batch in one click; <kbd>Ctrl/⌘</kbd> + <kbd>Enter</kbd> starts conversion
-- **Personalization** — 6 theme colors, Chinese/English interface
+- **Undo** — restore the previous batch of results in one click; available until you change the selected files or the target format
+- **Confirm before big batches** — a dialog summarises the batch once it exceeds 5 files or 20 MB (fixed thresholds). It can be switched off in Preferences
+- **Custom shortcuts** — rebind the convert shortcut in Preferences; reserved browser combos (<kbd>Ctrl+T/W/N/L</kbd>, <kbd>Tab</kbd>, <kbd>Esc</kbd>, …) are rejected
+- **Completion notifications** — optional desktop notification when a batch finishes while the tab is in the background. Built on the web `Notification` API, so no extra extension permission is required
+- **Keyboard accessible** — skip link to the main content, visible focus rings, and full `prefers-reduced-motion` support
+- **Personalization** — 6 theme colors × light / dark / system, Chinese/English interface
 
 ## Supported conversions
 
@@ -68,6 +73,7 @@ Then in Chrome:
 2. Drop files onto the upload zone (or click to select, or paste from clipboard)
 3. Pick a target format — only formats reachable from *all* selected files are offered
 4. Click **Convert**, then download a single file or the whole batch as a ZIP
+5. Open **Preferences** (top right) to switch theme / language / dark mode, toggle completion notifications and the large-batch confirmation, or rebind the convert shortcut
 
 ## Development
 

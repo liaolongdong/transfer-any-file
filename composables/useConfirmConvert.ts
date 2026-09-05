@@ -10,7 +10,10 @@ let storageUnsub: (() => void) | null = null;
 async function init(): Promise<void> {
   if (initialized) return;
   initialized = true;
-  enabled.value = await storageGet<boolean>(STORAGE_KEYS.confirmConvert, true);
+  // Storage is untrusted input; a non-boolean leftover must fall back to the default
+  // rather than leaking a truthy/falsy object into the toggle.
+  const stored = await storageGet<unknown>(STORAGE_KEYS.confirmConvert, true);
+  enabled.value = typeof stored === 'boolean' ? stored : true;
   storageUnsub = onStorageChange<boolean>(STORAGE_KEYS.confirmConvert, value => {
     if (typeof value === 'boolean') enabled.value = value;
   });

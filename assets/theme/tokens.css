@@ -7,6 +7,15 @@
   --fat-primary-bg: #eff6ff;
   --fat-primary-border: #bfdbfe;
 
+  /* Keyboard focus ring colour. Declared once per mode and referenced by every
+     focus rule, so light and dark differ without a `!important` override war:
+     the previous `:root[data-mode='dark'] :focus-visible { outline-color }` tint
+     silently lost to Element Plus's `!important` outlines and never reached a
+     single EP control. Substituted at computed-value time, so this one
+     declaration follows whichever `[data-theme]` value wins on the same
+     element — same mechanism as --fat-shadow-primary below. */
+  --fat-focus-ring: var(--fat-primary);
+
   /* Neutral surfaces */
   --fat-surface: #f8fafc;
   --fat-surface-2: #f1f5f9;
@@ -185,6 +194,11 @@
   --fat-bg-page: #11111b;
   --fat-bg-card: #1e1e2e;
   --fat-bg-hover: #2a2a3c;
+
+  /* Dark surfaces need the lighter tint: a bare --fat-primary ring measures
+     6.15–9.41:1 against the card, while --fat-primary-hover reaches 8.37–12.12:1
+     — comfortably past the 3:1 WCAG 1.4.11 non-text minimum in all 6 themes. */
+  --fat-focus-ring: var(--fat-primary-hover);
   --fat-shadow-sm: 0 1px 2px rgb(0 0 0 / 20%);
   --fat-shadow-md: 0 2px 6px rgb(0 0 0 / 30%);
   --fat-shadow-lg: 0 4px 12px rgb(0 0 0 / 40%);

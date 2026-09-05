@@ -454,26 +454,38 @@ onUnmounted(() => {
 }
 
 /* F10 — visually hidden until focused. Skip link lets keyboard users jump
-   past the topbar to the main content area in one keystroke. */
+   past the topbar to the main content area in one keystroke.
+   Inverted chip (`--fat-bg-card` on `--fat-text-primary`): 17.85:1 in light and
+   11.34:1 in dark — AAA in all 6 themes × 2 modes, and theme-independent, so a
+   future palette change cannot silently break it. It used to be `#fff` on
+   `--fat-primary`, which measured 2.54:1 (light green) and 1.69–2.67:1 (every
+   dark theme) because the dark primaries are deliberately light tints. */
 .skip-link {
   position: absolute;
   top: var(--fat-space-sm);
   left: var(--fat-space-sm);
   z-index: 10000;
   padding: var(--fat-space-xs) var(--fat-space-sm);
-  background: var(--fat-primary);
-  color: #fff;
+  background: var(--fat-bg-card);
+  color: var(--fat-text-primary);
+  border: 1px solid var(--fat-text-primary);
   border-radius: var(--fat-radius-sm);
+  box-shadow: var(--fat-shadow-lg);
   text-decoration: none;
   font-weight: 600;
   transform: translateY(-200%);
   transition: transform 0.15s ease;
 }
 
+/* Double ring. The chip can land on the coloured topbar OR on the page, and no single
+   ring colour clears the 3:1 non-text minimum against both (text-primary is 2.36:1 on
+   light slate and 1.17–1.84:1 on the dark topbar). Pairing a text-primary band with a
+   bg-card band keeps a ≥11:1 boundary on one side whichever surface is behind. */
 .skip-link:focus-visible {
   transform: translateY(0);
-  outline: 2px solid #fff;
+  outline: 2px solid var(--fat-text-primary);
   outline-offset: 2px;
+  box-shadow: 0 0 0 2px var(--fat-bg-card), var(--fat-shadow-lg);
 }
 
 /* Visually hidden but exposed to assistive tech (live region, screen-reader-only

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onBeforeUnmount } from 'vue';
+import { ref, computed, onBeforeUnmount } from 'vue';
 import { Check } from '@element-plus/icons-vue';
 import { useTheme } from '~/composables/useTheme';
 import type { ThemeName, ColorMode } from '~/composables/useTheme';
@@ -8,7 +8,8 @@ import type { Locale } from '~/composables/useI18n';
 import { useNotification } from '~/composables/useNotification';
 import { useConfirmConvert } from '~/composables/useConfirmConvert';
 import { useShortcuts } from '~/composables/useShortcuts';
-import type { ShortcutAction } from '~/composables/useShortcuts';
+import { eventToBinding, validateBinding } from '~/utils/core/shortcut';
+import type { ShortcutAction } from '~/utils/core/shortcut';
 
 const { theme, colorMode, setTheme, setColorMode, themes } = useTheme();
 const { t, locale, setLocale } = useI18n();
@@ -45,12 +46,12 @@ async function captureKey(event: KeyboardEvent): Promise<void> {
   event.stopPropagation();
   const action = recording.value;
   await stopRecording();
-  const binding = shortcuts.eventToBinding(event);
+  const binding = eventToBinding(event);
   if (!binding) {
     ElMessage.warning(t('prefs.shortcutInvalid'));
     return;
   }
-  const reason = shortcuts.validateBinding(binding);
+  const reason = validateBinding(binding);
   if (reason === 'invalid') {
     ElMessage.warning(t('prefs.shortcutInvalid'));
     return;
@@ -71,13 +72,11 @@ async function resetShortcut(action: ShortcutAction): Promise<void> {
   ElMessage.success(t('prefs.shortcutResetDone'));
 }
 
-if (typeof document !== 'undefined') {
-  document.addEventListener('keydown', captureKey, true);
-}
+// Capture-phase listener so recording a shortcut never reaches App.vue's bubbling
+// convert handler (captureKey calls stopPropagation before it can fire).
+document.addEventListener('keydown', captureKey, true);
 onBeforeUnmount(() => {
-  if (typeof document !== 'undefined') {
-    document.removeEventListener('keydown', captureKey, true);
-  }
+  document.removeEventListener('keydown', captureKey, true);
 });
 
 const COLOR_MODES: { value: ColorMode; labelKey: string }[] = [
@@ -114,9 +113,12 @@ async function handleConfirmToggle(value: string | number | boolean): Promise<vo
   await setConfirmEnabled(value === true);
 }
 
-/** Small status hint shown beneath the toggle when something is off. */
-const notifyStatusKey = (): string | null => {
-  if (typeof window !== 'undefined' && typeof window.Notification !== 'function') {
+/** Small status hint shown beneath the toggle. Empty string means "no hint", so the
+ *  template can guard with `v-if` without a non-null assertion.
+ *  `Notification` support never changes at runtime, so reading it inside a computed is
+ *  safe — the reactive deps that trigger re-evaluation are the permission/enabled refs. */
+const notifyStatusKey = computed<string>(() => {
+  if (typeof window.Notification !== 'function') {
     return 'prefs.notifyUnsupported';
   }
   if (notifyPermission.value === 'denied') {
@@ -125,8 +127,8 @@ const notifyStatusKey = (): string | null => {
   if (notifyEnabled.value) {
     return 'prefs.notifyGranted';
   }
-  return null;
-};
+  return '';
+});
 </script>
 
 <template>
@@ -207,9 +209,9 @@ const notifyStatusKey = (): string | null => {
         />
       </div>
       <span
-        v-if="notifyStatusKey()"
+        v-if="notifyStatusKey"
         class="notify-status"
-      >{{ t(notifyStatusKey()!) }}</span>
+      >{{ t(notifyStatusKey) }}</span>
     </div>
 
     <div class="pref-section">
@@ -376,13 +378,13 @@ const notifyStatusKey = (): string | null => {
   font-weight: 600;
 }
 
-:global(:root[data-mode='dark']) .theme-item.active {
+:root[data-mode='dark'] .theme-item.active {
   border-color: var(--fat-primary);
   background: var(--fat-primary-bg);
   box-shadow: 0 0 0 1px var(--fat-primary-border);
 }
 
-:global(:root[data-mode='dark']) .lang-btn.active {
+:root[data-mode='dark'] .lang-btn.active {
   border-color: var(--fat-primary);
   background: var(--fat-primary-bg);
   color: var(--fat-primary);

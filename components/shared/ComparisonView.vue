@@ -875,28 +875,28 @@ function toggleEdit(): void {
   box-shadow: var(--fat-shadow-sm);
 }
 
-:global(:root[data-mode='dark']) .mode-btn {
+:root[data-mode='dark'] .mode-btn {
   color: var(--fat-text-secondary);
 }
 
-:global(:root[data-mode='dark']) .mode-btn:hover {
+:root[data-mode='dark'] .mode-btn:hover {
   color: var(--fat-text-primary);
   background: var(--fat-surface-hover);
 }
 
-:global(:root[data-mode='dark']) .mode-btn.active {
+:root[data-mode='dark'] .mode-btn.active {
   color: var(--fat-primary);
   background: var(--fat-primary-bg);
   box-shadow: inset 0 0 0 1px var(--fat-primary-border);
 }
 
-:global(:root[data-mode='dark']) .divider-btn {
+:root[data-mode='dark'] .divider-btn {
   border-color: var(--fat-border);
   background: var(--fat-surface);
   color: var(--fat-text-secondary);
 }
 
-:global(:root[data-mode='dark']) .divider-btn:hover {
+:root[data-mode='dark'] .divider-btn:hover {
   border-color: var(--fat-primary);
   color: var(--fat-primary);
   background: var(--fat-primary-bg);

@@ -13,10 +13,16 @@ export const AVAILABLE_THEMES: { value: ThemeName; color: string }[] = [
   { value: 'slate', color: '#475569' },
 ];
 
-const DEFAULT_THEME: ThemeName = 'blue';
-const DEFAULT_MODE: ColorMode = 'system';
-const VALID_THEMES = new Set<ThemeName>(AVAILABLE_THEMES.map(t => t.value));
-const VALID_MODES = new Set<ColorMode>(['light', 'dark', 'system']);
+/**
+ * Defaults and whitelists are exported so `entrypoints/options/main.ts` can validate
+ * persisted values with the exact same rules before the app mounts. A divergent
+ * fallback there would make `initTheme` re-apply a different theme after mount,
+ * which is visible as a flash.
+ */
+export const DEFAULT_THEME: ThemeName = 'blue';
+export const DEFAULT_MODE: ColorMode = 'system';
+export const VALID_THEMES = new Set<ThemeName>(AVAILABLE_THEMES.map(t => t.value));
+export const VALID_MODES = new Set<ColorMode>(['light', 'dark', 'system']);
 
 const state = reactive<{ theme: ThemeName; mode: ColorMode }>({
   theme: DEFAULT_THEME,
@@ -37,11 +43,13 @@ function resolveMode(mode: ColorMode): 'light' | 'dark' {
   return mode;
 }
 
-function applyTheme(theme: ThemeName): void {
+/** Write the theme token set onto `<html>`; shared with the pre-mount bootstrap. */
+export function applyTheme(theme: ThemeName): void {
   document.documentElement.dataset.theme = theme;
 }
 
-function applyMode(mode: ColorMode): void {
+/** Resolve `system` against the OS preference and toggle `data-mode` on `<html>`. */
+export function applyMode(mode: ColorMode): void {
   const resolved = resolveMode(mode);
   if (resolved === 'dark') {
     document.documentElement.dataset.mode = 'dark';

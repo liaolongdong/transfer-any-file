@@ -179,6 +179,9 @@ export default {
     importSuccess: '已合并 {count} 条记录',
     importConfirm: '导入将与当前历史按 ID 合并（重复 ID 会被新数据覆盖）。继续？',
     importInvalid: '文件格式无效，请选择由本扩展导出的历史 JSON',
+    importErrPayload: '文件内容不是有效的历史数据',
+    importErrVersion: '历史文件版本不匹配，请选择由当前版本导出的 JSON',
+    importErrRecords: '文件中未找到历史记录列表',
     importFailed: '导入失败：{error}',
   },
 

@@ -8,6 +8,17 @@ export interface HistoryRecord {
   id: string;
   time: number;
   fileName: string;
+  /** Every file name in the batch, in selection order.
+   *
+   *  `fileName` is a *display label* — for a multi-file batch it is
+   *  `"<first> + N"`, which hides every other member from search and tooltips.
+   *  This field carries the real names so both can reach them again.
+   *
+   *  Optional and purely additive: records written before it existed, and records
+   *  imported from an older export, simply have no value and fall back to the
+   *  label. Bounded by `MAX_BATCH_FILES` (200) in FileUpload, so 50 records can
+   *  never grow storage beyond a few hundred KB. */
+  fileNames?: string[];
   sourceFormat: FileFormatT;
   targetFormat: FileFormatT;
   fileSize: number;
@@ -16,7 +27,11 @@ export interface HistoryRecord {
 }
 
 const MAX_RECORDS = 50;
-/** Bumped on breaking changes to the export shape so old imports fail loudly. */
+/** Bumped on breaking changes to the export shape so old imports fail loudly.
+ *  Deliberately NOT bumped when `fileNames` was added: the field is optional, so
+ *  old exports still import cleanly and new exports still open in an older build
+ *  (its `isHistoryRecord` ignores unknown keys). Bumping would turn a compatible
+ *  addition into a hard rejection for no benefit. */
 const HISTORY_EXPORT_VERSION = 1;
 
 export interface HistoryExport {
@@ -24,9 +39,24 @@ export interface HistoryExport {
   records: HistoryRecord[];
 }
 
+/** i18n keys for the failures `importData` reports. Mirrors `CONVERSION_ERROR_KEYS` in
+ *  useConversion: the thrown `Error.message` is a translation key, and callers check
+ *  membership before deciding whether to translate it or show it verbatim — internal
+ *  tokens like `version-mismatch` must never reach the user untranslated. */
+export const HISTORY_IMPORT_ERROR_KEYS = new Set([
+  'history.importErrPayload',
+  'history.importErrVersion',
+  'history.importErrRecords',
+]);
+
 const VALID_FORMATS = new Set<string>(Object.values(FileFormat));
 
-function isHistoryRecord(o: unknown): o is HistoryRecord {
+/** A payload record that satisfied every required-field check. The index signature says
+ *  what is actually true at this point — it also carries whatever else the file had, and
+ *  `normalizeRecord` is what decides whether any of it survives. */
+type LooseHistoryRecord = HistoryRecord & { [key: string]: unknown };
+
+function isHistoryRecord(o: unknown): o is LooseHistoryRecord {
   if (!o || typeof o !== 'object') return false;
   const r = o as Record<string, unknown>;
   if (typeof r.id !== 'string' || !r.id) return false;
@@ -38,6 +68,40 @@ function isHistoryRecord(o: unknown): o is HistoryRecord {
   if (typeof r.resultSize !== 'number' || !Number.isFinite(r.resultSize)) return false;
   if (typeof r.fileCount !== 'number' || !Number.isFinite(r.fileCount)) return false;
   return true;
+}
+
+/** Strip a malformed optional field instead of rejecting the record. `fileNames` is a
+ *  progressive enhancement — losing search-by-any-file is a far better outcome than
+ *  silently dropping an otherwise-valid entry the user exported. Unknown keys are
+ *  discarded too, so a hand-edited payload cannot smuggle extra data into storage. */
+function normalizeRecord(o: LooseHistoryRecord): HistoryRecord {
+  // Every field below is already narrowed by `isHistoryRecord`, which runs first.
+  const base: HistoryRecord = {
+    id: o.id,
+    time: o.time,
+    fileName: o.fileName,
+    sourceFormat: o.sourceFormat,
+    targetFormat: o.targetFormat,
+    fileSize: o.fileSize,
+    resultSize: o.resultSize,
+    fileCount: o.fileCount,
+  };
+  const names: unknown = o.fileNames;
+  if (Array.isArray(names) && names.length > 0 && names.every(n => typeof n === 'string' && n)) {
+    base.fileNames = names as string[];
+  }
+  return base;
+}
+
+/** Names a record can be matched against: every file in the batch for records saved by
+ *  current versions, otherwise just the display label. Reads through `unknown` because
+ *  records restored straight from storage never pass through `normalizeRecord`. */
+export function searchableFileNames(r: HistoryRecord): string[] {
+  const names: unknown = r.fileNames;
+  if (Array.isArray(names) && names.length > 0 && names.every(n => typeof n === 'string')) {
+    return names as string[];
+  }
+  return [r.fileName];
 }
 
 const records: Ref<HistoryRecord[]> = ref([]);
@@ -103,19 +167,20 @@ export function useHistory() {
   }
 
   /** Merge imported records into the current history. Dedup is by id (incoming wins).
-   *  Result is sorted by time desc and capped at MAX_RECORDS. Throws on invalid payload. */
+   *  Result is sorted by time desc and capped at MAX_RECORDS. Throws an Error whose
+   *  message is a key from HISTORY_IMPORT_ERROR_KEYS when the payload is unusable. */
   async function importData(payload: unknown): Promise<{ merged: number; total: number }> {
     if (!payload || typeof payload !== 'object') {
-      throw new Error('payload-not-object');
+      throw new Error('history.importErrPayload');
     }
     const p = payload as { version?: unknown; records?: unknown };
     if (p.version !== HISTORY_EXPORT_VERSION) {
-      throw new Error('version-mismatch');
+      throw new Error('history.importErrVersion');
     }
     if (!Array.isArray(p.records)) {
-      throw new Error('records-not-array');
+      throw new Error('history.importErrRecords');
     }
-    const incoming = p.records.filter(isHistoryRecord);
+    const incoming = p.records.filter(isHistoryRecord).map(normalizeRecord);
     if (incoming.length === 0) {
       return { merged: 0, total: records.value.length };
     }

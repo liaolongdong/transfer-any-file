@@ -1,7 +1,7 @@
 import { ref, computed } from 'vue';
 import type { Ref, ComputedRef } from 'vue';
 import { saveAs } from 'file-saver';
-import { Zip, ZipPassThrough } from 'fflate';
+import { Zip, ZipDeflate, ZipPassThrough } from 'fflate';
 import { FileFormat } from '~/utils/core/types';
 import type { ConvertResult } from '~/utils/core/types';
 import { converterRegistry } from '~/utils/core/registry';
@@ -10,10 +10,10 @@ import { useFileDetect } from '~/composables/useFileDetect';
 import { useHistory } from '~/composables/useHistory';
 import { useRecentTargets } from '~/composables/useRecentTargets';
 import { useNotification } from '~/composables/useNotification';
+import { useConfirmConvert } from '~/composables/useConfirmConvert';
 import { useI18n } from '~/composables/useI18n';
-import { formatSize } from '~/utils/core/format';
+import { formatSize, isZipCompressible } from '~/utils/core/format';
 import { getFormatLabel } from '~/utils/core/format-labels';
-import { STORAGE_KEYS, storageGet } from '~/utils/storage';
 
 // F15 — pre-conversion confirmation thresholds. Any of these triggers the dialog.
 const CONFIRM_FILE_COUNT = 5;
@@ -60,6 +60,7 @@ export function useConversion() {
   const { recordTarget } = useRecentTargets();
   const { t } = useI18n();
   const { notify } = useNotification();
+  const { isEnabled: confirmConvertEnabled } = useConfirmConvert();
 
   const sourceFiles: Ref<File[]> = ref([]);
   const sourceFormats: Ref<(FileFormat | null)[]> = ref([]);
@@ -73,8 +74,11 @@ export function useConversion() {
   const completedCount: Ref<number> = ref(0);
 
   // Undo: snapshot of the previous successful batch (results + failures + target).
-  // null when nothing to undo. Cleared on clearResults/reset and overwritten
-  // whenever a new convert() overwrites a populated batch.
+  // null when nothing to undo. The snapshot is only meaningful for the file set and
+  // target it was taken under, so EVERY operation that wipes the results —
+  // setFiles / setTargetFormat / clearResults / reset — must drop it too; otherwise
+  // hasUndo stays true and undo() restores results belonging to files that are no
+  // longer selected. It is overwritten whenever a new convert() replaces a populated batch.
   interface BatchSnapshot {
     results: ConvertResult[];
     failures: ConversionFailure[];
@@ -123,6 +127,7 @@ export function useConversion() {
     error.value = null;
     completedCount.value = 0;
     currentIndex.value = -1;
+    previousBatch.value = null;
   }
 
   function setTargetFormat(format: FileFormat): void {
@@ -130,6 +135,7 @@ export function useConversion() {
     batchResults.value = [];
     batchFailures.value = [];
     error.value = null;
+    previousBatch.value = null;
   }
 
   async function convert(): Promise<void> {
@@ -141,43 +147,41 @@ export function useConversion() {
     if (isConverting.value) return;
 
     // F15 — pre-conversion confirmation. The user opts in once via the
-    // PreferencesMenu toggle (stored as fat:confirmConvert, default true).
-    // Skip the dialog entirely when the toggle is off OR when the batch is
-    // small (≤5 files AND ≤20MB). Most conversions are multi-step under the
-    // hood, so multi-step alone is not a trigger — it just gets mentioned in
-    // the message when present.
+    // PreferencesMenu toggle (stored as fat:confirmConvert, default true); the value is
+    // read from the useConfirmConvert singleton so the menu and this gate cannot drift.
+    // Skip the dialog entirely when the toggle is off OR when the batch is small
+    // (≤5 files AND ≤20MB). Most conversions are multi-step under the hood, so
+    // multi-step alone is not a trigger — it only changes the message wording, which is
+    // why the BFS lookups happen inside the branch instead of on every convert().
     const files = [...sourceFiles.value];
     const formats = [...sourceFormats.value];
     const totalBytes = files.reduce((sum, f) => sum + f.size, 0);
-    const hasMultiStep = formats.some((fmt): boolean => {
-      if (fmt === null) return false;
-      const steps = converterRegistry.findConversionPath(fmt, target);
-      return !!steps && steps.length > 1;
-    });
     const overThreshold =
       files.length > CONFIRM_FILE_COUNT || totalBytes > CONFIRM_TOTAL_BYTES;
-    if (overThreshold) {
-      const confirmEnabled = await storageGet<boolean>(STORAGE_KEYS.confirmConvert, true);
-      if (confirmEnabled) {
-        try {
-          const messageKey = hasMultiStep ? 'convert.confirmSummaryMultiStep' : 'convert.confirmSummary';
-          await ElMessageBox.confirm(
-            t(messageKey, {
-              count: files.length,
-              size: formatSize(totalBytes),
-              target: getFormatLabel(target),
-            }),
-            t('convert.confirmTitle'),
-            {
-              confirmButtonText: t('convert.confirmOk'),
-              cancelButtonText: t('convert.confirmCancel'),
-              type: 'info',
-            },
-          );
-        } catch {
-          ElMessage.info(t('convert.confirmCancelled'));
-          return;
-        }
+    if (overThreshold && confirmConvertEnabled.value) {
+      const hasMultiStep = formats.some((fmt): boolean => {
+        if (fmt === null) return false;
+        const steps = converterRegistry.findConversionPath(fmt, target);
+        return !!steps && steps.length > 1;
+      });
+      try {
+        const messageKey = hasMultiStep ? 'convert.confirmSummaryMultiStep' : 'convert.confirmSummary';
+        await ElMessageBox.confirm(
+          t(messageKey, {
+            count: files.length,
+            size: formatSize(totalBytes),
+            target: getFormatLabel(target),
+          }),
+          t('convert.confirmTitle'),
+          {
+            confirmButtonText: t('convert.confirmOk'),
+            cancelButtonText: t('convert.confirmCancel'),
+            type: 'info',
+          },
+        );
+      } catch {
+        ElMessage.info(t('convert.confirmCancelled'));
+        return;
       }
     }
 
@@ -309,6 +313,9 @@ export function useConversion() {
           const batchName = files.length > 1 ? `${firstName} + ${files.length - 1}` : firstName;
           await addRecord({
             fileName: batchName,
+            // Full list alongside the label so search and the row tooltip can reach the
+            // files the label hides. Bounded by MAX_BATCH_FILES (200).
+            fileNames: files.map(f => f.name),
             sourceFormat: firstFormat,
             targetFormat: target,
             fileSize: totalSourceSize,
@@ -339,9 +346,9 @@ export function useConversion() {
         } else {
           body = t('prefs.notificationBodyPartial', { ok: results.length, fail: failures.length });
         }
-        notify(title, body, () => {
-          window.focus();
-        });
+        // No onClick handler: useNotification already calls window.focus() before
+        // invoking it, so passing one would focus the window twice.
+        notify(title, body);
       }
     }
   }
@@ -357,9 +364,17 @@ export function useConversion() {
   }
 
   /** Bundle all results into a single ZIP so the browser fires one download.
-   *  Uses fflate's streaming Zip + ZipPassThrough so a large batch doesn't have
-   *  to materialize every entry's bytes and the final archive in memory at
-   *  the same time. */
+   *  Uses fflate's streaming Zip so entries are fed one at a time rather than building
+   *  the whole entry map up front.
+   *  Each entry picks its own method: text results are deflated (a 7 MB CSV comes out
+   *  ~10x smaller), while PNG / JPEG / WebP / PDF / XLSX / DOCX are stored — deflate
+   *  cannot shrink an already-compressed container, it only burns CPU and can add a
+   *  few bytes. See `isZipCompressible` for the measured trade-off.
+   *  The blocking cost stays bounded per entry: each blob is `await`ed before being
+   *  pushed, so the event loop gets a turn between files and only one oversized text
+   *  result can stall it (fflate deflates ~7 MB in roughly a second on desktop).
+   *  Note the emitted chunks are still accumulated into a single Blob, so peak memory
+   *  is roughly the final archive size. */
   async function downloadAllZip(): Promise<void> {
     const items = batchResults.value;
     if (items.length === 0) return;
@@ -378,9 +393,11 @@ export function useConversion() {
         (async () => {
           try {
             for (const r of items) {
-              const passthrough = new ZipPassThrough(r.filename);
-              zipStream.add(passthrough);
-              passthrough.push(new Uint8Array(await r.blob.arrayBuffer()), true);
+              const entry = isZipCompressible(r.filename)
+                ? new ZipDeflate(r.filename, { level: 6 })
+                : new ZipPassThrough(r.filename);
+              zipStream.add(entry);
+              entry.push(new Uint8Array(await r.blob.arrayBuffer()), true);
             }
             zipStream.end();
           } catch (e) {

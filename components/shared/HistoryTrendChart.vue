@@ -18,8 +18,9 @@ const WIDTH = 120;
 const HEIGHT = 32;
 const PAD = 3;
 
-/** Records are stored newest-first; we render oldest-to-newest so the line advances rightward. */
-const data = computed<HistoryRecord[]>(() => props.records.slice(0, props.maxPoints).slice().reverse());
+/** Records are stored newest-first; we render oldest-to-newest so the line advances rightward.
+ *  `slice(0, n)` already returns a fresh array, so `reverse()` cannot touch the prop. */
+const data = computed<HistoryRecord[]>(() => props.records.slice(0, props.maxPoints).reverse());
 
 const hasEnough = computed(() => data.value.length >= 2);
 
@@ -53,10 +54,12 @@ const areaPath = computed(() => {
 
 const lastPoint = computed(() => points.value[points.value.length - 1]);
 
-/** Hover target for the "head" dot — large enough to meet 24px touch target. */
+/** Hover target for the "head" dot. The SVG is rendered 1:1 (width/height match the
+ *  viewBox), so r=12 is a 24×24 CSS px target — the WCAG 2.5.8 minimum. The circle is
+ *  `fill: transparent`, so enlarging it costs nothing visually. */
 const headHit = computed(() => {
   if (!lastPoint.value) return null;
-  return { cx: lastPoint.value.x, cy: lastPoint.value.y, r: 10 };
+  return { cx: lastPoint.value.x, cy: lastPoint.value.y, r: 12 };
 });
 </script>
 

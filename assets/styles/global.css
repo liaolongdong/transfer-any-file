@@ -117,50 +117,47 @@ body {
   color: var(--fat-primary) !important;
 }
 
-/* F10 — global keyboard focus ring. :focus-visible only fires for keyboard
-   navigation, so mouse clicks stay clean. Tokens must stay in sync with
-   tokens.css so the ring matches the active theme. */
-:focus-visible {
-  outline: 2px solid var(--fat-primary);
+/* F10 — global keyboard focus ring. `:focus-visible` only fires for keyboard
+   navigation, so mouse clicks stay clean.
+   This one rule covers every focusable element. The `!important` rules below exist only
+   because Element Plus draws its own border and would otherwise win; components that
+   declare a scoped `:focus-visible` (drop-zone, collapsible-head) outrank this rule by
+   specificity and keep their own ring geometry.
+   `tabindex="-1"` targets are excluded: they only ever receive focus programmatically
+   (the skip link's #main-content), and ringing the entire content area is noise.
+   The rule deliberately does not set `border-radius` — a focus indicator should follow
+   the element's own shape, never reshape the element.
+   Colour resolves per mode through --fat-focus-ring (see assets/theme/tokens.css), so
+   this rule and the Element Plus ones below can never disagree again. */
+:focus-visible:not([tabindex='-1']) {
+  outline: 2px solid var(--fat-focus-ring);
   outline-offset: 2px;
-  border-radius: var(--fat-radius-sm);
 }
 
-button:focus-visible,
-a:focus-visible,
-input:focus-visible,
-textarea:focus-visible,
-select:focus-visible,
-[tabindex]:focus-visible:not([tabindex='-1']) {
-  outline: 2px solid var(--fat-primary);
-  outline-offset: 2px;
+/* Counterpart of the exclusion above. Now that no author rule matches `tabindex="-1"`
+   targets, the user-agent would draw its own heavy ring around the whole content area
+   when the skip link moves focus into it — which reads as a rendering bug, and is not
+   required: WCAG 2.4.7 covers focusable UI components, and the skip link itself carries
+   the visible indicator. Programmatic scroll targets get no ring. */
+[tabindex='-1']:focus {
+  outline: none;
 }
 
 /* Element Plus buttons already have their own border; outline without offset
-   sits on the border and disappears. Use a thicker offset so it stays visible. */
+   sits on the border and disappears. Use a thicker offset so it stays visible.
+   `!important` is what makes these win over Element Plus, which is exactly why the
+   dark-mode tint used to be written as a later, non-`!important` rule and quietly
+   never applied here. With the token they are mode-aware by construction. */
 .el-button:focus-visible {
-  outline: 2px solid var(--fat-primary) !important;
+  outline: 2px solid var(--fat-focus-ring) !important;
   outline-offset: 2px !important;
 }
 
 .el-input__wrapper:focus-visible,
 .el-textarea__inner:focus-visible,
 .el-select__wrapper:focus-visible {
-  outline: 2px solid var(--fat-primary) !important;
+  outline: 2px solid var(--fat-focus-ring) !important;
   outline-offset: 1px !important;
-}
-
-/* Toggle chips (e.g. theme picker) need a visible ring even when they are
-   not buttons — but :focus-visible is enough; .active stays as a visual cue. */
-.el-tag:focus-visible,
-[role='button']:focus-visible {
-  outline: 2px solid var(--fat-primary);
-  outline-offset: 2px;
-}
-
-/* Dark mode: lighter primary tint for better contrast against dark surfaces. */
-:root[data-mode='dark'] :focus-visible {
-  outline-color: var(--fat-primary-hover);
 }
 
 /* Dark mode button enhancements */
