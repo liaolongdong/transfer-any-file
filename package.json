@@ -1,7 +1,7 @@
 {
   "name": "file-any-transfer",
   "version": "1.0.0",
-  "description": "Convert between common file types locally - MD, HTML, DOCX, PDF, XLSX, CSV, Images and more",
+  "description": "Convert 14 file formats locally in your browser: Markdown, Word, PDF, Excel, CSV, JSON, HTML, images. Batch, offline, no uploads.",
   "scripts": {
     "dev": "wxt",
     "build": "wxt build",
@@ -12,9 +12,26 @@
     "lint:style": "stylelint \"assets/**/*.css\" \"{components,entrypoints}/**/*.vue\"",
     "lint:all": "pnpm typecheck && pnpm lint && pnpm lint:style",
     "fix:all": "eslint . --fix && stylelint --fix \"assets/**/*.css\" \"{components,entrypoints}/**/*.vue\" && prettier --write .",
-    "test:e2e": "pnpm build && node scripts/e2e-test.mjs"
+    "test:e2e": "pnpm build && node scripts/e2e-test.mjs",
+    "assets:capture": "node scripts/capture-store-assets.mjs",
+    "promo:wechat": "node scripts/render-wechat-html.mjs docs/promo/wechat-article.md"
   },
-  "keywords": [],
+  "keywords": [
+    "chrome-extension",
+    "file-converter",
+    "format-conversion",
+    "offline",
+    "privacy",
+    "markdown",
+    "docx",
+    "pdf",
+    "xlsx",
+    "csv",
+    "json",
+    "html",
+    "image-conversion",
+    "batch-conversion"
+  ],
   "author": "",
   "displayName": "File Any Transfer",
   "license": "ISC",

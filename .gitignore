@@ -8,4 +8,6 @@ dist
 .test-files
 .test-screenshots
 .tmp-e2e-profile
+# Generated paste-ready drafts (images inlined as data URIs, ~MBs each); the .md sources are tracked.
+docs/promo/*.html
 .DS_Store

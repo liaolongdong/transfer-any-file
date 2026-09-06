@@ -61,7 +61,9 @@ trigger: always_on
 ## 10. 国际化与文档
 
 - 所有用户可见文案同时提供中英文，禁止在 Vue/TS 中硬编码可见字符串。`utils/i18n/zh.ts` 为源，`en.ts` 类型为 `typeof zh`，两者 key 集必须一致（默认语言 `zh`）。
-- 文档按影响更新：用户功能/用法 → `README.md` + `README.zh-CN.md`（双语一致）；manifest 名称/描述/权限 → `wxt.config.ts`。**本项目无 `docs/`、`_locales/`、HelpDialog、CWS、privacy.html，勿引用这些不存在的路径。**
+- 文档按影响分层更新：功能/用法 → `README.md` + `README.zh-CN.md`（双语一致）；对外产品说明与隐私政策 → `docs/index.html` + `docs/privacy.html`（GitHub Pages 源目录，产品页英文、隐私政策页内双语）；Chrome 应用商店文案与披露答复 → `CHROMEWEBSTORE.md`；manifest 名称/描述/权限 → `wxt.config.ts`（其 `description` 与 `package.json#description` 同步，且 ≤132 字符）。
+- `docs/`、`CHROMEWEBSTORE.md` 只是仓库文档，**不得进入扩展产物**；素材禁止放 `public/`（WXT 会原样打包进 `.output/chrome-mv3`）。UI 变更后跑 `pnpm assets:capture` 重新生成 `docs/assets/` 下的 1280×800 截图与推广图，避免商店/README 素材与实际界面漂移。
+- 本项目**无** `_locales/`、HelpDialog、popup，且**尚未上架 Chrome 应用商店**（`CHROMEWEBSTORE.md` 是待提交素材，不是现网列表），勿引用不存在的商店链接。
 
 ## 11. 优化与重构边界
 
@@ -73,3 +75,4 @@ trigger: always_on
 
 - 每次功能开发或修复后必须自审 diff，禁止引入新问题或破坏存量功能与交互。
 - 按改动范围执行：TS/Vue/运行时 → `pnpm lint:all`；入口/manifest/依赖/打包 → `pnpm build`；转换逻辑或端到端行为 → `pnpm test:e2e`（Playwright + `fixtures/`）。
+- 改动 `docs/`、`CHROMEWEBSTORE.md` 或新增素材脚本后，`pnpm build` 并确认 `.output/chrome-mv3` 内**没有** `docs/`、`CHROMEWEBSTORE.md` 等文档产物；对外文案里的数字（格式数、路径数、体积、阈值）必须从代码或构建输出取证，不得沿用旧文档估计。

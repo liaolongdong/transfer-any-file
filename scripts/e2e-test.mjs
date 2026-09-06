@@ -21,6 +21,48 @@ function ok(name) { passed++; console.log(`  ✓ ${name}`); }
 function fail(name, err) { failed++; failures.push({ name, error: err }); console.log(`  ✗ ${name}: ${err}`); }
 function section(name) { console.log(`\n▸ ${name}`); }
 
+// WCAG relative-luminance contrast, applied to colours read back from the live page so
+// the theme loops assert what a user actually sees rather than trusting a token name.
+// Accepts both `rgb(...)` (computed styles) and `#hex` (custom-property values).
+function parseColor(input) {
+  const s = String(input).trim();
+  const fn = /^rgba?\(\s*(\d+)[,\s]+(\d+)[,\s]+(\d+)/.exec(s);
+  if (fn) return [+fn[1], +fn[2], +fn[3]];
+  const hex = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(s);
+  if (!hex) return null;
+  let d = hex[1];
+  if (d.length === 3) d = d.split('').map(x => x + x).join('');
+  return [0, 2, 4].map(i => parseInt(d.slice(i, i + 2), 16));
+}
+function contrast(a, b) {
+  const ca = parseColor(a);
+  const cb = parseColor(b);
+  if (!ca || !cb) return Number.NaN;
+  const lum = rgb => {
+    const [r, g, bl] = rgb.map(v => (v / 255 <= 0.03928 ? v / 255 / 12.92 : ((v / 255 + 0.055) / 1.055) ** 2.4));
+    return 0.2126 * r + 0.7152 * g + 0.0722 * bl;
+  };
+  const [x, y] = [lum(ca), lum(cb)].sort((p, q) => q - p);
+  return (x + 0.05) / (y + 0.05);
+}
+
+/** The two colours that carry the Option-A contrast contract, read from the page: the
+ *  topbar's own background vs the brand text drawn on it, plus the resolved focus ring
+ *  against a card. Compared with `contrast()` on the Node side. */
+async function surfaceColors(page) {
+  return page.evaluate(() => {
+    const root = getComputedStyle(document.documentElement);
+    const topbar = document.querySelector('.topbar');
+    const brand = document.querySelector('.brand-name');
+    return {
+      topbar: topbar ? getComputedStyle(topbar).backgroundColor : '',
+      brand: brand ? getComputedStyle(brand).color : '',
+      ring: root.getPropertyValue('--fat-focus-ring').trim(),
+      card: root.getPropertyValue('--fat-bg-card').trim(),
+    };
+  });
+}
+
 function startServer() {
   return new Promise((resolve, reject) => {
     const mimeTypes = {
@@ -575,6 +617,22 @@ async function run() {
       const applied = await page.evaluate(() => document.documentElement.dataset.theme);
       if (applied === themeValues[i]) ok(`Theme "${themeValues[i]}" applied`);
       else fail(`Theme "${themeValues[i]}"`, `got "${applied}"`);
+
+      // Contrast is measured off the rendered page, per theme, so a future palette edit
+      // that pushes any of the 12 combos under AA fails here instead of being a manual
+      // audit. The topbar carries 4.5:1 body text (brand-tag); the ring needs 3:1 as
+      // non-text content (WCAG 1.4.11) against the card it is usually drawn on.
+      const surface = await surfaceColors(page);
+      const onTopbar = contrast(surface.brand, surface.topbar);
+      const ringOnCard = contrast(surface.ring, surface.card);
+      if (onTopbar >= 4.5)
+        ok(`[${themeValues[i]} light] topbar brand ${onTopbar.toFixed(2)}:1`);
+      else
+        fail(`[${themeValues[i]} light] topbar contrast`, `${onTopbar.toFixed(2)}:1 — ${surface.brand} on ${surface.topbar}`);
+      if (ringOnCard >= 3)
+        ok(`[${themeValues[i]} light] focus ring ${ringOnCard.toFixed(2)}:1 on card`);
+      else
+        fail(`[${themeValues[i]} light] focus ring`, `${ringOnCard.toFixed(2)}:1 — ${surface.ring} on ${surface.card}`);
     }
     await page.screenshot({ path: shot(`${String(shotIdx++).padStart(2, '0')}-theme-applied.png`), fullPage: true });
   } catch (e) { fail('Theme switcher', e.message); }
@@ -621,6 +679,20 @@ async function run() {
         const elPrimary = await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--el-color-primary').trim());
         if (primary && primary === elPrimary) ok(`Dark+${themeValues[i]}: primary=${primary}, EP synced`);
         else fail(`Dark+${themeValues[i]}`, `primary=${primary}, el=${elPrimary}`);
+
+        // Same contract as the light loop. White-on-pastel is exactly what used to fail
+        // here (1.69–2.67:1) because the dark primaries are deliberately light tints.
+        const surface = await surfaceColors(page);
+        const onTopbar = contrast(surface.brand, surface.topbar);
+        const ringOnCard = contrast(surface.ring, surface.card);
+        if (onTopbar >= 4.5)
+          ok(`[${themeValues[i]} dark] topbar brand ${onTopbar.toFixed(2)}:1`);
+        else
+          fail(`[${themeValues[i]} dark] topbar contrast`, `${onTopbar.toFixed(2)}:1 — ${surface.brand} on ${surface.topbar}`);
+        if (ringOnCard >= 3)
+          ok(`[${themeValues[i]} dark] focus ring ${ringOnCard.toFixed(2)}:1 on card`);
+        else
+          fail(`[${themeValues[i]} dark] focus ring`, `${ringOnCard.toFixed(2)}:1 — ${surface.ring} on ${surface.card}`);
       }
 
       // Switch back to light

@@ -1,0 +1,1205 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1"
+    />
+    <title>File Any Transfer — offline file format converter for Chrome (14 formats, no uploads)</title>
+    <meta
+      name="description"
+      content="File Any Transfer is a Chrome extension that converts Markdown, Word, PDF, Excel, CSV, JSON, HTML and images between 14 formats entirely on your own machine. Batch conversion, multi-step chains, preview and edit, ZIP download. No uploads, no account, no network requests."
+    />
+    <meta
+      name="author"
+      content="File Any Transfer"
+    />
+    <!-- Substitute <GH_OWNER> before/after deploying, or canonical, OG and sitemap URLs will not resolve. -->
+    <link
+      rel="canonical"
+      href="https://<GH_OWNER>.github.io/file-format-converter/"
+    />
+    <link
+      rel="icon"
+      href="assets/icon.png"
+    />
+    <link
+      rel="alternate"
+      hreflang="zh"
+      href="https://github.com/<GH_OWNER>/file-format-converter/blob/master/README.zh-CN.md"
+    />
+    <link
+      rel="alternate"
+      hreflang="en"
+      href="https://<GH_OWNER>.github.io/file-format-converter/"
+    />
+    <meta
+      name="theme-color"
+      content="#2563eb"
+    />
+    <meta
+      property="og:type"
+      content="website"
+    />
+    <meta
+      property="og:site_name"
+      content="File Any Transfer"
+    />
+    <meta
+      property="og:title"
+      content="File Any Transfer — offline file format converter for Chrome"
+    />
+    <meta
+      property="og:description"
+      content="Convert 14 file formats inside your browser. Batch, multi-step, preview and edit — without uploading a byte."
+    />
+    <meta
+      property="og:url"
+      content="https://<GH_OWNER>.github.io/file-format-converter/"
+    />
+    <meta
+      property="og:image"
+      content="https://<GH_OWNER>.github.io/file-format-converter/assets/store/github-social-preview.png"
+    />
+    <meta
+      property="og:image:width"
+      content="1280"
+    />
+    <meta
+      property="og:image:height"
+      content="640"
+    />
+    <meta
+      name="twitter:card"
+      content="summary_large_image"
+    />
+    <meta
+      name="twitter:title"
+      content="File Any Transfer — offline file format converter for Chrome"
+    />
+    <meta
+      name="twitter:description"
+      content="14 formats, 46+ conversion routes, zero network requests. Runs entirely in your browser."
+    />
+    <meta
+      name="twitter:image"
+      content="https://<GH_OWNER>.github.io/file-format-converter/assets/store/github-social-preview.png"
+    />
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "SoftwareApplication",
+            "@id": "https://<GH_OWNER>.github.io/file-format-converter/#app",
+            "name": "File Any Transfer",
+            "alternateName": "File Format Converter",
+            "softwareVersion": "1.0.0",
+            "applicationCategory": "UtilitiesApplication",
+            "applicationSubCategory": "File Format Converter",
+            "operatingSystem": "Chrome OS, Windows, macOS, Linux (Google Chrome 88+, or any Chromium browser with Manifest V3 support)",
+            "description": "A Chrome extension (Manifest V3) that converts documents, spreadsheets and images between 14 file formats locally. Batch conversion with mixed source formats, automatic multi-step conversion chains, preview and inline editing, ZIP download, and conversion history. Performs no network requests and requests only the storage permission.",
+            "url": "https://<GH_OWNER>.github.io/file-format-converter/",
+            "codeRepository": "https://github.com/<GH_OWNER>/file-format-converter",
+            "issueTracker": "https://github.com/<GH_OWNER>/file-format-converter/issues",
+            "license": "https://spdx.org/licenses/ISC.html",
+            "isAccessibleForFree": true,
+            "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+            "featureList": [
+              "14 file formats and 46+ conversion routes",
+              "Batch conversion of mixed source formats",
+              "Automatic multi-step conversion chains",
+              "Per-file error isolation",
+              "ZIP download with per-entry compression",
+              "Split preview with inline editing of text results",
+              "Paste from clipboard to convert",
+              "UTF-8 and GBK CSV handling with BOM on write",
+              "Conversion history with search, filter, export and import",
+              "Undo, cancellable batches, large-batch confirmation",
+              "6 accent colours, light / dark / system appearance",
+              "Chinese and English interface",
+              "Keyboard-accessible UI with WCAG 2.1 AA surfaces"
+            ]
+          },
+          {
+            "@type": "FAQPage",
+            "@id": "https://<GH_OWNER>.github.io/file-format-converter/#faq",
+            "mainEntity": [
+              {
+                "@type": "Question",
+                "name": "Does File Any Transfer upload my files?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "No. Every converter is JavaScript bundled into the extension, the manifest declares only the storage permission, and the code contains no fetch, XMLHttpRequest, WebSocket or sendBeacon call. There is no server to upload to, and the extension works with networking disabled."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Which file formats can it convert?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Fourteen formats across three families: documents (Markdown, HTML, Word .docx, PDF, TXT), data (CSV, Excel .xlsx, JSON) and images (PNG, JPEG, WebP, BMP, GIF, SVG). That yields 46+ direct conversion routes, and the workbench chains them automatically — Markdown to PDF runs as Markdown to HTML to PDF in one click."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Can it convert a PDF into an editable Word document?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Not losslessly. PDF input extracts text only, dropping layout and embedded images, and PDF output is rendered page by page as images, so text in a converted PDF is not selectable. Word and Excel convert through HTML as the hub format."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Why can't I convert an image to text or CSV?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "That requires OCR. Bundling an OCR model would add tens of megabytes and a model download, which conflicts with the offline guarantee, so it is not included. Those targets are greyed out in the format picker with the reason shown, rather than failing after you press Convert."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Is it free, and is there a paid version?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "It is free and open source under the ISC licence. There is no paid tier, no account, no telemetry and no advertising — the extension has no code path that could report usage."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "What are the file size and batch limits?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "A single file up to 100 MB is accepted (the UI warns above 20 MB), and a batch is capped at 200 files. Batches larger than 5 files or 20 MB in total ask for confirmation first, which you can switch off in Preferences."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "How do I install it before it is on the Chrome Web Store?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Build from source with Node.js 20.12 or later and pnpm: run pnpm install and pnpm build, then open chrome://extensions, enable Developer mode, click Load unpacked and select the .output/chrome-mv3 folder. Clicking the toolbar icon opens the workbench in a new tab."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Does it work in Firefox or Edge?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "The build targets Chrome Manifest V3, so it runs in Chrome and other Chromium browsers such as Edge. Firefox is not a supported target today, although the extension uses no Chrome-only APIs beyond the standard storage and action ones."
+                }
+              }
+            ]
+          }
+        ]
+      }
+    </script>
+
+    <style>
+      :root {
+        --brand: #2563eb;
+        --brand-dark: #1d4ed8;
+        --ink: #101828;
+        --ink-soft: #475467;
+        --ink-faint: #667085;
+        --paper: #fff;
+        --paper-alt: #f6f8fc;
+        --line: #e4e7ec;
+        --ok: #067647;
+        --warn: #b54708;
+        --radius: 14px;
+        --shadow: 0 1px 2px rgb(16 24 40 / 6%), 0 8px 24px -12px rgb(16 24 40 / 18%);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background: var(--paper);
+        color: var(--ink);
+        font-family:
+          -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'PingFang SC',
+          'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+        font-size: 17px;
+        line-height: 1.65;
+        -webkit-text-size-adjust: 100%;
+      }
+
+      a {
+        color: var(--brand-dark);
+      }
+
+      code {
+        padding: 1px 5px;
+        background: var(--paper-alt);
+        border: 1px solid var(--line);
+        border-radius: 5px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 0.88em;
+      }
+
+      .wrap {
+        max-width: 1080px;
+        margin: 0 auto;
+        padding: 0 24px;
+      }
+
+      .skip {
+        position: absolute;
+        left: -9999px;
+      }
+
+      .skip:focus {
+        top: 12px;
+        left: 12px;
+        z-index: 20;
+        padding: 10px 16px;
+        background: var(--paper);
+        border: 2px solid var(--brand);
+        border-radius: 8px;
+      }
+
+      header.site {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        background: rgb(255 255 255 / 92%);
+        border-bottom: 1px solid var(--line);
+        backdrop-filter: saturate(180%) blur(8px);
+      }
+
+      .nav {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        padding: 12px 0;
+      }
+
+      .logo {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        color: var(--ink);
+        font-weight: 700;
+        text-decoration: none;
+      }
+
+      .logo img {
+        width: 28px;
+        height: 28px;
+      }
+
+      .nav ul {
+        display: flex;
+        gap: 18px;
+        margin: 0 0 0 auto;
+        padding: 0;
+        list-style: none;
+        font-size: 15px;
+      }
+
+      .nav a {
+        color: var(--ink-soft);
+        text-decoration: none;
+      }
+
+      .nav a:hover,
+      .nav a:focus-visible {
+        color: var(--brand-dark);
+      }
+
+      .gh {
+        padding: 7px 14px;
+        background: var(--ink);
+        border-radius: 8px;
+        color: #fff !important;
+        font-weight: 600;
+        font-size: 14px;
+        white-space: nowrap;
+      }
+
+      .hero {
+        padding: 64px 0 40px;
+        background: linear-gradient(180deg, #f8fafd 0%, #fff 100%);
+        border-bottom: 1px solid var(--line);
+      }
+
+      .kicker {
+        display: inline-block;
+        padding: 5px 12px;
+        background: #eef4ff;
+        border: 1px solid #d6e4ff;
+        border-radius: 999px;
+        color: var(--brand-dark);
+        font-size: 13px;
+        font-weight: 600;
+      }
+
+      h1 {
+        margin: 18px 0 12px;
+        font-size: clamp(2rem, 5vw, 3.1rem);
+        line-height: 1.12;
+        letter-spacing: -0.03em;
+      }
+
+      h1 em {
+        color: var(--brand);
+        font-style: normal;
+      }
+
+      h2 {
+        margin: 0 0 8px;
+        font-size: clamp(1.4rem, 3vw, 1.9rem);
+        letter-spacing: -0.02em;
+      }
+
+      h3 {
+        margin: 0 0 6px;
+        font-size: 1.08rem;
+      }
+
+      .lede {
+        max-width: 62ch;
+        margin: 0;
+        color: var(--ink-soft);
+        font-size: 19px;
+      }
+
+      .sub {
+        max-width: 70ch;
+        margin: 0 0 28px;
+        color: var(--ink-soft);
+      }
+
+      .cta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin: 28px 0 0;
+      }
+
+      .btn {
+        padding: 12px 20px;
+        border-radius: 10px;
+        font-weight: 600;
+        text-decoration: none;
+      }
+
+      .btn.primary {
+        background: var(--brand);
+        color: #fff;
+      }
+
+      .btn.primary:hover {
+        background: var(--brand-dark);
+      }
+
+      .btn.ghost {
+        background: #fff;
+        border: 1px solid var(--line);
+        color: var(--ink);
+      }
+
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 12px;
+        margin: 36px 0 0;
+      }
+
+      .stat {
+        padding: 16px 18px;
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+      }
+
+      .stat b {
+        display: block;
+        font-size: 26px;
+        letter-spacing: -0.02em;
+      }
+
+      .stat span {
+        color: var(--ink-faint);
+        font-size: 14px;
+      }
+
+      .shot {
+        display: block;
+        width: 100%;
+        height: auto;
+        margin: 40px 0 0;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        box-shadow: 0 30px 60px -30px rgb(16 24 40 / 35%);
+      }
+
+      section {
+        padding: 56px 0;
+        border-bottom: 1px solid var(--line);
+      }
+
+      section.alt {
+        background: var(--paper-alt);
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(272px, 1fr));
+        gap: 18px;
+      }
+
+      .card {
+        padding: 22px;
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+      }
+
+      .card p {
+        margin: 0;
+        color: var(--ink-soft);
+        font-size: 15.5px;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        background: #fff;
+        font-size: 15.5px;
+      }
+
+      caption {
+        padding-bottom: 10px;
+        color: var(--ink-faint);
+        font-size: 14px;
+        text-align: left;
+      }
+
+      th,
+      td {
+        padding: 11px 13px;
+        border: 1px solid var(--line);
+        text-align: left;
+        vertical-align: top;
+      }
+
+      thead th {
+        background: #f2f5fa;
+        font-size: 14px;
+      }
+
+      tbody th {
+        background: #fbfcfe;
+        font-weight: 600;
+      }
+
+      .yes {
+        color: var(--ok);
+        font-weight: 600;
+      }
+
+      .no {
+        color: var(--warn);
+        font-weight: 600;
+      }
+
+      ol.steps {
+        margin: 0;
+        padding-left: 22px;
+      }
+
+      ol.steps li {
+        margin-bottom: 10px;
+      }
+
+      pre {
+        margin: 18px 0 0;
+        padding: 18px 20px;
+        overflow-x: auto;
+        background: #0e1526;
+        border-radius: 12px;
+        color: #e6ecf7;
+        font-size: 14px;
+        line-height: 1.6;
+      }
+
+      pre code {
+        padding: 0;
+        background: none;
+        border: 0;
+        color: inherit;
+        font-size: inherit;
+      }
+
+      dl.faq dt {
+        margin: 22px 0 4px;
+        font-weight: 700;
+      }
+
+      dl.faq dd {
+        margin: 0;
+        color: var(--ink-soft);
+      }
+
+      .note {
+        padding: 16px 18px;
+        background: #fffaeb;
+        border: 1px solid #fedf89;
+        border-radius: 12px;
+        color: #7a5b00;
+        font-size: 15.5px;
+      }
+
+      .shots {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 16px;
+      }
+
+      .shots figure {
+        margin: 0;
+      }
+
+      .shots img {
+        display: block;
+        width: 100%;
+        height: auto;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+      }
+
+      .shots figcaption {
+        margin-top: 8px;
+        color: var(--ink-faint);
+        font-size: 14px;
+      }
+
+      footer.site {
+        padding: 40px 0 56px;
+        color: var(--ink-faint);
+        font-size: 14.5px;
+      }
+
+      footer.site nav {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+        margin-bottom: 14px;
+      }
+
+      @media (width <= 640px) {
+        .nav ul {
+          display: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <a
+      class="skip"
+      href="#main"
+      >Skip to content</a
+    >
+
+    <header class="site">
+      <div class="wrap nav">
+        <a
+          class="logo"
+          href="./"
+        >
+          <img
+            src="assets/icon.png"
+            alt=""
+            width="28"
+            height="28"
+          />
+          <span>File Any Transfer</span>
+        </a>
+        <nav aria-label="Sections">
+          <ul>
+            <li>
+              <a href="#formats">Formats</a>
+            </li>
+            <li>
+              <a href="#features">Features</a>
+            </li>
+            <li>
+              <a href="#compare">vs online</a>
+            </li>
+            <li>
+              <a href="#install">Install</a>
+            </li>
+            <li>
+              <a href="#faq">FAQ</a>
+            </li>
+            <li>
+              <a
+                class="gh"
+                href="https://github.com/<GH_OWNER>/file-format-converter"
+                >GitHub</a
+              >
+            </li>
+          </ul>
+        </nav>
+      </div>
+    </header>
+
+    <main id="main">
+      <section class="hero">
+        <div class="wrap">
+          <span class="kicker">Chrome extension · Manifest V3 · open source (ISC)</span>
+          <h1>
+            Convert <em>14 file formats</em>
+            <br />
+            without uploading a byte.
+          </h1>
+          <p class="lede">
+            File Any Transfer is an offline file format converter for Chrome. Markdown, Word, PDF, Excel, CSV, JSON,
+            HTML and images convert inside a tab on your own machine — batch, multi-step, preview and edit included. No
+            uploads, no account, no network requests.
+          </p>
+          <p class="cta">
+            <a
+              class="btn primary"
+              href="#install"
+              >Install from source</a
+            >
+            <a
+              class="btn ghost"
+              href="https://github.com/<GH_OWNER>/file-format-converter"
+              >View on GitHub</a
+            >
+            <a
+              class="btn ghost"
+              href="https://github.com/<GH_OWNER>/file-format-converter/blob/master/README.zh-CN.md"
+              >简体中文</a
+            >
+          </p>
+
+          <div class="stats">
+            <div class="stat">
+              <b>14</b>
+              <span>file formats</span>
+            </div>
+            <div class="stat">
+              <b>46+</b>
+              <span>conversion routes</span>
+            </div>
+            <div class="stat">
+              <b>0</b>
+              <span>network requests</span>
+            </div>
+            <div class="stat">
+              <b>1</b>
+              <span>permission (<code>storage</code>)</span>
+            </div>
+            <div class="stat">
+              <b>3.7&nbsp;MB</b>
+              <span>whole bundle, local</span>
+            </div>
+          </div>
+
+          <img
+            class="shot"
+            src="assets/screenshots/preview-edit.png"
+            width="1280"
+            height="800"
+            alt="The workbench converting a Markdown file to HTML: Markdown source on the left, rendered HTML result on the right, with Rendered, Source, Edit and Copy controls above and a Download button below."
+          />
+        </div>
+      </section>
+
+      <section id="why">
+        <div class="wrap">
+          <h2>Why people stop using online converters</h2>
+          <p class="sub">
+            A converter that runs in your browser has one structural advantage over one that runs on someone else's
+            server: your file never becomes their copy.
+          </p>
+          <div class="grid">
+            <div class="card">
+              <h3>Confidential by default</h3>
+              <p>
+                Contracts, payroll sheets, medical reports, unpublished drafts — converted without a copy ever existing
+                on third-party infrastructure or in its access logs.
+              </p>
+            </div>
+            <div class="card">
+              <h3>No quota, no account</h3>
+              <p>
+                No sign-in, no daily limit, no "3 free conversions" gate, no watermark, and no size ceiling beyond the
+                100&nbsp;MB per-file cap your own browser can hold in memory.
+              </p>
+            </div>
+            <div class="card">
+              <h3>Works with the wifi off</h3>
+              <p>
+                Converters, fonts and interface all ship inside the extension. On a plane, inside a locked-down network,
+                or during an outage, behaviour is identical.
+              </p>
+            </div>
+            <div class="card">
+              <h3>Faster than an upload</h3>
+              <p>
+                A 3&nbsp;MB document converts in well under a second, because the round trip is memory-to-memory rather
+                than memory-to-datacenter-and-back.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section
+        id="formats"
+        class="alt"
+      >
+        <div class="wrap">
+          <h2>Which formats convert to which</h2>
+          <p class="sub">
+            Fourteen formats in three families. Each conversion pair registers as an edge in a graph, so multi-step
+            routes are discovered rather than hard-coded: <strong>Markdown → PDF</strong> runs as
+            <strong>Markdown → HTML → PDF</strong> from a single click.
+          </p>
+          <table>
+            <caption>
+              Supported conversions in File Any Transfer 1.0.0 — 14 formats, 46+ direct routes.
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col">Family</th>
+                <th scope="col">Reads</th>
+                <th scope="col">Writes</th>
+                <th scope="col">Typical route</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th scope="row">Documents</th>
+                <td>Markdown, HTML, Word (.docx), PDF, TXT</td>
+                <td>Markdown, HTML, Word (.docx), PDF, TXT</td>
+                <td>MD → HTML → PDF · DOCX → HTML → MD · TXT → HTML → DOCX</td>
+              </tr>
+              <tr>
+                <th scope="row">Data</th>
+                <td>CSV, Excel (.xlsx), JSON</td>
+                <td>CSV, Excel (.xlsx), JSON</td>
+                <td>XLSX → CSV · JSON → HTML → XLSX · CSV → HTML → MD</td>
+              </tr>
+              <tr>
+                <th scope="row">Images</th>
+                <td>PNG, JPEG, WebP, BMP, GIF, SVG</td>
+                <td>PNG, JPEG, WebP</td>
+                <td>SVG → PNG · GIF → PNG (first frame) · PNG → PDF</td>
+              </tr>
+            </tbody>
+          </table>
+          <h3>What it deliberately does not do</h3>
+          <ul>
+            <li>
+              <strong>No OCR.</strong> Images cannot become TXT / CSV / XLSX — that needs an OCR model, which would add
+              tens of megabytes and a download, breaking the offline guarantee. Those targets are greyed out with the
+              reason instead of failing later.
+            </li>
+            <li><strong>PDF output is image-based.</strong> Text in a converted PDF is not selectable.</li>
+            <li><strong>PDF input is text-only.</strong> Layout and embedded images are not preserved.</li>
+            <li><strong>BMP, GIF and SVG are input-only.</strong> Browsers expose no encoders for them.</li>
+            <li>
+              <strong>No video, audio, archive creation or compression of images.</strong> ZIP is used to bundle
+              results, not as a target format.
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      <section id="features">
+        <div class="wrap">
+          <h2>What it does beyond a single conversion</h2>
+          <p class="sub">The features that matter when the job is "all of these files", not "this one file".</p>
+          <div class="grid">
+            <div class="card">
+              <h3>Mixed-format batches</h3>
+              <p>
+                Drop 40 files of different types. Each resolves its own route to the shared target, and only formats
+                reachable from <em>every</em> selected file are offered.
+              </p>
+            </div>
+            <div class="card">
+              <h3>Failure isolation</h3>
+              <p>
+                One unreadable file never blocks the rest. Failures are listed per file with the reason, and a long
+                batch can be cancelled with finished results kept.
+              </p>
+            </div>
+            <div class="card">
+              <h3>One ZIP, sensibly compressed</h3>
+              <p>
+                Text results are deflated (~10× smaller); already-compressed outputs such as PNG, PDF and XLSX are
+                stored as-is so no CPU is wasted. Multi-page PDFs and multi-sheet workbooks split per page / sheet.
+              </p>
+            </div>
+            <div class="card">
+              <h3>Preview, compare, edit</h3>
+              <p>
+                Source and result side by side with a draggable divider and sync scroll; text results can be edited
+                before download.
+              </p>
+            </div>
+            <div class="card">
+              <h3>Paste and archive intake</h3>
+              <p>
+                <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>V</kbd> converts a clipboard image or text block; dropping a
+                <code>.zip</code> adds its supported contents to the batch.
+              </p>
+            </div>
+            <div class="card">
+              <h3>History you can trust</h3>
+              <p>
+                Last 50 conversions as metadata only — searchable by file name, filterable, reusable in one click,
+                exportable and importable as JSON.
+              </p>
+            </div>
+            <div class="card">
+              <h3>Excel-friendly CSV</h3>
+              <p>
+                Reads UTF-8 with automatic GBK fallback and writes UTF-8 with BOM, so Chinese spreadsheets open without
+                mojibake in either direction.
+              </p>
+            </div>
+            <div class="card">
+              <h3>Keyboard and a11y</h3>
+              <p>
+                Rebindable convert shortcut, skip link, visible focus rings,
+                <code>prefers-reduced-motion</code> support, and always-visible surfaces measured at WCAG 2.1 AA across
+                all 6 themes × light/dark.
+              </p>
+            </div>
+            <div class="card">
+              <h3>Yours to look like</h3>
+              <p>
+                6 accent colours × light / dark / follow-system, and a Chinese or English interface — chosen once,
+                remembered locally.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section
+        id="compare"
+        class="alt"
+      >
+        <div class="wrap">
+          <h2>Local extension vs. online converter</h2>
+          <p class="sub">
+            Honest trade-off: online services cover far more formats (video, audio, e-books, CAD) because they can run
+            heavy servers. Where a browser can decode the format, a local converter wins on privacy, speed and limits.
+          </p>
+          <table>
+            <caption>
+              Where each approach stands, based on the typical behaviour of upload-based conversion sites rather than
+              one specific vendor.
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col">Dimension</th>
+                <th scope="col">File Any Transfer (local)</th>
+                <th scope="col">Upload-based converter</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th scope="row">Your file leaves the device</th>
+                <td class="yes">Never</td>
+                <td class="no">Always (that is the mechanism)</td>
+              </tr>
+              <tr>
+                <th scope="row">Account / sign-in</th>
+                <td class="yes">Not required</td>
+                <td class="no">Often for full features</td>
+              </tr>
+              <tr>
+                <th scope="row">Free-tier limits</th>
+                <td class="yes">100 MB per file, 200 files per batch</td>
+                <td class="no">Daily quotas, size caps, watermarks</td>
+              </tr>
+              <tr>
+                <th scope="row">Works offline / on a plane</th>
+                <td class="yes">Yes</td>
+                <td class="no">No</td>
+              </tr>
+              <tr>
+                <th scope="row">Batch of mixed formats</th>
+                <td class="yes">Yes, one target for the whole batch</td>
+                <td class="no">Usually paid or queue-bound</td>
+              </tr>
+              <tr>
+                <th scope="row">Format breadth</th>
+                <td class="no">14 document / data / image formats</td>
+                <td class="yes">Hundreds, incl. video and audio</td>
+              </tr>
+              <tr>
+                <th scope="row">OCR, complex PDF layout repair</th>
+                <td class="no">Not bundled</td>
+                <td class="yes">Commonly offered</td>
+              </tr>
+              <tr>
+                <th scope="row">Source code</th>
+                <td class="yes">Open source (ISC)</td>
+                <td class="no">Closed</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="install">
+        <div class="wrap">
+          <h2>Install and use</h2>
+          <p class="sub">
+            Not on the Chrome Web Store yet, so today it is a load-unpacked install. Five steps, about a minute.
+          </p>
+          <ol class="steps">
+            <li>Install <a href="https://pnpm.io/installation">pnpm</a> and Node.js 20.12 or later.</li>
+            <li>Clone the repository and build it.</li>
+            <li>Open <code>chrome://extensions</code> and switch on <strong>Developer mode</strong>.</li>
+            <li>Click <strong>Load unpacked</strong> and choose <code>.output/chrome-mv3</code>.</li>
+            <li>Click the toolbar icon — the workbench opens in a new tab.</li>
+          </ol>
+          <pre><code>git clone https://github.com/&lt;GH_OWNER&gt;/file-format-converter.git
+cd file-format-converter
+pnpm install
+pnpm build</code></pre>
+
+          <h3>Daily flow</h3>
+          <ol class="steps">
+            <li>Drop, pick or paste your files.</li>
+            <li>Choose the target format — unreachable ones are greyed out with a reason.</li>
+            <li>Press <strong>Convert</strong> (or <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>Enter</kbd>).</li>
+            <li>Preview, edit if needed, then download one file or the whole batch as a ZIP.</li>
+          </ol>
+        </div>
+      </section>
+
+      <section
+        id="gallery"
+        class="alt"
+      >
+        <div class="wrap">
+          <h2>The workbench</h2>
+          <div class="shots">
+            <figure>
+              <img
+                src="assets/screenshots/batch-files.png"
+                width="1280"
+                height="800"
+                alt="Three mixed-format files staged in the workbench: sample.md, sample.csv and sample.xlsx, with HTML selected as the target format."
+                loading="lazy"
+              />
+              <figcaption>Mixed sources, one target: Markdown + CSV + Excel staged for HTML.</figcaption>
+            </figure>
+            <figure>
+              <img
+                src="assets/screenshots/batch-results.png"
+                width="1280"
+                height="800"
+                alt="Conversion complete message listing three generated HTML files with their sizes, per-file preview, copy and download buttons, and a Download ZIP action for the batch."
+                loading="lazy"
+              />
+              <figcaption>Batch results with per-file actions and a single ZIP download.</figcaption>
+            </figure>
+            <figure>
+              <img
+                src="assets/screenshots/history.png"
+                width="1280"
+                height="800"
+                alt="Conversion history panel showing records with source and target format badges, file names, sizes, a search field, All / Source / Target filters and a Reuse this format button."
+                loading="lazy"
+              />
+              <figcaption>History: metadata only, searchable, filterable, reusable.</figcaption>
+            </figure>
+            <figure>
+              <img
+                src="assets/screenshots/dark-mode.png"
+                width="1280"
+                height="800"
+                alt="The workbench in dark mode, showing the drop zone and history card on a dark background."
+                loading="lazy"
+              />
+              <figcaption>Dark appearance — one of six accent colours × light / dark / system.</figcaption>
+            </figure>
+          </div>
+        </div>
+      </section>
+
+      <section id="privacy">
+        <div class="wrap">
+          <h2>Privacy and permissions</h2>
+          <p class="sub">
+            The extension requests exactly one permission, <code>storage</code>, for history and preferences. It
+            declares no host permissions and contains no network call, so there is no path by which a file could be
+            transmitted. Full text: <a href="privacy.html">Privacy policy</a>.
+          </p>
+          <table>
+            <caption>
+              What is kept, and where.
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col">Data</th>
+                <th scope="col">Where it lives</th>
+                <th scope="col">Transmitted?</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th scope="row">Your files</th>
+                <td>Memory of the extension tab, only while converting</td>
+                <td class="yes">Never</td>
+              </tr>
+              <tr>
+                <th scope="row">History (names, formats, sizes)</th>
+                <td><code>chrome.storage.local</code> on this machine</td>
+                <td class="yes">Never</td>
+              </tr>
+              <tr>
+                <th scope="row">Preferences (theme, language, shortcuts)</th>
+                <td><code>chrome.storage.local</code> on this machine</td>
+                <td class="yes">Never</td>
+              </tr>
+              <tr>
+                <th scope="row">Analytics / telemetry / ads</th>
+                <td>Not implemented</td>
+                <td class="yes">n/a</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section
+        id="faq"
+        class="alt"
+      >
+        <div class="wrap">
+          <h2>Frequently asked questions</h2>
+          <dl class="faq">
+            <dt>Does File Any Transfer upload my files?</dt>
+            <dd>
+              No. Every converter is JavaScript bundled into the extension, the manifest declares only the
+              <code>storage</code> permission, and the code contains no <code>fetch</code>, <code>XMLHttpRequest</code>,
+              <code>WebSocket</code> or <code>sendBeacon</code> call. There is no server to upload to, and the extension
+              works with networking disabled.
+            </dd>
+            <dt>Which file formats can it convert?</dt>
+            <dd>
+              Fourteen formats across three families: documents (Markdown, HTML, Word .docx, PDF, TXT), data (CSV, Excel
+              .xlsx, JSON) and images (PNG, JPEG, WebP, BMP, GIF, SVG). That yields 46+ direct conversion routes, and
+              the workbench chains them automatically — Markdown to PDF runs as Markdown to HTML to PDF in one click.
+            </dd>
+            <dt>Can it convert a PDF into an editable Word document?</dt>
+            <dd>
+              Not losslessly. PDF input extracts text only, dropping layout and embedded images, and PDF output is
+              rendered page by page as images, so text in a converted PDF is not selectable. Word and Excel convert
+              through HTML as the hub format.
+            </dd>
+            <dt>Why can't I convert an image to text or CSV?</dt>
+            <dd>
+              That requires OCR. Bundling an OCR model would add tens of megabytes and a model download, which conflicts
+              with the offline guarantee, so it is not included. Those targets are greyed out in the format picker with
+              the reason shown, rather than failing after you press Convert.
+            </dd>
+            <dt>Is it free, and is there a paid version?</dt>
+            <dd>
+              It is free and open source under the ISC licence. There is no paid tier, no account, no telemetry and no
+              advertising — the extension has no code path that could report usage.
+            </dd>
+            <dt>What are the file size and batch limits?</dt>
+            <dd>
+              A single file up to 100&nbsp;MB is accepted (the UI warns above 20&nbsp;MB), and a batch is capped at 200
+              files. Batches larger than 5 files or 20&nbsp;MB in total ask for confirmation first, which you can switch
+              off in Preferences.
+            </dd>
+            <dt>How do I install it before it is on the Chrome Web Store?</dt>
+            <dd>
+              Build from source with Node.js 20.12 or later and pnpm: run <code>pnpm install</code> and
+              <code>pnpm build</code>, then open <code>chrome://extensions</code>, enable Developer mode, click
+              <strong>Load unpacked</strong> and select the <code>.output/chrome-mv3</code> folder. Clicking the toolbar
+              icon opens the workbench in a new tab.
+            </dd>
+            <dt>Does it work in Firefox or Edge?</dt>
+            <dd>
+              The build targets Chrome Manifest V3, so it runs in Chrome and other Chromium browsers such as Edge.
+              Firefox is not a supported target today, although the extension uses no Chrome-only APIs beyond the
+              standard <code>storage</code> and <code>action</code> ones.
+            </dd>
+          </dl>
+        </div>
+      </section>
+
+      <section id="details">
+        <div class="wrap">
+          <h2>Technical details</h2>
+          <div class="grid">
+            <div class="card">
+              <h3>Built with</h3>
+              <p>
+                WXT · Vue 3 · TypeScript · Element Plus · Vite. Heavy conversion libraries are dynamically imported per
+                converter, so first paint stays small.
+              </p>
+            </div>
+            <div class="card">
+              <h3>Requirements</h3>
+              <p>
+                Google Chrome 88 or later, or any Chromium browser that supports Manifest V3 (Edge included). Building
+                from source needs Node.js ≥ 20.12 and pnpm.
+              </p>
+            </div>
+            <div class="card">
+              <h3>Verified by tests</h3>
+              <p>
+                A Playwright suite drives the built bundle over 159 assertions with repository fixtures, including
+                per-theme contrast checks for the always-visible surfaces.
+              </p>
+            </div>
+            <div class="card">
+              <h3>Untrusted input handling</h3>
+              <p>
+                Every HTML, SVG and Markdown produced from a user file is sanitised before rendering, and previews run
+                in a sandboxed frame.
+              </p>
+            </div>
+          </div>
+          <p class="note">
+            <strong>Version 1.0.0 · last updated 2026-09-06.</strong> Screenshots on this page are generated from the
+            built bundle by <code>pnpm assets:capture</code>, so they cannot drift from what the extension actually
+            does.
+          </p>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site">
+      <div class="wrap">
+        <nav aria-label="Footer">
+          <a href="https://github.com/<GH_OWNER>/file-format-converter">GitHub</a>
+          <a href="https://github.com/<GH_OWNER>/file-format-converter/issues">Issues &amp; format requests</a>
+          <a href="https://github.com/<GH_OWNER>/file-format-converter/blob/master/README.zh-CN.md">中文说明</a>
+          <a href="privacy.html">Privacy policy</a>
+          <a href="llms.txt">llms.txt</a>
+        </nav>
+        <p>
+          File Any Transfer — offline file format conversion for Chrome. All processing happens on your device.
+          <br />
+          Released under the ISC licence.
+        </p>
+      </div>
+    </footer>
+  </body>
+</html>

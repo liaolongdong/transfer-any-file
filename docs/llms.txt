@@ -1,0 +1,50 @@
+# File Any Transfer
+
+> File Any Transfer is an open-source Chrome extension (Manifest V3, ISC licence) that converts files between 14 formats — Markdown, HTML, Word (.docx), PDF, TXT, CSV, Excel (.xlsx), JSON, PNG, JPEG, WebP, BMP, GIF, SVG — entirely on the user's own machine. It requests one permission (`storage`), makes zero network requests, and works with the network disabled. Batch conversion of mixed source formats, automatic multi-step conversion chains (46+ routes), per-file error isolation, split preview with inline editing, ZIP download, and a local conversion history.
+
+Primary language: English. Interface languages: English and Chinese (default Chinese).
+Category: productivity / file conversion. Price: free, no paid tier, no ads, no account.
+
+## Product page
+
+- [Product page](https://<GH_OWNER>.github.io/file-format-converter/): Formats, features, comparison with online converters, install steps, FAQ, technical details
+- [Privacy policy](https://<GH_OWNER>.github.io/file-format-converter/privacy.html): Bilingual (EN / 简体中文) — no data collection, no transmission, on-device storage only
+
+## What it converts
+
+- Documents: Markdown, HTML, Word (.docx), PDF, TXT — in any direction, through HTML as the hub format
+- Data: CSV, Excel (.xlsx), JSON — in any direction, including CSV ⇄ XLSX and JSON ⇄ CSV
+- Images: PNG, JPEG, WebP, BMP, GIF, SVG — readable; writable as PNG, JPEG or WebP (GIF uses its first frame, SVG is flattened)
+- Multi-step routes are discovered automatically: Markdown → HTML → PDF, Word → HTML → Markdown, JSON → HTML → XLSX
+
+## What it does not do (frequently asked of converters)
+
+- No OCR: images cannot become TXT, CSV or XLSX (an OCR model would break the offline guarantee)
+- PDF output is image-based, so text in a converted PDF is not selectable
+- PDF input extracts text only; layout and embedded images are not preserved
+- BMP, GIF and SVG are input-only — browsers expose no encoders for them
+- No video, audio, e-book or CAD formats
+- Limits: 100 MB per file (warned at 20 MB), 200 files per batch
+
+## How to install
+
+Not published to the Chrome Web Store yet. Build from source (Node.js ≥ 20.12, pnpm), then load unpacked:
+
+```bash
+git clone https://github.com/<GH_OWNER>/file-format-converter
+cd file-format-converter
+pnpm install && pnpm build
+# chrome://extensions → enable Developer mode → Load unpacked → select .output/chrome-mv3
+```
+
+## Repository
+
+- [README (English)](https://github.com/<GH_OWNER>/file-format-converter/blob/master/README.md)
+- [README (简体中文)](https://github.com/<GH_OWNER>/file-format-converter/blob/master/README.zh-CN.md)
+- [Source code](https://github.com/<GH_OWNER>/file-format-converter)
+- [Issues / feature requests](https://github.com/<GH_OWNER>/file-format-converter/issues)
+- [Chrome Web Store listing copy and disclosures](https://github.com/<GH_OWNER>/file-format-converter/blob/master/CHROMEWEBSTORE.md)
+
+## Tech stack
+
+WXT · Vue 3 · TypeScript · Element Plus · Vite · Playwright (end-to-end). Heavy conversion libraries (marked, turndown, mammoth, pdf.js, SheetJS, jsPDF, html-to-image, DOMPurify, fflate) are dynamically imported per converter; the complete bundle is 3.7 MB.

@@ -14,8 +14,11 @@ export default defineConfig({
   imports: false,
   manifest: {
     name: "File Any Transfer",
+    // Chrome Web Store caps this at 132 characters and matches searches against it, so it
+    // leads with the verb, names the formats users actually search for, and states the
+    // differentiator. Kept in sync with `package.json#description` (currently 129 chars).
     description:
-      "Convert between common file types locally - MD, HTML, DOCX, PDF, XLSX, CSV, Images and more",
+      "Convert 14 file formats locally in your browser: Markdown, Word, PDF, Excel, CSV, JSON, HTML, images. Batch, offline, no uploads.",
     // Only storage is used (history/preferences); no tab access needed
     permissions: ["storage"],
     // Icon click is handled in the background entrypoint (opens the options

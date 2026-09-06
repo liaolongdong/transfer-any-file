@@ -1,0 +1,34 @@
+# Allow every crawler, including AI assistants — this site exists to be read.
+# The extension itself makes no network requests and collects no data; see privacy.html.
+User-agent: *
+Allow: /
+
+# Explicitly welcome the AI search/answer crawlers (no Disallow for any of them).
+User-agent: Googlebot
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+User-agent: GPTBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: Claude-SearchBot
+Allow: /
+
+Sitemap: https://<GH_OWNER>.github.io/file-format-converter/sitemap.xml

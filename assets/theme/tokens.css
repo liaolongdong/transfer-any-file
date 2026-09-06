@@ -16,6 +16,18 @@
      element — same mechanism as --fat-shadow-primary below. */
   --fat-focus-ring: var(--fat-primary);
 
+  /* Foreground for anything painted on a primary-coloured surface (the topbar brand,
+     selected chips). White suits 4 of the 6 light primaries but only reaches 2.54:1 on
+     green and 3.56:1 on orange, so those two themes flip to the dark ink (7.04 / 5.02).
+     Declared per theme because CSS still has no portable colour-contrast(). */
+  --fat-on-primary: #fff;
+
+  /* The topbar is the only primary-coloured surface on screen permanently, so it gets a
+     shade its text can actually sit on. Light keeps --fat-primary; dark uses
+     --fat-primary-active, where white measures 4.58–6.34:1 instead of the 1.69–2.67:1 it
+     gets on the pastel primaries — and it matches the dark primary button. */
+  --fat-topbar-bg: var(--fat-primary);
+
   /* Neutral surfaces */
   --fat-surface: #f8fafc;
   --fat-surface-2: #f1f5f9;
@@ -85,6 +97,13 @@
   --fat-primary-rgb: 16 185 129;
   --fat-primary-bg: #ecfdf5;
   --fat-primary-border: #a7f3d0;
+
+  /* #fff on #10b981 is 2.54:1 — under even the 3:1 large-text floor; the dark ink gives
+     7.04. The focus ring has the same problem against a white card (2.54), so it takes
+     the active shade (3.77). Both are re-declared in the dark-green block below rather
+     than left to a specificity tie against `:root[data-mode='dark']`. */
+  --fat-on-primary: var(--fat-text-primary);
+  --fat-focus-ring: var(--fat-primary-active);
   --fat-surface: #f0fdf4;
   --fat-surface-2: #f7fdf9;
   --fat-surface-line: #dcfce7;
@@ -125,6 +144,10 @@
   --fat-primary-rgb: 234 88 12;
   --fat-primary-bg: #fff7ed;
   --fat-primary-border: #fed7aa;
+
+  /* #fff on #ea580c is 3.56:1, below the 4.5 body-text floor; the dark ink gives 5.02.
+     Its focus ring is fine at 3.56 (≥ the 3:1 non-text minimum), so only the ink changes. */
+  --fat-on-primary: var(--fat-text-primary);
   --fat-surface: #fffbeb;
   --fat-surface-2: #fffdf7;
   --fat-surface-line: #fef3c7;
@@ -199,6 +222,7 @@
      6.15–9.41:1 against the card, while --fat-primary-hover reaches 8.37–12.12:1
      — comfortably past the 3:1 WCAG 1.4.11 non-text minimum in all 6 themes. */
   --fat-focus-ring: var(--fat-primary-hover);
+  --fat-topbar-bg: var(--fat-primary-active);
   --fat-shadow-sm: 0 1px 2px rgb(0 0 0 / 20%);
   --fat-shadow-md: 0 2px 6px rgb(0 0 0 / 30%);
   --fat-shadow-lg: 0 4px 12px rgb(0 0 0 / 40%);
@@ -237,6 +261,12 @@
   --fat-primary-rgb: 74 222 128;
   --fat-primary-bg: #0a2015;
   --fat-primary-border: #16503a;
+
+  /* Undo the light-green overrides, which are tuned for light pastels and would be wrong
+     on a dark surface (white is 4.92:1 on this theme's topbar shade). Declared at (0,3,0)
+     so the outcome never depends on rule order in this file. */
+  --fat-on-primary: #fff;
+  --fat-focus-ring: var(--fat-primary-hover);
 }
 
 :root[data-mode='dark'][data-theme='purple'] {
@@ -255,6 +285,9 @@
   --fat-primary-rgb: 253 186 116;
   --fat-primary-bg: #221408;
   --fat-primary-border: #5c3418;
+
+  /* Same reasoning as dark-green: white is 4.58:1 on this theme's topbar shade. */
+  --fat-on-primary: #fff;
 }
 
 :root[data-mode='dark'][data-theme='rose'] {

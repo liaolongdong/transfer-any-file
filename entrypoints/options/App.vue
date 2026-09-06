@@ -504,7 +504,7 @@ onUnmounted(() => {
 }
 
 .topbar {
-  background: var(--fat-primary);
+  background: var(--fat-topbar-bg);
 }
 
 .topbar-inner {
@@ -525,12 +525,15 @@ onUnmounted(() => {
 .brand-name {
   font-size: 18px;
   font-weight: 700;
-  color: #fff;
+  color: var(--fat-on-primary);
 }
 
+/* Full-strength rather than the previous 85% alpha: at 12px that translucent white
+   measured 4.20:1 on light blue and 3.71:1 on light rose, both under the 4.5:1 body-text
+   floor. Hierarchy is already carried by the size difference. */
 .brand-tag {
   font-size: 12px;
-  color: rgb(255 255 255 / 85%);
+  color: var(--fat-on-primary);
 }
 
 .content {

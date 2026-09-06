@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1"
+    />
+    <title>Privacy Policy — File Any Transfer</title>
+    <meta
+      name="description"
+      content="Privacy policy for File Any Transfer, an offline Chrome extension for converting file formats. It collects no data, makes no network requests and keeps history and preferences on your device."
+    />
+    <meta
+      name="robots"
+      content="index, follow"
+    />
+    <link
+      rel="canonical"
+      href="https://<GH_OWNER>.github.io/file-format-converter/privacy.html"
+    />
+    <link
+      rel="icon"
+      href="assets/icon.png"
+    />
+    <style>
+      body {
+        margin: 0;
+        background: #fff;
+        color: #101828;
+        font-family:
+          -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'PingFang SC',
+          'Microsoft YaHei', sans-serif;
+        font-size: 17px;
+        line-height: 1.7;
+      }
+
+      .wrap {
+        max-width: 760px;
+        margin: 0 auto;
+        padding: 48px 24px 72px;
+      }
+
+      h1 {
+        margin: 0 0 4px;
+        font-size: 1.9rem;
+        letter-spacing: -0.02em;
+      }
+
+      h2 {
+        margin: 34px 0 8px;
+        font-size: 1.15rem;
+      }
+
+      .updated {
+        color: #667085;
+        font-size: 14px;
+      }
+
+      a {
+        color: #1d4ed8;
+      }
+
+      code {
+        padding: 1px 5px;
+        background: #f6f8fc;
+        border: 1px solid #e4e7ec;
+        border-radius: 5px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 0.88em;
+      }
+
+      ul {
+        padding-left: 22px;
+      }
+
+      hr {
+        margin: 44px 0 0;
+        border: 0;
+        border-top: 1px solid #e4e7ec;
+      }
+
+      .zh {
+        color: #344054;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="wrap">
+      <h1>Privacy Policy — File Any Transfer</h1>
+      <p class="updated">Effective date: 2026-09-06 · Applies to extension version 1.0.0 and later</p>
+
+      <h2>Summary</h2>
+      <p>
+        File Any Transfer is an offline file format converter for Google Chrome.
+        <strong>It does not collect, store on a server, transmit or share any personal data.</strong> There is no
+        account, no analytics, no advertising and no backend service to send anything to.
+      </p>
+
+      <h2>How the extension works</h2>
+      <p>
+        Every conversion is performed by JavaScript that is bundled inside the extension and runs in a page on your own
+        device. The files you select are read into that page's memory, converted there, and handed back to you as a
+        download. They are never uploaded, because the extension declares no host permissions and contains no network
+        code (<code>fetch</code>, <code>XMLHttpRequest</code>, <code>WebSocket</code>, <code>sendBeacon</code>).
+      </p>
+
+      <h2>Data the extension keeps on your device</h2>
+      <ul>
+        <li>
+          <strong>Conversion history</strong> — the most recent 50 conversions, holding only file <em>names</em>, source
+          and target formats, file sizes and timestamps. File <em>contents</em> are never written to storage. You can
+          delete single records or the whole history in the interface, and export or import it as JSON.
+        </li>
+        <li>
+          <strong>Preferences</strong> — theme colour, light/dark setting, interface language, notification and
+          confirmation switches, keyboard shortcut, panel layout.
+        </li>
+      </ul>
+      <p>
+        Both are saved through the browser's extension storage API (<code>chrome.storage.local</code>) on the device you
+        use. They are not synced, not backed up by us, and not readable by us — the extension has no server.
+      </p>
+
+      <h2>Permissions</h2>
+      <p>
+        The extension requests exactly one permission: <code>storage</code>, used solely for the two items above. It
+        does not request access to browsing history, tabs, cookies, website content, downloads, or any site.
+      </p>
+
+      <h2>Children, minors and sensitive data</h2>
+      <p>
+        Because nothing is collected, nothing can be misused in that way. The extension is not directed at children and
+        requests no personal information from anyone.
+      </p>
+
+      <h2>Changes to this policy</h2>
+      <p>
+        If a future version changes what is collected or where processing happens, this page is updated and the
+        extension's store listing discloses it before that version is published. Material changes to the data model will
+        be listed here with a new effective date.
+      </p>
+
+      <h2>Contact</h2>
+      <p>
+        Questions about this policy: open an issue at
+        <a href="https://github.com/<GH_OWNER>/file-format-converter/issues"
+          >github.com/&lt;GH_OWNER&gt;/file-format-converter/issues</a
+        >.
+      </p>
+
+      <hr />
+
+      <section
+        class="zh"
+        lang="zh-Hans"
+      >
+        <h2>隐私政策（简体中文）</h2>
+        <p class="updated">生效日期：2026-09-06 · 适用于扩展 1.0.0 及后续版本</p>
+
+        <p>
+          <strong>摘要：</strong>File Any Transfer 是一款离线的 Chrome
+          文件格式转换扩展。它<strong>不收集、不上报、不共享任何个人数据</strong>；无账号、无统计埋点、无广告，也没有可接收数据的后台服务。
+        </p>
+
+        <p>
+          <strong>工作方式：</strong>所有转换由打包在扩展内的 JavaScript
+          在你自己的设备上完成。所选文件被读入该页面的内存、在本地转换、再以下载形式交还给你。扩展不声明任何 host
+          权限，代码中也不存在 <code>fetch</code>、<code>XMLHttpRequest</code>、<code>WebSocket</code>、<code
+            >sendBeacon</code
+          >
+          等网络调用，因此不存在上传路径。
+        </p>
+
+        <p>
+          <strong>保存在本机的数据：</strong>（1）转换历史——最近 50
+          条，仅包含文件<em>名称</em>、源/目标格式、体积与时间戳，绝不写入文件<em>内容</em>；可在界面中单条删除、清空，或导出/导入
+          JSON。（2）偏好设置——主题色、明暗模式、界面语言、通知与确认开关、快捷键、面板布局。
+        </p>
+
+        <p>
+          两者都通过浏览器扩展存储接口（<code>chrome.storage.local</code>）保存在本机，不做云同步、不由我们备份、我们也无法读取——本扩展没有服务器。
+        </p>
+
+        <p>
+          <strong>权限：</strong>仅申请
+          <code>storage</code>
+          一项，只用于上述两类数据。不申请浏览记录、标签页、Cookie、网页内容、下载或任何站点的访问权限。
+        </p>
+
+        <p>
+          <strong>政策变更：</strong
+          >若未来版本改变数据收集范围或处理位置，本页会更新，并在该版本发布前于商店列表中披露；数据模型的实质性变更会在此处标注新的生效日期。
+        </p>
+
+        <p>
+          <strong>联系方式：</strong>
+          <a href="https://github.com/<GH_OWNER>/file-format-converter/issues"
+            >github.com/&lt;GH_OWNER&gt;/file-format-converter/issues</a
+          >
+        </p>
+      </section>
+    </main>
+  </body>
+</html>
