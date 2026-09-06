@@ -2,6 +2,13 @@
   "name": "transfer-any-file",
   "version": "1.0.0",
   "description": "Convert 14 file formats locally in your browser: Markdown, Word, PDF, Excel, CSV, JSON, HTML, images. Batch, offline, no uploads.",
+  "author": {
+    "name": "Better",
+    "email": "924902324@qq.com",
+    "url": "https://github.com/liaolongdong"
+  },
+  "displayName": "Transfer Any File",
+  "license": "ISC",
   "scripts": {
     "dev": "wxt",
     "build": "wxt build",
@@ -32,13 +39,6 @@
     "image-conversion",
     "batch-conversion"
   ],
-  "author": {
-    "name": "Better",
-    "email": "924902324@qq.com",
-    "url": "https://github.com/liaolongdong"
-  },
-  "displayName": "Transfer Any File",
-  "license": "ISC",
   "packageManager": "pnpm@10.12.1",
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.2",
