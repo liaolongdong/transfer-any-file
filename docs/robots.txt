@@ -31,4 +31,4 @@ Allow: /
 User-agent: Claude-SearchBot
 Allow: /
 
-Sitemap: https://<GH_OWNER>.github.io/file-format-converter/sitemap.xml
+Sitemap: https://liaolongdong.github.io/transfer-any-file/sitemap.xml

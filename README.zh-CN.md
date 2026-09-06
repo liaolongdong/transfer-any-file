@@ -1,7 +1,7 @@
 <div align="center">
-  <img src="public/icon/128.png" alt="File Any Transfer 图标" width="96" height="96" />
+  <img src="public/icon/128.png" alt="Transfer Any File 图标" width="96" height="96" />
 
-# File Any Transfer
+# Transfer Any File
 
 **14 种文件格式互转——Markdown、Word、PDF、Excel、CSV、JSON、HTML、图片——一个字节都不用上传。**
 
@@ -9,9 +9,9 @@
 
 简体中文 · [English](README.md)
 
-  <!-- 发布前请替换下方徽章与链接中的 <GH_OWNER>（star 徽章、CI 徽章、支持链接共 3 处）为你自己的 GitHub 用户名。 -->
+  <!-- 徽章与链接均指向 github.com/liaolongdong/transfer-any-file，创建并推送该仓库后即生效。 -->
 
-[![给这个项目加星](https://img.shields.io/github/stars/<GH_OWNER>/file-format-converter?style=for-the-badge&logo=github&label=%E2%AD%90%20Star%20this%20repo&color=yellow)](https://github.com/<GH_OWNER>/file-format-converter/stargazers)
+[![给这个项目加星](https://img.shields.io/github/stars/liaolongdong/transfer-any-file?style=for-the-badge&logo=github&label=%E2%AD%90%20Star%20this%20repo&color=yellow)](https://github.com/liaolongdong/transfer-any-file/stargazers)
 
 [![Manifest V3](https://img.shields.io/badge/Manifest_V3-ready-blue?style=for-the-badge&logo=googlechrome&logoColor=white)](https://developer.chrome.com/docs/extensions/get-started)
 &nbsp;
@@ -19,7 +19,7 @@
 &nbsp;
 ![零网络请求](https://img.shields.io/badge/zero_network_requests-brightgreen?style=for-the-badge)
 &nbsp;
-![CI](https://img.shields.io/github/actions/workflow/status/<GH_OWNER>/file-format-converter/ci.yml?style=for-the-badge&label=CI)
+![CI](https://img.shields.io/github/actions/workflow/status/liaolongdong/transfer-any-file/ci.yml?style=for-the-badge&label=CI)
 &nbsp;
 ![License ISC](https://img.shields.io/badge/license-ISC-blue?style=for-the-badge)
 
@@ -35,7 +35,7 @@
 
 绝大多数"免费在线转换"网站第一步就是让你上传文件。公开数据集无所谓，但 HR 表格、客户合同、体检报告、还没告诉任何人的草稿就不一样了。而且它们还附带账号墙、每日额度、25 MB 上限，以及为你的本地操作白白付出一次上传往返。
 
-File Any Transfer 把整件事留在本地。转换器全部跑在扩展页面里，一个 3 MB 的 Word 文件变成 Markdown，不需要有一个数据包离开你的机器——在飞机上照样能用。
+Transfer Any File 把整件事留在本地。转换器全部跑在扩展页面里，一个 3 MB 的 Word 文件变成 Markdown，不需要有一个数据包离开你的机器——在飞机上照样能用。
 
 ## 快速开始
 
@@ -208,11 +208,11 @@ CHROMEWEBSTORE.md      # 商店文案、权限说明、隐私披露
 2. 保持离线底线：不新增权限、不发起网络请求、不引用远程资源；确有必要请在 PR 里写明
 3. 提交前跑 `pnpm lint:all` 与 `pnpm test:e2e`，新增转换器请一并补上 fixture 与测试场景
 
-问题反馈与格式需求：[github.com/<GH_OWNER>/file-format-converter/issues](https://github.com/<GH_OWNER>/file-format-converter/issues)
+问题反馈与格式需求：[github.com/liaolongdong/transfer-any-file/issues](https://github.com/liaolongdong/transfer-any-file/issues)
 
 ## 许可证
 
-[ISC](package.json)
+[ISC](LICENSE)
 
 ---
 
@@ -220,6 +220,8 @@ CHROMEWEBSTORE.md      # 商店文案、权限说明、隐私披露
 
 **如果它帮你少上传了一次敏感文件，加个星能让下一个人更容易找到它。**
 
-[![给这个项目加星](https://img.shields.io/github/stars/<GH_OWNER>/file-format-converter?style=for-the-badge&logo=github&label=%E2%AD%90%20Star%20this%20repo&color=yellow)](https://github.com/<GH_OWNER>/file-format-converter/stargazers)
+[![给这个项目加星](https://img.shields.io/github/stars/liaolongdong/transfer-any-file?style=for-the-badge&logo=github&label=%E2%AD%90%20Star%20this%20repo&color=yellow)](https://github.com/liaolongdong/transfer-any-file/stargazers)
+
+作者：[Better](https://github.com/liaolongdong)
 
 </div>

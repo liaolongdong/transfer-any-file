@@ -1,4 +1,4 @@
-# Chrome Web Store Listing — File Any Transfer
+# Chrome Web Store Listing — Transfer Any File
 
 > Last Updated: 2026-09-06
 > Status: **not published yet.** This repo has no store listing to optimise — `manifest.json` carries no `key`, the README only documents "Load unpacked", and there is no extension ID anywhere in the tree. This file is the publish-ready asset pack: copy each field into the [Chrome Developer Dashboard](https://chrome.google.com/webstore/devconsole), and keep it updated whenever permissions, features or graphics change.
@@ -9,19 +9,19 @@
 
 ## Store Listing
 
-**Extension Name** [REQUIRED] — 17 chars, limit 75
+**Extension Name** [REQUIRED] — 49 chars, limit 75
 
 ```
-File Any Transfer
+Transfer Any File — Offline File Format Converter
 ```
 
-> ⚠️ **Decision needed before publishing.** The store's name field is the single strongest ranking signal, and the current name carries no searchable term. Recommended variant (49 chars, still under the limit):
+> Renamed on 2026-09-06 from `File Any Transfer`, for two reasons: the store name is the single strongest ranking signal and the old one carried no searchable term, while generic names in this category (`File Converter`, `ConvertX`, `FileForge`, `FileConverter`) are already held by high-volume projects; and `File Any Transfer` reads to an English speaker as the verb phrase "file any transfer" (≈ submit a transfer request), which never connected to format conversion. The word order fix keeps every original word.
 >
-> ```
-> File Any Transfer — Offline File Format Converter
-> ```
->
-> Renaming means editing `wxt.config.ts → manifest.name` **and** the in-app brand, so it is a user-visible change that needs your sign-off. Nothing in this repo has been renamed.
+> | Where                                                                 | Value                                                                                                                                                                                                                                                                                                                                                                                                                 |
+> | --------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+> | Store listing / `wxt.config.ts → manifest.name`                       | `Transfer Any File — Offline File Format Converter`                                                                                                                                                                                                                                                                                                                                                                   |
+> | In-app brand (`utils/i18n/*.ts → appName`), tab title, promo graphics | `Transfer Any File`                                                                                                                                                                                                                                                                                                                                                                                                   |
+> | GitHub repo                                                           | `transfer-any-file` — matches the brand, the npm package name and this listing, so CWS / GitHub / Pages / npm resolve to **one entity**. The repo is still unpublished (no remote, no stars, no inbound links), so aligning costs nothing; GitHub search coverage comes from the About description + topics rather than the slug. The local working directory name is irrelevant to the repo name and may stay as-is. |
 
 **Short Description** [REQUIRED] — 129 chars, limit 132
 
@@ -42,7 +42,7 @@ Mirrored in `wxt.config.ts → manifest.description` and `package.json → descr
 The store strips markdown, so this is written with `•` bullets and blank-line sections. It deliberately contains **no** implementation details (no framework, library or API names) and states the limitations up front — "misleading functionality" is a common rejection reason.
 
 ```
-File Any Transfer converts your files between common formats without uploading them anywhere. Everything happens in a page inside your own browser: no server, no account, no queue, and nothing to wait for on a slow connection.
+Transfer Any File converts your files between common formats without uploading them anywhere. Everything happens in a page inside your own browser: no server, no account, no queue, and nothing to wait for on a slow connection.
 
 WHAT YOU CAN CONVERT
 • Documents: Markdown, HTML, Word (.docx), PDF and plain text, in any direction
@@ -82,7 +82,7 @@ PLEASE KNOW BEFORE INSTALLING
 • One file up to 100 MB is accepted, and a batch is limited to 200 files
 
 SUPPORT
-Found a bug, or need a format added? Open an issue at https://github.com/<GH_OWNER>/file-format-converter/issues
+Found a bug, or need a format added? Open an issue at https://github.com/liaolongdong/transfer-any-file/issues
 
 Version 1.0.0 — first store submission.
 ```
@@ -186,10 +186,10 @@ On the disclosure form: select **"We don't collect any user data from this exten
 **Privacy Policy URL** [REQUIRED] — ⚠️ must be live before submission
 
 ```
-https://<GH_OWNER>.github.io/file-format-converter/privacy.html
+https://liaolongdong.github.io/transfer-any-file/privacy.html
 ```
 
-The page itself is written and lives at `docs/privacy.html` (bilingual, no analytics, no external assets). It only becomes a valid URL after you (a) create the GitHub remote, (b) enable **Settings → Pages → Deploy from a branch → `master` /docs**, and (c) substitute `<GH_OWNER>`. Until then the extension cannot be published — the dashboard will not accept a submission without a reachable policy URL.
+The page itself is written and lives at `docs/privacy.html` (bilingual, no analytics, no external assets). The username is already filled in, so the URL above becomes valid as soon as you (a) push the repository as `transfer-any-file` under `liaolongdong` and (b) enable **Settings → Pages → Deploy from a branch → `master` /docs**. Until then the extension cannot be published — the dashboard will not accept a submission without a reachable policy URL.
 
 ---
 
@@ -202,12 +202,12 @@ The page itself is written and lives at `docs/privacy.html` (bilingual, no analy
 
 ## Developer Info
 
-| Field          | Value                                                                                                      |
-| -------------- | ---------------------------------------------------------------------------------------------------------- |
-| Publisher Name | ⚠️ _you must provide_ — the CWS developer account name                                                     |
-| Contact Email  | ⚠️ _you must provide_ — shown publicly on the listing; do not paste a personal mailbox without deciding to |
-| Support URL    | `https://github.com/<GH_OWNER>/file-format-converter/issues`                                               |
-| Homepage URL   | `https://<GH_OWNER>.github.io/file-format-converter/`                                                      |
+| Field          | Value                                                                                                                  |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Publisher Name | ⚠️ _you must provide_ — the CWS developer account name                                                                 |
+| Contact Email  | `924902324@qq.com` — displayed publicly on the store listing (decided 2026-09-06); matches `package.json#author.email` |
+| Support URL    | `https://github.com/liaolongdong/transfer-any-file/issues`                                                             |
+| Homepage URL   | `https://liaolongdong.github.io/transfer-any-file/`                                                                    |
 
 ---
 
@@ -239,10 +239,11 @@ The page itself is written and lives at `docs/privacy.html` (bilingual, no analy
 - [x] Description matches shipped behaviour, including limitations
 - [x] Screenshots at exactly 1280×800, generated from the built bundle
 - [x] Privacy policy text authored (bilingual), hosted under `docs/`
-- [ ] **GitHub remote created and GitHub Pages enabled** — blocks privacy URL + support URL
+- [ ] **GitHub Pages enabled** for `liaolongdong/transfer-any-file` (branch `master`, folder `/docs`) — blocks privacy URL, homepage and support links
 - [ ] **Privacy policy URL is publicly reachable** and matches the disclosure form
-- [ ] **Publisher name and public contact email decided**
-- [ ] Store name / keyword variant approved (see "Decision needed" above)
+- [x] Public contact email chosen and consistent with `package.json#author.email`
+- [ ] **Publisher name decided** — must match the CWS developer account's public name
+- [x] Store name renamed to the brand + keyword form above (2026-09-06); `manifest.name` matches it
 - [ ] `pnpm package` zip inspected: excludes `.git/`, `node_modules/`, `.test-*`, `CHROMEWEBSTORE.md`, `docs/`, `fixtures/`
 - [ ] `pnpm lint:all` and `pnpm test:e2e` green on the commit being packaged
 

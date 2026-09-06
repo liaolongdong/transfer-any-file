@@ -13,7 +13,11 @@ export default defineConfig({
   // Keep explicit imports for project code; only Element Plus is auto-resolved
   imports: false,
   manifest: {
-    name: "File Any Transfer",
+    // Store-facing name = brand + keyword phrase (Chrome Web Store ranks on this field and
+    // allows 75 characters; the in-app brand stays the short `Transfer Any File`, see
+    // `utils/i18n/*.ts → appName`). Generic-only names like "File Converter" are already
+    // taken by high-volume projects, so the brand token carries discoverability instead.
+    name: "Transfer Any File — Offline File Format Converter",
     // Chrome Web Store caps this at 132 characters and matches searches against it, so it
     // leads with the verb, names the formats users actually search for, and states the
     // differentiator. Kept in sync with `package.json#description` (currently 129 chars).

@@ -154,7 +154,7 @@ async function resetWorkbench(page) {
 
 async function run() {
   console.log('╔══════════════════════════════════════════════╗');
-  console.log('║  File Any Transfer — Full E2E Test Suite     ║');
+  console.log('║  Transfer Any File — Full E2E Test Suite     ║');
   console.log('╚══════════════════════════════════════════════╝');
   console.log(`  Mode: ${HEADLESS ? 'headless (CI)' : 'headed'}`);
   console.log(`  Screenshots: ${SCREENSHOT_DIR}`);

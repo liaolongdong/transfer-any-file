@@ -1,4 +1,4 @@
-# 微博推广文案 · File Any Transfer
+# 微博推广文案 · Transfer Any File
 
 > 状态：**草稿，未发布**。发布需要你本人登录微博，且发出去不可撤回，所以这里只出稿。
 > 配图建议见文末，素材已在 `docs/assets/` 与 `docs/promo/assets/` 备好。
@@ -39,7 +39,7 @@
 
 **首条评论**：
 
-> 仓库：github.com/<GH_OWNER>/file-format-converter（README 中英双版，含安装四步；产品说明页和隐私政策在 docs/ 下）
+> 仓库：github.com/liaolongdong/transfer-any-file（README 中英双版，含安装四步；产品说明页和隐私政策在 docs/ 下）
 
 ---
 

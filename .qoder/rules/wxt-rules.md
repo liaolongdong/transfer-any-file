@@ -2,7 +2,7 @@
 trigger: always_on
 ---
 
-# WXT 项目规则 · File Any Transfer
+# WXT 项目规则 · Transfer Any File
 
 > 本项目是**完全离线**的 Chrome MV3 文件格式转换扩展：点击图标在新标签页打开转换工作台（options 页面），本地完成文档 / 数据 / 图片三大类格式的批量与多步转换。以下为强制编码规则；架构、命令与工作流详见 `AGENTS.md`。
 

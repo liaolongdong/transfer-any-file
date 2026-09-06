@@ -1,4 +1,4 @@
-# Contributing to File Any Transfer
+# Contributing to Transfer Any File
 
 Contributions are welcome — format requests and bug reports included. This project is small and opinionated, so here is the whole rule set in one page.
 

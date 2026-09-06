@@ -5,7 +5,7 @@ const en: typeof zh = {
     close: 'Close',
   },
 
-  appName: 'File Any Transfer',
+  appName: 'Transfer Any File',
   appTagline: 'Local file format converter',
 
   options: {

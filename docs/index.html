@@ -6,19 +6,20 @@
       name="viewport"
       content="width=device-width, initial-scale=1"
     />
-    <title>File Any Transfer — offline file format converter for Chrome (14 formats, no uploads)</title>
+    <title>Transfer Any File — offline file format converter for Chrome (14 formats, no uploads)</title>
     <meta
       name="description"
-      content="File Any Transfer is a Chrome extension that converts Markdown, Word, PDF, Excel, CSV, JSON, HTML and images between 14 formats entirely on your own machine. Batch conversion, multi-step chains, preview and edit, ZIP download. No uploads, no account, no network requests."
+      content="Transfer Any File is a Chrome extension that converts Markdown, Word, PDF, Excel, CSV, JSON, HTML and images between 14 formats entirely on your own machine. Batch conversion, multi-step chains, preview and edit, ZIP download. No uploads, no account, no network requests."
     />
     <meta
       name="author"
-      content="File Any Transfer"
+      content="Better"
     />
-    <!-- Substitute <GH_OWNER> before/after deploying, or canonical, OG and sitemap URLs will not resolve. -->
+    <!-- Every URL below assumes the public repo is named `transfer-any-file` under this account
+         and GitHub Pages is deployed from `master` /docs. Adjust if either changes. -->
     <link
       rel="canonical"
-      href="https://<GH_OWNER>.github.io/file-format-converter/"
+      href="https://liaolongdong.github.io/transfer-any-file/"
     />
     <link
       rel="icon"
@@ -27,12 +28,12 @@
     <link
       rel="alternate"
       hreflang="zh"
-      href="https://github.com/<GH_OWNER>/file-format-converter/blob/master/README.zh-CN.md"
+      href="https://github.com/liaolongdong/transfer-any-file/blob/master/README.zh-CN.md"
     />
     <link
       rel="alternate"
       hreflang="en"
-      href="https://<GH_OWNER>.github.io/file-format-converter/"
+      href="https://liaolongdong.github.io/transfer-any-file/"
     />
     <meta
       name="theme-color"
@@ -44,11 +45,11 @@
     />
     <meta
       property="og:site_name"
-      content="File Any Transfer"
+      content="Transfer Any File"
     />
     <meta
       property="og:title"
-      content="File Any Transfer — offline file format converter for Chrome"
+      content="Transfer Any File — offline file format converter for Chrome"
     />
     <meta
       property="og:description"
@@ -56,11 +57,11 @@
     />
     <meta
       property="og:url"
-      content="https://<GH_OWNER>.github.io/file-format-converter/"
+      content="https://liaolongdong.github.io/transfer-any-file/"
     />
     <meta
       property="og:image"
-      content="https://<GH_OWNER>.github.io/file-format-converter/assets/store/github-social-preview.png"
+      content="https://liaolongdong.github.io/transfer-any-file/assets/store/github-social-preview.png"
     />
     <meta
       property="og:image:width"
@@ -76,7 +77,7 @@
     />
     <meta
       name="twitter:title"
-      content="File Any Transfer — offline file format converter for Chrome"
+      content="Transfer Any File — offline file format converter for Chrome"
     />
     <meta
       name="twitter:description"
@@ -84,7 +85,7 @@
     />
     <meta
       name="twitter:image"
-      content="https://<GH_OWNER>.github.io/file-format-converter/assets/store/github-social-preview.png"
+      content="https://liaolongdong.github.io/transfer-any-file/assets/store/github-social-preview.png"
     />
 
     <script type="application/ld+json">
@@ -93,17 +94,22 @@
         "@graph": [
           {
             "@type": "SoftwareApplication",
-            "@id": "https://<GH_OWNER>.github.io/file-format-converter/#app",
-            "name": "File Any Transfer",
-            "alternateName": "File Format Converter",
+            "@id": "https://liaolongdong.github.io/transfer-any-file/#app",
+            "name": "Transfer Any File",
+            "alternateName": "Transfer Any File — Offline File Format Converter",
             "softwareVersion": "1.0.0",
             "applicationCategory": "UtilitiesApplication",
             "applicationSubCategory": "File Format Converter",
             "operatingSystem": "Chrome OS, Windows, macOS, Linux (Google Chrome 88+, or any Chromium browser with Manifest V3 support)",
             "description": "A Chrome extension (Manifest V3) that converts documents, spreadsheets and images between 14 file formats locally. Batch conversion with mixed source formats, automatic multi-step conversion chains, preview and inline editing, ZIP download, and conversion history. Performs no network requests and requests only the storage permission.",
-            "url": "https://<GH_OWNER>.github.io/file-format-converter/",
-            "codeRepository": "https://github.com/<GH_OWNER>/file-format-converter",
-            "issueTracker": "https://github.com/<GH_OWNER>/file-format-converter/issues",
+            "url": "https://liaolongdong.github.io/transfer-any-file/",
+            "author": {
+              "@type": "Person",
+              "name": "Better",
+              "url": "https://github.com/liaolongdong"
+            },
+            "codeRepository": "https://github.com/liaolongdong/transfer-any-file",
+            "issueTracker": "https://github.com/liaolongdong/transfer-any-file/issues",
             "license": "https://spdx.org/licenses/ISC.html",
             "isAccessibleForFree": true,
             "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
@@ -125,11 +131,11 @@
           },
           {
             "@type": "FAQPage",
-            "@id": "https://<GH_OWNER>.github.io/file-format-converter/#faq",
+            "@id": "https://liaolongdong.github.io/transfer-any-file/#faq",
             "mainEntity": [
               {
                 "@type": "Question",
-                "name": "Does File Any Transfer upload my files?",
+                "name": "Does Transfer Any File upload my files?",
                 "acceptedAnswer": {
                   "@type": "Answer",
                   "text": "No. Every converter is JavaScript bundled into the extension, the manifest declares only the storage permission, and the code contains no fetch, XMLHttpRequest, WebSocket or sendBeacon call. There is no server to upload to, and the extension works with networking disabled."
@@ -620,7 +626,7 @@
             width="28"
             height="28"
           />
-          <span>File Any Transfer</span>
+          <span>Transfer Any File</span>
         </a>
         <nav aria-label="Sections">
           <ul>
@@ -642,7 +648,7 @@
             <li>
               <a
                 class="gh"
-                href="https://github.com/<GH_OWNER>/file-format-converter"
+                href="https://github.com/liaolongdong/transfer-any-file"
                 >GitHub</a
               >
             </li>
@@ -661,7 +667,7 @@
             without uploading a byte.
           </h1>
           <p class="lede">
-            File Any Transfer is an offline file format converter for Chrome. Markdown, Word, PDF, Excel, CSV, JSON,
+            Transfer Any File is an offline file format converter for Chrome. Markdown, Word, PDF, Excel, CSV, JSON,
             HTML and images convert inside a tab on your own machine — batch, multi-step, preview and edit included. No
             uploads, no account, no network requests.
           </p>
@@ -673,12 +679,12 @@
             >
             <a
               class="btn ghost"
-              href="https://github.com/<GH_OWNER>/file-format-converter"
+              href="https://github.com/liaolongdong/transfer-any-file"
               >View on GitHub</a
             >
             <a
               class="btn ghost"
-              href="https://github.com/<GH_OWNER>/file-format-converter/blob/master/README.zh-CN.md"
+              href="https://github.com/liaolongdong/transfer-any-file/blob/master/README.zh-CN.md"
               >简体中文</a
             >
           </p>
@@ -769,7 +775,7 @@
           </p>
           <table>
             <caption>
-              Supported conversions in File Any Transfer 1.0.0 — 14 formats, 46+ direct routes.
+              Supported conversions in Transfer Any File 1.0.0 — 14 formats, 46+ direct routes.
             </caption>
             <thead>
               <tr>
@@ -909,7 +915,7 @@
             <thead>
               <tr>
                 <th scope="col">Dimension</th>
-                <th scope="col">File Any Transfer (local)</th>
+                <th scope="col">Transfer Any File (local)</th>
                 <th scope="col">Upload-based converter</th>
               </tr>
             </thead>
@@ -972,8 +978,8 @@
             <li>Click <strong>Load unpacked</strong> and choose <code>.output/chrome-mv3</code>.</li>
             <li>Click the toolbar icon — the workbench opens in a new tab.</li>
           </ol>
-          <pre><code>git clone https://github.com/&lt;GH_OWNER&gt;/file-format-converter.git
-cd file-format-converter
+          <pre><code>git clone https://github.com/liaolongdong/transfer-any-file.git
+cd transfer-any-file
 pnpm install
 pnpm build</code></pre>
 
@@ -1090,7 +1096,7 @@ pnpm build</code></pre>
         <div class="wrap">
           <h2>Frequently asked questions</h2>
           <dl class="faq">
-            <dt>Does File Any Transfer upload my files?</dt>
+            <dt>Does Transfer Any File upload my files?</dt>
             <dd>
               No. Every converter is JavaScript bundled into the extension, the manifest declares only the
               <code>storage</code> permission, and the code contains no <code>fetch</code>, <code>XMLHttpRequest</code>,
@@ -1188,14 +1194,14 @@ pnpm build</code></pre>
     <footer class="site">
       <div class="wrap">
         <nav aria-label="Footer">
-          <a href="https://github.com/<GH_OWNER>/file-format-converter">GitHub</a>
-          <a href="https://github.com/<GH_OWNER>/file-format-converter/issues">Issues &amp; format requests</a>
-          <a href="https://github.com/<GH_OWNER>/file-format-converter/blob/master/README.zh-CN.md">中文说明</a>
+          <a href="https://github.com/liaolongdong/transfer-any-file">GitHub</a>
+          <a href="https://github.com/liaolongdong/transfer-any-file/issues">Issues &amp; format requests</a>
+          <a href="https://github.com/liaolongdong/transfer-any-file/blob/master/README.zh-CN.md">中文说明</a>
           <a href="privacy.html">Privacy policy</a>
           <a href="llms.txt">llms.txt</a>
         </nav>
         <p>
-          File Any Transfer — offline file format conversion for Chrome. All processing happens on your device.
+          Transfer Any File — offline file format conversion for Chrome. All processing happens on your device.
           <br />
           Released under the ISC licence.
         </p>

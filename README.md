@@ -1,7 +1,7 @@
 <div align="center">
-  <img src="public/icon/128.png" alt="File Any Transfer icon" width="96" height="96" />
+  <img src="public/icon/128.png" alt="Transfer Any File icon" width="96" height="96" />
 
-# File Any Transfer
+# Transfer Any File
 
 **Convert 14 file formats — Markdown, Word, PDF, Excel, CSV, JSON, HTML, images — without uploading a byte.**
 
@@ -9,10 +9,10 @@ A Chrome extension (Manifest V3) that does every conversion inside a tab on your
 
 [简体中文](README.zh-CN.md) · English
 
-  <!-- Before publishing this repo: replace <GH_OWNER> in the badges and links below
-       (star badge, CI badge, Support links) with your GitHub username. -->
+  <!-- Badges and links point at github.com/liaolongdong/transfer-any-file; they go live as soon
+       as that repository is created and pushed. -->
 
-[![Star this repo](https://img.shields.io/github/stars/<GH_OWNER>/file-format-converter?style=for-the-badge&logo=github&label=%E2%AD%90%20Star%20this%20repo&color=yellow)](https://github.com/<GH_OWNER>/file-format-converter/stargazers)
+[![Star this repo](https://img.shields.io/github/stars/liaolongdong/transfer-any-file?style=for-the-badge&logo=github&label=%E2%AD%90%20Star%20this%20repo&color=yellow)](https://github.com/liaolongdong/transfer-any-file/stargazers)
 
 [![Manifest V3](https://img.shields.io/badge/Manifest_V3-ready-blue?style=for-the-badge&logo=googlechrome&logoColor=white)](https://developer.chrome.com/docs/extensions/get-started)
 &nbsp;
@@ -20,7 +20,7 @@ A Chrome extension (Manifest V3) that does every conversion inside a tab on your
 &nbsp;
 ![Zero network requests](https://img.shields.io/badge/zero_network_requests-brightgreen?style=for-the-badge)
 &nbsp;
-![CI](https://img.shields.io/github/actions/workflow/status/<GH_OWNER>/file-format-converter/ci.yml?style=for-the-badge&label=CI)
+![CI](https://img.shields.io/github/actions/workflow/status/liaolongdong/transfer-any-file/ci.yml?style=for-the-badge&label=CI)
 &nbsp;
 ![License ISC](https://img.shields.io/badge/license-ISC-blue?style=for-the-badge)
 
@@ -36,7 +36,7 @@ A Chrome extension (Manifest V3) that does every conversion inside a tab on your
 
 Most "free online converter" sites ask you to upload the file first. That is fine for a public dataset and unacceptable for an HR spreadsheet, a client contract, a medical report, or a draft you have not told anyone about yet. They also add an account wall, a daily quota, a 25 MB cap, and an upload round-trip for something your laptop can finish in 40 milliseconds.
 
-File Any Transfer keeps the whole job local. The converters run in the extension page, so a 3 MB Word file becomes Markdown without a single packet leaving the machine — and it still works on a plane.
+Transfer Any File keeps the whole job local. The converters run in the extension page, so a 3 MB Word file becomes Markdown without a single packet leaving the machine — and it still works on a plane.
 
 ## Quick start
 
@@ -209,11 +209,11 @@ Multi-step paths through the new format are discovered automatically.
 2. Keep it offline: no new permission, no network call, no remote asset — say so in the PR if a change needs one
 3. Run `pnpm lint:all` and `pnpm test:e2e`, and add a fixture + scenario for any new converter
 
-Issues and format requests: [github.com/<GH_OWNER>/file-format-converter/issues](https://github.com/<GH_OWNER>/file-format-converter/issues)
+Issues and format requests: [github.com/liaolongdong/transfer-any-file/issues](https://github.com/liaolongdong/transfer-any-file/issues)
 
 ## License
 
-[ISC](package.json)
+[ISC](LICENSE)
 
 ---
 
@@ -221,6 +221,8 @@ Issues and format requests: [github.com/<GH_OWNER>/file-format-converter/issues]
 
 **If this saves you from uploading a sensitive file one more time, a star helps the next person find it.**
 
-[![Star this repo](https://img.shields.io/github/stars/<GH_OWNER>/file-format-converter?style=for-the-badge&logo=github&label=%E2%AD%90%20Star%20this%20repo&color=yellow)](https://github.com/<GH_OWNER>/file-format-converter/stargazers)
+[![Star this repo](https://img.shields.io/github/stars/liaolongdong/transfer-any-file?style=for-the-badge&logo=github&label=%E2%AD%90%20Star%20this%20repo&color=yellow)](https://github.com/liaolongdong/transfer-any-file/stargazers)
+
+Authored by [Better](https://github.com/liaolongdong).
 
 </div>

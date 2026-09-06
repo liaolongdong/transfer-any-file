@@ -5,7 +5,7 @@ export default {
   },
 
   // App / brand
-  appName: 'File Any Transfer',
+  appName: 'Transfer Any File',
   appTagline: '本地文件格式转换工具',
 
   // Options / workbench

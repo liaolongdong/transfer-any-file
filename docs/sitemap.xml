@@ -1,14 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Replace <GH_OWNER> with your GitHub username when GitHub Pages is enabled. -->
+<!-- GitHub Pages source directory; URLs assume the repo `transfer-any-file` under this account. -->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://&lt;GH_OWNER&gt;.github.io/file-format-converter/</loc>
+    <loc>https://liaolongdong.github.io/transfer-any-file/</loc>
     <lastmod>2026-09-06</lastmod>
     <changefreq>monthly</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://&lt;GH_OWNER&gt;.github.io/file-format-converter/privacy.html</loc>
+    <loc>https://liaolongdong.github.io/transfer-any-file/privacy.html</loc>
     <lastmod>2026-09-06</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.6</priority>

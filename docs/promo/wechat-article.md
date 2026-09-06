@@ -17,7 +17,7 @@
 
 还有一层成本没人写在首页上：你为了转换一个 3 MB 的文件，先上传 3 MB、再下载 3 MB，中间排队。我本地做过的事情，网络往返占了绝大部分时间。
 
-所以我做了 File Any Transfer：**转换这件事，本来就不需要离开你的电脑。**
+所以我做了 Transfer Any File：**转换这件事，本来就不需要离开你的电脑。**
 
 ## 二、浏览器早就是一个转换器，只是没人用它
 
@@ -81,14 +81,14 @@ SVG      ──► HTML ──► PNG
 
 ```bash
 # 环境：Node.js ≥ 20.12、pnpm
-git clone https://github.com/<GH_OWNER>/file-format-converter
-cd file-format-converter
+git clone https://github.com/liaolongdong/transfer-any-file
+cd transfer-any-file
 pnpm install && pnpm build
 ```
 
 然后 `chrome://extensions` → 打开右上角"开发者模式" → "加载已解压的扩展程序" → 选 `.output/chrome-mv3` → 点工具栏图标，工作台在新标签页打开。
 
-仓库地址：[github.com/<GH_OWNER>/file-format-converter](https://github.com/<GH_OWNER>/file-format-converter)。
+仓库地址：[github.com/liaolongdong/transfer-any-file](https://github.com/liaolongdong/transfer-any-file)。
 
 商店需要的东西已经准备好了：名称与描述文案、1280×800 截图、权限逐条说明、隐私政策、数据披露答复，都写在仓库的 `CHROMEWEBSTORE.md` 和 `docs/privacy.html` 里。上架还差一个开发者账号和一次提交——如果你想推动这件事，去仓库开个 issue 就行。
 
@@ -105,7 +105,7 @@ pnpm install && pnpm build
 
 ---
 
-**项目地址**：[github.com/<GH_OWNER>/file-format-converter](https://github.com/<GH_OWNER>/file-format-converter)（README 有中英双版，产品说明页与隐私政策在仓库的 `docs/` 下）
+**项目地址**：[github.com/liaolongdong/transfer-any-file](https://github.com/liaolongdong/transfer-any-file)（README 有中英双版，产品说明页与隐私政策在仓库的 `docs/` 下）
 **如果它帮你在上传前多犹豫了一次那 3 秒钟，给个 Star 就够，这是它能得到的最主要推广渠道。**
 
 <!-- 参考资料：微信正文外链不可点击，脚本会把链接统一搬到文末。 -->

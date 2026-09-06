@@ -318,7 +318,7 @@ function promoDocument({ width, height, shot, icon, heading, sub, chips, compact
   </head>
   <body>
     <div class="copy">
-      <div class="brand"><img src="${icon}" alt="" /><span>File Any Transfer</span></div>
+      <div class="brand"><img src="${icon}" alt="" /><span>Transfer Any File</span></div>
       <h1>${heading}</h1>
       <div>
         <p>${sub}</p>
@@ -329,7 +329,7 @@ function promoDocument({ width, height, shot, icon, heading, sub, chips, compact
       shot
         ? `<div class="window">
       <div class="chrome"><i class="dot"></i><i class="dot"></i><i class="dot"></i><span class="pill">Runs in this tab · no server</span></div>
-      <img src="${shot}" alt="File Any Transfer workbench" />
+      <img src="${shot}" alt="Transfer Any File workbench" />
     </div>`
         : ''
     }
