@@ -4,7 +4,11 @@ dist
 .cache
 .output
 .wxt
+# GitHub Pages staging directory (see .github/workflows/static.yml)
+_site/
 *.local
+# Credentials for `wxt-publish-extension` (Chrome Web Store / addons.mozilla.org)
+.env.submit
 .test-files
 .test-screenshots
 .tmp-e2e-profile

@@ -9,7 +9,8 @@
 
 简体中文 · [English](README.md)
 
-  <!-- 徽章与链接均指向 github.com/liaolongdong/transfer-any-file，创建并推送该仓库后即生效。 -->
+  <!-- 徽章与链接指向 github.com/liaolongdong/transfer-any-file，以及由 .github/workflows/static.yml
+       从 docs/ 构建的 GitHub Pages 站点。 -->
 
 [![给这个项目加星](https://img.shields.io/github/stars/liaolongdong/transfer-any-file?style=for-the-badge&logo=github&label=%E2%AD%90%20Star%20this%20repo&color=yellow)](https://github.com/liaolongdong/transfer-any-file/stargazers)
 
@@ -21,9 +22,11 @@
 &nbsp;
 ![CI](https://img.shields.io/github/actions/workflow/status/liaolongdong/transfer-any-file/ci.yml?style=for-the-badge&label=CI)
 &nbsp;
+![Website](https://img.shields.io/website?url=https%3A%2F%2Fliaolongdong.github.io%2Ftransfer-any-file%2F&label=website&style=for-the-badge)
+&nbsp;
 ![License ISC](https://img.shields.io/badge/license-ISC-blue?style=for-the-badge)
 
-[快速开始](#快速开始) · [工作原理](#工作原理) · [支持的格式](#支持的转换) · [隐私](#隐私) · [常见问题](#常见问题) · [参与贡献](#参与贡献)
+[快速开始](#快速开始) · [工作原理](#工作原理) · [支持的格式](#支持的转换) · [隐私](#隐私) · [常见问题](#常见问题) · [参与贡献](#参与贡献) · [产品说明页](https://liaolongdong.github.io/transfer-any-file/)
 
 </div>
 
@@ -128,7 +131,7 @@ pnpm build
 
 ## 隐私
 
-- 所有转换 **100% 在本地** 的扩展页面内完成——`fetch`、`XMLHttpRequest`、`WebSocket`、`sendBeacon` 在打包代码中一处都没有，manifest 也不声明任何 host 权限，因此不存在文件外发的路径
+- 所有转换 **100% 在本地** 的扩展页面内完成——第一方源码中没有任何一处发起请求（`entrypoints/`、`components/`、`composables/`、`utils/` 里找不到 `fetch`、`XMLHttpRequest`、`WebSocket`、`EventSource`、`sendBeacon`，由 `pnpm verify:offline` 断言），manifest 也不声明任何 host 权限，因此第三方转换库里残留的请求路径即使被触发也会被 Chrome 直接拒绝
 - 仅申请 `storage` 一项权限，用于保存历史（文件名、格式、体积——绝不含文件内容）与偏好设置
 - 无统计埋点、无追踪、无账号、无广告、无付费版
 - 完整文本：[`docs/privacy.html`](docs/privacy.html) · 面向商店的披露答复：[`CHROMEWEBSTORE.md`](CHROMEWEBSTORE.md)
@@ -161,9 +164,12 @@ pnpm build            # 生产构建，输出到 .output/chrome-mv3
 pnpm package          # 打包 zip 用于分发
 pnpm typecheck        # vue-tsc 类型检查
 pnpm lint:all         # typecheck + eslint + stylelint
+pnpm verify:meta      # package.json / wxt.config.ts / .github/repo-metadata.json 保持一致
+pnpm verify:offline   # 第一方源码无网络调用，manifest 仅声明 storage 权限
 pnpm test:e2e         # 构建 + 基于 fixtures/ 的 Playwright 套件（159 条断言）
 pnpm assets:capture   # 重新生成商店与 README 用的截图和推广图
 node scripts/render-icons.mjs   # 从 assets/*.svg 重新渲染图标
+git tag v1.0.0 && git push --tags   # release.yml：产出商店包、校验包内容并创建 GitHub Release
 ```
 
 ### 技术栈
@@ -188,8 +194,13 @@ assets/                # 图标 SVG 母版、全局样式、主题令牌
 docs/                  # 产品说明页 + 隐私政策（GitHub Pages 源目录，不打包进扩展）
   assets/screenshots/  # 1280×800 界面截图，README / 产品页 / 商店共用
   assets/store/        # 社交预览图 + Chrome 应用商店推广图
-scripts/               # e2e 套件、素材生成、图标渲染、产物校验
+scripts/               # e2e 套件、素材生成、图标渲染、元数据与离线断言
+.github/
+  workflows/           # ci.yml · static.yml（Pages）· release.yml · repo-meta.yml
+  ISSUE_TEMPLATE/      # 问题反馈与新格式请求表单
 CHROMEWEBSTORE.md      # 商店文案、权限说明、隐私披露
+CHANGELOG.md           # 发布说明（中文对照：CHANGELOG.zh-CN.md）
+SECURITY.md            # 漏洞披露渠道与离线攻击面说明
 ```
 
 `docs/` 只是仓库文档，永远不会被复制进 `.output/chrome-mv3`。
@@ -204,7 +215,7 @@ CHROMEWEBSTORE.md      # 商店文案、权限说明、隐私披露
 
 ## 参与贡献
 
-1. Fork 后从 `master` 切分支，跑 `pnpm install && pnpm dev`
+1. Fork 后从 `main` 切分支，跑 `pnpm install && pnpm dev`
 2. 保持离线底线：不新增权限、不发起网络请求、不引用远程资源；确有必要请在 PR 里写明
 3. 提交前跑 `pnpm lint:all` 与 `pnpm test:e2e`，新增转换器请一并补上 fixture 与测试场景
 

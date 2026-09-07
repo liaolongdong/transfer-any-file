@@ -1,0 +1,25 @@
+{
+  "$comment": "Source of truth for this repository's About block, applied by .github/workflows/repo-meta.yml. Rationale for every value (why the description leads with `file format converter`, why both `file-format-converter` and `file-converter` are kept) lives in CHROMEWEBSTORE.md → GitHub Repository Metadata. `homepage` is the GitHub Pages site published from docs/ by .github/workflows/static.yml.",
+  "description": "Offline file format converter for Chrome: 14 formats — Markdown, Word, PDF, Excel, CSV, JSON, HTML, images. No uploads.",
+  "homepage": "https://liaolongdong.github.io/transfer-any-file/",
+  "topics": [
+    "file-format-converter",
+    "file-converter",
+    "format-conversion",
+    "file-conversion",
+    "document-conversion",
+    "pdf-converter",
+    "image-conversion",
+    "batch-processing",
+    "offline-first",
+    "local-first",
+    "privacy-first",
+    "privacy-tools",
+    "chrome-extension",
+    "browser-extension",
+    "wxt",
+    "vue3",
+    "typescript",
+    "vite"
+  ]
+}

@@ -102,8 +102,10 @@
       <p>
         Every conversion is performed by JavaScript that is bundled inside the extension and runs in a page on your own
         device. The files you select are read into that page's memory, converted there, and handed back to you as a
-        download. They are never uploaded, because the extension declares no host permissions and contains no network
-        code (<code>fetch</code>, <code>XMLHttpRequest</code>, <code>WebSocket</code>, <code>sendBeacon</code>).
+        download. They are never uploaded: the extension declares no host permissions, and no code of its own makes a
+        network call (<code>fetch</code>, <code>XMLHttpRequest</code>, <code>WebSocket</code>, <code>sendBeacon</code>).
+        With no host permission granted the browser refuses requests outright, which is what keeps the unused request
+        paths inside the bundled conversion libraries inert.
       </p>
 
       <h2>Data the extension keeps on your device</h2>
@@ -167,10 +169,11 @@
         <p>
           <strong>工作方式：</strong>所有转换由打包在扩展内的 JavaScript
           在你自己的设备上完成。所选文件被读入该页面的内存、在本地转换、再以下载形式交还给你。扩展不声明任何 host
-          权限，代码中也不存在 <code>fetch</code>、<code>XMLHttpRequest</code>、<code>WebSocket</code>、<code
+          权限，它自身的代码中也不发起 <code>fetch</code>、<code>XMLHttpRequest</code>、<code>WebSocket</code>、<code
             >sendBeacon</code
           >
-          等网络调用，因此不存在上传路径。
+          等任何网络调用；在未授予任何 host
+          权限的前提下，浏览器会直接拒绝请求，这正是转换库里那些从未被调用的请求路径无法生效的原因。因此不存在上传路径。
         </p>
 
         <p>

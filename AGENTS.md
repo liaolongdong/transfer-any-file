@@ -13,19 +13,23 @@
 
 ## 常用命令
 
-| 用途               | 命令                                                                                                 |
-| ------------------ | ---------------------------------------------------------------------------------------------------- |
-| 开发（热重载）     | `pnpm dev`                                                                                           |
-| 生产构建           | `pnpm build`（输出 `.output/chrome-mv3`）                                                            |
-| 打包分发 zip       | `pnpm package`                                                                                       |
-| 类型检查           | `pnpm typecheck`（vue-tsc）                                                                          |
-| ESLint / Stylelint | `pnpm lint` / `pnpm lint:style`                                                                      |
-| 全量检查           | `pnpm lint:all`（typecheck + eslint + stylelint）                                                    |
-| E2E 测试           | `pnpm test:e2e`（= build + `node scripts/e2e-test.mjs`，Playwright + Chrome）                        |
-| 图标重建           | `node scripts/render-icons.mjs`（源 `assets/*.svg` → `public/icon/*.png` + `docs/assets/icon*.png`） |
-| 商店/文档素材      | `pnpm assets:capture`（= build 后跑 `scripts/capture-store-assets.mjs`）                             |
-| 公众号稿排版       | `pnpm promo:wechat`（`scripts/render-wechat-html.mjs`，内联样式 + 图片内嵌 + 外链转文末）            |
-| 产物校验           | `node scripts/verify-extension.mjs`                                                                  |
+| 用途               | 命令                                                                                                                         |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
+| 开发（热重载）     | `pnpm dev`                                                                                                                   |
+| 生产构建           | `pnpm build`（输出 `.output/chrome-mv3`）                                                                                    |
+| 打包分发 zip       | `pnpm package`                                                                                                               |
+| 类型检查           | `pnpm typecheck`（vue-tsc）                                                                                                  |
+| ESLint / Stylelint | `pnpm lint` / `pnpm lint:style`                                                                                              |
+| 全量检查           | `pnpm lint:all`（typecheck + eslint + stylelint）                                                                            |
+| 元数据一致性       | `pnpm verify:meta`（`package.json` ↔ `wxt.config.ts` ↔ `.github/repo-metadata.json`）                                        |
+| 离线断言           | `pnpm verify:offline`（第一方源码无网络调用；manifest 仅 `storage`、无 host 权限）                                           |
+| E2E 测试           | `pnpm test:e2e`（= build + `node scripts/e2e-test.mjs`，Playwright + Chrome）                                                |
+| 图标重建           | `node scripts/render-icons.mjs`（源 `assets/*.svg` → `public/icon/*.png` + `docs/assets/icon*.png`）                         |
+| 商店/文档素材      | `pnpm assets:capture`（= build 后跑 `scripts/capture-store-assets.mjs`）                                                     |
+| 公众号稿排版       | `pnpm promo:wechat`（`scripts/render-wechat-html.mjs`，内联样式 + 图片内嵌 + 外链转文末）                                    |
+| 产物校验           | `node scripts/verify-extension.mjs`                                                                                          |
+| 发布               | `git tag vX.Y.Z && git push --tags` → `.github/workflows/release.yml`（校版本/包内容 → GitHub Release → 凭证齐备时提交商店） |
+| 仓库 About 同步    | 改 `.github/repo-metadata.json` → `.github/workflows/repo-meta.yml`（需 `REPO_METADATA_TOKEN`）                              |
 
 > 包管理器固定 `pnpm`（见 `package.json#packageManager`），勿混用 npm/yarn。`pnpm fix:all` 会重写全仓库，局部任务改用 `pnpm exec eslint --fix <file>` / `stylelint --fix` / `prettier --write <file>`。
 
@@ -46,7 +50,7 @@
 - **`utils/core/` 其它工具**：`format-labels.ts`（`FORMAT_INFO` 元数据 + label/category）、`text-decode.ts`（UTF-8 + GBK 兜底）、`html-document.ts`、`image-utils.ts`、`preview.ts`、`alt-chunk.ts`、`format.ts`（`formatSize`）。
 - **`utils/storage.ts`**：唯一存储边界。`STORAGE_KEYS`（全部 `fat:` 前缀）+ `storageGet/Set`（try/catch 静默降级）+ `onStorageChange`（返回取消订阅）。仅用 `storage.local`，**无加密、无 session**。
 - **`assets/`**：`theme/tokens.css`（`--fat-*` 令牌，6 主题 + dark）、`styles/global.css`（`@import` tokens + 基础样式 + reduced-motion）、图标 SVG 母版（`icon.svg` 详细档：文档 + 环形转换徽章 / `icon-small.svg` 简化档：加粗双向箭头，为 16px 可读性而画）。
-- **对外文档层（不打包进扩展）**：`docs/index.html`（产品说明页，兼作 GitHub Pages 根目录，单文件内嵌中英双语——正文按 `lang="zh-CN"` / `lang="en"` 成对写入，由页内 `<style>` 依据 `<html lang>` 显隐，头部内联脚本在首帧前定语言；含 JSON-LD `SoftwareApplication` + `FAQPage` + `HowTo`）、`docs/privacy.html`（双语隐私政策，CWS 必需）、`docs/llms.txt` / `robots.txt` / `sitemap.xml`、`docs/assets/`（截图与推广图，由 `scripts/capture-store-assets.mjs` 生成）、`docs/promo/`（中英推广稿与公众号/微博文案，**草稿不发布**，生成的 `*.html` 已 gitignore）、`CHROMEWEBSTORE.md`（商店文案与披露，**尚未上架**）。
+- **对外文档层（不打包进扩展）**：`docs/index.html`（产品说明页，兼作 GitHub Pages 根目录，单文件内嵌中英双语——正文按 `lang="zh-CN"` / `lang="en"` 成对写入，由页内 `<style>` 依据 `<html lang>` 显隐，头部内联脚本在首帧前定语言；含 JSON-LD `SoftwareApplication` + `FAQPage` + `HowTo`）、`docs/privacy.html`（双语隐私政策，CWS 必需）、`docs/llms.txt` / `robots.txt` / `sitemap.xml`、`docs/assets/`（截图与推广图，由 `scripts/capture-store-assets.mjs` 生成）、`docs/promo/`（中英推广稿与公众号/微博文案，**草稿不发布**，生成的 `*.html` 已 gitignore）、`CHROMEWEBSTORE.md`（商店文案、隐私披露与**首次上架手工 runbook**，**尚未上架**）、`CHANGELOG.md` / `CHANGELOG.zh-CN.md`（发布说明双语对，版本号即 manifest 版本）。
 - **`utils/stubs/unbundled-dep.ts`**：`wxt.config.ts` 将 jspdf 未用的 `html2canvas`/`canvg` 别名到此空 stub，减包约 200KB。
 
 ## 核心数据流
@@ -64,6 +68,7 @@
 ## 安全与隐私基线
 
 - 默认离线：无网络请求/遥测/数据收集，权限仅 `storage`。新增权限、host、远程资源或任何数据外传前必须获用户确认并更新 README 隐私说明。
+- 措辞边界：可验证的说法是「**第一方源码**不发起请求」（`pnpm verify:offline` 断言），不要写成「打包产物里没有 `fetch`/`XMLHttpRequest`」——jsPDF / pdf.js 的未调用路径确实带这些字符串，而它们因**无 host 权限**被浏览器直接拦下。
 - 上传文件、剪贴板、ZIP 条目、storage 数据均为**不可信输入**：边界处校验类型/大小（如 100MB 上限）/格式，失败安全降级。
 - 渲染或转换不可信 HTML/SVG/Markdown 前必须 **DOMPurify 净化**（参考 `md-to-html`/`docx-to-html`/`html-to-pdf`/`html-to-png`/`svg-to-html`）；禁止 `v-html`、向实时 DOM 写 `innerHTML`、`eval`、`new Function`。
 - 不把用户文件内容写入日志、截图、`fixtures/` 或提交记录。
@@ -77,14 +82,14 @@
 ## i18n 与文档同步
 
 - 文案源 `utils/i18n/zh.ts`，`en.ts` 类型 `typeof zh`；增删改 key 时中英必须一致。默认 `zh`，`t(key, params)` 支持 `{param}` 插值。
-- 文档按影响分层更新：功能/用法 → `README.md` + `README.zh-CN.md`（双语一致）；对外产品说明/隐私政策 → `docs/index.html` + `docs/privacy.html`；商店文案 → `CHROMEWEBSTORE.md`；manifest 名称/描述/权限 → `wxt.config.ts`（`description` 与 `package.json` 同步且 ≤132 字符）。
+- 文档按影响分层更新：功能/用法 → `README.md` + `README.zh-CN.md`（双语一致）；对外产品说明/隐私政策 → `docs/index.html` + `docs/privacy.html`；商店文案 → `CHROMEWEBSTORE.md`；manifest 名称/描述/权限 → `wxt.config.ts`（`description` 与 `package.json` 同步且 ≤132 字符）；GitHub About（描述/网站/topics）→ `.github/repo-metadata.json`（由 `repo-meta.yml` 落地，勿只在页面上手改）。发版级改动另记 `CHANGELOG.md` + `CHANGELOG.zh-CN.md`。
 - 根目录**无** `index.html`（产品页故意放 `docs/`，避开与 `entrypoints/options/index.html` 混淆）；亦无 `_locales/`、HelpDialog、popup；**尚未上架 Chrome 应用商店**，勿引用不存在的商店链接。
 
 ## 测试与验证
 
 - **无单元测试框架（无 vitest）**。端到端用 Playwright：`scripts/e2e-test.mjs` 加载构建产物，跑各转换场景并截图到 `.test-screenshots/`，夹具在 `fixtures/`（由 `scripts/make-fixtures.cjs` 生成）。
 - 交付前按改动范围执行：`pnpm lint:all`（必过）；涉及入口/manifest/依赖/打包 → `pnpm build`；涉及转换逻辑或端到端行为 → `pnpm test:e2e`。
-- CI（`.github/workflows/ci.yml`，Node 20）：lint（`pnpm lint:all`）+ build + e2e。
+- CI（`.github/workflows/ci.yml`，Node 20）：lint（`pnpm lint:all` + `verify:meta` + `verify:offline`）+ build + e2e。另有三条独立工作流：`static.yml`（Pages，只在 `docs/**` 变更时部署）、`release.yml`（tag 发布）、`repo-meta.yml`（About 同步）。
 - 截图脚本与 e2e 共用一套「静态服务 + mock `chrome.storage`」启动方式，目前**故意保留两份**（避免改 1290 行测试文件引入回归）；出现第三个消费方时再抽 `scripts/e2e-harness.mjs`。
 - 不为通过检查而弱化规则、跳过或隐藏错误；无法运行的项在交付时说明原因。
 
@@ -97,11 +102,13 @@
 - **转换语义边界**（改动前须确认）：PDF 输出为图片（文字不可选）；PDF 输入仅提取文本；多 sheet XLSX→CSV 输出 ZIP；多页 PDF→图片输出 ZIP；BMP/GIF/SVG 仅支持作为输入（浏览器无法编码），GIF 取首帧、SVG 栅格化。
 - **图标分两档母版，按尺寸取用**：`assets/icon.svg`（文档 + 环形转换徽章）用于 ≥48px；`assets/icon-small.svg`（加粗双向箭头）用于 <48px。**<48px 的位置必须取简化档**（`public/icon/16|32.png`、`docs/assets/icon-mark.png`）——详细档文档线在 128 网格上只有 5px，缩到 26px 就糊成白斑。两档图形不同，改图标时先确认改的是哪一档。
 - **文档素材不得入包**：`docs/` 与 `CHROMEWEBSTORE.md` 是仓库文档，而 `public/` 会被 WXT 原样打包——截图/推广图只能放 `docs/assets/`。UI 变更后必须重跑 `pnpm assets:capture`，否则商店截图与实际界面漂移。
+- **Pages 产物根必须是 `docs/`**：`static.yml` 以 staging 目录（`docs/` 去 `promo/`）作为 `upload-pages-artifact` 的 `path`。若改回 `'.'`，站点根就会变成仓库根，`https://…/transfer-any-file/` 与 `/privacy.html` 直接 404（产品页会跑到 `/docs/index.html`），而 canonical / sitemap / robots / llms.txt / 商店隐私政策 URL 全按站点根写死；隐私政策 404 也会直接阻断 CWS 提交。
+- **商店首发不可自动化**：Chrome Web Store Publish API 不能创建条目，也不能写商品文案/截图/隐私披露（`publish-browser-extension` README 原文要求手工首发）。`release.yml` 的商店步骤在四个 `CHROME_*` secrets 齐备前只报「跳过」；手工步骤见 `CHROMEWEBSTORE.md → First Publication (manual)`。
 - **对外文案数字要取证**：格式数 14 / 路径数 46+ 来自工作台页脚（`App.vue` 的 `formatCount`/`pathCount`，当前精确值为 14 与 46），143 是同一邻接图的 BFS 传递闭包（每种源格式除自身外可达全部 11 种可写格式）；体积来自 `pnpm build` 输出，阈值来自 `FileUpload.vue` / `useConversion.ts`；改这些常量时同步改 `README*`、`docs/*`、`CHROMEWEBSTORE.md`。
 
 ## 完成标准
 
 - 需求满足，既有功能、交互、数据与隐私边界无未确认变化。
 - 自审 diff：无遗留调试 `console`、无敏感数据、无无关改动、异常路径已处理。
-- `pnpm lint:all` 通过；按范围补 `pnpm build` / `pnpm test:e2e`，或说明未验证项。
+- `pnpm lint:all` 通过，`pnpm verify:meta` 与 `pnpm verify:offline` 通过（改到对外文案、manifest 或仓库元数据时尤其）；按范围补 `pnpm build` / `pnpm test:e2e`，或说明未验证项。
 - 交付说明：改了什么、关键原因、执行了哪些验证、剩余风险。

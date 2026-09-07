@@ -1,0 +1,64 @@
+name: New format request / 新格式请求
+description: 希望多转一种格式，或希望某个现在被置灰的目标能开放。 / Ask for a conversion that is missing today, or for a target that is currently greyed out.
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        能不能加，只取决于两条硬约束，请先按它们自查（两条都满足的需求会被优先实现）：
+
+        1. **浏览器能否解码它。** 读取靠 `<canvas>`、`FileReader`、`Blob` 与已有的解析库；浏览器解不了的格式（视频、音频、电子书、CAD、压缩优化）不在本项目范围内。
+        2. **能不能在不破坏离线承诺的前提下做到。** 任何需要下载模型或引入联网调用的方案都会被拒——OCR 因此不提供，这也是图片 → TXT/CSV 被置灰而不是失败的原因。
+
+        Whether a format can be added comes down to two hard constraints (check them first; requests that clear both get priority):
+
+        1. **Can a browser decode it?** Reading relies on `<canvas>`, `FileReader`, `Blob` and the parsers already bundled. Formats a browser cannot decode (video, audio, e-books, CAD, compression) are out of scope.
+        2. **Can it be done without breaking the offline guarantee?** Anything needing a model download or a network call is rejected — that is why there is no OCR and why image → TXT/CSV is greyed out rather than failing.
+
+  - type: dropdown
+    id: direction
+    attributes:
+      label: 缺的是哪一侧 / Which side is missing
+      options:
+        - 作为源格式（读入）/ As a source format (reading)
+        - 作为目标格式（写出）/ As a target format (writing)
+        - 两者都要 / Both
+        - 已有格式之间的某条路径 / A route between two formats that already exist
+    validations:
+      required: true
+
+  - type: input
+    id: formats
+    attributes:
+      label: 具体格式 / The formats
+      description: 写成 `from → to`，例如 `EPUB → HTML`、`RTF → Markdown`。 / As `from → to`, e.g. `EPUB → HTML`, `RTF → Markdown`.
+      placeholder: PPTX → HTML
+    validations:
+      required: true
+
+  - type: textarea
+    id: use-case
+    attributes:
+      label: 真实用例 / What you are actually trying to do
+      description: 一句话说清文件从哪来、要拿它去做什么。这决定了是要一个转换器、还是一个能在链路上串起来的多步路径。 / Where the file comes from and what you do with it next. This decides whether the answer is one converter or a route through existing ones.
+    validations:
+      required: true
+
+  - type: textarea
+    id: decodability
+    attributes:
+      label: 浏览器可解码的证据（可选） / Browser decodability evidence (optional)
+      description: 如果你查到 `<canvas>`、`DOMParser`、`ImageDecoder` 或某个纯 JS 解析库能吃下这个格式，把链接放这里；有这一条通常可以直接开工。 / If you know of a `<canvas>`, `DOMParser`, `ImageDecoder` or pure-JS parser path that handles it, link it here — that usually makes the request immediately actionable.
+
+  - type: checkboxes
+    id: tradeoffs
+    attributes:
+      label: 你能接受的取舍 / Trade-offs you accept
+      options:
+        - label: 允许只读或只写的不对称限制（如 BMP/GIF/SVG 只能读，因为浏览器不提供编码器）。 / Asymmetric input-only or output-only limits are acceptable (BMP/GIF/SVG are input-only because browsers expose no encoders).
+          required: false
+        - label: 允许多步链路而不是直接转换（如 PPTX → HTML 之后走已有的 HTML → PDF）。 / A multi-step route is acceptable instead of a direct converter (e.g. PPTX → HTML, then the existing HTML → PDF).
+          required: false
+        - label: 我愿意在一个本地构建上验证结果。 / I am willing to verify the result on a local build.
+          required: false

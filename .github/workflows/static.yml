@@ -1,10 +1,19 @@
-# Simple workflow for deploying static content to GitHub Pages
-name: Deploy static content to Pages
+# Deploys the product site to GitHub Pages.
+#
+# The artifact root is `docs/`, never the repository: every public URL this project
+# publishes is written against the site root — the canonical / OG / JSON-LD blocks in
+# docs/index.html, docs/sitemap.xml, docs/robots.txt, docs/llms.txt and the Privacy
+# Policy URL in CHROMEWEBSTORE.md. Publishing the repository root instead makes
+# `<site>/` and `<site>/privacy.html` answer 404, which also blocks the Chrome Web
+# Store submission (the dashboard requires a reachable policy URL).
+name: Deploy GitHub Pages
 
 on:
-  # Runs on pushes targeting the default branch
   push:
-    branches: ["main"]
+    branches: [main]
+    paths:
+      - 'docs/**'
+      - '.github/workflows/static.yml'
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
@@ -18,11 +27,11 @@ permissions:
 # Allow only one concurrent deployment, skipping runs queued between the run in-progress and latest queued.
 # However, do NOT cancel in-progress runs as we want to allow these production deployments to complete.
 concurrency:
-  group: "pages"
+  group: 'pages'
   cancel-in-progress: false
 
 jobs:
-  # Single deploy job since we're just deploying
+  # Single deploy job since we're just publishing static files
   deploy:
     environment:
       name: github-pages
@@ -31,13 +40,30 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      # Unpublished marketing drafts live in docs/promo/ (per AGENTS.md they stay in the
+      # repo and are never shipped); everything else under docs/ is the site.
+      - name: Stage site
+        run: rsync -a --exclude 'promo/' docs/ _site/
+
+      # Fails here rather than deploying an artifact that would 404 the pages the rest of
+      # the project links to.
+      - name: Verify staged site
+        run: |
+          for f in index.html privacy.html .nojekyll; do
+            test -f "_site/$f" || { echo "::error::_site/$f is missing"; exit 1; }
+          done
+          test ! -e _site/promo || { echo "::error::docs/promo drafts must not be published"; exit 1; }
+
       - name: Setup Pages
         uses: actions/configure-pages@v5
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          # Upload entire repository
-          path: '.'
+          # Upload the site directory, so docs/index.html becomes the site root
+          path: '_site'
+
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v5

@@ -9,8 +9,8 @@ A Chrome extension (Manifest V3) that does every conversion inside a tab on your
 
 [简体中文](README.zh-CN.md) · English
 
-  <!-- Badges and links point at github.com/liaolongdong/transfer-any-file; they go live as soon
-       as that repository is created and pushed. -->
+  <!-- Badges and links point at github.com/liaolongdong/transfer-any-file and at the GitHub
+       Pages site built from docs/ by .github/workflows/static.yml. -->
 
 [![Star this repo](https://img.shields.io/github/stars/liaolongdong/transfer-any-file?style=for-the-badge&logo=github&label=%E2%AD%90%20Star%20this%20repo&color=yellow)](https://github.com/liaolongdong/transfer-any-file/stargazers)
 
@@ -22,9 +22,11 @@ A Chrome extension (Manifest V3) that does every conversion inside a tab on your
 &nbsp;
 ![CI](https://img.shields.io/github/actions/workflow/status/liaolongdong/transfer-any-file/ci.yml?style=for-the-badge&label=CI)
 &nbsp;
+![Website](https://img.shields.io/website?url=https%3A%2F%2Fliaolongdong.github.io%2Ftransfer-any-file%2F&label=website&style=for-the-badge)
+&nbsp;
 ![License ISC](https://img.shields.io/badge/license-ISC-blue?style=for-the-badge)
 
-[Quick start](#quick-start) · [How it works](#how-it-works) · [Supported formats](#supported-conversions) · [Privacy](#privacy) · [FAQ](#faq) · [Contributing](#contributing)
+[Quick start](#quick-start) · [How it works](#how-it-works) · [Supported formats](#supported-conversions) · [Privacy](#privacy) · [FAQ](#faq) · [Contributing](#contributing) · [Product page](https://liaolongdong.github.io/transfer-any-file/)
 
 </div>
 
@@ -121,7 +123,7 @@ Because every conversion pair registers itself as an edge, multi-step chains are
 
 ## Privacy
 
-- All conversions run **100% locally** in the extension page — `fetch`, `XMLHttpRequest`, `WebSocket` and `sendBeacon` appear nowhere in the shipped code, and the manifest declares no host permissions, so there is no path for a file to leave the device
+- All conversions run **100% locally** in the extension page — no first-party source file issues a request (`fetch`, `XMLHttpRequest`, `WebSocket`, `EventSource` and `sendBeacon` appear nowhere in `entrypoints/`, `components/`, `composables/` or `utils/`, asserted by `pnpm verify:offline`), and the manifest declares no host permissions, so Chrome itself refuses anything a request-shaped path left inside a third-party converter library might try
 - The only permission requested is `storage`, used for history (file names, formats, sizes — never contents) and preferences
 - No analytics, no tracking, no account, no ads, no paid tier
 - Full text: [`docs/privacy.html`](docs/privacy.html) · store-facing answers: [`CHROMEWEBSTORE.md`](CHROMEWEBSTORE.md)
@@ -162,9 +164,12 @@ pnpm build            # production build to .output/chrome-mv3
 pnpm package          # zip for distribution
 pnpm typecheck        # vue-tsc
 pnpm lint:all         # typecheck + eslint + stylelint
+pnpm verify:meta      # package.json / wxt.config.ts / .github/repo-metadata.json stay in sync
+pnpm verify:offline   # no network call in first-party source, storage-only manifest
 pnpm test:e2e         # build + Playwright suite over fixtures/ (159 assertions)
 pnpm assets:capture   # regenerate store/README screenshots + promo graphics
 node scripts/render-icons.mjs   # re-render icons from assets/*.svg
+git tag v1.0.0 && git push --tags   # release.yml: build the store zip, verify it, open the GitHub Release
 ```
 
 ### Tech stack
@@ -189,8 +194,13 @@ assets/                # icon SVG masters, global styles, theme tokens
 docs/                  # product page + privacy policy (GitHub Pages source, not bundled)
   assets/screenshots/  # 1280×800 UI shots used here, on the page and in the store
   assets/store/        # social preview + Chrome Web Store promo tiles
-scripts/               # e2e suite, asset capture, icon rendering, bundle verification
+scripts/               # e2e suite, asset capture, icon rendering, metadata + offline guards
+.github/
+  workflows/           # ci.yml · static.yml (Pages) · release.yml · repo-meta.yml
+  ISSUE_TEMPLATE/      # bug report and format request forms
 CHROMEWEBSTORE.md      # store listing copy, permissions justification, disclosures
+CHANGELOG.md           # release notes (CHANGELOG.zh-CN.md is the Chinese twin)
+SECURITY.md            # disclosure channel and the offline attack-surface claims
 ```
 
 `docs/` is repository documentation only — it is never copied into `.output/chrome-mv3`.
@@ -205,7 +215,7 @@ Multi-step paths through the new format are discovered automatically.
 
 ## Contributing
 
-1. Fork, branch off `master`, and run `pnpm install && pnpm dev`
+1. Fork, branch off `main`, and run `pnpm install && pnpm dev`
 2. Keep it offline: no new permission, no network call, no remote asset — say so in the PR if a change needs one
 3. Run `pnpm lint:all` and `pnpm test:e2e`, and add a fixture + scenario for any new converter
 

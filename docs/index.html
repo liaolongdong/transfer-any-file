@@ -3386,15 +3386,16 @@ pnpm build</code><button
             <p class="sub">
               <span lang="zh-CN"
                 >扩展只申请一项权限：<code>storage</code>，用于历史记录与偏好设置。它不声明任何
-                <code>host_permissions</code>，也不包含任何网络调用，因此不存在能把文件发出去的代码路径。完整政策：<a
-                  href="privacy.html"
+                <code>host_permissions</code
+                >，自身代码中也不发起任何网络调用，因此不存在能把文件发出去的代码路径。完整政策：<a href="privacy.html"
                   >隐私政策</a
                 >（中英双语）。</span
               >
               <span lang="en"
                 >The extension requests exactly one permission, <code>storage</code>, for history and preferences. It
-                declares no <code>host_permissions</code> and contains no network call, so there is no path by which a
-                file could be transmitted. Full text: <a href="privacy.html">privacy policy</a> (bilingual).</span
+                declares no <code>host_permissions</code> and issues no network call of its own, so there is no path by
+                which a file could be transmitted. Full text:
+                <a href="privacy.html">privacy policy</a> (bilingual).</span
               >
             </p>
           </div>
@@ -4118,8 +4119,8 @@ pnpm build</code><button
               <a href="https://github.com/liaolongdong/transfer-any-file/issues">
                 <span lang="zh-CN">提需求 &amp; 报问题</span><span lang="en">Issues &amp; format requests</span>
               </a>
-              <a href="https://github.com/liaolongdong/transfer-any-file/blob/master/README.md">README (EN)</a>
-              <a href="https://github.com/liaolongdong/transfer-any-file/blob/master/README.zh-CN.md">README (中文)</a>
+              <a href="https://github.com/liaolongdong/transfer-any-file/blob/main/README.md">README (EN)</a>
+              <a href="https://github.com/liaolongdong/transfer-any-file/blob/main/README.zh-CN.md">README (中文)</a>
               <a href="privacy.html"><span lang="zh-CN">隐私政策</span><span lang="en">Privacy policy</span></a>
               <a href="llms.txt">llms.txt</a>
             </nav>

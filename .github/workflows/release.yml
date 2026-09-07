@@ -1,0 +1,194 @@
+# Builds a release from a version tag: extension bundle -> store zip -> package checks ->
+# GitHub Release with that zip attached. The last step hands the same zip to the Chrome Web
+# Store, but only once the CHROME_* secrets exist — the very first store item has to be created
+# by hand in the developer dashboard (see CHROMEWEBSTORE.md), so until then the step reports why
+# it skipped instead of failing the release.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing tag to build, e.g. v1.0.0'
+        required: true
+        type: string
+      dry_run:
+        description: 'Build and verify everything, but create no release and submit nothing'
+        required: false
+        type: boolean
+        default: true
+
+# `gh release create` is used instead of a third-party action: this project's whole argument is
+# that nothing external touches the build, so the release path keeps to the runner's own CLI.
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Build and publish
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      # A tag, the manifest version and the store package must never disagree.
+      - name: Resolve version
+        id: version
+        env:
+          REF_NAME: ${{ github.ref_name }}
+          INPUT_TAG: ${{ github.event.inputs.tag }}
+        run: |
+          tag="$REF_NAME"
+          if [ -n "$INPUT_TAG" ]; then tag="$INPUT_TAG"; fi
+          case "$tag" in
+            v[0-9]*) ;;
+            *) echo "::error::'$tag' is not a v-prefixed version tag"; exit 1 ;;
+          esac
+          version="${tag#v}"
+          pkg_version="$(node -p "require('./package.json').version")"
+          if [ "$version" != "$pkg_version" ]; then
+            echo "::error::tag '$tag' says $version but package.json says $pkg_version — bump one, not the other"
+            exit 1
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Cheap guards first: they are the claims the store listing and the privacy policy repeat.
+      - name: Verify metadata and offline guarantee
+        run: |
+          pnpm verify:meta
+          pnpm verify:offline
+
+      - name: Build
+        run: pnpm build
+
+      - name: Package
+        id: package
+        run: |
+          pnpm package
+          zip="$(ls .output/*-"$VERSION"-chrome.zip 2>/dev/null | head -1)"
+          if [ -z "$zip" ]; then
+            echo "::error::wxt zip produced no .output/*-$VERSION-chrome.zip (artifactTemplate names it {{name}}-{{packageVersion}}-{{browser}}.zip)"
+            ls -la .output || true
+            exit 1
+          fi
+          echo "zip=$zip" >> "$GITHUB_OUTPUT"
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+
+      # The zip must be loadable as an unpacked extension: manifest.json at the archive root, and
+      # no repository documentation or test fixtures riding along (CHROMEWEBSTORE.md checklist).
+      - name: Verify package contents
+        env:
+          ZIP: ${{ steps.package.outputs.zip }}
+        run: |
+          entries="$(unzip -Z1 "$ZIP")"
+          echo "$entries" | sed 's/^/  /'
+          echo "$entries" | grep -qx 'manifest.json' || {
+            echo "::error::manifest.json must sit at the root of $ZIP"; exit 1;
+          }
+          if echo "$entries" | grep -qE '^(docs/|fixtures/|scripts/|components/|composables/|utils/|entrypoints/|CHROMEWEBSTORE\.md|README|AGENTS\.md|CLAUDE\.md|\.test-)'; then
+            echo "::error::the store package must contain only the built extension, repository files found above"
+            exit 1
+          fi
+
+      - name: Extract release notes
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          # Stop at the next `## ` heading or at the changelog footer (link definitions and the
+          # trailing comment are not release notes).
+          awk -v ver="$VERSION" 'index($0, "## [" ver "]") == 1 {keep = 1; next} keep && (/^## / || /^<!--/) {keep = 0} keep' CHANGELOG.md > release-notes.md
+          if [ ! -s release-notes.md ]; then
+            printf 'See CHANGELOG.md and CHANGELOG.zh-CN.md for the full notes.\n' > release-notes.md
+          fi
+
+      - name: Create GitHub Release
+        if: github.event.inputs.dry_run != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.version.outputs.tag }}
+          VERSION: ${{ steps.version.outputs.version }}
+          ZIP: ${{ steps.package.outputs.zip }}
+        run: |
+          {
+            printf '\n---\n\n中文更新日志见仓库内的 [`CHANGELOG.zh-CN.md`](https://github.com/liaolongdong/transfer-any-file/blob/%s/CHANGELOG.zh-CN.md)。附件 `*.zip` 即 Chrome 应用商店包，也可在 `chrome://extensions` 解压后以「加载未打包的扩展」使用。\n' "$TAG"
+          } >> release-notes.md
+          gh release create "$TAG" "$ZIP" \
+            --title "Transfer Any File $VERSION" \
+            --notes-file release-notes.md \
+            --verify-tag
+
+      - name: Report dry run
+        if: github.event.inputs.dry_run == 'true'
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+          VERSION: ${{ steps.version.outputs.version }}
+          ZIP: ${{ steps.package.outputs.zip }}
+        run: |
+          {
+            echo '### Dry run — nothing published'
+            echo
+            echo "- Tag: \`$TAG\` (package.json version matches)"
+            echo "- Package: \`$ZIP\` ($(du -h "$ZIP" | cut -f1)), manifest.json at the archive root, no repository files inside"
+            echo "- Release that would be created: \`Transfer Any File $VERSION\` with that zip attached"
+            echo "- Notes: the \`## [$VERSION]\` section of CHANGELOG.md"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # Dormant until the first item exists in the developer dashboard; `publish-extension` cannot
+      # create an item, fill its listing text or upload its screenshots.
+      - name: Detect Chrome Web Store credentials
+        id: store
+        env:
+          CHROME_EXTENSION_ID: ${{ secrets.CHROME_EXTENSION_ID }}
+          CHROME_CLIENT_ID: ${{ secrets.CHROME_CLIENT_ID }}
+          CHROME_CLIENT_SECRET: ${{ secrets.CHROME_CLIENT_SECRET }}
+          CHROME_REFRESH_TOKEN: ${{ secrets.CHROME_REFRESH_TOKEN }}
+        run: |
+          if [ -n "$CHROME_EXTENSION_ID" ] && [ -n "$CHROME_CLIENT_ID" ] && [ -n "$CHROME_CLIENT_SECRET" ] && [ -n "$CHROME_REFRESH_TOKEN" ]; then
+            echo 'ready=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'ready=false' >> "$GITHUB_OUTPUT"
+            {
+              echo '### Chrome Web Store submission skipped'
+              echo
+              echo 'All four secrets must be configured (Settings → Secrets and variables → Actions):'
+              echo '`CHROME_EXTENSION_ID`, `CHROME_CLIENT_ID`, `CHROME_CLIENT_SECRET`, `CHROME_REFRESH_TOKEN`.'
+              echo
+              echo 'The first version also has to be created and submitted by hand — the API cannot create an'
+              echo 'item or fill in its listing text, screenshots and privacy disclosures. See CHROMEWEBSTORE.md.'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Submit to the Chrome Web Store
+        if: steps.store.outputs.ready == 'true' && github.event.inputs.dry_run != 'true'
+        env:
+          ZIP: ${{ steps.package.outputs.zip }}
+          CHROME_EXTENSION_ID: ${{ secrets.CHROME_EXTENSION_ID }}
+          CHROME_CLIENT_ID: ${{ secrets.CHROME_CLIENT_ID }}
+          CHROME_CLIENT_SECRET: ${{ secrets.CHROME_CLIENT_SECRET }}
+          CHROME_REFRESH_TOKEN: ${{ secrets.CHROME_REFRESH_TOKEN }}
+        run: |
+          # Only the non-secret arguments are passed on the command line: publish-extension reads
+          # every flag from the matching UPPER_SNAKE_CASE variable, which keeps the refresh token
+          # out of the process argument list.
+          pnpm exec wxt-publish-extension \
+            --chrome-zip "$ZIP" \
+            --chrome-publish-target default

@@ -9,6 +9,18 @@
   },
   "displayName": "Transfer Any File",
   "license": "ISC",
+  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/liaolongdong/transfer-any-file.git"
+  },
+  "bugs": {
+    "url": "https://github.com/liaolongdong/transfer-any-file/issues"
+  },
+  "homepage": "https://liaolongdong.github.io/transfer-any-file/",
+  "engines": {
+    "node": ">=20.12"
+  },
   "scripts": {
     "dev": "wxt",
     "build": "wxt build",
@@ -20,6 +32,8 @@
     "lint:all": "pnpm typecheck && pnpm lint && pnpm lint:style",
     "fix:all": "eslint . --fix && stylelint --fix \"assets/**/*.css\" \"{components,entrypoints}/**/*.vue\" && prettier --write .",
     "test:e2e": "pnpm build && node scripts/e2e-test.mjs",
+    "verify:meta": "node scripts/check-package-meta.mjs",
+    "verify:offline": "node scripts/check-offline.mjs",
     "assets:capture": "node scripts/capture-store-assets.mjs",
     "promo:wechat": "node scripts/render-wechat-html.mjs docs/promo/wechat-article.md"
   },

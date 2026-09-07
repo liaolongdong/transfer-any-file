@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 隐私政策 / Privacy policy
+    url: https://liaolongdong.github.io/transfer-any-file/privacy.html
+    about: 本扩展不联网、不收集也不传输任何数据。 / The extension makes no network requests and collects no data.
+  - name: 安全漏洞报告 / Report a vulnerability
+    url: https://github.com/liaolongdong/transfer-any-file/security/policy
+    about: 请使用私密安全通告，而不是公开 issue。 / Use a private security advisory rather than a public issue.

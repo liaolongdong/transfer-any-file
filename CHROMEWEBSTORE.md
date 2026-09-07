@@ -17,11 +17,11 @@ Transfer Any File — Offline File Format Converter
 
 > Renamed on 2026-09-06 from `File Any Transfer`, for two reasons: the store name is the single strongest ranking signal and the old one carried no searchable term, while generic names in this category (`File Converter`, `ConvertX`, `FileForge`, `FileConverter`) are already held by high-volume projects; and `File Any Transfer` reads to an English speaker as the verb phrase "file any transfer" (≈ submit a transfer request), which never connected to format conversion. The word order fix keeps every original word.
 >
-> | Where                                                                 | Value                                                                                                                                                                                                                                                                                                                                                                                                                 |
-> | --------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-> | Store listing / `wxt.config.ts → manifest.name`                       | `Transfer Any File — Offline File Format Converter`                                                                                                                                                                                                                                                                                                                                                                   |
-> | In-app brand (`utils/i18n/*.ts → appName`), tab title, promo graphics | `Transfer Any File`                                                                                                                                                                                                                                                                                                                                                                                                   |
-> | GitHub repo                                                           | `transfer-any-file` — matches the brand, the npm package name and this listing, so CWS / GitHub / Pages / npm resolve to **one entity**. The repo is still unpublished (no remote, no stars, no inbound links), so aligning costs nothing; GitHub search coverage comes from the About description + topics rather than the slug. The local working directory name is irrelevant to the repo name and may stay as-is. |
+> | Where                                                                 | Value                                                                                                                                                                                                                                                                                                                                                                                                          |
+> | --------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+> | Store listing / `wxt.config.ts → manifest.name`                       | `Transfer Any File — Offline File Format Converter`                                                                                                                                                                                                                                                                                                                                                            |
+> | In-app brand (`utils/i18n/*.ts → appName`), tab title, promo graphics | `Transfer Any File`                                                                                                                                                                                                                                                                                                                                                                                            |
+> | GitHub repo                                                           | `transfer-any-file` — matches the brand, the npm package name and this listing, so CWS / GitHub / Pages / npm resolve to **one entity**. The repository has since been created and pushed under this account, so the slug is fixed; GitHub search coverage comes from the About description + topics rather than the slug. The local working directory name is irrelevant to the repo name and may stay as-is. |
 
 **Short Description** [REQUIRED] — 129 chars, limit 132
 
@@ -183,7 +183,7 @@ No `host_permissions`, no content scripts, no `tabs`, no `<all_urls>`, no remote
 | Website content              | No                       | No                      | —                                                             | No                         |
 | User files                   | Processed on-device only | Never                   | Format conversion, then handed back to the user as a download | No                         |
 
-On the disclosure form: select **"We don't collect any user data from this extension"** — the extension has no code path that sends anything off the device (`fetch` / `XMLHttpRequest` / `WebSocket` / `sendBeacon` appear nowhere in `entrypoints/`, `components/`, `composables/`, `utils/`, and no host permission is declared). Verify again with the same grep before each submission.
+On the disclosure form: select **"We don't collect any user data from this extension"** — the extension has no code path that sends anything off the device (`fetch` / `XMLHttpRequest` / `WebSocket` / `EventSource` / `sendBeacon` appear nowhere in `entrypoints/`, `components/`, `composables/`, `utils/`, and no host permission is declared, which is also what keeps the unused request paths inside jsPDF / pdf.js inert). Re-run the same assertion before each submission with `pnpm verify:offline` — CI runs it on every push.
 
 ### Data Use Certification
 
@@ -202,7 +202,13 @@ On the disclosure form: select **"We don't collect any user data from this exten
 https://liaolongdong.github.io/transfer-any-file/privacy.html
 ```
 
-The page itself is written and lives at `docs/privacy.html` (bilingual, no analytics, no external assets). The username is already filled in, so the URL above becomes valid as soon as you (a) push the repository as `transfer-any-file` under `liaolongdong` and (b) enable **Settings → Pages → Deploy from a branch → `master` /docs**. Until then the extension cannot be published — the dashboard will not accept a submission without a reachable policy URL.
+The page lives at `docs/privacy.html` (bilingual, no analytics, no external assets) and the repository is already pushed, but **the URL is 404 until the first Pages deploy of the current `static.yml` succeeds** — the version GitHub's own wizard created published the _repository_ as the site root, so `/transfer-any-file/privacy.html` only resolves once `docs/` is the artifact root. Verify before submitting, do not assume:
+
+```bash
+curl -Is https://liaolongdong.github.io/transfer-any-file/privacy.html | head -1   # expect: HTTP/2 200
+```
+
+This is a hard precondition rather than a nice-to-have — the dashboard will not accept a submission without a reachable policy URL.
 
 ---
 
@@ -226,7 +232,7 @@ The page itself is written and lives at `docs/privacy.html` (bilingual, no analy
 
 ## GitHub Repository Metadata
 
-Paste-ready values for the moment the repository is created. `git remote -v` is still empty and `gh` is not installed on this machine, so none of this is applied yet; the manual path is the repository's **Settings → General → About** block.
+Source of truth is `.github/repo-metadata.json`; `.github/workflows/repo-meta.yml` pushes it onto the repository. The repository itself already exists (`liaolongdong/transfer-any-file`, default branch `main`, ISC), but `GET /repos/liaolongdong/transfer-any-file` reports `description: null`, `homepage: null` and `topics: []` — none of this is applied yet, because `gh` is not installed on this machine. Land it either by running the workflow with a `REPO_METADATA_TOKEN` secret, or by the one-off `gh repo edit` at the end of this section; the purely manual path is the repository's **Settings → General → About** block.
 
 **Repository name** — `transfer-any-file`
 
@@ -257,6 +263,7 @@ With `gh` installed and the repository pushed, the same three fields in one comm
 ```bash
 gh repo edit liaolongdong/transfer-any-file \
   --description "Offline file format converter for Chrome: 14 formats — Markdown, Word, PDF, Excel, CSV, JSON, HTML, images. No uploads." \
+  --homepage "https://liaolongdong.github.io/transfer-any-file/" \
   --add-topic file-format-converter --add-topic file-converter --add-topic format-conversion \
   --add-topic file-conversion --add-topic document-conversion --add-topic pdf-converter \
   --add-topic image-conversion --add-topic batch-processing --add-topic offline-first \
@@ -267,11 +274,99 @@ gh repo edit liaolongdong/transfer-any-file \
 
 ---
 
+## First Publication (manual)
+
+The store **cannot** be automated end to end, and pretending otherwise wastes a submission slot.
+`publish-browser-extension` — the CLI this repository already ships through WXT — states the rule
+verbatim: "You are responsible for uploading and submitting an extension for the first time by
+hand." Creating the item, pasting the listing text, uploading screenshots and ticking the
+disclosure form all happen in the dashboard; the API only pushes a package onto an item that
+already exists. Do this sequence once, then every later version is a tag push.
+
+### 1. One-time account setup
+
+1. Enable **2-step verification** on the Google account — Google refuses to publish or update an
+   item from an account without it.
+2. Register at the [Chrome Web Store Developer Dashboard](https://chrome.google.com/webstore/devconsole) and pay the one-time **$5** registration fee.
+3. Finish the developer profile (identity, address, phone) and **verify the contact email**. An
+   unverified email shows up as "Submit for review" doing nothing, which reads like a bug in the
+   dashboard and is not one. The public contact email is `924902324@qq.com` (decided 2026-09-06).
+
+### 2. Preconditions, checked from the repository
+
+```bash
+pnpm verify:offline   # no network call in first-party source, storage-only manifest
+pnpm verify:meta      # the 132-char short description agrees in package.json and wxt.config.ts
+curl -Is https://liaolongdong.github.io/transfer-any-file/privacy.html | head -1   # must be HTTP/2 200
+```
+
+The privacy policy URL is a hard gate: the dashboard rejects a submission whose policy is not
+reachable. It is served by GitHub Pages from `docs/` (`.github/workflows/static.yml`) — a Pages
+deploy of that workflow has to have **completed successfully** first, so run the `curl` above
+rather than trusting that it has. Do this before the dashboard, not while filling it in.
+
+### 3. Produce the package
+
+`pnpm build && pnpm package` writes `.output/transfer-any-file-<version>-chrome.zip`. The
+recommended path is pushing the tag: `.github/workflows/release.yml` asserts that the tag matches
+`package.json#version`, runs both guards above, verifies that `manifest.json` sits at the archive
+root with no repository files alongside it, and attaches the zip to a GitHub Release.
+
+### 4. Fill the dashboard item
+
+Everything pasted here already exists in this file — copy, do not retype:
+
+| Dashboard tab      | Source in this file                                                                                                            |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
+| Store listing      | **Store Listing** (name 49/75, short 129/132, detailed description, `Productivity`, single purpose, English + Chinese (China)) |
+| Screenshots & icon | **Graphics & Assets** — 6 × 1280×800, `public/icon/128.png`, small and marquee promo tiles                                     |
+| Privacy practices  | **Privacy & Data Use** — select "We don't collect any user data from this extension"                                           |
+| Summary / rollout  | **Distribution** (public, all regions); the item ID lands here                                                                 |
+
+Submit for review, then watch **Package → status** in the dashboard, or ask the API:
+`pnpm exec wxt-publish-extension status` with the credentials below configured.
+
+### 5. Hand-over to automation (after the item exists)
+
+Copy the 32-character **item ID** from the dashboard URL, then generate OAuth credentials for the
+Chrome Web Store API. The maintained path is the CLI's own wizard, which walks through the Google
+Cloud side (enable _Chrome Web Store API_ in a project, create an OAuth client, exchange an
+authorisation code for a refresh token) and writes `.env.submit`:
+
+```bash
+pnpm exec wxt-publish-extension init   # interactive; .env.submit is gitignored
+```
+
+Add four repository secrets — `CHROME_EXTENSION_ID`, `CHROME_CLIENT_ID`, `CHROME_CLIENT_SECRET`,
+`CHROME_REFRESH_TOKEN` — and the `Submit to the Chrome Web Store` step in `release.yml` stops
+reporting "skipped" and starts publishing on the next tag. Useful flags for the first runs:
+
+| Flag                                                     | Effect                                                                                |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `--dry-run`                                              | Authenticate only; uploads nothing and submits nothing. Run it before trusting a tag. |
+| `--chrome-skip-submit-review`                            | Upload the package as a draft without requesting review.                              |
+| `--chrome-publish-target trustedTesters`                 | Limited rollout instead of `default` (public).                                        |
+| `--chrome-api-version v2` + `--chrome-service-account-*` | The v2 API path, for accounts issued a service account rather than an OAuth client.   |
+
+Note that the OAuth flags are labelled `[Deprecated: API v1.1 only]` by the CLI: Google is moving
+this API to v2 with service accounts, so if `init` cannot create a v1.1 client, use the v2 flags.
+The workflow keeps the v1.1 triple because it is what a first-time developer account is handed today.
+
+### Not automatable (do not schedule it, then wonder)
+
+- Creating the item, and any edit to listing text, screenshots, promo tiles or privacy disclosures.
+- The **GitHub social preview** image (Settings → General → Social preview), from the same file
+  `docs/assets/store/github-social-preview.png` that `pnpm assets:capture` regenerates.
+- Review itself: plan 1–5 working days for a first submission, and bump `package.json#version` on
+  every attempt — an update with a version equal to or below what is live is rejected outright.
+
+---
+
 ## Version History
 
 | Version | Date       | Changes                                                                                                                | Status |
 | ------- | ---------- | ---------------------------------------------------------------------------------------------------------------------- | ------ |
-| 1.0.0   | 2026-09-06 | First submission: 14 formats / 46+ routes, batch + ZIP, multi-step chains, preview & edit, history, 6 themes, zh/en UI | Draft  |
+| 1.0.0   | 2026-09-07 | First submission: 14 formats / 46+ routes, batch + ZIP, multi-step chains, preview & edit, history, 6 themes, zh/en UI | Draft  |
 
 ---
 
@@ -296,14 +391,15 @@ gh repo edit liaolongdong/transfer-any-file \
 - [x] Description matches shipped behaviour, including limitations
 - [x] Screenshots at exactly 1280×800, generated from the built bundle
 - [x] Privacy policy text authored (bilingual), hosted under `docs/`
-- [ ] **GitHub Pages enabled** for `liaolongdong/transfer-any-file` (branch `master`, folder `/docs`) — blocks privacy URL, homepage and support links
-- [ ] **Privacy policy URL is publicly reachable** and matches the disclosure form
+- [ ] **GitHub Pages serving `docs/` as the site root** — `.github/workflows/static.yml` is written to do this, but the deploy currently live still publishes the repository root, which is why `https://liaolongdong.github.io/transfer-any-file/` and its `/privacy.html` answer 404 today. Order matters: merge, wait for the Pages run, then tick the next line.
+- [ ] **Privacy policy URL is publicly reachable** (`HTTP/2 200` from the `curl -Is` above) and matches the disclosure form — blocks the submission outright
 - [x] Public contact email chosen and consistent with `package.json#author.email`
 - [ ] **Publisher name decided** — must match the CWS developer account's public name
 - [x] Store name renamed to the brand + keyword form above (2026-09-06); `manifest.name` matches it
-- [ ] Repository created as `liaolongdong/transfer-any-file` with the About description + 18 topics above (GitHub search coverage lives here, not in the slug)
-- [ ] GitHub social preview uploaded from `docs/assets/store/github-social-preview.png`
-- [ ] `pnpm package` zip inspected: excludes `.git/`, `node_modules/`, `.test-*`, `CHROMEWEBSTORE.md`, `docs/`, `fixtures/`
+- [x] Repository created as `liaolongdong/transfer-any-file` (default branch `main`)
+- [ ] About description + 18 topics above applied (GitHub search coverage lives here, not in the slug) — via `.github/workflows/repo-meta.yml` or the `gh repo edit` command
+- [ ] GitHub social preview uploaded from `docs/assets/store/github-social-preview.png` — dashboard only, there is no API for it
+- [x] `pnpm package` zip inspected: excludes `.git/`, `node_modules/`, `.test-*`, `CHROMEWEBSTORE.md`, `docs/`, `fixtures/` — asserted by `.github/workflows/release.yml`
 - [ ] `pnpm lint:all` and `pnpm test:e2e` green on the commit being packaged
 
 ### Rejection History

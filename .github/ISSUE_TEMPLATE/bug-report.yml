@@ -1,0 +1,112 @@
+name: Bug report / 问题反馈
+description: 某个转换结果不正确、界面异常，或扩展没有兑现它承诺的行为。 / A conversion came out wrong, the UI misbehaved, or the extension did not do what it promises.
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        本项目完全离线，所以**请不要在 issue 里附带你的文件**。文件名、格式与体积足以复现绝大多数问题；需要样例时，维护者会制作一个不含敏感内容的夹具。
+
+        This project is fully offline, so **please do not attach the file you were converting**. Its name, format and size are enough to reproduce almost anything; when a sample is genuinely needed the maintainer will build a non-sensitive fixture instead.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: 问题描述 / What happened
+      description: 实际发生了什么，以及你期望发生什么。 / What you saw, and what you expected instead.
+      placeholder: |
+        Expected: Markdown → PDF produces one page per screenful of content.
+        Actual: the second half of the document is missing.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: source-format
+    attributes:
+      label: 源格式 / Source format
+      options:
+        - Markdown (.md)
+        - HTML
+        - Word (.docx)
+        - PDF
+        - Plain text (.txt)
+        - CSV
+        - Excel (.xlsx)
+        - JSON
+        - PNG
+        - JPEG
+        - WebP
+        - BMP
+        - GIF
+        - SVG
+        - ZIP (压缩包入口 / archive intake)
+        - 其他 / Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: target-format
+    attributes:
+      label: 目标格式 / Target format
+      options:
+        - Markdown (.md)
+        - HTML
+        - Word (.docx)
+        - PDF
+        - Plain text (.txt)
+        - CSV
+        - Excel (.xlsx)
+        - JSON
+        - PNG
+        - JPEG
+        - WebP
+        - 无法选择（下拉框置灰）/ Not selectable (greyed out)
+        - 其他 / Other
+        - 与转换无关 / Not about a conversion
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤 / Steps to reproduce
+      description: 从打开工作台开始，一步一步。请标明是单个文件还是批量、是否走了多步链路。 / Starting from opening the workbench. Say whether it is one file or a batch, and whether the route had intermediate steps.
+      placeholder: |
+        1. Drop `report.docx` on the upload area
+        2. Target: PDF
+        3. Route shown under the picker: Word → HTML → PDF
+        4. Press Convert
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: 环境与版本 / Environment
+      description: 粘贴 `chrome://version` 里的 Chrome 一行、操作系统，以及扩展来源（`git rev-parse --short HEAD`，或商店版本号）。 / Chrome line from `chrome://version`, OS, and where the build came from (commit short hash, or the store version).
+      value: |
+        Chrome:
+        OS:
+        Extension build:
+        Language (中/EN):
+        Theme / appearance:
+      render: text
+    validations:
+      required: true
+
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: 附加信息 / Additional context
+      description: 文件体积与数量、控制台报错（工作台按 F12 → Console）、是否只在特定文件上出现、置灰目标上提示的原因文字。 / File sizes and count, console errors (F12 → Console on the workbench), whether it is specific to one file, and the reason text shown on a greyed-out target.
+
+  - type: checkboxes
+    id: consent
+    attributes:
+      label: 确认 / Confirmation
+      options:
+        - label: 我没有在本 issue 中附带任何文件内容或截图里的敏感数据。 / I have not attached file contents or sensitive data visible in a screenshot.
+          required: true
+        - label: 我确认这不是格式请求（那请用 "New format request" 模板）。 / This is not a format request (use the "New format request" template for those).
+          required: true

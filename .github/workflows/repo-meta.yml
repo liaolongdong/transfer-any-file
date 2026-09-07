@@ -1,0 +1,87 @@
+# Applies .github/repo-metadata.json to this repository's About block: the description, the
+# website link and the topic list. GitHub search coverage for a young repository comes from those
+# fields rather than from its slug, so they are versioned here instead of left in a dashboard.
+#
+# Why a personal access token is required: repository metadata sits behind the repository
+# *administration* scope, and administration is not one of the permissions a workflow can ask for
+# with the built-in GITHUB_TOKEN — that call answers 403 "Resource not accessible by integration".
+# Create a fine-grained token limited to this single repository with Administration: read and write
+# (the scope that carries PATCH /repos/{owner}/{repo}, including `topics`), and store it as the
+# `REPO_METADATA_TOKEN` secret. A one-off local alternative is documented in CHROMEWEBSTORE.md →
+# GitHub Repository Metadata (`gh repo edit ...`).
+name: Sync repository metadata
+
+on:
+  push:
+    # Restricted to the default branch on purpose: this job writes a live, public repository
+    # setting, so an experimental edit to the JSON file on another branch must not apply it.
+    branches: [main]
+    paths:
+      - '.github/repo-metadata.json'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: repo-meta
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    name: Apply description, website and topics
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # GitHub replaces the whole topic list on every write, so a malformed or partial file has to
+      # stop here rather than silently delete topics that took effort to accumulate.
+      - name: Validate metadata
+        run: |
+          jq -e 'has("description") and has("homepage") and (.topics | type == "array" and length > 0)' \
+            .github/repo-metadata.json > /dev/null || { echo '::error::.github/repo-metadata.json needs description, homepage and a non-empty topics array'; exit 1; }
+          # jq counts characters the same way the GitHub limit is defined; `${#var}` would count
+          # bytes under a C locale and disagree with `pnpm verify:meta`.
+          description_chars="$(jq -r '.description | length' .github/repo-metadata.json)"
+          if [ "$description_chars" -gt 350 ]; then
+            echo "::error::the About description is $description_chars characters, GitHub caps it at 350"
+            exit 1
+          fi
+          while IFS= read -r topic; do
+            if ! printf '%s' "$topic" | grep -Eq '^[a-z0-9]+(-[a-z0-9]+)*$'; then
+              echo "::error::'$topic' is not a valid GitHub topic (lowercase alphanumeric, single hyphens, no leading or trailing hyphen)"
+              exit 1
+            fi
+          done < <(jq -r '.topics[]' .github/repo-metadata.json)
+
+      - name: Apply to the repository
+        env:
+          TOKEN: ${{ secrets.REPO_METADATA_TOKEN }}
+        run: |
+          if [ -z "$TOKEN" ]; then
+            echo "::error::the REPO_METADATA_TOKEN secret is not configured — see the header comment of this file, or apply the values by hand (Settings → General → About / gh repo edit)"
+            exit 1
+          fi
+          body="$(jq -c '{description, homepage, topics}' .github/repo-metadata.json)"
+          response="$(mktemp)"
+          # `|| true` keeps a transport failure inside the `if` below instead of aborting the
+          # step under the runner's `bash -e`; curl reports "000" when no response arrived.
+          status="$(curl -sS -o "$response" -w '%{http_code}' -X PATCH \
+            -H "Authorization: Bearer $TOKEN" \
+            -H 'Accept: application/vnd.github+json' \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            -H 'Content-Type: application/json' \
+            -d "$body" \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY" || true)"
+          if [ "${status:-000}" != '200' ]; then
+            echo "::error::GitHub did not accept the metadata update (HTTP ${status:-000})"
+            cat "$response"
+            printf '\nAdministration: read and write is the scope that carries this endpoint; grant Contents only if GitHub reports it as additionally required.\n'
+            printf 'With the built-in GITHUB_TOKEN the same call answers 403 "Resource not accessible by integration".\n'
+            exit 1
+          fi
+          {
+            echo '### Repository About block updated'
+            echo
+            jq -r '"- description: \(.description) (\(.description | length) chars)", "- website: \(.homepage)", "- topics (\(.topics | length)): \(.topics | join(", "))"' .github/repo-metadata.json
+          } >> "$GITHUB_STEP_SUMMARY"

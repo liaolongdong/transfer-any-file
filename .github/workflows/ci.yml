@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [master, main]
+    branches: [main]
   pull_request:
-    branches: [master, main]
+    branches: [main]
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -23,6 +23,10 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint:all
+      # Store-facing metadata: package.json / wxt.config.ts / .github/repo-metadata.json must agree
+      - run: pnpm verify:meta
+      # The privacy claim every document repeats: no network call in first-party source
+      - run: pnpm verify:offline
 
   build:
     name: Build Extension
