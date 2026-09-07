@@ -1,6 +1,6 @@
 # Chrome Web Store Listing — Transfer Any File
 
-> Last Updated: 2026-09-06
+> Last Updated: 2026-09-07
 > Status: **not published yet.** This repo has no store listing to optimise — `manifest.json` carries no `key`, the README only documents "Load unpacked", and there is no extension ID anywhere in the tree. This file is the publish-ready asset pack: copy each field into the [Chrome Developer Dashboard](https://chrome.google.com/webstore/devconsole), and keep it updated whenever permissions, features or graphics change.
 
 **Character counts below are measured, not estimated** — re-measure after any edit (`node -e 'process.stdout.write(String("<text>".length))'`), because the store rejects over-length fields silently in some locales.
@@ -122,11 +122,24 @@ Add `Chinese (China)` as an additional language with the ZH fields above — the
 | Screenshot 4          | 1280×800 PNG | ✅ Ready | `docs/assets/screenshots/preview-edit.png`    |
 | Screenshot 5          | 1280×800 PNG | ✅ Ready | `docs/assets/screenshots/history.png`         |
 | Screenshot 6          | 1280×800 PNG | ✅ Ready | `docs/assets/screenshots/dark-mode.png`       |
+| Brand master          | 512×512 PNG  | ✅ Ready | `docs/assets/icon.png`                        |
+| Brand mark            | 64×64 PNG    | ✅ Ready | `docs/assets/icon-mark.png`                   |
 | Small Promo Tile      | 440×280 PNG  | ✅ Ready | `docs/assets/store/cws-small-promo.png`       |
 | Marquee Promo Tile    | 1400×560 PNG | ✅ Ready | `docs/assets/store/cws-marquee-promo.png`     |
 | GitHub social preview | 1280×640 PNG | ✅ Ready | `docs/assets/store/github-social-preview.png` |
 
 All of them are generated, not hand-taken: `pnpm build && pnpm assets:capture` re-shoots every file from the current bundle, so a UI change cannot leave the store kit stale.
+
+### Icon tiers
+
+The icon ships as two densities of **one** logo, not two logos. The brand mark is the bidirectional swap arrow ("transfer"); `assets/icon-small.svg` owns that geometry and `assets/icon.svg` reuses it, scaled and colour-inverted, inside a badge on top of a document sheet.
+
+| Tier       | Master           | Use                          |
+| ---------- | ---------------- | ---------------------------- |
+| Simplified | `icon-small.svg` | anything rendered under 48px |
+| Detailed   | `icon.svg`       | 48px and above               |
+
+The floor is arithmetic, not taste: the document's text lines are 5px tall on a 128 grid, so at 26px they land on ~1px and read as a white smear. That is why the favicon, the landing-page nav mark and the small promo tile all point at `icon-mark.png` — the slots where the extension is actually seen most are the small ones. `Brand master` above feeds the GitHub repository avatar and the JSON-LD `logo`/`image` pair, so CWS, GitHub and Pages present the same mark to people and to entity resolution alike.
 
 ### Screenshot Notes
 
@@ -211,6 +224,49 @@ The page itself is written and lives at `docs/privacy.html` (bilingual, no analy
 
 ---
 
+## GitHub Repository Metadata
+
+Paste-ready values for the moment the repository is created. `git remote -v` is still empty and `gh` is not installed on this machine, so none of this is applied yet; the manual path is the repository's **Settings → General → About** block.
+
+**Repository name** — `transfer-any-file`
+
+Every link already written into `README.md`, `README.zh-CN.md`, `docs/index.html` (including JSON-LD `codeRepository`), `docs/privacy.html` and this file points at `github.com/liaolongdong/transfer-any-file`, and the slug equals `package.json#name` and the manifest brand. Creating the repository under any other name silently breaks all of them.
+
+**Description (About)** — 119 chars (GitHub allows 350; under 120 keeps the whole string inside Google's snippet width)
+
+```
+Offline file format converter for Chrome: 14 formats — Markdown, Word, PDF, Excel, CSV, JSON, HTML, images. No uploads.
+```
+
+It leads with the exact phrase `file format converter` on purpose: that is the keyword coverage the brand slug deliberately gives up, and the About field is where GitHub search and the search snippet read it from. `14 formats` is the same figure the workbench footer computes (`entrypoints/options/App.vue → formatCount`); re-derive it from the code, not from this file, if the converter set changes.
+
+**Topics** — 18, one per group axis (GitHub accepts unlisted topic names, so a missing one is not an error):
+
+| Group   | Topics                                                                                                                                                            |
+| ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Purpose | `file-format-converter`, `file-converter`, `format-conversion`, `file-conversion`, `document-conversion`, `pdf-converter`, `image-conversion`, `batch-processing` |
+| Values  | `offline-first`, `local-first`, `privacy-first`, `privacy-tools`                                                                                                  |
+| Stack   | `chrome-extension`, `browser-extension`, `wxt`, `vue3`, `typescript`, `vite`                                                                                      |
+
+`file-format-converter` and `file-converter` are not redundant, so keep both. Verified 2026-09-07: the former is a small topic whose listing tops out at 340 stars — the one surface where a zero-star repository appears near the top on day one — while the latter is head-dominated by ConvertX at 18.8k stars and is where the browsing volume actually is.
+
+**Social preview** — Settings → General → Social preview → upload `docs/assets/store/github-social-preview.png` (1280×640, already generated by `pnpm assets:capture`). It is what every shared link renders as, and unlike stars it cannot be grown into later.
+
+With `gh` installed and the repository pushed, the same three fields in one command:
+
+```bash
+gh repo edit liaolongdong/transfer-any-file \
+  --description "Offline file format converter for Chrome: 14 formats — Markdown, Word, PDF, Excel, CSV, JSON, HTML, images. No uploads." \
+  --add-topic file-format-converter --add-topic file-converter --add-topic format-conversion \
+  --add-topic file-conversion --add-topic document-conversion --add-topic pdf-converter \
+  --add-topic image-conversion --add-topic batch-processing --add-topic offline-first \
+  --add-topic local-first --add-topic privacy-first --add-topic privacy-tools \
+  --add-topic chrome-extension --add-topic browser-extension --add-topic wxt \
+  --add-topic vue3 --add-topic typescript --add-topic vite
+```
+
+---
+
 ## Version History
 
 | Version | Date       | Changes                                                                                                                | Status |
@@ -233,6 +289,7 @@ The page itself is written and lives at `docs/privacy.html` (bilingual, no analy
 
 - [x] `manifest_version: 3`, MV3-only APIs
 - [x] All four icon sizes exist and match their declared dimensions
+- [x] Both icon tiers share one brand mark; every slot under 48px uses the simplified tier
 - [x] Only `storage` permission; every permission has a specific justification above
 - [x] No remote code, no CDN assets, no `eval` / `new Function`
 - [x] No obfuscation (Vite minification only); source maps excluded
@@ -244,6 +301,8 @@ The page itself is written and lives at `docs/privacy.html` (bilingual, no analy
 - [x] Public contact email chosen and consistent with `package.json#author.email`
 - [ ] **Publisher name decided** — must match the CWS developer account's public name
 - [x] Store name renamed to the brand + keyword form above (2026-09-06); `manifest.name` matches it
+- [ ] Repository created as `liaolongdong/transfer-any-file` with the About description + 18 topics above (GitHub search coverage lives here, not in the slug)
+- [ ] GitHub social preview uploaded from `docs/assets/store/github-social-preview.png`
 - [ ] `pnpm package` zip inspected: excludes `.git/`, `node_modules/`, `.test-*`, `CHROMEWEBSTORE.md`, `docs/`, `fixtures/`
 - [ ] `pnpm lint:all` and `pnpm test:e2e` green on the commit being packaged
 

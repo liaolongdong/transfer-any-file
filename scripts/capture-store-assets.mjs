@@ -25,7 +25,9 @@ const EXTENSION_PATH = path.resolve(__dirname, '../.output/chrome-mv3');
 const FIXTURE_PATH = path.resolve(__dirname, '../fixtures');
 const SHOT_DIR = path.resolve(__dirname, '../docs/assets/screenshots');
 const GRAPHIC_DIR = path.resolve(__dirname, '../docs/assets/store');
-const ICON_PATH = path.resolve(__dirname, '../public/icon/128.png');
+// Both promo tiles draw the brand mark small — 40px normally, 26px on the compact 440×280
+// tile — i.e. under the detailed master's ~48px legibility floor, so they take the small tier.
+const ICON_PATH = path.resolve(__dirname, '../docs/assets/icon-mark.png');
 
 // 1280 is the widest Chrome Web Store screenshot and matches the workbench's own
 // 1200px content column without letterboxing; 800 is the store's max height.

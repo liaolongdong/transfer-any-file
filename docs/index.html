@@ -21,9 +21,10 @@
       rel="canonical"
       href="https://liaolongdong.github.io/transfer-any-file/"
     />
+    <!-- Favicon renders at 16-32px, so it takes the small tier (see scripts/render-icons.mjs) -->
     <link
       rel="icon"
-      href="assets/icon.png"
+      href="assets/icon-mark.png"
     />
     <link
       rel="alternate"
@@ -103,6 +104,8 @@
             "operatingSystem": "Chrome OS, Windows, macOS, Linux (Google Chrome 88+, or any Chromium browser with Manifest V3 support)",
             "description": "A Chrome extension (Manifest V3) that converts documents, spreadsheets and images between 14 file formats locally. Batch conversion with mixed source formats, automatic multi-step conversion chains, preview and inline editing, ZIP download, and conversion history. Performs no network requests and requests only the storage permission.",
             "url": "https://liaolongdong.github.io/transfer-any-file/",
+            "image": "https://liaolongdong.github.io/transfer-any-file/assets/icon.png",
+            "logo": "https://liaolongdong.github.io/transfer-any-file/assets/icon.png",
             "author": {
               "@type": "Person",
               "name": "Better",
@@ -620,8 +623,9 @@
           class="logo"
           href="./"
         >
+          <!-- 28px slot -> small tier; the detailed master loses its text lines below ~48px -->
           <img
-            src="assets/icon.png"
+            src="assets/icon-mark.png"
             alt=""
             width="28"
             height="28"

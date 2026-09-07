@@ -9,7 +9,11 @@
   <!-- App tile -->
   <rect width="32" height="32" rx="7" fill="url(#bg)"/>
 
-  <!-- Bold swap arrows: stays legible at 16px -->
+  <!--
+    Bold swap arrows: stays legible at 16px. This is the brand mark and the geometry source of
+    truth — `icon.svg` reuses it (scaled + colour-inverted) inside its badge, so change the
+    arrow shape here and mirror it there, never the other way round.
+  -->
   <g stroke="#FFFFFF" stroke-width="3.5" stroke-linecap="round">
     <line x1="8" y1="12" x2="18" y2="12"/>
     <line x1="24" y1="20" x2="14" y2="20"/>
