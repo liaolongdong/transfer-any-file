@@ -2,7 +2,7 @@
 
 > Transfer Any File is an open-source Chrome extension (Manifest V3, ISC licence) that converts files between 14 formats — Markdown, HTML, Word (.docx), PDF, TXT, CSV, Excel (.xlsx), JSON, PNG, JPEG, WebP, BMP, GIF, SVG — entirely on the user's own machine. It requests one permission (`storage`), makes zero network requests, and works with the network disabled. Batch conversion of mixed source formats, automatic multi-step conversion chains (46+ routes), per-file error isolation, split preview with inline editing, ZIP download, and a local conversion history.
 
-Primary language: English. Interface languages: English and Chinese (default Chinese).
+Primary language: the product page and privacy policy are bilingual (single file, in-page Chinese / English switch, no server). Interface languages: English and Chinese (default Chinese).
 Category: productivity / file conversion. Price: free, no paid tier, no ads, no account.
 
 ## Product page
@@ -15,7 +15,8 @@ Category: productivity / file conversion. Price: free, no paid tier, no ads, no 
 - Documents: Markdown, HTML, Word (.docx), PDF, TXT — in any direction, through HTML as the hub format
 - Data: CSV, Excel (.xlsx), JSON — in any direction, including CSV ⇄ XLSX and JSON ⇄ CSV
 - Images: PNG, JPEG, WebP, BMP, GIF, SVG — readable; writable as PNG, JPEG or WebP (GIF uses its first frame, SVG is flattened)
-- Multi-step routes are discovered automatically: Markdown → HTML → PDF, Word → HTML → Markdown, JSON → HTML → XLSX
+- Multi-step routes are discovered automatically: Markdown → HTML → PDF, Word → HTML → Markdown, JSON → CSV → XLSX, TXT → HTML → JSON → CSV → Excel
+- 46 registered direct routes; breadth-first search over the same graph makes 143 source-to-target combinations selectable (every source format reaches all 11 writable formats except itself)
 
 ## What it does not do (frequently asked of converters)
 

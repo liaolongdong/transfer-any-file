@@ -61,7 +61,7 @@ trigger: always_on
 ## 10. 国际化与文档
 
 - 所有用户可见文案同时提供中英文，禁止在 Vue/TS 中硬编码可见字符串。`utils/i18n/zh.ts` 为源，`en.ts` 类型为 `typeof zh`，两者 key 集必须一致（默认语言 `zh`）。
-- 文档按影响分层更新：功能/用法 → `README.md` + `README.zh-CN.md`（双语一致）；对外产品说明与隐私政策 → `docs/index.html` + `docs/privacy.html`（GitHub Pages 源目录，产品页英文、隐私政策页内双语）；Chrome 应用商店文案与披露答复 → `CHROMEWEBSTORE.md`；manifest 名称/描述/权限 → `wxt.config.ts`（其 `description` 与 `package.json#description` 同步，且 ≤132 字符）。
+- 文档按影响分层更新：功能/用法 → `README.md` + `README.zh-CN.md`（双语一致）；对外产品说明与隐私政策 → `docs/index.html` + `docs/privacy.html`（GitHub Pages 源目录，两者均为**单文件内嵌中英双语**，靠 `lang` 属性 + CSS 切换，两种语言的正文都在初始 HTML 里）；Chrome 应用商店文案与披露答复 → `CHROMEWEBSTORE.md`；manifest 名称/描述/权限 → `wxt.config.ts`（其 `description` 与 `package.json#description` 同步，且 ≤132 字符）。
 - `docs/`、`CHROMEWEBSTORE.md` 只是仓库文档，**不得进入扩展产物**；素材禁止放 `public/`（WXT 会原样打包进 `.output/chrome-mv3`）。UI 变更后跑 `pnpm assets:capture` 重新生成 `docs/assets/` 下的 1280×800 截图与推广图，避免商店/README 素材与实际界面漂移。
 - 本项目**无** `_locales/`、HelpDialog、popup，且**尚未上架 Chrome 应用商店**（`CHROMEWEBSTORE.md` 是待提交素材，不是现网列表），勿引用不存在的商店链接。
 
