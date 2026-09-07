@@ -16,21 +16,12 @@
   <rect x="38" y="58" width="28" height="5" rx="2.5" fill="#93C5FD"/>
   <rect x="38" y="70" width="14" height="5" rx="2.5" fill="#93C5FD"/>
 
-  <!--
-    Conversion badge: the *same* bidirectional swap mark as `icon-small.svg`, scaled 1.7x into
-    the disc and colour-inverted (blue on white instead of white on blue). Reusing the small
-    tier's geometry is what makes the 16px toolbar icon and the 128px store icon read as one
-    logo; the previous Material `autorenew` ring read as "refresh" instead of "convert".
-  -->
-  <circle cx="88" cy="88" r="27" fill="#FFFFFF" stroke="#1D4ED8" stroke-width="2.5"/>
-  <g transform="translate(60.8 60.8) scale(1.7)">
-    <g stroke="#1D4ED8" stroke-width="3.5" stroke-linecap="round">
-      <line x1="8" y1="12" x2="18" y2="12"/>
-      <line x1="24" y1="20" x2="14" y2="20"/>
-    </g>
-    <g fill="#1D4ED8">
-      <path d="M18 7 L26 12 L18 17 Z"/>
-      <path d="M14 15 L6 20 L14 25 Z"/>
-    </g>
+  <!-- Conversion badge: autorenew arrows (Material geometry) -->
+  <circle cx="88" cy="88" r="27" fill="#FFFFFF"/>
+  <g transform="translate(66.4 66.4) scale(1.8)">
+    <path
+      d="M12 6v3l4-4-4-4v3c-4.42 0-8 3.58-8 8 0 1.57.46 3.03 1.24 4.26L6.7 14.8c-.45-.83-.7-1.79-.7-2.8 0-3.31 2.69-6 6-6zm6.76 1.74L17.3 9.2c.44.84.7 1.79.7 2.8 0 3.31-2.69 6-6 6v-3l-4 4 4 4v-3c4.42 0 8-3.58 8-8 0-1.57-.46-3.03-1.24-4.26z"
+      fill="#1D4ED8"
+    />
   </g>
 </svg>

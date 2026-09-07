@@ -1,9 +1,9 @@
 /*
  * Icon renderer: SVG masters -> PNG tiers (run: node scripts/render-icons.mjs)
  *
- * Two masters, one brand mark. `icon-small.svg` holds the canonical bidirectional swap
- * glyph; `icon.svg` reuses that same geometry inside its badge (scaled + colour-inverted)
- * and only adds the document sheet. They are two densities of ONE logo, not two logos.
+ * Two masters covering two size regimes:
+ *   assets/icon.svg        document sheet + circular conversion badge — slots 48px and up
+ *   assets/icon-small.svg  bold swap arrows, stripped down to survive 16px
  *
  * Size rule: the detailed master carries 5px-tall text lines on a 128 grid, so below ~48px
  * they collapse into sub-pixel mush. Anything rendered under 48px must take a `small` tier.

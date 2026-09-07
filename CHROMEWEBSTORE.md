@@ -132,14 +132,14 @@ All of them are generated, not hand-taken: `pnpm build && pnpm assets:capture` r
 
 ### Icon tiers
 
-The icon ships as two densities of **one** logo, not two logos. The brand mark is the bidirectional swap arrow ("transfer"); `assets/icon-small.svg` owns that geometry and `assets/icon.svg` reuses it, scaled and colour-inverted, inside a badge on top of a document sheet.
+Two masters cover two size regimes: `assets/icon.svg` draws a document sheet with a circular conversion badge for the large slots, while `assets/icon-small.svg` strips the artwork down to bold bidirectional arrows so it survives 16px.
 
 | Tier       | Master           | Use                          |
 | ---------- | ---------------- | ---------------------------- |
 | Simplified | `icon-small.svg` | anything rendered under 48px |
 | Detailed   | `icon.svg`       | 48px and above               |
 
-The floor is arithmetic, not taste: the document's text lines are 5px tall on a 128 grid, so at 26px they land on ~1px and read as a white smear. That is why the favicon, the landing-page nav mark and the small promo tile all point at `icon-mark.png` — the slots where the extension is actually seen most are the small ones. `Brand master` above feeds the GitHub repository avatar and the JSON-LD `logo`/`image` pair, so CWS, GitHub and Pages present the same mark to people and to entity resolution alike.
+The split is arithmetic, not taste: the detailed master's text lines are 5px tall on a 128 grid, so at 26px they land on ~1px and read as a white smear. That is why the favicon, the landing-page nav mark and the small promo tile all point at `icon-mark.png` — the slots where the extension is actually seen most are the small ones. `Brand master` above feeds the GitHub repository avatar and the JSON-LD `logo`/`image` pair, so CWS, GitHub and Pages all resolve to the same artwork.
 
 ### Screenshot Notes
 
@@ -289,7 +289,7 @@ gh repo edit liaolongdong/transfer-any-file \
 
 - [x] `manifest_version: 3`, MV3-only APIs
 - [x] All four icon sizes exist and match their declared dimensions
-- [x] Both icon tiers share one brand mark; every slot under 48px uses the simplified tier
+- [x] Every slot under 48px uses the simplified tier; the detailed master is used at 48px and above
 - [x] Only `storage` permission; every permission has a specific justification above
 - [x] No remote code, no CDN assets, no `eval` / `new Function`
 - [x] No obfuscation (Vite minification only); source maps excluded

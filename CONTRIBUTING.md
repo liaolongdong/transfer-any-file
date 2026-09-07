@@ -42,7 +42,7 @@ Multi-step routes through your new converter are discovered automatically by the
 - **i18n**: every user-visible string exists in both `utils/i18n/zh.ts` (source) and `en.ts`; no literals in components.
 - **Logging**: no `console` in `entrypoints/`, `components/`, `composables/`, `utils/` — errors surface in the UI. Scripts under `scripts/` are exempt.
 - **Docs**: user-facing changes update `README.md` **and** `README.zh-CN.md`; store copy lives in `CHROMEWEBSTORE.md`; the product page is `docs/index.html`. After a UI change, run `pnpm assets:capture` so the screenshots do not drift.
-- **Icons**: the two SVG masters are two densities of one brand mark, not two marks. `assets/icon-small.svg` owns the swap-arrow geometry; `assets/icon.svg` reuses it inside its badge. Anything rendered under 48px must take the simplified tier, and changing the arrow means changing both masters. Regenerate with `node scripts/render-icons.mjs`.
+- **Icons**: two SVG masters cover two size regimes — `assets/icon.svg` (document sheet + conversion badge) for slots 48px and up, `assets/icon-small.svg` (bold swap arrows) for anything smaller, because the detailed artwork's 5px text lines dissolve below 48px. Regenerate both with `node scripts/render-icons.mjs`.
 - Do not weaken ESLint / Stylelint / TypeScript settings to make a check pass. If a rule genuinely must be bypassed, scope the suppression to the single line and explain why in the diff.
 
 贡献须知：本项目是完全离线的 Chrome 扩展，**不接受**任何引入网络请求、远程资源或新增权限的改动；中英文文案与文档（`README.md` / `README.zh-CN.md`）必须同步修改；提交前请本地跑通 `pnpm lint:all` 与 `pnpm test:e2e`。详细编码规则见 `.qoder/rules/wxt-rules.md`，架构说明见 `AGENTS.md`。
