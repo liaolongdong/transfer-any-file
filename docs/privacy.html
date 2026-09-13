@@ -6,10 +6,10 @@
       name="viewport"
       content="width=device-width, initial-scale=1"
     />
-    <title>Privacy Policy — Transfer Any File</title>
+    <title>Privacy Policy · 隐私政策 — Transfer Any File</title>
     <meta
       name="description"
-      content="Privacy policy for Transfer Any File, an offline Chrome extension for converting file formats. It collects no data, makes no network requests and keeps history and preferences on your device."
+      content="Privacy policy for Transfer Any File, an offline Chrome extension for converting file formats. It collects no data, makes no network requests and keeps history and preferences on your device. 隐私政策：不收集、不上传任何个人数据，历史与偏好仅保存在本机。"
     />
     <meta
       name="robots"
@@ -22,7 +22,73 @@
     <!-- Favicon renders at 16-32px, so it takes the small tier (see scripts/render-icons.mjs) -->
     <link
       rel="icon"
+      type="image/png"
+      sizes="64x64"
       href="assets/icon-mark.png"
+    />
+    <link
+      rel="apple-touch-icon"
+      href="assets/icon.png"
+    />
+    <meta
+      property="og:type"
+      content="website"
+    />
+    <meta
+      property="og:site_name"
+      content="Transfer Any File"
+    />
+    <meta
+      property="og:locale"
+      content="en_US"
+    />
+    <meta
+      property="og:locale:alternate"
+      content="zh_CN"
+    />
+    <meta
+      property="og:title"
+      content="Privacy Policy · 隐私政策 — Transfer Any File"
+    />
+    <meta
+      property="og:description"
+      content="No data collection, no network requests, no server. History and preferences stay in chrome.storage.local on your own device. 不收集、不上传任何个人数据，数据只留在本机。"
+    />
+    <meta
+      property="og:url"
+      content="https://liaolongdong.github.io/transfer-any-file/privacy.html"
+    />
+    <meta
+      property="og:image"
+      content="https://liaolongdong.github.io/transfer-any-file/assets/store/github-social-preview.png"
+    />
+    <meta
+      property="og:image:width"
+      content="1280"
+    />
+    <meta
+      property="og:image:height"
+      content="640"
+    />
+    <meta
+      property="og:image:alt"
+      content='Transfer Any File brand mark and the headline "Convert 14 file formats without uploading a byte" beside a screenshot of the workbench converting a Markdown file to HTML.'
+    />
+    <meta
+      name="twitter:card"
+      content="summary_large_image"
+    />
+    <meta
+      name="twitter:title"
+      content="Privacy Policy · 隐私政策 — Transfer Any File"
+    />
+    <meta
+      name="twitter:description"
+      content="No data collection, no network requests, no server — history and preferences stay on your device. 不收集、不上传任何个人数据。"
+    />
+    <meta
+      name="twitter:image"
+      content="https://liaolongdong.github.io/transfer-any-file/assets/store/github-social-preview.png"
     />
     <style>
       body {
@@ -89,7 +155,9 @@
   <body>
     <main class="wrap">
       <h1>Privacy Policy — Transfer Any File</h1>
-      <p class="updated">Effective date: 2026-09-06 · Applies to extension version 1.0.0 and later</p>
+      <p class="updated">
+        Effective date: 2026-09-06 · Last updated: 2026-09-13 · Applies to extension version 1.0.0 and later
+      </p>
 
       <h2>Summary</h2>
       <p>
@@ -102,10 +170,11 @@
       <p>
         Every conversion is performed by JavaScript that is bundled inside the extension and runs in a page on your own
         device. The files you select are read into that page's memory, converted there, and handed back to you as a
-        download. They are never uploaded: the extension declares no host permissions, and no code of its own makes a
-        network call (<code>fetch</code>, <code>XMLHttpRequest</code>, <code>WebSocket</code>, <code>sendBeacon</code>).
-        With no host permission granted the browser refuses requests outright, which is what keeps the unused request
-        paths inside the bundled conversion libraries inert.
+        download. There is no upload path: no code of its own makes a network call (<code>fetch</code>,
+        <code>XMLHttpRequest</code>, <code>WebSocket</code>, <code>sendBeacon</code>), which is the guarantee the
+        project asserts automatically on every push, and the extension additionally declares no host permissions and
+        registers no content script, so the request paths left unused inside the bundled conversion libraries can
+        neither read a response nor reach any website's data.
       </p>
 
       <h2>Data the extension keeps on your device</h2>
@@ -117,7 +186,7 @@
         </li>
         <li>
           <strong>Preferences</strong> — theme colour, light/dark setting, interface language, notification and
-          confirmation switches, keyboard shortcut, panel layout.
+          confirmation switches, keyboard shortcut, panel layout, and the last six target formats you converted to.
         </li>
       </ul>
       <p>
@@ -149,17 +218,17 @@
         Questions about this policy: open an issue at
         <a href="https://github.com/liaolongdong/transfer-any-file/issues"
           >github.com/liaolongdong/transfer-any-file/issues</a
-        >.
+        >. Product details and usage are on the <a href="./">extension's product page</a>.
       </p>
 
       <hr />
 
       <section
         class="zh"
-        lang="zh-Hans"
+        lang="zh-CN"
       >
         <h2>隐私政策（简体中文）</h2>
-        <p class="updated">生效日期：2026-09-06 · 适用于扩展 1.0.0 及后续版本</p>
+        <p class="updated">生效日期：2026-09-06 · 最后更新：2026-09-13 · 适用于扩展 1.0.0 及后续版本</p>
 
         <p>
           <strong>摘要：</strong>Transfer Any File 是一款离线的 Chrome
@@ -168,18 +237,16 @@
 
         <p>
           <strong>工作方式：</strong>所有转换由打包在扩展内的 JavaScript
-          在你自己的设备上完成。所选文件被读入该页面的内存、在本地转换、再以下载形式交还给你。扩展不声明任何 host
-          权限，它自身的代码中也不发起 <code>fetch</code>、<code>XMLHttpRequest</code>、<code>WebSocket</code>、<code
-            >sendBeacon</code
-          >
-          等任何网络调用；在未授予任何 host
-          权限的前提下，浏览器会直接拒绝请求，这正是转换库里那些从未被调用的请求路径无法生效的原因。因此不存在上传路径。
+          在你自己的设备上完成。所选文件被读入该页面的内存、在本地转换、再以下载形式交还给你。因此不存在上传路径：扩展自身的代码中不发起
+          <code>fetch</code>、<code>XMLHttpRequest</code>、<code>WebSocket</code>、<code>sendBeacon</code>
+          等任何网络调用，这是项目在每次推送时自动断言的保障；扩展同时不声明任何 host 权限、也不注册 content
+          script，所以转换库里那些从未被调用的请求路径即使被走到，也读不到任何响应、碰不到任何网站的数据。
         </p>
 
         <p>
           <strong>保存在本机的数据：</strong>（1）转换历史——最近 50
           条，仅包含文件<em>名称</em>、源/目标格式、体积与时间戳，绝不写入文件<em>内容</em>；可在界面中单条删除、清空，或导出/导入
-          JSON。（2）偏好设置——主题色、明暗模式、界面语言、通知与确认开关、快捷键、面板布局。
+          JSON。（2）偏好设置——主题色、明暗模式、界面语言、通知与确认开关、快捷键、面板布局、最近使用的 6 个目标格式。
         </p>
 
         <p>
@@ -193,6 +260,11 @@
         </p>
 
         <p>
+          <strong>儿童、未成年人与敏感数据：</strong
+          >由于不收集任何数据，也不存在此类数据被滥用的可能；本扩展不面向儿童，也不向任何人索取个人信息。
+        </p>
+
+        <p>
           <strong>政策变更：</strong
           >若未来版本改变数据收集范围或处理位置，本页会更新，并在该版本发布前于商店列表中披露；数据模型的实质性变更会在此处标注新的生效日期。
         </p>
@@ -201,7 +273,7 @@
           <strong>联系方式：</strong>
           <a href="https://github.com/liaolongdong/transfer-any-file/issues"
             >github.com/liaolongdong/transfer-any-file/issues</a
-          >
+          >。功能与用法详见<a href="./">扩展产品页</a>。
         </p>
       </section>
     </main>

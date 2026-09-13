@@ -11,7 +11,10 @@
     />
     <!-- Resolve the UI language before first paint so the page never flashes the wrong language.
          All copy ships in BOTH languages in the HTML (see the [lang] rules in the stylesheet),
-         so crawlers that do not run JavaScript still read every fact in either language. -->
+         so crawlers that do not run JavaScript still read every fact in either language.
+         `setLang()` at the end of this document narrows <title>, the description and the
+         og: / twitter: metadata to the language being shown; the bilingual values baked into
+         the markup below stay as the no-JavaScript fallback. -->
     <script>
       (function () {
         var KEY = 'fat-docs-lang';
@@ -30,6 +33,9 @@
         }
         if (!lang) lang = (navigator.language || 'zh-CN').toLowerCase().indexOf('zh') === 0 ? 'zh-CN' : 'en';
         document.documentElement.setAttribute('lang', lang);
+        /* Scroll reveals start at opacity 0, so they must never apply unless this script ran:
+           a client that renders CSS but not JavaScript would otherwise see blank sections. */
+        document.documentElement.classList.add('js');
       })();
     </script>
     <title>
@@ -37,11 +43,21 @@
     </title>
     <meta
       name="description"
-      content="Transfer Any File 是一款开源的 Chrome 扩展（Manifest V3）：Markdown、Word、PDF、Excel、CSV、JSON、HTML 与图片共 14 种格式在你自己的电脑本地互转，46 条直接路径、143 个可选组合、批量与自动多步链路、预览编辑、ZIP 打包。不上传、无账号、无网络请求。| Convert 14 file formats locally in Chrome — batch, multi-step, no uploads."
+      content="开源 Chrome 扩展，14 种文档、数据与图片格式在本地互转：批量、自动多步链路、预览编辑、ZIP 打包。不上传、无账号、零网络请求。 | Open-source Chrome extension: 14 document, data and image formats converted locally — batch, multi-step, preview & edit, ZIP. No uploads, no network requests."
     />
     <meta
       name="author"
       content="Better"
+    />
+    <!-- Indexing. One URL serves both languages — the copy for both is in this file, and the
+         pre-paint script only decides which of the two is *shown* (see the [lang] rules in the
+         stylesheet). There is deliberately no hreflang cluster: its targets could only be the
+         `?lang=` variants, those URLs canonicalise to this clean URL, and a hreflang target that
+         is not self-canonical makes Google drop the whole cluster. Per-language URLs (e.g. /en/)
+         are the only way to declare hreflang honestly; until then one canonical is correct. -->
+    <meta
+      name="robots"
+      content="index, follow, max-image-preview:large, max-snippet:-1"
     />
     <!-- Every URL below assumes the public repo is named `transfer-any-file` under this account
          and GitHub Pages is deployed from `docs/`. Adjust if either changes. -->
@@ -49,25 +65,16 @@
       rel="canonical"
       href="https://liaolongdong.github.io/transfer-any-file/"
     />
-    <link
-      rel="alternate"
-      hreflang="zh-CN"
-      href="https://liaolongdong.github.io/transfer-any-file/?lang=zh-CN"
-    />
-    <link
-      rel="alternate"
-      hreflang="en"
-      href="https://liaolongdong.github.io/transfer-any-file/?lang=en"
-    />
-    <link
-      rel="alternate"
-      hreflang="x-default"
-      href="https://liaolongdong.github.io/transfer-any-file/"
-    />
     <!-- Favicon renders at 16-32px, so it takes the small tier (see scripts/render-icons.mjs) -->
     <link
       rel="icon"
+      type="image/png"
+      sizes="64x64"
       href="assets/icon-mark.png"
+    />
+    <link
+      rel="apple-touch-icon"
+      href="assets/icon.png"
     />
     <meta
       name="theme-color"
@@ -87,19 +94,19 @@
     />
     <meta
       property="og:locale"
-      content="en_US"
-    />
-    <meta
-      property="og:locale:alternate"
       content="zh_CN"
     />
     <meta
+      property="og:locale:alternate"
+      content="en_US"
+    />
+    <meta
       property="og:title"
-      content="Transfer Any File — offline file format converter for Chrome"
+      content="Transfer Any File｜离线文件格式转换扩展（Chrome） | Transfer Any File — offline file format converter for Chrome"
     />
     <meta
       property="og:description"
-      content="Convert 14 file formats inside your browser. Batch, multi-step, preview and edit — without uploading a byte."
+      content="在浏览器本地完成 14 种格式互转，不上传一个字节。 Convert 14 file formats inside your browser — batch, multi-step, preview and edit, without uploading a byte."
     />
     <meta
       property="og:url"
@@ -118,28 +125,38 @@
       content="640"
     />
     <meta
+      property="og:image:alt"
+      content='Transfer Any File brand mark and the headline "Convert 14 file formats without uploading a byte" beside a screenshot of the workbench converting a Markdown file to HTML.'
+    />
+    <meta
       name="twitter:card"
       content="summary_large_image"
     />
     <meta
       name="twitter:title"
-      content="Transfer Any File — offline file format converter for Chrome"
+      content="Transfer Any File｜离线文件格式转换扩展（Chrome） | Transfer Any File — offline file format converter for Chrome"
     />
     <meta
       name="twitter:description"
-      content="14 formats, 46 direct routes, 143 reachable combinations, zero network requests. Runs entirely in your browser."
+      content="14 种格式、46 条直接路径、116 个可选组合、0 次网络请求，全部在你自己的浏览器里完成。 | 14 formats, 46 direct routes, 116 selectable combinations, zero network requests. Runs entirely in your browser."
     />
     <meta
       name="twitter:image"
       content="https://liaolongdong.github.io/transfer-any-file/assets/store/github-social-preview.png"
     />
+    <meta
+      name="twitter:image:alt"
+      content='Transfer Any File brand mark and the headline "Convert 14 file formats without uploading a byte" beside a screenshot of the workbench converting a Markdown file to HTML.'
+    />
 
     <!--
       Structured data. Every number here is derived from the code, not from prose:
-      · 14 formats      -> utils/core/types.ts `FileFormat`
-      · 46 direct edges -> the converters registered by utils/converters/index.ts
+      · 14 formats       -> utils/core/types.ts `FileFormat`
+      · 46 direct edges  -> the converters registered by utils/converters/index.ts
       · 143 combinations -> BFS closure over the same graph (utils/core/registry.ts)
-      · 3.71 MB         -> `pnpm build` total output size
+      · 116 selectable   -> 143 minus the 27 pairs utils/core/conversion-policy.ts greys out
+                            (24 image -> text/data + 3 PDF -> data)
+      · 3.71 MB          -> `pnpm build` total output size
     -->
     <script type="application/ld+json">
       {
@@ -151,12 +168,21 @@
             "name": "Transfer Any File",
             "alternateName": "Transfer Any File — Offline File Format Converter",
             "softwareVersion": "1.0.0",
-            "dateModified": "2026-09-07",
+            "dateModified": "2026-09-13",
             "applicationCategory": "UtilitiesApplication",
             "applicationSubCategory": "File Format Converter",
             "operatingSystem": "Chrome OS, Windows, macOS, Linux (Google Chrome 88+, or any Chromium browser with Manifest V3 support)",
             "inLanguage": ["zh-CN", "en"],
-            "description": "A Chrome extension (Manifest V3) that converts documents, spreadsheets and images between 14 file formats locally. Batch conversion of mixed source formats, automatic multi-step conversion chains over 46 registered routes, preview and inline editing, ZIP download, and conversion history. Performs no network requests and requests only the storage permission. 一款完全离线的 Chrome 扩展，在本地完成 14 种文件格式互转，支持混合批量、自动多步链路、预览编辑与 ZIP 打包，不发起任何网络请求。",
+            "description": [
+              {
+                "@language": "en",
+                "@value": "A Chrome extension (Manifest V3) that converts documents, spreadsheets and images between 14 file formats locally. Batch conversion of mixed source formats, automatic multi-step conversion chains over 46 registered routes, preview and inline editing, ZIP download, and conversion history. Performs no network requests and requests only the storage permission."
+              },
+              {
+                "@language": "zh-CN",
+                "@value": "一款完全离线的 Chrome 扩展（Manifest V3），在本地完成 14 种文档、数据与图片格式互转：混合批量、自动多步链路（46 条注册路径）、预览与内联编辑、ZIP 打包与转换历史。不发起网络请求，只申请 storage 权限。"
+              }
+            ],
             "url": "https://liaolongdong.github.io/transfer-any-file/",
             "image": "https://liaolongdong.github.io/transfer-any-file/assets/icon.png",
             "logo": "https://liaolongdong.github.io/transfer-any-file/assets/icon.png",
@@ -174,21 +200,28 @@
             "issueTracker": "https://github.com/liaolongdong/transfer-any-file/issues",
             "license": "https://spdx.org/licenses/ISC.html",
             "isAccessibleForFree": true,
-            "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+            "offers": {
+              "@type": "Offer",
+              "price": "0",
+              "priceCurrency": "USD"
+            },
             "featureList": [
-              "14 file formats and 46 direct conversion routes (143 reachable combinations)",
+              "14 file formats and 46 direct conversion routes (143 combinations reachable, 116 selectable)",
               "Batch conversion of mixed source formats, up to 200 files",
-              "Automatic multi-step conversion chains found by BFS",
-              "Per-file error isolation",
+              "Automatic multi-step conversion chains found by BFS, with the route shown before you convert",
+              "Per-file error isolation with expandable, copyable failure diagnostics",
               "Cancellable batches with undo",
               "ZIP download with per-entry compression strategy",
-              "Split preview with inline editing of text results",
-              "Paste from clipboard and drop a ZIP to expand it",
+              "Split preview with inline editing of text results and keyboard shortcuts for the view modes",
+              "Paste from clipboard, drop files anywhere on the page, and drop a ZIP to expand it",
               "UTF-8 and GBK CSV handling with BOM on write",
               "Conversion history with search, filter, reuse, export and import",
+              "Recently used target formats grouped at the top of the picker",
+              "Remembered view state: split-divider position and the collapsed history card",
+              "Rebindable convert shortcut and optional desktop notification for background batches",
               "6 accent colours, light / dark / system appearance",
               "Chinese and English interface (default Chinese)",
-              "Keyboard-accessible UI with WCAG 2.1 AA surfaces",
+              "Keyboard-accessible UI, with topbar and focus-ring contrast measured per theme",
               "Only one permission: storage"
             ]
           },
@@ -201,63 +234,7 @@
                 "name": "Does Transfer Any File upload my files?",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "No. Every converter is JavaScript bundled into the extension, the manifest declares only the storage permission with no host permissions, and the project source contains no fetch, XMLHttpRequest, WebSocket, EventSource or sendBeacon call. There is no server to upload to, and the extension works with networking disabled."
-                }
-              },
-              {
-                "@type": "Question",
-                "name": "Which file formats can it convert?",
-                "acceptedAnswer": {
-                  "@type": "Answer",
-                  "text": "Fourteen formats across three families: documents (Markdown, HTML, Word .docx, PDF, TXT), data (CSV, Excel .xlsx, JSON) and images (PNG, JPEG, WebP, BMP, GIF, SVG). Eleven of them can be written — SVG, BMP and GIF are input-only because browsers expose no encoders for them. The registry holds 46 direct conversion pairs, and breadth-first search over that graph makes 143 source-to-target combinations selectable."
-                }
-              },
-              {
-                "@type": "Question",
-                "name": "Can it convert a PDF into an editable Word document?",
-                "acceptedAnswer": {
-                  "@type": "Answer",
-                  "text": "Not losslessly. PDF input extracts text only, dropping layout and embedded images, and PDF output is rendered page by page as images, so text in a converted PDF is not selectable. Word and Excel convert through HTML as the hub format."
-                }
-              },
-              {
-                "@type": "Question",
-                "name": "Why can't I convert an image to text or CSV?",
-                "acceptedAnswer": {
-                  "@type": "Answer",
-                  "text": "Reading text out of an image requires OCR. Bundling an OCR model would add tens of megabytes and a model download, which conflicts with the offline guarantee, so it is not included. Those targets are greyed out in the format picker with the reason shown, rather than failing after you press Convert."
-                }
-              },
-              {
-                "@type": "Question",
-                "name": "Is it free, and is there a paid version?",
-                "acceptedAnswer": {
-                  "@type": "Answer",
-                  "text": "It is free and open source under the ISC licence. There is no paid tier, no account, no telemetry and no advertising — the extension has no code path that could report usage."
-                }
-              },
-              {
-                "@type": "Question",
-                "name": "What are the file size and batch limits?",
-                "acceptedAnswer": {
-                  "@type": "Answer",
-                  "text": "A single file up to 100 MB is accepted (the UI warns above 20 MB), and a batch is capped at 200 files. Batches larger than 5 files or 20 MB in total ask for confirmation first, which you can switch off in Preferences."
-                }
-              },
-              {
-                "@type": "Question",
-                "name": "How do I install it before it is on the Chrome Web Store?",
-                "acceptedAnswer": {
-                  "@type": "Answer",
-                  "text": "Build from source with Node.js 20.12 or later and pnpm: run pnpm install and pnpm build, then open chrome://extensions, enable Developer mode, click Load unpacked and select the .output/chrome-mv3 folder. Clicking the toolbar icon opens the workbench in a new tab."
-                }
-              },
-              {
-                "@type": "Question",
-                "name": "Does it work in Firefox or Edge?",
-                "acceptedAnswer": {
-                  "@type": "Answer",
-                  "text": "The build targets Chrome Manifest V3, so it runs in Chrome and other Chromium browsers such as Edge. Firefox is not a supported target today, although the extension uses no Chrome-only APIs beyond the standard storage and action ones."
+                  "text": "No. Every converter is JavaScript bundled into the extension, the manifest declares only the storage permission with no host_permissions, and the project source contains no fetch, XMLHttpRequest, WebSocket, EventSource or sendBeacon call. There is no server to upload to, and the extension works with networking disabled."
                 }
               },
               {
@@ -265,7 +242,47 @@
                 "name": "Transfer Any File 会把我的文件上传到服务器吗？",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "不会。所有转换器都是打包进扩展的 JavaScript，清单只声明了 storage 权限且没有任何 host_permissions，项目源码中不存在 fetch、XMLHttpRequest、WebSocket、EventSource 或 sendBeacon 调用。没有可供上传的服务器，关闭网络也能正常使用。"
+                  "text": "不会。所有转换器都是打包进扩展的 JavaScript，清单只声明 storage 权限且没有 host_permissions，项目源码中不存在 fetch、XMLHttpRequest、WebSocket、EventSource 或 sendBeacon 调用。没有可供上传的服务器，关闭网络也能正常使用。"
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Why does it ask for only one permission?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Because nothing else is needed. History and preferences need storage; conversion itself uses the file picker and the in-page File/Blob APIs, so it needs no tab access, no background scripts and no host permissions. Unused permissions are simply not requested."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "它只要求一项权限，为什么？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "因为只需要这些。历史与偏好需要 storage；转换本身靠文件选择器与页面内的 File/Blob API 完成，不需要标签页访问、不需要后台脚本、也不需要任何主机权限。没用的权限一律不申请。"
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "What exactly does the history store?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Metadata for the last 50 successful conversions: file name, source format, target format, size and timestamp. No file contents and no results are stored. Writing history is best-effort — a storage failure never blocks a conversion. You can search, filter, reuse, or export it as JSON to read and delete it yourself."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "历史记录里到底存了什么？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "最近 50 次成功转换的元数据：文件名、源格式、目标格式、体积与时间。不存文件内容，也不存转换结果。写入是尽力而为的：保存失败不会阻断转换流程；你可以搜索、筛选、复用，或导出 JSON 自行查看与删除。"
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Which file formats can it convert?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Fourteen formats across three families: documents (Markdown, HTML, Word .docx, PDF, TXT), data (CSV, Excel .xlsx, JSON) and images (PNG, JPEG, WebP, BMP, GIF, SVG). Eleven of them can be written; the registry holds 46 direct routes and BFS over that graph makes 143 combinations reachable. The picker offers 116 of them — the other 27 (image→text/data and PDF→data) are greyed out with a reason. The format table above lists the reachable and selectable counts for every source format row by row."
                 }
               },
               {
@@ -273,15 +290,15 @@
                 "name": "它能转换哪些文件格式？",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "三大类共 14 种格式：文档（Markdown、HTML、Word .docx、PDF、TXT）、数据（CSV、Excel .xlsx、JSON）与图片（PNG、JPEG、WebP、BMP、GIF、SVG）。其中 11 种可写出，SVG、BMP、GIF 只能读入（浏览器未提供对应编码器）。转换器注册表共有 46 条直接路径，经广度优先搜索后可选组合达 143 个。"
+                  "text": "三大类共 14 种：文档（Markdown、HTML、Word .docx、PDF、TXT）、数据（CSV、Excel .xlsx、JSON）与图片（PNG、JPEG、WebP、BMP、GIF、SVG）。其中 11 种可写出；注册表里有 46 条直接路径，经广度优先搜索可到达 143 个组合，格式下拉实际提供 116 个——另外 27 个（图片→文本/数据、PDF→数据）会置灰并说明原因。上面的格式表逐行列出了每种源格式的可达与可选目标数。"
                 }
               },
               {
                 "@type": "Question",
-                "name": "多个不同格式的文件能一次转换吗？",
+                "name": "Why does Markdown to PDF show two steps?",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "可以。一次最多 200 个文件，每个文件各自解析转换路径并逐步执行；目标格式下拉框只提供对批次内全部文件都可达的格式。单个文件失败不会中断整批，失败原因按文件列出，长批次可随时取消，已完成的结果保留。"
+                  "text": "Because there is no Markdown-to-PDF converter. Each conversion is an edge in a graph, and the workbench finds the shortest chain with breadth-first search and runs it step by step, so Markdown → PDF executes as Markdown → HTML → PDF. The route is printed under the picker; you never chain it by hand, and routes through a newly added format are discovered automatically without code changes."
                 }
               },
               {
@@ -289,7 +306,199 @@
                 "name": "为什么 Markdown 转 PDF 会显示两步？",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "因为不存在 Markdown 直达 PDF 的转换器。注册表把每种转换建成图的边，工作台用广度优先搜索求出最短链路并逐步执行，Markdown → PDF 实际按 Markdown → HTML → PDF 两步完成，路径会显示在选择框下方，无需手工串联。"
+                  "text": "因为不存在 Markdown 直达 PDF 的转换器。每种转换是图上的一条边，工作台用广度优先搜索求最短链路并逐步执行，所以 Markdown → PDF 实际按 Markdown → HTML → PDF 两步完成。路径会显示在选择框下方，不需要你手工串联；经过新格式的路径会自动被发现，无需改代码。"
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Can it convert a PDF into an editable Word document?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Not losslessly. PDF input extracts text only, dropping layout and embedded images; conversely PDF output is rendered page by page as images, so its text is not selectable. Word and Excel convert through HTML as the hub format. If you need layout-faithful PDF conversion, reach for a dedicated desktop tool or an online service."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "能把 PDF 转成可编辑的 Word 吗？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "不能无损。PDF 输入只提取文本，排版与内嵌图片不保留；反过来，PDF 输出是逐页渲染的图片，文字不可选定。Word 与 Excel 都以 HTML 作为中心格式中转。如果你需要保留排版的 PDF 互转，请选用专业桌面工具或在线服务。"
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Why can't I convert an image to text or CSV?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "That requires OCR. Bundling an OCR model would add tens of megabytes and a model download, which conflicts with the offline guarantee, so it is not included. Those targets are greyed out in the format picker with the reason shown, rather than failing after you press Convert."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "为什么图片不能转成 TXT 或 CSV？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "那需要 OCR。内置 OCR 模型会多出几十 MB 体量并引入模型下载，与离线承诺冲突，因此没做。这些目标在格式选择器里直接置灰并写明原因，而不是你点了转换才发现不行。"
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Can I convert several different formats in one run?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Yes — up to 200 files in one run. Each file resolves and walks its own route step by step, so dropping Markdown, CSV and Excel together and converting them all to HTML is a single action. The target picker lists only formats reachable from every file in the batch, so you can never pick a target that half the batch cannot reach."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "多个不同格式的文件能一次转换吗？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "可以，一次最多 200 个文件。每个文件各自解析自己的转换路径并逐步执行，所以 Markdown、CSV 与 Excel 混在一起投进来、统一转成 HTML 是一条动作。目标格式下拉框只提供对批次内全部文件都可达的格式，因此不会出现选了之后一半文件转不了的组合。"
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "What are the file size and batch limits?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "A single file up to 100 MB is accepted (the UI warns above 20 MB), and a batch is capped at 200 files. Batches larger than 5 files or 20 MB in total ask for confirmation first, and you can switch that prompt off in Preferences."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "单文件与批次的大小上限是多少？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "单文件最大 100 MB（超过 20 MB 时界面会提醒可能较慢），单批最多 200 个文件。超过 5 个文件或总计 20 MB 时，会先弹一次确认；这个开关可在偏好设置里关掉。"
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "What happens when a multi-sheet Excel file becomes CSV?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "CSV holds one sheet, so each worksheet becomes its own CSV and the result arrives as a ZIP. For the same reason a multi-page PDF turned into images yields one file per page inside a ZIP; a GIF uses its first frame, and an SVG is flattened before rasterising."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "多个工作表的 Excel 转 CSV 会怎样？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "CSV 只能装一个表，所以每个工作表各出一个 CSV，结果以 ZIP 交付。同理，多页 PDF 转图片时逐页出图并打包 ZIP；GIF 取首帧，SVG 会先被展平再栅格化。"
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Why did one file fail without stopping the batch?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "On purpose. Each file resolves and runs its own path in isolation, so a failure never propagates; failures are listed per file with reasons while successful files stay previewable and downloadable. A long batch can be cancelled midway, finished results are kept, and the most recent result can be undone."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "为什么某个文件转换失败，整批却没停？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "故意的。每个文件独立解析路径并执行，失败不传播；失败清单会逐文件列出原因，已成功的文件照常可预览与下载。长批次中途可取消，已完成的保留，最近一轮结果还能撤销。"
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Does a Chinese CSV open correctly in Excel?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Both directions are handled: reading tries UTF-8 first and falls back to GBK automatically, so exports from domestic Chinese software open correctly; writing emits a BOM, so a converted CSV opens in Excel without mojibake."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "中文 CSV 在 Excel 里打开乱码吗？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "两个方向都处理了：读取时先试 UTF-8，失败自动回退 GBK，所以国内系统导出的表格能正常读入；写出时带 BOM，所以转出的 CSV 双击进 Excel 不会变方块。"
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "It is not on the Store yet — how do I install it today?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Build from source with Node.js 20.12 or later and pnpm: run pnpm install then pnpm build, open chrome://extensions, enable Developer mode, click Load unpacked and select the .output/chrome-mv3 folder. Clicking the toolbar icon opens the workbench in a new tab."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "还没上架商店，现在怎么安装？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "从源码构建：用 Node.js 20.12+ 与 pnpm 执行 pnpm install 和 pnpm build，然后打开 chrome://extensions、开启开发者模式、点「加载未打包的扩展」并选择 .output/chrome-mv3。点击工具栏图标即在新标签页打开工作台。"
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Does it work in Edge or Firefox?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "The build targets Chrome Manifest V3, so it runs in Chrome and other Chromium browsers such as Edge. Firefox is not a supported target today, although beyond the standard storage and action APIs the extension uses no Chrome-only ones."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "它在 Edge / Firefox 上能跑吗？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "构建目标是 Chrome Manifest V3，所以在 Chrome 与其他 Chromium 浏览器（如 Edge）上可跑。Firefox 目前不是支持目标——尽管除了标准的 storage 与 action 之外，扩展并未使用 Chrome 专有 API。"
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Can I use it on mobile?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "No. Chrome on Android does not support extensions, and Chrome on iOS supports only a handful. There is no web version either — a web version would mean uploading files, which is precisely what this project exists to avoid."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "手机上能用吗？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "不能。Chrome 在 Android 上不支持扩展，iOS 上的 Chrome 也只支持少数几种。它也不提供网页版——网页版意味着文件要上传，而那就是这个项目存在的理由本身。"
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Can I ask for a new format?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Yes — open an issue. Adding a converter means one module implementing the Converter interface (from / to / convert(blob), with heavy dependencies dynamically imported); as long as a browser can decode it, it joins the graph and every new route through it is discovered by BFS automatically. A genuinely new input format also extends the enum, the format metadata, the extension and MIME maps, plus the Chinese and English copy."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "我能要求加一种格式吗？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "可以，开 issue 提需求即可。新增一个转换器就是一个实现 Converter 接口的模块（from / to / convert(blob)，重型依赖内部动态引入）；只要浏览器能解码，它就能进入图，所有经过它的新链路会自动由 BFS 发现。若涉及新的输入格式，还需扩展枚举、格式元数据、后缀与 MIME 映射，并补中英双语文案。"
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Is it free, and is there a paid version?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "It is free, with no paid tier. The project is open source under the ISC licence: no account, no subscription, no advertising, and no feature gated behind anything. There is also no code path that could report usage — first-party source contains no network call at all."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "它免费吗？有没有付费版？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "免费，而且没有付费版。项目以 ISC 协议开源，没有账号、没有订阅、没有广告，也没有任何被锁在付费墙之后的功能。它同样没有可以上报使用量的代码路径——第一方源码中不存在任何网络调用。"
                 }
               }
             ]
@@ -297,10 +506,30 @@
           {
             "@type": "HowTo",
             "@id": "https://liaolongdong.github.io/transfer-any-file/#install",
-            "name": "Install Transfer Any File from source",
-            "name_zh": "从源码安装 Transfer Any File",
-            "description": "Load the extension unpacked and open the conversion workbench. 以「加载未打包的扩展」方式安装并打开转换工作台。",
-            "totalTime": "PT1M",
+            "about": {
+              "@id": "https://liaolongdong.github.io/transfer-any-file/#app"
+            },
+            "name": [
+              {
+                "@language": "en",
+                "@value": "Install Transfer Any File from source"
+              },
+              {
+                "@language": "zh-CN",
+                "@value": "从源码安装 Transfer Any File"
+              }
+            ],
+            "description": [
+              {
+                "@language": "en",
+                "@value": "Build the extension and load it unpacked, then open the conversion workbench."
+              },
+              {
+                "@language": "zh-CN",
+                "@value": "构建扩展并以「加载未打包的扩展」方式安装，随后打开转换工作台。"
+              }
+            ],
+            "totalTime": "PT10M",
             "step": [
               {
                 "@type": "HowToStep",
@@ -1033,6 +1262,12 @@
         font-weight: 600;
       }
 
+      .matrix td:nth-child(4) .chips li {
+        background: #f2f3f6;
+        border-color: #dfe2ea;
+        color: #5f6673;
+      }
+
       .fmt {
         display: inline-block;
         padding: 2px 9px;
@@ -1377,7 +1612,7 @@
       }
 
       /* ============ Motion ============ */
-      .reveal {
+      .js .reveal {
         opacity: 0;
         transform: translateY(14px);
         transition:
@@ -1395,7 +1630,7 @@
           scroll-behavior: auto;
         }
 
-        .reveal {
+        .js .reveal {
           opacity: 1;
           transform: none;
           transition: none;
@@ -1502,7 +1737,7 @@
           display: none !important;
         }
 
-        .reveal {
+        .js .reveal {
           opacity: 1;
           transform: none;
         }
@@ -1559,36 +1794,12 @@
           id="navLinks"
           aria-label="Sections"
         >
-          <a
-            href="#formats"
-            aria-label="Formats"
-            ><span lang="zh-CN">格式</span><span lang="en">Formats</span></a
-          >
-          <a
-            href="#features"
-            aria-label="Features"
-            ><span lang="zh-CN">能力</span><span lang="en">Features</span></a
-          >
-          <a
-            href="#showcase"
-            aria-label="Screenshots"
-            ><span lang="zh-CN">界面</span><span lang="en">Screenshots</span></a
-          >
-          <a
-            href="#install"
-            aria-label="Install"
-            ><span lang="zh-CN">安装</span><span lang="en">Install</span></a
-          >
-          <a
-            href="#compare"
-            aria-label="Comparison"
-            ><span lang="zh-CN">对比</span><span lang="en">Compare</span></a
-          >
-          <a
-            href="#faq"
-            aria-label="FAQ"
-            ><span lang="zh-CN">问答</span><span lang="en">FAQ</span></a
-          >
+          <a href="#formats"><span lang="zh-CN">格式</span><span lang="en">Formats</span></a>
+          <a href="#features"><span lang="zh-CN">能力</span><span lang="en">Features</span></a>
+          <a href="#showcase"><span lang="zh-CN">界面</span><span lang="en">Screenshots</span></a>
+          <a href="#install"><span lang="zh-CN">安装</span><span lang="en">Install</span></a>
+          <a href="#compare"><span lang="zh-CN">对比</span><span lang="en">Compare</span></a>
+          <a href="#faq"><span lang="zh-CN">问答</span><span lang="en">FAQ</span></a>
           <div class="lang-toggle">
             <button
               type="button"
@@ -1632,7 +1843,10 @@
 
     <main id="main">
       <!-- ================= HERO ================= -->
-      <section class="hero">
+      <section
+        class="hero"
+        id="app"
+      >
         <div class="wrap hero-grid">
           <div>
             <span class="eyebrow">
@@ -1742,7 +1956,7 @@
               >
                 <path d="M20 6 9 17l-5-5" />
               </svg>
-              <span>0 network requests</span>
+              <span lang="zh-CN">0 次网络请求</span><span lang="en">0 network requests</span>
             </span>
             <span class="float-badge b2">
               <svg
@@ -1765,7 +1979,7 @@
                 />
                 <path d="M7 11V7a5 5 0 0 1 10 0v4" />
               </svg>
-              <span>files never leave this device</span>
+              <span lang="zh-CN">文件不出这台设备</span><span lang="en">files never leave this device</span>
             </span>
           </div>
         </div>
@@ -1784,8 +1998,10 @@
               <span class="label"><span lang="zh-CN">条直接转换路径</span><span lang="en">direct routes</span></span>
             </div>
             <div class="metric">
-              <b>143</b>
-              <span class="label"><span lang="zh-CN">个可选组合</span><span lang="en">usable combinations</span></span>
+              <b>116</b>
+              <span class="label"
+                ><span lang="zh-CN">个可选组合</span><span lang="en">selectable combinations</span></span
+              >
             </div>
             <div class="metric">
               <b>0</b>
@@ -1914,11 +2130,12 @@
               <h3><span lang="zh-CN">断网也能用</span><span lang="en">Works with the wifi off</span></h3>
               <p>
                 <span lang="zh-CN"
-                  >转换器、字体、界面全部打在扩展里。在飞机上、在内网管控环境里、在运营商故障时，行为完全一致。</span
+                  >转换器和整个界面都打在扩展包里，文字用的是系统自带字体，没有一样东西需要现取。在飞机上、在内网管控环境里、在运营商故障时，行为完全一致。</span
                 >
                 <span lang="en"
-                  >Converters, fonts and the whole interface ship inside the extension. On a plane, inside a locked-down
-                  network, or during an outage, behaviour is identical.</span
+                  >Every converter and the whole interface ship inside the extension, and the text is set in your own
+                  system fonts, so there is nothing left to fetch. On a plane, inside a locked-down network, or during
+                  an outage, behaviour is identical.</span
                 >
               </p>
             </div>
@@ -1982,34 +2199,43 @@
             <span lang="zh-CN"
               ><strong>一句话答案：</strong>能读入 14 种格式，能写出 11 种（SVG、BMP、GIF
               只能读，因为浏览器未提供它们的编码器）。注册表里有
-              <strong>46 条直接转换路径</strong>；对任意一种源格式，除自身以外的
-              <strong>11 种可写目标全部可达</strong>，合计
-              <strong>143 个可选组合</strong
-              >。下表的「直接」列是已注册转换器数，「可达」列是含自动多步后的可选目标数。</span
+              <strong>46 条直接转换路径</strong>；对任意一种源格式，除自身以外的 11
+              种可写目标在图上都<strong>可达</strong>，合计 <strong>143 个可达组合</strong>；其中 27 个（24
+              个图片→文本/数据、3 个 PDF→数据）必然失败或只产出占位内容，被格式下拉置灰并写明原因，因此真正
+              <strong>可选的是 116 个</strong
+              >。下表的「直接」列是已注册转换器数，「可达」列是含自动多步后能到达的目标数，「可选」列是置灰之后仍然能选的数量。</span
             >
             <span lang="en"
               ><strong>Short answer:</strong> it reads 14 formats and writes 11 — SVG, BMP and GIF are input-only
               because browsers expose no encoders for them. The registry holds
-              <strong>46 direct conversion routes</strong>; from any source format,
-              <strong>all 11 writable targets except itself</strong> are reachable, which is
-              <strong>143 usable combinations</strong>. The "Direct" column below counts registered converters;
-              "Reachable" includes automatic multi-step chains.</span
+              <strong>46 direct conversion routes</strong>; from any source format, all 11 writable targets except
+              itself are <strong>reachable</strong> in the graph, which is <strong>143 reachable combinations</strong>.
+              27 of them (24 image→text/data and 3 PDF→data) would always fail or produce a placeholder, so the picker
+              greys them out with a reason and <strong>116 remain selectable</strong>. In the table below, "Direct"
+              counts registered converters, "Reachable" counts the targets a source can reach including automatic
+              multi-step chains, and "Selectable" counts what stays enabled after that policy.</span
             >
           </div>
           <div
             class="table-wrap"
             style="margin-top: 22px"
           >
-            <table>
+            <table class="matrix">
               <caption>
                 <span lang="zh-CN"
                   >Transfer Any File 1.0.0 的实际转换能力（从 utils/converters/
-                  注册表直接推导，非估计值）。从任一源格式到「直接」列中的格式一步完成，其余可达目标由自动多步链路完成。</span
+                  注册表直接推导，非估计值）。三个格式列互不重叠，相加正好等于「可达」：「一步直达」是已注册转换器的目标，「经链路到达」只列链路可达且仍然可选的目标，「被置灰」列同样链路可达、但被语义策略禁用的组合（图片
+                  → 文本 / 数据：没有文字层，除非接 OCR；PDF → 表格 / JSON：PDF
+                  不携带表格结构）。被置灰的全部是多步链路目标，因为没有任何一条已注册的直连转换被策略禁用。去掉「被置灰」即为「可选」。</span
                 >
                 <span lang="en"
                   >Actual conversion capability in Transfer Any File 1.0.0, derived from the converter registry rather
-                  than estimated. A target in the "Direct" column runs in one step; other reachable targets run as an
-                  automatic chain.</span
+                  than estimated. The three format columns do not overlap, and together they add up to "Reachable":
+                  "Direct targets" are registered converters, "Reached via a chain" lists only chain-reachable targets
+                  that stay selectable, and "Greyed out" holds the chain-reachable pairs the semantic policy disables
+                  (image → text / data: no text layer without OCR; PDF → spreadsheet / JSON: a PDF carries no table
+                  structure). Every greyed pair is chain-only, because no registered direct converter is disabled by the
+                  policy. Drop the greyed ones and what is left is "Selectable".</span
                 >
               </caption>
               <thead>
@@ -2019,8 +2245,14 @@
                     <span lang="zh-CN">一步直达目标（已注册转换器）</span
                     ><span lang="en">Direct targets (registered converters)</span>
                   </th>
+                  <th scope="col"><span lang="zh-CN">经链路到达</span><span lang="en">Reached via a chain</span></th>
+                  <th scope="col"><span lang="zh-CN">被置灰</span><span lang="en">Greyed out</span></th>
                   <th scope="col"><span lang="zh-CN">直接</span><span lang="en">Direct</span></th>
                   <th scope="col"><span lang="zh-CN">可达</span><span lang="en">Reachable</span></th>
+                  <th scope="col">
+                    <span lang="zh-CN">可选</span>
+                    <span lang="en">Selectable</span>
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -2031,9 +2263,30 @@
                       <li>HTML</li>
                     </ul>
                   </td>
+
+                  <td>
+                    <ul class="chips">
+                      <li>Word</li>
+                      <li>PDF</li>
+                      <li>JSON</li>
+                      <li>PNG</li>
+                      <li>TXT</li>
+                      <li>CSV</li>
+                      <li>JPEG</li>
+                      <li>WebP</li>
+                      <li>Excel</li>
+                    </ul>
+                  </td>
+                  <td>
+                    <ul class="chips">
+                      <li>—</li>
+                    </ul>
+                  </td>
                   <td class="num">1</td>
                   <td class="num">10</td>
+                  <td class="num">10</td>
                 </tr>
+
                 <tr>
                   <th scope="row"><span class="fmt fmt-doc">HTML</span></th>
                   <td>
@@ -2046,9 +2299,25 @@
                       <li>PNG</li>
                     </ul>
                   </td>
+
+                  <td>
+                    <ul class="chips">
+                      <li>CSV</li>
+                      <li>JPEG</li>
+                      <li>WebP</li>
+                      <li>Excel</li>
+                    </ul>
+                  </td>
+                  <td>
+                    <ul class="chips">
+                      <li>—</li>
+                    </ul>
+                  </td>
                   <td class="num">6</td>
                   <td class="num">10</td>
+                  <td class="num">10</td>
                 </tr>
+
                 <tr>
                   <th scope="row"><span class="fmt fmt-doc">Word</span></th>
                   <td>
@@ -2056,9 +2325,30 @@
                       <li>HTML</li>
                     </ul>
                   </td>
+
+                  <td>
+                    <ul class="chips">
+                      <li>Markdown</li>
+                      <li>PDF</li>
+                      <li>JSON</li>
+                      <li>PNG</li>
+                      <li>TXT</li>
+                      <li>CSV</li>
+                      <li>JPEG</li>
+                      <li>WebP</li>
+                      <li>Excel</li>
+                    </ul>
+                  </td>
+                  <td>
+                    <ul class="chips">
+                      <li>—</li>
+                    </ul>
+                  </td>
                   <td class="num">1</td>
                   <td class="num">10</td>
+                  <td class="num">10</td>
                 </tr>
+
                 <tr>
                   <th scope="row"><span class="fmt fmt-doc">PDF</span></th>
                   <td>
@@ -2067,9 +2357,28 @@
                       <li>PNG</li>
                     </ul>
                   </td>
+
+                  <td>
+                    <ul class="chips">
+                      <li>Markdown</li>
+                      <li>Word</li>
+                      <li>TXT</li>
+                      <li>JPEG</li>
+                      <li>WebP</li>
+                    </ul>
+                  </td>
+                  <td>
+                    <ul class="chips">
+                      <li>JSON</li>
+                      <li>CSV</li>
+                      <li>Excel</li>
+                    </ul>
+                  </td>
                   <td class="num">2</td>
                   <td class="num">10</td>
+                  <td class="num">7</td>
                 </tr>
+
                 <tr>
                   <th scope="row"><span class="fmt fmt-doc">TXT</span></th>
                   <td>
@@ -2078,9 +2387,29 @@
                       <li>Markdown</li>
                     </ul>
                   </td>
+
+                  <td>
+                    <ul class="chips">
+                      <li>Word</li>
+                      <li>PDF</li>
+                      <li>JSON</li>
+                      <li>PNG</li>
+                      <li>CSV</li>
+                      <li>JPEG</li>
+                      <li>WebP</li>
+                      <li>Excel</li>
+                    </ul>
+                  </td>
+                  <td>
+                    <ul class="chips">
+                      <li>—</li>
+                    </ul>
+                  </td>
                   <td class="num">2</td>
                   <td class="num">10</td>
+                  <td class="num">10</td>
                 </tr>
+
                 <tr>
                   <th scope="row"><span class="fmt fmt-data">CSV</span></th>
                   <td>
@@ -2090,9 +2419,28 @@
                       <li>HTML</li>
                     </ul>
                   </td>
+
+                  <td>
+                    <ul class="chips">
+                      <li>Markdown</li>
+                      <li>Word</li>
+                      <li>PDF</li>
+                      <li>PNG</li>
+                      <li>TXT</li>
+                      <li>JPEG</li>
+                      <li>WebP</li>
+                    </ul>
+                  </td>
+                  <td>
+                    <ul class="chips">
+                      <li>—</li>
+                    </ul>
+                  </td>
                   <td class="num">3</td>
                   <td class="num">10</td>
+                  <td class="num">10</td>
                 </tr>
+
                 <tr>
                   <th scope="row"><span class="fmt fmt-data">Excel</span></th>
                   <td>
@@ -2102,9 +2450,28 @@
                       <li>HTML</li>
                     </ul>
                   </td>
+
+                  <td>
+                    <ul class="chips">
+                      <li>Markdown</li>
+                      <li>Word</li>
+                      <li>PDF</li>
+                      <li>PNG</li>
+                      <li>TXT</li>
+                      <li>JPEG</li>
+                      <li>WebP</li>
+                    </ul>
+                  </td>
+                  <td>
+                    <ul class="chips">
+                      <li>—</li>
+                    </ul>
+                  </td>
                   <td class="num">3</td>
                   <td class="num">10</td>
+                  <td class="num">10</td>
                 </tr>
+
                 <tr>
                   <th scope="row"><span class="fmt fmt-data">JSON</span></th>
                   <td>
@@ -2113,9 +2480,29 @@
                       <li>CSV</li>
                     </ul>
                   </td>
+
+                  <td>
+                    <ul class="chips">
+                      <li>Markdown</li>
+                      <li>Word</li>
+                      <li>PDF</li>
+                      <li>PNG</li>
+                      <li>TXT</li>
+                      <li>Excel</li>
+                      <li>JPEG</li>
+                      <li>WebP</li>
+                    </ul>
+                  </td>
+                  <td>
+                    <ul class="chips">
+                      <li>—</li>
+                    </ul>
+                  </td>
                   <td class="num">2</td>
                   <td class="num">10</td>
+                  <td class="num">10</td>
                 </tr>
+
                 <tr>
                   <th scope="row"><span class="fmt fmt-img">PNG</span></th>
                   <td>
@@ -2126,9 +2513,26 @@
                       <li>HTML</li>
                     </ul>
                   </td>
+
+                  <td>
+                    <ul class="chips">
+                      <li>Markdown</li>
+                      <li>Word</li>
+                    </ul>
+                  </td>
+                  <td>
+                    <ul class="chips">
+                      <li>JSON</li>
+                      <li>TXT</li>
+                      <li>CSV</li>
+                      <li>Excel</li>
+                    </ul>
+                  </td>
                   <td class="num">4</td>
                   <td class="num">10</td>
+                  <td class="num">6</td>
                 </tr>
+
                 <tr>
                   <th scope="row"><span class="fmt fmt-img">JPEG</span></th>
                   <td>
@@ -2139,9 +2543,26 @@
                       <li>PDF</li>
                     </ul>
                   </td>
+
+                  <td>
+                    <ul class="chips">
+                      <li>Markdown</li>
+                      <li>Word</li>
+                    </ul>
+                  </td>
+                  <td>
+                    <ul class="chips">
+                      <li>JSON</li>
+                      <li>TXT</li>
+                      <li>CSV</li>
+                      <li>Excel</li>
+                    </ul>
+                  </td>
                   <td class="num">4</td>
                   <td class="num">10</td>
+                  <td class="num">6</td>
                 </tr>
+
                 <tr>
                   <th scope="row"><span class="fmt fmt-img">WebP</span></th>
                   <td>
@@ -2152,9 +2573,26 @@
                       <li>PDF</li>
                     </ul>
                   </td>
+
+                  <td>
+                    <ul class="chips">
+                      <li>Markdown</li>
+                      <li>Word</li>
+                    </ul>
+                  </td>
+                  <td>
+                    <ul class="chips">
+                      <li>JSON</li>
+                      <li>TXT</li>
+                      <li>CSV</li>
+                      <li>Excel</li>
+                    </ul>
+                  </td>
                   <td class="num">4</td>
                   <td class="num">10</td>
+                  <td class="num">6</td>
                 </tr>
+
                 <tr>
                   <th scope="row">
                     <span class="fmt fmt-img">BMP</span>
@@ -2169,9 +2607,26 @@
                       <li>PDF</li>
                     </ul>
                   </td>
+
+                  <td>
+                    <ul class="chips">
+                      <li>Markdown</li>
+                      <li>Word</li>
+                    </ul>
+                  </td>
+                  <td>
+                    <ul class="chips">
+                      <li>JSON</li>
+                      <li>TXT</li>
+                      <li>CSV</li>
+                      <li>Excel</li>
+                    </ul>
+                  </td>
                   <td class="num">5</td>
                   <td class="num">11</td>
+                  <td class="num">7</td>
                 </tr>
+
                 <tr>
                   <th scope="row">
                     <span class="fmt fmt-img">GIF</span>
@@ -2186,9 +2641,26 @@
                       <li>PDF</li>
                     </ul>
                   </td>
+
+                  <td>
+                    <ul class="chips">
+                      <li>Markdown</li>
+                      <li>Word</li>
+                    </ul>
+                  </td>
+                  <td>
+                    <ul class="chips">
+                      <li>JSON</li>
+                      <li>TXT</li>
+                      <li>CSV</li>
+                      <li>Excel</li>
+                    </ul>
+                  </td>
                   <td class="num">5</td>
                   <td class="num">11</td>
+                  <td class="num">7</td>
                 </tr>
+
                 <tr>
                   <th scope="row">
                     <span class="fmt fmt-img">SVG</span>
@@ -2202,8 +2674,25 @@
                       <li>HTML</li>
                     </ul>
                   </td>
+
+                  <td>
+                    <ul class="chips">
+                      <li>PDF</li>
+                      <li>Markdown</li>
+                      <li>Word</li>
+                    </ul>
+                  </td>
+                  <td>
+                    <ul class="chips">
+                      <li>JSON</li>
+                      <li>TXT</li>
+                      <li>CSV</li>
+                      <li>Excel</li>
+                    </ul>
+                  </td>
                   <td class="num">4</td>
                   <td class="num">11</td>
+                  <td class="num">7</td>
                 </tr>
               </tbody>
             </table>
@@ -2231,7 +2720,7 @@
               <span class="steps"><span lang="zh-CN">2 步</span><span lang="en">2 steps</span></span>
             </div>
             <div class="path">
-              PDF<span class="arrow">→</span>HTML<span class="arrow">→</span>JSON<span class="arrow">→</span>CSV
+              Word<span class="arrow">→</span>HTML<span class="arrow">→</span>JSON<span class="arrow">→</span>CSV
               <span class="steps"><span lang="zh-CN">3 步</span><span lang="en">3 steps</span></span>
             </div>
             <div class="path">
@@ -2516,10 +3005,11 @@
               </h3>
               <p>
                 <span lang="zh-CN"
-                  >一个读不了的文件不会阻断其余部分：失败按文件列出原因。长批次能随时取消，已完成的结果保留；上一轮结果误操作可一键撤销。</span
+                  >一个读不了的文件不会阻断其余部分：失败按文件列出原因，还能展开看到它尝试的转换路径与出错的那一步，并一键复制诊断信息。长批次能随时取消，已完成的结果保留；上一轮结果误操作可一键撤销。</span
                 >
                 <span lang="en"
-                  >One unreadable file never blocks the rest — failures are listed per file with the reason. A long
+                  >One unreadable file never blocks the rest — failures are listed per file with the reason, expand to
+                  the route each one tried and the step that broke, and copy that diagnostic with one click. A long
                   batch is cancellable with finished results kept, and the last result can be undone.</span
                 >
               </p>
@@ -2553,13 +3043,15 @@
               </h3>
               <p>
                 <span lang="zh-CN"
-                  >源文件与结果左右并排，分隔条可拖拽，滚动可同步；也能切到仅原文件 /
-                  仅结果。渲染视图与源码视图一键切换，结果可直接复制。</span
+                  >源文件与结果左右并排，分隔条可拖拽，滚动可同步；也能切到仅原文件 / 仅结果，或用 <kbd>1</kbd> /
+                  <kbd>2</kbd> / <kbd>3</kbd> 直接切换、<kbd>←</kbd> /
+                  <kbd>→</kbd> 微调分隔条。渲染视图与源码视图一键切换，结果可直接复制；分隔条位置会被记住。</span
                 >
                 <span lang="en"
                   >Source and result sit side by side with a draggable divider and synchronised scrolling; you can also
-                  switch to source-only or result-only. Rendered and source views toggle in one click, and results copy
-                  to the clipboard.</span
+                  switch to source-only or result-only, with <kbd>1</kbd> / <kbd>2</kbd> / <kbd>3</kbd> jumping between
+                  the modes and <kbd>←</kbd> / <kbd>→</kbd> nudging the divider. Rendered and source views toggle in one
+                  click, results copy to the clipboard, and the divider position is remembered.</span
                 >
               </p>
             </article>
@@ -2619,11 +3111,13 @@
               <h3><span lang="zh-CN">粘贴与压缩包入口</span><span lang="en">Paste and archive intake</span></h3>
               <p>
                 <span lang="zh-CN"
-                  ><kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>V</kbd> 直接粘剪贴板里的图片或文本开始转换；拖一个
+                  ><kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>V</kbd>
+                  直接粘剪贴板里的图片或文本开始转换；文件也能丢到工作台任意位置，不必命中上传区；拖一个
                   <code>.zip</code> 进来会自动展开，把其中支持的条目加入批次。</span
                 >
                 <span lang="en"
-                  ><kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>V</kbd> converts a clipboard image or text block; dropping a
+                  ><kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>V</kbd> converts a clipboard image or text block; files can be
+                  dropped anywhere on the workbench rather than only on the upload zone; and dropping a
                   <code>.zip</code> expands it and adds every supported entry to the batch.</span
                 >
               </p>
@@ -2685,12 +3179,14 @@
                 <span lang="zh-CN"
                   >保留最近 50
                   次转换的文件名、格式与体积——不含文件内容。可按文件名搜索、按源/目标筛选、一键复用格式组合，也能导出
-                  JSON 到新设备导入。</span
+                  JSON 到新设备导入。最近用过的目标格式（最多 6
+                  个）还会以下拉顶部的「最近使用」分组呈现，同样只记格式名。</span
                 >
                 <span lang="en"
                   >Keeps the last 50 conversions as names, formats and sizes — never file contents. Search by file name,
                   filter by source or target, reuse a combination in one click, export as JSON and import it on another
-                  device.</span
+                  device. The formats you convert to most often (up to 6) also lead the target dropdown as a "recently
+                  used" group — format names only, again.</span
                 >
               </p>
             </article>
@@ -2759,11 +3255,13 @@
               <p>
                 <span lang="zh-CN"
                   >选不了的目标不是静默消失，而是置灰并给出具体原因：与源格式相同、需 OCR、PDF
-                  无法可靠转为结构化数据等——避免点了转换才发现不行。</span
+                  无法可靠转为结构化数据等——避免点了转换才发现不行。图上有 143 个可达组合，其中 27
+                  个属于这类语义无效，被屏蔽后下拉实际提供 116 个。</span
                 >
                 <span lang="en"
                   >Disabled targets are greyed out with a specific reason rather than silently missing: same as source,
-                  needs OCR, or PDF cannot be reliably turned into structured data.</span
+                  needs OCR, or PDF cannot be reliably turned into structured data. Of the 143 combinations reachable in
+                  the graph, 27 are semantically invalid, so the picker offers 116.</span
                 >
               </p>
             </article>
@@ -2812,13 +3310,14 @@
               </h3>
               <p>
                 <span lang="zh-CN"
-                  >主题在页面挂载前应用，不会闪白。语言、主题、快捷键与大批次确认开关都记在本地；开始转换的
+                  >主题在页面挂载前应用，不会闪白。语言、主题、快捷键、大批次确认与后台完成通知的开关，以及历史卡片的折叠状态都记在本地；开始转换的
                   <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>Enter</kbd> 可改绑。</span
                 >
                 <span lang="en"
                   >The theme is applied before mount, so there is no flash of the wrong palette. Language, theme,
-                  shortcut and the large-batch confirmation switch all persist locally; the
-                  <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>Enter</kbd> convert shortcut is rebindable.</span
+                  shortcut, the large-batch confirmation and completion-notification switches, and the collapsed state
+                  of the history card all persist locally; the <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>Enter</kbd> convert
+                  shortcut is rebindable.</span
                 >
               </p>
             </article>
@@ -2848,12 +3347,15 @@
               <h3><span lang="zh-CN">键盘可达与无障碍</span><span lang="en">Keyboard and accessibility</span></h3>
               <p>
                 <span lang="zh-CN"
-                  >跳转链接、可见焦点环、完整 ARIA 标注、<code>prefers-reduced-motion</code> 降级；常驻可见面在 6 主题 ×
-                  浅/深全部组合下实测达到 WCAG 2.1 AA 对比度。</span
+                  >跳转主内容链接、可见焦点环、<code>prefers-reduced-motion</code> 降级。端到端套件在 6 主题 × 浅/深共
+                  12 种组合下逐项实测两组承担对比度契约的颜色：顶栏品牌文字对顶栏背景 ≥ 4.5:1，焦点环对卡片背景 ≥
+                  3:1。</span
                 >
                 <span lang="en"
-                  >Skip link, visible focus rings, ARIA labelling and <code>prefers-reduced-motion</code> fallbacks; the
-                  always-visible surfaces measure WCAG 2.1 AA contrast across all 6 themes × light and dark.</span
+                  >Skip link to the main content, visible focus rings and a
+                  <code>prefers-reduced-motion</code> fallback. The end-to-end suite measures the two colour pairs that
+                  carry the contrast contract — brand text on the topbar at 4.5:1 or better, focus ring on a card at 3:1
+                  or better — in all 12 theme × light/dark combinations.</span
                 >
               </p>
             </article>
@@ -3016,11 +3518,12 @@
                 />
                 <figcaption>
                   <span lang="zh-CN"
-                    >深色外观：6 种主题色 × 浅 / 深 / 跟随系统，切换后所有常驻可见面仍保持 WCAG 2.1 AA 对比度。</span
+                    >深色外观：6 种主题色 × 浅 / 深 / 跟随系统，顶栏文字与焦点环的对比度在全部 12
+                    种组合下逐项实测。</span
                   >
                   <span lang="en"
-                    >Dark appearance: 6 accent colours × light / dark / system, with AA contrast held on every
-                    always-visible surface.</span
+                    >Dark appearance: 6 accent colours × light / dark / system, with the topbar text and focus-ring
+                    contrast measured in all 12 combinations.</span
                   >
                 </figcaption>
               </figure>
@@ -3116,8 +3619,11 @@
               <span class="n">02</span>
               <h3><span lang="zh-CN">克隆并构建</span><span lang="en">Clone and build</span></h3>
               <p>
-                <span lang="zh-CN">下方命令产出 <code>.output/chrome-mv3</code>，约 1–2 分钟。</span>
-                <span lang="en">The commands below produce <code>.output/chrome-mv3</code> in roughly a minute.</span>
+                <span lang="zh-CN">下方命令产出 <code>.output/chrome-mv3</code>；依赖装好后，构建本身只需几秒。</span>
+                <span lang="en"
+                  >The commands below produce <code>.output/chrome-mv3</code>. Once dependencies are installed, the
+                  build itself takes a few seconds.</span
+                >
               </p>
             </article>
             <article class="step reveal">
@@ -3256,8 +3762,8 @@ pnpm build</code><button
                 </tr>
                 <tr>
                   <th scope="row"><span lang="zh-CN">安装成本</span><span lang="en">Setup cost</span></th>
-                  <td>
-                    <span lang="zh-CN">构建一次，加载未打包目录</span>
+                  <td class="no">
+                    <span lang="zh-CN">构建一次，加载未打包目录</span
                     ><span lang="en">Build once, load the unpacked folder</span>
                   </td>
                   <td class="yes">
@@ -3366,6 +3872,31 @@ pnpm build</code><button
                   <td class="no"><span lang="zh-CN">闭源</span><span lang="en">Closed</span></td>
                   <td class="yes"><span lang="zh-CN">开源</span><span lang="en">Open source</span></td>
                 </tr>
+                <tr>
+                  <th scope="row"><span lang="zh-CN">价格与账号</span><span lang="en">Price and account</span></th>
+                  <td class="yes">
+                    <span lang="zh-CN">免费，无需注册，无付费版</span
+                    ><span lang="en">Free, no sign-up, no paid tier</span>
+                  </td>
+                  <td class="no">
+                    <span lang="zh-CN">免费额度，订阅才能解除限制</span
+                    ><span lang="en">Free quota, subscription lifts the limits</span>
+                  </td>
+                  <td class="yes"><span lang="zh-CN">通常免费</span><span lang="en">Usually free</span></td>
+                </tr>
+                <tr>
+                  <th scope="row">
+                    <span lang="zh-CN">中文界面与编码</span><span lang="en">Chinese interface and encoding</span>
+                  </th>
+                  <td class="yes">
+                    <span lang="zh-CN">中英双语界面；CSV 输出带 BOM，Excel 打开不乱码</span
+                    ><span lang="en">Bilingual UI; CSV written with a BOM so Excel opens it cleanly</span>
+                  </td>
+                  <td><span lang="zh-CN">视具体服务而定</span><span lang="en">Depends on the service</span></td>
+                  <td class="no">
+                    <span lang="zh-CN">编码需自行处理</span><span lang="en">Encoding is left to you</span>
+                  </td>
+                </tr>
               </tbody>
             </table>
           </div>
@@ -3462,6 +3993,7 @@ pnpm build</code><button
                       <span lang="zh-CN">仅转换期间存在于此标签页内存</span
                       ><span lang="en">Memory of the extension tab, only while converting</span>
                     </td>
+
                     <td class="yes"><span lang="zh-CN">从不</span><span lang="en">Never</span></td>
                   </tr>
                   <tr>
@@ -3470,6 +4002,7 @@ pnpm build</code><button
                       ><span lang="en">History (names, formats, sizes)</span>
                     </th>
                     <td><code>chrome.storage.local</code></td>
+
                     <td class="yes"><span lang="zh-CN">从不</span><span lang="en">Never</span></td>
                   </tr>
                   <tr>
@@ -3478,6 +4011,7 @@ pnpm build</code><button
                       ><span lang="en">Preferences (theme, language, shortcuts)</span>
                     </th>
                     <td><code>chrome.storage.local</code></td>
+
                     <td class="yes"><span lang="zh-CN">从不</span><span lang="en">Never</span></td>
                   </tr>
                   <tr>
@@ -3485,6 +4019,7 @@ pnpm build</code><button
                       <span lang="zh-CN">分析 / 遥测 / 广告</span><span lang="en">Analytics / telemetry / ads</span>
                     </th>
                     <td><span lang="zh-CN">未实现</span><span lang="en">Not implemented</span></td>
+
                     <td class="yes"><span lang="zh-CN">不适用</span><span lang="en">n/a</span></td>
                   </tr>
                 </tbody>
@@ -3642,13 +4177,15 @@ pnpm build</code><button
                 <span lang="zh-CN"
                   >三大类共 14 种：文档（Markdown、HTML、Word .docx、PDF、TXT）、数据（CSV、Excel
                   .xlsx、JSON）与图片（PNG、JPEG、WebP、BMP、GIF、SVG）。其中 11 种可写出；注册表里有 46
-                  条直接路径，经广度优先搜索后可选组合 143 个。上面的格式表逐行列出了每种源格式能到达的目标。</span
+                  条直接路径，经广度优先搜索可到达 143 个组合，格式下拉实际提供 116 个——另外 27
+                  个（图片→文本/数据、PDF→数据）会置灰并说明原因。上面的格式表逐行列出了每种源格式的可达与可选目标数。</span
                 >
                 <span lang="en"
                   >Fourteen formats across three families: documents (Markdown, HTML, Word .docx, PDF, TXT), data (CSV,
                   Excel .xlsx, JSON) and images (PNG, JPEG, WebP, BMP, GIF, SVG). Eleven of them can be written; the
-                  registry holds 46 direct routes and BFS over that graph makes 143 combinations selectable. The format
-                  table above lists every source format's targets row by row.</span
+                  registry holds 46 direct routes and BFS over that graph makes 143 combinations reachable. The picker
+                  offers 116 of them — the other 27 (image→text/data and PDF→data) are greyed out with a reason. The
+                  format table above lists the reachable and selectable counts for every source format row by row.</span
                 >
               </div>
             </details>
@@ -3750,6 +4287,39 @@ pnpm build</code><button
                 >
               </div>
             </details>
+            <details class="faq-item">
+              <summary>
+                <span lang="zh-CN">多个不同格式的文件能一次转换吗？</span>
+                <span lang="en">Can I convert several different formats in one run?</span>
+                <svg
+                  class="chev"
+                  width="17"
+                  height="17"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.4"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="m9 6 6 6-6 6" />
+                </svg>
+              </summary>
+              <div class="faq-a">
+                <span lang="zh-CN"
+                  >可以，一次最多 200 个文件。每个文件各自解析自己的转换路径并逐步执行，所以 Markdown、CSV 与 Excel
+                  混在一起投进来、统一转成 HTML
+                  是一条动作。目标格式下拉框只提供对批次内<em>全部</em>文件都可达的格式，因此不会出现选了之后一半文件转不了的组合。</span
+                >
+                <span lang="en"
+                  >Yes — up to 200 files in one run. Each file resolves and walks its own route step by step, so
+                  dropping Markdown, CSV and Excel together and converting them all to HTML is a single action. The
+                  target picker lists only formats reachable from <em>every</em> file in the batch, so you can never
+                  pick a target that half the batch cannot reach.</span
+                >
+              </div>
+            </details>
             <h3 class="faq-cat"><span lang="zh-CN">使用与限制</span><span lang="en">Usage &amp; limits</span></h3>
             <details class="faq-item">
               <summary>
@@ -3772,13 +4342,13 @@ pnpm build</code><button
               </summary>
               <div class="faq-a">
                 <span lang="zh-CN"
-                  >单文件最大 100 MB（超过 20 MB 时界面会提醒可能较慢），单批最多 200 个文件。超过约 5 个文件或总计 20
-                  MB 时，会先弹一次确认；这个开关可在偏好设置里关掉。</span
+                  >单文件最大 100 MB（超过 20 MB 时界面会提醒可能较慢），单批最多 200 个文件。超过 5 个文件或总计 20 MB
+                  时，会先弹一次确认；这个开关可在偏好设置里关掉。</span
                 >
                 <span lang="en"
                   >A single file up to 100 MB is accepted (the UI warns above 20 MB), and a batch is capped at 200
-                  files. Batches larger than about 5 files or 20 MB in total ask for confirmation first, and you can
-                  switch that prompt off in Preferences.</span
+                  files. Batches larger than 5 files or 20 MB in total ask for confirmation first, and you can switch
+                  that prompt off in Preferences.</span
                 >
               </div>
             </details>
@@ -4014,6 +4584,37 @@ pnpm build</code><button
                 >
               </div>
             </details>
+            <details class="faq-item">
+              <summary>
+                <span lang="zh-CN">它免费吗？有没有付费版？</span>
+                <span lang="en">Is it free, and is there a paid version?</span>
+                <svg
+                  class="chev"
+                  width="17"
+                  height="17"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.4"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="m9 6 6 6-6 6" />
+                </svg>
+              </summary>
+              <div class="faq-a">
+                <span lang="zh-CN"
+                  >免费，而且没有付费版。项目以 ISC
+                  协议开源，没有账号、没有订阅、没有广告，也没有任何被锁在付费墙之后的功能。它同样没有可以上报使用量的代码路径——第一方源码中不存在任何网络调用。</span
+                >
+                <span lang="en"
+                  >It is free, with no paid tier. The project is open source under the ISC licence: no account, no
+                  subscription, no advertising, and no feature gated behind anything. There is also no code path that
+                  could report usage — first-party source contains no network call at all.</span
+                >
+              </div>
+            </details>
           </div>
         </div>
       </section>
@@ -4063,14 +4664,15 @@ pnpm build</code><button
               <p>
                 <span lang="zh-CN"
                   >一套 Playwright 端到端套件加载真正的构建产物，用仓库内的夹具跑完各类转换场景、批量与
-                  ZIP、取消与改键，共 159 项断言全部通过，并按主题×深浅校验常驻可见面的对比度；CI 每次推送跑 lint +
-                  build + e2e。</span
+                  ZIP、取消与改键、预览与编辑、历史与偏好，共 159 项断言全部通过（v1.0.0，2026-09-13 实测）；另在 6 主题
+                  × 浅/深共 12 种组合下逐项校验顶栏文字与焦点环两组对比度。CI 每次推送跑 lint + build + e2e。</span
                 >
                 <span lang="en"
                   >A Playwright end-to-end suite drives the actual build output over the repository fixtures — every
-                  conversion scenario, batching and ZIP handling, cancellation and shortcut rebinding — with 159/159
-                  assertions passing, and checks contrast per theme × light/dark. CI runs lint, build and e2e on every
-                  push.</span
+                  conversion scenario, batching and ZIP handling, cancellation and shortcut rebinding, preview and
+                  editing, history and preferences — with 159/159 assertions passing (v1.0.0, measured 2026-09-13). It
+                  also checks the two contrast pairs, topbar text and focus ring, in all 12 theme × light/dark
+                  combinations. CI runs lint, build and e2e on every push.</span
                 >
               </p>
             </div>
@@ -4092,17 +4694,19 @@ pnpm build</code><button
           </div>
           <p class="updated">
             <span lang="zh-CN"
-              ><strong>版本 1.0.0 · 本页最后更新 2026-09-07。</strong>文中全部数字从代码取证：14 种格式来自
-              <code>FileFormat</code> 枚举，46 条路径与 143 个组合来自转换器注册表的邻接图，3.71 MB 来自
+              ><strong>版本 1.0.0 · 本页最后更新 2026-09-13。</strong>文中全部数字从代码取证：14 种格式来自
+              <code>FileFormat</code> 枚举，46 条路径与 143 个可达组合来自转换器注册表的邻接图，116 个可选组合是 143
+              减去 <code>utils/core/conversion-policy.ts</code> 置灰的 27 个，3.71 MB 来自
               <code>pnpm build</code> 输出，权限与上限来自 manifest 与源码常量。截图与推广图由
               <code>pnpm assets:capture</code> 从构建产物生成。</span
             >
             <span lang="en"
-              ><strong>Version 1.0.0 · page last updated 2026-09-07.</strong> Every number on this page is taken from
-              the code: 14 formats from the <code>FileFormat</code> enum, 46 routes and 143 combinations from the
-              converter registry's adjacency graph, 3.71 MB from <code>pnpm build</code> output, permissions and limits
-              from the manifest and source constants. Screenshots are generated from the built bundle by
-              <code>pnpm assets:capture</code>.</span
+              ><strong>Version 1.0.0 · page last updated 2026-09-13.</strong> Every number on this page is taken from
+              the code: 14 formats from the <code>FileFormat</code> enum, 46 routes and 143 reachable combinations from
+              the converter registry's adjacency graph, and 116 selectable combinations — that is 143 minus the 27 pairs
+              <code>utils/core/conversion-policy.ts</code> greys out. 3.71 MB comes from <code>pnpm build</code> output,
+              permissions and limits from the manifest and source constants. Screenshots are generated from the built
+              bundle by <code>pnpm assets:capture</code>.</span
             >
           </p>
         </div>
@@ -4156,10 +4760,39 @@ pnpm build</code><button
         var root = document.documentElement;
 
         /**
-         * Switch the visible language. Both languages already live in the markup, so this only
-         * flips the root `lang` attribute (which the stylesheet keys off), persists the choice
-         * and keeps the toggle buttons and the indexed metadata in sync.
+         * Metadata per language. The markup ships bilingual `<title>` / description values as the
+         * no-JavaScript fallback, so a crawler that never runs the page still reads both languages;
+         * once the language is known these are narrowed to the one being displayed, which is what
+         * search results and social cards quote verbatim.
          */
+        var META = {
+          'zh-CN': {
+            title: 'Transfer Any File｜离线文件格式转换扩展 · 14 种格式本地互转，零上传',
+            description:
+              '开源的 Chrome 扩展（Manifest V3）：Markdown、Word、PDF、Excel、CSV、JSON、HTML 与图片共 14 种格式在你自己的电脑本地互转，46 条直接路径、116 个可选组合，支持批量、自动多步链路、预览编辑与 ZIP 打包。不上传、无账号、无网络请求。',
+            ogTitle: 'Transfer Any File｜离线文件格式转换扩展（Chrome）',
+            ogDescription:
+              '在浏览器本地完成 14 种格式互转：批量、多步链路、预览编辑与 ZIP 打包，不上传一个字节，只申请 storage 权限。',
+            twitterDescription: '14 种格式、46 条直接路径、116 个可选组合、0 次网络请求，全部在你自己的浏览器里完成。',
+          },
+          en: {
+            title: 'Transfer Any File — Offline File Format Converter for Chrome',
+            description:
+              'Open-source Chrome extension (Manifest V3): convert 14 file formats locally — Markdown, Word, PDF, Excel, CSV, JSON, HTML and images. 46 direct routes, 116 selectable combinations, batch, automatic multi-step chains, preview & edit, ZIP. No uploads, no account, zero network requests.',
+            ogTitle: 'Transfer Any File — offline file format converter for Chrome',
+            ogDescription:
+              'Convert 14 file formats inside your browser. Batch, multi-step, preview and edit — without uploading a byte.',
+            twitterDescription:
+              '14 formats, 46 direct routes, 116 selectable combinations, zero network requests. Runs entirely in your browser.',
+          },
+        };
+
+        function setMeta(selector, value) {
+          var el = document.querySelector(selector);
+          if (el) el.setAttribute('content', value);
+        }
+
+        /** Flip the visible language: the stylesheet keys off `lang`, and the toggle state, og locale and metadata follow. */
         function setLang(lang) {
           root.setAttribute('lang', lang);
           try {
@@ -4171,6 +4804,14 @@ pnpm build</code><button
           document.getElementById('langEn').setAttribute('aria-pressed', String(lang === 'en'));
           var og = document.querySelector('meta[property="og:locale"]');
           if (og) og.setAttribute('content', lang === 'zh-CN' ? 'zh_CN' : 'en_US');
+
+          var copy = META[lang] || META.en;
+          document.title = copy.title;
+          setMeta('meta[name="description"]', copy.description);
+          setMeta('meta[property="og:title"]', copy.ogTitle);
+          setMeta('meta[property="og:description"]', copy.ogDescription);
+          setMeta('meta[name="twitter:title"]', copy.ogTitle);
+          setMeta('meta[name="twitter:description"]', copy.twitterDescription);
         }
 
         document.querySelectorAll('[data-lang-set]').forEach(function (btn) {

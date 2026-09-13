@@ -1,6 +1,8 @@
 # Contributing to Transfer Any File
 
-Contributions are welcome — format requests and bug reports included. This project is small and opinionated, so here is the whole rule set in one page.
+[简体中文](CONTRIBUTING.zh-CN.md) · English
+
+Contributions are welcome — format requests and bug reports included. This project is small and opinionated, so here is the whole rule set in one page. The mandatory coding rules live in `.qoder/rules/wxt-rules.md`; architecture, commands, conventions and workflows in `AGENTS.md`.
 
 ## Three steps
 
@@ -43,11 +45,9 @@ Multi-step routes through your new converter are discovered automatically by the
 - **Styling**: scoped CSS using the `--fat-*` tokens in `assets/theme/tokens.css`; no hard-coded colours.
 - **i18n**: every user-visible string exists in both `utils/i18n/zh.ts` (source) and `en.ts`; no literals in components.
 - **Logging**: no `console` in `entrypoints/`, `components/`, `composables/`, `utils/` — errors surface in the UI. Scripts under `scripts/` are exempt.
-- **Docs**: user-facing changes update `README.md` **and** `README.zh-CN.md`; store copy lives in `CHROMEWEBSTORE.md`; the product page is `docs/index.html`. Release-worthy changes get one entry in **both** `CHANGELOG.md` and `CHANGELOG.zh-CN.md`, whose version equals `package.json#version` (that is also what the release tag must match). The repository's GitHub About block is edited in `.github/repo-metadata.json` — not by hand in the dashboard — so it stays versioned and checked by `pnpm verify:meta`. Security reporting is `SECURITY.md`, not an issue. After a UI change, run `pnpm assets:capture` so the screenshots do not drift.
+- **Docs**: user-facing changes update `README.md` **and** `README.zh-CN.md`; store copy lives in `CHROMEWEBSTORE.md`; the product page is `docs/index.html`. Release-worthy changes get one entry in **both** `CHANGELOG.md` and `CHANGELOG.zh-CN.md`, whose version equals `package.json#version` (that is also what the release tag must match). The repository's GitHub About block is edited in `.github/repo-metadata.json` — not by hand in the dashboard — so it stays versioned and checked by `pnpm verify:meta`. Security reporting is `SECURITY.md`, not an issue — and both policy files are bilingual pairs (`SECURITY.zh-CN.md`, `CONTRIBUTING.zh-CN.md`) whose English and Chinese bodies must stay in sync. After a UI change, run `pnpm assets:capture` so the screenshots do not drift.
 - **Icons**: two SVG masters cover two size regimes — `assets/icon.svg` (document sheet + conversion badge) for slots 48px and up, `assets/icon-small.svg` (bold swap arrows) for anything smaller, because the detailed artwork's 5px text lines dissolve below 48px. Regenerate both with `node scripts/render-icons.mjs`.
 - Do not weaken ESLint / Stylelint / TypeScript settings to make a check pass. If a rule genuinely must be bypassed, scope the suppression to the single line and explain why in the diff.
-
-贡献须知：本项目是完全离线的 Chrome 扩展，**不接受**任何引入网络请求、远程资源或新增权限的改动；中英文文案与文档（`README.md` / `README.zh-CN.md`）必须同步修改；提交前请本地跑通 `pnpm lint:all` 与 `pnpm test:e2e`。详细编码规则见 `.qoder/rules/wxt-rules.md`，架构说明见 `AGENTS.md`。
 
 ## Licence
 

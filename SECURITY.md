@@ -1,5 +1,7 @@
 # Security Policy
 
+[简体中文](SECURITY.zh-CN.md) · English
+
 ## Supported versions
 
 Only the latest build of `main` is supported. There is no back-port list: the extension
@@ -23,8 +25,10 @@ common categories do not apply to this project.
 Verify it with `pnpm verify:offline` (the same assertion CI runs): it greps the four first-party
 directories for those entry points and checks that `wxt.config.ts` still declares `storage` with
 no `host_permissions`. A grep over `.output/chrome-mv3` is not the right check: the bundled
-converters carry request code on paths this extension never enters, and with no host permission
-granted, the browser is what keeps them from doing anything.
+converters carry request code on paths this extension never enters. Those paths cannot do anything useful even if one
+were reached: with no host permission and no content script, a request from the extension page is an ordinary
+CORS-restricted web call that cannot read a response or touch any website's data. The guarantee that actually carries
+the weight is the first one — no first-party code calls a request API.
 
 ## Reporting a vulnerability
 
@@ -46,7 +50,3 @@ a confirmed issue that could leak or corrupt user data outranks everything else 
 
 Open a normal [issue](https://github.com/liaolongdong/transfer-any-file/issues) instead for
 conversion errors, UI problems and format requests — those are not security reports.
-
----
-
-安全须知：本扩展完全离线，仅申请 `storage` 一项权限，不声明任何 host 权限，自身代码中不存在任何网络调用与远程代码，因此不存在「文件被上传」这一类攻击面（转换库内部残留的请求代码路径在未授予 host 权限时会被浏览器拦下）；文件内容只在转换期间存在于标签页内存，历史记录只保存文件名、格式与体积。如确认存在可被利用的漏洞，请优先通过仓库 Security 页的「Report a vulnerability」私密报告，或邮件联系 `924902324@qq.com`；普通的功能错误与格式需求请开公开 issue。仅支持 `main` 上的最新构建，修复随下一次发布提供。

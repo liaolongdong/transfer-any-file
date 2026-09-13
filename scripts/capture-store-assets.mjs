@@ -6,6 +6,16 @@
 // evidence. Re-shooting real UI states is the only way to get spec-compliant assets,
 // and re-running this after a UI change keeps the store kit in sync.
 //
+// Three artefacts come out of one run:
+//   1. Raw 1280×800 UI captures in `docs/assets/screenshots/` — used by both READMEs
+//      and by the product page.
+//   2. A second raw pass in the Chinese interface locale, held in a temp directory:
+//      it exists only to be composited, because the README and the product page reuse
+//      the English set and the store's language tabs do not inherit from each other.
+//   3. Captioned per-language listing screenshots in `docs/assets/store/screens/`,
+//      where the caption is drawn on a scrim over the bottom of the untouched capture
+//      so the UI keeps its full resolution instead of being scaled to make room.
+//
 // Deliberately standalone: it keeps its own static server + `chrome.storage` mock
 // instead of importing them from `e2e-test.mjs`, so the test suite is never put at
 // risk by asset regeneration. Extract a shared harness module if a third consumer
@@ -18,6 +28,7 @@ import { chromium } from 'playwright';
 import { fileURLToPath } from 'url';
 import path from 'path';
 import fs from 'fs';
+import os from 'os';
 import http from 'http';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -28,6 +39,52 @@ const GRAPHIC_DIR = path.resolve(__dirname, '../docs/assets/store');
 // Both promo tiles draw the brand mark small — 40px normally, 26px on the compact 440×280
 // tile — i.e. under the detailed master's ~48px legibility floor, so they take the small tier.
 const ICON_PATH = path.resolve(__dirname, '../docs/assets/icon-mark.png');
+
+// Store-listing screenshots carry a caption: the carousel shows a shot before the buyer has read
+// any UI label, so the caption states what the shot proves. Two caption sets exist because the
+// Chrome Web Store gives each language page its own empty screenshot slots — they do not inherit.
+// Caption text is burned into the image, which makes it store metadata reviewed under the same
+// rules as the listing copy: no competitor names, no blanket privacy claims, and only wording the
+// shipped interface or listing copy already uses.
+const SCREEN_DIR = path.resolve(__dirname, '../docs/assets/store/screens');
+const SCREEN_CAPTIONS = [
+  {
+    shot: 'workbench-empty',
+    slug: 'screen-01-workbench',
+    en: 'Drop, pick a format, convert on your own machine',
+    zh: '拖入、选格式，在你自己电脑上转换',
+  },
+  {
+    shot: 'batch-files',
+    slug: 'screen-02-batch',
+    en: 'Batch: Markdown, CSV and Excel in one run',
+    zh: '批量：Markdown、CSV、Excel 一次转完',
+  },
+  {
+    shot: 'batch-results',
+    slug: 'screen-03-zip',
+    en: 'One mixed batch, one ZIP download',
+    zh: '一次混合批量，一个 ZIP 下载',
+  },
+  {
+    shot: 'preview-edit',
+    slug: 'screen-04-preview',
+    en: 'Preview side by side, edit before you download',
+    zh: '左右对照预览，下载前直接改',
+  },
+  {
+    shot: 'history',
+    slug: 'screen-05-history',
+    en: 'Searchable, filterable history with one-click reuse',
+    zh: '历史可搜索、可筛选、一键复用格式',
+  },
+  {
+    shot: 'dark-mode',
+    slug: 'screen-06-dark-mode',
+    en: '6 accent colours, light / dark / system',
+    zh: '6 种主题色，浅色 / 深色 / 跟随系统',
+  },
+];
 
 // 1280 is the widest Chrome Web Store screenshot and matches the workbench's own
 // 1200px content column without letterboxing; 800 is the store's max height.
@@ -146,20 +203,32 @@ async function resetWorkbench(page) {
   }
 }
 
+/** Path relative to docs/ for committed files; the bare name for temp-dir intermediates. */
+function shotLabel(outDir, file) {
+  const rel = path.relative(path.resolve(__dirname, '../docs'), path.join(outDir, file));
+  return rel.startsWith('..') ? file : rel;
+}
+
 /** Scroll an element to the vertical centre, then shoot the viewport (never fullPage). */
-async function shootCentered(page, selector, file) {
+async function shootCentered(page, selector, outDir, file) {
   await page.locator(selector).first().scrollIntoViewIfNeeded();
   await page.evaluate(sel => {
     const el = document.querySelector(sel);
     if (el) el.scrollIntoView({ block: 'center', behavior: 'instant' });
   }, selector);
   await page.waitForTimeout(350);
-  await page.screenshot({ path: path.join(SHOT_DIR, file) });
-  console.log(`  ✓ screenshots/${file}`);
+  await page.screenshot({ path: path.join(outDir, file) });
+  console.log(`  ✓ ${shotLabel(outDir, file)}`);
 }
 
-async function captureScreens() {
-  fs.mkdirSync(SHOT_DIR, { recursive: true });
+/**
+ * Capture the six UI states in one interface locale.
+ *
+ * The same run happens per locale: Chrome Web Store screenshot slots are per-language, and the
+ * Chinese page must show a Chinese workbench rather than the English one.
+ */
+async function captureScreens(locale, outDir) {
+  fs.mkdirSync(outDir, { recursive: true });
   const server = await startServer();
   const browser = await chromium.launch({
     headless: true,
@@ -169,31 +238,31 @@ async function captureScreens() {
   const page = await browser.newPage();
   await page.setViewportSize(SHOT_VIEWPORT);
 
-  const english = { 'fat:locale': 'en', 'fat:theme': 'blue', 'fat:colorMode': 'light' };
-  await page.addInitScript(mockStorageScript(english));
+  const prefs = { 'fat:locale': locale, 'fat:theme': 'blue', 'fat:colorMode': 'light' };
+  await page.addInitScript(mockStorageScript(prefs));
   await page.goto(`http://localhost:${PORT}/options.html`);
   await page.waitForSelector('.drop-zone', { timeout: 20000 });
   await page.waitForTimeout(900);
 
   // Evidence for the listing copy: the footer publishes the registry's own counts.
   const footer = await page.$eval('.footer', el => (el.textContent || '').trim()).catch(() => '');
-  console.log(`  · workbench footer reports: "${footer}"`);
+  console.log(`  · [${locale}] workbench footer reports: "${footer}"`);
 
-  await page.screenshot({ path: path.join(SHOT_DIR, 'workbench-empty.png') });
-  console.log('  ✓ screenshots/workbench-empty.png');
+  await page.screenshot({ path: path.join(outDir, 'workbench-empty.png') });
+  console.log(`  ✓ ${shotLabel(outDir, 'workbench-empty.png')}`);
 
   // Mixed-source batch: three formats, one reachable target, which is the product's
   // headline capability and therefore the hero shot.
   await stageConversion(page, ['sample.md', 'sample.csv', 'sample.xlsx'], 'HTML (.html)');
-  await shootCentered(page, '.file-item', 'batch-files.png');
+  await shootCentered(page, '.file-item', outDir, 'batch-files.png');
   await runConversion(page);
-  await shootCentered(page, '.result-download', 'batch-results.png');
+  await shootCentered(page, '.result-download', outDir, 'batch-results.png');
 
   // Single-file runs: the split source/result preview only appears for one file,
   // and each run leaves a real record behind for the history shot.
   await resetWorkbench(page);
   await convert(page, ['sample.md'], 'HTML (.html)');
-  await shootCentered(page, '.comparison-view', 'preview-edit.png');
+  await shootCentered(page, '.comparison-view', outDir, 'preview-edit.png');
 
   await resetWorkbench(page);
   await convert(page, ['sample.csv'], 'Excel (.xlsx)');
@@ -202,17 +271,17 @@ async function captureScreens() {
   // Clear the batch first: with results gone the comparison card unmounts, so the
   // history card moves just below the upload zone and fills the frame on its own.
   await resetWorkbench(page);
-  await shootCentered(page, '.history-panel', 'history.png');
+  await shootCentered(page, '.history-panel', outDir, 'history.png');
 
   // Dark mode through the app's own startup path (seeded preference), not a click.
   const dark = await browser.newPage();
   await dark.setViewportSize(SHOT_VIEWPORT);
-  await dark.addInitScript(mockStorageScript({ ...english, 'fat:colorMode': 'dark' }));
+  await dark.addInitScript(mockStorageScript({ ...prefs, 'fat:colorMode': 'dark' }));
   await dark.goto(`http://localhost:${PORT}/options.html`);
   await dark.waitForSelector('.drop-zone', { timeout: 20000 });
   await dark.waitForTimeout(800);
-  await dark.screenshot({ path: path.join(SHOT_DIR, 'dark-mode.png') });
-  console.log('  ✓ screenshots/dark-mode.png');
+  await dark.screenshot({ path: path.join(outDir, 'dark-mode.png') });
+  console.log(`  ✓ ${shotLabel(outDir, 'dark-mode.png')}`);
   await dark.close();
 
   await browser.close();
@@ -391,6 +460,101 @@ async function captureGraphics() {
   await browser.close();
 }
 
+/**
+ * Build one captioned store screenshot as plain HTML, rendered at the store's exact pixel size.
+ *
+ * The caption sits on a gradient scrim over the untouched screenshot instead of in a header band
+ * above a cropped or scaled one: the store renders these tiles small, so scaling the UI down to
+ * free up room for a band would push the interface's 12px text below legibility, and cropping
+ * would eat into the very panel some shots exist to prove.
+ */
+function screenDocument({ shot, caption, icon }) {
+  return `<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { width: 1280px; height: 800px; overflow: hidden; }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        background: #0b1020;
+      }
+      .shot {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 1280px;
+        height: 800px;
+        object-fit: cover;
+        object-position: top center;
+      }
+      .scrim {
+        position: absolute;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        height: 200px;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+        gap: 15px;
+        padding: 0 56px 46px;
+        background: linear-gradient(
+          to top,
+          rgba(7, 13, 26, 1) 0%,
+          rgba(7, 13, 26, 1) 72%,
+          rgba(7, 13, 26, 0.6) 88%,
+          rgba(7, 13, 26, 0) 100%
+        );
+      }
+      .brand { display: flex; align-items: center; gap: 11px; }
+      .brand img { display: block; width: 30px; height: 30px; }
+      .brand span { font-size: 15px; font-weight: 700; letter-spacing: 0.2px; color: #dbe6fb; }
+      .caption { font-size: 31px; font-weight: 800; line-height: 1.2; letter-spacing: -0.4px; color: #fff; }
+    </style>
+  </head>
+  <body>
+    <img class="shot" src="${shot}" alt="" />
+    <div class="scrim">
+      <div class="brand"><img src="${icon}" alt="" /><span>Transfer Any File</span></div>
+      <div class="caption">${caption}</div>
+    </div>
+  </body>
+</html>`;
+}
+
+/**
+ * Composite the captioned listing screenshots for every locale.
+ *
+ * `rawByLocale` maps a locale to the directory holding that locale's un-captioned captures, so
+ * the Chinese set is built from Chinese UI rather than a re-captioned English one.
+ */
+async function captureStoreScreens(rawByLocale) {
+  fs.mkdirSync(SCREEN_DIR, { recursive: true });
+  const icon = dataUri(ICON_PATH);
+  const browser = await chromium.launch({
+    headless: true,
+    channel: 'chrome',
+    args: ['--no-sandbox'],
+  });
+
+  for (const [locale, rawDir] of Object.entries(rawByLocale)) {
+    for (const spec of SCREEN_CAPTIONS) {
+      const shot = dataUri(path.join(rawDir, `${spec.shot}.png`));
+      const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+      await page.setContent(screenDocument({ shot, caption: spec[locale], icon }), { waitUntil: 'load' });
+      await page.waitForTimeout(200);
+      const name = locale === 'en' ? `${spec.slug}.png` : `${spec.slug}-${locale}.png`;
+      await page.screenshot({ path: path.join(SCREEN_DIR, name) });
+      console.log(`  ✓ store/screens/${name}`);
+      await page.close();
+    }
+  }
+
+  await browser.close();
+}
+
 async function run() {
   if (!fs.existsSync(path.join(EXTENSION_PATH, 'manifest.json'))) {
     console.error('\n✗ Extension not built. Run "pnpm build" first.');
@@ -398,14 +562,24 @@ async function run() {
   }
   console.log('\n▸ Store / marketing asset kit');
   if (ONLY === 'all' || ONLY === 'screens') {
-    console.log('▸ UI screenshots at 1280×800');
-    await captureScreens();
+    console.log('▸ UI screenshots at 1280×800 — English (README, product page, English store tab)');
+    await captureScreens('en', SHOT_DIR);
+    // The Chinese raw captures are intermediates only: the Chinese store tab shows a Chinese
+    // workbench, but README.zh-CN.md and the product page reuse the English set, so there is
+    // nothing to keep on disk after the captioned versions are composited.
+    console.log('▸ UI screenshots at 1280×800 — Chinese (store tab only)');
+    const zhRaw = fs.mkdtempSync(path.join(os.tmpdir(), 'fat-store-zh-'));
+    await captureScreens('zh', zhRaw);
+    console.log('▸ Captioned store screenshots');
+    await captureStoreScreens({ en: SHOT_DIR, zh: zhRaw });
+    fs.rmSync(zhRaw, { recursive: true, force: true });
   }
   if (ONLY === 'all' || ONLY === 'graphics') {
     console.log('▸ Promo graphics');
     await captureGraphics();
   }
-  console.log('\n✓ Done. Assets live in docs/assets/ and are referenced by README + docs/index.html.\n');
+  console.log('\n✓ Done. Raw captures in docs/assets/screenshots, captioned listing shots in');
+  console.log('  docs/assets/store/screens, promo tiles in docs/assets/store.\n');
 }
 
 await run();

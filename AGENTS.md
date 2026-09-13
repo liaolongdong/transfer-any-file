@@ -25,7 +25,7 @@
 | 离线断言           | `pnpm verify:offline`（第一方源码无网络调用；manifest 仅 `storage`、无 host 权限）                                           |
 | E2E 测试           | `pnpm test:e2e`（= build + `node scripts/e2e-test.mjs`，Playwright + Chrome）                                                |
 | 图标重建           | `node scripts/render-icons.mjs`（源 `assets/*.svg` → `public/icon/*.png` + `docs/assets/icon*.png`）                         |
-| 商店/文档素材      | `pnpm assets:capture`（= build 后跑 `scripts/capture-store-assets.mjs`）                                                     |
+| 商店/文档素材      | `pnpm build && pnpm assets:capture`（脚本自身不构建，缺 `.output/chrome-mv3` 会直接退出）                                    |
 | 公众号稿排版       | `pnpm promo:wechat`（`scripts/render-wechat-html.mjs`，内联样式 + 图片内嵌 + 外链转文末）                                    |
 | 产物校验           | `node scripts/verify-extension.mjs`                                                                                          |
 | 发布               | `git tag vX.Y.Z && git push --tags` → `.github/workflows/release.yml`（校版本/包内容 → GitHub Release → 凭证齐备时提交商店） |
@@ -45,17 +45,17 @@
   - `utils/core/registry.ts`：`ConverterRegistry` 单例，维护 from→to 邻接表，用 **BFS** 求最短多步路径（`findConversionPath`）与全部可达目标（`getAllSupportedTargets`）。
   - `utils/converters/*.ts`：每个转换对一个模块，实现 `Converter`（`from`/`to`/`convert(blob)`），重型依赖内部动态 `import()`。
   - `utils/converters/index.ts`：`initConverters()` 幂等注册全部转换器（启动时调用一次）。
-- **`composables/`**：`useConversion`（批量转换编排：逐文件路径解析、错误隔离、`AbortController` 取消、fflate ZIP、写历史）、`useFileDetect`（扩展名优先 + MIME 兜底）、`useHistory`（最近 50 条**元数据**，模块级共享）、`useI18n`（中/英，默认 `zh`，模块级响应式）、`useTheme`（6 主题 × light/dark/system）。
-- **`components/`**：`shared/`（FileUpload、FormatSelector、ConversionProgress、ResultDownload、ComparisonView、PreviewDialog、PreferencesMenu、CollapsibleCard）+ `options/HistoryPanel`；`popup/` 为空占位（无 popup）。
-- **`utils/core/` 其它工具**：`format-labels.ts`（`FORMAT_INFO` 元数据 + label/category）、`text-decode.ts`（UTF-8 + GBK 兜底）、`html-document.ts`、`image-utils.ts`、`preview.ts`、`alt-chunk.ts`、`format.ts`（`formatSize`）。
+- **`composables/`**：`useConversion`（批量转换编排：逐文件路径解析、错误隔离、`AbortController` 取消、fflate ZIP、写历史）、`useFileDetect`（扩展名优先 + MIME 兜底）、`useHistory`（最近 50 条**元数据**，模块级共享）、`useI18n`（中/英，默认 `zh`，模块级响应式）、`useTheme`（6 主题 × light/dark/system）、`useShortcuts`（`Ctrl/⌘+Enter` 改绑，持久化到 storage）、`useRecentTargets`（最近 6 个目标格式，模块级共享）、`useConfirmConvert`（大批次确认开关）、`useNotification`（后台批次完成桌面通知；用**web `Notification` API**，非 `chrome.notifications`，因此 manifest 仍只需 `storage`）。
+- **`components/`**：`shared/`（FileUpload、FormatSelector、ConversionProgress、ResultDownload、ComparisonView、PreviewDialog、PreferencesMenu、CollapsibleCard、FailureDiagnosticItem、HistoryTrendChart）+ `options/HistoryPanel`；`popup/` 为空占位（无 popup）。
+- **`utils/core/` 其它工具**：`conversion-policy.ts`（`getBlockedReason`：图上可达但语义无效的 from→to 组合，UI 置灰而非报错）、`format-labels.ts`（`FORMAT_INFO` 元数据 + label/category）、`text-decode.ts`（UTF-8 + GBK 兜底）、`html-document.ts`、`image-utils.ts`、`preview.ts`、`alt-chunk.ts`、`format.ts`（`formatSize` + `TEXT_FORMATS` 可编辑/可复制文本格式 + `isZipCompressible` 逐条目压缩策略）、`shortcut.ts`（纯快捷键解析/校验/匹配，无响应式与 storage）、`platform.ts`（`isApplePlatform` 单一事实来源）。
 - **`utils/storage.ts`**：唯一存储边界。`STORAGE_KEYS`（全部 `fat:` 前缀）+ `storageGet/Set`（try/catch 静默降级）+ `onStorageChange`（返回取消订阅）。仅用 `storage.local`，**无加密、无 session**。
 - **`assets/`**：`theme/tokens.css`（`--fat-*` 令牌，6 主题 + dark）、`styles/global.css`（`@import` tokens + 基础样式 + reduced-motion）、图标 SVG 母版（`icon.svg` 详细档：文档 + 环形转换徽章 / `icon-small.svg` 简化档：加粗双向箭头，为 16px 可读性而画）。
-- **对外文档层（不打包进扩展）**：`docs/index.html`（产品说明页，兼作 GitHub Pages 根目录，单文件内嵌中英双语——正文按 `lang="zh-CN"` / `lang="en"` 成对写入，由页内 `<style>` 依据 `<html lang>` 显隐，头部内联脚本在首帧前定语言；含 JSON-LD `SoftwareApplication` + `FAQPage` + `HowTo`）、`docs/privacy.html`（双语隐私政策，CWS 必需）、`docs/llms.txt` / `robots.txt` / `sitemap.xml`、`docs/assets/`（截图与推广图，由 `scripts/capture-store-assets.mjs` 生成）、`docs/promo/`（中英推广稿与公众号/微博文案，**草稿不发布**，生成的 `*.html` 已 gitignore）、`CHROMEWEBSTORE.md`（商店文案、隐私披露与**首次上架手工 runbook**，**尚未上架**）、`CHANGELOG.md` / `CHANGELOG.zh-CN.md`（发布说明双语对，版本号即 manifest 版本）。
+- **对外文档层（不打包进扩展）**：`docs/index.html`（产品说明页，兼作 GitHub Pages 根目录，单文件内嵌中英双语——正文按 `lang="zh-CN"` / `lang="en"` 成对写入，由页内 `<style>` 依据 `<html lang>` 显隐，头部内联脚本在首帧前定语言；含 JSON-LD `SoftwareApplication` + `FAQPage` + `HowTo`）、`docs/privacy.html`（双语隐私政策，CWS 必需）、`docs/llms.txt` / `robots.txt` / `sitemap.xml`、`docs/assets/`（原始界面截图与推广图——README 与产品说明页用原始截图；商店列表用同目录下 `store/screens/` 的带卖点文案 1280×800 截图，中英各一套；均由 `scripts/capture-store-assets.mjs` 一次运行生成）、`docs/promo/`（推广稿：`wechat-article.md` 中文公众号稿 + `blog-article.en.md` 英文对应稿（面向 dev blog，两者数字与取证口径必须同步改）+ `weibo-posts.md` 微博文案；**草稿不发布**，生成的 `*.html` 已 gitignore，`static.yml` 明确拒绝把 `promo/` 发上线）、`CHROMEWEBSTORE.md`（商店文案、隐私披露与**首次上架手工 runbook**，**尚未上架**）、`CHANGELOG.md` / `CHANGELOG.zh-CN.md`（发布说明双语对，版本号即 manifest 版本）、`SECURITY.md` / `SECURITY.zh-CN.md` 与 `CONTRIBUTING.md` / `CONTRIBUTING.zh-CN.md`（政策与贡献须知双语对，H1 下第一行是语言切换行，改英文正文必须同步中文）。
 - **`utils/stubs/unbundled-dep.ts`**：`wxt.config.ts` 将 jspdf 未用的 `html2canvas`/`canvg` 别名到此空 stub，减包约 200KB。
 
 ## 核心数据流
 
-上传/粘贴文件 → `useFileDetect` 识别格式 → `availableTargets` 取所有源格式可达目标的**交集**（混合格式批次只提供对全部文件有效的目标）→ 选目标 → `convert()`：对每个文件独立 `findConversionPath` 逐步执行多步链，`AbortController` 支持取消，**逐文件错误隔离**（单个失败不阻断批次）→ 结果下载（单文件或 ZIP）→ 成功批次写入历史（仅元数据，best-effort）。
+上传/粘贴文件 → `useFileDetect` 识别格式 → `availableTargets` 取所有源格式可达目标的**交集**（混合格式批次只提供对全部文件有效的目标），并剔除当前源格式本身与 `conversion-policy` 屏蔽的语义无效组合（被屏蔽者以「置灰 + 说明原因」呈现，不是不显示）→ 选目标 → `convert()`：对每个文件独立 `findConversionPath` 逐步执行多步链，`AbortController` 支持取消，**逐文件错误隔离**（单个失败不阻断批次）→ 结果下载（单文件或 ZIP）→ 成功批次写入历史（仅元数据，best-effort）。
 
 ## 新增转换器
 
@@ -82,7 +82,7 @@
 ## i18n 与文档同步
 
 - 文案源 `utils/i18n/zh.ts`，`en.ts` 类型 `typeof zh`；增删改 key 时中英必须一致。默认 `zh`，`t(key, params)` 支持 `{param}` 插值。
-- 文档按影响分层更新：功能/用法 → `README.md` + `README.zh-CN.md`（双语一致）；对外产品说明/隐私政策 → `docs/index.html` + `docs/privacy.html`；商店文案 → `CHROMEWEBSTORE.md`；manifest 名称/描述/权限 → `wxt.config.ts`（`description` 与 `package.json` 同步且 ≤132 字符）；GitHub About（描述/网站/topics）→ `.github/repo-metadata.json`（由 `repo-meta.yml` 落地，勿只在页面上手改）。发版级改动另记 `CHANGELOG.md` + `CHANGELOG.zh-CN.md`。
+- 文档按影响分层更新：功能/用法 → `README.md` + `README.zh-CN.md`（双语一致）；对外产品说明/隐私政策 → `docs/index.html` + `docs/privacy.html`；商店文案 → `CHROMEWEBSTORE.md`；manifest 名称/描述/权限 → `wxt.config.ts`（`description` 与 `package.json` 同步且 ≤132 字符）；GitHub About（描述/网站/topics）→ `.github/repo-metadata.json`（由 `repo-meta.yml` 落地，勿只在页面上手改）。发版级改动另记 `CHANGELOG.md` + `CHANGELOG.zh-CN.md`；安全策略与贡献须知同样成对（`SECURITY.md` + `SECURITY.zh-CN.md`、`CONTRIBUTING.md` + `CONTRIBUTING.zh-CN.md`）。
 - 根目录**无** `index.html`（产品页故意放 `docs/`，避开与 `entrypoints/options/index.html` 混淆）；亦无 `_locales/`、HelpDialog、popup；**尚未上架 Chrome 应用商店**，勿引用不存在的商店链接。
 
 ## 测试与验证
@@ -101,10 +101,10 @@
 - **模块级共享状态**：`useHistory`/`useI18n`/`useTheme` 用模块级 `ref`/`reactive` + `initialized` 守卫做跨组件单例；新增此类状态须保持幂等初始化与 `onStorageChange` 清理。
 - **转换语义边界**（改动前须确认）：PDF 输出为图片（文字不可选）；PDF 输入仅提取文本；多 sheet XLSX→CSV 输出 ZIP；多页 PDF→图片输出 ZIP；BMP/GIF/SVG 仅支持作为输入（浏览器无法编码），GIF 取首帧、SVG 栅格化。
 - **图标分两档母版，按尺寸取用**：`assets/icon.svg`（文档 + 环形转换徽章）用于 ≥48px；`assets/icon-small.svg`（加粗双向箭头）用于 <48px。**<48px 的位置必须取简化档**（`public/icon/16|32.png`、`docs/assets/icon-mark.png`）——详细档文档线在 128 网格上只有 5px，缩到 26px 就糊成白斑。两档图形不同，改图标时先确认改的是哪一档。
-- **文档素材不得入包**：`docs/` 与 `CHROMEWEBSTORE.md` 是仓库文档，而 `public/` 会被 WXT 原样打包——截图/推广图只能放 `docs/assets/`。UI 变更后必须重跑 `pnpm assets:capture`，否则商店截图与实际界面漂移。
+- **文档素材不得入包**：`docs/` 与 `CHROMEWEBSTORE.md` 是仓库文档，而 `public/` 会被 WXT 原样打包——截图/推广图只能放 `docs/assets/`。UI 变更后必须重跑 `pnpm build && pnpm assets:capture`，否则商店截图与实际界面漂移。
 - **Pages 产物根必须是 `docs/`**：`static.yml` 以 staging 目录（`docs/` 去 `promo/`）作为 `upload-pages-artifact` 的 `path`。若改回 `'.'`，站点根就会变成仓库根，`https://…/transfer-any-file/` 与 `/privacy.html` 直接 404（产品页会跑到 `/docs/index.html`），而 canonical / sitemap / robots / llms.txt / 商店隐私政策 URL 全按站点根写死；隐私政策 404 也会直接阻断 CWS 提交。
 - **商店首发不可自动化**：Chrome Web Store Publish API 不能创建条目，也不能写商品文案/截图/隐私披露（`publish-browser-extension` README 原文要求手工首发）。`release.yml` 的商店步骤在四个 `CHROME_*` secrets 齐备前只报「跳过」；手工步骤见 `CHROMEWEBSTORE.md → First Publication (manual)`。
-- **对外文案数字要取证**：格式数 14 / 路径数 46+ 来自工作台页脚（`App.vue` 的 `formatCount`/`pathCount`，当前精确值为 14 与 46），143 是同一邻接图的 BFS 传递闭包（每种源格式除自身外可达全部 11 种可写格式）；体积来自 `pnpm build` 输出，阈值来自 `FileUpload.vue` / `useConversion.ts`；改这些常量时同步改 `README*`、`docs/*`、`CHROMEWEBSTORE.md`。
+- **对外文案数字要取证**：格式数 14 / 路径数 46+ 来自工作台页脚（`App.vue` 的 `formatCount`/`pathCount`，当前精确值为 14 与 46）；143 是同一邻接图的 BFS 传递闭包（每种源格式除自身外可达全部 11 种可写格式），**但 143 不能写成"可选/可用"**——`availableTargets` 还会经 `utils/core/conversion-policy.ts` 去掉 27 个语义无效组合（24 个图片 → TXT/CSV/JSON/XLSX + 3 个 PDF → CSV/JSON/XLSX），界面实际提供 **116** 个；体积来自 `pnpm build` 输出，阈值来自 `FileUpload.vue`（100MB 拒绝 / 20MB 警告 / 200 文件上限）与 `useConversion.ts`（>5 文件或 >20MB 弹确认），ZIP 压缩收益来自 `utils/core/format.ts` 的 JSDoc 实测记录；改这些常量时同步改 `README*`、`docs/*`、`CHROMEWEBSTORE.md`。
 
 ## 完成标准
 

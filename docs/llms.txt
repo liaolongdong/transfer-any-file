@@ -1,8 +1,8 @@
 # Transfer Any File
 
-> Transfer Any File is an open-source Chrome extension (Manifest V3, ISC licence) that converts files between 14 formats — Markdown, HTML, Word (.docx), PDF, TXT, CSV, Excel (.xlsx), JSON, PNG, JPEG, WebP, BMP, GIF, SVG — entirely on the user's own machine. It requests one permission (`storage`), makes zero network requests, and works with the network disabled. Batch conversion of mixed source formats, automatic multi-step conversion chains (46+ routes), per-file error isolation, split preview with inline editing, ZIP download, and a local conversion history.
+> Transfer Any File is an open-source Chrome extension (Manifest V3, ISC licence) that converts files between 14 formats — Markdown, HTML, Word (.docx), PDF, TXT, CSV, Excel (.xlsx), JSON, PNG, JPEG, WebP, BMP, GIF, SVG — entirely on the user's own machine. It requests one permission (`storage`), its own code issues no network request of any kind (asserted on every push by `pnpm verify:offline`), and it works with the network disabled. Batch conversion of mixed source formats, automatic multi-step conversion chains over 46 direct routes, per-file error isolation with copyable failure diagnostics, split preview with inline editing, a recently-used group in the target picker, ZIP download, and a local conversion history.
 
-Primary language: the product page and privacy policy are bilingual (single file, in-page Chinese / English switch, no server). Interface languages: English and Chinese (default Chinese).
+Primary language: the product page is bilingual with an in-page Chinese / English switch; the privacy policy carries both languages on one page. Neither needs a server. Interface languages: English and Chinese (default Chinese).
 Category: productivity / file conversion. Price: free, no paid tier, no ads, no account.
 
 ## Product page
@@ -16,16 +16,34 @@ Category: productivity / file conversion. Price: free, no paid tier, no ads, no 
 - Data: CSV, Excel (.xlsx), JSON — in any direction, including CSV ⇄ XLSX and JSON ⇄ CSV
 - Images: PNG, JPEG, WebP, BMP, GIF, SVG — readable; writable as PNG, JPEG or WebP (GIF uses its first frame, SVG is flattened)
 - Multi-step routes are discovered automatically: Markdown → HTML → PDF, Word → HTML → Markdown, JSON → CSV → XLSX, TXT → HTML → JSON → CSV → Excel
-- 46 registered direct routes; breadth-first search over the same graph makes 143 source-to-target combinations selectable (every source format reaches all 11 writable formats except itself)
+- 46 registered direct routes; breadth-first search over the same graph makes 143 source-to-target combinations reachable, and the format picker offers 116 of them. The other 27 are shown greyed-out with a reason rather than hidden (116 = 143 minus the 24 image→text/data and 3 PDF→data pairs listed below). Every source format reaches all 11 writable formats except itself.
 
 ## What it does not do (frequently asked of converters)
 
-- No OCR: images cannot become TXT, CSV or XLSX (an OCR model would break the offline guarantee)
+- No OCR: images cannot become TXT, CSV, JSON or XLSX (an OCR model would break the offline guarantee)
 - PDF output is image-based, so text in a converted PDF is not selectable
 - PDF input extracts text only; layout and embedded images are not preserved
 - BMP, GIF and SVG are input-only — browsers expose no encoders for them
 - No video, audio, e-book or CAD formats
 - Limits: 100 MB per file (warned at 20 MB), 200 files per batch
+
+## How it compares
+
+| Dimension                         | Transfer Any File                                                             | Online converter                            | Command-line tool                                                  |
+| --------------------------------- | ----------------------------------------------------------------------------- | ------------------------------------------- | ------------------------------------------------------------------ |
+| File leaves the device            | Never                                                                         | Always (that is the mechanism)              | Never                                                              |
+| Setup cost                        | Build once, load the unpacked folder                                          | None, it is a web page                      | Package manager and PATH                                           |
+| Free-tier limits                  | 100 MB per file, 200 files per batch                                          | Daily quotas, size caps, watermarks         | None                                                               |
+| Works offline                     | Yes                                                                           | No                                          | Yes                                                                |
+| Batch of mixed formats            | Yes, one target for the whole batch                                           | Usually paid or queue-bound                 | Yes, and scriptable                                                |
+| Preview and edit the result       | Built-in comparison view and inline editing                                   | Usually a thumbnail at best                 | None                                                               |
+| Format breadth                    | 14 document / data / image formats                                            | Hundreds, including video and audio         | Pandoc 40+ document formats, ImageMagick hundreds of image formats |
+| OCR and complex PDF layout repair | Not bundled                                                                   | Commonly offered                            | Requires a separate Tesseract install                              |
+| Price and account                 | Free, no sign-up, no paid tier                                                | Free quota, a subscription lifts the limits | Usually free                                                       |
+| Chinese interface and encoding    | Bilingual UI; CSV written with a UTF-8 BOM                                    | Depends on the service                      | Encoding is left to you                                            |
+| Source code                       | Open source (ISC)                                                             | Closed                                      | Open source                                                        |
+
+The comparison summarises the typical behaviour of each class of tool rather than one specific vendor; Pandoc and ImageMagick stand in for the command-line column. The three are not substitutes.
 
 ## How to install
 
@@ -45,9 +63,10 @@ pnpm install && pnpm build
 - [Source code](https://github.com/liaolongdong/transfer-any-file)
 - [Issues / feature requests](https://github.com/liaolongdong/transfer-any-file/issues)
 - [Changelog](https://github.com/liaolongdong/transfer-any-file/blob/main/CHANGELOG.md): release notes per version ([中文](https://github.com/liaolongdong/transfer-any-file/blob/main/CHANGELOG.zh-CN.md))
-- [Security policy](https://github.com/liaolongdong/transfer-any-file/blob/main/SECURITY.md): how to report a vulnerability, and the offline attack-surface claims you can verify
+- [Security policy](https://github.com/liaolongdong/transfer-any-file/blob/main/SECURITY.md): how to report a vulnerability, and the offline attack-surface claims you can verify ([中文](https://github.com/liaolongdong/transfer-any-file/blob/main/SECURITY.zh-CN.md))
+- [Contributing guide](https://github.com/liaolongdong/transfer-any-file/blob/main/CONTRIBUTING.md): the offline-only rule, how to add a converter, and which docs must move together ([中文](https://github.com/liaolongdong/transfer-any-file/blob/main/CONTRIBUTING.zh-CN.md))
 - [Chrome Web Store listing copy and disclosures](https://github.com/liaolongdong/transfer-any-file/blob/main/CHROMEWEBSTORE.md)
 
 ## Tech stack
 
-WXT · Vue 3 · TypeScript · Element Plus · Vite · Playwright (end-to-end). Heavy conversion libraries (marked, turndown, mammoth, pdf.js, SheetJS, jsPDF, html-to-image, DOMPurify, fflate) are dynamically imported per converter; the complete bundle is 3.7 MB.
+WXT · Vue 3 · TypeScript · Element Plus · Vite · Playwright (end-to-end). Heavy conversion libraries (marked, turndown, mammoth, pdf.js, SheetJS, jsPDF, html-to-image, DOMPurify, fflate) are dynamically imported per converter; the complete bundle is 3.71 MB.
