@@ -9,7 +9,34 @@ always name the same release.
 
 ## [Unreleased]
 
-_No pending changes._
+### Added
+
+- **`pnpm verify:listing`** — measures every field pasted into the Chrome Web Store dashboard against
+  its real limit and fails if the listing sheet drifts from `wxt.config.ts`, `package.json` or
+  `.github/repo-metadata.json`. Runs in CI and in the release workflow. The store truncates
+  over-length fields silently instead of rejecting them, so a field that grows three characters used
+  to be able to reach production as a cut-off sentence.
+- **`CHROMEWEBSTORE.md → Submission worksheet`** — the dashboard's four tabs in fill order, with each
+  short field verbatim and the long copy referenced by section.
+
+### Changed
+
+- **Privacy-disclosure guidance corrected.** The store asset pack previously said to declare "we don't
+  collect any user data". That form asks about _handling_, and Google requires disclosure for data
+  processed or stored only on the device — so the answer for this extension is an affirmative
+  declaration of on-device file processing. The previous wording was the largest submission risk in
+  the document. `docs/privacy.html` now states the collect/handle distinction in both languages.
+- **Listing locales are gated by the package, not the dashboard.** Additional store languages are
+  offered only for `_locales/` directories shipped in the extension, which this project has none of —
+  its Chinese/English switching is in-app. The Chinese listing copy stays written and ready; using it
+  is now an explicit manifest decision rather than an assumed default.
+- **Product page structured data and headings** — the `<h1>` names the product category, JSON-LD gains
+  `keywords`, `datePublished`, `WebSite` and `SoftwareSourceCode` nodes, the network claim in the FAQ
+  is scoped to first-party source (the version a reviewer can actually check), the three citable
+  sections that had no inbound link are now reachable from the footer, and an install duration that
+  contradicted its own markup is gone.
+- **README** — a screenshot caption that claimed forty files over a three-file capture, and two
+  numbers about third-party services and conversion speed that the repository cannot evidence.
 
 ## [1.0.0] - 2026-09-07
 

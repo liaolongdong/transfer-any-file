@@ -12,7 +12,101 @@ Revised 2026-09-12/13 (all figures below measured from this file with a script, 
 
 Revised 2026-09-11: the Chinese short description was extended into its unused characters, a QUESTIONS / 常见问题 section was added to both detailed descriptions, the listing screenshots are now generated with a caption bar in both English and Chinese, and the repository topics were expanded to the full 20-topic budget.
 
-**Character counts below are measured, not estimated** — re-measure after any edit (`node -e 'process.stdout.write(String("<text>".length))'`), because the store rejects over-length fields silently in some locales.
+**Character counts below are measured, not estimated** — re-measure after any edit with `pnpm verify:listing`, which
+prints every paste field against its real limit and fails if the sheet drifts from `wxt.config.ts`, `package.json` or
+`.github/repo-metadata.json`. The store rejects over-length fields silently in some locales — it truncates rather than
+erroring — so a field that grows 3 characters can reach production as a cut-off sentence.
+
+---
+
+## Submission worksheet (提交速查)
+
+The whole dashboard, in tab order, with nothing to decide while you are filling it in. Short fields are verbatim and
+safe to paste; everything long is referenced by section so this block cannot drift from the copy it points at.
+
+**Pre-flight, from the repository** — all four must pass before you touch the dashboard:
+
+```bash
+pnpm verify:listing   # every field below is inside its limit and agrees with manifest/package/repo-metadata
+pnpm verify:offline   # first-party source issues no network request; manifest is storage-only
+pnpm build            # the artifact you upload
+curl -Is https://liaolongdong.github.io/transfer-any-file/privacy.html | head -1   # HTTP/2 200, or the submit button is dead
+```
+
+### Tab 1 — Store listing
+
+| Field             | Value                                                                         |
+| ----------------- | ----------------------------------------------------------------------------- |
+| Name              | below — 49/75, and it must equal `wxt.config.ts → manifest.name`              |
+| Short description | below — 129/132, and it must equal `manifest.description`                     |
+| Full description  | _Detailed Description_ → the English fenced block (6,939 measured characters) |
+| Category          | `Productivity`                                                                |
+| Languages         | English only until the _Locale gate_ is resolved                              |
+
+```
+Transfer Any File — Offline File Format Converter
+```
+
+```
+Convert 14 file formats locally in your browser: Markdown, Word, PDF, Excel, CSV, JSON, HTML, images. Batch, offline, no uploads.
+```
+
+Chinese (China) — three gated fields, in _Store Listing_ above each heading: name 33/75, short description 98/132,
+detailed description 2,832 characters. Paste them only if the uploaded package ships `_locales/zh_CN/`; otherwise the
+dashboard has no tab to paste them into.
+
+### Tab 2 — Screenshots & icon
+
+Icon: `public/icon/128.png`. Screenshots: five, in this order, from `docs/assets/store/screens/` —
+`screen-01-workbench`, `02-batch`, `03-zip`, `04-preview`, `05-history`. Leave `06-dark-mode` out (five is the
+maximum and it is the weakest evidence). Then the promo tiles in _Graphics & Assets_ — one set, promo tiles cannot be
+localized. Captions are already burned into the PNGs; the dashboard has no caption field.
+
+### Tab 3 — Privacy practices
+
+| Question                             | Answer                                                                 |
+| ------------------------------------ | ---------------------------------------------------------------------- |
+| Single purpose                       | paste the one-liner from _Store Listing → Single Purpose_              |
+| Permission justification (`storage`) | paste from _Permissions Justification_                                 |
+| Does this item handle user data?     | **Yes** — see _Data handling_ below, do not answer "no data collected" |
+| Privacy policy URL                   | `https://liaolongdong.github.io/transfer-any-file/privacy.html`        |
+| Limited Use certifications           | the four ticks in _Data Use Certification_                             |
+
+The two fields most likely to be typed badly at 11pm, verbatim:
+
+```
+Converts user-selected documents, spreadsheets and images between common file formats entirely on the local machine.
+```
+
+```
+storage: persists the user's own conversion history (file names, formats and sizes — never file contents) and interface preferences (theme, colour mode, language, notification and confirmation switches, custom shortcut) via chrome.storage.local. Nothing leaves the device: the extension declares no host permissions and its own code issues no network request. No narrower permission can do this.
+```
+
+On the data-declaration question, tick the types that match reality (user files; the app-activity line for local
+history) and write in the description field:
+
+```
+Files are read into the extension page's memory, converted there, and returned to the user as a download. Conversion history and preferences are stored locally via chrome.storage.local. No data is transmitted, uploaded, synced or shared with anyone, including the developer; there is no server.
+```
+
+### Tab 4 — Distribution
+
+Public · all regions · default price (free). The 32-character item ID appears here; keep it out of git and put it in
+the `CHROME_EXTENSION_ID` secret described in _Hand-over to automation_.
+
+### Reviewer notes (optional, saves a round-trip)
+
+```
+No account or login is required. After installing, click the toolbar icon: the converter opens as a tab. Test the round trip with any .md or .csv file — the result downloads locally. The extension works with networking disabled.
+```
+
+### Two things to settle before the $5
+
+1. **The locale gate.** Without `_locales/` in the package there is no Chinese listing tab, for an extension whose UI
+   defaults to Chinese and whose primary audience is Chinese-reading. That is a manifest change, not a paste — see
+   _Locale gate_.
+2. **Publisher name.** _Developer Info_ leaves it to you; it is public on the listing and it is the account-holder's
+   name or organisation as Google bills it.
 
 ---
 
@@ -54,14 +148,34 @@ Transfer Any File — Offline File Format Converter
 > | In-app brand (`utils/i18n/*.ts → appName`), tab title, promo graphics | `Transfer Any File`                                                                                                                                                                                                                                                                                                                                                                                            |
 > | GitHub repo                                                           | `transfer-any-file` — matches the brand, the npm package name and this listing, so CWS / GitHub / Pages / npm resolve to **one entity**. The repository has since been created and pushed under this account, so the slug is fixed; GitHub search coverage comes from the About description + topics rather than the slug. The local working directory name is irrelevant to the repo name and may stay as-is. |
 
+### ⚠️ Locale gate — every `Chinese (China)` field below needs a code change first
+
+Google localises a listing only into locales the **package** declares: _"Each locale corresponds to one of the
+`_locales/LOCALE_CODE` directories included in the extension."_ This extension has no `_locales/` at all — its
+Chinese/English switching is in-app Vue state (`composables/useI18n.ts`), invisible to the manifest — so today the
+dashboard's language dropdown offers **one** language, and `Chinese (China)` cannot be added from the listing page.
+The item **name** compounds it: the dashboard reads it from the manifest, so a Chinese name is only reachable by
+putting `__MSG_extensionName__` in `wxt.config.ts` and the string in `_locales/zh_CN/messages.json`.
+
+Two ways forward, and the choice is not mine to make in a document:
+
+| Option                           | What it takes                                                                                                                                         | Consequence                                                                                                                                                                                                                                                                                                                                 |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Ship the English listing now** | Nothing. Paste the three EN fields, skip the three ZH ones.                                                                                           | The ZH copy below stays unused. The in-app UI still defaults to Chinese for the primary audience — only the store page is English.                                                                                                                                                                                                          |
+| **Add a Chinese locale**         | `default_locale: "en"` + `_locales/en/messages.json` + `_locales/zh_CN/messages.json`, with manifest `name` and `description` moved into `__MSG_*__`. | Unlocks the `Chinese (China)` tab **and** localises what Chrome itself shows (extensions page, install prompt) for users on a Chinese browser UI. Touches the manifest and the metadata-sync chain (`verify:meta` compares manifest ↔ `package.json` ↔ `repo-metadata.json`), so it is a code change with its own review, not a copy-paste. |
+
+Either way, promo tiles are unaffected: _"Small promo tiles and marquee promo tiles cannot be localized."_ One
+English promo set is correct. The detailed descriptions below stay **duplicated in both languages in this file** so
+option two is a packaging decision rather than a rewrite.
+
 **Chinese (China) extension name** — 33 chars, limit 75
 
 ```
 Transfer Any File — 离线文件格式与图片转换扩展
 ```
 
-The dashboard keeps one name per locale tab, so the `Chinese (China)` tab needs this even though the English listing is
-primary. The brand token stays untranslated (`utils/i18n/zh.ts → appName` is also `Transfer Any File`).
+Needed by the `Chinese (China)` tab described above, which does not exist until the package ships `_locales/zh_CN`.
+The brand token stays untranslated (`utils/i18n/zh.ts → appName` is also `Transfer Any File`).
 
 The keyword phrase after the em dash no longer mirrors the English name word for word, and that is deliberate rather
 than drift. The three arguments that removed `Image` from the English field do not carry over: this name is 33 of 75
@@ -86,12 +200,24 @@ Mirrored in `wxt.config.ts → manifest.description` and `package.json → descr
 
 Extended on 2026-09-11 from the previous 75-char version. The Chinese page is where the primary audience lands, and the field had 57 characters going unused. Everything added is a capability the extension already ships (mixed-format batches, multi-step chains, preview and editing, ZIP download, no upload, no account) written as one readable sentence — not as a comma-separated keyword list, which is the shape the store rejected elsewhere as keyword stuffing. Note that no PDF-to-Word or PDF-to-Excel capability is implied here, because the extension does not convert PDF losslessly.
 
-**Detailed Description** [REQUIRED] — plain text, limit 16,000 chars (English block measured 5,863; Chinese block below measured 2,452)
+**Detailed Description** [REQUIRED] — plain text, guarded at 16,000 chars (English block measured 6,939; Chinese block below measured 2,832)
+
+_Google documents no length for this field_ — the 75- and 132-character limits are stated in their docs, the 16,000 is
+not. Treat it as this repo's own guard (`pnpm verify:listing`) sized to the counter the dashboard shows, and confirm
+against that counter at submission time rather than citing 16,000 back to a reviewer.
 
 The store strips markdown, so this is written with `•` bullets and blank-line sections. It deliberately contains **no** implementation details (no framework, library or API names) and states the limitations up front — "misleading functionality" is a common rejection reason.
 
 ```
-Transfer Any File converts your files between common formats without uploading them anywhere. Everything happens in a page inside your own browser: no server, no account, no queue, and nothing to wait for on a slow connection.
+Transfer Any File is an open-source, offline file format converter for Chrome. It converts your files between common formats without uploading them anywhere. Everything happens in a page inside your own browser: no server, no account, no queue, and nothing to wait for on a slow connection.
+
+WHY THAT MATTERS
+An online converter has to copy your file onto a machine you do not control before it can do anything with it. For a public dataset that is fine. For an HR spreadsheet, a client contract, a medical report or a draft you have not told anyone about yet, it is not — and "we delete it within 24 hours" is a promise you have to take on trust. This one never has a copy to delete.
+
+WHAT MAKES IT DIFFERENT
+• One batch, many source formats. Most converters handle one format at a time. Here a folder of Markdown, CSV and Word files goes to a single target in one run, each file resolving its own route — and one unreadable file does not fail the rest.
+• Look before you download. Source and result side by side, with text results editable in place, so a wrong output does not mean converting the whole folder again.
+• Nothing has to leave the machine. One permission (extension storage), no upload step, and it keeps working with the network switched off — you can disconnect and check for yourself.
 
 WHAT YOU CAN CONVERT
 • Documents: Markdown, HTML, Word (.docx), PDF and plain text, in any direction
@@ -160,7 +286,15 @@ invented: 转换工作台 / 批量转换 / 目标格式 / 打包下载 ZIP / 转
 界面语言 / 撤销 / 复制诊断信息 / 最近使用. Do not introduce synonyms the UI does not use.
 
 ```
-Transfer Any File 是一款开源的 Chrome 扩展，在你的电脑本地完成常见文件格式之间的相互转换。所有转换都在你自己浏览器里的一个页面完成：没有服务器、没有账号、不需要排队，也不受网速影响。
+Transfer Any File 是一款开源、完全离线的 Chrome 文件格式转换扩展，在你的电脑本地完成常见文件格式之间的相互转换，全程不上传。所有转换都在你自己浏览器里的一个页面完成：没有服务器、没有账号、不需要排队，也不受网速影响。
+
+为什么值得在意
+在线转换器必须先把你的文件复制到一台你控制不了的机器上，才能开始处理。对一份公开数据集来说无所谓；对一份 HR 表格、客户合同、体检报告，或者一份还没告诉任何人的草稿，就不是回事了——而「24 小时内自动删除」只能靠对方遵守承诺。这款扩展从来就没有一份供人删除的副本。
+
+它不一样的地方
+• 一次批量，多种源格式。多数转换器一次只能处理一种格式。在这里，一整个文件夹的 Markdown、CSV、Word 可以一次转向同一个目标格式，每个文件各自求出自己的路径——而且一个读不了的文件不会拖垮整批。
+• 先看再下。源文件与结果左右对照，文本类结果还能就地修改，输出不满意不必把整个文件夹重转一遍。
+• 数据不必离开本机。只申请一项权限（扩展存储），没有上传环节，断网之后照常可用——你可以断开网络自己验证。
 
 能转换什么
 • 文档：Markdown、HTML、Word (.docx)、PDF、纯文本，任意方向互转
@@ -241,7 +375,11 @@ Converts user-selected documents, spreadsheets and images between common file fo
 English
 ```
 
-Add `Chinese (China)` as an additional language with the ZH fields above — the extension UI ships both locales and defaults to Chinese.
+`English` must match the default locale the package actually ships. Chinese is **not** offered as an additional
+listing language today — see _Locale gate_ above; it needs `_locales/zh_CN/` in the package, not a dashboard setting.
+The in-app UI ships both languages and defaults to Chinese either way, and Google's own consistency rule for the
+option case is only that _"localized item metadata shouldn't significantly change the described set of features"_ —
+the ZH descriptions above mirror the EN ones feature for feature.
 
 ---
 
@@ -271,11 +409,25 @@ Each row is one carousel position. The raw capture is what the README and the pr
 | 5   | `history.png`                            | `screen-05-history.png`                              | `screen-05-history-zh.png`   | Searchable, filterable history with one-click reuse / 历史可搜索、可筛选、一键复用格式 |
 | 6   | `dark-mode.png`                          | `screen-06-dark-mode.png`                            | `screen-06-dark-mode-zh.png` | 6 accent colours, light / dark / system / 6 种主题色，浅色 / 深色 / 跟随系统           |
 
-Three constraints drive this set:
+Four constraints drive this set:
 
-- **Five per language page.** The store allows five screenshots per locale, so one of the six above is a spare. Drop **#6** first (`dark-mode`): it is the weakest evidence, and theme support is already stated in the listing copy.
-- **The language pages do not inherit.** The English and Chinese tabs have independent screenshot slots, so both sets must be uploaded. The Chinese set is captured from a Chinese workbench, not the English one re-captioned.
-- **Caption text is store metadata.** It is reviewed under the same policy as the description, so it stays inside the vocabulary the listing already uses: no competitor brand names, no absolute privacy claims, nothing that hints a PDF can become a spreadsheet (`PDF → CSV / JSON / Excel` is greyed out in the picker), and no framing of `PDF → Word` as layout-preserving, because it is text extraction.
+- **Five per language page, and five is the ceiling.** Google asks for _"at least 1—and preferably the maximum allowed
+  5—screenshots"_, so one of the six above is a spare. Drop **#6** first (`dark-mode`): it is the weakest evidence,
+  and theme support is already stated in the listing copy.
+- **Everything gets downscaled to 640×400.** Google: _"all screenshots are downscaled to 640x400 pixels"_. The PNGs
+  stay 1280×800 for retina surfaces, but the only render that matters for legibility is the halved one — which rules
+  out any caption smaller than this set's bar, and is why the UI is captured at its natural density rather than
+  shrunk to make room for a header band.
+- **The language pages do not inherit — but only the Chinese page exists after the locale gate.** EN and ZH tabs have
+  independent screenshot slots, so both sets must be uploaded, and the Chinese set is captured from a Chinese
+  workbench rather than the English one re-captioned. Until the package ships `_locales/zh_CN/` there is no second
+  tab to upload to, so the `-zh` files wait in the repo.
+- **Caption text is store metadata, and it has to be burned in.** There is no per-screenshot caption field in the
+  dashboard — unlike an app store, CWS stores screenshots ordered and nothing else — so the only place a caption can
+  live is the PNG. That text is reviewed under the same policy as the description, so it stays inside the vocabulary
+  the listing already uses: no competitor brand names, no absolute privacy claims, nothing that hints a PDF can
+  become a spreadsheet (`PDF → CSV / JSON / Excel` is greyed out in the picker), and no framing of `PDF → Word` as
+  layout-preserving, because it is text extraction.
 
 The caption bar is composited, not cropped: the UI keeps its full 1280×800 resolution and the bar sits over the bottom strip. Scaling the interface down to free up room for a header band would push its 12px text below legibility.
 
@@ -315,37 +467,70 @@ No `host_permissions`, no content scripts, no `tabs`, no `<all_urls>`, no remote
 
 ## Privacy & Data Use
 
-### Data Collection
+### Data handling — read this before touching the disclosure form
 
-**Does the extension collect user data?** **No.**
+**The extension handles user data. It transmits none of it.** Those are different questions, and the dashboard form
+asks the first one.
 
-| Data Type                    | Collected?               | Transmitted Off-Device? | Purpose                                                       | Shared with Third Parties? |
-| ---------------------------- | ------------------------ | ----------------------- | ------------------------------------------------------------- | -------------------------- |
-| Personally identifiable info | No                       | No                      | —                                                             | No                         |
-| Health info                  | No                       | No                      | —                                                             | No                         |
-| Financial info               | No                       | No                      | —                                                             | No                         |
-| Authentication info          | No                       | No                      | —                                                             | No                         |
-| Personal communications      | No                       | No                      | —                                                             | No                         |
-| Location                     | No                       | No                      | —                                                             | No                         |
-| Web history                  | No                       | No                      | —                                                             | No                         |
-| User activity                | No (kept locally)        | No                      | On-device conversion history and recent target formats only   | No                         |
-| Website content              | No                       | No                      | —                                                             | No                         |
-| User files                   | Processed on-device only | Never                   | Format conversion, then handed back to the user as a download | No                         |
+Google's own wording ([user data FAQ](https://developer.chrome.com/docs/webstore/program-policies/user-data-faq)):
 
-On the disclosure form: select **"We don't collect any user data from this extension"** — the extension has no code path that sends anything off the device (`fetch` / `XMLHttpRequest` / `WebSocket` / `EventSource` / `sendBeacon` appear nowhere in `entrypoints/`, `components/`, `composables/`, `utils/`), and it declares no host permission and registers no content script, so the request paths left unused inside jsPDF / pdf.js can neither read a response nor reach any website's data. Re-run the same assertion before each submission with `pnpm verify:offline` — CI runs it on every push.
+> "Generally, by 'handle' we mean collecting, transmitting, using, or sharing user data."
+>
+> "Extensions are required to disclose how they handle user data, **even when data is processed or stored locally on a
+> user's device and is not transmitted to external servers or third parties**."
+
+Reading the files the user picks, keeping a conversion history and storing preferences in `chrome.storage.local` all
+count as handling. So the form is **not** answered by "nothing leaves the machine" — that is the transmission
+question, and it comes later on the same page.
+
+| Data type                    | Handled?                              | Transmitted Off-Device? | Purpose                                                       | Shared with Third Parties? |
+| ---------------------------- | ------------------------------------- | ----------------------- | ------------------------------------------------------------- | -------------------------- |
+| Personally identifiable info | No                                    | No                      | —                                                             | No                         |
+| Health info                  | No                                    | No                      | —                                                             | No                         |
+| Financial info               | No                                    | No                      | —                                                             | No                         |
+| Authentication info          | No                                    | No                      | —                                                             | No                         |
+| Personal communications      | No                                    | No                      | —                                                             | No                         |
+| Location                     | No                                    | No                      | —                                                             | No                         |
+| Web history                  | No                                    | No                      | —                                                             | No                         |
+| App activity                 | Yes — kept on-device                  | No                      | Conversion history and recently-used target formats           | No                         |
+| Website content              | No                                    | No                      | —                                                             | No                         |
+| User files                   | Yes — read, converted, then discarded | Never                   | Format conversion, then handed back to the user as a download | No                         |
+
+**On the form: declare that the extension handles user data**, tick the types the live form offers for what actually
+happens (user files, and the app-activity / other-types line covering the local history), and use the description
+field for the sentence that is true: _processed entirely on-device, never transmitted to the developer or anyone
+else, never retained after the tab is closed._ Confirm the checkbox labels against the dashboard rather than
+hardcoding them — Google revises that list, and this file has no way to know what the form says next month.
+
+**Do not select "We don't collect any user data from this extension."** It is inaccurate for an extension that opens
+the user's files, and an inaccurate declaration is a stated policy violation, not a formatting nit: Google warns
+that discrepancies "can result in suspension of the item and, in some instances, ban of the entire publisher entity".
+This is the one mistake in this document that can cost the whole developer account.
+
+What the offline guarantee does buy you is the _other_ answers on that page — no transmission, so nothing to
+certify under the transfer rules. Re-run the assertion behind it before each submission with `pnpm verify:offline`
+(no network call appears anywhere in `entrypoints/`, `components/`, `composables/` or `utils/`, and the manifest
+declares no host permission), and remember that the request paths sitting unused inside jsPDF / pdf.js can neither
+read a response nor reach any website's data. CI runs `verify:offline` on every push.
 
 ### Data Use Certification
 
+Tick each statement the form presents for the data declared above:
+
 - [x] Data is not sold to third parties
-- [x] Data is not used for purposes unrelated to the extension's core functionality
-- [x] Data is not used for creditworthiness or lending purposes
-- [x] Limited Use: no data is transferred or shared at all
+- [x] Data is not used or transferred for purposes unrelated to the item's core functionality
+- [x] Data is not used or transferred to determine creditworthiness or for lending purposes
+- [x] Limited Use: data is processed on-device only, and is not transferred or shared at all
 
 ---
 
 ## Privacy Policy
 
 **Privacy Policy URL** [REQUIRED] — ⚠️ must be live before submission
+
+Required because the item **handles** user data, not because of any permission: Google's FAQ answers this case
+directly — _"My extension or app handles user data, but only stores information locally. Do I still need to post a
+privacy policy? Yes."_
 
 ```
 https://liaolongdong.github.io/transfer-any-file/privacy.html
@@ -414,20 +599,30 @@ Revised 2026-09-11 to use the full budget. Three format-specific topics were add
 
 **Social preview** — Settings → General → Social preview → upload `docs/assets/store/github-social-preview.png` (1280×640, already generated by `pnpm assets:capture`). It is what every shared link renders as, and unlike stars it cannot be grown into later.
 
-With `gh` installed and the repository pushed, the same three fields in one command:
+`gh` is not installed here, so the two paths that work are these. Prefer the first — it keeps
+`.github/repo-metadata.json` as the single source of truth and re-applies itself on every push to `main`:
+
+1. **Workflow.** Add a `REPO_METADATA_TOKEN` repository secret (classic PAT, `repo` scope, or fine-grained with
+   _Administration → Read and write_ on this repository), then run
+   **Actions → Sync repository About → Run workflow**. Nothing else to type.
+2. **One-off `curl`.** Same token in `$PAT`; two calls, because GitHub splits About and topics across endpoints. The
+   `topics` call **replaces the entire list**, so send all twenty names at once.
 
 ```bash
-gh repo edit liaolongdong/transfer-any-file \
-  --description "Offline file format converter for Chrome: 14 formats — Markdown, Word, PDF, Excel, CSV, JSON, HTML, images. No uploads." \
-  --homepage "https://liaolongdong.github.io/transfer-any-file/" \
-  --add-topic file-format-converter --add-topic file-converter --add-topic file-conversion \
-  --add-topic document-conversion --add-topic markdown-converter --add-topic pdf-converter \
-  --add-topic image-conversion --add-topic xlsx --add-topic csv \
-  --add-topic batch-processing \
-  --add-topic offline-first --add-topic local-first --add-topic privacy-first --add-topic privacy-tools \
-  --add-topic chrome-extension --add-topic browser-extension --add-topic wxt \
-  --add-topic vue3 --add-topic typescript --add-topic vite
+PAT='…'   # export it in this shell only; never commit it
+
+curl -sS -X PATCH https://api.github.com/repos/liaolongdong/transfer-any-file \
+  -H "Authorization: Bearer $PAT" -H "Accept: application/vnd.github+json" \
+  -d '{"description":"Offline file format converter for Chrome: 14 formats — Markdown, Word, PDF, Excel, CSV, JSON, HTML, images. No uploads.","homepage":"https://liaolongdong.github.io/transfer-any-file/"}'
+
+curl -sS -X PUT https://api.github.com/repos/liaolongdong/transfer-any-file/topics \
+  -H "Authorization: Bearer $PAT" -H "Accept: application/vnd.github+json" \
+  -d '{"names":["file-format-converter","file-converter","file-conversion","document-conversion","markdown-converter","pdf-converter","image-conversion","xlsx","csv","batch-processing","offline-first","local-first","privacy-first","privacy-tools","chrome-extension","browser-extension","wxt","vue3","typescript","vite"]}'
 ```
+
+Check it landed: `curl -sS https://api.github.com/repos/liaolongdong/transfer-any-file | grep -E '"(description|homepage)"'`
+— unauthenticated is fine, these fields are public. The **social preview** image has no API at all; upload it in
+Settings → General → Social preview.
 
 ---
 
@@ -454,6 +649,7 @@ already exists. Do this sequence once, then every later version is a tag push.
 ```bash
 pnpm verify:offline   # no network call in first-party source, storage-only manifest
 pnpm verify:meta      # the 132-char short description agrees in package.json and wxt.config.ts
+pnpm verify:listing   # every paste field below is inside its limit and agrees with the manifest
 curl -Is https://liaolongdong.github.io/transfer-any-file/privacy.html | head -1   # must be HTTP/2 200
 ```
 
@@ -473,12 +669,12 @@ root with no repository files alongside it, and attaches the zip to a GitHub Rel
 
 Everything pasted here already exists in this file — copy, do not retype:
 
-| Dashboard tab      | Source in this file                                                                                                            |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
-| Store listing      | **Store Listing** (name 49/75, short 129/132, detailed description, `Productivity`, single purpose, English + Chinese (China)) |
-| Screenshots & icon | **Graphics & Assets** — 6 × 1280×800, `public/icon/128.png`, small and marquee promo tiles                                     |
-| Privacy practices  | **Privacy & Data Use** — select "We don't collect any user data from this extension"                                           |
-| Summary / rollout  | **Distribution** (public, all regions); the item ID lands here                                                                 |
+| Dashboard tab      | Source in this file                                                                                                                                                |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Store listing      | **Store Listing** (name 49/75, short 129/132, detailed description, `Productivity`, single purpose). One locale until the _Locale gate_ section above is resolved. |
+| Screenshots & icon | **Graphics & Assets** — upload 5 of the 6 × 1280×800 shots (drop `dark-mode`), `public/icon/128.png`, small and marquee promo tiles                                |
+| Privacy practices  | **Privacy & Data Use** — declare that the item _handles_ user data; on-device-only, never transmitted. **Not** "we don't collect any user data".                   |
+| Summary / rollout  | **Distribution** (public, all regions); the item ID lands here                                                                                                     |
 
 Submit for review, then watch **Package → status** in the dashboard, or ask the API:
 `pnpm exec wxt-publish-extension status` with the credentials below configured.
@@ -581,10 +777,10 @@ Because the dashboard reports listing-level numbers rather than per-screenshot o
 - [ ] **Publisher name decided** — must match the CWS developer account's public name
 - [x] Store name renamed to the brand + keyword form above (2026-09-06); `manifest.name` matches it
 - [x] Repository created as `liaolongdong/transfer-any-file` (default branch `main`)
-- [ ] About description + 20 topics above applied (GitHub search coverage lives here, not in the slug) — via `.github/workflows/repo-meta.yml` or the `gh repo edit` command
+- [ ] About description + 20 topics above applied (GitHub search coverage lives here, not in the slug) — via `.github/workflows/repo-meta.yml`, or the `curl` one-off in _GitHub Repository Metadata_ (`gh` is not installed here)
 - [ ] GitHub social preview uploaded from `docs/assets/store/github-social-preview.png` — dashboard only, there is no API for it
 - [x] `pnpm package` zip inspected: excludes `.git/`, `node_modules/`, `.test-*`, `CHROMEWEBSTORE.md`, `docs/`, `fixtures/` — asserted by `.github/workflows/release.yml`
-- [ ] `pnpm lint:all` and `pnpm test:e2e` green on the commit being packaged
+- [ ] `pnpm lint:all`, `pnpm verify:meta`, `pnpm verify:offline`, `pnpm verify:listing` and `pnpm test:e2e` green on the commit being packaged
 
 ### Rejection History
 

@@ -51,7 +51,7 @@ A Chrome extension (Manifest V3) that does every conversion inside a tab on your
 <p align="center">
   <img src="docs/assets/screenshots/batch-results.png" alt="Conversion complete message listing three generated HTML files with their sizes, per-file preview, copy and download buttons, and a Download ZIP action for the batch" width="100%" />
   <br />
-  <sub><b>40 files in, one ZIP out</b> — per-file results, one archive download.</sub>
+  <sub><b>One mixed batch, one ZIP download</b> — per-file results, each with its own preview and copy button.</sub>
 </p>
 
 <p align="center">
@@ -74,7 +74,7 @@ A Chrome extension (Manifest V3) that does every conversion inside a tab on your
 
 ## Why this exists
 
-Most "free online converter" sites ask you to upload the file first. That is fine for a public dataset and unacceptable for an HR spreadsheet, a client contract, a medical report, or a draft you have not told anyone about yet. They also add an account wall, a daily quota, a 25 MB cap, and an upload round-trip for something your laptop can finish in 40 milliseconds.
+Most "free online converter" sites ask you to upload the file first. That is fine for a public dataset and unacceptable for an HR spreadsheet, a client contract, a medical report, or a draft you have not told anyone about yet. They also add an account wall, a daily quota and a size cap, and make you pay an upload round-trip for something your own laptop can finish without a network.
 
 Transfer Any File keeps the whole job local. The converters run in the extension page, so a 3 MB Word file becomes Markdown without a single packet leaving the machine — and it still works on a plane.
 

@@ -27,6 +27,8 @@ jobs:
       - run: pnpm verify:meta
       # The privacy claim every document repeats: no network call in first-party source
       - run: pnpm verify:offline
+      # Dashboard paste fields inside their character limits, and in sync with the manifest
+      - run: pnpm verify:listing
 
   build:
     name: Build Extension

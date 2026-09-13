@@ -168,9 +168,11 @@
             "name": "Transfer Any File",
             "alternateName": "Transfer Any File — Offline File Format Converter",
             "softwareVersion": "1.0.0",
+            "datePublished": "2026-09-07",
             "dateModified": "2026-09-13",
             "applicationCategory": "UtilitiesApplication",
             "applicationSubCategory": "File Format Converter",
+            "keywords": "offline file format converter, file converter chrome extension, markdown to pdf, word to pdf, csv to excel, json to csv, png to webp, svg to png, html to docx, batch file conversion, convert files without uploading, local-first, privacy",
             "operatingSystem": "Chrome OS, Windows, macOS, Linux (Google Chrome 88+, or any Chromium browser with Manifest V3 support)",
             "inLanguage": ["zh-CN", "en"],
             "description": [
@@ -234,7 +236,7 @@
                 "name": "Does Transfer Any File upload my files?",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "No. Every converter is JavaScript bundled into the extension, the manifest declares only the storage permission with no host_permissions, and the project source contains no fetch, XMLHttpRequest, WebSocket, EventSource or sendBeacon call. There is no server to upload to, and the extension works with networking disabled."
+                  "text": "No. Every converter is JavaScript bundled into the extension, the manifest declares only the storage permission with no host_permissions, and the first-party source in entrypoints/, components/, composables/ and utils/ contains no fetch, XMLHttpRequest, WebSocket, EventSource or sendBeacon call — CI re-checks that assertion on every push. Bundled third-party conversion libraries keep some request paths they never call, but with no host permission the browser blocks those calls outright. There is no server to upload to, and the extension works with networking disabled."
                 }
               },
               {
@@ -242,7 +244,7 @@
                 "name": "Transfer Any File 会把我的文件上传到服务器吗？",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "不会。所有转换器都是打包进扩展的 JavaScript，清单只声明 storage 权限且没有 host_permissions，项目源码中不存在 fetch、XMLHttpRequest、WebSocket、EventSource 或 sendBeacon 调用。没有可供上传的服务器，关闭网络也能正常使用。"
+                  "text": "不会。所有转换器都是打包进扩展的 JavaScript，清单只声明 storage 权限且没有 host_permissions，entrypoints/、components/、composables/ 与 utils/ 下的第一方源码不存在 fetch、XMLHttpRequest、WebSocket、EventSource 或 sendBeacon 调用——CI 会在每次推送时重新校验这一断言。打包进来的第三方转换库保留了一些从不被调用的请求路径，但没有 host 权限时浏览器会直接拦下这些调用。没有可供上传的服务器，关闭网络也能正常使用。"
                 }
               },
               {
@@ -529,7 +531,6 @@
                 "@value": "构建扩展并以「加载未打包的扩展」方式安装，随后打开转换工作台。"
               }
             ],
-            "totalTime": "PT10M",
             "step": [
               {
                 "@type": "HowToStep",
@@ -556,6 +557,29 @@
                 "text": "Click the toolbar icon: the conversion workbench opens in a new tab."
               }
             ]
+          },
+          {
+            "@type": "WebSite",
+            "@id": "https://liaolongdong.github.io/transfer-any-file/#website",
+            "url": "https://liaolongdong.github.io/transfer-any-file/",
+            "name": "Transfer Any File",
+            "inLanguage": ["zh-CN", "en"],
+            "about": { "@id": "https://liaolongdong.github.io/transfer-any-file/#app" },
+            "publisher": {
+              "@type": "Person",
+              "name": "Better",
+              "url": "https://github.com/liaolongdong"
+            }
+          },
+          {
+            "@type": "SoftwareSourceCode",
+            "@id": "https://github.com/liaolongdong/transfer-any-file/#code",
+            "name": "transfer-any-file",
+            "codeRepository": "https://github.com/liaolongdong/transfer-any-file",
+            "programmingLanguage": ["TypeScript", "Vue"],
+            "runtimePlatform": "Chromium (Manifest V3)",
+            "license": "https://spdx.org/licenses/ISC.html",
+            "isPartOf": { "@id": "https://liaolongdong.github.io/transfer-any-file/#website" }
           }
         ]
       }
@@ -740,11 +764,6 @@
         clip-path: inset(50%);
         white-space: nowrap;
         border: 0;
-      }
-
-      /* Keeps a CJK word from being split across lines inside display type. */
-      .nw {
-        white-space: nowrap;
       }
 
       /* ============ Nav ============ */
@@ -1856,12 +1875,11 @@
             </span>
             <h1>
               <span lang="zh-CN"
-                ><span class="grad">14 种格式</span>在浏览器里<span class="nw">互转，</span
-                ><br />一个字节也不上传。</span
+                ><span class="grad">离线文件格式转换</span>扩展<br />14 种格式在浏览器里互转，一个字节也不上传。</span
               >
               <span lang="en"
-                ><span class="grad">Convert 14 file formats</span> inside your browser —<br />without uploading a
-                byte.</span
+                ><span class="grad">Offline file format converter</span> for Chrome<br />14 formats converted in your
+                browser, without uploading a byte.</span
               >
             </h1>
             <p class="lede">
@@ -1896,7 +1914,7 @@
                   <path d="M7 10l5 5 5-5" />
                   <path d="M12 15V3" />
                 </svg>
-                <span lang="zh-CN">从源码安装（约 1 分钟）</span><span lang="en">Install from source (~1 min)</span>
+                <span lang="zh-CN">从源码安装（4 步）</span><span lang="en">Install from source (4 steps)</span>
               </a>
               <a
                 class="btn btn-ghost"
@@ -3592,12 +3610,12 @@
             </h2>
             <p class="sub">
               <span lang="zh-CN"
-                >尚未上架 Chrome
-                应用商店，所以目前的安装方式是「加载未打包的扩展」，约一分钟。上架后本块会同步更新。</span
+                >尚未上架 Chrome 应用商店，所以目前的安装方式是「加载未打包的扩展」：需要 Node.js 20.12 或更新版本与
+                pnpm。上架后本块会同步更新。</span
               >
               <span lang="en"
-                >It is not on the Chrome Web Store yet, so today it is a load-unpacked install — four steps, about a
-                minute. This section will be updated once it is listed.</span
+                >It is not on the Chrome Web Store yet, so today it is a load-unpacked install: Node.js 20.12 or later
+                and pnpm. This section will be updated once it is listed.</span
               >
             </p>
           </div>
@@ -4076,16 +4094,24 @@ pnpm build</code><button
               <div class="faq-a">
                 <span lang="zh-CN"
                   >不会。所有转换器都是打包进扩展的 JavaScript，清单只声明 <code>storage</code> 权限且没有
-                  <code>host_permissions</code>，项目源码中不存在
+                  <code>host_permissions</code>，<code>entrypoints/</code>、<code>components/</code>、<code
+                    >composables/</code
+                  >
+                  与 <code>utils/</code> 下的第一方源码不存在
                   <code>fetch</code>、<code>XMLHttpRequest</code>、<code>WebSocket</code>、<code>EventSource</code> 或
-                  <code>sendBeacon</code> 调用。没有可供上传的服务器，关闭网络也能正常使用。</span
+                  <code>sendBeacon</code> 调用，CI
+                  会在每次推送时重新校验这一断言。打包进来的第三方转换库保留了一些从不被调用的请求路径，但没有 host
+                  权限时浏览器会直接拦下这些调用。没有可供上传的服务器，关闭网络也能正常使用。</span
                 >
                 <span lang="en"
                   >No. Every converter is JavaScript bundled into the extension, the manifest declares only the
-                  <code>storage</code> permission with no <code>host_permissions</code>, and the project source contains
-                  no <code>fetch</code>, <code>XMLHttpRequest</code>, <code>WebSocket</code>,
-                  <code>EventSource</code> or <code>sendBeacon</code> call. There is no server to upload to, and the
-                  extension works with networking disabled.</span
+                  <code>storage</code> permission with no <code>host_permissions</code>, and the first-party source in
+                  <code>entrypoints/</code>, <code>components/</code>, <code>composables/</code> and
+                  <code>utils/</code> contains no <code>fetch</code>, <code>XMLHttpRequest</code>,
+                  <code>WebSocket</code>, <code>EventSource</code> or <code>sendBeacon</code> call — CI re-checks that
+                  assertion on every push. Bundled third-party conversion libraries keep some request paths they never
+                  call, but with no host permission the browser blocks those calls outright. There is no server to
+                  upload to, and the extension works with networking disabled.</span
                 >
               </div>
             </details>
@@ -4719,6 +4745,15 @@ pnpm build</code><button
         <div class="foot-grid">
           <div>
             <nav aria-label="Footer">
+              <a href="#why"
+                ><span lang="zh-CN">为什么不用在线转换网站</span><span lang="en">Why not an online converter</span></a
+              >
+              <a href="#privacy"
+                ><span lang="zh-CN">「不上传」怎么验证</span><span lang="en">How "no uploads" is verified</span></a
+              >
+              <a href="#details"
+                ><span lang="zh-CN">构建与验证方式</span><span lang="en">Build &amp; verification</span></a
+              >
               <a href="https://github.com/liaolongdong/transfer-any-file">GitHub</a>
               <a href="https://github.com/liaolongdong/transfer-any-file/issues">
                 <span lang="zh-CN">提需求 &amp; 报问题</span><span lang="en">Issues &amp; format requests</span>

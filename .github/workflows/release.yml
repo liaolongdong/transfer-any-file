@@ -75,6 +75,7 @@ jobs:
         run: |
           pnpm verify:meta
           pnpm verify:offline
+          pnpm verify:listing
 
       - name: Build
         run: pnpm build

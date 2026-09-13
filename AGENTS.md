@@ -13,23 +13,24 @@
 
 ## 常用命令
 
-| 用途               | 命令                                                                                                                         |
-| ------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
-| 开发（热重载）     | `pnpm dev`                                                                                                                   |
-| 生产构建           | `pnpm build`（输出 `.output/chrome-mv3`）                                                                                    |
-| 打包分发 zip       | `pnpm package`                                                                                                               |
-| 类型检查           | `pnpm typecheck`（vue-tsc）                                                                                                  |
-| ESLint / Stylelint | `pnpm lint` / `pnpm lint:style`                                                                                              |
-| 全量检查           | `pnpm lint:all`（typecheck + eslint + stylelint）                                                                            |
-| 元数据一致性       | `pnpm verify:meta`（`package.json` ↔ `wxt.config.ts` ↔ `.github/repo-metadata.json`）                                        |
-| 离线断言           | `pnpm verify:offline`（第一方源码无网络调用；manifest 仅 `storage`、无 host 权限）                                           |
-| E2E 测试           | `pnpm test:e2e`（= build + `node scripts/e2e-test.mjs`，Playwright + Chrome）                                                |
-| 图标重建           | `node scripts/render-icons.mjs`（源 `assets/*.svg` → `public/icon/*.png` + `docs/assets/icon*.png`）                         |
-| 商店/文档素材      | `pnpm build && pnpm assets:capture`（脚本自身不构建，缺 `.output/chrome-mv3` 会直接退出）                                    |
-| 公众号稿排版       | `pnpm promo:wechat`（`scripts/render-wechat-html.mjs`，内联样式 + 图片内嵌 + 外链转文末）                                    |
-| 产物校验           | `node scripts/verify-extension.mjs`                                                                                          |
-| 发布               | `git tag vX.Y.Z && git push --tags` → `.github/workflows/release.yml`（校版本/包内容 → GitHub Release → 凭证齐备时提交商店） |
-| 仓库 About 同步    | 改 `.github/repo-metadata.json` → `.github/workflows/repo-meta.yml`（需 `REPO_METADATA_TOKEN`）                              |
+| 用途               | 命令                                                                                                                            |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
+| 开发（热重载）     | `pnpm dev`                                                                                                                      |
+| 生产构建           | `pnpm build`（输出 `.output/chrome-mv3`）                                                                                       |
+| 打包分发 zip       | `pnpm package`                                                                                                                  |
+| 类型检查           | `pnpm typecheck`（vue-tsc）                                                                                                     |
+| ESLint / Stylelint | `pnpm lint` / `pnpm lint:style`                                                                                                 |
+| 全量检查           | `pnpm lint:all`（typecheck + eslint + stylelint）                                                                               |
+| 元数据一致性       | `pnpm verify:meta`（`package.json` ↔ `wxt.config.ts` ↔ `.github/repo-metadata.json`）                                           |
+| 离线断言           | `pnpm verify:offline`（第一方源码无网络调用；manifest 仅 `storage`、无 host 权限）                                              |
+| 商店文案一致性     | `pnpm verify:listing`（`CHROMEWEBSTORE.md` 每个粘贴字段不超限、与 manifest / `package.json` / 仓库 About 一致、速查区块未漂移） |
+| E2E 测试           | `pnpm test:e2e`（= build + `node scripts/e2e-test.mjs`，Playwright + Chrome）                                                   |
+| 图标重建           | `node scripts/render-icons.mjs`（源 `assets/*.svg` → `public/icon/*.png` + `docs/assets/icon*.png`）                            |
+| 商店/文档素材      | `pnpm build && pnpm assets:capture`（脚本自身不构建，缺 `.output/chrome-mv3` 会直接退出）                                       |
+| 公众号稿排版       | `pnpm promo:wechat`（`scripts/render-wechat-html.mjs`，内联样式 + 图片内嵌 + 外链转文末）                                       |
+| 产物校验           | `node scripts/verify-extension.mjs`                                                                                             |
+| 发布               | `git tag vX.Y.Z && git push --tags` → `.github/workflows/release.yml`（校版本/包内容 → GitHub Release → 凭证齐备时提交商店）    |
+| 仓库 About 同步    | 改 `.github/repo-metadata.json` → `.github/workflows/repo-meta.yml`（需 `REPO_METADATA_TOKEN`）                                 |
 
 > 包管理器固定 `pnpm`（见 `package.json#packageManager`），勿混用 npm/yarn。`pnpm fix:all` 会重写全仓库，局部任务改用 `pnpm exec eslint --fix <file>` / `stylelint --fix` / `prettier --write <file>`。
 
@@ -89,7 +90,7 @@
 
 - **无单元测试框架（无 vitest）**。端到端用 Playwright：`scripts/e2e-test.mjs` 加载构建产物，跑各转换场景并截图到 `.test-screenshots/`，夹具在 `fixtures/`（由 `scripts/make-fixtures.cjs` 生成）。
 - 交付前按改动范围执行：`pnpm lint:all`（必过）；涉及入口/manifest/依赖/打包 → `pnpm build`；涉及转换逻辑或端到端行为 → `pnpm test:e2e`。
-- CI（`.github/workflows/ci.yml`，Node 20）：lint（`pnpm lint:all` + `verify:meta` + `verify:offline`）+ build + e2e。另有三条独立工作流：`static.yml`（Pages，只在 `docs/**` 变更时部署）、`release.yml`（tag 发布）、`repo-meta.yml`（About 同步）。
+- CI（`.github/workflows/ci.yml`，Node 20）：lint（`pnpm lint:all` + `verify:meta` + `verify:offline` + `verify:listing`）+ build + e2e。另有三条独立工作流：`static.yml`（Pages，只在 `docs/**` 变更时部署）、`release.yml`（tag 发布）、`repo-meta.yml`（About 同步）。
 - 截图脚本与 e2e 共用一套「静态服务 + mock `chrome.storage`」启动方式，目前**故意保留两份**（避免改 1290 行测试文件引入回归）；出现第三个消费方时再抽 `scripts/e2e-harness.mjs`。
 - 不为通过检查而弱化规则、跳过或隐藏错误；无法运行的项在交付时说明原因。
 
@@ -110,5 +111,5 @@
 
 - 需求满足，既有功能、交互、数据与隐私边界无未确认变化。
 - 自审 diff：无遗留调试 `console`、无敏感数据、无无关改动、异常路径已处理。
-- `pnpm lint:all` 通过，`pnpm verify:meta` 与 `pnpm verify:offline` 通过（改到对外文案、manifest 或仓库元数据时尤其）；按范围补 `pnpm build` / `pnpm test:e2e`，或说明未验证项。
+- `pnpm lint:all` 通过，`pnpm verify:meta` 与 `pnpm verify:offline` 通过（改到对外文案、manifest 或仓库元数据时尤其），改到 `CHROMEWEBSTORE.md` 时另跑 `pnpm verify:listing`；按范围补 `pnpm build` / `pnpm test:e2e`，或说明未验证项。
 - 交付说明：改了什么、关键原因、执行了哪些验证、剩余风险。

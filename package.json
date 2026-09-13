@@ -34,6 +34,7 @@
     "test:e2e": "pnpm build && node scripts/e2e-test.mjs",
     "verify:meta": "node scripts/check-package-meta.mjs",
     "verify:offline": "node scripts/check-offline.mjs",
+    "verify:listing": "node scripts/check-store-listing.mjs",
     "assets:capture": "node scripts/capture-store-assets.mjs",
     "promo:wechat": "node scripts/render-wechat-html.mjs docs/promo/wechat-article.md"
   },

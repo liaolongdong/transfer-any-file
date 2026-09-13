@@ -75,5 +75,5 @@ trigger: always_on
 ## 12. 验证
 
 - 每次功能开发或修复后必须自审 diff，禁止引入新问题或破坏存量功能与交互。
-- 按改动范围执行：TS/Vue/运行时 → `pnpm lint:all`；入口/manifest/依赖/打包 → `pnpm build`；转换逻辑或端到端行为 → `pnpm test:e2e`（Playwright + `fixtures/`）。
-- 改动 `docs/`、`CHROMEWEBSTORE.md` 或新增素材脚本后，`pnpm build` 并确认 `.output/chrome-mv3` 内**没有** `docs/`、`CHROMEWEBSTORE.md` 等文档产物；对外文案里的数字（格式数、路径数、体积、阈值）必须从代码或构建输出取证，不得沿用旧文档估计。
+- 按改动范围执行：TS/Vue/运行时 → `pnpm lint:all`；入口/manifest/依赖/打包 → `pnpm build`；转换逻辑或端到端行为 → `pnpm test:e2e`（Playwright + `fixtures/`）；商店文案 `CHROMEWEBSTORE.md` → `pnpm verify:listing`。
+- 改动 `docs/`、`CHROMEWEBSTORE.md` 或新增素材脚本后，`pnpm build` 并确认 `.output/chrome-mv3` 内**没有** `docs/`、`CHROMEWEBSTORE.md` 等文档产物；改到商店粘贴字段时另跑 `pnpm verify:listing`（限长、与 manifest 一致、速查区块未漂移）；对外文案里的数字（格式数、路径数、体积、阈值）必须从代码或构建输出取证，不得沿用旧文档估计。
