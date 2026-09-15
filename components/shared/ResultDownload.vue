@@ -10,10 +10,17 @@ import { FileFormat } from '~/utils/core/types';
 import PreviewDialog from '~/components/shared/PreviewDialog.vue';
 import FailureDiagnosticItem from '~/components/shared/FailureDiagnosticItem.vue';
 
-const props = defineProps<{
-  results: ConvertResult[];
-  failures: ConversionFailure[];
-}>();
+const props = withDefaults(
+  defineProps<{
+    results: ConvertResult[];
+    failures: ConversionFailure[];
+    /** True when the batch ended because the user cancelled it, so the header must not read as complete. */
+    cancelled?: boolean;
+    /** Files the batch planned to process; only meaningful together with `cancelled`. */
+    totalCount?: number;
+  }>(),
+  { cancelled: false, totalCount: 0 },
+);
 
 const emit = defineEmits<{
   (e: 'download', index: number): void;
@@ -25,10 +32,17 @@ const { detectFormat } = useFileDetect();
 
 const hasFailures = computed(() => props.failures.length > 0);
 const alertType = computed(() => {
+  if (props.cancelled) return props.results.length > 0 ? 'warning' : 'info';
   if (props.results.length === 0) return 'error';
   return hasFailures.value ? 'warning' : 'success';
 });
 const alertTitle = computed(() => {
+  // A truncated batch must not read as a finished one; the counts still tell how much is usable.
+  if (props.cancelled) {
+    return props.results.length > 0
+      ? t('result.cancelledPartial', { done: props.results.length, total: props.totalCount })
+      : t('result.cancelledNone');
+  }
   if (props.results.length === 0) return t('result.doneNone');
   if (hasFailures.value) {
     return t('result.donePartial', { ok: props.results.length, fail: props.failures.length });
@@ -91,7 +105,7 @@ function openPreview(result: ConvertResult): void {
 
 <template>
   <div
-    v-if="results.length > 0 || failures.length > 0"
+    v-if="results.length > 0 || failures.length > 0 || cancelled"
     class="result-download"
   >
     <el-alert

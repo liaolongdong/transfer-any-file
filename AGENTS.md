@@ -43,12 +43,12 @@
   - `App.vue`：装配层——调用 `initConverters()`，编排 `useConversion` / `useI18n`，重型子组件用 `defineAsyncComponent` 懒加载，绑定 `Ctrl/⌘+Enter` 开始转换。
 - **转换引擎（核心）**：
   - `utils/core/types.ts`：`FileFormat` 枚举、`Converter` / `ConvertResult` / `ConversionStep` / `FileFormatInfo` 接口。
-  - `utils/core/registry.ts`：`ConverterRegistry` 单例，维护 from→to 邻接表，用 **BFS** 求最短多步路径（`findConversionPath`）与全部可达目标（`getAllSupportedTargets`）。
-  - `utils/converters/*.ts`：每个转换对一个模块，实现 `Converter`（`from`/`to`/`convert(blob)`），重型依赖内部动态 `import()`。
+  - `utils/core/registry.ts`：`ConverterRegistry` 单例，维护 from→to 邻接表，用 **BFS** 求最短多步路径（`findConversionPath`）与全部可达目标（`getAllSupportedTargets`）；`resolvePath()` 是转换时解析路径的**唯一入口**，`conversion-policy` 在此强制（不再只由下拉框查询）。
+  - `utils/converters/*.ts`：每个转换对一个模块，实现 `Converter`（`from`/`to`/`convert(blob, ctx?)`，`ctx` 携带 `signal`/`source`/`options`），重型依赖内部动态 `import()`；产出图片一律走 `utils/core/image-utils.ts` 的 `encodeCanvas()`，返回非名义容器（ZIP）时声明 `containerExt`。
   - `utils/converters/index.ts`：`initConverters()` 幂等注册全部转换器（启动时调用一次）。
-- **`composables/`**：`useConversion`（批量转换编排：逐文件路径解析、错误隔离、`AbortController` 取消、fflate ZIP、写历史）、`useFileDetect`（扩展名优先 + MIME 兜底）、`useHistory`（最近 50 条**元数据**，模块级共享）、`useI18n`（中/英，默认 `zh`，模块级响应式）、`useTheme`（6 主题 × light/dark/system）、`useShortcuts`（`Ctrl/⌘+Enter` 改绑，持久化到 storage）、`useRecentTargets`（最近 6 个目标格式，模块级共享）、`useConfirmConvert`（大批次确认开关）、`useNotification`（后台批次完成桌面通知；用**web `Notification` API**，非 `chrome.notifications`，因此 manifest 仍只需 `storage`）。
-- **`components/`**：`shared/`（FileUpload、FormatSelector、ConversionProgress、ResultDownload、ComparisonView、PreviewDialog、PreferencesMenu、CollapsibleCard、FailureDiagnosticItem、HistoryTrendChart）+ `options/HistoryPanel`；`popup/` 为空占位（无 popup）。
-- **`utils/core/` 其它工具**：`conversion-policy.ts`（`getBlockedReason`：图上可达但语义无效的 from→to 组合，UI 置灰而非报错）、`format-labels.ts`（`FORMAT_INFO` 元数据 + label/category）、`text-decode.ts`（UTF-8 + GBK 兜底）、`html-document.ts`、`image-utils.ts`、`preview.ts`、`alt-chunk.ts`、`format.ts`（`formatSize` + `TEXT_FORMATS` 可编辑/可复制文本格式 + `isZipCompressible` 逐条目压缩策略）、`shortcut.ts`（纯快捷键解析/校验/匹配，无响应式与 storage）、`platform.ts`（`isApplePlatform` 单一事实来源）。
+- **`composables/`**：`useConversion`（批量转换编排：逐文件路径解析、错误隔离、`AbortController` 取消、fflate ZIP、写历史；`cancelled` 状态区分「跑完」与「被中断」）、`useFileDetect`（扩展名优先 + MIME 兜底）、`useHistory`（最近 50 条**元数据**，模块级共享）、`useI18n`（中/英，无存储值时按 `navigator.languages` 判定，模块级响应式）、`useTheme`（6 主题 × light/dark/system）、`useShortcuts`（`Ctrl/⌘+Enter` 改绑，持久化到 storage）、`useRecentTargets`（最近 6 个目标格式，模块级共享）、`useConfirmConvert`（大批次确认开关）、`useOutputOptions`（图片输出参数，持久化到 `fat:outputOptions`，读取时按 `output-options.ts` 的边界钳制）、`usePresets`（转换预设 ≤12，持久化到 `fat:presets`，读取时 `sanitizePresets` 净化）、`useNotification`（后台批次完成桌面通知；用**web `Notification` API**，非 `chrome.notifications`，因此 manifest 仍只需 `storage`）。
+- **`components/`**：`shared/`（FileUpload、FormatSelector、OutputOptions、PresetBar、ConversionProgress、ResultDownload、ComparisonView、PreviewDialog、PreferencesMenu、CollapsibleCard、FailureDiagnosticItem、HistoryTrendChart）+ `options/HistoryPanel`；`popup/` 为空占位（无 popup）。
+- **`utils/core/` 其它工具**：`conversion-policy.ts`（`getBlockedReason`：图上可达但语义无效的 from→to 组合，UI 置灰而非报错）、`output-options.ts`（图片输出参数的合法区间与 `optionsForStep`：只有终点编码能吃 `quality`/`targetSizeKB`）、`presets.ts`（预设的纯规则：上限、名称截断、`sanitizePresets`、自动描述）、`format-labels.ts`（`FORMAT_INFO` 元数据 + label/category）、`text-decode.ts`（UTF-8 → GB18030 → GBK 兜底）、`error-keys.ts`（`CONVERSION_ERROR_KEYS` + 分类）、`abort.ts`、`html-raster.ts`、`html-document.ts`、`image-utils.ts`（含 `encodeCanvas` / `releaseCanvas`）、`preview.ts`、`alt-chunk.ts`、`format.ts`（`formatSize` + `TEXT_FORMATS` 可编辑/可复制文本格式 + `isZipCompressible` 逐条目压缩策略）、`shortcut.ts`（纯快捷键解析/校验/匹配，无响应式与 storage）、`platform.ts`（`isApplePlatform` 单一事实来源）。
 - **`utils/storage.ts`**：唯一存储边界。`STORAGE_KEYS`（全部 `fat:` 前缀）+ `storageGet/Set`（try/catch 静默降级）+ `onStorageChange`（返回取消订阅）。仅用 `storage.local`，**无加密、无 session**。
 - **`assets/`**：`theme/tokens.css`（`--fat-*` 令牌，6 主题 + dark）、`styles/global.css`（`@import` tokens + 基础样式 + reduced-motion）、图标 SVG 母版（`icon.svg` 详细档：文档 + 环形转换徽章 / `icon-small.svg` 简化档：加粗双向箭头，为 16px 可读性而画）。
 - **对外文档层（不打包进扩展）**：`docs/index.html`（产品说明页，兼作 GitHub Pages 根目录，单文件内嵌中英双语——正文按 `lang="zh-CN"` / `lang="en"` 成对写入，由页内 `<style>` 依据 `<html lang>` 显隐，头部内联脚本在首帧前定语言；含 JSON-LD `SoftwareApplication` + `FAQPage` + `HowTo`）、`docs/privacy.html`（双语隐私政策，CWS 必需）、`docs/llms.txt` / `robots.txt` / `sitemap.xml`、`docs/assets/`（原始界面截图与推广图——README 与产品说明页用原始截图；商店列表用同目录下 `store/screens/` 的带卖点文案 1280×800 截图，中英各一套；均由 `scripts/capture-store-assets.mjs` 一次运行生成）、`docs/promo/`（推广稿：`wechat-article.md` 中文公众号稿 + `blog-article.en.md` 英文对应稿（面向 dev blog，两者数字与取证口径必须同步改）+ `weibo-posts.md` 微博文案；**草稿不发布**，生成的 `*.html` 已 gitignore，`static.yml` 明确拒绝把 `promo/` 发上线）、`CHROMEWEBSTORE.md`（商店文案、隐私披露与**首次上架手工 runbook**，**尚未上架**）、`CHANGELOG.md` / `CHANGELOG.zh-CN.md`（发布说明双语对，版本号即 manifest 版本）、`SECURITY.md` / `SECURITY.zh-CN.md` 与 `CONTRIBUTING.md` / `CONTRIBUTING.zh-CN.md`（政策与贡献须知双语对，H1 下第一行是语言切换行，改英文正文必须同步中文）。
@@ -56,13 +56,14 @@
 
 ## 核心数据流
 
-上传/粘贴文件 → `useFileDetect` 识别格式 → `availableTargets` 取所有源格式可达目标的**交集**（混合格式批次只提供对全部文件有效的目标），并剔除当前源格式本身与 `conversion-policy` 屏蔽的语义无效组合（被屏蔽者以「置灰 + 说明原因」呈现，不是不显示）→ 选目标 → `convert()`：对每个文件独立 `findConversionPath` 逐步执行多步链，`AbortController` 支持取消，**逐文件错误隔离**（单个失败不阻断批次）→ 结果下载（单文件或 ZIP）→ 成功批次写入历史（仅元数据，best-effort）。
+上传/粘贴文件 → `useFileDetect` 识别格式 → `availableTargets` 取所有源格式可达目标的**交集**（混合格式批次只提供对全部文件有效的目标），并剔除当前源格式本身与 `conversion-policy` 屏蔽的语义无效组合（被屏蔽者以「置灰 + 说明原因」呈现，不是不显示）→ 选目标（预设卡片一次注入「目标 + 输出参数」）→ `convert()`：对每个文件独立 `resolvePath` 逐步执行多步链（policy 在此兜底），目标为图片时整批读一次 `outputOptions`，`AbortController` 支持取消，**逐文件错误隔离**（单个失败不阻断批次）→ 结果下载（单文件或 ZIP）→ 成功批次写入历史（仅元数据，best-effort）。
 
 ## 新增转换器
 
-1. 新建 `utils/converters/<from>-to-<to>.ts` 实现 `Converter`（`from`/`to`/`convert(blob)`），重型依赖动态 `import()`。
-2. 在 `utils/converters/index.ts` 的 `initConverters()` 注册。
-3. 引入新格式时：扩展 `utils/core/types.ts` 的 `FileFormat`、`utils/core/format-labels.ts` 的 `FORMAT_INFO`、`composables/useFileDetect.ts` 的 `EXTENSION_MAP`/`MIME_MAP`，并补中英文案。
+1. 新建 `utils/converters/<from>-to-<to>.ts` 实现 `Converter`（`from`/`to`/`convert(blob, ctx?)`），重型依赖动态 `import()`。
+2. 耗时转换、需要源文件身份或产出图片时接收 `ctx`：在可中断处响应 `ctx.signal`，图片编码统一走 `encodeCanvas()`，返回 ZIP 等非名义容器时声明 `containerExt`。
+3. 在 `utils/converters/index.ts` 的 `initConverters()` 注册。
+4. 引入新格式时：扩展 `utils/core/types.ts` 的 `FileFormat`、`utils/core/format-labels.ts` 的 `FORMAT_INFO`、`composables/useFileDetect.ts` 的 `EXTENSION_MAP`/`MIME_MAP`，并补中英文案。
 
 > 经过新格式的多步路径由 BFS 自动发现，无需手写链路。
 
@@ -91,7 +92,7 @@
 - **无单元测试框架（无 vitest）**。端到端用 Playwright：`scripts/e2e-test.mjs` 加载构建产物，跑各转换场景并截图到 `.test-screenshots/`，夹具在 `fixtures/`（由 `scripts/make-fixtures.cjs` 生成）。
 - 交付前按改动范围执行：`pnpm lint:all`（必过）；涉及入口/manifest/依赖/打包 → `pnpm build`；涉及转换逻辑或端到端行为 → `pnpm test:e2e`。
 - CI（`.github/workflows/ci.yml`，Node 20）：lint（`pnpm lint:all` + `verify:meta` + `verify:offline` + `verify:listing`）+ build + e2e。另有三条独立工作流：`static.yml`（Pages，只在 `docs/**` 变更时部署）、`release.yml`（tag 发布）、`repo-meta.yml`（About 同步）。
-- 截图脚本与 e2e 共用一套「静态服务 + mock `chrome.storage`」启动方式，目前**故意保留两份**（避免改 1290 行测试文件引入回归）；出现第三个消费方时再抽 `scripts/e2e-harness.mjs`。
+- 截图脚本与 e2e 共用一套「静态服务 + mock `chrome.storage`」启动方式，目前**故意保留两份**（避免改动千行级测试文件引入回归）；出现第三个消费方时再抽 `scripts/e2e-harness.mjs`。
 - 不为通过检查而弱化规则、跳过或隐藏错误；无法运行的项在交付时说明原因。
 
 ## 常见陷阱

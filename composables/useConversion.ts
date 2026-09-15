@@ -1,11 +1,13 @@
-import { ref, computed } from 'vue';
+import { ref, computed, h } from 'vue';
 import type { Ref, ComputedRef } from 'vue';
 import { saveAs } from 'file-saver';
 import { Zip, ZipDeflate, ZipPassThrough } from 'fflate';
 import { FileFormat } from '~/utils/core/types';
-import type { ConvertResult } from '~/utils/core/types';
+import type { ConvertContext, ConvertResult } from '~/utils/core/types';
 import { converterRegistry } from '~/utils/core/registry';
 import { getBlockedReason } from '~/utils/core/conversion-policy';
+import { isImageOutputFormat, optionsForStep } from '~/utils/core/output-options';
+import { useOutputOptions } from '~/composables/useOutputOptions';
 import { useFileDetect } from '~/composables/useFileDetect';
 import { useHistory } from '~/composables/useHistory';
 import { useRecentTargets } from '~/composables/useRecentTargets';
@@ -19,28 +21,10 @@ import { getFormatLabel } from '~/utils/core/format-labels';
 const CONFIRM_FILE_COUNT = 5;
 const CONFIRM_TOTAL_BYTES = 20 * 1024 * 1024;
 
-/** i18n keys for known conversion errors */
-export const CONVERSION_ERROR_KEYS = new Set([
-  'errors.noFileOrTarget',
-  'errors.noPath',
-  'errors.unknown',
-  'errors.unknownFormat',
-  'errors.docxParse',
-  'errors.docxGen',
-  'errors.xlsxEmpty',
-  'errors.csvDecode',
-  'errors.imageDecode',
-  'errors.imageEncode',
-  'errors.zipFail',
-  'errors.jsonParse',
-  'errors.jsonNotArray',
-  'errors.htmlToJson',
-]);
-
 /** A single file that failed during batch conversion */
 export interface ConversionFailure {
   fileName: string;
-  /** Either an i18n key from CONVERSION_ERROR_KEYS or a raw error message */
+  /** Either an i18n key from `CONVERSION_ERROR_KEYS` (~/utils/core/error-keys) or a raw error message */
   reason: string;
   /**
    * Planned conversion path including start (`path[0]`) and end (`path[path.length - 1]`).
@@ -52,6 +36,54 @@ export interface ConversionFailure {
    * when the HTML→PNG step throws). Undefined when no chain ran.
    */
   failedStep?: number;
+  /**
+   * Raw message the classified `reason` was raised from, i.e. `Error.cause` of the thrown error.
+   *
+   * Converters translate the failure into one of `CONVERSION_ERROR_KEYS` for the headline, which
+   * by design drops what pdf.js / jsPDF / the canvas actually complained about. This keeps that
+   * reachable in the expanded diagnostic instead of discarding it.
+   */
+  detail?: string;
+}
+
+/**
+ * Trailing extension of a filename, or `null` when it carries none.
+ *
+ * Only a fallback: a converter that returns a container other than its nominal target should
+ * declare `containerExt` instead of relying on this.
+ */
+function extensionOf(filename: string): string | null {
+  return /\.([^.]+)$/.exec(filename)?.[1] ?? null;
+}
+
+/**
+ * Underlying message behind a classified error, taken from `Error.cause`.
+ *
+ * `undefined` for anything that did not keep one, and for a cause with no text — the diagnostics
+ * row is dropped entirely rather than rendered empty.
+ */
+function causeDetailOf(error: unknown): string | undefined {
+  const cause = error instanceof Error ? error.cause : undefined;
+  if (cause instanceof Error) return cause.message || undefined;
+  return typeof cause === 'string' && cause ? cause : undefined;
+}
+
+/**
+ * Second-precision local timestamp (`20260914_153012`) used to keep download names unique.
+ *
+ * Shared by the per-file names and the ZIP name: a date-only stamp is not enough, because two
+ * batches on the same day would overwrite each other in the OS downloads folder.
+ */
+function nameStamp(date: Date): string {
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, '0'),
+    String(date.getDate()).padStart(2, '0'),
+    '_',
+    String(date.getHours()).padStart(2, '0'),
+    String(date.getMinutes()).padStart(2, '0'),
+    String(date.getSeconds()).padStart(2, '0'),
+  ].join('');
 }
 
 export function useConversion() {
@@ -60,7 +92,8 @@ export function useConversion() {
   const { recordTarget } = useRecentTargets();
   const { t } = useI18n();
   const { notify } = useNotification();
-  const { isEnabled: confirmConvertEnabled } = useConfirmConvert();
+  const { isEnabled: confirmConvertEnabled, setEnabled: setConfirmConvertEnabled } = useConfirmConvert();
+  const { options: outputOptions } = useOutputOptions();
 
   const sourceFiles: Ref<File[]> = ref([]);
   const sourceFormats: Ref<(FileFormat | null)[]> = ref([]);
@@ -72,6 +105,14 @@ export function useConversion() {
   const batchFailures: Ref<ConversionFailure[]> = ref([]);
   const currentIndex: Ref<number> = ref(-1);
   const completedCount: Ref<number> = ref(0);
+  /**
+   * True when the last batch ended because the user cancelled it.
+   *
+   * The UI has to be able to tell "here are your results" apart from "here is whatever finished
+   * before you stopped it" — otherwise a truncated batch is presented exactly like a complete one,
+   * and a cancel pressed before the first file finished shows nothing at all.
+   */
+  const cancelled: Ref<boolean> = ref(false);
 
   // Undo: snapshot of the previous successful batch (results + failures + target).
   // null when nothing to undo. The snapshot is only meaningful for the file set and
@@ -125,6 +166,7 @@ export function useConversion() {
     batchResults.value = [];
     batchFailures.value = [];
     error.value = null;
+    cancelled.value = false;
     completedCount.value = 0;
     currentIndex.value = -1;
     previousBatch.value = null;
@@ -135,6 +177,7 @@ export function useConversion() {
     batchResults.value = [];
     batchFailures.value = [];
     error.value = null;
+    cancelled.value = false;
     previousBatch.value = null;
   }
 
@@ -156,22 +199,36 @@ export function useConversion() {
     const files = [...sourceFiles.value];
     const formats = [...sourceFormats.value];
     const totalBytes = files.reduce((sum, f) => sum + f.size, 0);
-    const overThreshold =
-      files.length > CONFIRM_FILE_COUNT || totalBytes > CONFIRM_TOTAL_BYTES;
+    const overThreshold = files.length > CONFIRM_FILE_COUNT || totalBytes > CONFIRM_TOTAL_BYTES;
     if (overThreshold && confirmConvertEnabled.value) {
       const hasMultiStep = formats.some((fmt): boolean => {
         if (fmt === null) return false;
         const steps = converterRegistry.findConversionPath(fmt, target);
         return !!steps && steps.length > 1;
       });
+      const messageKey = hasMultiStep ? 'convert.confirmSummaryMultiStep' : 'convert.confirmSummary';
+      const summaryText = t(messageKey, {
+        count: files.length,
+        size: formatSize(totalBytes),
+        target: getFormatLabel(target),
+      });
+      // "Don't ask again" lives in the dialog because that is the only moment the question is
+      // on screen; the Preferences toggle stays the way to turn it back on. A native input is
+      // used instead of ElCheckbox so the dialog does not pull in another component, and the
+      // preference is only written when the batch is actually confirmed.
+      const dontAsk = ref(false);
+      const setDontAsk = (event: Event) => {
+        dontAsk.value = (event.target as HTMLInputElement).checked;
+      };
       try {
-        const messageKey = hasMultiStep ? 'convert.confirmSummaryMultiStep' : 'convert.confirmSummary';
         await ElMessageBox.confirm(
-          t(messageKey, {
-            count: files.length,
-            size: formatSize(totalBytes),
-            target: getFormatLabel(target),
-          }),
+          h('div', { class: 'confirm-batch' }, [
+            h('p', { class: 'confirm-batch__summary' }, summaryText),
+            h('label', { class: 'confirm-batch__dont-ask' }, [
+              h('input', { type: 'checkbox', checked: dontAsk.value, onChange: setDontAsk }),
+              h('span', t('convert.confirmDontAsk')),
+            ]),
+          ]),
           t('convert.confirmTitle'),
           {
             confirmButtonText: t('convert.confirmOk'),
@@ -179,6 +236,7 @@ export function useConversion() {
             type: 'info',
           },
         );
+        if (dontAsk.value) await setConfirmConvertEnabled(false);
       } catch {
         ElMessage.info(t('convert.confirmCancelled'));
         return;
@@ -202,6 +260,7 @@ export function useConversion() {
 
     isConverting.value = true;
     error.value = null;
+    cancelled.value = false;
     batchResults.value = [];
     batchFailures.value = [];
     completedCount.value = 0;
@@ -216,19 +275,16 @@ export function useConversion() {
     const results: ConvertResult[] = [];
     const failures: ConversionFailure[] = [];
 
+    // Read once for the whole batch: the panel is disabled while converting, but a snapshot also
+    // keeps one batch from being encoded under two different settings if the value ever changes.
+    // Gated on the *batch* target — MD→PDF and XLSX→…→PNG→PDF rasterize along the way, and a
+    // leftover 800px cap must not quietly degrade an output the user never asked to shrink.
+    const batchOptions = isImageOutputFormat(target) ? { ...outputOptions.value } : undefined;
+
     // Keep output names unique with timestamp; suffix only when a name is already taken
     const usedNames = new Set<string>();
     function uniqueName(base: string, ext: string): string {
-      const now = new Date();
-      const timestamp = [
-        now.getFullYear(),
-        String(now.getMonth() + 1).padStart(2, '0'),
-        String(now.getDate()).padStart(2, '0'),
-        '_',
-        String(now.getHours()).padStart(2, '0'),
-        String(now.getMinutes()).padStart(2, '0'),
-        String(now.getSeconds()).padStart(2, '0'),
-      ].join('');
+      const timestamp = nameStamp(new Date());
       let name = `${base}_${timestamp}.${ext}`;
       let n = 2;
       while (usedNames.has(name)) {
@@ -253,9 +309,10 @@ export function useConversion() {
         try {
           if (!format) throw new Error('errors.unknownFormat');
 
-          // Each file resolves its own path so mixed-format batches stay correct
-          const steps = converterRegistry.findConversionPath(format, target);
-          if (!steps || steps.length === 0) throw new Error('errors.noPath');
+          // Each file resolves its own path so mixed-format batches stay correct. This is also the
+          // policy gate now, so a target that never went through the dropdown cannot run a
+          // conversion the UI deliberately greys out.
+          const steps = converterRegistry.resolvePath(format, target);
 
           // Build the format chain: every step's `to`, prefixed with the source format.
           // path[0] is the source, path[path.length-1] is the target, path.length-1 is the
@@ -263,18 +320,25 @@ export function useConversion() {
           stepPath = [format, ...steps.map(s => s.to)];
 
           let currentBlob: Blob = file;
-          // The final step's filename carries the real container extension
-          // (e.g. a multi-sheet XLSX→CSV yields a .zip, not a .csv)
-          // Regex picks up only the trailing extension; names without a dot fall back to target.
+          // The last step decides the real container: a multi-sheet XLSX→CSV and a multi-page
+          // PDF→PNG both hand back a ZIP while the nominal target still says CSV / PNG. `containerExt`
+          // is how a converter declares that; scanning the returned filename is only the fallback for
+          // converters that have not declared it.
           let outExt: string = target;
           for (let stepIndex = 0; stepIndex < steps.length; stepIndex++) {
             if (abortController.signal.aborted) break;
             const step = steps[stepIndex];
+            // Built per step because only the final encode may honour `quality` and `targetSizeKB`;
+            // the signal and the source identity stay the same across the whole chain.
+            const ctx: ConvertContext = {
+              signal: abortController.signal,
+              source: file,
+              options: optionsForStep(batchOptions, stepIndex === steps.length - 1),
+            };
             try {
-              const stepResult = await step.converter.convert(currentBlob);
+              const stepResult = await step.converter.convert(currentBlob, ctx);
               currentBlob = stepResult.blob;
-              const m = /\.([^.]+)$/.exec(stepResult.filename);
-              if (m && m[1]) outExt = m[1];
+              outExt = stepResult.containerExt ?? extensionOf(stepResult.filename) ?? outExt;
             } catch (stepError) {
               stepFailedAt = stepIndex + 1;
               throw stepError;
@@ -285,12 +349,17 @@ export function useConversion() {
           const base = file.name.replace(/\.[^.]+$/, '');
           results.push({ blob: currentBlob, filename: uniqueName(base, outExt) });
         } catch (e) {
+          // A cancel surfacing from inside a long step is not a failure of that file: the user
+          // asked to stop and the batch ends here anyway. Recording it would put a "Conversion
+          // cancelled" row in the failures list beside the results still worth downloading.
+          if (abortController.signal.aborted) break;
           // Isolate per-file errors: keep converting the remaining files
           const failure: ConversionFailure = {
             fileName: file.name,
             reason: e instanceof Error && e.message ? e.message : 'errors.unknown',
             path: stepPath,
             failedStep: stepFailedAt,
+            detail: causeDetailOf(e),
           };
           failures.push(failure);
           batchFailures.value.push(failure);
@@ -331,6 +400,9 @@ export function useConversion() {
       }
     } finally {
       const wasCancelled = abortController?.signal.aborted ?? false;
+      // Publish the fact for the UI: `isDone` alone cannot tell a finished batch from one the user
+      // stopped halfway, and a cancel before the first result used to render an empty screen.
+      cancelled.value = wasCancelled;
       isConverting.value = false;
       currentIndex.value = -1;
       abortController = null;
@@ -386,7 +458,10 @@ export function useConversion() {
       const chunks: BlobPart[] = [];
       await new Promise<void>((resolve, reject) => {
         const zipStream = new Zip((err, chunk, final) => {
-          if (err) { reject(err); return; }
+          if (err) {
+            reject(err);
+            return;
+          }
           if (chunk) chunks.push(chunk);
           if (final) resolve();
         });
@@ -405,8 +480,7 @@ export function useConversion() {
           }
         })();
       });
-      const stamp = new Date().toISOString().slice(0, 10);
-      saveAs(new Blob(chunks, { type: 'application/zip' }), `converted-${stamp}.zip`);
+      saveAs(new Blob(chunks, { type: 'application/zip' }), `converted-${nameStamp(new Date())}.zip`);
     } catch {
       error.value = 'errors.zipFail';
     }
@@ -424,6 +498,7 @@ export function useConversion() {
     batchResults.value = [];
     batchFailures.value = [];
     error.value = null;
+    cancelled.value = false;
     completedCount.value = 0;
     currentIndex.value = -1;
     previousBatch.value = null;
@@ -437,6 +512,7 @@ export function useConversion() {
     batchResults.value = [];
     batchFailures.value = [];
     error.value = null;
+    cancelled.value = false;
     completedCount.value = 0;
     currentIndex.value = -1;
     previousBatch.value = null;
@@ -455,6 +531,9 @@ export function useConversion() {
     currentIndex.value = snap.currentIndex;
     targetFormat.value = snap.target;
     error.value = null;
+    // The restored snapshot is a batch that ran to completion; leaving `cancelled` set would
+    // keep the header and the live region describing a stopped batch over intact results.
+    cancelled.value = false;
     previousBatch.value = null;
     return true;
   }
@@ -470,6 +549,7 @@ export function useConversion() {
     availableTargets,
     targetFormat,
     isConverting,
+    cancelled,
     error,
     batchResults,
     batchFailures,

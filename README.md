@@ -164,23 +164,25 @@ Summarised from the typical behaviour of each class of tool rather than one spec
 - **Inline editing** — text results (Markdown / HTML / TXT / CSV / JSON) can be corrected before you download them
 - **Copy to clipboard** — text results copy out with one click, so a conversion does not have to round-trip through a download
 - **Paste to convert** — <kbd>⌘V</kbd> / <kbd>Ctrl+V</kbd> drops in a clipboard image or text snippet
-- **Encoding-aware CSV** — reads UTF-8 with GBK fallback, writes UTF-8 with BOM so Excel opens it without mojibake
+- **Encoding-aware CSV** — reads UTF-8 with a GB18030 → GBK fallback, writes UTF-8 with BOM so Excel opens it without mojibake
 
 **Control and recovery**
 
 - **Undo** — restore the previous batch of results in one click; the snapshot is dropped when you change the selected files or the target format
-- **Confirm before big batches** — a summary dialog once a batch exceeds 5 files or 20 MB (fixed thresholds), switchable off in Preferences
+- **Confirm before big batches** — a summary dialog once a batch exceeds 5 files or 20 MB (fixed thresholds), switchable off in Preferences or from the dialog's own **Don't ask again** box
 - **Custom shortcuts** — <kbd>Ctrl/⌘</kbd> + <kbd>Enter</kbd> starts a conversion and is rebindable; reserved browser combos (<kbd>Ctrl+T/W/N/L</kbd>, <kbd>Tab</kbd>, <kbd>Esc</kbd>, …) are rejected
 - **Completion notifications** — optional desktop notification when a batch finishes while the tab is in the background, built on the web `Notification` API so no extra permission is needed
-- **Cancellation** — a long batch can be stopped mid-run; finished files are kept
+- **Cancellation** — a long batch can be stopped mid-run; finished files are kept, and the result panel says the batch was cancelled rather than showing it as a failure
+- **Image output parameters** — when the target is PNG / JPEG / WebP, cap the longest edge, pick an encoder quality, set a best-effort file-size ceiling, and choose the render density a PDF source is rasterized at. Every one is opt-in: with nothing set the encoders run exactly as they did before. On a multi-step route the geometric settings apply at every step while quality and size apply only to the file you download — chasing a size ceiling through an intermediate encode would just throw away detail the last step would have needed
 
 **History and personalization**
 
 - **Conversion history** — the last 50 conversions (metadata only) with one-click "reuse this format", search by file name, filter by source/target format, per-record delete, a size-trend sparkline, and JSON export/import (merged by record ID). A multi-file batch is labelled `"<first file> +N"`; new records also keep the full file list, so every file in the batch is searchable and all of them show on hover. Records saved by earlier versions can only match that label
 - **Recently used targets** — the target dropdown leads with a "recently used" group holding up to 6 of the formats you convert to most often, kept only while they remain selectable for the current source; everything else stays in the document / image / data groups
-- **Remembered UI state** — the split-view divider position and the collapsed/expanded state of the history card are persisted and restored the next time the workbench opens
+- **Conversion presets** — save a target format together with its image output parameters as a one-click card (up to 12), and one click restores both. Unlike "recently used", which only remembers a format, a preset remembers the whole recipe — "JPEG, 1280 px, under 200 KB". A preset chosen before any file is added is remembered and applied to the next batch that can take it; one the current batch cannot reach is refused with a reason. An untitled preset names itself after what it does
+- **Remembered UI state** — the split-view divider position and the collapsed/expanded state of the history and preset cards are persisted and restored the next time the workbench opens
 - **Keyboard accessible** — skip link to the main content, visible focus rings, and full `prefers-reduced-motion` support
-- **Measured contrast** — the end-to-end suite asserts two contrast pairs in all 6 themes × light/dark (12 combinations): topbar brand text on the topbar at 4.5:1 or better (WCAG 2.1 AA for text), and the focus ring on a card at 3:1 or better (AA for user-interface components). It separately asserts that the first Tab lands on the skip link and that the link shows a visible ring. Known limitation: on the light green and orange themes the primary button still sits at 2.5–3.6:1, because no single foreground survives its base/hover/active shades — fixing that means re-deriving the light primary scale, which has not been done
+- **Measured contrast** — the end-to-end suite asserts three contrast pairs in all 6 themes × light/dark (12 combinations): topbar brand text on the topbar at 4.5:1 or better (WCAG 2.1 AA for text), the focus ring on a card at 3:1 or better (AA for user-interface components), and the primary button's label in its **rest, hover and pressed** states at 4.5:1 or better — read off the enabled button with a file and a target staged, because the text rule exempts disabled controls. Worst measured value (2026-09-14, live page): 4.70:1, rose in light mode; the dark themes land at 7.03:1 and up. It separately asserts that the first Tab lands on the skip link and that the link shows a visible ring. Known limitation: a control's fill needs 3:1 against the surface behind it as well (WCAG 1.4.11), and that holds in 10 of the 12 combinations but not under the forest-green and orange buttons in light mode (2.21 / 2.96:1 at their lightest state) — those two fills sit close to white, and deepening them to clear 3:1 would spend the label's margin.
 - **Personalization** — 6 theme colors × light / dark / system, Chinese/English interface
 
 ## Privacy
@@ -195,8 +197,10 @@ Summarised from the typical behaviour of each class of tool rather than one spec
 1. Click the extension icon — the conversion workbench opens in a new tab
 2. Drop files anywhere on the page (no need to hit the upload zone), click to select, or paste from the clipboard
 3. Pick a target format — only formats reachable from _all_ selected files are offered, and a multi-step conversion shows the path it will take (e.g. `MD → HTML → PDF`)
-4. Click **Convert**, then download a single file or the whole batch as a ZIP
-5. Open **Preferences** (top right) to switch theme / language / dark mode, toggle completion notifications and the large-batch confirmation, or rebind the convert shortcut
+4. Converting to an image? Set the **output parameters** that appeared under the picker — longest edge, quality, a size ceiling, PDF render density — or leave every one alone for the encoder's own defaults
+5. Click **Convert**, then download a single file or the whole batch as a ZIP
+6. Do this often? Save the format plus its parameters as a **preset** in the preset card and one click restores the whole recipe next time
+7. Open **Preferences** (top right) to switch theme / language / dark mode, toggle completion notifications and the large-batch confirmation, or rebind the convert shortcut
 
 ## FAQ
 
@@ -237,7 +241,7 @@ pnpm typecheck        # vue-tsc
 pnpm lint:all         # typecheck + eslint + stylelint
 pnpm verify:meta      # package.json / wxt.config.ts / .github/repo-metadata.json stay in sync
 pnpm verify:offline   # no network call in first-party source, storage-only manifest
-pnpm test:e2e         # build + Playwright suite over fixtures/ (159 assertions)
+pnpm test:e2e         # build + Playwright suite over fixtures/
 pnpm assets:capture   # regenerate store/README screenshots + promo graphics (needs pnpm build first)
 node scripts/render-icons.mjs   # re-render icons from assets/*.svg
 git tag v1.0.0 && git push --tags   # release.yml: build the store zip, verify it, open the GitHub Release
@@ -247,7 +251,7 @@ git tag v1.0.0 && git push --tags   # release.yml: build the store zip, verify i
 
 - [WXT](https://wxt.dev/) + Vue 3 + TypeScript + Element Plus
 - Converters: [marked](https://github.com/markedjs/marked), [turndown](https://github.com/mixmark-io/turndown), [mammoth](https://github.com/mwilliamson/mammoth.js), [html-docx-js-typescript](https://github.com/caiyexiang/html-docx-js-typescript), [jsPDF](https://github.com/parallax/jsPDF) + [html-to-image](https://github.com/bubkoo/html-to-image), [pdf.js](https://mozilla.github.io/pdf.js/), [SheetJS](https://sheetjs.com/), [fflate](https://github.com/101arrowz/fflate), [DOMPurify](https://github.com/cure53/DOMPurify)
-- Heavy dependencies are dynamically imported per converter, so the first paint stays small (whole bundle: 3.71 MB)
+- Heavy dependencies are dynamically imported per converter, so the first paint stays small (whole bundle: 3.73 MB)
 
 ### Project structure
 
@@ -280,7 +284,7 @@ SECURITY.md            # disclosure channel and the offline attack-surface claim
 
 ### Adding a new converter
 
-1. Create `utils/converters/<from>-to-<to>.ts` implementing the `Converter` interface (`from`, `to`, `convert(blob)`)
+1. Create `utils/converters/<from>-to-<to>.ts` implementing the `Converter` interface (`from`, `to`, `convert(blob, ctx?)` — the optional `ctx` carries the abort signal, the source file and the image output parameters)
 2. Register it in `utils/converters/index.ts`
 3. If it introduces a new format: extend `FileFormat`, `FORMAT_INFO` and the extension/MIME maps in `composables/useFileDetect.ts`
 

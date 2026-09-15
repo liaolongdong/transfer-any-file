@@ -39,7 +39,7 @@ const xlsxToCsvConverter: Converter = {
         RS: '\n',
         dateNF: 'yyyy-mm-dd',
       });
-      return { blob: csvBlob(csv), filename: 'converted.csv' };
+      return { blob: csvBlob(csv), filename: 'converted.csv', containerExt: 'csv' };
     }
 
     // Multi-sheet workbooks export every sheet as its own CSV inside a ZIP,
@@ -56,7 +56,8 @@ const xlsxToCsvConverter: Converter = {
     }
     const zipped = zipSync(entries, { level: 6 });
     const blob = new Blob([zipped as BlobPart], { type: 'application/zip' });
-    return { blob, filename: 'converted.zip' };
+    // Nominal target is CSV, real container is a ZIP — declared so the caller never has to infer it.
+    return { blob, filename: 'converted.zip', containerExt: 'zip' };
   },
 };
 

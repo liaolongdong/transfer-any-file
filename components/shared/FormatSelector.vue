@@ -74,6 +74,8 @@ const recentOptions = computed<FileFormatType[]>(() => {
 
 const conversionPathLabels = computed(() => {
   if (!props.targetFormat || props.sourceFormats.length === 0) return [];
+  // Each file in a mixed batch resolves its own chain, so no single path describes the batch.
+  if (isMixed.value) return [];
   const source = props.sourceFormats[0];
   const steps = converterRegistry.findConversionPath(source, props.targetFormat);
   if (!steps || steps.length <= 1) return [];
@@ -123,6 +125,8 @@ function handleChange(format: FileFormat): void {
         <el-select
           :model-value="targetFormat"
           :placeholder="t('format.selectTarget')"
+          filterable
+          :no-match-text="t('format.noMatch')"
           size="default"
           style="width: 100%"
           @change="handleChange"
@@ -153,7 +157,10 @@ function handleChange(format: FileFormat): void {
               :value="format"
               :disabled="!selectableSet.has(format)"
             >
-              <span :title="selectableSet.has(format) ? undefined : disabledReason(format)">
+              <span
+                :title="selectableSet.has(format) ? undefined : disabledReason(format)"
+                :aria-label="selectableSet.has(format) ? undefined : `${getFormatLabel(format)} — ${disabledReason(format)}`"
+              >
                 {{ getFormatLabel(format) }}
               </span>
             </el-option>

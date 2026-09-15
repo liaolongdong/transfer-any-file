@@ -164,23 +164,25 @@ pnpm build
 - **内联编辑** — 文本类结果（Markdown / HTML / TXT / CSV / JSON）可在下载前直接改
 - **复制到剪贴板** — 文本类结果可一键复制，无需先下载再打开
 - **粘贴即转换** — <kbd>⌘V</kbd> / <kbd>Ctrl+V</kbd> 直接粘贴剪贴板中的图片或文本
-- **CSV 编码友好** — 读取时 UTF-8 失败自动回退 GBK，输出带 UTF-8 BOM，Excel 打开不乱码
+- **CSV 编码友好** — 读取时 UTF-8 失败依次回退 GB18030 与 GBK，输出带 UTF-8 BOM，Excel 打开不乱码
 
 **控制与恢复**
 
 - **撤销** — 一键恢复上一批转换结果；更换所选文件或目标格式后该快照失效
-- **大批次转换前确认** — 批次超过 5 个文件或 20 MB 时弹出汇总确认框（阈值固定），可在偏好设置中关闭
+- **大批次转换前确认** — 批次超过 5 个文件或 20 MB 时弹出汇总确认框（阈值固定），可在偏好设置中关闭，也可在确认框里直接勾选「下次不再询问」
 - **自定义快捷键** — <kbd>Ctrl/⌘</kbd> + <kbd>Enter</kbd> 开始转换，可重新绑定；浏览器保留组合（<kbd>Ctrl+T/W/N/L</kbd>、<kbd>Tab</kbd>、<kbd>Esc</kbd> 等）会被拒绝
 - **完成通知** — 页面处于后台时，批次完成可选发送桌面通知；基于 Web `Notification` API，不需额外扩展权限
-- **可中断** — 长批次可中途停止，已完成的文件保留
+- **可中断** — 长批次可中途停止，已完成的文件保留；结果区会明确说明这一批「已取消」，而不是把没跑完的文件当成转换失败
+- **图片输出参数** — 目标为 PNG / JPEG / WebP 时，可限制最长边、指定编码质量、给出尽力而为的体积上限，并设定 PDF 源栅格化的清晰度。每一项都要主动设置：一个都不设时编码器完全按原样工作。多步链路上，几何参数（最长边、清晰度）逐步生效，质量与体积只作用在你下载的最后一步——在中间产物上追体积，只会提前丢掉最后一步本来还要用的细节
 
 **历史与个性化**
 
 - **转换历史** — 保留最近 50 条记录（仅元数据），支持一键"复用此格式"、按文件名搜索、按源/目标格式筛选、单条删除、体积趋势图，以及 JSON 导出/导入（按记录 ID 合并）。多文件批次显示为 `"<首个文件名> +N"`；新记录会额外保存完整文件列表，因此批次里每个文件都能被搜索到，悬停也可查看全部成员。旧版本保存的记录仍只能匹配这个标签
 - **最近使用目标格式** — 目标下拉顶部按「最近使用」分组列出最常转的格式（最多 6 个），只显示对当前源格式仍可用的项，其余仍归入文档 / 图片 / 数据三组
-- **界面状态记忆** — 对照视图的分隔条位置与转换历史卡片的折叠状态都会持久化，下次打开工作台即恢复
+- **转换预设** — 把目标格式连同它的图片输出参数存成一键卡片（最多 12 个），点一下两样同时恢复。和「最近使用」的区别在于：后者只记住一个格式，预设记住的是整套配方——「JPEG、最长边 1280 px、控制在 200 KB 以内」。还没上传文件时选的预设会被记住，交给下一批能接住它的文件；当前批次转不了的预设会说明原因而不是静默改掉目标。没起名字的预设按它做什么自动命名
+- **界面状态记忆** — 对照视图的分隔条位置，以及转换历史与预设两张卡片的折叠状态都会持久化，下次打开工作台即恢复
 - **键盘可达** — 提供跳转主内容的 skip link、可见焦点环，完整支持 `prefers-reduced-motion`
-- **可测量的对比度** — 端到端套件在 6 种主题色 × 明暗共 12 组配置下逐项断言两组对比度：顶栏品牌文字对顶栏背景 ≥ 4.5:1（文本类 WCAG 2.1 AA），焦点环对卡片背景 ≥ 3:1（用户界面组件类 AA）。另单独断言第一次 Tab 落在 skip link 上且该链接显示可见焦点环。已知限制：浅色的森林绿 / 活力橙主题下，主按钮仍只有 2.5–3.6:1，因为它的 base / hover / active 三档底色无法被同一种前景同时覆盖——这需要重排浅色主色阶，目前尚未处理
+- **可测量的对比度** — 端到端套件在 6 种主题色 × 明暗共 12 组配置下逐项断言三组对比度：顶栏品牌文字对顶栏背景 ≥ 4.5:1（文本类 WCAG 2.1 AA）、焦点环对卡片背景 ≥ 3:1（用户界面组件类 AA）、以及主按钮文字在**常态 / 悬停 / 按下**三种状态下均 ≥ 4.5:1——读数取自已放入文件、已选目标、确实可点击的那颗按钮（文本规则豁免禁用控件）。2026-09-14 在真实页面实测的最低值为 4.70:1（浅色玫瑰红），深色六档均在 7.03:1 以上。另单独断言第一次 Tab 落在 skip link 上且该链接显示可见焦点环。已知限制：控件的填充色对它所在的背景还需 ≥ 3:1（WCAG 1.4.11），12 组里有 10 组满足，浅色的森林绿与活力橙主按钮不满足（最浅状态 2.21 / 2.96:1）——这两档填充本身就接近白色，再加深到 3:1 就要花掉文字那一侧的余量。
 - **个性化** — 6 种主题色 × 浅色 / 深色 / 跟随系统，中英文界面切换
 
 ## 隐私
@@ -195,8 +197,10 @@ pnpm build
 1. 点击扩展图标——转换工作台在新标签页打开
 2. 将文件拖到页面任意位置（不必精准命中上传区），或点击选择、直接粘贴剪贴板内容
 3. 选择目标格式——下拉框只会列出所有已选文件都能到达的格式；需要多步时，下方会显示实际路径（如 `MD → HTML → PDF`）
-4. 点击 **开始转换**，随后单个下载或整批打包为 ZIP
-5. 打开右上角 **偏好设置**，可切换主题 / 语言 / 显示模式，开关完成通知与大批次确认，或重新绑定转换快捷键
+4. 转成图片时，选择器下方会出现**输出参数**——最长边、质量、体积上限、PDF 清晰度；一项都不设就是编码器原本的默认值
+5. 点击 **开始转换**，随后单个下载或整批打包为 ZIP
+6. 每次都做同一套转换？把它存成**预设**，下次在预设卡片里点一下，格式和参数一起回来
+7. 打开右上角 **偏好设置**，可切换主题 / 语言 / 显示模式，开关完成通知与大批次确认，或重新绑定转换快捷键
 
 ## 常见问题
 
@@ -237,7 +241,7 @@ pnpm typecheck        # vue-tsc 类型检查
 pnpm lint:all         # typecheck + eslint + stylelint
 pnpm verify:meta      # package.json / wxt.config.ts / .github/repo-metadata.json 保持一致
 pnpm verify:offline   # 第一方源码无网络调用，manifest 仅声明 storage 权限
-pnpm test:e2e         # 构建 + 基于 fixtures/ 的 Playwright 套件（159 条断言）
+pnpm test:e2e         # 构建 + 基于 fixtures/ 的 Playwright 套件
 pnpm assets:capture   # 重新生成商店与 README 用的截图和推广图（需先 pnpm build）
 node scripts/render-icons.mjs   # 从 assets/*.svg 重新渲染图标
 git tag v1.0.0 && git push --tags   # release.yml：产出商店包、校验包内容并创建 GitHub Release
@@ -247,7 +251,7 @@ git tag v1.0.0 && git push --tags   # release.yml：产出商店包、校验包�
 
 - [WXT](https://wxt.dev/) + Vue 3 + TypeScript + Element Plus
 - 转换器：[marked](https://github.com/markedjs/marked)、[turndown](https://github.com/mixmark-io/turndown)、[mammoth](https://github.com/mwilliamson/mammoth.js)、[html-docx-js-typescript](https://github.com/caiyexiang/html-docx-js-typescript)、[jsPDF](https://github.com/parallax/jsPDF) + [html-to-image](https://github.com/bubkoo/html-to-image)、[pdf.js](https://mozilla.github.io/pdf.js/)、[SheetJS](https://sheetjs.com/)、[fflate](https://github.com/101arrowz/fflate)、[DOMPurify](https://github.com/cure53/DOMPurify)
-- 重型依赖按转换器动态 `import()`，首屏保持精简（完整产物 3.71 MB）
+- 重型依赖按转换器动态 `import()`，首屏保持精简（完整产物 3.73 MB）
 
 ### 项目结构
 
@@ -280,7 +284,7 @@ SECURITY.md            # 漏洞披露渠道与离线攻击面说明（.zh-CN.md 
 
 ### 新增一个转换器
 
-1. 创建 `utils/converters/<from>-to-<to>.ts`，实现 `Converter` 接口（`from`、`to`、`convert(blob)`）
+1. 创建 `utils/converters/<from>-to-<to>.ts`，实现 `Converter` 接口（`from`、`to`、`convert(blob, ctx?)`——可选的 `ctx` 携带取消信号、来源文件与图片输出参数）
 2. 在 `utils/converters/index.ts` 中注册
 3. 若引入了新格式：扩展 `FileFormat`、`FORMAT_INFO`，以及 `composables/useFileDetect.ts` 中的扩展名/MIME 映射
 

@@ -33,13 +33,40 @@ function interpolate(template: string, params?: Record<string, string | number>)
   return template.replace(/\{(\w+)\}/g, (_, key: string) => (key in params ? String(params[key]) : `{${key}}`));
 }
 
+/**
+ * Keep `<html lang>` in step with the language actually rendered — it drives screen-reader
+ * pronunciation and Chrome's translate prompt, and goes stale on a runtime switch otherwise.
+ */
+export function applyDocumentLang(locale: Locale): void {
+  document.documentElement.lang = locale === 'zh' ? 'zh-CN' : 'en';
+}
+
+/**
+ * Language a first run starts on.
+ *
+ * The browser's own UI language is the only signal available to an offline extension, and opening
+ * a non-Chinese user on Chinese text makes the workbench look broken until they find the switch.
+ */
+export function detectLocale(): Locale {
+  const preferred = (navigator.languages ?? [navigator.language])[0] ?? '';
+  return preferred.toLowerCase().startsWith('zh') ? 'zh' : 'en';
+}
+
+/** An explicit stored choice wins; anything else — including a corrupt value — is detected. */
+export function resolveLocale(stored: unknown): Locale {
+  return stored === 'zh' || stored === 'en' ? stored : detectLocale();
+}
+
 async function initLocale(): Promise<void> {
   if (initialized) return;
   initialized = true;
-  state.locale = await storageGet<Locale>(STORAGE_KEYS.locale, DEFAULT_LOCALE);
+  state.locale = resolveLocale(await storageGet<unknown>(STORAGE_KEYS.locale, null));
+  applyDocumentLang(state.locale);
   state.ready = true;
   unsubscribe = onStorageChange<Locale>(STORAGE_KEYS.locale, value => {
-    if (value === 'zh' || value === 'en') state.locale = value;
+    if (value !== 'zh' && value !== 'en') return;
+    state.locale = value;
+    applyDocumentLang(value);
   });
 }
 
@@ -63,6 +90,7 @@ export function useI18n() {
 
   async function setLocale(next: Locale): Promise<void> {
     state.locale = next;
+    applyDocumentLang(next);
     await storageSet(STORAGE_KEYS.locale, next);
   }
 

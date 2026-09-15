@@ -1,6 +1,7 @@
 import { FileFormat } from '~/utils/core/types';
 import type { Converter, ConvertResult } from '~/utils/core/types';
 import { wrapHtmlDocument } from '~/utils/core/html-document';
+import { decodeTextBlobLenient } from '~/utils/core/text-decode';
 
 const IMAGE_DOC_CSS = `
     body { text-align: center; }
@@ -13,7 +14,7 @@ const svgToHtmlConverter: Converter = {
 
   async convert(input: Blob): Promise<ConvertResult> {
     const { default: DOMPurify } = await import('dompurify');
-    const svgText = await input.text();
+    const svgText = await decodeTextBlobLenient(input);
     // svgFilters profile keeps gradients/filters while dropping scripts and
     // foreign event handlers
     const cleanSvg = DOMPurify.sanitize(svgText, {

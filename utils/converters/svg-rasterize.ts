@@ -1,6 +1,7 @@
 import { FileFormat } from '~/utils/core/types';
-import type { Converter, ConvertResult } from '~/utils/core/types';
-import { loadImage, canvasToBlob, MAX_DIM } from '~/utils/core/image-utils';
+import type { Converter, ConvertContext, ConvertResult } from '~/utils/core/types';
+import { loadImage, encodeCanvas, releaseCanvas, MAX_DIM } from '~/utils/core/image-utils';
+import { decodeTextBlobLenient } from '~/utils/core/text-decode';
 
 const DEFAULT_DIM = 1024;
 
@@ -10,7 +11,7 @@ const DEFAULT_DIM = 1024;
  * viewBox) so <img> reports a usable intrinsic size.
  */
 async function prepareSvg(input: Blob): Promise<{ blob: Blob; width: number; height: number }> {
-  const text = await input.text();
+  const text = await decodeTextBlobLenient(input);
   const doc = new DOMParser().parseFromString(text, 'image/svg+xml');
   if (doc.querySelector('parsererror')) throw new Error('errors.imageDecode');
   const svg = doc.documentElement;
@@ -51,7 +52,7 @@ function createSvgRasterConverter(to: FileFormat): Converter {
   return {
     from: FileFormat.SVG,
     to,
-    async convert(input: Blob): Promise<ConvertResult> {
+    async convert(input: Blob, ctx?: ConvertContext): Promise<ConvertResult> {
       const { blob, width, height } = await prepareSvg(input);
 
       const objectUrl = URL.createObjectURL(blob);
@@ -73,17 +74,22 @@ function createSvgRasterConverter(to: FileFormat): Converter {
       const canvas = document.createElement('canvas');
       canvas.width = w;
       canvas.height = h;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) throw new Error('errors.imageEncode');
+      // Named apart from the `ctx` conversion context, which every converter now reserves.
+      const canvasCtx = canvas.getContext('2d');
+      if (!canvasCtx) throw new Error('errors.imageEncode');
 
       if (mimeType === 'image/jpeg') {
-        ctx.fillStyle = '#FFFFFF';
-        ctx.fillRect(0, 0, w, h);
+        canvasCtx.fillStyle = '#FFFFFF';
+        canvasCtx.fillRect(0, 0, w, h);
       }
-      ctx.drawImage(img, 0, 0, w, h);
+      canvasCtx.drawImage(img, 0, 0, w, h);
 
-      const outBlob = await canvasToBlob(canvas, mimeType);
-      return { blob: outBlob, filename: `converted.${to}` };
+      try {
+        const outBlob = await encodeCanvas(canvas, mimeType, ctx?.options);
+        return { blob: outBlob, filename: `converted.${to}` };
+      } finally {
+        releaseCanvas(canvas);
+      }
     },
   };
 }

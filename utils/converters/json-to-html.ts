@@ -1,7 +1,7 @@
 import { FileFormat } from '~/utils/core/types';
 import type { Converter, ConvertResult } from '~/utils/core/types';
 import { wrapHtmlDocument, escapeHtml } from '~/utils/core/html-document';
-import { decodeTextBlob } from '~/utils/core/text-decode';
+import { decodeTextBlob, decodeTextBlobLenient } from '~/utils/core/text-decode';
 
 const JSON_VIEWER_CSS = `
   .json-viewer { font-family: "SF Mono", Monaco, Consolas, monospace; font-size: 13px; line-height: 1.6; }
@@ -90,7 +90,7 @@ const htmlToJsonConverter: Converter = {
   to: FileFormat.JSON,
 
   async convert(input: Blob): Promise<ConvertResult> {
-    const html = await input.text();
+    const html = await decodeTextBlobLenient(input);
     const doc = new DOMParser().parseFromString(html, 'text/html');
 
     const tables = doc.querySelectorAll('table');

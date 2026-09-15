@@ -2,7 +2,7 @@
 import { computed, ref } from 'vue';
 import { ArrowDown, ArrowRight, CircleCloseFilled, CopyDocument } from '@element-plus/icons-vue';
 import type { ConversionFailure } from '~/composables/useConversion';
-import { CONVERSION_ERROR_KEYS } from '~/composables/useConversion';
+import { CONVERSION_ERROR_KEYS } from '~/utils/core/error-keys';
 import { useI18n } from '~/composables/useI18n';
 import { getFormatLabel } from '~/utils/core/format-labels';
 
@@ -17,6 +17,8 @@ const expanded = ref(false);
 /** True when the failure has any diagnostic context worth showing. */
 const hasPath = computed(() => props.failure.path.length >= 2);
 const hasStep = computed(() => props.failure.failedStep !== undefined && props.failure.path.length >= 2);
+const hasDetail = computed(() => Boolean(props.failure.detail));
+const hasDetails = computed(() => hasPath.value || hasDetail.value);
 
 /** Localised reason text — falls back to the raw string for non-i18n-key errors. */
 const reasonText = computed(() => {
@@ -66,6 +68,9 @@ function buildDiagnosticText(): string {
   }
   if (hasStep.value) {
     lines.push(`failedStep: ${props.failure.failedStep} of ${getStepTotal()}`);
+  }
+  if (props.failure.detail) {
+    lines.push(`cause: ${props.failure.detail}`);
   }
   return lines.join('\n');
 }
@@ -120,7 +125,7 @@ function toggle(): void {
       >{{ failure.fileName }}</span>
       <span class="failure-reason">{{ reasonText }}</span>
       <el-button
-        v-if="hasPath"
+        v-if="hasDetails"
         text
         size="small"
         type="primary"
@@ -139,10 +144,13 @@ function toggle(): void {
     </div>
 
     <div
-      v-if="expanded && hasPath"
+      v-if="expanded && hasDetails"
       class="failure-details"
     >
-      <div class="failure-path-row">
+      <div
+        v-if="hasPath"
+        class="failure-path-row"
+      >
         <span class="failure-path-label">{{ t('result.failurePath') }}</span>
         <span class="failure-path">
           <template
@@ -173,6 +181,13 @@ function toggle(): void {
       >
         <span class="failure-step-label">{{ t('result.failureAtStep') }}</span>
         <span class="failure-step">{{ stepText }}</span>
+      </div>
+      <div
+        v-if="hasDetail"
+        class="failure-cause-row"
+      >
+        <span class="failure-cause-label">{{ t('result.failureCause') }}</span>
+        <span class="failure-cause">{{ failure.detail }}</span>
       </div>
       <div class="failure-actions">
         <el-button
@@ -254,7 +269,8 @@ function toggle(): void {
 }
 
 .failure-path-row,
-.failure-step-row {
+.failure-step-row,
+.failure-cause-row {
   display: flex;
   align-items: center;
   gap: var(--fat-space-xs);
@@ -262,9 +278,18 @@ function toggle(): void {
 }
 
 .failure-path-label,
-.failure-step-label {
+.failure-step-label,
+.failure-cause-label {
   color: var(--fat-text-secondary);
   flex-shrink: 0;
+}
+
+.failure-cause {
+  color: var(--fat-text-regular);
+  font-family: var(--fat-font-mono);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+  user-select: text;
 }
 
 .failure-path {

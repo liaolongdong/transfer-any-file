@@ -92,6 +92,7 @@ export default {
   // Format selector
   format: {
     selectTarget: '请选择目标格式',
+    noMatch: '没有匹配的目标格式',
     noTarget: '当前格式没有可用的转换目标',
     mixedSource: '{count} 种格式',
     categoryDocument: '文档',
@@ -103,6 +104,40 @@ export default {
     disabledImageNoText: '图片无法转换为文本或表格数据（需 OCR，暂不支持）',
     disabledPdfNoData: 'PDF 无法可靠转换为表格/结构化数据',
     recentUsed: '最近使用',
+  },
+
+  // Image output parameters
+  output: {
+    title: '输出参数',
+    hint: '仅对图片输出生效，不修改源文件',
+    quality: '质量',
+    qualityDefault: '默认',
+    maxEdge: '最长边',
+    edgeOriginal: '原图',
+    targetSize: '目标体积',
+    sizeNone: '不限制',
+    dpi: '清晰度',
+    dpiDefault: '默认',
+    dpiValue: '{value} DPI',
+    percent: '{value}%',
+    pixels: '{value} px',
+    kilobytes: '{value} KB',
+    reset: '恢复默认',
+  },
+
+  // Conversion presets
+  preset: {
+    title: '转换预设',
+    empty: '还没有预设：选好目标格式（以及图片输出参数）后存成一键卡片，下次直接套用。',
+    namePlaceholder: '预设名称（可留空）',
+    save: '保存为预设',
+    needTarget: '请先选择目标格式',
+    remove: '删除预设 {name}',
+    saved: '已保存预设「{name}」',
+    removed: '已删除预设「{name}」',
+    pending: '已记住预设，上传匹配文件后自动应用',
+    unavailable: '当前文件无法转换为该预设的目标格式',
+    limit: '预设数量已达上限（{max}）',
   },
 
   // Conversion
@@ -135,6 +170,8 @@ export default {
     doneMulti: '转换完成！共 {count} 个文件',
     donePartial: '完成 {ok} 个，失败 {fail} 个',
     doneNone: '转换失败',
+    cancelledPartial: '转换已取消，已完成 {done} / {total} 个文件',
+    cancelledNone: '转换已取消，未转换任何文件',
     failed: '失败',
     download: '下载文件',
     downloadZip: '打包下载 ZIP ({count})',
@@ -147,6 +184,7 @@ export default {
     collapseDetails: '收起诊断详情',
     failurePath: '转换路径',
     failureAtStep: '失败步骤',
+    failureCause: '底层错误',
     failureStepOf: '第 {current} / {total} 步',
     failureNoPath: '未找到可用的转换路径',
     failurePathArrow: ' → ',
@@ -237,10 +275,14 @@ export default {
     csvDecode: 'CSV 解码失败，请检查文件编码',
     imageDecode: '图片解码失败，文件可能已损坏',
     imageEncode: '图片编码失败，浏览器不支持该输出格式',
+    renderTimeout: '文档渲染超时，请尝试简化该文档（如减少图片或复杂样式）',
+    renderFailed: '文档渲染失败，文件内容可能不受浏览器支持',
     zipFail: 'ZIP 打包失败',
     jsonParse: 'JSON 解析失败，请检查文件格式',
     jsonNotArray: 'JSON 内容必须是对象数组才能转换为 CSV',
     htmlToJson: '无法从 HTML 中提取有效的 JSON 数据',
+    decodeFail: '文件解码失败，编码可能不受支持或文件已损坏',
+    cancelled: '转换已取消',
   },
 
   // F10 — accessibility (ARIA labels & live-region messages)
@@ -274,6 +316,7 @@ export default {
     convertAllOk: '全部 {count} 个文件转换成功',
     convertAllFail: '全部 {count} 个文件转换失败',
     convertCancelled: '转换已取消',
+    convertCancelledPartial: '转换已取消：已完成 {done} / {total} 个文件',
     fileAdded: '已添加文件：{name}',
     fileRemoved: '已移除文件',
     filesCleared: '已清空文件列表',

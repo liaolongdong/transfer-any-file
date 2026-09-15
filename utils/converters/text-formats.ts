@@ -1,7 +1,7 @@
 import { FileFormat } from '~/utils/core/types';
 import type { Converter, ConvertResult } from '~/utils/core/types';
 import { wrapHtmlDocument } from '~/utils/core/html-document';
-import { decodeTextBlob } from '~/utils/core/text-decode';
+import { decodeTextBlob, decodeTextBlobLenient } from '~/utils/core/text-decode';
 
 const txtToHtmlConverter: Converter = {
   from: FileFormat.TXT,
@@ -86,7 +86,7 @@ const htmlToTxtConverter: Converter = {
   to: FileFormat.TXT,
 
   async convert(input: Blob): Promise<ConvertResult> {
-    const html = await input.text();
+    const html = await decodeTextBlobLenient(input);
     // DOMParser handles nested markup and all entities reliably,
     // unlike regex-based tag stripping
     const doc = new DOMParser().parseFromString(html, 'text/html');

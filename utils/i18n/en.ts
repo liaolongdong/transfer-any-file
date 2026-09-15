@@ -87,6 +87,7 @@ const en: typeof zh = {
 
   format: {
     selectTarget: 'Select target format',
+    noMatch: 'No matching target format',
     noTarget: 'No available conversion target for this format',
     mixedSource: '{count} formats',
     categoryDocument: 'Document',
@@ -98,6 +99,39 @@ const en: typeof zh = {
     disabledImageNoText: 'Images cannot become text or tabular data (needs OCR, not supported)',
     disabledPdfNoData: 'PDF cannot be reliably converted to tabular data',
     recentUsed: 'Recently used',
+  },
+
+  output: {
+    title: 'Output',
+    hint: 'Applies to image output only; the source file is never modified',
+    quality: 'Quality',
+    qualityDefault: 'Default',
+    maxEdge: 'Max edge',
+    edgeOriginal: 'Original',
+    targetSize: 'Target size',
+    sizeNone: 'No limit',
+    dpi: 'Density',
+    dpiDefault: 'Default',
+    dpiValue: '{value} DPI',
+    percent: '{value}%',
+    pixels: '{value} px',
+    kilobytes: '{value} KB',
+    reset: 'Reset',
+  },
+
+  // Conversion presets
+  preset: {
+    title: 'Presets',
+    empty: 'No presets yet. Choose a target format (and image options), then save it as a one-click card for next time.',
+    namePlaceholder: 'Preset name (optional)',
+    save: 'Save as preset',
+    needTarget: 'Choose a target format first',
+    remove: 'Delete preset {name}',
+    saved: 'Preset “{name}” saved',
+    removed: 'Preset “{name}” deleted',
+    pending: 'Preset remembered; it applies once you upload matching files',
+    unavailable: 'The current files cannot be converted to that preset’s target format',
+    limit: 'Preset limit reached ({max})',
   },
 
   convert: {
@@ -129,6 +163,8 @@ const en: typeof zh = {
     doneMulti: 'Conversion complete! {count} files',
     donePartial: '{ok} succeeded, {fail} failed',
     doneNone: 'Conversion failed',
+    cancelledPartial: 'Conversion cancelled — {done} of {total} files completed',
+    cancelledNone: 'Conversion cancelled before any file was converted',
     failed: 'Failed',
     download: 'Download',
     downloadZip: 'Download ZIP ({count})',
@@ -141,6 +177,7 @@ const en: typeof zh = {
     collapseDetails: 'Hide diagnostic details',
     failurePath: 'Conversion path',
     failureAtStep: 'Failed at step',
+    failureCause: 'Underlying error',
     failureStepOf: 'Step {current} of {total}',
     failureNoPath: 'No conversion path found',
     failurePathArrow: ' → ',
@@ -228,10 +265,14 @@ const en: typeof zh = {
     csvDecode: 'Failed to decode CSV; please check the file encoding',
     imageDecode: 'Failed to decode image; the file may be corrupted',
     imageEncode: 'Failed to encode image; the browser does not support this output format',
+    renderTimeout: 'The document took too long to render; try a simpler document (fewer images or styles)',
+    renderFailed: 'Failed to render the document; its content may not be supported by the browser',
     zipFail: 'Failed to create ZIP archive',
     jsonParse: 'Failed to parse JSON; please check the file format',
     jsonNotArray: 'JSON must be an array of objects to convert to CSV',
     htmlToJson: 'Could not extract valid JSON data from the HTML',
+    decodeFail: 'Failed to decode the file; its encoding may be unsupported or the file may be corrupted',
+    cancelled: 'Conversion cancelled',
   },
 
   // F10 — accessibility (ARIA labels & live-region messages)
@@ -265,6 +306,7 @@ const en: typeof zh = {
     convertAllOk: 'All {count} file(s) converted successfully',
     convertAllFail: 'All {count} file(s) failed to convert',
     convertCancelled: 'Conversion cancelled',
+    convertCancelledPartial: 'Conversion cancelled: {done} of {total} files completed',
     fileAdded: 'File added: {name}',
     fileRemoved: 'File removed',
     filesCleared: 'File list cleared',

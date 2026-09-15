@@ -131,6 +131,9 @@ function handleDrop(event: DragEvent): void {
 }
 
 function handleDragOver(): void {
+  // No highlight while intake is blocked: the drop itself is refused, so lighting the
+  // zone up would invite an action that cannot happen.
+  if (props.disabled) return;
   isDragging.value = true;
 }
 
@@ -277,6 +280,7 @@ defineExpose({
       :class="{ dragging: isDragging, 'has-file': selectedFiles.length > 0, disabled: disabled }"
       role="button"
       tabindex="0"
+      :aria-disabled="disabled"
       @drop.prevent="handleDrop"
       @dragover.prevent="handleDragOver"
       @dragleave="handleDragLeave"

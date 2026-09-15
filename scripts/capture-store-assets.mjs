@@ -84,6 +84,31 @@ const SCREEN_CAPTIONS = [
     en: '6 accent colours, light / dark / system',
     zh: '6 种主题色，浅色 / 深色 / 跟随系统',
   },
+  {
+    shot: 'output-preset',
+    slug: 'screen-07-presets',
+    en: 'Dial in size and quality, save it as a preset',
+    zh: '尺寸、质量、目标体积，存成一键预设',
+  },
+];
+
+/**
+ * The chips the output-parameters frame is shot with.
+ *
+ * Names stay locale-neutral (format + parameter) because a stored name is rendered verbatim in both
+ * language passes, unlike every other label on screen. The payloads are legal `fat:presets` values
+ * rather than a mock of the panel: they go through `sanitizePresets()` on the way in, so a parameter
+ * outside the accepted domain would vanish from the frame instead of being displayed.
+ */
+const DEMO_PRESETS = [
+  {
+    id: 'demo-webp-200kb',
+    name: 'WebP · 200 KB',
+    target: 'webp',
+    options: { quality: 0.7, maxEdge: 1280, targetSizeKB: 200, dpi: 200 },
+  },
+  { id: 'demo-jpg-1600', name: 'JPEG · 1600 px', target: 'jpg', options: { quality: 0.8, maxEdge: 1600 } },
+  { id: 'demo-png-4096', name: 'PNG · 4096 px', target: 'png', options: { maxEdge: 4096 } },
 ];
 
 // 1280 is the widest Chrome Web Store screenshot and matches the workbench's own
@@ -159,13 +184,18 @@ function startServer() {
   });
 }
 
-/** Stage a batch and choose its target, without converting yet. */
-async function stageConversion(page, fixtures, targetText) {
+/** Put a batch on the workbench and wait for the file list to render. */
+async function stageFiles(page, fixtures) {
   const input = await page.$('input[type="file"]');
   if (!input) throw new Error('file input not found');
   await input.setInputFiles(fixtures.map(f => path.join(FIXTURE_PATH, f)));
   await page.waitForSelector('.file-item', { timeout: 10000 });
   await page.waitForTimeout(500);
+}
+
+/** Stage a batch and choose its target, without converting yet. */
+async function stageConversion(page, fixtures, targetText) {
+  await stageFiles(page, fixtures);
 
   await page.click('.action-row .el-select');
   await page.waitForTimeout(400);
@@ -222,7 +252,7 @@ async function shootCentered(page, selector, outDir, file) {
 }
 
 /**
- * Capture the six UI states in one interface locale.
+ * Capture the seven UI states in one interface locale.
  *
  * The same run happens per locale: Chrome Web Store screenshot slots are per-language, and the
  * Chinese page must show a Chinese workbench rather than the English one.
@@ -283,6 +313,31 @@ async function captureScreens(locale, outDir) {
   await dark.screenshot({ path: path.join(outDir, 'dark-mode.png') });
   console.log(`  ✓ ${shotLabel(outDir, 'dark-mode.png')}`);
   await dark.close();
+
+  // Output parameters and presets share the column under the format picker, so one frame proves both
+  // levers. It needs its own page: seeding `fat:presets` and opening that card would otherwise show
+  // up in the six frames above.
+  const tuned = await browser.newPage();
+  await tuned.setViewportSize(SHOT_VIEWPORT);
+  await tuned.addInitScript(
+    mockStorageScript({
+      ...prefs,
+      'fat:collapsedState': { presets: true },
+      'fat:presets': DEMO_PRESETS,
+    }),
+  );
+  await tuned.goto(`http://localhost:${PORT}/options.html`);
+  await tuned.waitForSelector('.drop-zone', { timeout: 20000 });
+  await tuned.waitForTimeout(800);
+  // A PDF source rather than an image, because DPI is the one parameter a PNG batch cannot show.
+  // The target arrives from the chip itself — the route a real user takes — and PDF→WebP resolves
+  // through PNG, so the path strip renders a two-step chain for free.
+  await stageFiles(tuned, ['sample.pdf']);
+  await tuned.locator('.preset-chip .preset-apply').first().click();
+  await tuned.waitForSelector('.output-options .output-reset', { timeout: 10000 });
+  await tuned.waitForTimeout(600);
+  await shootCentered(tuned, '.output-options', outDir, 'output-preset.png');
+  await tuned.close();
 
   await browser.close();
   server.close();
@@ -434,7 +489,7 @@ async function captureGraphics() {
       height: 560,
       shot: hero,
       heading: 'Every format change happens on <em>your</em> machine.',
-      sub: 'Markdown, Word, PDF, Excel, CSV, JSON, HTML and images in one offline workbench.',
+      sub: 'Documents, spreadsheets and images in one offline workbench.',
       chips: ['14 formats', '46+ conversion paths', 'Batch conversion', 'Zero network'],
     },
     {

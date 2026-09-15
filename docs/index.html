@@ -43,7 +43,7 @@
     </title>
     <meta
       name="description"
-      content="开源 Chrome 扩展，14 种文档、数据与图片格式在本地互转：批量、自动多步链路、预览编辑、ZIP 打包。不上传、无账号、零网络请求。 | Open-source Chrome extension: 14 document, data and image formats converted locally — batch, multi-step, preview & edit, ZIP. No uploads, no network requests."
+      content="开源 Chrome 离线文件格式转换扩展——14 种文档、表格与图片格式在你自己的电脑本地互转。不上传、无账号、零网络请求。 | Offline file format converter for Chrome — convert 14 document, data and image formats in your browser. No uploads, no account, zero network requests."
     />
     <meta
       name="author"
@@ -156,7 +156,7 @@
       · 143 combinations -> BFS closure over the same graph (utils/core/registry.ts)
       · 116 selectable   -> 143 minus the 27 pairs utils/core/conversion-policy.ts greys out
                             (24 image -> text/data + 3 PDF -> data)
-      · 3.71 MB          -> `pnpm build` total output size
+      · 3.73 MB          -> `pnpm build` total output size
     -->
     <script type="application/ld+json">
       {
@@ -169,7 +169,7 @@
             "alternateName": "Transfer Any File — Offline File Format Converter",
             "softwareVersion": "1.0.0",
             "datePublished": "2026-09-07",
-            "dateModified": "2026-09-13",
+            "dateModified": "2026-09-14",
             "applicationCategory": "UtilitiesApplication",
             "applicationSubCategory": "File Format Converter",
             "keywords": "offline file format converter, file converter chrome extension, markdown to pdf, word to pdf, csv to excel, json to csv, png to webp, svg to png, html to docx, batch file conversion, convert files without uploading, local-first, privacy",
@@ -222,8 +222,8 @@
               "Remembered view state: split-divider position and the collapsed history card",
               "Rebindable convert shortcut and optional desktop notification for background batches",
               "6 accent colours, light / dark / system appearance",
-              "Chinese and English interface (default Chinese)",
-              "Keyboard-accessible UI, with topbar and focus-ring contrast measured per theme",
+              "Chinese and English interface (follows the browser language until you pick one)",
+              "Keyboard-accessible UI, with topbar, button and focus-ring contrast measured per theme",
               "Only one permission: storage"
             ]
           },
@@ -412,7 +412,7 @@
                 "name": "Does a Chinese CSV open correctly in Excel?",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "Both directions are handled: reading tries UTF-8 first and falls back to GBK automatically, so exports from domestic Chinese software open correctly; writing emits a BOM, so a converted CSV opens in Excel without mojibake."
+                  "text": "Both directions are handled: reading tries UTF-8 first and then falls back to GB18030 and GBK in order — GB18030 covers characters GBK cannot represent, while GBK stays last for the single byte the two disagree on — so exports from domestic Chinese software open correctly; writing emits a BOM, so a converted CSV opens in Excel without mojibake."
                 }
               },
               {
@@ -420,7 +420,23 @@
                 "name": "中文 CSV 在 Excel 里打开乱码吗？",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "两个方向都处理了：读取时先试 UTF-8，失败自动回退 GBK，所以国内系统导出的表格能正常读入；写出时带 BOM，所以转出的 CSV 双击进 Excel 不会变方块。"
+                  "text": "两个方向都处理了：读取时先试 UTF-8，失败再依次回退 GB18030 与 GBK（GB18030 覆盖 GBK 表示不了的字符，GBK 兜住两者唯一分歧的那一个字节），所以国内系统导出的表格能正常读入；写出时带 BOM，所以转出的 CSV 双击进 Excel 不会变方块。"
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Can I shrink an image to a target size, or save a conversion setup for reuse?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Both. A PNG / JPEG / WebP target gains output parameters: quality 40–90%, longest edge 800–4096 px, and a target size of 20 KB–2 MB (quality and target size are JPEG and WebP only, the size met by walking a quality ladder), plus 96–300 DPI when a PDF is in the batch. Every knob starts untouched, which is the browser's default encoding behaviour. A tuned format-and-parameters pair can be saved as one of up to 12 named presets and restored in one click; a preset is not bound to a source format, so the same \"PNG at 1280 px\" chip works for a batch arriving from PDF, HTML or SVG. Parameters and presets live in the extension's local storage and issue no network request."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "能把图片压到指定体积，或者保存常用的转换组合吗？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "都能。目标为 PNG / JPEG / WebP 时会多出输出参数：质量 40–90%、最长边 800–4096 px、目标体积 20 KB–2 MB（质量与目标体积仅 JPEG / WebP，后者靠质量阶梯反复编码逼近），批次里有 PDF 时还能选 96–300 DPI。每一项默认「不动」，此时就是浏览器的默认编码行为。调好的「目标格式 + 参数」可以存成最多 12 个命名预设，一键恢复；预设不绑定源格式，所以同一张「1280 px 的 PNG」对来自 PDF、HTML 或 SVG 的批次都成立。参数与预设只写在扩展的本地存储里，不产生任何网络请求。"
                 }
               },
               {
@@ -3175,6 +3191,77 @@
               </p>
             </article>
             <article class="card reveal">
+              <div class="icon amber">
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M4 21v-7" />
+                  <path d="M4 10V3" />
+                  <path d="M12 21v-9" />
+                  <path d="M12 8V3" />
+                  <path d="M20 21v-5" />
+                  <path d="M20 12V3" />
+                  <path d="M1 14h6" />
+                  <path d="M9 8h6" />
+                  <path d="M17 16h6" />
+                </svg>
+              </div>
+              <h3><span lang="zh-CN">图片输出参数</span><span lang="en">Image output parameters</span></h3>
+              <p>
+                <span lang="zh-CN"
+                  >目标是 PNG / JPEG / WebP 时，面板给出真正的编码器旋钮：质量 40–90%、最长边 800–4096 px、目标体积 20
+                  KB–2 MB（质量与目标体积仅 JPEG / WebP），源里有 PDF 时还能选 96–300
+                  DPI。目标体积靠质量阶梯反复编码逼近。每一项默认「不动」，一键恢复默认，参数本身持久化到本机。</span
+                >
+                <span lang="en"
+                  >A PNG / JPEG / WebP target exposes the real encoder knobs: quality 40–90% and a target size of 20
+                  KB–2 MB for JPEG and WebP, longest edge 800–4096 px for all three, plus 96–300 DPI when a PDF is in
+                  the batch. The size ceiling is met by walking a quality ladder. Every knob starts untouched, one
+                  control restores the defaults, and the settings persist on your machine.</span
+                >
+              </p>
+            </article>
+            <article class="card reveal">
+              <div class="icon violet">
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="m12 2 2.9 6.2 6.6.8-4.9 4.6 1.3 6.6L12 17l-5.9 3.2 1.3-6.6L2.5 9l6.6-.8L12 2Z" />
+                </svg>
+              </div>
+              <h3><span lang="zh-CN">转换预设</span><span lang="en">Conversion presets</span></h3>
+              <p>
+                <span lang="zh-CN"
+                  >把「目标格式 + 输出参数」存成一个命名快捷方式（最多 12
+                  个），下次一键恢复。预设不绑定源格式，所以「1280 px 的 PNG」对来自 PDF、HTML 还是 SVG
+                  的批次都成立；工作台里没有文件时它会先被记住，等文件一落地就自动应用。存下来的只有格式与参数，不含任何文件内容。</span
+                >
+                <span lang="en"
+                  >Save a target format together with its output parameters as a named shortcut — up to 12 of them — and
+                  restore the whole setup in one click. A preset is not bound to a source format, so "PNG at 1280 px"
+                  works for a batch arriving from PDF, HTML or SVG alike; with no files loaded yet it is remembered and
+                  applied the moment the next batch lands. Only the format and its parameters are stored, never file
+                  content.</span
+                >
+              </p>
+            </article>
+            <article class="card reveal">
               <div class="icon">
                 <svg
                   width="20"
@@ -3232,12 +3319,12 @@
               <h3><span lang="zh-CN">中文表格不乱码</span><span lang="en">Chinese spreadsheets stay readable</span></h3>
               <p>
                 <span lang="zh-CN"
-                  >CSV 读取先试 UTF-8，失败自动回退 GBK；写出时带 BOM。国内系统导出的 GBK 表格能打开，转出的 CSV 在
-                  Excel 里也不会变方块。</span
+                  >CSV 读取先试 UTF-8，失败再依次回退 GB18030 与 GBK；写出时带
+                  BOM。国内系统导出的老编码表格能打开，转出的 CSV 在 Excel 里也不会变方块。</span
                 >
                 <span lang="en"
-                  >CSV reads UTF-8 with an automatic GBK fallback and writes UTF-8 with BOM, so GBK exports open
-                  correctly and converted CSVs land in Excel without mojibake.</span
+                  >CSV reads UTF-8 with an automatic GB18030 → GBK fallback and writes UTF-8 with BOM, so legacy-encoded
+                  exports open correctly and converted CSVs land in Excel without mojibake.</span
                 >
               </p>
             </article>
@@ -3366,14 +3453,17 @@
               <p>
                 <span lang="zh-CN"
                   >跳转主内容链接、可见焦点环、<code>prefers-reduced-motion</code> 降级。端到端套件在 6 主题 × 浅/深共
-                  12 种组合下逐项实测两组承担对比度契约的颜色：顶栏品牌文字对顶栏背景 ≥ 4.5:1，焦点环对卡片背景 ≥
+                  12 种组合下逐项实测三组承担对比度契约的颜色：顶栏品牌文字对顶栏背景 ≥ 4.5:1，主按钮文字在常态 / 悬停 /
+                  按下三种状态下均 ≥ 4.5:1（读数取自确实可点击的按钮，文本规则豁免禁用控件），焦点环对卡片背景 ≥
                   3:1。</span
                 >
                 <span lang="en"
                   >Skip link to the main content, visible focus rings and a
-                  <code>prefers-reduced-motion</code> fallback. The end-to-end suite measures the two colour pairs that
-                  carry the contrast contract — brand text on the topbar at 4.5:1 or better, focus ring on a card at 3:1
-                  or better — in all 12 theme × light/dark combinations.</span
+                  <code>prefers-reduced-motion</code> fallback. The end-to-end suite measures the three colour pairs
+                  that carry the contrast contract — brand text on the topbar at 4.5:1 or better, the primary button's
+                  label in its rest, hover and pressed states at 4.5:1 or better (read off the enabled button, because
+                  the text rule exempts disabled controls), focus ring on a card at 3:1 or better — in all 12 theme ×
+                  light/dark combinations.</span
                 >
               </p>
             </article>
@@ -3536,12 +3626,12 @@
                 />
                 <figcaption>
                   <span lang="zh-CN"
-                    >深色外观：6 种主题色 × 浅 / 深 / 跟随系统，顶栏文字与焦点环的对比度在全部 12
+                    >深色外观：6 种主题色 × 浅 / 深 / 跟随系统，顶栏文字、主按钮文字与焦点环的对比度在全部 12
                     种组合下逐项实测。</span
                   >
                   <span lang="en"
-                    >Dark appearance: 6 accent colours × light / dark / system, with the topbar text and focus-ring
-                    contrast measured in all 12 combinations.</span
+                    >Dark appearance: 6 accent colours × light / dark / system, with the topbar text, primary button
+                    label and focus-ring contrast measured in all 12 combinations.</span
                   >
                 </figcaption>
               </figure>
@@ -4461,13 +4551,53 @@ pnpm build</code><button
               </summary>
               <div class="faq-a">
                 <span lang="zh-CN"
-                  >两个方向都处理了：读取时先试 UTF-8，失败自动回退 GBK，所以国内系统导出的表格能正常读入；写出时带
+                  >两个方向都处理了：读取时先试 UTF-8，失败再依次回退 GB18030 与 GBK（GB18030 覆盖 GBK
+                  表示不了的字符，GBK 兜住两者唯一分歧的那一个字节），所以国内系统导出的表格能正常读入；写出时带
                   BOM，所以转出的 CSV 双击进 Excel 不会变方块。</span
                 >
                 <span lang="en"
-                  >Both directions are handled: reading tries UTF-8 first and falls back to GBK automatically, so
-                  exports from domestic Chinese software open correctly; writing emits a BOM, so a converted CSV opens
-                  in Excel without mojibake.</span
+                  >Both directions are handled: reading tries UTF-8 first and then falls back to GB18030 and GBK in
+                  order — GB18030 covers characters GBK cannot represent, while GBK stays last for the single byte the
+                  two disagree on — so exports from domestic Chinese software open correctly; writing emits a BOM, so a
+                  converted CSV opens in Excel without mojibake.</span
+                >
+              </div>
+            </details>
+            <details class="faq-item">
+              <summary>
+                <span lang="zh-CN">能把图片压到指定体积，或者保存常用的转换组合吗？</span>
+                <span lang="en">Can I shrink an image to a target size, or save a conversion setup for reuse?</span>
+                <svg
+                  class="chev"
+                  width="17"
+                  height="17"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.4"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="m9 6 6 6-6 6" />
+                </svg>
+              </summary>
+              <div class="faq-a">
+                <span lang="zh-CN"
+                  >都能。目标为 PNG / JPEG / WebP 时会多出输出参数：质量 40–90%、最长边 800–4096 px、目标体积 20 KB–2
+                  MB（质量与目标体积仅 JPEG / WebP，后者靠质量阶梯反复编码逼近），批次里有 PDF 时还能选 96–300
+                  DPI。每一项默认「不动」，此时就是浏览器的默认编码行为。调好的「目标格式 + 参数」可以存成最多 12
+                  个命名预设，一键恢复；预设不绑定源格式，所以同一张「1280 px 的 PNG」对来自 PDF、HTML 或 SVG
+                  的批次都成立。参数与预设只写在扩展的本地存储里，不产生任何网络请求。</span
+                >
+                <span lang="en"
+                  >Both. A PNG / JPEG / WebP target gains output parameters: quality 40–90%, longest edge 800–4096 px,
+                  and a target size of 20 KB–2 MB (quality and target size are JPEG and WebP only, the size met by
+                  walking a quality ladder), plus 96–300 DPI when a PDF is in the batch. Every knob starts untouched,
+                  which is the browser's default encoding behaviour. A tuned format-and-parameters pair can be saved as
+                  one of up to 12 named presets and restored in one click; a preset is not bound to a source format, so
+                  the same "PNG at 1280 px" chip works for a batch arriving from PDF, HTML or SVG. Parameters and
+                  presets live in the extension's local storage and issue no network request.</span
                 >
               </div>
             </details>
@@ -4690,15 +4820,19 @@ pnpm build</code><button
               <p>
                 <span lang="zh-CN"
                   >一套 Playwright 端到端套件加载真正的构建产物，用仓库内的夹具跑完各类转换场景、批量与
-                  ZIP、取消与改键、预览与编辑、历史与偏好，共 159 项断言全部通过（v1.0.0，2026-09-13 实测）；另在 6 主题
-                  × 浅/深共 12 种组合下逐项校验顶栏文字与焦点环两组对比度。CI 每次推送跑 lint + build + e2e。</span
+                  ZIP、取消与改键、预览与编辑、图片输出参数与转换预设、历史与偏好，共 208 项断言全部通过（1.0.0
+                  之后的未发布构建，2026-09-14 实测）；另在 6 主题 × 浅/深共 12
+                  种组合下逐项校验三组对比度：顶栏文字、主按钮文字（常态 / 悬停 / 按下）与焦点环。CI 每次推送跑 lint +
+                  build + e2e。</span
                 >
                 <span lang="en"
                   >A Playwright end-to-end suite drives the actual build output over the repository fixtures — every
                   conversion scenario, batching and ZIP handling, cancellation and shortcut rebinding, preview and
-                  editing, history and preferences — with 159/159 assertions passing (v1.0.0, measured 2026-09-13). It
-                  also checks the two contrast pairs, topbar text and focus ring, in all 12 theme × light/dark
-                  combinations. CI runs lint, build and e2e on every push.</span
+                  editing, image output parameters and conversion presets, history and preferences — with 208/208
+                  assertions passing (the unreleased build after 1.0.0, measured 2026-09-14). It also checks three
+                  contrast pairs — topbar text, the primary button's label in its rest, hover and pressed states, and
+                  the focus ring — in all 12 theme × light/dark combinations. CI runs lint, build and e2e on every
+                  push.</span
                 >
               </p>
             </div>
@@ -4720,17 +4854,17 @@ pnpm build</code><button
           </div>
           <p class="updated">
             <span lang="zh-CN"
-              ><strong>版本 1.0.0 · 本页最后更新 2026-09-13。</strong>文中全部数字从代码取证：14 种格式来自
+              ><strong>版本 1.0.0 · 本页最后更新 2026-09-14。</strong>文中全部数字从代码取证：14 种格式来自
               <code>FileFormat</code> 枚举，46 条路径与 143 个可达组合来自转换器注册表的邻接图，116 个可选组合是 143
-              减去 <code>utils/core/conversion-policy.ts</code> 置灰的 27 个，3.71 MB 来自
+              减去 <code>utils/core/conversion-policy.ts</code> 置灰的 27 个，3.73 MB 来自
               <code>pnpm build</code> 输出，权限与上限来自 manifest 与源码常量。截图与推广图由
               <code>pnpm assets:capture</code> 从构建产物生成。</span
             >
             <span lang="en"
-              ><strong>Version 1.0.0 · page last updated 2026-09-13.</strong> Every number on this page is taken from
+              ><strong>Version 1.0.0 · page last updated 2026-09-14.</strong> Every number on this page is taken from
               the code: 14 formats from the <code>FileFormat</code> enum, 46 routes and 143 reachable combinations from
               the converter registry's adjacency graph, and 116 selectable combinations — that is 143 minus the 27 pairs
-              <code>utils/core/conversion-policy.ts</code> greys out. 3.71 MB comes from <code>pnpm build</code> output,
+              <code>utils/core/conversion-policy.ts</code> greys out. 3.73 MB comes from <code>pnpm build</code> output,
               permissions and limits from the manifest and source constants. Screenshots are generated from the built
               bundle by <code>pnpm assets:capture</code>.</span
             >
@@ -4804,7 +4938,7 @@ pnpm build</code><button
           'zh-CN': {
             title: 'Transfer Any File｜离线文件格式转换扩展 · 14 种格式本地互转，零上传',
             description:
-              '开源的 Chrome 扩展（Manifest V3）：Markdown、Word、PDF、Excel、CSV、JSON、HTML 与图片共 14 种格式在你自己的电脑本地互转，46 条直接路径、116 个可选组合，支持批量、自动多步链路、预览编辑与 ZIP 打包。不上传、无账号、无网络请求。',
+              '开源 Chrome 离线文件格式转换扩展——14 种文档、表格与图片格式在你自己的电脑本地互转。不上传、无账号、零网络请求。',
             ogTitle: 'Transfer Any File｜离线文件格式转换扩展（Chrome）',
             ogDescription:
               '在浏览器本地完成 14 种格式互转：批量、多步链路、预览编辑与 ZIP 打包，不上传一个字节，只申请 storage 权限。',
@@ -4813,7 +4947,7 @@ pnpm build</code><button
           en: {
             title: 'Transfer Any File — Offline File Format Converter for Chrome',
             description:
-              'Open-source Chrome extension (Manifest V3): convert 14 file formats locally — Markdown, Word, PDF, Excel, CSV, JSON, HTML and images. 46 direct routes, 116 selectable combinations, batch, automatic multi-step chains, preview & edit, ZIP. No uploads, no account, zero network requests.',
+              'Offline file format converter for Chrome — convert 14 document, data and image formats in your browser. No uploads, no account, zero network requests.',
             ogTitle: 'Transfer Any File — offline file format converter for Chrome',
             ogDescription:
               'Convert 14 file formats inside your browser. Batch, multi-step, preview and edit — without uploading a byte.',

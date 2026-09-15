@@ -40,7 +40,7 @@ export interface HistoryExport {
 }
 
 /** i18n keys for the failures `importData` reports. Mirrors `CONVERSION_ERROR_KEYS` in
- *  useConversion: the thrown `Error.message` is a translation key, and callers check
+ *  `~/utils/core/error-keys`: the thrown `Error.message` is a translation key, and callers check
  *  membership before deciding whether to translate it or show it verbatim — internal
  *  tokens like `version-mismatch` must never reach the user untranslated. */
 export const HISTORY_IMPORT_ERROR_KEYS = new Set([

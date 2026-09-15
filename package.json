@@ -1,7 +1,7 @@
 {
   "name": "transfer-any-file",
   "version": "1.0.0",
-  "description": "Convert 14 file formats locally in your browser: Markdown, Word, PDF, Excel, CSV, JSON, HTML, images. Batch, offline, no uploads.",
+  "description": "Convert between 14 common document, spreadsheet and image file formats right in your browser — offline, in batches, no uploads.",
   "author": {
     "name": "Better",
     "email": "924902324@qq.com",

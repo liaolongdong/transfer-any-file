@@ -1,5 +1,6 @@
 import { FileFormat } from '~/utils/core/types';
 import type { Converter, ConvertResult } from '~/utils/core/types';
+import { decodeTextBlobLenient } from '~/utils/core/text-decode';
 
 const htmlToDocxConverter: Converter = {
   from: FileFormat.HTML,
@@ -12,7 +13,7 @@ const htmlToDocxConverter: Converter = {
     ]);
     const DOMPurify = purifyModule.default;
 
-    const htmlString = await input.text();
+    const htmlString = await decodeTextBlobLenient(input);
 
     const sanitized = DOMPurify.sanitize(htmlString, {
       WHOLE_DOCUMENT: true,

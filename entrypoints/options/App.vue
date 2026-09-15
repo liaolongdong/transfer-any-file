@@ -1,23 +1,27 @@
 <script setup lang="ts">
-import { computed, ref, defineAsyncComponent, onMounted, onUnmounted } from 'vue';
+import { computed, ref, watch, defineAsyncComponent, onMounted, onUnmounted } from 'vue';
 import { Setting, RefreshRight, CircleClose, UploadFilled } from '@element-plus/icons-vue';
 import { initConverters } from '~/utils/converters';
-import { useConversion, CONVERSION_ERROR_KEYS } from '~/composables/useConversion';
+import { useConversion } from '~/composables/useConversion';
+import { CONVERSION_ERROR_KEYS } from '~/utils/core/error-keys';
 import { useI18n } from '~/composables/useI18n';
 import { useRecentTargets } from '~/composables/useRecentTargets';
+import { useOutputOptions } from '~/composables/useOutputOptions';
 import { useShortcuts } from '~/composables/useShortcuts';
 import { converterRegistry } from '~/utils/core/registry';
 import { FileFormat } from '~/utils/core/types';
-import type { ConvertResult } from '~/utils/core/types';
+import type { ConversionPreset, ConvertResult, ImageOutputOptions } from '~/utils/core/types';
 import FileUpload from '~/components/shared/FileUpload.vue';
 import ConversionProgress from '~/components/shared/ConversionProgress.vue';
 import CollapsibleCard from '~/components/shared/CollapsibleCard.vue';
 import PreferencesMenu from '~/components/shared/PreferencesMenu.vue';
+import PresetBar from '~/components/shared/PresetBar.vue';
 import HistoryPanel from '~/components/options/HistoryPanel.vue';
 
 // Rendered only after files are uploaded / conversion finishes, so their code
 // (including the heavy document-preview chain) stays out of the initial bundle
 const FormatSelector = defineAsyncComponent(() => import('~/components/shared/FormatSelector.vue'));
+const OutputOptions = defineAsyncComponent(() => import('~/components/shared/OutputOptions.vue'));
 const ResultDownload = defineAsyncComponent(() => import('~/components/shared/ResultDownload.vue'));
 const ComparisonView = defineAsyncComponent(() => import('~/components/shared/ComparisonView.vue'));
 
@@ -25,6 +29,7 @@ initConverters();
 
 const { t } = useI18n();
 const { recent: recentTargets } = useRecentTargets();
+const { setOptions } = useOutputOptions();
 const { matches: shortcutMatches, formatAction: formatConvertShortcut } = useShortcuts();
 
 const fileUploadRef = ref<InstanceType<typeof FileUpload> | null>(null);
@@ -37,6 +42,7 @@ const {
   availableTargets,
   targetFormat,
   isConverting,
+  cancelled,
   error,
   batchResults,
   batchFailures,
@@ -65,14 +71,31 @@ registeredPairs.forEach(p => {
 const formatCount = uniqueFormats.size;
 const pathCount = registeredPairs.length;
 
-// prefilled format pair reused from history (shown as a hint)
-const reusedTarget = ref<FileFormat | null>(null);
+/**
+ * A target the workbench should adopt for the *next* batch, plus the output parameters that came
+ * with it.
+ *
+ * Both entry points that preselect a target — reusing a history record and applying a preset — can
+ * fire before any file is uploaded, and `setFiles` clears the target on every upload, so the choice
+ * has to survive in here until the files land. `options` is `null` for a history record, which
+ * remembers a format only and must leave the live output parameters alone; a preset always carries
+ * an object, and an empty one means "these are the defaults for this workflow".
+ */
+interface PendingApplication {
+  target: FileFormat;
+  options: ImageOutputOptions | null;
+  /** Shown when the batch that finally arrives cannot reach this target. */
+  unavailableKey: string;
+}
+
+const pendingApplication = ref<PendingApplication | null>(null);
 
 const hasFiles = computed(() => sourceFiles.value.length > 0);
 const hasResults = computed(() => batchResults.value.length > 0);
 const hasFailures = computed(() => batchFailures.value.length > 0);
-// Only "done" once the whole batch finished, so progress UI stays visible
-const isDone = computed(() => !isConverting.value && (hasResults.value || hasFailures.value));
+// Only "done" once the whole batch finished, so progress UI stays visible. A cancelled
+// batch counts even with nothing in it, otherwise the cancel leaves no trace on screen.
+const isDone = computed(() => !isConverting.value && (hasResults.value || hasFailures.value || cancelled.value));
 const isSingleFile = computed(() => sourceFiles.value.length === 1);
 const showBatchProgress = computed(() => isConverting.value && sourceFiles.value.length > 1);
 const batchProgressPercent = computed(() => {
@@ -96,8 +119,39 @@ const showComparison = computed(() => {
   return isDone.value && isSingleFile.value && batchResults.value.length === 1 && targetFormat.value !== null;
 });
 
+// A long converter step keeps running for a moment after 取消转换 is clicked. Without any
+// acknowledgement the button just carries on counting, so people click it again or give up
+// and close the tab. `cancelled` only lands when the batch is already over, hence this
+// UI-side flag for the in-between window.
+const cancelRequested = ref(false);
+
+function handleCancelConversion(): void {
+  cancelRequested.value = true;
+  cancelConversion();
+}
+
+// Fires for every batch transition: resets the pending-cancel label and, while a batch is
+// running, warns before the tab goes away. Uploaded files live only in memory and nothing is
+// persisted, so a stray reload mid-conversion would otherwise discard the whole batch quietly.
+function warnBeforeLeave(event: BeforeUnloadEvent): void {
+  event.preventDefault();
+}
+
+watch(isConverting, running => {
+  if (running) {
+    cancelRequested.value = false;
+    window.addEventListener('beforeunload', warnBeforeLeave);
+  } else {
+    window.removeEventListener('beforeunload', warnBeforeLeave);
+  }
+});
+
 const convertButtonText = computed(() => {
-  if (isConverting.value) return t('convert.converting', { done: completedCount.value, total: totalCount.value });
+  if (isConverting.value) {
+    return cancelRequested.value
+      ? t('convert.cancelling')
+      : t('convert.converting', { done: completedCount.value, total: totalCount.value });
+  }
   if (sourceFiles.value.length > 1) return t('convert.startMulti', { count: sourceFiles.value.length });
   return t('convert.start');
 });
@@ -115,6 +169,11 @@ const statusAnnouncement = computed<string | null>(() => {
       current: Math.min(currentIndex.value + 1, totalCount.value || 1),
       total: totalCount.value || 1,
     });
+  }
+  // Ahead of the completion counts: a truncated batch must never be announced as done.
+  if (cancelled.value) {
+    const done = batchResults.value.length;
+    return done > 0 ? t('a11y.convertCancelledPartial', { done, total: totalCount.value }) : t('a11y.convertCancelled');
   }
   if (isDone.value) {
     const ok = batchResults.value.length;
@@ -140,13 +199,21 @@ function handleFilesUpdate(files: File[]): void {
   } else {
     setFiles(files);
   }
-  // apply reused target format if it is reachable from the new source
-  if (reusedTarget.value && hasFiles.value) {
-    if (availableTargets.value.includes(reusedTarget.value)) {
-      setTargetFormat(reusedTarget.value);
-    }
-    reusedTarget.value = null;
+  if (pendingApplication.value && hasFiles.value) {
+    const pending = pendingApplication.value;
+    pendingApplication.value = null;
+    applyApplication(pending);
   }
+}
+
+/** Adopt a remembered target, and with it any output parameters it carried. */
+function applyApplication(pending: PendingApplication): void {
+  if (!availableTargets.value.includes(pending.target)) {
+    ElMessage.warning(t(pending.unavailableKey));
+    return;
+  }
+  setTargetFormat(pending.target);
+  if (pending.options) void setOptions(pending.options);
 }
 
 function handleResultUpdate(result: ConvertResult): void {
@@ -154,19 +221,33 @@ function handleResultUpdate(result: ConvertResult): void {
 }
 
 function handleReuse(payload: { sourceFormat: FileFormat; targetFormat: FileFormat }): void {
+  const pending: PendingApplication = {
+    target: payload.targetFormat,
+    options: null,
+    unavailableKey: 'history.reuseUnavailable',
+  };
   if (hasFiles.value) {
     // Apply immediately, or tell the user why it can't be applied
-    if (availableTargets.value.includes(payload.targetFormat)) {
-      setTargetFormat(payload.targetFormat);
-    } else {
-      ElMessage.warning(t('history.reuseUnavailable'));
-    }
-    reusedTarget.value = null;
+    applyApplication(pending);
     return;
   }
   // No files yet: remember the target and apply it after the next upload
-  reusedTarget.value = payload.targetFormat;
+  pendingApplication.value = pending;
   ElMessage.info(t('history.reusePending'));
+}
+
+function handleApplyPreset(preset: ConversionPreset): void {
+  const pending: PendingApplication = {
+    target: preset.target,
+    options: { ...preset.options },
+    unavailableKey: 'preset.unavailable',
+  };
+  if (hasFiles.value) {
+    applyApplication(pending);
+    return;
+  }
+  pendingApplication.value = pending;
+  ElMessage.info(t('preset.pending'));
 }
 
 function handleUndo(): void {
@@ -243,6 +324,7 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
+  window.removeEventListener('beforeunload', warnBeforeLeave);
   document.removeEventListener('keydown', handleGlobalKeydown);
   document.removeEventListener('dragenter', handleWorkspaceDragEnter);
   document.removeEventListener('dragover', handleWorkspaceDragOver);
@@ -336,11 +418,17 @@ onUnmounted(() => {
                 type="danger"
                 plain
                 class="cancel-btn"
-                @click="cancelConversion"
+                :disabled="cancelRequested"
+                @click="handleCancelConversion"
               >
                 {{ t('convert.cancel') }}
               </el-button>
             </div>
+            <OutputOptions
+              :source-formats="uniqueSourceFormats"
+              :target-format="targetFormat"
+              :disabled="isConverting"
+            />
             <div
               v-if="showBatchProgress"
               class="batch-progress"
@@ -353,6 +441,18 @@ onUnmounted(() => {
             </div>
           </div>
         </Transition>
+
+        <CollapsibleCard
+          card-id="presets"
+          :title="t('preset.title')"
+          :default-open="false"
+        >
+          <PresetBar
+            :target-format="targetFormat"
+            :disabled="isConverting"
+            @apply="handleApplyPreset"
+          />
+        </CollapsibleCard>
 
         <Transition name="card" mode="out-in">
           <div
@@ -377,6 +477,8 @@ onUnmounted(() => {
             <ResultDownload
               :results="batchResults"
               :failures="batchFailures"
+              :cancelled="cancelled"
+              :total-count="totalCount"
               @download="downloadResult"
               @download-all="downloadAllZip"
             />

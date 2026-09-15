@@ -84,22 +84,25 @@ body {
   font-weight: 500;
 }
 
+/* The filled-button scale lives in tokens.css (--fat-btn-solid*), because which shade a
+   state takes depends on the label colour, and that differs per theme and mode. Keeping the
+   three states here as plain token references means no mode-specific selector is needed. */
 .el-button--primary {
-  background: var(--fat-primary) !important;
-  border-color: var(--fat-primary) !important;
-  color: #fff !important;
+  background: var(--fat-btn-solid) !important;
+  border-color: var(--fat-btn-solid) !important;
+  color: var(--fat-on-btn-solid) !important;
 }
 
 .el-button--primary:hover {
-  background: var(--fat-primary-hover) !important;
-  border-color: var(--fat-primary-hover) !important;
-  color: #fff !important;
+  background: var(--fat-btn-solid-hover) !important;
+  border-color: var(--fat-btn-solid-hover) !important;
+  color: var(--fat-on-btn-solid) !important;
 }
 
 .el-button--primary:active {
-  background: var(--fat-primary-active) !important;
-  border-color: var(--fat-primary-active) !important;
-  color: #fff !important;
+  background: var(--fat-btn-solid-active) !important;
+  border-color: var(--fat-btn-solid-active) !important;
+  color: var(--fat-on-btn-solid) !important;
 }
 
 .el-button--default {
@@ -160,17 +163,7 @@ body {
   outline-offset: 1px !important;
 }
 
-/* Dark mode button enhancements */
-:root[data-mode='dark'] .el-button--primary {
-  background: var(--fat-primary-active) !important;
-  border-color: var(--fat-primary-active) !important;
-}
-
-:root[data-mode='dark'] .el-button--primary:hover {
-  background: color-mix(in srgb, var(--fat-primary-active) 80%, var(--fat-primary)) !important;
-  border-color: color-mix(in srgb, var(--fat-primary-active) 80%, var(--fat-primary)) !important;
-}
-
+/* Dark mode button enhancements (primary is handled by the token scale above) */
 :root[data-mode='dark'] .el-button--default {
   border-color: var(--fat-border) !important;
   color: var(--fat-text-regular) !important;
@@ -188,6 +181,27 @@ body {
 
 :root[data-mode='dark'] .el-button--text:hover {
   color: var(--fat-primary-hover) !important;
+}
+
+/* Large-batch confirmation dialog. The markup is a VNode built in useConversion.ts and the
+   message box teleports to <body>, so scoped component styles cannot reach it. */
+.confirm-batch__dont-ask {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  padding-top: 10px;
+  font-size: 13px;
+  color: var(--fat-text-secondary);
+  cursor: pointer;
+  user-select: none;
+}
+
+.confirm-batch__dont-ask input {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  accent-color: var(--fat-primary);
+  cursor: pointer;
 }
 
 /* Alert styling */

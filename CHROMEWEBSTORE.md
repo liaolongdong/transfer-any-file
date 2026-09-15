@@ -1,12 +1,16 @@
 # Chrome Web Store Listing — Transfer Any File
 
-> Last Updated: 2026-09-13
-> Status: **not published yet.** This repo has no store listing to optimise — `manifest.json` carries no `key`, the README only documents "Load unpacked", and there is no extension ID anywhere in the tree. This file is the publish-ready asset pack: copy each field into the [Chrome Developer Dashboard](https://chrome.google.com/webstore/devconsole), and keep it updated whenever permissions, features or graphics change.
+> Last Updated: 2026-09-15
+> Status: **submitted once, rejected, refiling.** The 1.0.0 draft went to review and came back on 2026-09-14 under 垃圾内容和商店中的排名 (reference ID `Yellow Argon`): _产品说明中有过多关键字_, quoting `"Markdown, Word, PDF, Excel, CSV, JSON, HTML, images"` **in Summary** — the short description field below, which stood at 129 characters until this round. The Summary, the `Chinese (China)` field that mirrored its shape, and the marquee promo tile's subtitle are now written by category instead of by format name; see **Rejection History** for the measurement and the resubmission path. The item is still not live, `manifest.json` carries no `key`, and there is no extension ID anywhere in the tree, so this file remains the publish-ready asset pack rather than a listing to optimise: copy each field into the [Chrome Developer Dashboard](https://chrome.google.com/webstore/devconsole), and keep it updated whenever permissions, features or graphics change.
 >
 > Re-checked 2026-09-08: the GitHub Pages site **is live** (`https://liaolongdong.github.io/transfer-any-file/` and
 > `/privacy.html` both answer `HTTP/2 200`), and the repository exists as `liaolongdong/transfer-any-file` — but its
 > About block is still empty (`description: null`, `homepage: null`, `topics: []`), so the `repo-meta.yml` step has
 > never run. The remaining manual gaps are the store account itself and that About block.
+
+Revised 2026-09-15 (response to the 1.0.0 rejection): the short description dropped its eight-name format list and now describes the same coverage by category — 127 characters of the 132 available. The `Chinese (China)` short description was trimmed the same way (66/132), and the marquee promo tile's subtitle, which carried the identical list in a store-reviewed image, was changed in `scripts/capture-store-assets.mjs` and recaptured. The detailed descriptions were deliberately **not** touched: only the Summary was quoted, and moving one field per submission attempt is what keeps the next verdict attributable. Two character counts in this file had drifted from the copy they describe and are corrected here against `pnpm verify:listing`, which is the authority for every number below: the English detailed block measures 7,958 characters (not 6,939) and the Chinese one 3,240 (not 2,832). Note also that the per-token density figures quoted in the 2026-09-12/13 note are a snapshot of that round — the 2026-09-14 additions moved them, so treat them as history rather than a current measurement.
+
+Revised 2026-09-14: the two capabilities shipped this cycle are now in both detailed descriptions — an 图片输出参数 / "Image output parameters" bullet (quality, longest edge, target file size, and DPI for a PDF source) and a 转换预设 / "Conversion presets" bullet — placed after 最近使用 so the history and personalisation lines keep their order; 使用方法 / HOW TO USE grew from four steps to six to cover the output panel and saving a preset; and a 能把图片体积压小吗 / "Can it make a photo file smaller?" pair joined QUESTIONS, because shrinking a picture offline is the highest-intent thing this listing can be found for. The CSV line was corrected from "falls back to GBK" to the chain the decoder actually runs (UTF-8 → GB18030 → GBK), which had also drifted on the product page. All paste fields re-measured with `pnpm verify:listing`. The kit also gained a seventh listing frame, `screen-07-presets` (output parameters plus the preset chips), so the five-slot pick in _Tab 2_ is now 01–04 + 07 with `history` and `dark-mode` as the spares.
 
 Revised 2026-09-12/13 (all figures below measured from this file with a script, not estimated): the English name was extended to 57 characters with an image keyword and **reverted to 49 the same round** — see _Extension Name_ for the measurements that decided it; the Chinese name was introduced at 33/75 (it has no earlier value — the section itself is new). A COMMON CONVERSIONS / 常用转换 block was added to both detailed descriptions in this round, because the route phrases users type — "markdown to pdf", "csv to excel", "png to webp" — appeared nowhere in them, and then **cut back the same round** from one dense prose paragraph to five category bullets: the block now names **31 of the 116 selectable pairs** (711 characters EN / 391 ZH), and whole-description format-token density fell from **93 → 73** occurrences in English and **95 → 77** in Chinese, where the peak single token is `PDF` at 13. The complete per-format matrix — every direct edge, every multi-step target and every greyed pair with its reason — now lives on the product page, which can carry that enumeration without any listing-policy exposure. Finally, the privacy line "makes no network requests of any kind" was reworded into the behaviourally verifiable form, so it still stands up to a reviewer checking with a proxy.
 
@@ -38,8 +42,8 @@ curl -Is https://liaolongdong.github.io/transfer-any-file/privacy.html | head -1
 | Field             | Value                                                                         |
 | ----------------- | ----------------------------------------------------------------------------- |
 | Name              | below — 49/75, and it must equal `wxt.config.ts → manifest.name`              |
-| Short description | below — 129/132, and it must equal `manifest.description`                     |
-| Full description  | _Detailed Description_ → the English fenced block (6,939 measured characters) |
+| Short description | below — 127/132, and it must equal `manifest.description`                     |
+| Full description  | _Detailed Description_ → the English fenced block (7,958 measured characters) |
 | Category          | `Productivity`                                                                |
 | Languages         | English only until the _Locale gate_ is resolved                              |
 
@@ -48,19 +52,22 @@ Transfer Any File — Offline File Format Converter
 ```
 
 ```
-Convert 14 file formats locally in your browser: Markdown, Word, PDF, Excel, CSV, JSON, HTML, images. Batch, offline, no uploads.
+Convert between 14 common document, spreadsheet and image file formats right in your browser — offline, in batches, no uploads.
 ```
 
-Chinese (China) — three gated fields, in _Store Listing_ above each heading: name 33/75, short description 98/132,
-detailed description 2,832 characters. Paste them only if the uploaded package ships `_locales/zh_CN/`; otherwise the
+Chinese (China) — three gated fields, in _Store Listing_ above each heading: name 33/75, short description 66/132,
+detailed description 3,240 characters. Paste them only if the uploaded package ships `_locales/zh_CN/`; otherwise the
 dashboard has no tab to paste them into.
 
 ### Tab 2 — Screenshots & icon
 
-Icon: `public/icon/128.png`. Screenshots: five, in this order, from `docs/assets/store/screens/` —
-`screen-01-workbench`, `02-batch`, `03-zip`, `04-preview`, `05-history`. Leave `06-dark-mode` out (five is the
-maximum and it is the weakest evidence). Then the promo tiles in _Graphics & Assets_ — one set, promo tiles cannot be
-localized. Captions are already burned into the PNGs; the dashboard has no caption field.
+Icon: `public/icon/128.png`. Screenshots: seven are generated, the dashboard takes five, so two stay in the repo.
+Upload, in this order, from `docs/assets/store/screens/` — `screen-01-workbench`, `02-batch`, `03-zip`, `04-preview`,
+`07-presets`. `05-history` and `06-dark-mode` are the spares: both capabilities are already named in the listing copy,
+while `07-presets` is the only frame that shows the output levers (quality, longest edge, target file size, render
+density) and the chips that keep them — the highest-intent thing this listing can be found for, per the QUESTIONS
+block. Then the promo tiles in _Graphics & Assets_ — one set, promo tiles cannot be localized. Captions are already
+burned into the PNGs; the dashboard has no caption field.
 
 ### Tab 3 — Privacy practices
 
@@ -103,7 +110,7 @@ No account or login is required. After installing, click the toolbar icon: the c
 ### Two things to settle before the $5
 
 1. **The locale gate.** Without `_locales/` in the package there is no Chinese listing tab, for an extension whose UI
-   defaults to Chinese and whose primary audience is Chinese-reading. That is a manifest change, not a paste — see
+   ships Chinese and whose primary audience is Chinese-reading. That is a manifest change, not a paste — see
    _Locale gate_.
 2. **Publisher name.** _Developer Info_ leaves it to you; it is public on the listing and it is the account-holder's
    name or organisation as Google bills it.
@@ -161,7 +168,7 @@ Two ways forward, and the choice is not mine to make in a document:
 
 | Option                           | What it takes                                                                                                                                         | Consequence                                                                                                                                                                                                                                                                                                                                 |
 | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Ship the English listing now** | Nothing. Paste the three EN fields, skip the three ZH ones.                                                                                           | The ZH copy below stays unused. The in-app UI still defaults to Chinese for the primary audience — only the store page is English.                                                                                                                                                                                                          |
+| **Ship the English listing now** | Nothing. Paste the three EN fields, skip the three ZH ones.                                                                                           | The ZH copy below stays unused. The in-app UI still ships Chinese for the primary audience — only the store page is English.                                                                                                                                                                                                                |
 | **Add a Chinese locale**         | `default_locale: "en"` + `_locales/en/messages.json` + `_locales/zh_CN/messages.json`, with manifest `name` and `description` moved into `__MSG_*__`. | Unlocks the `Chinese (China)` tab **and** localises what Chrome itself shows (extensions page, install prompt) for users on a Chinese browser UI. Touches the manifest and the metadata-sync chain (`verify:meta` compares manifest ↔ `package.json` ↔ `repo-metadata.json`), so it is a code change with its own review, not a copy-paste. |
 
 Either way, promo tiles are unaffected: _"Small promo tiles and marquee promo tiles cannot be localized."_ One
@@ -184,23 +191,40 @@ compound rather than a bolted-on English token, and it names a third of the form
 and this is the locale the primary audience lands on. 文件格式转换 remains the phrase a Chinese user types, and the
 name still reads as one noun phrase instead of a list — the same shape rule the English field follows.
 
-**Short Description** [REQUIRED] — 129 chars, limit 132
+**Short Description** [REQUIRED] — 127 chars, limit 132
 
 ```
-Convert 14 file formats locally in your browser: Markdown, Word, PDF, Excel, CSV, JSON, HTML, images. Batch, offline, no uploads.
+Convert between 14 common document, spreadsheet and image file formats right in your browser — offline, in batches, no uploads.
 ```
 
 Mirrored in `wxt.config.ts → manifest.description` and `package.json → description`. Keep the three in sync.
 
-**Chinese (China) short description** — 98 chars, limit 132
+This is the field the store rejected on 2026-09-14: _产品说明中有过多关键字_, quoting
+`"Markdown, Word, PDF, Excel, CSV, JSON, HTML, images"` out of the previous 129-character sentence. The rewrite keeps
+what the field exists to do — lead with the verb, give the one number a buyer compares (`14`), state the
+differentiator — and describes coverage by category instead of naming formats. Those names did not leave the
+submission: they are still in the detailed description's WHAT YOU CAN CONVERT and COMMON CONVERSIONS blocks, in the
+`Chinese (China)` copy, on the product page, and in the GitHub About block. None of those was quoted.
+
+The shape rule this leaves behind, and the reason the marquee promo tile changed in the same round: **no colon- or
+comma-separated list of format names in any store paste field, and none burned into a store image.** The tail —
+`offline, in batches, no uploads` — is the part that stays, because it reports behaviour the extension performs
+rather than enumerating things a buyer might search for.
+
+**Chinese (China) short description** — 66 chars, limit 132
 
 ```
-在本机浏览器内互转 14 种文件格式：Markdown、Word、PDF、Excel、CSV、JSON、HTML、图片。支持混合批量、多步链路、预览编辑与 ZIP 打包，全程离线，不上传、无账号。
+在本机浏览器内互转 14 种常见的文档、表格与图片格式。支持混合批量、多步链路、预览编辑与 ZIP 打包，全程离线，不上传、无账号。
 ```
 
-Extended on 2026-09-11 from the previous 75-char version. The Chinese page is where the primary audience lands, and the field had 57 characters going unused. Everything added is a capability the extension already ships (mixed-format batches, multi-step chains, preview and editing, ZIP download, no upload, no account) written as one readable sentence — not as a comma-separated keyword list, which is the shape the store rejected elsewhere as keyword stuffing. Note that no PDF-to-Word or PDF-to-Excel capability is implied here, because the extension does not convert PDF losslessly.
+Gated on `_locales/zh_CN/` like every other Chinese field — it has never been pasted, but it mirrored the English
+field's list, so leaving it alone would have stored the same violation for the next round. It drops from 98 to 66
+characters on one cut: the eight-name enumeration. What was added on 2026-09-11 stays, because those four clauses
+name capabilities the extension ships (mixed-format batches, multi-step chains, preview and editing, ZIP download)
+rather than file extensions. Still no PDF-to-Word or PDF-to-Excel claim, because the extension does not convert PDF
+losslessly.
 
-**Detailed Description** [REQUIRED] — plain text, guarded at 16,000 chars (English block measured 6,939; Chinese block below measured 2,832)
+**Detailed Description** [REQUIRED] — plain text, guarded at 16,000 chars (English block measured 7,958; Chinese block below measured 3,240)
 
 _Google documents no length for this field_ — the 75- and 132-character limits are stated in their docs, the 16,000 is
 not. Treat it as this repo's own guard (`pnpm verify:listing`) sized to the counter the dashboard shows, and confirm
@@ -241,8 +265,10 @@ BUILT FOR REAL WORKLOADS
 • Paste to convert: copy an image or a block of text and press Ctrl+V (⌘V on Mac)
 • Preview and edit: view the source and the result side by side, and correct text output (Markdown / HTML / CSV / JSON / plain text) before downloading
 • Recent targets: the formats you convert to most often are grouped at the top of the target picker
+• Image output parameters: an image target exposes quality (40–90%), longest edge (800–4096 px) and a target file size (20 KB–2 MB) for JPEG and WebP, plus 96–300 DPI when a PDF is in the batch — every knob starts untouched
+• Conversion presets: save a target format together with its parameters as a named shortcut (up to 12) and restore the whole setup in one click; a preset works for any batch that can reach that format
 • Archive intake: drop a .zip and the supported files inside join the batch automatically
-• Excel-friendly CSV: reads UTF-8 and falls back to GBK, writes UTF-8 with a BOM so spreadsheets open without garbled characters
+• Excel-friendly CSV: reads UTF-8 and falls back to GB18030 then GBK, writes UTF-8 with a BOM so spreadsheets open without garbled characters
 • Conversion history: the last 50 runs (file names, formats and sizes only), searchable by file name, filterable, reusable in one click, exportable and importable as JSON
 • Undo the previous batch, confirm before a very large batch, and an optional desktop notification when a long job finishes while the tab is in the background
 • Personalisation: 6 accent colours, light / dark / follow-system appearance, and a Chinese or English interface
@@ -252,7 +278,9 @@ HOW TO USE
 1. Click the toolbar icon — the workbench opens in a new tab
 2. Drop files on the upload area, click to choose them, or paste from the clipboard
 3. Pick the target format. Only formats that every selected file can reach are offered; the rest are greyed out with a reason
-4. Press Convert, then download a single file or the whole batch as one ZIP
+4. Converting to an image? The output panel appears for PNG, JPEG and WebP targets only, where you can set quality, longest edge or a target file size
+5. Press Convert, then download a single file or the whole batch as one ZIP
+6. Repeat the same setup often? Save the format and its parameters as a named preset and restore both in one click
 
 PRIVACY
 • Your files never leave your device. There is no upload step and no server to upload to: converting a file makes no network request, and the whole thing works with the network switched off
@@ -271,6 +299,7 @@ QUESTIONS
 • Do I need to be online? No. After installation the interface and every converter run from your own machine, and the text is set in your system fonts instead of a downloaded webfont, so working on a plane or on an air-gapped laptop makes no difference.
 • Why can't a screenshot be turned into text? That needs OCR, and no OCR engine is bundled: it would add tens of megabytes and a model download, which the offline guarantee rules out. Those targets are greyed out with that reason instead of failing at convert time.
 • How many files can it take at once? Up to 200 files in a batch and 100 MB per file, with a confirmation prompt above 5 files or 20 MB in total. Multi-page PDFs and multi-sheet workbooks become one output per page or per sheet, delivered as a single ZIP.
+• Can it make a photo file smaller? Yes, and offline. Converting to JPEG or WebP lets you set a quality level, cap the longest edge, or ask for a target file size between 20 KB and 2 MB, which the encoder reaches by walking its quality ladder; a PNG target takes the longest-edge cap. Nothing is uploaded to do it.
 • Where is the conversion history kept? In extension-local storage on your own machine, holding file names, formats and sizes only, never file contents. It can be searched, filtered, exported and cleared from the workbench.
 • Also works in other Chromium browsers, not only Chrome.
 
@@ -318,8 +347,10 @@ Transfer Any File 是一款开源、完全离线的 Chrome 文件格式转换扩
 • 粘贴即转换：复制一张图片或一段文字，按 Ctrl+V（Mac 上为 ⌘V）即可
 • 预览与编辑：源文件与结果左右对照显示，文本类结果（Markdown / HTML / CSV / JSON / 纯文本）可在下载前就地修改
 • 最近使用：你常转的目标格式会以下拉顶部的「最近使用」分组呈现
+• 图片输出参数：目标是图片时可设质量（40–90%）、最长边（800–4096 px）或目标体积（20 KB–2 MB，仅 JPEG / WebP），批次含 PDF 时还可按「清晰度」选 96–300 DPI；不设置即保持默认
+• 转换预设：把目标格式连同输出参数存成一个命名快捷方式（最多 12 个），下次一键套用；预设不绑定源格式，凡能转到该格式的批次都能直接用
 • 压缩包解包：拖入一个 .zip，其中受支持的文件自动加入批次
-• 中文友好的 CSV：读取 UTF-8 并在失败时回退 GBK，写出时带 BOM，用 Excel 打开不乱码
+• 中文友好的 CSV：读取 UTF-8 并在失败时依次回退 GB18030 与 GBK，写出时带 BOM，用 Excel 打开不乱码
 • 转换历史：保留最近 50 次转换的元数据（仅文件名、格式与体积），支持按文件名搜索、筛选、一键「复用此格式」，以及 JSON 导出与导入
 • 可撤销上一批结果、超大批次转换前确认、任务在后台标签页完成时可选发送桌面通知
 • 个性化：6 种主题色、浅色 / 深色 / 跟随系统三种显示模式，中文与英文界面
@@ -329,7 +360,9 @@ Transfer Any File 是一款开源、完全离线的 Chrome 文件格式转换扩
 1. 点击工具栏图标——转换工作台在新标签页打开
 2. 把文件拖到上传区，或点击选择，或直接从剪贴板粘贴
 3. 选择目标格式。下拉框只提供对全部已选文件都可达的格式，其余格式置灰并给出原因
-4. 点击「开始转换」，然后单个下载或把整批「打包下载 ZIP」
+4. 要转成图片？「输出参数」面板只在目标为 PNG / JPEG / WebP 时出现，可设置质量、最长边或目标体积
+5. 点击「开始转换」，然后单个下载或把整批「打包下载 ZIP」
+6. 每次都转同一套配置？把它存成「转换预设」，之后一键恢复格式与参数
 
 隐私
 • 你的文件不会离开本设备。没有上传环节，也没有可供上传的服务器：完成一次转换不发起任何网络请求，断网状态下照常可用
@@ -348,6 +381,7 @@ Transfer Any File 是一款开源、完全离线的 Chrome 文件格式转换扩
 • 需要联网吗？不需要。安装完成后，界面与全部转换器都在你自己的电脑上运行，文字使用系统自带字体而非下载的网络字体，在飞机上或内网隔离的电脑上使用没有区别。
 • 为什么不能把截图转成文本？那需要 OCR，而扩展没有内置任何 OCR 引擎——它会带来几十 MB 体积和一次模型下载，与完全离线的承诺冲突。这些目标格式会置灰并给出该原因，而不是等到转换时才失败。
 • 一次能处理多少文件？单批最多 200 个文件、单文件最大 100 MB，超过 5 个文件或总计 20 MB 会先弹确认框。多页 PDF 与多工作表 Excel 会按每页一个、每表一个的方式输出，并打包为一个 ZIP。
+• 能把图片体积压小吗？可以，而且全程离线。转成 JPEG 或 WebP 时可设质量、限制最长边，或指定 20 KB–2 MB 之间的目标体积——编码器用质量阶梯逐级逼近；PNG 目标支持最长边限制。整个过程不需要上传任何文件。
 • 转换历史存在哪里？存在本机的扩展存储中，只包含文件名、格式与体积，绝不保存文件内容。可在工作台内搜索、筛选、导出与清空。
 • 除 Chrome 外，其他 Chromium 内核浏览器同样可用。
 
@@ -375,11 +409,12 @@ Converts user-selected documents, spreadsheets and images between common file fo
 English
 ```
 
-`English` must match the default locale the package actually ships. Chinese is **not** offered as an additional
-listing language today — see _Locale gate_ above; it needs `_locales/zh_CN/` in the package, not a dashboard setting.
-The in-app UI ships both languages and defaults to Chinese either way, and Google's own consistency rule for the
-option case is only that _"localized item metadata shouldn't significantly change the described set of features"_ —
-the ZH descriptions above mirror the EN ones feature for feature.
+`English` must match the language of the copy pasted above; the package carries no `_locales/`, so it declares no
+fixed UI locale — the in-app UI resolves its own at runtime (a stored choice, otherwise the browser's language).
+Chinese is **not** offered as an additional listing language today — see _Locale gate_ above; it needs
+`_locales/zh_CN/` in the package, not a dashboard setting. The UI ships both languages either way, and Google's own
+consistency rule for the option case is only that _"localized item metadata shouldn't significantly change the
+described set of features"_ — the ZH descriptions above mirror the EN ones feature for feature.
 
 ---
 
@@ -398,7 +433,7 @@ Everything here is generated, not hand-taken: `pnpm build && pnpm assets:capture
 
 ### Listing screenshots
 
-Each row is one carousel position. The raw capture is what the README and the product page use; the two listing files are that same shot with the caption bar composited on, one per store language. **The captions below are a mirror, not the source** — `SCREEN_CAPTIONS` in `scripts/capture-store-assets.mjs` is what is burned into the PNGs, so edit there and re-run `pnpm build && pnpm assets:capture`. A caption states what its own shot proves: the ZIP row reads "one mixed batch" rather than a file count, because the script stages a three-file batch (`:256`), and caption text is store metadata reviewed under the same rules as the listing copy.
+Each row is one generated frame; _Tab 2 → Screenshots & icon_ decides which five enter the carousel and in what order. The raw capture is what the README and the product page use; the two listing files are that same shot with the caption bar composited on, one per store language. **The captions below are a mirror, not the source** — `SCREEN_CAPTIONS` in `scripts/capture-store-assets.mjs` is what is burned into the PNGs, so edit there and re-run `pnpm build && pnpm assets:capture`. A caption states what its own shot proves: the ZIP row reads "one mixed batch" rather than a file count, because the script stages a three-file batch for that frame, and caption text is store metadata reviewed under the same rules as the listing copy.
 
 | #   | Raw capture (`docs/assets/screenshots/`) | Listing file, English (`docs/assets/store/screens/`) | Listing file, Chinese        | Caption (EN / ZH)                                                                      |
 | --- | ---------------------------------------- | ---------------------------------------------------- | ---------------------------- | -------------------------------------------------------------------------------------- |
@@ -408,12 +443,14 @@ Each row is one carousel position. The raw capture is what the README and the pr
 | 4   | `preview-edit.png`                       | `screen-04-preview.png`                              | `screen-04-preview-zh.png`   | Preview side by side, edit before you download / 左右对照预览，下载前直接改            |
 | 5   | `history.png`                            | `screen-05-history.png`                              | `screen-05-history-zh.png`   | Searchable, filterable history with one-click reuse / 历史可搜索、可筛选、一键复用格式 |
 | 6   | `dark-mode.png`                          | `screen-06-dark-mode.png`                            | `screen-06-dark-mode-zh.png` | 6 accent colours, light / dark / system / 6 种主题色，浅色 / 深色 / 跟随系统           |
+| 7   | `output-preset.png`                      | `screen-07-presets.png`                              | `screen-07-presets-zh.png`   | Dial in size and quality, save it as a preset / 尺寸、质量、目标体积，存成一键预设     |
 
 Four constraints drive this set:
 
 - **Five per language page, and five is the ceiling.** Google asks for _"at least 1—and preferably the maximum allowed
-  5—screenshots"_, so one of the six above is a spare. Drop **#6** first (`dark-mode`): it is the weakest evidence,
-  and theme support is already stated in the listing copy.
+  5—screenshots"_, so two of the seven above stay in the repo. Drop **#6** (`dark-mode`) first: it is the weakest
+  evidence, and theme support is already stated in the listing copy. Then **#5** (`history`), whose search, filter and
+  reuse controls are named in the detailed description but show no conversion of their own.
 - **Everything gets downscaled to 640×400.** Google: _"all screenshots are downscaled to 640x400 pixels"_. The PNGs
   stay 1280×800 for retina surfaces, but the only render that matters for legibility is the halved one — which rules
   out any caption smaller than this set's bar, and is why the UI is captured at its natural density rather than
@@ -450,6 +487,7 @@ The split is arithmetic, not taste: the detailed master's text lines are 5px tal
 4. `preview-edit` — split source ↔ result with Rendered / Source / Edit / Copy controls. The strongest differentiator; also the hero image on the product page.
 5. `history` — searchable, filterable history with "Reuse this format".
 6. `dark-mode` — dark appearance, proof the UI is themeable.
+7. `output-preset` — one PDF staged with WebP as the target, arrived at by clicking a preset chip rather than the dropdown: the path strip renders the two-step chain (PDF → PNG → WebP), the output row carries all four parameters (70% quality, 1280 px longest edge, 200 KB target size, 200 DPI — the last one only because the source is a PDF), and the three saved chips sit below it.
 
 The raw English captures double as the README and product-page imagery. The Chinese captures are intermediates: they exist only long enough to be composited, because both READMEs and the product page reuse the English set. `scripts/capture-store-assets.mjs` runs both locales in a single pass, so the Chinese tab cannot be left showing an English workbench.
 
@@ -671,8 +709,8 @@ Everything pasted here already exists in this file — copy, do not retype:
 
 | Dashboard tab      | Source in this file                                                                                                                                                |
 | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Store listing      | **Store Listing** (name 49/75, short 129/132, detailed description, `Productivity`, single purpose). One locale until the _Locale gate_ section above is resolved. |
-| Screenshots & icon | **Graphics & Assets** — upload 5 of the 6 × 1280×800 shots (drop `dark-mode`), `public/icon/128.png`, small and marquee promo tiles                                |
+| Store listing      | **Store Listing** (name 49/75, short 127/132, detailed description, `Productivity`, single purpose). One locale until the _Locale gate_ section above is resolved. |
+| Screenshots & icon | **Graphics & Assets** — upload 5 of the 7 × 1280×800 shots (drop `history` and `dark-mode`), `public/icon/128.png`, small and marquee promo tiles                  |
 | Privacy practices  | **Privacy & Data Use** — declare that the item _handles_ user data; on-device-only, never transmitted. **Not** "we don't collect any user data".                   |
 | Summary / rollout  | **Distribution** (public, all regions); the item ID lands here                                                                                                     |
 
@@ -744,9 +782,9 @@ Because the dashboard reports listing-level numbers rather than per-screenshot o
 
 ## Version History
 
-| Version | Date       | Changes                                                                                                                                                                                                                                          | Status |
-| ------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------ |
-| 1.0.0   | 2026-09-07 | First submission: 14 formats / 46 direct routes, batch + ZIP, multi-step chains, preview & edit, failure diagnostics, recently-used target group, history, 6 themes, zh/en UI. Listing copy is complete in **both** English and Chinese (China). | Draft  |
+| Version | Date       | Changes                                                                                                                                                                                                                                                                                                                                                                                                                                                 | Status              |
+| ------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------- |
+| 1.0.0   | 2026-09-07 | First submission: 14 formats / 46 direct routes, batch + ZIP, multi-step chains, preview & edit, failure diagnostics, recently-used target group, history, 6 themes, zh/en UI. Listing copy is pasteable in English; the Chinese copy is drafted here but gated on `_locales/` — see _Locale gate_. Reviewed and **rejected 2026-09-14** over the short description's format list — see _Rejection History_; refiling with the category-worded Summary. | Rejected → refiling |
 
 ---
 
@@ -758,7 +796,7 @@ Because the dashboard reports listing-level numbers rather than per-screenshot o
 - PDF input is text extraction only; layout and embedded images are dropped.
 - No OCR, so image → text/data is intentionally greyed out in the target picker rather than failing at convert time.
 - BMP / GIF / SVG are input-only because browsers expose no encoders for them.
-- Two contrast pairs are asserted by the end-to-end suite in all 6 accent themes × light/dark (12 combinations): topbar brand text on the topbar at 4.5:1 or better, and the focus ring on a card at 3:1 or better. Known gap: on the light forest-green and light orange themes the primary button sits at 2.5–3.6:1, because no single foreground covers its base/hover/active shades. Closing it means re-deriving the light primary scale; the limitation is documented in the README rather than presented as passing.
+- Three contrast pairs are asserted by the end-to-end suite in all 6 accent themes × light/dark (12 combinations): topbar brand text on the topbar at 4.5:1 or better, the primary button's label in its rest / hover / pressed states at 4.5:1 or better (read off an enabled button, since the text rule exempts disabled controls), and the focus ring on a card at 3:1 or better. Worst measured value, 2026-09-14: 4.70:1. Known gap: a control's fill also needs 3:1 against the surface behind it (WCAG 1.4.11), which holds in 10 of the 12 but not under the light forest-green and orange buttons (2.21 / 2.96:1) — documented in the README rather than presented as passing.
 
 ### Pre-Publish Checklist
 
@@ -769,6 +807,7 @@ Because the dashboard reports listing-level numbers rather than per-screenshot o
 - [x] No remote code, no CDN assets, no `eval` / `new Function`
 - [x] No obfuscation (Vite minification only); source maps excluded
 - [x] Description matches shipped behaviour, including limitations
+- [ ] **No colon- or comma-separated format list in any paste field or burned-in image** — this is what the 2026-09-14 rejection quoted, in the Summary and again on the marquee promo tile. `pnpm verify:listing` measures length and cross-file sync, not shape, so the check is a read: both short descriptions, both detailed descriptions, the promo tiles and the seven screenshot captions. See _Rejection History_.
 - [x] Screenshots at exactly 1280×800, generated from the built bundle
 - [x] Privacy policy text authored (bilingual), hosted under `docs/`
 - [x] **GitHub Pages serving `docs/` as the site root** — verified 2026-09-08: `https://liaolongdong.github.io/transfer-any-file/` returns `HTTP/2 200`, which is what `.github/workflows/static.yml` is written to produce. The earlier repository-root deploy (created by GitHub's own wizard, which put the repo root at the site root) has been superseded; re-run the `curl` below if the artifact path ever changes.
@@ -784,4 +823,34 @@ Because the dashboard reports listing-level numbers rather than per-screenshot o
 
 ### Rejection History
 
-_None yet — not submitted._
+**2026-09-14 · v1.0.0 · 违规类型：垃圾内容和商店中的排名 · 参考 ID `Yellow Argon`**
+
+> 违规行为：产品说明中有过多关键字。
+> English: "Markdown, Word, PDF, Excel, CSV, JSON, HTML, images" in Summary.
+> 如何纠正：移除说明中的过多关键字并重新提交产品。
+> 计划政策的相关部分：我们禁止发布含有误导性、格式不正确、非描述性、不相关、**过多**或不恰当的元数据的扩展程序，包括但不限于扩展程序的名称、图标、说明、开发者名称、**屏幕截图和宣传图片**。
+
+**What the quoted string actually was.** Not the long description — the eight names sat in the second half of the
+129-character **Summary** (the dashboard's short-description field), which this file keeps byte-identical to
+`wxt.config.ts → manifest.description` and `package.json#description`. One sentence, four places, all asserted by
+`pnpm verify:listing`; fixing only the sheet would have resubmitted the same violation from the manifest.
+
+| Where                                                         | Before                                                                                                                                    | After                                                                                                                                                                                                                                            |
+| ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Summary / `manifest.description` / `package.json#description` | `Convert 14 file formats locally in your browser: Markdown, Word, PDF, Excel, CSV, JSON, HTML, images. Batch, offline, no uploads.` (129) | `Convert between 14 common document, spreadsheet and image file formats right in your browser — offline, in batches, no uploads.` (127)                                                                                                          |
+| `Chinese (China)` short description                           | Same list after a colon, 98 chars                                                                                                         | Category wording, 66 chars. Never pasted — the locale gate means no Chinese tab exists yet — but it carried the identical shape, so leaving it would have banked the same violation for the round that ships `_locales/`.                        |
+| Marquee promo tile subtitle (1400×560)                        | `Markdown, Word, PDF, Excel, CSV, JSON, HTML and images in one offline workbench.`                                                        | `Documents, spreadsheets and images in one offline workbench.` The policy sentence the reviewer quoted names 宣传图片 explicitly, so a burned-in list is the same exposure as a text field. Recaptured with `pnpm build && pnpm assets:capture`. |
+
+**What was deliberately left alone.** The detailed descriptions still carry WHAT YOU CAN CONVERT (one bullet per
+family) and COMMON CONVERSIONS (31 named pairs of 116) — 7,958 / 3,240 characters, ~87 format-name tokens in the
+English block. None of it was quoted. Rewriting it in the same attempt would also destroy attribution: if a second
+rejection arrived, there would be no way to tell whether the Summary fix worked. It is the next lever, not this one —
+and if a second verdict names the long description, cut COMMON CONVERSIONS first, since the same enumeration already
+sits on the product page where no listing policy applies to it.
+
+**Resubmission path.** A rejected draft stays editable in the dashboard: edit the Summary in place, replace the
+marquee promo tile, upload the rebuilt package, and run the four pre-flight commands in _Submission worksheet_ first.
+The version stays **1.0.0** — the "must be higher than what is live" rule has nothing to compare against while
+nothing is live, and keeping it leaves `release.yml`'s tag-matches-version assertion untouched. Two rejections on the
+same policy line, though, is an account-level pattern rather than a copy nit; if that happens, the remaining
+enumeration goes too and the appeal form gets used.

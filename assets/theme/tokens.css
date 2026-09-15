@@ -25,8 +25,22 @@
   /* The topbar is the only primary-coloured surface on screen permanently, so it gets a
      shade its text can actually sit on. Light keeps --fat-primary; dark uses
      --fat-primary-active, where white measures 4.58–6.34:1 instead of the 1.69–2.67:1 it
-     gets on the pastel primaries — and it matches the dark primary button. */
+     gets on the pastel primaries. */
   --fat-topbar-bg: var(--fat-primary);
+
+  /* Filled-button scale. WCAG 1.4.3 wants 4.5:1 from the label in *every* state, and the
+     resting fills already clear it in all 6 themes × light/dark (4.70:1 at worst); every
+     measured failure sat in a hover or active shade, because those used to track the theme's
+     lightness ladder rather than the label. So the two interaction states mix the resting
+     fill toward the side opposite its label, which can only raise contrast, and the label is
+     a button token of its own instead of --fat-on-primary: the topbar keeps white on the deep
+     dark shade, while a dark-mode button painted with the theme's light tint needs the page
+     ink (7.03–11.12:1, and 6.15–9.73:1 against the card, which also settles 1.4.11). */
+  --fat-btn-solid: var(--fat-primary);
+  --fat-btn-solid-step: #000;
+  --fat-btn-solid-hover: color-mix(in srgb, var(--fat-btn-solid) 92%, var(--fat-btn-solid-step));
+  --fat-btn-solid-active: color-mix(in srgb, var(--fat-btn-solid) 84%, var(--fat-btn-solid-step));
+  --fat-on-btn-solid: var(--fat-on-primary);
 
   /* Neutral surfaces */
   --fat-surface: #f8fafc;
@@ -100,10 +114,12 @@
 
   /* #fff on #10b981 is 2.54:1 — under even the 3:1 large-text floor; the dark ink gives
      7.04. The focus ring has the same problem against a white card (2.54), so it takes
-     the active shade (3.77). Both are re-declared in the dark-green block below rather
-     than left to a specificity tie against `:root[data-mode='dark']`. */
+     the active shade (3.77), and the button has to lighten on interaction instead of
+     darkening (see --fat-btn-solid-step). All three are re-declared in the dark-green block
+     below rather than left to a specificity tie against `:root[data-mode='dark']`. */
   --fat-on-primary: var(--fat-text-primary);
   --fat-focus-ring: var(--fat-primary-active);
+  --fat-btn-solid-step: #fff;
   --fat-surface: #f0fdf4;
   --fat-surface-2: #f7fdf9;
   --fat-surface-line: #dcfce7;
@@ -146,8 +162,10 @@
   --fat-primary-border: #fed7aa;
 
   /* #fff on #ea580c is 3.56:1, below the 4.5 body-text floor; the dark ink gives 5.02.
-     Its focus ring is fine at 3.56 (≥ the 3:1 non-text minimum), so only the ink changes. */
+     Its focus ring is fine at 3.56 (≥ the 3:1 non-text minimum), so only the ink changes —
+     and, like light green, the ink label means the button lightens on interaction. */
   --fat-on-primary: var(--fat-text-primary);
+  --fat-btn-solid-step: #fff;
   --fat-surface: #fffbeb;
   --fat-surface-2: #fffdf7;
   --fat-surface-line: #fef3c7;
@@ -223,6 +241,13 @@
      — comfortably past the 3:1 WCAG 1.4.11 non-text minimum in all 6 themes. */
   --fat-focus-ring: var(--fat-primary-hover);
   --fat-topbar-bg: var(--fat-primary-active);
+
+  /* A dark-mode primary button keeps the theme's light tint as its fill — the same reason
+     the focus ring does — so white would sit at 1.35–2.66:1 on it. The label therefore
+     takes the darkest ink in the palette (7.03–11.12:1 on the fill, and 6.15–9.73:1 of fill
+     against the card), and the interaction states step toward white, away from it. */
+  --fat-on-btn-solid: var(--fat-bg-page);
+  --fat-btn-solid-step: #fff;
   --fat-shadow-sm: 0 1px 2px rgb(0 0 0 / 20%);
   --fat-shadow-md: 0 2px 6px rgb(0 0 0 / 30%);
   --fat-shadow-lg: 0 4px 12px rgb(0 0 0 / 40%);

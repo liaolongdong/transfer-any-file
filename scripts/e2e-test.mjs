@@ -16,22 +16,42 @@ let passed = 0;
 let failed = 0;
 const failures = [];
 
-function shot(name) { return path.join(SCREENSHOT_DIR, name); }
-function ok(name) { passed++; console.log(`  ✓ ${name}`); }
-function fail(name, err) { failed++; failures.push({ name, error: err }); console.log(`  ✗ ${name}: ${err}`); }
-function section(name) { console.log(`\n▸ ${name}`); }
+function shot(name) {
+  return path.join(SCREENSHOT_DIR, name);
+}
+function ok(name) {
+  passed++;
+  console.log(`  ✓ ${name}`);
+}
+function fail(name, err) {
+  failed++;
+  failures.push({ name, error: err });
+  console.log(`  ✗ ${name}: ${err}`);
+}
+function section(name) {
+  console.log(`\n▸ ${name}`);
+}
 
 // WCAG relative-luminance contrast, applied to colours read back from the live page so
 // the theme loops assert what a user actually sees rather than trusting a token name.
-// Accepts both `rgb(...)` (computed styles) and `#hex` (custom-property values).
+// Accepts `rgb(...)` and `color(srgb ...)` (computed styles, including settled `color-mix()`
+// results) as well as `#hex` (custom-property values).
 function parseColor(input) {
   const s = String(input).trim();
   const fn = /^rgba?\(\s*(\d+)[,\s]+(\d+)[,\s]+(\d+)/.exec(s);
   if (fn) return [+fn[1], +fn[2], +fn[3]];
+  // A settled `color-mix()` computes to this form, and it is what the filled-button
+  // hover/active tokens resolve to, so leaving it unparsed would silently NaN a gate.
+  const sp = /^color\(\s*srgb\s+([\d.]+)[\s/]+([\d.]+)[\s/]+([\d.]+)/.exec(s);
+  if (sp) return [1, 2, 3].map(i => Math.round(+sp[i] * 255));
   const hex = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(s);
   if (!hex) return null;
   let d = hex[1];
-  if (d.length === 3) d = d.split('').map(x => x + x).join('');
+  if (d.length === 3)
+    d = d
+      .split('')
+      .map(x => x + x)
+      .join('');
   return [0, 2, 4].map(i => parseInt(d.slice(i, i + 2), 16));
 }
 function contrast(a, b) {
@@ -63,19 +83,62 @@ async function surfaceColors(page) {
   });
 }
 
+/**
+ * The label and the three fills an enabled primary button actually paints.
+ *
+ * `.el-button` transitions `all 0.18s`, so every sample has to wait that out — reading
+ * earlier yields an interpolated colour rather than the theme's, which is how an earlier
+ * draft of this measurement reported light-green at 6.68:1 instead of its real 7.04:1.
+ * The pointer is parked off-element before the resting sample because the previous
+ * iteration leaves it hovering the button.
+ */
+async function buttonStateColors(page) {
+  const read = () =>
+    page.evaluate(() => {
+      const el = document.querySelector('.convert-btn');
+      if (!el) return null;
+      const cs = getComputedStyle(el);
+      return { label: cs.color, fill: cs.backgroundColor };
+    });
+  await page.mouse.move(2, 2);
+  await page.waitForTimeout(400);
+  const rest = await read();
+  if (!rest) return null;
+  await page.hover('.convert-btn');
+  await page.waitForTimeout(400);
+  const hover = await read();
+  await page.mouse.down();
+  await page.waitForTimeout(400);
+  const active = await read();
+  // Release off-target: a click needs mousedown and mouseup on the same element, so this
+  // samples the pressed state without actually starting a conversion.
+  await page.mouse.move(2, 2);
+  await page.mouse.up();
+  return { label: rest.label, rest: rest.fill, hover: hover.fill, active: active.fill };
+}
+
 function startServer() {
   return new Promise((resolve, reject) => {
     const mimeTypes = {
-      '.html': 'text/html', '.js': 'application/javascript', '.css': 'text/css',
-      '.json': 'application/json', '.png': 'image/png', '.svg': 'image/svg+xml',
-      '.mjs': 'application/javascript', '.woff2': 'font/woff2',
+      '.html': 'text/html',
+      '.js': 'application/javascript',
+      '.css': 'text/css',
+      '.json': 'application/json',
+      '.png': 'image/png',
+      '.svg': 'image/svg+xml',
+      '.mjs': 'application/javascript',
+      '.woff2': 'font/woff2',
     };
     const server = http.createServer((req, res) => {
       const filePath = path.join(EXTENSION_PATH, req.url === '/' ? '/options.html' : req.url);
       const ext = path.extname(filePath);
       const contentType = mimeTypes[ext] || 'application/octet-stream';
       fs.readFile(filePath, (err, data) => {
-        if (err) { res.writeHead(404); res.end('Not found'); return; }
+        if (err) {
+          res.writeHead(404);
+          res.end('Not found');
+          return;
+        }
         res.writeHead(200, { 'Content-Type': contentType });
         res.end(data);
       });
@@ -85,8 +148,22 @@ function startServer() {
   });
 }
 
-const MOCK_CHROME_STORAGE = `() => {
-  const storage = {};
+/**
+ * `chrome.storage.local` stub for the extension's options page.
+ *
+ * `seed` is written before the app boots, which is the only way to exercise a stored value the UI
+ * never offered — the mock starts empty on every navigation, so anything not seeded is absent.
+ *
+ * The result is passed to `page.addInitScript` as a string, and Playwright evaluates a string as a
+ * script body rather than as a factory to call, so the arrow function has to be invoked here.
+ */
+function mockChromeStorage(seed = {}) {
+  const initial = JSON.stringify({ 'fat:locale': 'zh', ...seed });
+  return `(() => {
+  // Pin the language: every assertion in this file matches Chinese UI strings, and the app
+  // now falls back to navigator.language when nothing is stored — an en-US CI browser would
+  // otherwise flip the whole workbench to English and fail the suite.
+  const storage = ${initial};
   window.chrome = window.chrome || {};
   window.chrome.runtime = window.chrome.runtime || { id: 'test' };
   window.chrome.storage = {
@@ -108,7 +185,8 @@ const MOCK_CHROME_STORAGE = `() => {
   };
   window.browser = window.browser || {};
   window.browser.storage = window.chrome.storage;
-}`;
+})();`;
+}
 
 /** Upload a fixture file and convert to the given target format. Returns result info. */
 async function convertFile(page, fixtureFile, targetText) {
@@ -134,10 +212,13 @@ async function convertFile(page, fixtureFile, targetText) {
   if (!cb) throw new Error('convert button not found');
   await cb.click();
 
-  await page.waitForFunction(() => {
-    const alert = document.querySelector('.el-alert__title');
-    return alert && alert.textContent.length > 0;
-  }, { timeout: 30000 });
+  await page.waitForFunction(
+    () => {
+      const alert = document.querySelector('.el-alert__title');
+      return alert && alert.textContent.length > 0;
+    },
+    { timeout: 30000 },
+  );
   await page.waitForTimeout(500);
 
   const alertTitle = await page.$eval('.el-alert__title', el => el.textContent).catch(() => '');
@@ -149,7 +230,53 @@ async function convertFile(page, fixtureFile, targetText) {
 /** Reset the workbench for a new conversion */
 async function resetWorkbench(page) {
   const resetBtn = await page.$('.reset-btn');
-  if (resetBtn) { await resetBtn.click(); await page.waitForTimeout(500); }
+  if (resetBtn) {
+    await resetBtn.click();
+    await page.waitForTimeout(500);
+  }
+}
+
+/** Choose a conversion target from the workbench's format dropdown. */
+async function pickTarget(page, text) {
+  const sel = await page.$('.action-row .el-select');
+  if (!sel) throw new Error('format select not found');
+  await sel.click();
+  await page.waitForTimeout(400);
+  await page.locator('.el-select-dropdown__item:visible').filter({ hasText: text }).first().click();
+  await page.waitForTimeout(300);
+}
+
+/** Set one image output parameter from the output panel, by its field label. */
+async function setOutputOption(page, label, option) {
+  const field = page.locator(`.output-options .output-field:has(.output-label:text-is("${label}")) .el-select`);
+  await field.click();
+  await page.waitForTimeout(400);
+  await page.locator('.el-select-dropdown__item:visible').filter({ hasText: option }).first().click();
+  await page.waitForTimeout(300);
+}
+
+/** Expand the presets card, which starts collapsed; resolves to whether it opened. */
+async function openPresetCard(page) {
+  if (await page.isVisible('.preset-bar')) return true;
+  const head = page.locator('.collapsible-head', { hasText: '转换预设' }).first();
+  if (!(await head.count())) return false;
+  await head.click();
+  await page.waitForTimeout(400);
+  return page.isVisible('.preset-bar');
+}
+
+/**
+ * Turn the workbench's human-readable size ("1.2 MB", "812 B") into bytes.
+ *
+ * The result list is the only place the app reports an output size, and the output-parameter
+ * assertions are about *shrinkage*, which needs numbers rather than locale-formatted strings.
+ * Returns -1 when nothing parses, so a comparison against it fails loudly.
+ */
+function sizeToBytes(text) {
+  const match = /([\d.]+)\s*(GB|MB|KB|B)/i.exec(text ?? '');
+  if (!match) return -1;
+  const units = { b: 1, kb: 1024, mb: 1024 ** 2, gb: 1024 ** 3 };
+  return Math.round(parseFloat(match[1]) * units[match[2].toLowerCase()]);
 }
 
 async function run() {
@@ -179,7 +306,7 @@ async function run() {
   });
   const page = await browser.newPage();
   await page.setViewportSize({ width: 1280, height: 900 });
-  await page.addInitScript(MOCK_CHROME_STORAGE);
+  await page.addInitScript(mockChromeStorage());
 
   const themeValues = ['blue', 'green', 'purple', 'orange', 'rose', 'slate'];
   await page.goto(`http://localhost:${PORT}/options.html`);
@@ -194,6 +321,13 @@ async function run() {
   } else {
     fail('Footer stats', `unexpected: "${footerText}"`);
   }
+
+  // <html lang> must already match the stored locale before any interaction: screen
+  // readers pick it up on first paint, and the mount-time read is the only chance to
+  // get it right for a user who previously switched language.
+  const langOnLoad = await page.evaluate(() => document.documentElement.lang);
+  if (langOnLoad === 'zh-CN') ok(`Document language pinned on first paint (${langOnLoad})`);
+  else fail('Document language on load', `lang="${langOnLoad}"`);
 
   // ═══════════════════════════════════════════
   //  CONVERSION SCENARIOS
@@ -268,7 +402,10 @@ async function run() {
       const result = await convertFile(page, fixture, target);
       if (result.alertTitle.includes('完成')) {
         ok(`${label}: ${result.formatDetected} → ${target} (${result.resultSize})`);
-        const shotName = `${String(shotIdx).padStart(2, '0')}-${label.toLowerCase().replace(/[→]/g, 'to').replace(/[^a-z0-9]/g, '-')}.png`;
+        const shotName = `${String(shotIdx).padStart(2, '0')}-${label
+          .toLowerCase()
+          .replace(/[→]/g, 'to')
+          .replace(/[^a-z0-9]/g, '-')}.png`;
         await page.screenshot({ path: shot(shotName), fullPage: true });
         shotIdx++;
       } else {
@@ -293,7 +430,9 @@ async function run() {
       fail('Multi-sheet XLSX→CSV', `alert="${result.alertTitle}" name="${result.resultName}"`);
     }
     await page.screenshot({ path: shot(`${String(shotIdx++).padStart(2, '0')}-xlsx-zip.png`), fullPage: true });
-  } catch (e) { fail('Multi-sheet XLSX→CSV', e.message); }
+  } catch (e) {
+    fail('Multi-sheet XLSX→CSV', e.message);
+  }
 
   // ═══════════════════════════════════════════
   //  ZIP ARCHIVE EXPANSION
@@ -318,15 +457,20 @@ async function run() {
     await opt.click();
     await page.waitForTimeout(300);
     await (await page.$('.convert-btn')).click();
-    await page.waitForFunction(() => {
-      const alert = document.querySelector('.el-alert__title');
-      return alert && alert.textContent.length > 0;
-    }, { timeout: 30000 });
+    await page.waitForFunction(
+      () => {
+        const alert = document.querySelector('.el-alert__title');
+        return alert && alert.textContent.length > 0;
+      },
+      { timeout: 30000 },
+    );
     const resultCount = await page.$$eval('.result-item', els => els.length);
     if (resultCount === 2) ok('Extracted batch converted: 2 results');
     else fail('ZIP batch conversion', `expected 2 results, got ${resultCount}`);
     await page.screenshot({ path: shot(`${String(shotIdx++).padStart(2, '0')}-zip-batch.png`), fullPage: true });
-  } catch (e) { fail('ZIP archive expansion', e.message); }
+  } catch (e) {
+    fail('ZIP archive expansion', e.message);
+  }
 
   // ═══════════════════════════════════════════
   //  MULTI-PAGE PDF → PNG (ZIP bundle)
@@ -342,7 +486,9 @@ async function run() {
       fail('Multi-page PDF→PNG', `alert="${result.alertTitle}" name="${result.resultName}"`);
     }
     await page.screenshot({ path: shot(`${String(shotIdx++).padStart(2, '0')}-pdf-to-png-zip.png`), fullPage: true });
-  } catch (e) { fail('Multi-page PDF→PNG ZIP', e.message); }
+  } catch (e) {
+    fail('Multi-page PDF→PNG ZIP', e.message);
+  }
 
   // ═══════════════════════════════════════════
   //  JSON RESULT PREVIEW (regression: was blank)
@@ -369,7 +515,9 @@ async function run() {
     // Close the dialog
     await page.keyboard.press('Escape');
     await page.waitForTimeout(400);
-  } catch (e) { fail('JSON result preview', e.message); }
+  } catch (e) {
+    fail('JSON result preview', e.message);
+  }
 
   // ═══════════════════════════════════════════
   //  APPEND & CLEAR FILES
@@ -402,7 +550,9 @@ async function run() {
     const remaining = await page.$$eval('.file-item', els => els.length);
     if (remaining === 0) ok('Clear button removed all files');
     else fail('Clear files', `${remaining} file(s) remained`);
-  } catch (e) { fail('Append & clear files', e.message); }
+  } catch (e) {
+    fail('Append & clear files', e.message);
+  }
 
   // ═══════════════════════════════════════════
   //  CTRL/⌘ + ENTER SHORTCUT
@@ -431,14 +581,19 @@ async function run() {
 
     await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Enter' : 'Control+Enter');
 
-    await page.waitForFunction(() => {
-      const alert = document.querySelector('.el-alert__title');
-      return alert && alert.textContent.length > 0;
-    }, { timeout: 30000 });
+    await page.waitForFunction(
+      () => {
+        const alert = document.querySelector('.el-alert__title');
+        return alert && alert.textContent.length > 0;
+      },
+      { timeout: 30000 },
+    );
     const alertTitle = await page.$eval('.el-alert__title', el => el.textContent).catch(() => '');
     if (alertTitle.includes('完成')) ok('Ctrl+Enter triggered conversion');
     else fail('Ctrl+Enter shortcut', `alert: "${alertTitle}"`);
-  } catch (e) { fail('Ctrl+Enter shortcut', e.message); }
+  } catch (e) {
+    fail('Ctrl+Enter shortcut', e.message);
+  }
 
   // ═══════════════════════════════════════════
   //  PDF TEXT SPACING REGRESSION
@@ -454,7 +609,9 @@ async function run() {
     } else {
       fail('PDF spacing', 'extracted text lost spaces');
     }
-  } catch (e) { fail('PDF spacing', e.message); }
+  } catch (e) {
+    fail('PDF spacing', e.message);
+  }
 
   // ═══════════════════════════════════════════
   //  MULTI-STEP PATH VERIFICATION
@@ -484,7 +641,9 @@ async function run() {
 
     // Close dropdown by clicking elsewhere
     await page.keyboard.press('Escape');
-  } catch (e) { fail('Path hints', e.message); }
+  } catch (e) {
+    fail('Path hints', e.message);
+  }
 
   // ═══════════════════════════════════════════
   //  COMPARISON VIEW FEATURES
@@ -499,51 +658,69 @@ async function run() {
     const modes = await page.$$('.mode-btn');
     if (modes.length < 3) throw new Error(`expected 3 mode buttons, found ${modes.length}`);
 
-    await modes[0].click(); await page.waitForTimeout(300);
+    await modes[0].click();
+    await page.waitForTimeout(300);
     await page.screenshot({ path: shot(`${String(shotIdx++).padStart(2, '0')}-source-only.png`), fullPage: true });
     ok('Source Only mode');
 
-    await modes[1].click(); await page.waitForTimeout(300);
+    await modes[1].click();
+    await page.waitForTimeout(300);
     await page.screenshot({ path: shot(`${String(shotIdx++).padStart(2, '0')}-split-view.png`), fullPage: true });
     ok('Split View mode');
 
-    await modes[2].click(); await page.waitForTimeout(300);
+    await modes[2].click();
+    await page.waitForTimeout(300);
     await page.screenshot({ path: shot(`${String(shotIdx++).padStart(2, '0')}-result-only.png`), fullPage: true });
     ok('Result Only mode');
-  } catch (e) { fail('Comparison view modes', e.message); }
+  } catch (e) {
+    fail('Comparison view modes', e.message);
+  }
 
   section('Comparison View — Keyboard Shortcuts');
   try {
-    await page.keyboard.press('2'); await page.waitForTimeout(300);
+    await page.keyboard.press('2');
+    await page.waitForTimeout(300);
 
-    await page.keyboard.press('1'); await page.waitForTimeout(300);
+    await page.keyboard.press('1');
+    await page.waitForTimeout(300);
     ok('Key "1" → Source Only');
 
-    await page.keyboard.press('2'); await page.waitForTimeout(300);
+    await page.keyboard.press('2');
+    await page.waitForTimeout(300);
     ok('Key "2" → Split View');
 
-    await page.keyboard.press('3'); await page.waitForTimeout(300);
+    await page.keyboard.press('3');
+    await page.waitForTimeout(300);
     ok('Key "3" → Result Only');
 
-    await page.keyboard.press('2'); await page.waitForTimeout(300);
-    await page.keyboard.press('ArrowLeft'); await page.waitForTimeout(100);
-    await page.keyboard.press('ArrowLeft'); await page.waitForTimeout(300);
+    await page.keyboard.press('2');
+    await page.waitForTimeout(300);
+    await page.keyboard.press('ArrowLeft');
+    await page.waitForTimeout(100);
+    await page.keyboard.press('ArrowLeft');
+    await page.waitForTimeout(300);
     ok('ArrowLeft adjusts split');
 
-    await page.keyboard.press('ArrowRight'); await page.waitForTimeout(100);
-    await page.keyboard.press('ArrowRight'); await page.waitForTimeout(300);
+    await page.keyboard.press('ArrowRight');
+    await page.waitForTimeout(100);
+    await page.keyboard.press('ArrowRight');
+    await page.waitForTimeout(300);
     ok('ArrowRight adjusts split');
-  } catch (e) { fail('Keyboard shortcuts', e.message); }
+  } catch (e) {
+    fail('Keyboard shortcuts', e.message);
+  }
 
   section('Comparison View — Draggable Divider');
   try {
-    await page.keyboard.press('2'); await page.waitForTimeout(300);
+    await page.keyboard.press('2');
+    await page.waitForTimeout(300);
     const divider = await page.$('.panel-divider');
     if (!divider) throw new Error('divider not found');
     const box = await divider.boundingBox();
     if (!box) throw new Error('divider has no bounding box');
 
-    const cx = box.x + box.width / 2, cy = box.y + box.height / 2;
+    const cx = box.x + box.width / 2,
+      cy = box.y + box.height / 2;
     await page.mouse.move(cx, cy);
     await page.mouse.down();
     for (let i = 1; i <= 15; i++) {
@@ -556,7 +733,8 @@ async function run() {
 
     const box2 = await divider.boundingBox();
     if (box2) {
-      const cx2 = box2.x + box2.width / 2, cy2 = box2.y + box2.height / 2;
+      const cx2 = box2.x + box2.width / 2,
+        cy2 = box2.y + box2.height / 2;
       await page.mouse.move(cx2, cy2);
       await page.mouse.down();
       for (let i = 1; i <= 25; i++) {
@@ -568,7 +746,254 @@ async function run() {
       ok('Divider dragged right');
     }
     await page.screenshot({ path: shot(`${String(shotIdx++).padStart(2, '0')}-drag-divider.png`), fullPage: true });
-  } catch (e) { fail('Draggable divider', e.message); }
+  } catch (e) {
+    fail('Draggable divider', e.message);
+  }
+
+  // ═══════════════════════════════════════════
+  //  IMAGE OUTPUT PARAMETERS
+  // ═══════════════════════════════════════════
+
+  section('Image Output Parameters');
+  try {
+    const fieldLabels = () => page.$$eval('.output-options .output-label', els => els.map(e => e.textContent.trim()));
+
+    await resetWorkbench(page);
+    const fi = await page.$('input[type="file"]');
+    if (!fi) throw new Error('file input not found');
+    await fi.setInputFiles(path.join(FIXTURE_PATH, 'sample.pdf'));
+    await page.waitForTimeout(1000);
+
+    await pickTarget(page, 'HTML (.html)');
+    if ((await page.$$('.output-options')).length === 0) ok('Output panel hidden for a non-image target');
+    else fail('Output panel', 'rendered while the target is HTML');
+
+    await pickTarget(page, 'PNG (.png)');
+    const pngFields = await fieldLabels();
+    if (pngFields.includes('最长边') && pngFields.includes('清晰度')) ok('PNG target offers 最长边 + 清晰度');
+    else fail('PNG output fields', `got [${pngFields.join(', ')}]`);
+    if (!pngFields.includes('质量')) ok('Quality dial stays hidden for PNG — its encoder has none');
+    else fail('PNG output fields', 'offered a quality dial for PNG');
+
+    const untouched = await convertFile(page, 'sample.pdf', 'PNG (.png)');
+    const untouchedBytes = sizeToBytes(untouched.resultSize);
+    if (untouchedBytes > 0) ok(`PDF→PNG with no output parameters (${untouched.resultSize})`);
+    else fail('PDF→PNG baseline', `unreadable size "${untouched.resultSize}"`);
+
+    await setOutputOption(page, '最长边', '800 px');
+    const capped = await convertFile(page, 'sample.pdf', 'PNG (.png)');
+    if (sizeToBytes(capped.resultSize) < untouchedBytes)
+      ok(`最长边 800 px shrinks the output (${untouched.resultSize} → ${capped.resultSize})`);
+    else fail('最长边', `no shrink: ${untouched.resultSize} → ${capped.resultSize}`);
+
+    await setOutputOption(page, '最长边', '原图');
+    await setOutputOption(page, '清晰度', '96 DPI');
+    const lowDpi = await convertFile(page, 'sample.pdf', 'PNG (.png)');
+    if (sizeToBytes(lowDpi.resultSize) < untouchedBytes)
+      ok(`96 DPI shrinks the output (${untouched.resultSize} → ${lowDpi.resultSize})`);
+    else fail('清晰度', `no shrink at 96 DPI: ${untouched.resultSize} → ${lowDpi.resultSize}`);
+
+    if (await page.$('.output-reset')) ok('Reset control shows while a parameter is set');
+    else fail('Reset control', 'absent while 清晰度 was set');
+    await page.screenshot({ path: shot(`${String(shotIdx++).padStart(2, '0')}-output-options.png`), fullPage: true });
+
+    await page.$eval('.output-reset', el => el.click());
+    await page.waitForTimeout(300);
+    if (!(await page.$('.output-reset'))) ok('恢复默认 clears every parameter');
+    else fail('恢复默认', 'reset control still there after clicking it');
+
+    await pickTarget(page, 'JPEG (.jpg)');
+    const jpgFields = await fieldLabels();
+    if (jpgFields.includes('质量') && jpgFields.includes('目标体积')) ok('JPEG target adds 质量 + 目标体积');
+    else fail('JPEG output fields', `got [${jpgFields.join(', ')}]`);
+
+    const jpgPlain = await convertFile(page, 'sample.pdf', 'JPEG (.jpg)');
+    const plainBytes = sizeToBytes(jpgPlain.resultSize);
+
+    await setOutputOption(page, '质量', '40%');
+    const jpgLowQ = await convertFile(page, 'sample.pdf', 'JPEG (.jpg)');
+    if (plainBytes > 0 && sizeToBytes(jpgLowQ.resultSize) < plainBytes)
+      ok(`质量 40% shrinks the output (${jpgPlain.resultSize} → ${jpgLowQ.resultSize})`);
+    else fail('质量', `no shrink at 40%: ${jpgPlain.resultSize} → ${jpgLowQ.resultSize}`);
+
+    await setOutputOption(page, '质量', '默认');
+    await setOutputOption(page, '目标体积', '20 KB');
+    const jpgCapped = await convertFile(page, 'sample.pdf', 'JPEG (.jpg)');
+    const cappedBytes = sizeToBytes(jpgCapped.resultSize);
+    // 20 KB is below this fixture's uncapped JPEG (~32 KB), so passing means the quality ladder
+    // actually ran; a looser ceiling would be satisfied by the first encode and prove nothing.
+    if (cappedBytes >= 0 && cappedBytes <= 20 * 1024 && cappedBytes < plainBytes)
+      ok(`目标体积 20 KB honoured (${jpgPlain.resultSize} → ${jpgCapped.resultSize})`);
+    else fail('目标体积', `20 KB target produced ${jpgCapped.resultSize} from ${jpgPlain.resultSize}`);
+
+    // Regression: 目标体积 is offered for JPEG / WebP only, but the value stays in storage when the
+    // target changes, so a PNG can be converted while carrying an invisible 20 KB ceiling. The
+    // encoder used to chase that ceiling by discarding pixels, returning a PNG smaller than one the
+    // user had never tuned. Equality with the untouched baseline is the assertion: a parameter the
+    // panel does not show must make no difference at all.
+    await pickTarget(page, 'PNG (.png)');
+    const fieldsAtPng = await fieldLabels();
+    if (!fieldsAtPng.includes('目标体积')) ok('目标体积 stays hidden when a tuned batch is retargeted to PNG');
+    else fail('PNG output fields', 'offered 目标体积 for PNG');
+    const pngHiddenTarget = await convertFile(page, 'sample.pdf', 'PNG (.png)');
+    if (sizeToBytes(pngHiddenTarget.resultSize) === untouchedBytes)
+      ok(`Hidden 目标体积 leaves PNG untouched (${untouched.resultSize})`);
+    else
+      fail(
+        'PNG with hidden 目标体积',
+        `hidden ceiling changed the output: ${untouched.resultSize} → ${pngHiddenTarget.resultSize}`,
+      );
+
+    // Leave nothing behind: the later sections convert images too, and a leftover
+    // parameter would make them run against a different encoder configuration.
+    await page.$eval('.output-reset', el => el.click());
+    await page.waitForTimeout(300);
+    if (!(await page.$('.output-reset'))) ok('Output parameters reset before the suite continues');
+    else fail('Output parameters', 'a parameter was still set after the final reset');
+  } catch (e) {
+    fail('Image output parameters', e.message);
+  }
+
+  // ═══════════════════════════════════════════
+  //  CONVERSION PRESETS
+  // ═══════════════════════════════════════════
+
+  section('Conversion Presets');
+  try {
+    const chipTexts = () => page.$$eval('.preset-apply', els => els.map(e => e.textContent.trim()));
+    const targetText = async () => (await page.locator('.action-row .el-select').first().innerText()).trim();
+    const lastMessage = async () => ((await page.locator('.el-message').last().textContent()) || '').trim();
+
+    await resetWorkbench(page);
+    const fi = await page.$('input[type="file"]');
+    if (!fi) throw new Error('file input not found');
+    await fi.setInputFiles(path.join(FIXTURE_PATH, 'sample.pdf'));
+    await page.waitForTimeout(1000);
+
+    // Build the state a preset is meant to capture: PDF → PNG at 最长边 800 px.
+    await pickTarget(page, 'PNG (.png)');
+    if (!(await openPresetCard(page))) throw new Error('presets card did not open');
+    if (await page.isVisible('.preset-empty')) ok('Preset bar starts with an empty state');
+    else fail('Preset empty state', 'no hint shown before the first preset');
+
+    await setOutputOption(page, '最长边', '800 px');
+    await page.fill('.preset-name input', 'E2E 800');
+    await page.locator('.preset-create .el-button').click();
+    await page.waitForTimeout(400);
+
+    let chips = await chipTexts();
+    if (chips.length === 1 && chips[0] === 'E2E 800') ok('Saved preset appears as a named chip');
+    else fail('Preset save', `chips [${chips.join(', ')}]`);
+    if ((await lastMessage()).includes('已保存预设')) ok('Saving announces the preset name');
+    else fail('Preset save toast', await lastMessage());
+
+    // The preset's whole point: the parameters come back without touching the panel again.
+    const capped = await convertFile(page, 'sample.pdf', 'PNG (.png)');
+    const cappedBytes = sizeToBytes(capped.resultSize);
+
+    await page.$eval('.output-reset', el => el.click());
+    await page.waitForTimeout(300);
+    await resetWorkbench(page);
+    await pickTarget(page, 'HTML (.html)');
+    if ((await page.$$('.output-options')).length === 0) ok('Output parameters cleared before applying the preset');
+    else fail('Preset baseline', '参数 were still live when the preset was applied');
+
+    await page.locator('.preset-apply').first().click();
+    await page.waitForTimeout(400);
+    if ((await targetText()) === 'PNG (.png)') ok('Applying a preset switches the target format');
+    else fail('Preset apply', `target reads "${await targetText()}"`);
+    if ((await page.locator('.output-options').innerText()).includes('800 px'))
+      ok('Applying a preset restores 最长边 800 px');
+    else fail('Preset apply', 'the output panel did not come back with the stored parameter');
+
+    const restored = await convertFile(page, 'sample.pdf', 'PNG (.png)');
+    if (sizeToBytes(restored.resultSize) === cappedBytes)
+      ok(`Preset reproduces the saved conversion (${restored.resultSize})`);
+    else fail('Preset reproducibility', `${capped.resultSize} → ${restored.resultSize}`);
+
+    // No files yet: the choice has to survive until the next upload, because setFiles clears the
+    // target on every batch.
+    await page.$eval('.clear-files-btn', el => el.click());
+    await page.waitForTimeout(500);
+    await page.locator('.preset-apply').first().click();
+    await page.waitForTimeout(300);
+    if ((await lastMessage()).includes('已记住预设')) ok('Preset without files is remembered, not applied blind');
+    else fail('Preset pending toast', await lastMessage());
+
+    await fi.setInputFiles(path.join(FIXTURE_PATH, 'sample.pdf'));
+    await page.waitForTimeout(1000);
+    if ((await targetText()) === 'PNG (.png)') ok('Remembered preset applies to the next batch');
+    else fail('Preset pending apply', `target reads "${await targetText()}"`);
+
+    // An untitled preset names itself after what it does, parameters included.
+    await page.$eval('.output-reset', el => el.click());
+    await page.waitForTimeout(300);
+    await pickTarget(page, 'JPEG (.jpg)');
+    await page.locator('.preset-create .el-button').click();
+    await page.waitForTimeout(400);
+    chips = await chipTexts();
+    if (chips.length === 2 && chips[0] === 'JPEG (.jpg)') ok('Untitled preset falls back to its format name');
+    else fail('Preset auto-name', `chips [${chips.join(', ')}]`);
+
+    for (let i = 0; i < 5 && (await page.$$('.preset-remove')).length; i++) {
+      await page.locator('.preset-remove').first().click();
+      await page.waitForTimeout(300);
+    }
+    chips = await chipTexts();
+    if (chips.length === 0 && (await page.isVisible('.preset-empty')))
+      ok('Deleting every chip restores the empty state');
+    else fail('Preset delete', `chips [${chips.join(', ')}]`);
+
+    await page.screenshot({ path: shot(`${String(shotIdx++).padStart(2, '0')}-presets.png`), fullPage: true });
+  } catch (e) {
+    fail('Conversion presets', e.message);
+  }
+
+  section('Presets loaded from a hand-edited store');
+  try {
+    // Nothing in the UI can write these values, so this is the only path that exercises the
+    // storage guard: unknown formats, a duplicate id, a non-object entry and an out-of-range
+    // quality all arrive from a payload the user could have edited by hand.
+    const dirtyPage = await browser.newPage();
+    await dirtyPage.setViewportSize({ width: 1280, height: 900 });
+    await dirtyPage.addInitScript(
+      mockChromeStorage({
+        'fat:presets': [
+          { id: 'ok', name: 'good', target: 'png', options: { maxEdge: 800 } },
+          { id: 'unknown-format', name: 'nope', target: 'exe', options: {} },
+          { id: 'ok', name: 'dupe', target: 'csv', options: {} },
+          { id: 'long', name: 'x'.repeat(80), target: 'jpg', options: { quality: 99, bogus: true } },
+          'not-an-object',
+        ],
+      }),
+    );
+    await dirtyPage.goto(`http://localhost:${PORT}/options.html`);
+    await dirtyPage.waitForTimeout(1500);
+    if (!(await openPresetCard(dirtyPage))) throw new Error('presets card did not open on the seeded page');
+
+    const dirtyChips = await dirtyPage.$$eval('.preset-apply', els => els.map(e => e.textContent.trim()));
+    if (dirtyChips.length === 2) ok(`Illegal preset entries are dropped (kept ${dirtyChips.length})`);
+    else fail('Preset sanitization', `chips [${dirtyChips.join(', ')}]`);
+    if (dirtyChips[0] === 'good') ok('A valid preset keeps its name');
+    else fail('Preset sanitization', `first chip reads "${dirtyChips[0]}"`);
+    if (dirtyChips[1] === 'x'.repeat(40)) ok('An over-long preset name is truncated, not wrapped');
+    else fail('Preset name clamp', `second chip is ${dirtyChips[1]?.length} chars`);
+
+    const dirtyFi = await dirtyPage.$('input[type="file"]');
+    await dirtyFi.setInputFiles(path.join(FIXTURE_PATH, 'sample.pdf'));
+    await dirtyPage.waitForTimeout(1000);
+    await dirtyPage.locator('.preset-apply').nth(1).click();
+    await dirtyPage.waitForTimeout(400);
+    const qualityField = dirtyPage.locator(
+      '.output-options .output-field:has(.output-label:text-is("质量")) .el-select',
+    );
+    const qualityShown = ((await qualityField.innerText()) || '').trim();
+    if (qualityShown.includes('100')) ok(`An off-dial quality is displayed rather than blank (${qualityShown})`);
+    else fail('Off-dial quality', `field reads "${qualityShown}"`);
+    await dirtyPage.close();
+  } catch (e) {
+    fail('Hand-edited preset store', e.message);
+  }
 
   // ═══════════════════════════════════════════
   //  THEME & DARK MODE
@@ -625,17 +1050,20 @@ async function run() {
       const surface = await surfaceColors(page);
       const onTopbar = contrast(surface.brand, surface.topbar);
       const ringOnCard = contrast(surface.ring, surface.card);
-      if (onTopbar >= 4.5)
-        ok(`[${themeValues[i]} light] topbar brand ${onTopbar.toFixed(2)}:1`);
+      if (onTopbar >= 4.5) ok(`[${themeValues[i]} light] topbar brand ${onTopbar.toFixed(2)}:1`);
       else
-        fail(`[${themeValues[i]} light] topbar contrast`, `${onTopbar.toFixed(2)}:1 — ${surface.brand} on ${surface.topbar}`);
-      if (ringOnCard >= 3)
-        ok(`[${themeValues[i]} light] focus ring ${ringOnCard.toFixed(2)}:1 on card`);
+        fail(
+          `[${themeValues[i]} light] topbar contrast`,
+          `${onTopbar.toFixed(2)}:1 — ${surface.brand} on ${surface.topbar}`,
+        );
+      if (ringOnCard >= 3) ok(`[${themeValues[i]} light] focus ring ${ringOnCard.toFixed(2)}:1 on card`);
       else
         fail(`[${themeValues[i]} light] focus ring`, `${ringOnCard.toFixed(2)}:1 — ${surface.ring} on ${surface.card}`);
     }
     await page.screenshot({ path: shot(`${String(shotIdx++).padStart(2, '0')}-theme-applied.png`), fullPage: true });
-  } catch (e) { fail('Theme switcher', e.message); }
+  } catch (e) {
+    fail('Theme switcher', e.message);
+  }
 
   section('Dark Mode');
   try {
@@ -675,8 +1103,12 @@ async function run() {
       for (let i = 0; i < themeItems.length && i < themeValues.length; i++) {
         await themeItems[i].click();
         await page.waitForTimeout(100);
-        const primary = await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--fat-primary').trim());
-        const elPrimary = await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--el-color-primary').trim());
+        const primary = await page.evaluate(() =>
+          getComputedStyle(document.documentElement).getPropertyValue('--fat-primary').trim(),
+        );
+        const elPrimary = await page.evaluate(() =>
+          getComputedStyle(document.documentElement).getPropertyValue('--el-color-primary').trim(),
+        );
         if (primary && primary === elPrimary) ok(`Dark+${themeValues[i]}: primary=${primary}, EP synced`);
         else fail(`Dark+${themeValues[i]}`, `primary=${primary}, el=${elPrimary}`);
 
@@ -685,14 +1117,18 @@ async function run() {
         const surface = await surfaceColors(page);
         const onTopbar = contrast(surface.brand, surface.topbar);
         const ringOnCard = contrast(surface.ring, surface.card);
-        if (onTopbar >= 4.5)
-          ok(`[${themeValues[i]} dark] topbar brand ${onTopbar.toFixed(2)}:1`);
+        if (onTopbar >= 4.5) ok(`[${themeValues[i]} dark] topbar brand ${onTopbar.toFixed(2)}:1`);
         else
-          fail(`[${themeValues[i]} dark] topbar contrast`, `${onTopbar.toFixed(2)}:1 — ${surface.brand} on ${surface.topbar}`);
-        if (ringOnCard >= 3)
-          ok(`[${themeValues[i]} dark] focus ring ${ringOnCard.toFixed(2)}:1 on card`);
+          fail(
+            `[${themeValues[i]} dark] topbar contrast`,
+            `${onTopbar.toFixed(2)}:1 — ${surface.brand} on ${surface.topbar}`,
+          );
+        if (ringOnCard >= 3) ok(`[${themeValues[i]} dark] focus ring ${ringOnCard.toFixed(2)}:1 on card`);
         else
-          fail(`[${themeValues[i]} dark] focus ring`, `${ringOnCard.toFixed(2)}:1 — ${surface.ring} on ${surface.card}`);
+          fail(
+            `[${themeValues[i]} dark] focus ring`,
+            `${ringOnCard.toFixed(2)}:1 — ${surface.ring} on ${surface.card}`,
+          );
       }
 
       // Switch back to light
@@ -704,7 +1140,103 @@ async function run() {
     } else {
       fail('Dark mode', `mode buttons not found (count: ${modeButtons.length})`);
     }
-  } catch (e) { fail('Dark mode', e.message); }
+  } catch (e) {
+    fail('Dark mode', e.message);
+  }
+
+  section('Language Switch');
+  try {
+    // Popover is still open from the theme sections. The shared selector lists the mode
+    // buttons first, so the language pair is the last two: [..., 中文, English].
+    const langButtons = await page.$$('.pref-section .lang-options .lang-btn');
+    const zhButton = langButtons[langButtons.length - 2];
+    const enButton = langButtons[langButtons.length - 1];
+    if (!zhButton || !enButton) throw new Error(`language buttons not found (count: ${langButtons.length})`);
+
+    await enButton.click();
+    await page.waitForTimeout(500);
+    const langEn = await page.evaluate(() => document.documentElement.lang);
+    if (langEn === 'en') ok('Switching to English moves <html lang> to "en"');
+    else fail('Document language after switch', `lang="${langEn}"`);
+    const footerEn = await page.$eval('.footer', el => el.textContent).catch(() => '');
+    if (footerEn.includes('formats supported')) ok('Strings re-render in English without a reload');
+    else fail('English UI', `footer read "${footerEn.trim()}"`);
+    await page.screenshot({ path: shot(`${String(shotIdx++).padStart(2, '0')}-english-ui.png`), fullPage: true });
+
+    await zhButton.click();
+    await page.waitForTimeout(500);
+    const langZh = await page.evaluate(() => document.documentElement.lang);
+    const footerZh = await page.$eval('.footer', el => el.textContent).catch(() => '');
+    if (langZh === 'zh-CN' && footerZh.includes('格式')) ok('Switching back restores zh and the Chinese strings');
+    else fail('Chinese restore', `lang="${langZh}", footer="${footerZh.trim()}"`);
+  } catch (e) {
+    fail('Language switch', e.message);
+  }
+
+  // ═══════════════════════════════════════════
+  //  PRIMARY BUTTON CONTRAST
+  // ═══════════════════════════════════════════
+
+  section('Primary Button Contrast');
+  try {
+    // WCAG 1.4.3 asks 4.5:1 of the label in *every* state, and disabled controls are exempt,
+    // so the workbench is staged with a file and a target first: the measurement has to run
+    // against the same enabled button a user sees. The theme loops above cannot carry this
+    // gate because the convert button does not exist until a file is staged.
+    const fi = await page.$('input[type="file"]');
+    if (!fi) throw new Error('file input not found');
+    await fi.setInputFiles(path.join(FIXTURE_PATH, 'sample.txt'));
+    await page.waitForTimeout(800);
+    const sel = await page.$('.action-row .el-select');
+    if (!sel) throw new Error('format select not found');
+    await sel.click();
+    await page.waitForTimeout(500);
+    await page.locator('.el-select-dropdown__item:visible:not(.is-disabled)').first().click();
+    await page.waitForTimeout(300);
+    await page.keyboard.press('Escape');
+    if (await page.$('.convert-btn.is-disabled'))
+      throw new Error('convert button is disabled, so its label is exempt from AA');
+
+    const appliedTheme = await page.evaluate(() => document.documentElement.dataset.theme ?? '');
+    const appliedMode = await page.evaluate(() => document.documentElement.dataset.mode ?? '');
+    for (const mode of ['light', 'dark']) {
+      for (const theme of themeValues) {
+        await page.evaluate(
+          ([m, t]) => {
+            document.documentElement.dataset.mode = m;
+            document.documentElement.dataset.theme = t;
+          },
+          [mode, theme],
+        );
+        const btn = await buttonStateColors(page);
+        const states = {
+          rest: contrast(btn.label, btn.rest),
+          hover: contrast(btn.label, btn.hover),
+          active: contrast(btn.label, btn.active),
+        };
+        const worst = Math.min(...Object.values(states));
+        const which = Object.keys(states).reduce((a, k) => (states[k] < states[a] ? k : a), 'rest');
+        if (worst >= 4.5) ok(`[${theme} ${mode}] primary button label ${worst.toFixed(2)}:1 (worst state: ${which})`);
+        else
+          fail(
+            `[${theme} ${mode}] primary button label`,
+            `${worst.toFixed(2)}:1 at ${which} — ${btn.label} on ${btn.rest} / ${btn.hover} / ${btn.active}`,
+          );
+      }
+    }
+    await page.evaluate(
+      ([m, t]) => {
+        if (m) document.documentElement.dataset.mode = m;
+        else delete document.documentElement.dataset.mode;
+        if (t) document.documentElement.dataset.theme = t;
+        else delete document.documentElement.dataset.theme;
+      },
+      [appliedMode, appliedTheme],
+    );
+    await resetWorkbench(page);
+  } catch (e) {
+    fail('Primary button contrast', e.message);
+  }
 
   // ═══════════════════════════════════════════
   //  HISTORY CLEAR CONFIRMATION
@@ -750,7 +1282,9 @@ async function run() {
     } else {
       fail('Clear confirmation', 'dialog not shown');
     }
-  } catch (e) { fail('History clear', e.message); }
+  } catch (e) {
+    fail('History clear', e.message);
+  }
 
   // ═══════════════════════════════════════════
   //  CONVERSION CANCEL
@@ -786,6 +1320,25 @@ async function run() {
         await cancelBtn.click();
         await page.waitForTimeout(1000);
         ok('Cancel button clicked');
+
+        // Cancelling has to be visible afterwards: a truncated batch used to render exactly
+        // like a complete one, and a cancel before the first file left the screen empty.
+        const convertedCount = (await page.$$('.result-item')).length;
+        const cancelAlert = await page
+          .$eval('.result-download .el-alert__title', el => el.textContent.trim())
+          .catch(() => '');
+        if (convertedCount < 3) {
+          if (cancelAlert.includes('已取消'))
+            ok(`Cancelled batch reported as cancelled (${convertedCount}/3 converted)`);
+          else fail('Cancelled batch', `truncated at ${convertedCount}/3 but the header read "${cancelAlert}"`);
+          const announced = await page.$eval('.sr-only[role="status"]', el => el.textContent.trim()).catch(() => '');
+          if (announced.includes('已取消')) ok('Cancellation announced to assistive tech');
+          else fail('Cancellation announcement', `live region read "${announced}"`);
+        } else if (cancelAlert.includes('转换完成')) {
+          ok('Batch finished before the cancel landed (fast machine); completion reported');
+        } else {
+          fail('Cancel outcome', `all 3 files converted but the header read "${cancelAlert}"`);
+        }
       }
     } catch {
       // Conversion may have completed before cancel button appeared
@@ -794,7 +1347,9 @@ async function run() {
       else fail('Cancel button', 'not visible and conversion still in progress');
     }
     await page.screenshot({ path: shot(`${String(shotIdx++).padStart(2, '0')}-cancel-test.png`), fullPage: true });
-  } catch (e) { fail('Conversion cancel', e.message); }
+  } catch (e) {
+    fail('Conversion cancel', e.message);
+  }
 
   // ═══════════════════════════════════════════
   //  LARGE BATCH CONFIRMATION (F15)
@@ -835,6 +1390,12 @@ async function run() {
     else fail('Confirm dialog summary', `message: "${summary}"`);
     await page.screenshot({ path: shot(`${String(shotIdx++).padStart(2, '0')}-confirm-dialog.png`), fullPage: true });
 
+    // The dialog carries its own opt-out so the preference can be dropped where it is asked.
+    const dontAsk = page.locator('.confirm-batch__dont-ask input[type="checkbox"]');
+    if ((await dontAsk.count()) === 1 && (await dontAsk.isChecked()) === false)
+      ok('Confirmation offers an unchecked "don\'t ask again" box');
+    else fail("Don't ask again box", `count=${await dontAsk.count()}`);
+
     // Cancel: the first button is "cancel", and convert() must bail out with a toast.
     await page.click('.el-message-box__btns .el-button:first-child');
     await page.waitForFunction(
@@ -846,14 +1407,59 @@ async function run() {
     // Accept: the last button is "confirm" and the batch then runs to completion.
     await (await page.$('.convert-btn')).click();
     await page.waitForSelector('.el-message-box', { timeout: 5000 });
+    await dontAsk.check();
     await page.click('.el-message-box__btns .el-button:last-child');
-    await page.waitForFunction(() => {
-      const alert = document.querySelector('.el-alert__title');
-      return alert && alert.textContent.includes('完成');
-    }, { timeout: 90000 });
+    await page.waitForFunction(
+      () => {
+        const alert = document.querySelector('.el-alert__title');
+        return alert && alert.textContent.includes('完成');
+      },
+      { timeout: 90000 },
+    );
     ok('Accepting the dialog runs the batch');
     await page.screenshot({ path: shot(`${String(shotIdx++).padStart(2, '0')}-confirm-accepted.png`), fullPage: true });
-  } catch (e) { fail('Large batch confirmation', e.message); }
+
+    const readConfirmFlag = () =>
+      page.evaluate(
+        () =>
+          new Promise(resolve => {
+            globalThis.chrome.storage.local.get('fat:confirmConvert', v => resolve(v['fat:confirmConvert']));
+          }),
+      );
+    if ((await readConfirmFlag()) === false) ok('Ticking "don\'t ask again" persists the preference');
+    else fail("Don't ask again persistence", 'fat:confirmConvert is still on');
+
+    // The next large batch must go straight through: no dialog, but a real run (is-loading is
+    // the same marker the cancellation test uses).
+    await (await page.$('.convert-btn')).click();
+    await page.waitForTimeout(600);
+    const skipped = !(await page.isVisible('.el-message-box'));
+    const running = await page.$eval('.convert-btn', el => el.classList.contains('is-loading')).catch(() => false);
+    if (skipped && running) ok('A later large batch converts without asking again');
+    else fail('Dialog suppression', `dialogVisible=${!skipped ? 'yes' : 'no'} running=${running}`);
+    // The 完成 alert is still the previous run's, so wait on the button instead.
+    await page.waitForFunction(
+      () => {
+        const btn = document.querySelector('.convert-btn');
+        return !!btn && !btn.classList.contains('is-loading');
+      },
+      { timeout: 90000 },
+    );
+
+    // Restore the preference the way a user would, which also proves the popover toggle and the
+    // conversion gate read the same singleton.
+    const gear = await page.$('.topbar-inner .el-button');
+    await gear.click();
+    await page.waitForTimeout(600);
+    await page.locator('.notify-row', { hasText: '大批量转换前显示确认对话框' }).first().locator('.el-switch').click();
+    await page.waitForTimeout(400);
+    if ((await readConfirmFlag()) === true) ok('Re-enabling the confirmation in Preferences persists');
+    else fail('Confirmation re-enable', 'fat:confirmConvert did not go back to true');
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(300);
+  } catch (e) {
+    fail('Large batch confirmation', e.message);
+  }
 
   // ═══════════════════════════════════════════
   //  UNDO PREVIOUS BATCH
@@ -898,7 +1504,9 @@ async function run() {
     await page.waitForFunction(() => !document.querySelector('.undo-btn'), { timeout: 5000 });
     ok('Undo is one-shot — the snapshot is consumed');
     await page.screenshot({ path: shot(`${String(shotIdx++).padStart(2, '0')}-undo-done.png`), fullPage: true });
-  } catch (e) { fail('Undo previous batch', e.message); }
+  } catch (e) {
+    fail('Undo previous batch', e.message);
+  }
 
   // ═══════════════════════════════════════════
   //  HISTORY SEARCH & FORMAT FILTER
@@ -967,11 +1575,15 @@ async function run() {
     } else {
       fail('History format filter', `expected 1 record, got ${filteredCount} of ${seededCount}`);
     }
-    const allRelevant = await page.$$eval('.history-item', els => els.every(e => (e.textContent || '').includes('Excel')));
+    const allRelevant = await page.$$eval('.history-item', els =>
+      els.every(e => (e.textContent || '').includes('Excel')),
+    );
     if (allRelevant) ok('Every surviving record actually involves the filtered format');
     else fail('History format filter', 'a record without the format survived');
     await page.screenshot({ path: shot(`${String(shotIdx++).padStart(2, '0')}-history-filter.png`), fullPage: true });
-  } catch (e) { fail('History search & filter', e.message); }
+  } catch (e) {
+    fail('History search & filter', e.message);
+  }
 
   // ═══════════════════════════════════════════
   //  HISTORY: FIND A BATCH MEMBER BY ITS REAL FILE NAME
@@ -981,10 +1593,7 @@ async function run() {
   try {
     await resetWorkbench(page);
     const fi = await page.$('input[type="file"]');
-    await fi.setInputFiles([
-      path.join(FIXTURE_PATH, 'sample.md'),
-      path.join(FIXTURE_PATH, 'sample.txt'),
-    ]);
+    await fi.setInputFiles([path.join(FIXTURE_PATH, 'sample.md'), path.join(FIXTURE_PATH, 'sample.txt')]);
     await page.waitForTimeout(1200);
 
     const sel = await page.$('.action-row .el-select');
@@ -997,10 +1606,13 @@ async function run() {
     await page.waitForTimeout(200);
     await (await page.$('.convert-btn')).click();
     // hasUndo/`.undo-btn` would work too, but the completion alert is the direct signal.
-    await page.waitForFunction(() => {
-      const el = document.querySelector('.el-alert__title');
-      return !!el && (el.textContent || '').includes('完成');
-    }, { timeout: 60000 });
+    await page.waitForFunction(
+      () => {
+        const el = document.querySelector('.el-alert__title');
+        return !!el && (el.textContent || '').includes('完成');
+      },
+      { timeout: 60000 },
+    );
     await page.waitForTimeout(800);
 
     const searchInput = await page.$('.history-search input');
@@ -1042,8 +1654,13 @@ async function run() {
 
     await searchInput.fill('');
     await page.waitForTimeout(400);
-    await page.screenshot({ path: shot(`${String(shotIdx++).padStart(2, '0')}-history-batch-search.png`), fullPage: true });
-  } catch (e) { fail('History batch-member search', e.message); }
+    await page.screenshot({
+      path: shot(`${String(shotIdx++).padStart(2, '0')}-history-batch-search.png`),
+      fullPage: true,
+    });
+  } catch (e) {
+    fail('History batch-member search', e.message);
+  }
 
   // ═══════════════════════════════════════════
   //  CUSTOM SHORTCUT RECORDING (F16)
@@ -1111,7 +1728,9 @@ async function run() {
 
     await page.keyboard.press('Escape');
     await page.waitForTimeout(400);
-  } catch (e) { fail('Custom shortcut', e.message); }
+  } catch (e) {
+    fail('Custom shortcut', e.message);
+  }
 
   // ═══════════════════════════════════════════
   //  SKIP LINK & FOCUS RING (F10)
@@ -1146,7 +1765,11 @@ async function run() {
     if (linkState.focused) ok('First Tab lands on the skip link');
     else fail('Skip link focus', `activeElement is not .skip-link (top=${linkState.top})`);
     if (linkState.top >= 0) ok(`Skip link slid into view (top=${Math.round(linkState.top)}px)`);
-    else fail('Skip link visibility', `still off-screen: top=${Math.round(linkState.top)}, transform=${linkState.transform}`);
+    else
+      fail(
+        'Skip link visibility',
+        `still off-screen: top=${Math.round(linkState.top)}, transform=${linkState.transform}`,
+      );
     // A skip link is useless if nobody can see where focus went. Read while still focused —
     // the evaluate blocks below move focus away.
     if (linkState.outlineStyle === 'solid') ok('Skip link shows a visible focus ring');
@@ -1196,44 +1819,47 @@ async function run() {
     // every value is normalised through a scratch element to `rgb(...)` first.
     // Flipping [data-mode] directly is sound here — useTheme only ever writes that
     // attribute and every dark rule in the stylesheet is keyed off it.
-    const probe = mode => page.evaluate(m => {
-      const root = document.documentElement;
-      const prev = root.getAttribute('data-mode');
-      if (m === 'dark') root.setAttribute('data-mode', 'dark');
-      else root.removeAttribute('data-mode');
+    const probe = mode =>
+      page.evaluate(m => {
+        const root = document.documentElement;
+        const prev = root.getAttribute('data-mode');
+        if (m === 'dark') root.setAttribute('data-mode', 'dark');
+        else root.removeAttribute('data-mode');
 
-      const rgbOf = value => {
-        const scratch = document.createElement('span');
-        scratch.style.color = value;
-        scratch.style.display = 'none';
-        root.append(scratch);
-        const rgb = getComputedStyle(scratch).color;
-        scratch.remove();
-        return rgb;
-      };
-      const tokens = getComputedStyle(root);
-      const link = document.querySelector('.skip-link');
-      const button = document.querySelector('.topbar-inner .el-button');
-      button?.focus();
-      // Same transition caveat as above: EP animates `outline`, so the cascaded colour
-      // is only readable after it settles.
-      return new Promise(resolve => setTimeout(() => {
-        const out = {
-          chipBg: link ? getComputedStyle(link).backgroundColor : '',
-          chipColor: link ? getComputedStyle(link).color : '',
-          expectChipBg: rgbOf(tokens.getPropertyValue('--fat-bg-card').trim()),
-          expectChipColor: rgbOf(tokens.getPropertyValue('--fat-text-primary').trim()),
-          // What the buggy version rendered: white text on --fat-primary.
-          legacyColor: rgbOf('#fff'),
-          legacyBg: rgbOf(tokens.getPropertyValue('--fat-primary').trim()),
-          ringColor: button ? getComputedStyle(button).outlineColor : '',
-          ringFromToken: rgbOf(tokens.getPropertyValue('--fat-focus-ring').trim()),
+        const rgbOf = value => {
+          const scratch = document.createElement('span');
+          scratch.style.color = value;
+          scratch.style.display = 'none';
+          root.append(scratch);
+          const rgb = getComputedStyle(scratch).color;
+          scratch.remove();
+          return rgb;
         };
-        if (prev === null) root.removeAttribute('data-mode');
-        else root.setAttribute('data-mode', prev);
-        resolve(out);
-      }, 600));
-    }, mode);
+        const tokens = getComputedStyle(root);
+        const link = document.querySelector('.skip-link');
+        const button = document.querySelector('.topbar-inner .el-button');
+        button?.focus();
+        // Same transition caveat as above: EP animates `outline`, so the cascaded colour
+        // is only readable after it settles.
+        return new Promise(resolve =>
+          setTimeout(() => {
+            const out = {
+              chipBg: link ? getComputedStyle(link).backgroundColor : '',
+              chipColor: link ? getComputedStyle(link).color : '',
+              expectChipBg: rgbOf(tokens.getPropertyValue('--fat-bg-card').trim()),
+              expectChipColor: rgbOf(tokens.getPropertyValue('--fat-text-primary').trim()),
+              // What the buggy version rendered: white text on --fat-primary.
+              legacyColor: rgbOf('#fff'),
+              legacyBg: rgbOf(tokens.getPropertyValue('--fat-primary').trim()),
+              ringColor: button ? getComputedStyle(button).outlineColor : '',
+              ringFromToken: rgbOf(tokens.getPropertyValue('--fat-focus-ring').trim()),
+            };
+            if (prev === null) root.removeAttribute('data-mode');
+            else root.setAttribute('data-mode', prev);
+            resolve(out);
+          }, 600),
+        );
+      }, mode);
 
     for (const mode of ['light', 'dark']) {
       const s = await probe(mode);
@@ -1254,7 +1880,9 @@ async function run() {
     const modesDiffer = (await probe('light')).ringFromToken !== (await probe('dark')).ringFromToken;
     if (modesDiffer) ok('--fat-focus-ring actually differs between light and dark (not a no-op token)');
     else fail('--fat-focus-ring', 'resolves to the same colour in both modes');
-  } catch (e) { fail('Skip link & focus ring', e.message); }
+  } catch (e) {
+    fail('Skip link & focus ring', e.message);
+  }
 
   // ═══════════════════════════════════════════
   //  SUMMARY
@@ -1275,7 +1903,10 @@ async function run() {
   console.log('╚══════════════════════════════════════════════╝');
 
   console.log(`\nScreenshots: ${SCREENSHOT_DIR}/`);
-  fs.readdirSync(SCREENSHOT_DIR).filter(f => f.endsWith('.png')).sort().forEach(f => console.log(`  ${f}`));
+  fs.readdirSync(SCREENSHOT_DIR)
+    .filter(f => f.endsWith('.png'))
+    .sort()
+    .forEach(f => console.log(`  ${f}`));
 
   await page.waitForTimeout(HEADLESS ? 0 : 2000);
   await browser.close();

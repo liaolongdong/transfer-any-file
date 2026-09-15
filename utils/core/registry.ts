@@ -1,5 +1,6 @@
 import type { Converter, ConversionStep } from '~/utils/core/types';
 import { FileFormat } from '~/utils/core/types';
+import { getBlockedReason } from '~/utils/core/conversion-policy';
 
 export class ConverterRegistry {
   private converters = new Map<string, Converter>();
@@ -94,6 +95,31 @@ export class ConverterRegistry {
     }
 
     return null;
+  }
+
+  /**
+   * Resolve the steps a `from -> to` conversion will really take, or throw why it won't.
+   *
+   * This is the enforcement point for the semantic policy. `findConversionPath` only knows what the
+   * graph can reach, and `getBlockedReason` used to be consulted exclusively by the UI
+   * (`availableTargets` and `FormatSelector`), so `convert()` happily ran combinations the dropdown
+   * had greyed out — any caller that supplies a target without going through the dropdown (a stale
+   * selection, a reused history pair, a future preset or shortcut) could start a conversion that
+   * always fails or produces a placeholder. Checking here means no entry point can skip it.
+   *
+   * Only the endpoints are policy-checked, matching what `availableTargets` filters on; the
+   * intermediate steps of a shortest path are never blocked pairs today.
+   *
+   * @throws Error whose `message` is an i18n key — the blocked-reason key when the pair is
+   *         semantically invalid, `errors.noPath` when the graph cannot reach `to`.
+   */
+  resolvePath(from: FileFormat, to: FileFormat): ConversionStep[] {
+    const blocked = getBlockedReason(from, to);
+    if (blocked) throw new Error(blocked);
+
+    const steps = this.findConversionPath(from, to);
+    if (!steps || steps.length === 0) throw new Error('errors.noPath');
+    return steps;
   }
 }
 

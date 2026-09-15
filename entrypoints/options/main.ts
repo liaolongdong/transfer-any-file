@@ -1,6 +1,7 @@
 import { createApp } from 'vue';
 import '~/assets/styles/global.css';
 import { STORAGE_KEYS, storageGet } from '~/utils/storage';
+import { applyDocumentLang, resolveLocale } from '~/composables/useI18n';
 import {
   DEFAULT_MODE,
   DEFAULT_THEME,
@@ -31,5 +32,16 @@ async function applyStoredTheme(): Promise<void> {
   applyMode(VALID_MODES.has(mode) ? mode : DEFAULT_MODE);
 }
 
-await applyStoredTheme();
+/**
+ * Tag the document with the language `useI18n` is about to resolve to, before the first paint.
+ *
+ * Same resolution order as `initLocale` — stored choice, then the browser language — so the two
+ * cannot disagree, and running it pre-mount avoids a first frame announced in the wrong language.
+ */
+async function applyDocumentLanguage(): Promise<void> {
+  const stored = await storageGet<unknown>(STORAGE_KEYS.locale, null);
+  applyDocumentLang(resolveLocale(stored));
+}
+
+await Promise.all([applyStoredTheme(), applyDocumentLanguage()]);
 createApp(App).mount('#app');

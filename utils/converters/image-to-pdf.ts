@@ -1,6 +1,6 @@
 import { FileFormat } from '~/utils/core/types';
 import type { Converter, ConvertResult } from '~/utils/core/types';
-import { loadImage, MAX_DIM } from '~/utils/core/image-utils';
+import { loadImage, releaseCanvas, MAX_DIM } from '~/utils/core/image-utils';
 
 function createImageToPdfConverter(from: FileFormat): Converter {
   return {
@@ -36,8 +36,12 @@ function createImageToPdfConverter(from: FileFormat): Converter {
       ctx.fillRect(0, 0, w, h);
       ctx.drawImage(img, 0, 0, w, h);
 
-      const isJpeg = input.type === 'image/jpeg';
+      // `from` is the contract this converter is registered under. `input.type` is sniffed from the
+      // uploaded file and can be empty or wrong, and in a multi-step chain the intermediate blob
+      // carries no type at all — either miss re-encodes a JPEG as lossless PNG and inflates the PDF.
+      const isJpeg = from === FileFormat.JPG;
       const dataUrl = canvas.toDataURL(isJpeg ? 'image/jpeg' : 'image/png', 0.92);
+      releaseCanvas(canvas);
       const pdfFormat = isJpeg ? 'JPEG' : 'PNG';
 
       const widthPt = (w * 72) / 96;

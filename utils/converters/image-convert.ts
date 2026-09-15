@@ -1,6 +1,6 @@
 import { FileFormat } from '~/utils/core/types';
-import type { Converter, ConvertResult } from '~/utils/core/types';
-import { loadImage, canvasToBlob, MAX_DIM } from '~/utils/core/image-utils';
+import type { Converter, ConvertContext, ConvertResult } from '~/utils/core/types';
+import { loadImage, encodeCanvas, releaseCanvas, MAX_DIM } from '~/utils/core/image-utils';
 
 const MIME_TYPES: Record<string, string> = {
   [FileFormat.PNG]: 'image/png',
@@ -12,7 +12,7 @@ function createImageConverter(from: FileFormat, to: FileFormat, mimeType: string
   return {
     from,
     to,
-    async convert(input: Blob): Promise<ConvertResult> {
+    async convert(input: Blob, ctx?: ConvertContext): Promise<ConvertResult> {
       // Object URLs avoid the base64 memory overhead of data URLs
       const objectUrl = URL.createObjectURL(input);
       let img: HTMLImageElement;
@@ -33,19 +33,24 @@ function createImageConverter(from: FileFormat, to: FileFormat, mimeType: string
       canvas.width = w;
       canvas.height = h;
 
-      const ctx = canvas.getContext('2d');
-      if (!ctx) throw new Error('errors.imageEncode');
+      // Named apart from the `ctx` conversion context, which every converter now reserves.
+      const canvasCtx = canvas.getContext('2d');
+      if (!canvasCtx) throw new Error('errors.imageEncode');
 
       // For JPEG, fill white background (no transparency support)
       if (mimeType === 'image/jpeg') {
-        ctx.fillStyle = '#FFFFFF';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        canvasCtx.fillStyle = '#FFFFFF';
+        canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
       }
 
-      ctx.drawImage(img, 0, 0, w, h);
+      canvasCtx.drawImage(img, 0, 0, w, h);
 
-      const blob = await canvasToBlob(canvas, mimeType);
-      return { blob, filename: `converted.${to}` };
+      try {
+        const blob = await encodeCanvas(canvas, mimeType, ctx?.options);
+        return { blob, filename: `converted.${to}` };
+      } finally {
+        releaseCanvas(canvas);
+      }
     },
   };
 }

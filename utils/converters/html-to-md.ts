@@ -1,5 +1,6 @@
 import { FileFormat } from '~/utils/core/types';
 import type { Converter, ConvertResult } from '~/utils/core/types';
+import { decodeTextBlobLenient } from '~/utils/core/text-decode';
 
 const htmlToMdConverter: Converter = {
   from: FileFormat.HTML,
@@ -7,7 +8,7 @@ const htmlToMdConverter: Converter = {
 
   async convert(input: Blob): Promise<ConvertResult> {
     const { default: TurndownService } = await import('turndown');
-    const html = await input.text();
+    const html = await decodeTextBlobLenient(input);
     const doc = new DOMParser().parseFromString(html, 'text/html');
     const bodyHtml = doc.body?.innerHTML ?? html;
 

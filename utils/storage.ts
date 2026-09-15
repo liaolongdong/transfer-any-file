@@ -9,6 +9,8 @@ export const STORAGE_KEYS = {
   splitPosition: 'fat:splitPosition',
   collapsedState: 'fat:collapsedState',
   recentTargets: 'fat:recentTargets',
+  outputOptions: 'fat:outputOptions',
+  presets: 'fat:presets',
   notifyOnComplete: 'fat:notifyOnComplete',
   confirmConvert: 'fat:confirmConvert',
   shortcuts: 'fat:shortcuts',

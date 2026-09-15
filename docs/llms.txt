@@ -2,7 +2,7 @@
 
 > Transfer Any File is an open-source Chrome extension (Manifest V3, ISC licence) that converts files between 14 formats — Markdown, HTML, Word (.docx), PDF, TXT, CSV, Excel (.xlsx), JSON, PNG, JPEG, WebP, BMP, GIF, SVG — entirely on the user's own machine. It requests one permission (`storage`), its own code issues no network request of any kind (asserted on every push by `pnpm verify:offline`), and it works with the network disabled. Batch conversion of mixed source formats, automatic multi-step conversion chains over 46 direct routes, per-file error isolation with copyable failure diagnostics, split preview with inline editing, a recently-used group in the target picker, ZIP download, and a local conversion history.
 
-Primary language: the product page is bilingual with an in-page Chinese / English switch; the privacy policy carries both languages on one page. Neither needs a server. Interface languages: English and Chinese (default Chinese).
+Primary language: the product page is bilingual with an in-page Chinese / English switch; the privacy policy carries both languages on one page. Neither needs a server. Interface languages: English and Chinese; with no stored choice the extension follows the browser language (a `zh*` browser gets Chinese, anything else English), and an explicit choice is remembered.
 Category: productivity / file conversion. Price: free, no paid tier, no ads, no account.
 
 ## Product page
@@ -69,4 +69,4 @@ pnpm install && pnpm build
 
 ## Tech stack
 
-WXT · Vue 3 · TypeScript · Element Plus · Vite · Playwright (end-to-end). Heavy conversion libraries (marked, turndown, mammoth, pdf.js, SheetJS, jsPDF, html-to-image, DOMPurify, fflate) are dynamically imported per converter; the complete bundle is 3.71 MB.
+WXT · Vue 3 · TypeScript · Element Plus · Vite · Playwright (end-to-end). Heavy conversion libraries (marked, turndown, mammoth, pdf.js, SheetJS, jsPDF, html-to-image, DOMPurify, fflate) are dynamically imported per converter; the complete bundle is 3.73 MB.

@@ -23,10 +23,11 @@ export default defineConfig({
     // plus "Do not stuff the title with keywords".
     name: "Transfer Any File — Offline File Format Converter",
     // Chrome Web Store caps this at 132 characters and matches searches against it, so it
-    // leads with the verb, names the formats users actually search for, and states the
-    // differentiator. Kept in sync with `package.json#description` (currently 129 chars).
+    // leads with the verb and states the differentiator. Formats are named by category, never
+    // as a list: the store rejected the 2026-09-14 draft for "excessive keywords" over exactly
+    // such an enumeration in this field. Kept in sync with `package.json#description` (127 chars).
     description:
-      "Convert 14 file formats locally in your browser: Markdown, Word, PDF, Excel, CSV, JSON, HTML, images. Batch, offline, no uploads.",
+      "Convert between 14 common document, spreadsheet and image file formats right in your browser — offline, in batches, no uploads.",
     // Only storage is used (history/preferences); no tab access needed
     permissions: ["storage"],
     // Icon click is handled in the background entrypoint (opens the options

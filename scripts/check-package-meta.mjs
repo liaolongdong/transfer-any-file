@@ -32,14 +32,18 @@ const STORE_DESCRIPTION_LIMIT = 132;
  * to a transpiler. The pattern is deliberately strict: an unrecognisable shape throws
  * instead of quietly returning nothing.
  *
+ * Strictness is about the *shape* (exactly one string literal), not the quote character:
+ * `.prettierrc.json` sets `singleQuote: true`, so `pnpm fix:all` legitimately rewrites this file to
+ * single quotes, and a double-quote-only pattern would throw on a correctly formatted tree.
+ *
  * @param {string} source Raw contents of `wxt.config.ts`.
  * @returns {string} The declared manifest description.
  * @throws {Error} When no `description` string literal is present.
  */
 function readManifestDescription(source) {
-  const match = /description:\s*(?:\r?\n\s*)?"((?:[^"\\]|\\.)*)"/.exec(source);
+  const match = /description:\s*(?:\r?\n\s*)?(['"])((?:\\.|(?!\1)[^\\])*)\1/.exec(source);
   if (!match) throw new Error('no `description` string literal found in wxt.config.ts');
-  return match[1].replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+  return match[2].replace(/\\(["'\\])/g, '$1');
 }
 
 /**
