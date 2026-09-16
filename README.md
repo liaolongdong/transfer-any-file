@@ -1,317 +1,333 @@
 <div align="center">
-  <img src="public/icon/128.png" alt="Transfer Any File icon" width="96" height="96" />
+  <img src="public/icon/128.png" alt="Transfer Any File 图标" width="96" height="96" />
 
 # Transfer Any File
 
-**Convert 14 file formats — Markdown, Word, PDF, Excel, CSV, JSON, HTML, images — without uploading a byte.**
+**14 种文件格式互转——Markdown、Word、PDF、Excel、CSV、JSON、HTML、图片——一个字节都不用上传。**
 
-A Chrome extension (Manifest V3) that does every conversion inside a tab on your own machine. No server, no account, no queue, no file ever leaving your laptop.
+一款 Chrome 扩展（Manifest V3），所有转换都在你自己电脑上的一个标签页里完成。无服务器、无账号、无排队，文件永远不出本机。
 
-[简体中文](README.zh-CN.md) · English
+简体中文 · [English](README.en.md)
 
-  <!-- Badges and links point at github.com/liaolongdong/transfer-any-file and at the GitHub
-       Pages site built from docs/ by .github/workflows/static.yml. -->
+  <!-- 徽章与链接指向 github.com/liaolongdong/transfer-any-file，以及由 .github/workflows/static.yml
+       从 docs/ 构建的 GitHub Pages 站点。 -->
 
-[![Star this repo](https://img.shields.io/github/stars/liaolongdong/transfer-any-file?style=for-the-badge&logo=github&label=%E2%AD%90%20Star%20this%20repo&color=yellow)](https://github.com/liaolongdong/transfer-any-file/stargazers)
+[![给这个项目加星](https://img.shields.io/github/stars/liaolongdong/transfer-any-file?style=for-the-badge&logo=github&label=%E2%AD%90%20Star%20this%20repo&color=yellow)](https://github.com/liaolongdong/transfer-any-file/stargazers)
 
 [![Manifest V3](https://img.shields.io/badge/Manifest_V3-ready-blue?style=for-the-badge&logo=googlechrome&logoColor=white)](https://developer.chrome.com/docs/extensions/get-started)
 &nbsp;
-![14 formats · 46+ routes](https://img.shields.io/badge/14_formats_-_46%2B_routes-green?style=for-the-badge)
+![14 种格式 · 46+ 条路径](https://img.shields.io/badge/14_formats_-_46%2B_routes-green?style=for-the-badge)
 &nbsp;
-![Zero network requests](https://img.shields.io/badge/zero_network_requests-brightgreen?style=for-the-badge)
+![零网络请求](https://img.shields.io/badge/zero_network_requests-brightgreen?style=for-the-badge)
 &nbsp;
 ![CI](https://img.shields.io/github/actions/workflow/status/liaolongdong/transfer-any-file/ci.yml?style=for-the-badge&label=CI)
 &nbsp;
 ![Website](https://img.shields.io/website?url=https%3A%2F%2Fliaolongdong.github.io%2Ftransfer-any-file%2F&label=website&style=for-the-badge)
 &nbsp;
-![License ISC](https://img.shields.io/badge/license-ISC-blue?style=for-the-badge)
+![License MIT](https://img.shields.io/badge/license-MIT-blue?style=for-the-badge)
 
-[Screenshots](#screenshots) · [Why this exists](#why-this-exists) · [Quick start](#quick-start) · [How it works](#how-it-works) · [Supported formats](#supported-conversions) · [How it compares](#how-it-compares) · [Privacy](#privacy) · [FAQ](#faq) · [Contributing](#contributing) · [Product page](https://liaolongdong.github.io/transfer-any-file/)
+[界面截图](#界面截图) · [为什么做这个](#为什么做这个) · [快速开始](#快速开始) · [工作原理](#工作原理) · [支持的格式](#支持的转换) · [横向对比](#横向对比) · [隐私](#隐私) · [常见问题](#常见问题) · [参与贡献](#参与贡献) · [联系方式](#联系方式) · [产品说明页](https://liaolongdong.github.io/transfer-any-file/)
 
 </div>
 
-![Split preview of a Markdown file converted to HTML, source on the left, rendered result on the right](docs/assets/screenshots/preview-edit.png)
+![Markdown 转 HTML 的左右对照预览：左侧源码，右侧渲染结果](docs/assets/screenshots/preview-edit.png)
 
 ---
 
-## Screenshots
+## 界面截图
 
 <p align="center">
-  <img src="docs/assets/screenshots/workbench-empty.png" alt="The empty workbench: a drop zone inviting files, a target-format picker beside it, and the history card below" width="100%" />
+  <img src="docs/assets/screenshots/workbench-empty.png" alt="空白的工作台：邀请拖入文件的上传区、旁边的目标格式选择器，以及下方的历史记录卡片" width="100%" />
   <br />
-  <sub><b>Drop, pick a format, convert on your own machine</b> — the empty workbench, with the format and route counts the footer derives.</sub>
+  <sub><b>拖入、选格式，在你自己电脑上转换</b> — 空白工作台，页脚给出格式数与路径数。</sub>
 </p>
 
 <p align="center">
-  <img src="docs/assets/screenshots/batch-files.png" alt="Three mixed-format files staged in the workbench: sample.md, sample.csv and sample.xlsx, with HTML selected as the target format" width="100%" />
+  <img src="docs/assets/screenshots/batch-files.png" alt="工作台中已加入三个混合格式文件：sample.md、sample.csv 与 sample.xlsx，目标格式选为 HTML" width="100%" />
   <br />
-  <sub><b>Batch: Markdown, CSV and Excel in one run</b> — each file resolves its own route to the shared target.</sub>
+  <sub><b>批量：Markdown、CSV、Excel 一次转完</b> — 每个文件各自求出到公共目标的路径。</sub>
 </p>
 
 <p align="center">
-  <img src="docs/assets/screenshots/batch-results.png" alt="Conversion complete message listing three generated HTML files with their sizes, per-file preview, copy and download buttons, and a Download ZIP action for the batch" width="100%" />
+  <img src="docs/assets/screenshots/batch-results.png" alt="转换完成提示，列出三个生成的 HTML 文件及其体积、逐项预览 / 复制 / 下载按钮，以及整批打包下载 ZIP 操作" width="100%" />
   <br />
-  <sub><b>One mixed batch, one ZIP download</b> — per-file results, each with its own preview and copy button.</sub>
+  <sub><b>一次混合批量，一个 ZIP 下载</b> — 逐文件结果，各自带预览与复制按钮。</sub>
 </p>
 
 <p align="center">
-  <img src="docs/assets/screenshots/preview-edit.png" alt="Split preview of a Markdown file converted to HTML, source on the left, rendered result on the right, with Rendered, Source, Edit and Copy controls above" width="100%" />
+  <img src="docs/assets/screenshots/preview-edit.png" alt="Markdown 转 HTML 的左右对照预览：左侧源码，右侧渲染结果，上方是渲染 / 源码 / 编辑 / 复制控件" width="100%" />
   <br />
-  <sub><b>Preview side by side, edit before you download</b> — the split view with its Rendered / Source / Edit / Copy controls.</sub>
+  <sub><b>左右对照预览，下载前直接改</b> — 对照视图及其「渲染 / 源码 / 编辑 / 复制」控件。</sub>
 </p>
 
 <p align="center">
-  <img src="docs/assets/screenshots/history.png" alt="Conversion history panel showing records with source and target format badges, file names, sizes, a search field, All / Source / Target filters and a Reuse this format button" width="100%" />
+  <img src="docs/assets/screenshots/history.png" alt="转换历史面板：记录带源格式与目标格式标签、文件名、体积，以及搜索框、全部 / 源格式 / 目标格式筛选与「复用此格式」按钮" width="100%" />
   <br />
-  <sub><b>Searchable, filterable history with one-click reuse</b> — metadata only, never file contents.</sub>
+  <sub><b>历史可搜索、可筛选、一键复用格式</b> — 只存元数据，绝不保存文件内容。</sub>
 </p>
 
 <p align="center">
-  <img src="docs/assets/screenshots/dark-mode.png" alt="The workbench in dark mode, showing the drop zone and history card on a dark background" width="100%" />
+  <img src="docs/assets/screenshots/dark-mode.png" alt="深色模式下的工作台：深色背景上的上传区与历史记录卡片" width="100%" />
   <br />
-  <sub><b>6 accent colours, light / dark / system</b> — the same workbench with the dark appearance applied at startup.</sub>
+  <sub><b>6 种主题色，浅色 / 深色 / 跟随系统</b> — 同一工作台在启动时应用深色外观。</sub>
 </p>
 
-## Why this exists
+## 为什么做这个
 
-Most "free online converter" sites ask you to upload the file first. That is fine for a public dataset and unacceptable for an HR spreadsheet, a client contract, a medical report, or a draft you have not told anyone about yet. They also add an account wall, a daily quota and a size cap, and make you pay an upload round-trip for something your own laptop can finish without a network.
+绝大多数"免费在线转换"网站第一步就是让你上传文件。公开数据集无所谓，但 HR 表格、客户合同、体检报告、还没告诉任何人的草稿就不一样了。而且它们还附带账号墙、每日额度与体积上限，为了一个你的电脑不联网也能做完的事，白白付出一趟上传往返。
 
-Transfer Any File keeps the whole job local. The converters run in the extension page, so a 3 MB Word file becomes Markdown without a single packet leaving the machine — and it still works on a plane.
+Transfer Any File 把整件事留在本地。转换器全部跑在扩展页面里，一个 3 MB 的 Word 文件变成 Markdown，不需要有一个数据包离开你的机器——在飞机上照样能用。
 
-## Quick start
+## 快速开始
 
 ```bash
-# Requirements: Node.js 20.12+ (WXT needs util.parseEnv) and pnpm
+# 环境要求：Node.js 20.12+（WXT 依赖 util.parseEnv）、pnpm
 pnpm install
 pnpm build
 ```
 
-Then in Chrome:
+然后在 Chrome 中：
 
-1. Open `chrome://extensions`
-2. Enable **Developer mode** (top right)
-3. Click **Load unpacked** and select `.output/chrome-mv3`
-4. Click the toolbar icon — the workbench opens in a new tab
+1. 打开 `chrome://extensions`
+2. 开启右上角 **开发者模式**
+3. 点击 **加载已解压的扩展程序**，选择 `.output/chrome-mv3` 目录
+4. 点击工具栏图标——转换工作台在新标签页打开
 
-There is no store listing yet; `CHROMEWEBSTORE.md` holds the publish-ready listing copy, graphics and disclosure answers for when there is.
+目前尚未上架应用商店；`CHROMEWEBSTORE.md` 保存了随时可提交的商品文案、素材与披露答复。
 
-## How it works
+## 工作原理
 
 ```
-drop / pick / paste files          pick one target format
+拖入 / 选择 / 粘贴文件           选择一个目标格式
         │                                  │
         ▼                                  ▼
-  detect format  ──────►  BFS over the converter graph  ◄── finds the shortest route
-  (extension +            14 formats · 46+ direct routes
-   magic bytes)                      │
+  识别格式   ──────►  在转换器图上做 BFS 寻路  ◄── 自动求出最短路径
+  （扩展名 +           14 种格式 · 46+ 条直连路径
+   魔数字节）                      │
                                      ▼
-                     convert file-by-file, cancellable
-                     one failure ≠ a failed batch
+                     逐文件转换，可随时取消
+                     单个失败 ≠ 整批失败
                                      │
                      ┌───────────────┴───────────────┐
                      ▼                               ▼
-              download one file              batch → single ZIP
-              preview & edit first           history written (metadata only)
+                  下载单个文件                 整批 → 一个 ZIP
+                  可预览可编辑                 写入历史（仅元数据）
 ```
 
-Because every conversion pair registers itself as an edge, multi-step chains are discovered rather than hard-coded: Markdown → HTML → PDF, or Word → HTML → Markdown, run as one click. Adding a converter is 20 lines and instantly unlocks every route through it.
+每个转换对都把自己注册成图上的一条边，所以多步链路是"寻路求出来的"而不是写死的：Markdown → HTML → PDF、Word → HTML → Markdown，都是一次点击。新增一个转换器只需约 20 行，它参与的所有路径立刻自动可用。
 
-## Supported conversions
+## 支持的转换
 
-| Category  | From                                   | To                                                                                                      |
-| --------- | -------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| Documents | Markdown, HTML, Word (.docx), PDF, TXT | Each other via the HTML hub (e.g. MD → DOCX, PDF → MD, TXT → PDF); PDF also rasterizes to PNG/JPEG/WebP |
-| Data      | CSV ⇄ Excel (.xlsx), JSON              | Each other and the document cluster via HTML/CSV bridges                                                |
-| Images    | PNG, JPEG, WebP, BMP, GIF, SVG         | PNG, JPEG, WebP (GIF renders its first frame; SVG is rasterized)                                        |
+| 类别 | 源格式                                 | 目标格式                                                                                |
+| ---- | -------------------------------------- | --------------------------------------------------------------------------------------- |
+| 文档 | Markdown、HTML、Word (.docx)、PDF、TXT | 以 HTML 为枢纽互转（如 MD → DOCX、PDF → MD、TXT → PDF）；PDF 还可逐页转为 PNG/JPEG/WebP |
+| 数据 | CSV ⇄ Excel (.xlsx)、JSON              | 互相转换，并经 HTML/CSV 桥接进入文档簇                                                  |
+| 图片 | PNG、JPEG、WebP、BMP、GIF、SVG         | PNG、JPEG、WebP（GIF 取首帧、SVG 光栅化）                                               |
 
-**Common routes.** Direct: Markdown ⇄ HTML, Word ⇄ HTML, HTML ⇄ PDF, CSV ⇄ Excel, JSON ⇄ CSV, JSON ⇄ HTML, Excel → JSON, CSV → HTML, Excel → HTML, TXT → HTML, TXT → Markdown, HTML → TXT, HTML → PNG, PNG ⇄ JPEG, PNG ⇄ WebP, JPEG ⇄ WebP, BMP → PNG / JPEG / WebP, GIF → PNG / JPEG / WebP, SVG → PNG / JPEG / WebP, PNG → PDF, JPEG → PDF, WebP → PDF, BMP → PDF, GIF → PDF, PDF → PNG. Through the HTML hub, in two or three steps: Word → PDF, PDF → Word, Word ⇄ Markdown, Markdown → PDF, Markdown → Word, PDF → Markdown, PDF → HTML → TXT, CSV → PDF, JSON → Excel, Excel → PDF, HTML → Excel, SVG → PDF, and any of the six image formats → Word or Markdown. The target picker shows the resolved chain, so a multi-step route is no extra work — and the formats that BFS reaches but cannot mean anything (image → TXT / CSV / JSON / Excel, PDF → CSV / JSON / Excel) are greyed out with the reason instead of failing later.
+**常用路线。** 直接路径：Markdown ⇄ HTML、Word ⇄ HTML、HTML ⇄ PDF、CSV ⇄ Excel、JSON ⇄ CSV、JSON ⇄ HTML、Excel 转 JSON、CSV 转 HTML、Excel 转 HTML、TXT 转 HTML、TXT 转 Markdown、HTML 转 TXT、HTML 转 PNG、PNG ⇄ JPEG、PNG ⇄ WebP、JPEG ⇄ WebP、BMP 转 PNG / JPEG / WebP、GIF 转 PNG / JPEG / WebP、SVG 转 PNG / JPEG / WebP、PNG 转 PDF、JPEG 转 PDF、WebP 转 PDF、BMP 转 PDF、GIF 转 PDF、PDF 转 PNG。经 HTML 枢纽的两到三步链路：Word 转 PDF、PDF 转 Word、Word ⇄ Markdown、Markdown 转 PDF、Markdown 转 Word、PDF 转 Markdown、PDF 转 TXT、CSV 转 PDF、JSON 转 Excel、Excel 转 PDF、HTML 转 Excel、SVG 转 PDF，以及 6 种图片格式中任意一种转 Word 或 Markdown。目标格式下拉会展示解析出的完整链路，多步转换同样是一次点击；BFS 图上可达但语义不成立的组合（图片转 TXT / CSV / JSON / Excel、PDF 转 CSV / JSON / Excel）会置灰并说明原因，而不是等你点了转换才失败。
 
-> Notes: PDF output is rendered as images (text is not selectable). PDF input extracts text only (layout and images are not preserved). PDF → image renders each page; multi-page documents download as a ZIP of per-page PNGs. BMP, GIF and SVG are input-only — browsers cannot encode them. Multi-sheet XLSX → CSV downloads a ZIP with one CSV per worksheet. The target dropdown lists every format and greys out unavailable ones with a reason: of the 143 source→target combinations BFS finds reachable over the 46 registered routes, 27 are blocked as semantically invalid — images cannot become text or tabular data (that needs OCR, which this offline extension does not bundle), and PDF cannot be reliably converted to tabular/structured data — so 116 are actually offered.
+> 说明：PDF 输出为图片渲染（文字不可选中）；PDF 输入仅提取文本（不保留版式与图片）；PDF → 图片逐页渲染，多页文档下载为"每页一张 PNG"的 ZIP 包；BMP、GIF、SVG 仅支持作为输入——浏览器无法编码它们；多工作表 XLSX → CSV 会下载包含"每表一个 CSV"的 ZIP 包。目标格式下拉会列出全部格式，并对不可用的转换置灰、给出原因：46 条注册路径经 BFS 可到达 143 个源→目标组合，其中 27 个因语义无效被屏蔽——图片无法转换为文本或表格数据（这需要 OCR，本扩展完全离线、未内置），PDF 也无法可靠转换为表格/结构化数据——因此实际提供 116 个组合。
 
-## How it compares
+## 横向对比
 
-| Dimension                         | Transfer Any File                                                             | Online converter                            | CLI tool                                                           |
-| --------------------------------- | ----------------------------------------------------------------------------- | ------------------------------------------- | ------------------------------------------------------------------ |
-| Your file leaves the device       | Never                                                                         | Always (that is the mechanism)              | Never                                                              |
-| Setup cost                        | Build once, load the unpacked folder                                          | None, it is a web page                      | Package manager and PATH                                           |
-| Free-tier limits                  | 100 MB per file, 200 files per batch                                          | Daily quotas, size caps, watermarks         | None                                                               |
-| Works offline / on a plane        | Yes                                                                           | No                                          | Yes                                                                |
-| Batch of mixed formats            | Yes, one target for the whole batch                                           | Usually paid or queue-bound                 | Yes, and scriptable                                                |
-| Preview and tweak the result      | Built-in comparison view and inline editing                                   | Usually a thumbnail at best                 | None                                                               |
-| Format breadth                    | 14 document / data / image formats                                            | Hundreds, including video and audio         | Pandoc 40+ document formats, ImageMagick hundreds of image formats |
-| OCR and complex PDF layout repair | Not bundled                                                                   | Commonly offered                            | Requires a separate Tesseract install                              |
-| Price and account                 | Free, no sign-up, no paid tier                                                | Free quota, a subscription lifts the limits | Usually free                                                       |
-| Chinese interface and encoding    | Bilingual UI; CSV written with a UTF-8 BOM so Excel opens it without mojibake | Depends on the service                      | Encoding is left to you                                            |
-| Source code                       | Open source (ISC)                                                             | Closed                                      | Open source                                                        |
+| 维度               | Transfer Any File                                    | 在线转换网站               | 命令行工具                                    |
+| ------------------ | ---------------------------------------------------- | -------------------------- | --------------------------------------------- |
+| 文件离开设备       | 从不                                                 | 总是（机制如此）           | 从不                                          |
+| 安装成本           | 构建一次，加载未打包目录                             | 零，打开链接即可           | 需包管理器与 PATH                             |
+| 免费额度限制       | 单文件 100 MB、单批 200 个                           | 每日配额、体积上限、水印   | 无                                            |
+| 离线 / 飞行可用    | 是                                                   | 否                         | 是                                            |
+| 混合格式批次       | 是，整批共用一个目标                                 | 通常付费或排队             | 是，且可编排                                  |
+| 预览与转换后微调   | 内置对比视图 + 内联编辑                              | 通常只有缩略图             | 无                                            |
+| 格式广度           | 14 种文档 / 数据 / 图片                              | 数百种，含视频音频         | Pandoc 40+ 文档格式，ImageMagick 数百图像格式 |
+| OCR / 复杂排版修复 | 未内置                                               | 常见                       | 需额外装 Tesseract 等                         |
+| 价格与账号         | 免费，无需注册，无付费版                             | 免费额度，订阅才能解除限制 | 通常免费                                      |
+| 中文界面与编码     | 中英双语界面；CSV 输出带 UTF-8 BOM，Excel 打开不乱码 | 视具体服务而定             | 编码需自行处理                                |
+| 源码               | 开源（MIT）                                          | 闭源                       | 开源                                          |
 
-Summarised from the typical behaviour of each class of tool rather than one specific vendor; Pandoc and ImageMagick stand in for the command-line column. The three are not substitutes — online services reach formats a browser cannot decode, and a CLI can be scripted across thousands of files.
+以上按各类工具的共同行为总结，而非某个具体厂商；命令行工具一列以 Pandoc / ImageMagick 为代表。三者不是替代关系——在线服务能吃下浏览器无法解码的格式，命令行工具可以把成千上万个文件脚本化处理。
 
-## What you can do with it
+## 你能用它做什么
 
-**Batch and scale**
+**批量与规模**
 
-- **Mixed-format batches** — drop 40 files of different types; each resolves its own route to the shared target, and only formats reachable from _every_ selected file are offered
-- **Per-file error isolation** — one broken file never blocks the batch; failures are listed with their reason, and each one expands to show the diagnostic (the conversion path and the step that failed) and copies out as plain text, ready to paste into an issue
-- **Drop anywhere on the page** — the upload zone is not the only target; releasing files anywhere adds them to the batch. While a conversion is running the drop is ignored and the cursor shows "not allowed"
-- **ZIP download with per-entry compression** — text results (TXT / CSV / JSON / HTML / Markdown) are deflated and come out roughly 10× smaller, while already-compressed targets (PNG / JPEG / PDF / XLSX / DOCX) are stored as-is so no CPU is spent for no gain
-- **Archive intake** — drop a `.zip` and its supported files are extracted into the batch automatically
-- **Multi-sheet and multi-page aware** — XLSX → CSV exports every worksheet; PDF → image exports every page
-- **Size guards at the boundary** — warns above 20 MB, rejects above 100 MB per file, caps a batch at 200 files
+- **混合源格式批次** — 一次拖入 40 个不同类型的文件，每个文件各自求出到公共目标的路径；下拉只提供对**所有**已选文件都可达的格式
+- **逐文件错误隔离** — 单个损坏文件不会阻塞整批，失败文件连同原因单独列出；每条失败可展开查看诊断（完整转换路径与出错的那一步），并一键复制成纯文本，方便提 issue
+- **整页拖放** — 不必精准命中上传区，页面任意位置松手都能加入批次；转换进行中投放被忽略，光标显示为禁止
+- **ZIP 打包 + 按条目压缩** — 文本类结果（TXT / CSV / JSON / HTML / Markdown）走 deflate，体积可缩小约 10 倍；本身已压缩的目标（PNG / JPEG / PDF / XLSX / DOCX）直接存储，不白耗 CPU
+- **压缩包解包** — 拖入 `.zip`，其中可转换的文件自动加入批次
+- **多工作表 / 多页感知** — XLSX → CSV 导出全部工作表；PDF → 图片导出全部页面
+- **边界大小防护** — 单文件超过 20 MB 提示、超过 100 MB 拒绝，单批最多 200 个文件
 
-**Preview and edit**
+**预览与编辑**
 
-- **Split view** — source and result side by side with a draggable divider, plus Source-only / Result-only modes and sync scrolling; <kbd>1</kbd> / <kbd>2</kbd> / <kbd>3</kbd> switch between the three modes and <kbd>←</kbd> / <kbd>→</kbd> nudge the divider by 5%
-- **Inline editing** — text results (Markdown / HTML / TXT / CSV / JSON) can be corrected before you download them
-- **Copy to clipboard** — text results copy out with one click, so a conversion does not have to round-trip through a download
-- **Paste to convert** — <kbd>⌘V</kbd> / <kbd>Ctrl+V</kbd> drops in a clipboard image or text snippet
-- **Encoding-aware CSV** — reads UTF-8 with a GB18030 → GBK fallback, writes UTF-8 with BOM so Excel opens it without mojibake
+- **左右对照视图** — 源文件与结果并排，可拖动分隔条，支持仅看源 / 仅看结果与同步滚动；<kbd>1</kbd> / <kbd>2</kbd> / <kbd>3</kbd> 切换三种视图，<kbd>←</kbd> / <kbd>→</kbd> 每次移动分隔条 5%
+- **内联编辑** — 文本类结果（Markdown / HTML / TXT / CSV / JSON）可在下载前直接改
+- **复制到剪贴板** — 文本类结果可一键复制，无需先下载再打开
+- **粘贴即转换** — <kbd>⌘V</kbd> / <kbd>Ctrl+V</kbd> 直接粘贴剪贴板中的图片或文本
+- **CSV 编码友好** — 读取时 UTF-8 失败依次回退 GB18030 与 GBK，输出带 UTF-8 BOM，Excel 打开不乱码
 
-**Control and recovery**
+**控制与恢复**
 
-- **Undo** — restore the previous batch of results in one click; the snapshot is dropped when you change the selected files or the target format
-- **Confirm before big batches** — a summary dialog once a batch exceeds 5 files or 20 MB (fixed thresholds), switchable off in Preferences or from the dialog's own **Don't ask again** box
-- **Custom shortcuts** — <kbd>Ctrl/⌘</kbd> + <kbd>Enter</kbd> starts a conversion and is rebindable; reserved browser combos (<kbd>Ctrl+T/W/N/L</kbd>, <kbd>Tab</kbd>, <kbd>Esc</kbd>, …) are rejected
-- **Completion notifications** — optional desktop notification when a batch finishes while the tab is in the background, built on the web `Notification` API so no extra permission is needed
-- **Cancellation** — a long batch can be stopped mid-run; finished files are kept, and the result panel says the batch was cancelled rather than showing it as a failure
-- **Image output parameters** — when the target is PNG / JPEG / WebP, cap the longest edge, pick an encoder quality, set a best-effort file-size ceiling, and choose the render density a PDF source is rasterized at. Every one is opt-in: with nothing set the encoders run exactly as they did before. On a multi-step route the geometric settings apply at every step while quality and size apply only to the file you download — chasing a size ceiling through an intermediate encode would just throw away detail the last step would have needed
+- **撤销** — 一键恢复上一批转换结果；更换所选文件或目标格式后该快照失效
+- **大批次转换前确认** — 批次超过 5 个文件或 20 MB 时弹出汇总确认框（阈值固定），可在偏好设置中关闭，也可在确认框里直接勾选「下次不再询问」
+- **自定义快捷键** — <kbd>Ctrl/⌘</kbd> + <kbd>Enter</kbd> 开始转换，可重新绑定；浏览器保留组合（<kbd>Ctrl+T/W/N/L</kbd>、<kbd>Tab</kbd>、<kbd>Esc</kbd> 等）会被拒绝
+- **完成通知** — 页面处于后台时，批次完成可选发送桌面通知；基于 Web `Notification` API，不需额外扩展权限
+- **可中断** — 长批次可中途停止，已完成的文件保留；结果区会明确说明这一批「已取消」，而不是把没跑完的文件当成转换失败
+- **图片输出参数** — 目标为 PNG / JPEG / WebP 时，可限制最长边、指定编码质量、给出尽力而为的体积上限，并设定 PDF 源栅格化的清晰度。每一项都要主动设置：一个都不设时编码器完全按原样工作。多步链路上，几何参数（最长边、清晰度）逐步生效，质量与体积只作用在你下载的最后一步——在中间产物上追体积，只会提前丢掉最后一步本来还要用的细节
 
-**History and personalization**
+**历史与个性化**
 
-- **Conversion history** — the last 50 conversions (metadata only) with one-click "reuse this format", search by file name, filter by source/target format, per-record delete, a size-trend sparkline, and JSON export/import (merged by record ID). A multi-file batch is labelled `"<first file> +N"`; new records also keep the full file list, so every file in the batch is searchable and all of them show on hover. Records saved by earlier versions can only match that label
-- **Recently used targets** — the target dropdown leads with a "recently used" group holding up to 6 of the formats you convert to most often, kept only while they remain selectable for the current source; everything else stays in the document / image / data groups
-- **Conversion presets** — save a target format together with its image output parameters as a one-click card (up to 12), and one click restores both. Unlike "recently used", which only remembers a format, a preset remembers the whole recipe — "JPEG, 1280 px, under 200 KB". A preset chosen before any file is added is remembered and applied to the next batch that can take it; one the current batch cannot reach is refused with a reason. An untitled preset names itself after what it does
-- **Remembered UI state** — the split-view divider position and the collapsed/expanded state of the history and preset cards are persisted and restored the next time the workbench opens
-- **Keyboard accessible** — skip link to the main content, visible focus rings, and full `prefers-reduced-motion` support
-- **Measured contrast** — the end-to-end suite asserts three contrast pairs in all 6 themes × light/dark (12 combinations): topbar brand text on the topbar at 4.5:1 or better (WCAG 2.1 AA for text), the focus ring on a card at 3:1 or better (AA for user-interface components), and the primary button's label in its **rest, hover and pressed** states at 4.5:1 or better — read off the enabled button with a file and a target staged, because the text rule exempts disabled controls. Worst measured value (2026-09-14, live page): 4.70:1, rose in light mode; the dark themes land at 7.03:1 and up. It separately asserts that the first Tab lands on the skip link and that the link shows a visible ring. Known limitation: a control's fill needs 3:1 against the surface behind it as well (WCAG 1.4.11), and that holds in 10 of the 12 combinations but not under the forest-green and orange buttons in light mode (2.21 / 2.96:1 at their lightest state) — those two fills sit close to white, and deepening them to clear 3:1 would spend the label's margin.
-- **Personalization** — 6 theme colors × light / dark / system, Chinese/English interface
+- **转换历史** — 保留最近 50 条记录（仅元数据），支持一键"复用此格式"、按文件名搜索、按源/目标格式筛选、单条删除、体积趋势图，以及 JSON 导出/导入（按记录 ID 合并）。多文件批次显示为 `"<首个文件名> +N"`；新记录会额外保存完整文件列表，因此批次里每个文件都能被搜索到，悬停也可查看全部成员。旧版本保存的记录仍只能匹配这个标签
+- **最近使用目标格式** — 目标下拉顶部按「最近使用」分组列出最常转的格式（最多 6 个），只显示对当前源格式仍可用的项，其余仍归入文档 / 图片 / 数据三组
+- **转换预设** — 把目标格式连同它的图片输出参数存成一键卡片（最多 12 个），点一下两样同时恢复。和「最近使用」的区别在于：后者只记住一个格式，预设记住的是整套配方——「JPEG、最长边 1280 px、控制在 200 KB 以内」。还没上传文件时选的预设会被记住，交给下一批能接住它的文件；当前批次转不了的预设会说明原因而不是静默改掉目标。没起名字的预设按它做什么自动命名
+- **界面状态记忆** — 对照视图的分隔条位置，以及转换历史与预设两张卡片的折叠状态都会持久化，下次打开工作台即恢复
+- **键盘可达** — 提供跳转主内容的 skip link、可见焦点环，完整支持 `prefers-reduced-motion`
+- **可测量的对比度** — 端到端套件在 6 种主题色 × 明暗共 12 组配置下逐项断言三组对比度：顶栏品牌文字对顶栏背景 ≥ 4.5:1（文本类 WCAG 2.1 AA）、焦点环对卡片背景 ≥ 3:1（用户界面组件类 AA）、以及主按钮文字在**常态 / 悬停 / 按下**三种状态下均 ≥ 4.5:1——读数取自已放入文件、已选目标、确实可点击的那颗按钮（文本规则豁免禁用控件）。2026-09-14 在真实页面实测的最低值为 4.70:1（浅色玫瑰红），深色六档均在 7.03:1 以上。另单独断言第一次 Tab 落在 skip link 上且该链接显示可见焦点环。已知限制：控件的填充色对它所在的背景还需 ≥ 3:1（WCAG 1.4.11），12 组里有 10 组满足，浅色的森林绿与活力橙主按钮不满足（最浅状态 2.21 / 2.96:1）——这两档填充本身就接近白色，再加深到 3:1 就要花掉文字那一侧的余量。
+- **个性化** — 6 种主题色 × 浅色 / 深色 / 跟随系统，中英文界面切换
 
-## Privacy
+## 隐私
 
-- All conversions run **100% locally** in the extension page — the load-bearing fact is that no first-party source file issues a request (`fetch`, `XMLHttpRequest`, `WebSocket`, `EventSource` and `sendBeacon` appear nowhere in `entrypoints/`, `components/`, `composables/` or `utils/`, asserted by `pnpm verify:offline`). On top of that, the manifest declares no host permissions and registers no content scripts, so the request paths sitting unused inside third-party converter libraries can neither read a response nor reach any site's data
-- The only permission requested is `storage`, used for history (file names, formats, sizes — never contents) and preferences
-- No analytics, no tracking, no account, no ads, no paid tier
-- Full text: [`docs/privacy.html`](docs/privacy.html) · store-facing answers: [`CHROMEWEBSTORE.md`](CHROMEWEBSTORE.md)
+- 所有转换 **100% 在本地** 的扩展页面内完成——这是可验证的核心事实：第一方源码中没有任何一处发起请求（`entrypoints/`、`components/`、`composables/`、`utils/` 里找不到 `fetch`、`XMLHttpRequest`、`WebSocket`、`EventSource`、`sendBeacon`，由 `pnpm verify:offline` 断言）。在此之上，manifest 不声明任何 host 权限、也不注册 content script，因此第三方转换库里那些从未被调用的请求路径即使被走到，也读不到任何响应、碰不到任何网站的数据
+- 仅申请 `storage` 一项权限，用于保存历史（文件名、格式、体积——绝不含文件内容）与偏好设置
+- 无统计埋点、无追踪、无账号、无广告、无付费版
+- 完整文本：[`docs/privacy.html`](docs/privacy.html) · 面向商店的披露答复：[`CHROMEWEBSTORE.md`](CHROMEWEBSTORE.md)
 
-## Usage
+## 使用方法
 
-1. Click the extension icon — the conversion workbench opens in a new tab
-2. Drop files anywhere on the page (no need to hit the upload zone), click to select, or paste from the clipboard
-3. Pick a target format — only formats reachable from _all_ selected files are offered, and a multi-step conversion shows the path it will take (e.g. `MD → HTML → PDF`)
-4. Converting to an image? Set the **output parameters** that appeared under the picker — longest edge, quality, a size ceiling, PDF render density — or leave every one alone for the encoder's own defaults
-5. Click **Convert**, then download a single file or the whole batch as a ZIP
-6. Do this often? Save the format plus its parameters as a **preset** in the preset card and one click restores the whole recipe next time
-7. Open **Preferences** (top right) to switch theme / language / dark mode, toggle completion notifications and the large-batch confirmation, or rebind the convert shortcut
+1. 点击扩展图标——转换工作台在新标签页打开
+2. 将文件拖到页面任意位置（不必精准命中上传区），或点击选择、直接粘贴剪贴板内容
+3. 选择目标格式——下拉框只会列出所有已选文件都能到达的格式；需要多步时，下方会显示实际路径（如 `MD → HTML → PDF`）
+4. 转成图片时，选择器下方会出现**输出参数**——最长边、质量、体积上限、PDF 清晰度；一项都不设就是编码器原本的默认值
+5. 点击 **开始转换**，随后单个下载或整批打包为 ZIP
+6. 每次都做同一套转换？把它存成**预设**，下次在预设卡片里点一下，格式和参数一起回来
+7. 打开右上角 **偏好设置**，可切换主题 / 语言 / 显示模式，开关完成通知与大批次确认，或重新绑定转换快捷键
 
-## FAQ
+## 常见问题
 
-**Does any part of my file get uploaded?**
-No. The converters are JavaScript bundled into the extension, and the manifest requests only `storage`. There is no server to upload to and no first-party code that calls a request API; with no host permission and no content script, the request paths left unused inside those libraries cannot read a response either.
+**我的文件会被上传吗？**
+不会。转换器是打包进扩展的 JavaScript，manifest 只申请了 `storage`。既没有可上传到的服务器，第一方源码里也没有任何一处调用请求 API；在没有 host 权限、也没有 content script 的情况下，那些库里未被调用的请求路径同样读不到响应。
 
-**Can it convert PDF to editable Word or Excel?**
-Not losslessly. PDF input extracts text, and PDF output is rendered page-by-page as images, so converted PDFs are not text-selectable. Word and Excel go through HTML as the hub format.
+**能把 PDF 转成可编辑的 Word / Excel 吗？**
+不能无损做到。PDF 输入只提取文本，PDF 输出是逐页渲染成图片，因此转换得到的 PDF 文字不可选中。Word 与 Excel 之间以 HTML 作为枢纽格式。
 
-**Why can't I turn a screenshot into a text file?**
-That requires OCR, and no OCR engine is bundled — it would add tens of megabytes and a model download, which the offline guarantee rules out. Image → TXT/CSV is greyed out with that reason instead of failing later.
+**为什么不能把截图转成文本文件？**
+那需要 OCR，而项目没有内置任何 OCR 引擎——它会带来几十 MB 体积和一次模型下载，与"完全离线"的承诺冲突。所以图片 → TXT/CSV 是置灰并给出原因，而不是等到转换时才失败。
 
-**Does it work without internet?**
-Yes. Once installed the UI and every converter run locally, and the text is set in system fonts rather than a downloaded webfont, so nothing has to be fetched; airplane mode changes nothing.
+**没有网络能用吗？**
+可以。装好之后界面与全部转换器都在本地运行，文字使用系统自带字体而非下载的网络字体，因此没有任何东西需要现取，飞行模式下表现完全一致。
 
-**How is this different from an online converter?**
-Same job, opposite direction: online tools ship your file to a machine you don't control and delete it "within 24 hours"; this one never has a copy to delete. The trade-off is breadth — online tools cover hundreds of formats including video and audio, this one covers 14 document, data and image formats that browsers can decode.
+**和在线转换工具比，差别在哪？**
+同一件事，方向相反：在线工具把你的文件送到你不控制的机器上，并承诺"24 小时内删除"；本扩展从来没有一份可删除的副本。代价是覆盖面——在线工具能吃几百种格式（含音视频），这里覆盖浏览器可解码的 14 种文档 / 数据 / 图片格式。
 
-**Is there a file-size or batch limit?**
-100 MB per file (warned at 20 MB), 200 files per batch, and a confirmation dialog above 5 files or 20 MB total.
+**有体积或数量限制吗？**
+单文件上限 100 MB（20 MB 起提示），单批最多 200 个文件，超过 5 个文件或总计 20 MB 会先弹确认框。
 
-**Is it free?**
-Yes. The project is ISC-licensed, with no account, no paid tier, no advertising and no upsell — no feature is gated behind anything.
+**免费吗？**
+免费。项目以 MIT 协议开源，没有账号、没有付费版、没有广告，也没有任何形式的升级引导——没有任何功能被锁在付费墙之后。
 
-**Which browsers does it run in?**
-The build produces a Chrome Manifest V3 package, which also loads in Edge, Brave and other Chromium browsers. There is no Firefox build in this repository.
+**支持哪些浏览器？**
+构建产物是 Chrome Manifest V3 包，在 Edge、Brave 等 Chromium 内核浏览器中同样可以加载。本仓库没有 Firefox 构建。
 
-**Where is the conversion history kept, and how do I clear it?**
-In `chrome.storage.local` on your own machine, holding file names, formats and sizes only — never file contents. The history panel can delete a single record, clear everything, and export or import the list as JSON. Removing the extension removes that local storage with it, because there is no copy anywhere else.
+**转换历史存在哪，怎么清空？**
+存在本机的 `chrome.storage.local` 中，只包含文件名、格式与体积——绝不保存文件内容。历史面板支持删除单条记录、一键清空，以及把列表导出/导入为 JSON。卸载扩展会一并删除这份本地存储，因为别处没有副本。
 
-## Development
+## 开发
 
 ```bash
-pnpm dev              # dev mode with hot reload (WXT)
-pnpm build            # production build to .output/chrome-mv3
-pnpm package          # zip for distribution
-pnpm typecheck        # vue-tsc
+pnpm dev              # 开发模式，热重载（WXT）
+pnpm build            # 生产构建，输出到 .output/chrome-mv3
+pnpm package          # 打包 zip 用于分发
+pnpm typecheck        # vue-tsc 类型检查
 pnpm lint:all         # typecheck + eslint + stylelint
-pnpm verify:meta      # package.json / wxt.config.ts / .github/repo-metadata.json stay in sync
-pnpm verify:offline   # no network call in first-party source, storage-only manifest
-pnpm test:e2e         # build + Playwright suite over fixtures/
-pnpm assets:capture   # regenerate store/README screenshots + promo graphics (needs pnpm build first)
-node scripts/render-icons.mjs   # re-render icons from assets/*.svg
-git tag v1.0.0 && git push --tags   # release.yml: build the store zip, verify it, open the GitHub Release
+pnpm verify:meta      # package.json / wxt.config.ts / .github/repo-metadata.json 保持一致
+pnpm verify:offline   # 第一方源码无网络调用，manifest 仅声明 storage 权限
+pnpm test:e2e         # 构建 + 基于 fixtures/ 的 Playwright 套件
+pnpm assets:capture   # 重新生成商店与 README 用的截图和推广图（需先 pnpm build）
+node scripts/render-icons.mjs   # 从 assets/*.svg 重新渲染图标
+git tag v1.0.0 && git push --tags   # release.yml：产出商店包、校验包内容并创建 GitHub Release
 ```
 
-### Tech stack
+### 技术栈
 
 - [WXT](https://wxt.dev/) + Vue 3 + TypeScript + Element Plus
-- Converters: [marked](https://github.com/markedjs/marked), [turndown](https://github.com/mixmark-io/turndown), [mammoth](https://github.com/mwilliamson/mammoth.js), [html-docx-js-typescript](https://github.com/caiyexiang/html-docx-js-typescript), [jsPDF](https://github.com/parallax/jsPDF) + [html-to-image](https://github.com/bubkoo/html-to-image), [pdf.js](https://mozilla.github.io/pdf.js/), [SheetJS](https://sheetjs.com/), [fflate](https://github.com/101arrowz/fflate), [DOMPurify](https://github.com/cure53/DOMPurify)
-- Heavy dependencies are dynamically imported per converter, so the first paint stays small (whole bundle: 3.73 MB)
+- 转换器：[marked](https://github.com/markedjs/marked)、[turndown](https://github.com/mixmark-io/turndown)、[mammoth](https://github.com/mwilliamson/mammoth.js)、[html-docx-js-typescript](https://github.com/caiyexiang/html-docx-js-typescript)、[jsPDF](https://github.com/parallax/jsPDF) + [html-to-image](https://github.com/bubkoo/html-to-image)、[pdf.js](https://mozilla.github.io/pdf.js/)、[SheetJS](https://sheetjs.com/)、[fflate](https://github.com/101arrowz/fflate)、[DOMPurify](https://github.com/cure53/DOMPurify)
+- 重型依赖按转换器动态 `import()`，首屏保持精简（完整产物 3.73 MB）
 
-### Project structure
+### 项目结构
 
 ```
 entrypoints/
-  background.ts        # opens the workbench on icon click
-  options/             # the conversion workbench (Vue app)
-components/            # shared UI (upload, format selector, preview, results, history)
+  background.ts        # 点击图标打开工作台
+  options/             # 转换工作台（Vue 应用）
+components/            # 共享 UI（上传、格式选择、预览、结果、历史）
 composables/           # useConversion / useFileDetect / useHistory / useI18n / useTheme
 utils/
-  core/                # converter registry (BFS pathfinding), types, format metadata
-  converters/          # one module per conversion pair
-  i18n/                # zh / en dictionaries
-assets/                # icon SVG masters, global styles, theme tokens
-docs/                  # product page + privacy policy (GitHub Pages source, not bundled)
-  assets/screenshots/  # raw 1280×800 UI shots used by this file and the product page
-  assets/store/        # social preview + Chrome Web Store promo tiles
-    screens/           # captioned 1280×800 listing screenshots (English and Chinese)
-scripts/               # e2e suite, asset capture, icon rendering, metadata + offline guards
+  core/                # 转换器注册表（BFS 寻路）、类型、格式元数据
+  converters/          # 每个转换对一个模块
+  i18n/                # 中 / 英文词典
+assets/                # 图标 SVG 母版、全局样式、主题令牌
+docs/                  # 产品说明页 + 隐私政策（GitHub Pages 源目录，不打包进扩展）
+  assets/screenshots/  # 1280×800 原始界面截图，README 与产品说明页使用
+  assets/store/        # 社交预览图 + Chrome 应用商店推广图
+    screens/           # 带文案的 1280×800 商店截图（中英两套）
+scripts/               # e2e 套件、素材生成、图标渲染、元数据与离线断言
 .github/
-  workflows/           # ci.yml · static.yml (Pages) · release.yml · repo-meta.yml
-  ISSUE_TEMPLATE/      # bug report and format request forms
-CHROMEWEBSTORE.md      # store listing copy, permissions justification, disclosures
-CHANGELOG.md           # release notes (.zh-CN.md twin)
-CONTRIBUTING.md        # the whole rule set, in one page (.zh-CN.md twin)
-SECURITY.md            # disclosure channel and the offline attack-surface claims (.zh-CN.md twin)
+  workflows/           # ci.yml · static.yml（Pages）· release.yml · repo-meta.yml
+  ISSUE_TEMPLATE/      # 问题反馈与新格式请求表单
+  repo-metadata.md     # 仓库 About 描述、20 个 topics、社交预览图为什么这么写与怎么落地
+CHROMEWEBSTORE.md      # 商店文案、权限说明、隐私披露
+CHANGELOG.md           # 发布说明（.en.md 为英文对照）
+CONTRIBUTING.md        # 一页说完全部贡献规则（.en.md 为英文对照）
+SECURITY.md            # 漏洞披露渠道与离线攻击面说明（.en.md 为英文对照）
 ```
 
-`docs/` is repository documentation only — it is never copied into `.output/chrome-mv3`.
+`docs/` 只是仓库文档，永远不会被复制进 `.output/chrome-mv3`。
 
-### Adding a new converter
+### 新增一个转换器
 
-1. Create `utils/converters/<from>-to-<to>.ts` implementing the `Converter` interface (`from`, `to`, `convert(blob, ctx?)` — the optional `ctx` carries the abort signal, the source file and the image output parameters)
-2. Register it in `utils/converters/index.ts`
-3. If it introduces a new format: extend `FileFormat`, `FORMAT_INFO` and the extension/MIME maps in `composables/useFileDetect.ts`
+1. 创建 `utils/converters/<from>-to-<to>.ts`，实现 `Converter` 接口（`from`、`to`、`convert(blob, ctx?)`——可选的 `ctx` 携带取消信号、来源文件与图片输出参数）
+2. 在 `utils/converters/index.ts` 中注册
+3. 若引入了新格式：扩展 `FileFormat`、`FORMAT_INFO`，以及 `composables/useFileDetect.ts` 中的扩展名/MIME 映射
 
-Multi-step paths through the new format are discovered automatically.
+经过新格式的多步转换路径会被自动发现。
 
-## Contributing
+## 参与贡献
 
-1. Fork, branch off `main`, and run `pnpm install && pnpm dev`
-2. Keep it offline: no new permission, no network call, no remote asset — say so in the PR if a change needs one
-3. Run `pnpm lint:all` and `pnpm test:e2e`, and add a fixture + scenario for any new converter
+1. Fork 后从 `main` 切分支，跑 `pnpm install && pnpm dev`
+2. 保持离线底线：不新增权限、不发起网络请求、不引用远程资源；确有必要请在 PR 里写明
+3. 提交前跑 `pnpm lint:all` 与 `pnpm test:e2e`，新增转换器请一并补上 fixture 与测试场景
 
-Full rule set — adding a converter, conventions, and which docs must move together: [CONTRIBUTING.md](CONTRIBUTING.md) · [中文](CONTRIBUTING.zh-CN.md). Security issues are reported privately, not as issues: [SECURITY.md](SECURITY.md) · [中文](SECURITY.zh-CN.md).
+完整规则（新增转换器、编码约定、哪些文档必须同步改）见 [CONTRIBUTING.md](CONTRIBUTING.md) · [English](CONTRIBUTING.en.md)。安全问题请私密报告，不要开 issue：[SECURITY.md](SECURITY.md) · [English](SECURITY.en.md)。
 
-Issues and format requests: [github.com/liaolongdong/transfer-any-file/issues](https://github.com/liaolongdong/transfer-any-file/issues)
+## 联系方式
 
-## License
+<div align="center">
+  <img src="docs/assets/wx-qrcode/wechat-qrcode.jpg" alt="作者微信二维码，扫码添加微信号 lld_1025" width="160" height="161" />
+  <br />
+  <sub>扫码加作者微信，备注「taf」拉你进插件交流群</sub>
+</div>
 
-[ISC](LICENSE)
+- **微信**：`lld_1025`，备注「taf」（Transfer Any File 首字母）——问题反馈、格式需求、新版本试用都在群里
+- **邮箱**：[924902324@qq.com](mailto:924902324@qq.com?subject=Transfer%20Any%20File%20反馈) —— 与 `package.json#author.email` 和商店列表公开的联系邮箱是同一个地址
+- **Issue**：[缺陷与格式需求](https://github.com/liaolongdong/transfer-any-file/issues) —— 可检索的渠道优先，群里得到的结论会回填到这里
+- **关于这张码**：它是添加个人微信的二维码（不是群码，不存在群码 7 天过期），与作者另一个仓库 [account-password-helper](https://github.com/liaolongdong/account-password-helper) 共用同一张母本；那边若更换，本仓库需同步重取
+
+安全漏洞请走私密渠道，见上方 [SECURITY.md](SECURITY.md)。
+
+## 许可证
+
+[MIT](LICENSE)
 
 ---
 
 <div align="center">
 
-**If this saves you from uploading a sensitive file one more time, a star helps the next person find it.**
+**如果它帮你少上传了一次敏感文件，加个星能让下一个人更容易找到它。**
 
-[![Star this repo](https://img.shields.io/github/stars/liaolongdong/transfer-any-file?style=for-the-badge&logo=github&label=%E2%AD%90%20Star%20this%20repo&color=yellow)](https://github.com/liaolongdong/transfer-any-file/stargazers)
+[![给这个项目加星](https://img.shields.io/github/stars/liaolongdong/transfer-any-file?style=for-the-badge&logo=github&label=%E2%AD%90%20Star%20this%20repo&color=yellow)](https://github.com/liaolongdong/transfer-any-file/stargazers)
 
-Authored by [Better](https://github.com/liaolongdong).
+作者：[Better](https://github.com/liaolongdong)
+
+**同作者的另一个完全离线扩展**：[账号密码管理助手](https://github.com/liaolongdong/account-password-helper) —— 本地 AES-256-GCM 加密、一键登录、内置 TOTP · [产品说明页](https://liaolongdong.github.io/account-password-helper/)
 
 </div>

@@ -1,52 +1,36 @@
-# Security Policy
+# 安全策略
 
-[简体中文](SECURITY.zh-CN.md) · English
+简体中文 · [English](SECURITY.en.md)
 
-## Supported versions
+## 支持的版本
 
-Only the latest build of `main` is supported. There is no back-port list: the extension
-ships as one self-contained bundle, so every install runs the same code and a fix is simply
-the next release.
+只支持 `main` 上的最新构建。没有旧版本维护清单：扩展以单个自包含包发布，每一次安装跑的都是同一份代码，所以「修复」就是下一次发布。
 
-## What the attack surface actually is
+## 攻击面到底是什么
 
-The claims below are structural and checkable, and they explain why most reports of the
-common categories do not apply to this project.
+下面这些结论是**结构性、可核对**的，也解释了为什么多数常见类别的报告并不适用于本项目。
 
-| Property              | State                                                                                                                                                                                 |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Permissions           | Exactly one: `storage`. No `host_permissions`, no `<all_urls>`, no content scripts.                                                                                                   |
-| Network calls         | None of its own. `fetch` / `XMLHttpRequest` / `WebSocket` / `EventSource` / `sendBeacon` do not appear in `entrypoints/`, `components/`, `composables/` or `utils/`.                  |
-| Remote code           | None. No CDN assets, no `eval`, no `new Function`.                                                                                                                                    |
-| File contents at rest | Never written anywhere. They live in the tab's memory during a conversion and are handed back as a download.                                                                          |
-| History               | File names, formats and sizes only, in `chrome.storage.local`, on the device.                                                                                                         |
-| Untrusted input       | Uploaded files, clipboard content, ZIP entries and stored values are validated at the boundary; HTML / SVG / Markdown derived from them is sanitised with DOMPurify before rendering. |
+| 属性         | 状态                                                                                                                                                                |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 权限         | 只有一项：`storage`。无 `host_permissions`、无 `<all_urls>`、无 content script。                                                                                    |
+| 网络调用     | 自身不发起任何调用。`fetch` / `XMLHttpRequest` / `WebSocket` / `EventSource` / `sendBeacon` 在 `entrypoints/`、`components/`、`composables/`、`utils/` 中均不出现。 |
+| 远程代码     | 无。不引用 CDN 资源、无 `eval`、无 `new Function`。                                                                                                                 |
+| 文件内容落盘 | 从不写入任何位置。转换期间只存在于该标签页的内存中，结果以下载的形式交还用户。                                                                                      |
+| 历史记录     | 只保存文件名、格式与体积，写在 `chrome.storage.local`，留在本机。                                                                                                   |
+| 不可信输入   | 上传的文件、剪贴板内容、ZIP 条目与已存储的值都在边界处校验；由它们生成的 HTML / SVG / Markdown 在渲染前一律经 DOMPurify 净化。                                      |
 
-Verify it with `pnpm verify:offline` (the same assertion CI runs): it greps the four first-party
-directories for those entry points and checks that `wxt.config.ts` still declares `storage` with
-no `host_permissions`. A grep over `.output/chrome-mv3` is not the right check: the bundled
-converters carry request code on paths this extension never enters. Those paths cannot do anything useful even if one
-were reached: with no host permission and no content script, a request from the extension page is an ordinary
-CORS-restricted web call that cannot read a response or touch any website's data. The guarantee that actually carries
-the weight is the first one — no first-party code calls a request API.
+验证方法：`pnpm verify:offline`（与 CI 完全相同的断言）——它在那四个第一方目录里 grep 上述请求入口，并检查 `wxt.config.ts` 是否仍然只声明 `storage`、没有 `host_permissions`。对 `.output/chrome-mv3` 做 grep 并不是正确的检查方式：打包进来的转换库确实**在扩展永远不会进入的路径上**带着请求代码。而即使真的走到那些路径，也做不成任何有意义的事——没有 host 权限、没有 content script 时，扩展页面发出的请求就是一个受 CORS 限制的普通网页请求，既读不到响应，也碰不到任何网站的数据。真正撑得住这条保证的是第一点：**第一方代码没有任何一处调用请求 API**。
 
-## Reporting a vulnerability
+## 报告漏洞
 
-Prefer a **private security advisory**: the **Security** tab of
-[the repository](https://github.com/liaolongdong/transfer-any-file/security/policy) exposes
-"Report a vulnerability", which keeps the details off the public issue tracker. If that form is
-unavailable on this repository, email `924902324@qq.com`.
+优先使用**私密安全通告**：[仓库的 Security 页](https://github.com/liaolongdong/transfer-any-file/security/policy)提供「Report a vulnerability」入口，可以让细节不进入公开的 issue 列表。如果该表单在本仓库暂不可用，请发邮件到 `924902324@qq.com`。
 
-Please include:
+请一并给出：
 
-- The revision (`git rev-parse HEAD`) or the store version number.
-- What is compromised, and from whose position — a converter producing a wrong file is a bug,
-  not a vulnerability; code that reads a file the user never selected, or that moves data
-  off-device, is a vulnerability.
-- A reproduction. If the reproduction needs a sensitive file, describe it instead of attaching it.
+- 版本标识（`git rev-parse HEAD`）或商店版本号。
+- 什么东西被攻陷、是从谁的位置出发的——转换器产出了错误的文件是 **bug**，不是漏洞；读取用户从未选择的文件、或把数据传出本机，才是**漏洞**。
+- 复现步骤。如果复现需要用到敏感文件，请描述它，不要把它附上来。
 
-There is no formal response SLA on a one-maintainer project, but the ordering is simple:
-a confirmed issue that could leak or corrupt user data outranks everything else in the queue.
+一人维护的项目没有正式的响应时限承诺，但排序很简单：一个已确认、可能泄露或损坏用户数据的问题，优先级高于待办队列里的一切。
 
-Open a normal [issue](https://github.com/liaolongdong/transfer-any-file/issues) instead for
-conversion errors, UI problems and format requests — those are not security reports.
+转换报错、界面问题、格式需求请开普通 [issue](https://github.com/liaolongdong/transfer-any-file/issues)——它们不属于安全报告。

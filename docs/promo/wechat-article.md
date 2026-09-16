@@ -100,7 +100,7 @@ pnpm install && pnpm build
 
 商店需要的东西已经准备好了：名称与描述文案、1280×800 截图、权限逐条说明、隐私政策、数据披露答复，都写在仓库的 `CHROMEWEBSTORE.md` 和 `docs/privacy.html` 里。上架还差一个开发者账号和一次提交——如果你想推动这件事，去仓库开个 issue 就行。
 
-技术栈：**WXT + Vue 3 + TypeScript + Element Plus**，Manifest V3，权限只有 `storage`，ISC 协议。代码里的验证方式也一并交代：Playwright 驱动构建产物跑 208 条断言，夹具（`fixtures/`）随仓库走。
+技术栈：**WXT + Vue 3 + TypeScript + Element Plus**，Manifest V3，权限只有 `storage`，MIT 协议。代码里的验证方式也一并交代：Playwright 驱动构建产物跑 208 条断言，夹具（`fixtures/`）随仓库走。
 
 ## 六、谁不该用它
 
@@ -110,6 +110,14 @@ pnpm install && pnpm build
 - 公司设备禁止安装未上架扩展、也没有开发者模式权限：这条路走不通。
 
 反过来，如果你手上是**合同、薪资表、病例、未公开稿件、客户数据**，只是想在 Markdown / Word / PDF / Excel / CSV / JSON / HTML / 图片之间倒一下格式——那它不该有任何理由离开你的电脑。
+
+## 遇到缺的格式，扫码进群说一声
+
+![微信二维码：扫码添加微信号 lld_1025，备注 taf 拉你进插件交流群](../assets/wx-qrcode/wechat-qrcode.jpg)
+
+微信号 `lld_1025`，添加时备注「taf」，我拉你进插件交流群。你想转什么格式、哪一步卡住了，直接群里说；能做的排进版本，做不了的我会讲清楚为什么（大多是浏览器压根编不出那个格式）。
+
+这是一张添加个人的码，不是群码——所以不存在群码 7 天过期那回事。它和作者的另一个离线扩展 [账号密码管理助手](https://github.com/liaolongdong/account-password-helper) 共用同一张母本，那边若换码，这边会跟着换。
 
 ---
 

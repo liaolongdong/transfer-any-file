@@ -13,21 +13,18 @@ export default defineConfig({
   // Keep explicit imports for project code; only Element Plus is auto-resolved
   imports: false,
   manifest: {
-    // Store-facing name = brand + one keyword phrase (Chrome Web Store allows 75 characters;
-    // the in-app brand stays the short `Transfer Any File`, see `utils/i18n/*.ts → appName`).
-    // Generic-only names like "File Converter" are already taken by high-volume projects, so the
-    // brand token carries discoverability instead. Deliberately not extended with `Image`: every
-    // competitor name measured in this category tops out at 44 characters, `image converter` is
-    // held by listings with 100k+ users (unwinnable at zero installs), and the only official
-    // wording on the field is "Shorter titles are easier to remember and stand out in the store"
-    // plus "Do not stuff the title with keywords".
-    name: "Transfer Any File — Offline File Format Converter",
-    // Chrome Web Store caps this at 132 characters and matches searches against it, so it
-    // leads with the verb and states the differentiator. Formats are named by category, never
-    // as a list: the store rejected the 2026-09-14 draft for "excessive keywords" over exactly
-    // such an enumeration in this field. Kept in sync with `package.json#description` (127 chars).
-    description:
-      "Convert between 14 common document, spreadsheet and image file formats right in your browser — offline, in batches, no uploads.",
+    // The packaged name and description are message keys, not strings: Chrome resolves `__MSG_x__`
+    // against the browser's UI language and falls back to `default_locale`. With `zh_CN` as the default,
+    // a Chinese system gets the Chinese name everywhere Chrome shows it (extension manager, install
+    // prompt, Chrome Web Store default listing) while English keeps its own localized copy from
+    // `_locales/en/`. The wording rationale for each sentence lives with the copy in
+    // `public/_locales/{zh_CN,en}/messages.json`, mirrored in `CHROMEWEBSTORE.md`.
+    default_locale: "zh_CN",
+    name: "__MSG_extensionName__",
+    // Store caps this at 132 characters and matches searches against it. Both locales are measured by
+    // `pnpm verify:listing`, which also asserts each one equals its `CHROMEWEBSTORE.md` paste block;
+    // `_locales/en` is additionally compared against `package.json#description` by `pnpm verify:meta`.
+    description: "__MSG_extensionDescription__",
     // Only storage is used (history/preferences); no tab access needed
     permissions: ["storage"],
     // Icon click is handled in the background entrypoint (opens the options

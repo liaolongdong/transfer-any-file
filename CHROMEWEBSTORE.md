@@ -1,51 +1,71 @@
-# Chrome Web Store Listing — Transfer Any File
+# Chrome 应用商店 · 提交与运营手册 — Transfer Any File
 
-> Last Updated: 2026-09-15
-> Status: **submitted once, rejected, refiling.** The 1.0.0 draft went to review and came back on 2026-09-14 under 垃圾内容和商店中的排名 (reference ID `Yellow Argon`): _产品说明中有过多关键字_, quoting `"Markdown, Word, PDF, Excel, CSV, JSON, HTML, images"` **in Summary** — the short description field below, which stood at 129 characters until this round. The Summary, the `Chinese (China)` field that mirrored its shape, and the marquee promo tile's subtitle are now written by category instead of by format name; see **Rejection History** for the measurement and the resubmission path. The item is still not live, `manifest.json` carries no `key`, and there is no extension ID anywhere in the tree, so this file remains the publish-ready asset pack rather than a listing to optimise: copy each field into the [Chrome Developer Dashboard](https://chrome.google.com/webstore/devconsole), and keep it updated whenever permissions, features or graphics change.
+> **当前状态（2026-09-16）**：1.0.0 草稿提交过一次审核、**被拒两次**。两次是同一违规类型、同一参考 ID
+> （`垃圾内容和商店中的排名` / `Yellow Argon`），同一条政策：产品说明中有过多关键字。第一次（09-14）引用的是
+> **简介**里的 `"Markdown, Word, PDF, Excel, CSV, JSON, HTML, images"`，于是简介、与它同形的 `Chinese (China)`
+> 简介、以及 marquee 推广图的副标题都改按品类表述。第二次（09-15）引用的是**详细介绍**里 WHAT YOU CAN CONVERT 的
+> 三条 family bullet，于是剩下的那处枚举也去了——两次测量的完整对照见[拒审记录](#拒审记录与政策口径)。
+> 条目仍未上线：`manifest.json` 里没有 `key`，整个仓库里也找不到扩展 ID。同日，listing 的**默认语言**从英文换成中文
+> （包里带 `_locales/zh_CN` 与 `_locales/en`），见[语言闸门](#语言闸门)。所以本文件是**可提交素材包 +
+> 手工 runbook**，不是现网列表的镜像：把每个字段复制进 [Chrome Developer Dashboard](https://chrome.google.com/webstore/devconsole)，
+> 并在权限、功能或图形变化时同步更新它。
 >
-> Re-checked 2026-09-08: the GitHub Pages site **is live** (`https://liaolongdong.github.io/transfer-any-file/` and
-> `/privacy.html` both answer `HTTP/2 200`), and the repository exists as `liaolongdong/transfer-any-file` — but its
-> About block is still empty (`description: null`, `homepage: null`, `topics: []`), so the `repo-meta.yml` step has
-> never run. The remaining manual gaps are the store account itself and that About block.
+> **2026-09-08 复核**：GitHub Pages **已上线**（`https://liaolongdong.github.io/transfer-any-file/` 与
+> `/privacy.html` 都返回 `HTTP/2 200`），仓库 `liaolongdong/transfer-any-file` 也已存在——但它的 About 仍然是空的
+> （`description: null`、`homepage: null`、`topics: []`），说明 `repo-meta.yml` 从未跑过。剩下要手工做的是商店账号
+> 本身和那个 About 块（后者见 [`.github/repo-metadata.md`](.github/repo-metadata.md)）。
 
-Revised 2026-09-15 (response to the 1.0.0 rejection): the short description dropped its eight-name format list and now describes the same coverage by category — 127 characters of the 132 available. The `Chinese (China)` short description was trimmed the same way (66/132), and the marquee promo tile's subtitle, which carried the identical list in a store-reviewed image, was changed in `scripts/capture-store-assets.mjs` and recaptured. The detailed descriptions were deliberately **not** touched: only the Summary was quoted, and moving one field per submission attempt is what keeps the next verdict attributable. Two character counts in this file had drifted from the copy they describe and are corrected here against `pnpm verify:listing`, which is the authority for every number below: the English detailed block measures 7,958 characters (not 6,939) and the Chinese one 3,240 (not 2,832). Note also that the per-token density figures quoted in the 2026-09-12/13 note are a snapshot of that round — the 2026-09-14 additions moved them, so treat them as history rather than a current measurement.
+**怎么用这份文件**
 
-Revised 2026-09-14: the two capabilities shipped this cycle are now in both detailed descriptions — an 图片输出参数 / "Image output parameters" bullet (quality, longest edge, target file size, and DPI for a PDF source) and a 转换预设 / "Conversion presets" bullet — placed after 最近使用 so the history and personalisation lines keep their order; 使用方法 / HOW TO USE grew from four steps to six to cover the output panel and saving a preset; and a 能把图片体积压小吗 / "Can it make a photo file smaller?" pair joined QUESTIONS, because shrinking a picture offline is the highest-intent thing this listing can be found for. The CSV line was corrected from "falls back to GBK" to the chain the decoder actually runs (UTF-8 → GB18030 → GBK), which had also drifted on the product page. All paste fields re-measured with `pnpm verify:listing`. The kit also gained a seventh listing frame, `screen-07-presets` (output parameters plus the preset chips), so the five-slot pick in _Tab 2_ is now 01–04 + 07 with `history` and `dark-mode` as the spares.
+- 要**填后台**：只看[提交速查](#提交速查)，按标签页顺序一次填完，过程中不需要做任何决定。
+- 要**改文案**：看[商店文案](#商店文案)，每个字段下面写着为什么是这个值。
+- 要**理解为什么不能那样写**：看[拒审记录](#拒审记录与政策口径)——那两次的政策口径决定了这份文件里许多看起来奇怪的取舍。
+- **下面所有字符数都是实测值**，权威是 `pnpm verify:listing`：它把每个要粘贴的字段按其真实上限计量，并在本文件与
+  `wxt.config.ts`、`package.json`、`.github/repo-metadata.json` 不一致时报错。改完任何粘贴字段都要重跑它。
+  商店对超长字段是**静默截断**而不是拒绝提交，所以一个字段多写三个字符，就可能以半句话的形式上线。
+- 中文粘贴块**已经有地方贴了**：包里带 `_locales/zh_CN/`，所以 `Chinese (China)` 是这份 listing 的默认语言，
+  英文退为附加本地化——机制与代价见[语言闸门](#语言闸门)。
 
-Revised 2026-09-12/13 (all figures below measured from this file with a script, not estimated): the English name was extended to 57 characters with an image keyword and **reverted to 49 the same round** — see _Extension Name_ for the measurements that decided it; the Chinese name was introduced at 33/75 (it has no earlier value — the section itself is new). A COMMON CONVERSIONS / 常用转换 block was added to both detailed descriptions in this round, because the route phrases users type — "markdown to pdf", "csv to excel", "png to webp" — appeared nowhere in them, and then **cut back the same round** from one dense prose paragraph to five category bullets: the block now names **31 of the 116 selectable pairs** (711 characters EN / 391 ZH), and whole-description format-token density fell from **93 → 73** occurrences in English and **95 → 77** in Chinese, where the peak single token is `PDF` at 13. The complete per-format matrix — every direct edge, every multi-step target and every greyed pair with its reason — now lives on the product page, which can carry that enumeration without any listing-policy exposure. Finally, the privacy line "makes no network requests of any kind" was reworded into the behaviourally verifiable form, so it still stands up to a reviewer checking with a proxy.
+## 目录
 
-Revised 2026-09-11: the Chinese short description was extended into its unused characters, a QUESTIONS / 常见问题 section was added to both detailed descriptions, the listing screenshots are now generated with a caption bar in both English and Chinese, and the repository topics were expanded to the full 20-topic budget.
-
-**Character counts below are measured, not estimated** — re-measure after any edit with `pnpm verify:listing`, which
-prints every paste field against its real limit and fails if the sheet drifts from `wxt.config.ts`, `package.json` or
-`.github/repo-metadata.json`. The store rejects over-length fields silently in some locales — it truncates rather than
-erroring — so a field that grows 3 characters can reach production as a cut-off sentence.
+- [提交速查](#提交速查) —— 按后台四个标签页排列，可直接照抄
+- [商店文案](#商店文案) —— 逐字段：中文解说 + 中英粘贴块
+- [图形与素材](#图形与素材) —— 图标、七张截图取五张、两张推广图
+- [权限与隐私申报](#权限与隐私申报) —— `storage` 说明、数据处理表单、数据使用认证、隐私政策
+- [分发与开发者信息](#分发与开发者信息)
+- [首次上架（手工步骤）](#首次上架手工步骤) —— 为什么这步无法自动化，以及顺序
+- [上架后的运营](#上架后的运营) —— 五个指标分别指向本文件的哪一份素材
+- [审核要点](#审核要点) —— 已知限制与发布前检查清单
+- [版本历史](#版本历史)
+- [拒审记录与政策口径](#拒审记录与政策口径)
+- [本文件的变更记录](#本文件的变更记录)
+- [相关文档](#相关文档)
 
 ---
 
-## Submission worksheet (提交速查)
+## 提交速查
 
-The whole dashboard, in tab order, with nothing to decide while you are filling it in. Short fields are verbatim and
-safe to paste; everything long is referenced by section so this block cannot drift from the copy it points at.
+按后台标签页顺序填完整张表。短字段逐字给出、可直接粘贴；长文案按小节引用，所以这里不会与被引用的文案漂移。
 
-**Pre-flight, from the repository** — all four must pass before you touch the dashboard:
+**开工前，仓库侧五项全过**（在动后台之前跑完，不是填到一半再跑）：
 
 ```bash
-pnpm verify:listing   # every field below is inside its limit and agrees with manifest/package/repo-metadata
-pnpm verify:offline   # first-party source issues no network request; manifest is storage-only
-pnpm build            # the artifact you upload
-curl -Is https://liaolongdong.github.io/transfer-any-file/privacy.html | head -1   # HTTP/2 200, or the submit button is dead
+pnpm verify:listing   # 下面每个字段都在上限内，且与 _locales / manifest / package.json / repo-metadata 一致
+pnpm verify:offline   # 第一方源码不发起网络请求；manifest 权限仍只有 storage
+pnpm build            # 产出要上传的包
+ls .output/chrome-mv3/_locales   # 必须同时有 en 与 zh_CN，否则后台只有一种语言可填
+curl -Is https://liaolongdong.github.io/transfer-any-file/privacy.html | head -1   # 必须是 HTTP/2 200，否则提交按钮点了没反应
 ```
 
-### Tab 1 — Store listing
+### Tab 1 — Store listing（商店页面）
 
-| Field             | Value                                                                         |
-| ----------------- | ----------------------------------------------------------------------------- |
-| Name              | below — 49/75, and it must equal `wxt.config.ts → manifest.name`              |
-| Short description | below — 127/132, and it must equal `manifest.description`                     |
-| Full description  | _Detailed Description_ → the English fenced block (7,958 measured characters) |
-| Category          | `Productivity`                                                                |
-| Languages         | English only until the _Locale gate_ is resolved                              |
+| 字段                   | 取值                                                                          |
+| ---------------------- | ----------------------------------------------------------------------------- |
+| 名称 Name              | 下方代码块 —— 49/75，且必须与 `_locales/en → extensionName` 完全一致          |
+| 简介 Short description | 下方代码块 —— 127/132，且必须与 `_locales/en → extensionDescription` 完全一致 |
+| 详描 Full description  | [商店文案](#商店文案) → 详细介绍的英文代码块（实测 7,948 字符）               |
+| 类别 Category          | `Productivity`                                                                |
+| 语言 Languages         | `Chinese (China)`（默认）+ `English (United States)`，由包内 `_locales/` 决定 |
 
 ```
 Transfer Any File — Offline File Format Converter
@@ -55,31 +75,30 @@ Transfer Any File — Offline File Format Converter
 Convert between 14 common document, spreadsheet and image file formats right in your browser — offline, in batches, no uploads.
 ```
 
-Chinese (China) — three gated fields, in _Store Listing_ above each heading: name 33/75, short description 66/132,
-detailed description 3,240 characters. Paste them only if the uploaded package ships `_locales/zh_CN/`; otherwise the
-dashboard has no tab to paste them into.
+**Chinese (China) —— 默认语言标签页，先贴这一套。** 三个字段（名称 33/75、简介 66/132、详描 2,845 字符）在
+[商店文案](#商店文案)里；名称与简介同时活在 `public/_locales/zh_CN/messages.json`，`pnpm verify:listing` 逐字比对两边。
+那个标签页要等**带 `_locales/zh_CN/` 的包上传之后**才出现——先传包再填表，手上那份旧草稿看不到它是正常的。
 
-### Tab 2 — Screenshots & icon
+### Tab 2 — Screenshots & icon（截图与图标）
 
-Icon: `public/icon/128.png`. Screenshots: seven are generated, the dashboard takes five, so two stay in the repo.
-Upload, in this order, from `docs/assets/store/screens/` — `screen-01-workbench`, `02-batch`, `03-zip`, `04-preview`,
-`07-presets`. `05-history` and `06-dark-mode` are the spares: both capabilities are already named in the listing copy,
-while `07-presets` is the only frame that shows the output levers (quality, longest edge, target file size, render
-density) and the chips that keep them — the highest-intent thing this listing can be found for, per the QUESTIONS
-block. Then the promo tiles in _Graphics & Assets_ — one set, promo tiles cannot be localized. Captions are already
-burned into the PNGs; the dashboard has no caption field.
+图标：`public/icon/128.png`。截图生成七张、后台只收五张，所以两张留在仓库里。按这个顺序从
+`docs/assets/store/screens/` 上传：`screen-01-workbench`、`02-batch`、`03-zip`、`04-preview`、`07-presets`。
+备胎是 `05-history` 与 `06-dark-mode`——这两项能力在 listing 文案里已经点名，而 `07-presets` 是唯一同时展示输出拨盘
+（质量、最长边、目标体积、渲染密度）与那些把它们留住的预设芯片的一张，按「常见问题」的口径，这正是本 listing
+能被搜到的最高意图。然后是[图形与素材](#图形与素材)里的两张推广图：**只用一套**，推广图不能本地化。
+文案已经烧进 PNG，后台没有 caption 字段。
 
-### Tab 3 — Privacy practices
+### Tab 3 — Privacy practices（隐私实践）
 
-| Question                             | Answer                                                                 |
-| ------------------------------------ | ---------------------------------------------------------------------- |
-| Single purpose                       | paste the one-liner from _Store Listing → Single Purpose_              |
-| Permission justification (`storage`) | paste from _Permissions Justification_                                 |
-| Does this item handle user data?     | **Yes** — see _Data handling_ below, do not answer "no data collected" |
-| Privacy policy URL                   | `https://liaolongdong.github.io/transfer-any-file/privacy.html`        |
-| Limited Use certifications           | the four ticks in _Data Use Certification_                             |
+| 问题                             | 回答                                                               |
+| -------------------------------- | ------------------------------------------------------------------ |
+| Single purpose                   | 粘贴下方代码块（与[商店文案](#商店文案)里的「单一目的」逐字相同）  |
+| 权限说明（`storage`）            | 粘贴下方代码块                                                     |
+| Does this item handle user data? | **Yes** —— 先读[数据处理](#数据处理)，不要答「不收集任何用户数据」 |
+| Privacy policy URL               | 下方代码块                                                         |
+| Limited Use 认证                 | 四项，见[数据使用认证](#数据使用认证)                              |
 
-The two fields most likely to be typed badly at 11pm, verbatim:
+深夜手填最容易打错的三个字段，逐字：
 
 ```
 Converts user-selected documents, spreadsheets and images between common file formats entirely on the local machine.
@@ -89,148 +108,162 @@ Converts user-selected documents, spreadsheets and images between common file fo
 storage: persists the user's own conversion history (file names, formats and sizes — never file contents) and interface preferences (theme, colour mode, language, notification and confirmation switches, custom shortcut) via chrome.storage.local. Nothing leaves the device: the extension declares no host permissions and its own code issues no network request. No narrower permission can do this.
 ```
 
-On the data-declaration question, tick the types that match reality (user files; the app-activity line for local
-history) and write in the description field:
+```
+https://liaolongdong.github.io/transfer-any-file/privacy.html
+```
+
+数据申报那里按实际情况勾选类型（用户文件；本地历史对应 app-activity 那一行），并在描述框里写：
 
 ```
 Files are read into the extension page's memory, converted there, and returned to the user as a download. Conversion history and preferences are stored locally via chrome.storage.local. No data is transmitted, uploaded, synced or shared with anyone, including the developer; there is no server.
 ```
 
-### Tab 4 — Distribution
+### Tab 4 — Distribution（分发）
 
-Public · all regions · default price (free). The 32-character item ID appears here; keep it out of git and put it in
-the `CHROME_EXTENSION_ID` secret described in _Hand-over to automation_.
+Public · 全部地区 · 默认价格（free）。32 位 item ID 出现在这一页：**不要提交进 git**，放进
+[交接给自动化](#5-交接给自动化条目已存在之后)里说的 `CHROME_EXTENSION_ID` secret。
 
-### Reviewer notes (optional, saves a round-trip)
+### 给审核员的备注（可选，能省一个来回）
 
 ```
 No account or login is required. After installing, click the toolbar icon: the converter opens as a tab. Test the round trip with any .md or .csv file — the result downloads locally. The extension works with networking disabled.
 ```
 
-### Two things to settle before the $5
+### 付 $5 之前必须先定的两件事
 
-1. **The locale gate.** Without `_locales/` in the package there is no Chinese listing tab, for an extension whose UI
-   ships Chinese and whose primary audience is Chinese-reading. That is a manifest change, not a paste — see
-   _Locale gate_.
-2. **Publisher name.** _Developer Info_ leaves it to you; it is public on the listing and it is the account-holder's
-   name or organisation as Google bills it.
+1. **listing 的默认语言。** 已经定了：`Chinese (China)` 为默认、`English (United States)` 为附加本地化，因为包里带
+   `_locales/zh_CN`（`manifest.default_locale`）与 `_locales/en`。它是 manifest 决策而不是后台的一个开关，
+   要改就得连 `verify:meta` / `verify:listing` 一起改——见[语言闸门](#语言闸门)。
+2. **发布者名称。** [分发与开发者信息](#分发与开发者信息)把它留给你；它在 listing 上是公开的，而且必须是
+   Google 账单上那个账号持有人或组织的名字。
 
 ---
 
-## Store Listing
+## 商店文案
 
-**Extension Name** [REQUIRED] — 49 chars, limit 75
+字段顺序与后台一致，`[必填]` 标的是 Google 的硬要求。粘贴块**逐字节保持原样**——它们是商品文案，不是这份文档的正文，
+所以中英两份都留在这里、都会被贴进后台：中文贴默认的 `Chinese (China)` 标签页，英文贴 `English (United States)`。
+其中四个名称 / 简介字段另由 `public/_locales/{zh_CN,en}/messages.json` 逐字承载，`pnpm verify:listing` 比对两边。
+
+**扩展名称（Extension Name）** [必填] —— 49 字符，上限 75
 
 ```
 Transfer Any File — Offline File Format Converter
 ```
 
-> Set to 57 characters on 2026-09-12 by adding `& Image`, and **reverted to 49 in the same round**. Three
-> measurements decided it, and the first one is the reason the earlier rationale ("26 characters of the budget
-> were going unused") was not a real argument:
+> 2026-09-12 曾靠加 `& Image` 扩到 57 字符，**同一轮又退回 49**。三个测量决定了这次回撤，而第一个测量也正是
+> 之前那条理由（「26 个字符的预算没花完」）站不住的原因：
 >
-> - **Length.** Every competitor listing measured in this category fits in 44 characters, so the 75-character
->   ceiling is not a budget to spend — it is a maximum nobody in the category approaches. At 49 this name is
->   already the longest on the results page.
-> - **The exact term is not winnable.** `image converter` belongs to listings with 100,000+ users. Adding a token
->   you cannot rank for at zero installs buys nothing, and the image family is already named three times over where
->   it is indexed: `images` in the short description, the six formats in the detailed description's image bullet,
->   and `image-conversion` in the repository topics.
-> - **What Google actually says about this field** is the opposite of a keyword-budget instruction: _"Shorter
->   titles are easier to remember and stand out in the store"_ and _"Do not stuff the title with keywords"_. There
->   is no published ranking weight for the name field, so the claim this section used to make was folklore.
+> - **长度。** 这个类目里逐个量过的竞品 listing 全部落在 44 字符以内。所以 75 的上限不是一笔该花完的预算，
+>   而是类目里没人接近的天花板；49 已经是搜索结果页上最长的那个名字。
+> - **那个精确词拿不到。** `image converter` 属于用户量 100,000+ 的那批 listing。零安装阶段加一个排名无望的词
+>   换不到任何东西，而图片这一族在被索引的位置已经点名三次：简介里的 `images`、详细介绍图片条目里的六个格式、
+>   仓库 topics 里的 `image-conversion`。
+> - **Google 对这个字段自己的说法**恰恰不是「预算要花满」：_"Shorter titles are easier to remember and stand out
+>   in the store"_、_"Do not stuff the title with keywords"_。名称字段没有任何公开的排名权重，所以这一节以前那句
+>   断言属于 folklore。
 >
-> One noun phrase, not a list — and the remaining budget stays empty on purpose. A format-enumerating variant
-> (`…Converter for Word, PDF and Images`, 74 measured characters) was considered and rejected: it is the exact shape
-> the keyword-spam policy describes (that text warns against symbols and against "feature lists or descriptions",
-> so spelled-out words are the safer half of the compromise), and it truncates in the browser's own extension
-> surfaces. Enumerating everything is not even an option to weigh — naming all seven convertibility classes runs to
-> 103 characters, past the 75-character field itself.
+> 一个名词短语，不是列表——剩下的预算是故意留空的。枚举格式的变体（`…Converter for Word, PDF and Images`，
+> 实测 74 字符）被考虑过并否掉：它正是关键词堆砌政策所描述的那种形状（那段政策同时警告符号与
+> "feature lists or descriptions"，所以拼写出来的单词是折中方案里更安全的半边），而且它会在浏览器自身的扩展界面里
+> 被截断。至于「把所有格式都列出来」，连选项都算不上——七类可转换性写全要 103 字符，超过 75 的字段本身。
 
-> Renamed on 2026-09-06 from `File Any Transfer`, for two reasons: the old name carried no word for _conversion_ or _format_, so a search for either could not reach it, while generic names in this category (`File Converter`, `ConvertX`, `FileForge`, `FileConverter`) are already held by high-volume projects; and `File Any Transfer` reads to an English speaker as the verb phrase "file any transfer" (≈ submit a transfer request), which never connected to format conversion. The word order fix keeps every original word.
+> 2026-09-06 从 `File Any Transfer` 改名，两个理由：旧名字里既没有 conversion 也没有 format，搜这两个词都到不了它，
+> 而这个类目的通用名（`File Converter`、`ConvertX`、`FileForge`、`FileConverter`）已被高安装量项目占住；并且
+> `File Any Transfer` 对英文读者会先读成动词短语 "file any transfer"（≈ 提交一份转账申请），跟格式转换接不上。
+> 调整词序保留了原来的每个单词。
 >
-> | Where                                                                 | Value                                                                                                                                                                                                                                                                                                                                                                                                          |
-> | --------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-> | Store listing / `wxt.config.ts → manifest.name`                       | `Transfer Any File — Offline File Format Converter`                                                                                                                                                                                                                                                                                                                                                            |
-> | In-app brand (`utils/i18n/*.ts → appName`), tab title, promo graphics | `Transfer Any File`                                                                                                                                                                                                                                                                                                                                                                                            |
-> | GitHub repo                                                           | `transfer-any-file` — matches the brand, the npm package name and this listing, so CWS / GitHub / Pages / npm resolve to **one entity**. The repository has since been created and pushed under this account, so the slug is fixed; GitHub search coverage comes from the About description + topics rather than the slug. The local working directory name is irrelevant to the repo name and may stay as-is. |
+> | 位置                                                                                       | 值                                                                                                                                                                                                                                                        |
+> | ------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+> | 商店 listing / `_locales/en → extensionName`（manifest 以 `__MSG_extensionName__` 指向它） | `Transfer Any File — Offline File Format Converter`                                                                                                                                                                                                       |
+> | 应用内品牌（`utils/i18n/*.ts → appName`）、标签页标题、推广图                              | `Transfer Any File`                                                                                                                                                                                                                                       |
+> | GitHub 仓库                                                                                | `transfer-any-file`——与品牌、npm 包名、本 listing 一致，于是 CWS / GitHub / Pages / npm 收敛到**同一个实体**。仓库已在此账号下创建并推送，slug 因此固定；GitHub 搜索覆盖来自 About 描述 + topics，而不是 slug。本地工作目录名与仓库名无关，可以保持现状。 |
 
-### ⚠️ Locale gate — every `Chinese (China)` field below needs a code change first
+### 语言闸门
 
-Google localises a listing only into locales the **package** declares: _"Each locale corresponds to one of the
-`_locales/LOCALE_CODE` directories included in the extension."_ This extension has no `_locales/` at all — its
-Chinese/English switching is in-app Vue state (`composables/useI18n.ts`), invisible to the manifest — so today the
-dashboard's language dropdown offers **one** language, and `Chinese (China)` cannot be added from the listing page.
-The item **name** compounds it: the dashboard reads it from the manifest, so a Chinese name is only reachable by
-putting `__MSG_extensionName__` in `wxt.config.ts` and the string in `_locales/zh_CN/messages.json`.
+**闸门已经解决：包里带 `_locales/zh_CN`（`manifest.default_locale`）与 `_locales/en`，listing 的默认语言因此是 `Chinese (China)`。**
 
-Two ways forward, and the choice is not mine to make in a document:
+Google 只把 listing 本地化到**包**里声明过的 locale：_"Each locale corresponds to one of the
+`_locales/LOCALE_CODE` directories included in the extension."_ 在这两个目录进包之前，后台的语言下拉里只有
+`English (United States)` 一项，三个 `Chinese (China)` 字段无处可贴——因为那个扩展的中英切换是应用内的 Vue 状态
+（`composables/useI18n.ts`），对 manifest 完全不可见。现在包内有两个 locale：
 
-| Option                           | What it takes                                                                                                                                         | Consequence                                                                                                                                                                                                                                                                                                                                 |
-| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Ship the English listing now** | Nothing. Paste the three EN fields, skip the three ZH ones.                                                                                           | The ZH copy below stays unused. The in-app UI still ships Chinese for the primary audience — only the store page is English.                                                                                                                                                                                                                |
-| **Add a Chinese locale**         | `default_locale: "en"` + `_locales/en/messages.json` + `_locales/zh_CN/messages.json`, with manifest `name` and `description` moved into `__MSG_*__`. | Unlocks the `Chinese (China)` tab **and** localises what Chrome itself shows (extensions page, install prompt) for users on a Chinese browser UI. Touches the manifest and the metadata-sync chain (`verify:meta` compares manifest ↔ `package.json` ↔ `repo-metadata.json`), so it is a code change with its own review, not a copy-paste. |
+| 目录                                  | 角色                                     | 承载的后台文案                         |
+| ------------------------------------- | ---------------------------------------- | -------------------------------------- |
+| `public/_locales/zh_CN/messages.json` | `default_locale`，**listing 的默认语言** | 中文名称（33/75）与中文简介（66/132）  |
+| `public/_locales/en/messages.json`    | 附加 locale                              | 英文名称（49/75）与英文简介（127/132） |
 
-Either way, promo tiles are unaffected: _"Small promo tiles and marquee promo tiles cannot be localized."_ One
-English promo set is correct. The detailed descriptions below stay **duplicated in both languages in this file** so
-option two is a packaging decision rather than a rewrite.
+`public/` 是 WXT 的 `publicDir`，整目录原样落到扩展根，所以 `_locales/` 必须在 `public/` 下——它在扩展根的位置
+是 Chrome 硬要求的，不是本项目的位置偏好。`wxt.config.ts` 的 `name` 与 `description` 于是不再是句子而是消息键
+（`__MSG_extensionName__` / `__MSG_extensionDescription__`）：Chrome 按浏览器界面语言解析它们，解析不到就回落到
+`zh_CN`。这带来两处后台之外的效果——中文系统用户在扩展管理页与安装提示里读到的是中文名，英文系统用户读到的仍是英文名；
+而既非中文也非英文的界面语言会拿到中文回落值，那是 `default_locale` 的既定行为，不是缺陷。
 
-**Chinese (China) extension name** — 33 chars, limit 75
+**详细介绍不进包**：locale 文件只带名称与简介这两条 Chrome 自己会显示的字符串，两份详细介绍照旧只在[商店文案](#商店文案)里，
+各自贴进对应语言的标签页。
+
+后台读到哪个 locale 集合，取决于**最近一次上传的包**。手上那份 1.0.0 草稿上传于 `_locales/` 存在之前，所以
+`Chinese (China)` 标签页要等新包上传之后才出现——先传包，再填表，顺序反了就会发现没地方贴。
+
+同步由两条守卫守着：`pnpm verify:listing` 逐字比对两份 locale 文件与本文件的四个名称/简介粘贴块，并断言两个 locale 的
+key 集一致、`default_locale` 仍是 `zh_CN`；`pnpm verify:meta` 比对 `_locales/en` 与 `package.json#description`。
+改任何一处文案都要同时改另一处，否则 CI 直接变红。
+
+推广图不受语言影响：_"Small promo tiles and marquee promo tiles cannot be localized."_ 一套英文推广图就是正确答案。
+
+**中文名称（Chinese (China) extension name）** —— 33 字符，上限 75
 
 ```
 Transfer Any File — 离线文件格式与图片转换扩展
 ```
 
-Needed by the `Chinese (China)` tab described above, which does not exist until the package ships `_locales/zh_CN`.
-The brand token stays untranslated (`utils/i18n/zh.ts → appName` is also `Transfer Any File`).
+它就是默认 `Chinese (China)` 标签页的名称，同时也是 `__MSG_extensionName__` 在 `zh_CN` 下的取值——中文系统用户在
+扩展管理页与安装提示里看到的正是这一行。品牌词不翻译（`utils/i18n/zh.ts → appName` 同样是 `Transfer Any File`）。
 
-The keyword phrase after the em dash no longer mirrors the English name word for word, and that is deliberate rather
-than drift. The three arguments that removed `Image` from the English field do not carry over: this name is 33 of 75
-characters, well inside the 44-character ceiling every competitor in the category sits under; 图片转换 is a native
-compound rather than a bolted-on English token, and it names a third of the format families the extension converts;
-and this is the locale the primary audience lands on. 文件格式转换 remains the phrase a Chinese user types, and the
-name still reads as one noun phrase instead of a list — the same shape rule the English field follows.
+破折号后面的关键词短语不再逐字对齐英文名称，这是刻意的，不是漂移。把 `Image` 从英文字段拿掉的三条论据在这边不成立：
+这个名字用了 33/75 字符，远低于类目里每个竞品都待着的 44 字符天花板；图片转换是中文里的原生复合词，不是硬贴上去的
+英文词，而且它点名了这个扩展所转换的三个格式族之一；并且这是主要受众真正落地的那个 locale。文件格式转换仍然是中文用户
+真正会输入的词，而整个名字读起来依旧是一个名词短语而不是列表——与英文字段同一条形状规则。
 
-**Short Description** [REQUIRED] — 127 chars, limit 132
+**简介（Short Description）** [必填] —— 127 字符，上限 132
 
 ```
 Convert between 14 common document, spreadsheet and image file formats right in your browser — offline, in batches, no uploads.
 ```
 
-Mirrored in `wxt.config.ts → manifest.description` and `package.json → description`. Keep the three in sync.
+同一句话镜像在三处：本文件的粘贴块、`public/_locales/en/messages.json → extensionDescription` 与
+`package.json → description`；`wxt.config.ts → manifest.description` 只用 `__MSG_extensionDescription__` 指向前者。
+改就要一起改（`pnpm verify:meta` 与 `pnpm verify:listing` 都会查）。
 
-This is the field the store rejected on 2026-09-14: _产品说明中有过多关键字_, quoting
-`"Markdown, Word, PDF, Excel, CSV, JSON, HTML, images"` out of the previous 129-character sentence. The rewrite keeps
-what the field exists to do — lead with the verb, give the one number a buyer compares (`14`), state the
-differentiator — and describes coverage by category instead of naming formats. Those names did not leave the
-submission: they are still in the detailed description's WHAT YOU CAN CONVERT and COMMON CONVERSIONS blocks, in the
-`Chinese (China)` copy, on the product page, and in the GitHub About block. None of those was quoted.
+这就是商店在 2026-09-14 拒掉的那个字段：_产品说明中有过多关键字_，引用的正是此前那句 129 字符里的
+`"Markdown, Word, PDF, Excel, CSV, JSON, HTML, images"`。重写之后这个字段该做的事一件没少——动词开头、给出买家唯一会
+比较的那个数字（`14`）、说明差异点——但改成按品类描述覆盖范围，不再点名格式。格式名最终确实离开了这次提交：
+09-15 的第二次裁决从详细介绍里引用了同样的形状，于是两个 block 现在都按这个字段的写法来。还在承载这些名字的只剩
+产品说明页与 GitHub About 块，两者都不是 listing 元数据。
 
-The shape rule this leaves behind, and the reason the marquee promo tile changed in the same round: **no colon- or
-comma-separated list of format names in any store paste field, and none burned into a store image.** The tail —
-`offline, in batches, no uploads` — is the part that stays, because it reports behaviour the extension performs
-rather than enumerating things a buyer might search for.
+两次拒审留下那条形状规则，也是 marquee 推广图副标题与 batch 截图 caption 跟着一起改的原因：
+**任何 store 粘贴字段里都不许有冒号或逗号分隔的格式名列表，烧进 store 图片里的也不行。**
+尾部那句 `offline, in batches, no uploads` 留着，因为它报告的是扩展真正执行的行为，而不是罗列买家可能去搜的东西。
 
-**Chinese (China) short description** — 66 chars, limit 132
+**中文简介（Chinese (China) short description）** —— 66 字符，上限 132
 
 ```
 在本机浏览器内互转 14 种常见的文档、表格与图片格式。支持混合批量、多步链路、预览编辑与 ZIP 打包，全程离线，不上传、无账号。
 ```
 
-Gated on `_locales/zh_CN/` like every other Chinese field — it has never been pasted, but it mirrored the English
-field's list, so leaving it alone would have stored the same violation for the next round. It drops from 98 to 66
-characters on one cut: the eight-name enumeration. What was added on 2026-09-11 stays, because those four clauses
-name capabilities the extension ships (mixed-format batches, multi-step chains, preview and editing, ZIP download)
-rather than file extensions. Still no PDF-to-Word or PDF-to-Excel claim, because the extension does not convert PDF
-losslessly.
+它现在同时是包里 `zh_CN` 的 `__MSG_extensionDescription__`，也就是中文用户安装后在扩展详情页读到的那一句。
+而 `zh_CN` 是 listing 的默认语言，所以审核员第一眼读的是这份中文，不再是英文——它此前镜像了英文字段的列表形状，
+那形状正是两次拒审引用的东西，所以放着不动就等于把同一条违规搬到主字段上。一刀砍掉那八个格式名，字符数从 98 降到 66。2026-09-11 加上去的东西留着，因为那四个从句点名的是
+扩展真正具备的能力（混格式批量、多步链路、预览与编辑、ZIP 下载），而不是文件扩展名。依旧不写 PDF 转 Word、PDF 转 Excel，
+因为这个扩展做不到无损的 PDF 转换。
 
-**Detailed Description** [REQUIRED] — plain text, guarded at 16,000 chars (English block measured 7,958; Chinese block below measured 3,240)
+**详细介绍（Detailed Description）** [必填] —— 纯文本，本仓库自设上限 16,000 字符（英文块实测 7,948；下面的中文块实测 2,845）
 
-_Google documents no length for this field_ — the 75- and 132-character limits are stated in their docs, the 16,000 is
-not. Treat it as this repo's own guard (`pnpm verify:listing`) sized to the counter the dashboard shows, and confirm
-against that counter at submission time rather than citing 16,000 back to a reviewer.
+_Google 没有为这个字段公布长度_——75 与 132 是写在文档里的，16,000 不是。把它当成本仓库自己的守卫
+（`pnpm verify:listing`），按后台计数器设定，提交时以那个计数器为准，不要把 16,000 背给审核员。
 
-The store strips markdown, so this is written with `•` bullets and blank-line sections. It deliberately contains **no** implementation details (no framework, library or API names) and states the limitations up front — "misleading functionality" is a common rejection reason.
+商店会剥掉 markdown，所以正文用 `•` 项目符号与空行分节。它刻意**不含**实现细节（不出现框架、库或 API 名字），
+并且把限制条件前置——"misleading functionality" 是常见的拒审理由。
 
 ```
 Transfer Any File is an open-source, offline file format converter for Chrome. It converts your files between common formats without uploading them anywhere. Everything happens in a page inside your own browser: no server, no account, no queue, and nothing to wait for on a slow connection.
@@ -239,36 +272,31 @@ WHY THAT MATTERS
 An online converter has to copy your file onto a machine you do not control before it can do anything with it. For a public dataset that is fine. For an HR spreadsheet, a client contract, a medical report or a draft you have not told anyone about yet, it is not — and "we delete it within 24 hours" is a promise you have to take on trust. This one never has a copy to delete.
 
 WHAT MAKES IT DIFFERENT
-• One batch, many source formats. Most converters handle one format at a time. Here a folder of Markdown, CSV and Word files goes to a single target in one run, each file resolving its own route — and one unreadable file does not fail the rest.
+• One batch, many source formats. Most converters handle one format at a time. Here a folder of mixed file types goes to a single target in one run, each file resolving its own route — and one unreadable file does not fail the rest.
 • Look before you download. Source and result side by side, with text results editable in place, so a wrong output does not mean converting the whole folder again.
 • Nothing has to leave the machine. One permission (extension storage), no upload step, and it keeps working with the network switched off — you can disconnect and check for yourself.
 
 WHAT YOU CAN CONVERT
-• Documents: Markdown, HTML, Word (.docx), PDF and plain text, in any direction
-• Data: CSV, Excel (.xlsx) and JSON, in any direction
-• Images: PNG, JPEG, WebP, BMP, GIF and SVG — converted to PNG, JPEG or WebP
-• 14 formats and 46 direct conversion routes. When two formats have no direct route, the workbench finds the intermediate steps itself — for example Markdown → HTML → PDF, or Word → HTML → Markdown
-
-COMMON CONVERSIONS
-The pairings people reach for most all work today.
-• Documents: Markdown ↔ HTML, Markdown → PDF, Markdown → Word, Word → PDF, HTML → Word, HTML → PDF, HTML → plain text, plain text → Markdown
-• Data: CSV ↔ Excel, CSV ↔ JSON, Excel → JSON, either spreadsheet → HTML
-• Images: PNG ↔ JPEG, PNG ↔ WebP, JPEG → WebP, SVG → PNG, and any image format → PDF
-• From PDF: PDF → HTML, PDF → plain text and PDF → Word. These read the page as text, so the original layout is not carried over — PLEASE KNOW below spells out what that means
-• A pairing not listed here still works whenever the two formats are connected somewhere in the graph, and the workbench shows the route it will take before it starts
+• Fourteen formats across three families: documents, spreadsheets and data files, and images
+• Inside the document and data families, any format converts to any other, in either direction
+• Six image formats can be read and three can be written, and an image can also be embedded into a document
+• 46 direct routes connect the formats. Where two of them share no direct route, the workbench works out the intermediate steps itself and shows the path it will take before it starts
+• A pairing is supported whenever the two formats are connected anywhere in that graph, whether or not it looks obvious from the counts above
+• A pairing that is reachable but makes no sense — turning a photograph into a spreadsheet, for instance — is greyed out with its reason instead of failing once you press Convert
+• The format-by-format matrix, listing every route and every blocked pairing with its reason, is published on the extension's website rather than pasted here
 
 BUILT FOR REAL WORKLOADS
 • Batch conversion: drop in a whole folder's worth of files, even a mix of different source formats — each file resolves its own route to the target
 • Per-file error reporting: one unreadable file never blocks the rest of the batch, and every failure is listed with its reason
 • Failure diagnostics: expand any failed file to see the route it tried and the step that broke, with a one-click copy of that summary for filing an issue
-• ZIP download: convert forty files, download one archive. Multi-page PDFs and multi-sheet workbooks are automatically split into one output per page / per sheet
+• ZIP download: convert forty files, download one archive. A multi-page source and a multi-sheet workbook are automatically split into one output per page / per sheet
 • Paste to convert: copy an image or a block of text and press Ctrl+V (⌘V on Mac)
-• Preview and edit: view the source and the result side by side, and correct text output (Markdown / HTML / CSV / JSON / plain text) before downloading
+• Preview and edit: view the source and the result side by side, and correct a text result before downloading it
 • Recent targets: the formats you convert to most often are grouped at the top of the target picker
-• Image output parameters: an image target exposes quality (40–90%), longest edge (800–4096 px) and a target file size (20 KB–2 MB) for JPEG and WebP, plus 96–300 DPI when a PDF is in the batch — every knob starts untouched
+• Image output parameters: an image target exposes a longest edge (800–4096 px), and a compressed image target additionally takes encoder quality (40–90%) and a target file size (20 KB–2 MB); a source that is rendered page by page takes a render density of 96–300 DPI — every knob starts untouched
 • Conversion presets: save a target format together with its parameters as a named shortcut (up to 12) and restore the whole setup in one click; a preset works for any batch that can reach that format
 • Archive intake: drop a .zip and the supported files inside join the batch automatically
-• Excel-friendly CSV: reads UTF-8 and falls back to GB18030 then GBK, writes UTF-8 with a BOM so spreadsheets open without garbled characters
+• Spreadsheet-friendly encoding: text is read as UTF-8 with a GB18030 then GBK fallback, and written with a byte-order mark so the result opens in a spreadsheet application without garbled characters
 • Conversion history: the last 50 runs (file names, formats and sizes only), searchable by file name, filterable, reusable in one click, exportable and importable as JSON
 • Undo the previous batch, confirm before a very large batch, and an optional desktop notification when a long job finishes while the tab is in the background
 • Personalisation: 6 accent colours, light / dark / follow-system appearance, and a Chinese or English interface
@@ -278,7 +306,7 @@ HOW TO USE
 1. Click the toolbar icon — the workbench opens in a new tab
 2. Drop files on the upload area, click to choose them, or paste from the clipboard
 3. Pick the target format. Only formats that every selected file can reach are offered; the rest are greyed out with a reason
-4. Converting to an image? The output panel appears for PNG, JPEG and WebP targets only, where you can set quality, longest edge or a target file size
+4. Converting to an image? The output panel appears whenever the target is an image: longest edge, plus quality and a target file size when the target is a compressed one
 5. Press Convert, then download a single file or the whole batch as one ZIP
 6. Repeat the same setup often? Save the format and its parameters as a named preset and restore both in one click
 
@@ -288,18 +316,18 @@ PRIVACY
 • No analytics, no tracking, no sign-in, no advertising, no paid tier
 
 PLEASE KNOW BEFORE INSTALLING
-• PDF output is rendered page by page as an image, so text in a converted PDF is not selectable
-• PDF input extracts the text; the original layout and embedded images are not preserved
+• A produced PDF is rendered page by page as an image, so text in it is not selectable
+• Reading a PDF in extracts its text; the original layout and embedded images are not preserved
 • Images cannot be turned into text or spreadsheets — that needs OCR, which is not bundled
-• BMP, GIF and SVG can be converted from, but not to, because browsers cannot encode them (GIF uses its first frame, SVG is flattened)
+• Three of the image formats are input-only, because no browser can encode them; an animated source contributes its first frame, and a vector source is rasterised
 • One file up to 100 MB is accepted, and a batch is limited to 200 files
 
 QUESTIONS
-• Is it free? Yes. Open source under the ISC licence, with no account, no paid tier, no advertising and no feature held back.
+• Is it free? Yes. Open source under the MIT licence, with no account, no paid tier, no advertising and no feature held back.
 • Do I need to be online? No. After installation the interface and every converter run from your own machine, and the text is set in your system fonts instead of a downloaded webfont, so working on a plane or on an air-gapped laptop makes no difference.
 • Why can't a screenshot be turned into text? That needs OCR, and no OCR engine is bundled: it would add tens of megabytes and a model download, which the offline guarantee rules out. Those targets are greyed out with that reason instead of failing at convert time.
-• How many files can it take at once? Up to 200 files in a batch and 100 MB per file, with a confirmation prompt above 5 files or 20 MB in total. Multi-page PDFs and multi-sheet workbooks become one output per page or per sheet, delivered as a single ZIP.
-• Can it make a photo file smaller? Yes, and offline. Converting to JPEG or WebP lets you set a quality level, cap the longest edge, or ask for a target file size between 20 KB and 2 MB, which the encoder reaches by walking its quality ladder; a PNG target takes the longest-edge cap. Nothing is uploaded to do it.
+• How many files can it take at once? Up to 200 files in a batch and 100 MB per file, with a confirmation prompt above 5 files or 20 MB in total. A multi-page source and a multi-sheet workbook become one output per page or per sheet, delivered as a single ZIP.
+• Can it make a photo file smaller? Yes, and offline. When the target is a compressed image format you can set a quality level, cap the longest edge, or ask for a file size between 20 KB and 2 MB, which the encoder reaches by walking its quality ladder; every image target takes the longest-edge cap. Nothing is uploaded to do it.
 • Where is the conversion history kept? In extension-local storage on your own machine, holding file names, formats and sizes only, never file contents. It can be searched, filtered, exported and cleared from the workbench.
 • Also works in other Chromium browsers, not only Chrome.
 
@@ -309,10 +337,9 @@ Found a bug, or need a format added? Open an issue at https://github.com/liaolon
 Version 1.0.0 — first store submission.
 ```
 
-**Chinese (China) detailed description** — paste-ready text for the `Chinese (China)` listing tab. It mirrors the
-English version section by section. Terminology is taken from the shipped interface (`utils/i18n/zh.ts`) rather than
-invented: 转换工作台 / 批量转换 / 目标格式 / 打包下载 ZIP / 转换历史 / 复用此格式 / 偏好设置 / 主题色 / 显示模式 /
-界面语言 / 撤销 / 复制诊断信息 / 最近使用. Do not introduce synonyms the UI does not use.
+**中文详细介绍（Chinese (China) detailed description）** —— 贴给 `Chinese (China)` 标签页的现成文案。逐节镜像英文版。
+术语取自已上线的界面（`utils/i18n/zh.ts`）而不是现编：转换工作台 / 批量转换 / 目标格式 / 打包下载 ZIP / 转换历史 /
+复用此格式 / 偏好设置 / 主题色 / 显示模式 / 界面语言 / 撤销 / 复制诊断信息 / 最近使用。不要引入界面没用过的同义词。
 
 ```
 Transfer Any File 是一款开源、完全离线的 Chrome 文件格式转换扩展，在你的电脑本地完成常见文件格式之间的相互转换，全程不上传。所有转换都在你自己浏览器里的一个页面完成：没有服务器、没有账号、不需要排队，也不受网速影响。
@@ -321,36 +348,31 @@ Transfer Any File 是一款开源、完全离线的 Chrome 文件格式转换扩
 在线转换器必须先把你的文件复制到一台你控制不了的机器上，才能开始处理。对一份公开数据集来说无所谓；对一份 HR 表格、客户合同、体检报告，或者一份还没告诉任何人的草稿，就不是回事了——而「24 小时内自动删除」只能靠对方遵守承诺。这款扩展从来就没有一份供人删除的副本。
 
 它不一样的地方
-• 一次批量，多种源格式。多数转换器一次只能处理一种格式。在这里，一整个文件夹的 Markdown、CSV、Word 可以一次转向同一个目标格式，每个文件各自求出自己的路径——而且一个读不了的文件不会拖垮整批。
+• 一次批量，多种源格式。多数转换器一次只能处理一种格式。在这里，一整个文件夹里类型各异的文件可以一次转向同一个目标格式，每个文件各自求出自己的路径——而且一个读不了的文件不会拖垮整批。
 • 先看再下。源文件与结果左右对照，文本类结果还能就地修改，输出不满意不必把整个文件夹重转一遍。
 • 数据不必离开本机。只申请一项权限（扩展存储），没有上传环节，断网之后照常可用——你可以断开网络自己验证。
 
 能转换什么
-• 文档：Markdown、HTML、Word (.docx)、PDF、纯文本，任意方向互转
-• 数据：CSV、Excel (.xlsx)、JSON，任意方向互转
-• 图片：PNG、JPEG、WebP、BMP、GIF、SVG，可转出为 PNG、JPEG 或 WebP
-• 共 14 种格式、46 条直接转换路径。两个格式之间没有直连路径时，转换工作台会自动求出中间步骤——例如 Markdown → HTML → PDF，或 Word → HTML → Markdown
-
-常用转换
-大家最常用的这些组合今天都可用。
-• 文档：Markdown ↔ HTML、Markdown → PDF、Markdown → Word、Word → PDF、HTML → Word、HTML → PDF、HTML → 纯文本、纯文本 → Markdown
-• 数据：CSV ↔ Excel、CSV ↔ JSON、Excel → JSON、两种表格都能转 HTML
-• 图片：PNG ↔ JPEG、PNG ↔ WebP、JPEG → WebP、SVG → PNG，以及任意图片 → PDF
-• 从 PDF 出发：PDF → HTML、PDF → 纯文本、PDF → Word。这三条是把页面当作文本来读，因此不保留原版式——「安装前请了解」会说明这意味着什么
-• 这份清单没有列出的组合，只要两种格式在转换图上彼此相连就能转，而且工作台会在开始之前显示它将要经过的路径
+• 三大类共 14 种格式：文档、表格与数据文件，以及图片
+• 文档类与数据类内部，任意两种格式都能互相转换，两个方向都行
+• 图片可读 6 种格式、可写 3 种格式，此外图片还能嵌入文档
+• 这些格式之间由 46 条直接路径相连。两个格式没有直连路径时，转换工作台会自动求出中间步骤，并在开始之前显示它将要经过的路径
+• 只要两种格式在这张转换图上彼此相连，这个组合就支持，不必先从上面那几行数字里看出端倪
+• 图上可达但语义无效的组合（比如把一张照片变成表格）会置灰并给出原因，而不是等你点了「开始转换」才失败
+• 逐格式的完整矩阵——每条路径、每个置灰组合及其原因——发布在扩展的官网页面，不列在这里
 
 面向真实工作负载
 • 批量转换：一次拖入一整个文件夹的文件，源格式不同也没关系——每个文件各自求出到目标格式的路径
 • 逐文件错误报告：单个无法读取的文件不会阻断整批，每个失败文件都会连同原因单独列出
 • 失败诊断：展开任意一个失败文件，能看到它尝试的转换路径和出错的那一步，还能一键复制诊断信息用于提交问题
-• 打包下载：转换 40 个文件，下载 1 个 ZIP 压缩包。多页 PDF 和多工作表 Excel 会自动按"每页一个 / 每表一个"拆分输出
+• 打包下载：转换 40 个文件，下载 1 个 ZIP 压缩包。多页的源文件与多工作表的表格文件会自动按"每页一个 / 每表一个"拆分输出
 • 粘贴即转换：复制一张图片或一段文字，按 Ctrl+V（Mac 上为 ⌘V）即可
-• 预览与编辑：源文件与结果左右对照显示，文本类结果（Markdown / HTML / CSV / JSON / 纯文本）可在下载前就地修改
+• 预览与编辑：源文件与结果左右对照显示，文本类结果可在下载前就地修改
 • 最近使用：你常转的目标格式会以下拉顶部的「最近使用」分组呈现
-• 图片输出参数：目标是图片时可设质量（40–90%）、最长边（800–4096 px）或目标体积（20 KB–2 MB，仅 JPEG / WebP），批次含 PDF 时还可按「清晰度」选 96–300 DPI；不设置即保持默认
+• 图片输出参数：目标为图片时可设最长边（800–4096 px）；目标为压缩图片格式时还可设质量（40–90%）与目标体积（20 KB–2 MB）；逐页渲染的源文件另可按「清晰度」选 96–300 DPI；不设置即保持默认
 • 转换预设：把目标格式连同输出参数存成一个命名快捷方式（最多 12 个），下次一键套用；预设不绑定源格式，凡能转到该格式的批次都能直接用
 • 压缩包解包：拖入一个 .zip，其中受支持的文件自动加入批次
-• 中文友好的 CSV：读取 UTF-8 并在失败时依次回退 GB18030 与 GBK，写出时带 BOM，用 Excel 打开不乱码
+• 表格友好的编码：文本按 UTF-8 读取，失败时依次回退 GB18030 与 GBK，写出时带字节序标记，用表格软件打开不乱码
 • 转换历史：保留最近 50 次转换的元数据（仅文件名、格式与体积），支持按文件名搜索、筛选、一键「复用此格式」，以及 JSON 导出与导入
 • 可撤销上一批结果、超大批次转换前确认、任务在后台标签页完成时可选发送桌面通知
 • 个性化：6 种主题色、浅色 / 深色 / 跟随系统三种显示模式，中文与英文界面
@@ -360,7 +382,7 @@ Transfer Any File 是一款开源、完全离线的 Chrome 文件格式转换扩
 1. 点击工具栏图标——转换工作台在新标签页打开
 2. 把文件拖到上传区，或点击选择，或直接从剪贴板粘贴
 3. 选择目标格式。下拉框只提供对全部已选文件都可达的格式，其余格式置灰并给出原因
-4. 要转成图片？「输出参数」面板只在目标为 PNG / JPEG / WebP 时出现，可设置质量、最长边或目标体积
+4. 要转成图片？「输出参数」面板只在目标为图片时出现：最长边始终可设，目标为压缩图片格式时还可设质量与目标体积
 5. 点击「开始转换」，然后单个下载或把整批「打包下载 ZIP」
 6. 每次都转同一套配置？把它存成「转换预设」，之后一键恢复格式与参数
 
@@ -370,18 +392,18 @@ Transfer Any File 是一款开源、完全离线的 Chrome 文件格式转换扩
 • 无统计埋点、无追踪、无登录、无广告、无付费版本
 
 安装前请了解
-• PDF 输出是逐页渲染成的图片，因此转出 PDF 里的文字不可选中
-• PDF 输入只提取文本，原有版式与内嵌图片不会保留
+• 转出的 PDF 是逐页渲染成的图片，因此其中的文字不可选中
+• 读入 PDF 只提取文本，原有版式与内嵌图片不会保留
 • 图片无法转换为文本或表格——那需要 OCR，本扩展未内置
-• BMP、GIF、SVG 只能作为输入，不能作为输出，因为浏览器未提供它们的编码器（GIF 取首帧，SVG 先展平）
+• 有三种图片格式只能作为输入、不能作为输出，因为浏览器未提供它们的编码器；动图源文件取首帧，矢量源文件先展平
 • 单文件最大 100 MB，单批最多 200 个文件
 
 常见问题
-• 完全免费吗？是。以 ISC 协议开源，没有账号、没有付费版、没有广告，也没有任何功能被保留。
+• 完全免费吗？是。以 MIT 协议开源，没有账号、没有付费版、没有广告，也没有任何功能被保留。
 • 需要联网吗？不需要。安装完成后，界面与全部转换器都在你自己的电脑上运行，文字使用系统自带字体而非下载的网络字体，在飞机上或内网隔离的电脑上使用没有区别。
 • 为什么不能把截图转成文本？那需要 OCR，而扩展没有内置任何 OCR 引擎——它会带来几十 MB 体积和一次模型下载，与完全离线的承诺冲突。这些目标格式会置灰并给出该原因，而不是等到转换时才失败。
-• 一次能处理多少文件？单批最多 200 个文件、单文件最大 100 MB，超过 5 个文件或总计 20 MB 会先弹确认框。多页 PDF 与多工作表 Excel 会按每页一个、每表一个的方式输出，并打包为一个 ZIP。
-• 能把图片体积压小吗？可以，而且全程离线。转成 JPEG 或 WebP 时可设质量、限制最长边，或指定 20 KB–2 MB 之间的目标体积——编码器用质量阶梯逐级逼近；PNG 目标支持最长边限制。整个过程不需要上传任何文件。
+• 一次能处理多少文件？单批最多 200 个文件、单文件最大 100 MB，超过 5 个文件或总计 20 MB 会先弹确认框。多页的源文件与多工作表的表格文件会按每页一个、每表一个的方式输出，并打包为一个 ZIP。
+• 能把图片体积压小吗？可以，而且全程离线。目标为压缩图片格式时，可设质量、限制最长边，或指定 20 KB–2 MB 之间的目标体积——编码器用质量阶梯逐级逼近；任何图片目标都支持最长边限制。整个过程不需要上传任何文件。
 • 转换历史存在哪里？存在本机的扩展存储中，只包含文件名、格式与体积，绝不保存文件内容。可在工作台内搜索、筛选、导出与清空。
 • 除 Chrome 外，其他 Chromium 内核浏览器同样可用。
 
@@ -391,466 +413,536 @@ Transfer Any File 是一款开源、完全离线的 Chrome 文件格式转换扩
 1.0.0 版本——首次提交商店。
 ```
 
-**Category** [REQUIRED]
+**类别（Category）** [必填]
 
 ```
 Productivity
 ```
 
-**Single Purpose** [REQUIRED]
+**单一目的（Single Purpose）** [必填]
 
 ```
 Converts user-selected documents, spreadsheets and images between common file formats entirely on the local machine.
 ```
 
-**Primary Language** [REQUIRED]
+**主要语言（Primary Language）** [必填]
 
 ```
-English
+Chinese (China)
 ```
 
-`English` must match the language of the copy pasted above; the package carries no `_locales/`, so it declares no
-fixed UI locale — the in-app UI resolves its own at runtime (a stored choice, otherwise the browser's language).
-Chinese is **not** offered as an additional listing language today — see _Locale gate_ above; it needs
-`_locales/zh_CN/` in the package, not a dashboard setting. The UI ships both languages either way, and Google's own
-consistency rule for the option case is only that _"localized item metadata shouldn't significantly change the
-described set of features"_ — the ZH descriptions above mirror the EN ones feature for feature.
+这一项由包的 `default_locale: "zh_CN"` 决定，不是后台自由选的：下拉里的每条语言对应包里一个 `_locales/` 目录，
+所以取与 `zh_CN` 对应的那一条（仪表板按显示名列出，可能写作 `Chinese` 或 `中文（简体）`——判断依据是目录名，不是标签文字）。
+英文作为附加本地化一起提供，两个标签页各自填一套文案。
+
+**它不决定界面语言。** `default_locale` 只管 Chrome 自己显示的那两条字符串（名称、简介）；工作台界面仍在运行时解析，
+存储里的选择优先，没有则按浏览器语言（见 `useI18n.ts` 的 `resolveLocale`），并且随时能在偏好设置里切。
+也就是说：商店页对所有人先展示中文，而英文系统用户装完之后界面是英文、扩展名也是英文。
+
+Google 对这种情形只要求一致性：_"localized item metadata shouldn't significantly change the described set of
+features"_——上面两份详细介绍与中英两侧的界面能力逐功能对齐。
 
 ---
 
-## Graphics & Assets
+## 图形与素材
 
-| Asset                 | Dimensions   | Status   | Filename                                      |
-| --------------------- | ------------ | -------- | --------------------------------------------- |
-| Store Icon            | 128×128 PNG  | ✅ Ready | `public/icon/128.png`                         |
-| Brand master          | 512×512 PNG  | ✅ Ready | `docs/assets/icon.png`                        |
-| Brand mark            | 64×64 PNG    | ✅ Ready | `docs/assets/icon-mark.png`                   |
-| Small Promo Tile      | 440×280 PNG  | ✅ Ready | `docs/assets/store/cws-small-promo.png`       |
-| Marquee Promo Tile    | 1400×560 PNG | ✅ Ready | `docs/assets/store/cws-marquee-promo.png`     |
-| GitHub social preview | 1280×640 PNG | ✅ Ready | `docs/assets/store/github-social-preview.png` |
+| 素材               | 尺寸         | 状态    | 文件名                                        |
+| ------------------ | ------------ | ------- | --------------------------------------------- |
+| 商店图标           | 128×128 PNG  | ✅ 就绪 | `public/icon/128.png`                         |
+| 品牌母版           | 512×512 PNG  | ✅ 就绪 | `docs/assets/icon.png`                        |
+| 品牌标记（小尺寸） | 64×64 PNG    | ✅ 就绪 | `docs/assets/icon-mark.png`                   |
+| Small Promo Tile   | 440×280 PNG  | ✅ 就绪 | `docs/assets/store/cws-small-promo.png`       |
+| Marquee Promo Tile | 1400×560 PNG | ✅ 就绪 | `docs/assets/store/cws-marquee-promo.png`     |
+| GitHub 社交预览图  | 1280×640 PNG | ✅ 就绪 | `docs/assets/store/github-social-preview.png` |
 
-Everything here is generated, not hand-taken: `pnpm build && pnpm assets:capture` re-shoots every file above — and every listing screenshot below — from the current bundle, so a UI change cannot leave the store kit stale.
+这里没有一张是手截的：`pnpm build && pnpm assets:capture` 会从当前构建产物重摄上面每一个文件，以及下面每一张 listing
+截图，所以一次 UI 改动不可能留下过期的商店素材。
 
-### Listing screenshots
+### Listing 截图
 
-Each row is one generated frame; _Tab 2 → Screenshots & icon_ decides which five enter the carousel and in what order. The raw capture is what the README and the product page use; the two listing files are that same shot with the caption bar composited on, one per store language. **The captions below are a mirror, not the source** — `SCREEN_CAPTIONS` in `scripts/capture-store-assets.mjs` is what is burned into the PNGs, so edit there and re-run `pnpm build && pnpm assets:capture`. A caption states what its own shot proves: the ZIP row reads "one mixed batch" rather than a file count, because the script stages a three-file batch for that frame, and caption text is store metadata reviewed under the same rules as the listing copy.
+每一行是一个生成帧；五张进轮播、以及进哪五张，由[提交速查 → Tab 2](#tab-2--screenshots--icon截图与图标)决定。
+原始截图是 README 与产品说明页所用的那一张；两个 listing 文件是同一张图叠上 caption 条之后的成品，每种商店语言各一份。
+**下面的 caption 是镜像，不是源头**——真正烧进 PNG 的是 `scripts/capture-store-assets.mjs` 里的 `SCREEN_CAPTIONS`，
+所以要改就改那里，然后重跑 `pnpm build && pnpm assets:capture`。一条 caption 只说它自己那张图能证明的事：ZIP 那一行写的是
+「一次混合批量」而不是文件数量，因为脚本为那一帧准备的就是三个文件的批次；而 caption 文本属于 store 元数据，
+与 listing 文案受同一套政策评审。
 
-| #   | Raw capture (`docs/assets/screenshots/`) | Listing file, English (`docs/assets/store/screens/`) | Listing file, Chinese        | Caption (EN / ZH)                                                                      |
-| --- | ---------------------------------------- | ---------------------------------------------------- | ---------------------------- | -------------------------------------------------------------------------------------- |
-| 1   | `workbench-empty.png`                    | `screen-01-workbench.png`                            | `screen-01-workbench-zh.png` | Drop, pick a format, convert on your own machine / 拖入、选格式，在你自己电脑上转换    |
-| 2   | `batch-files.png`                        | `screen-02-batch.png`                                | `screen-02-batch-zh.png`     | Batch: Markdown, CSV and Excel in one run / 批量：Markdown、CSV、Excel 一次转完        |
-| 3   | `batch-results.png`                      | `screen-03-zip.png`                                  | `screen-03-zip-zh.png`       | One mixed batch, one ZIP download / 一次混合批量，一个 ZIP 下载                        |
-| 4   | `preview-edit.png`                       | `screen-04-preview.png`                              | `screen-04-preview-zh.png`   | Preview side by side, edit before you download / 左右对照预览，下载前直接改            |
-| 5   | `history.png`                            | `screen-05-history.png`                              | `screen-05-history-zh.png`   | Searchable, filterable history with one-click reuse / 历史可搜索、可筛选、一键复用格式 |
-| 6   | `dark-mode.png`                          | `screen-06-dark-mode.png`                            | `screen-06-dark-mode-zh.png` | 6 accent colours, light / dark / system / 6 种主题色，浅色 / 深色 / 跟随系统           |
-| 7   | `output-preset.png`                      | `screen-07-presets.png`                              | `screen-07-presets-zh.png`   | Dial in size and quality, save it as a preset / 尺寸、质量、目标体积，存成一键预设     |
+| #   | 原始截图（`docs/assets/screenshots/`） | 英文版（`docs/assets/store/screens/`） | 中文版                       | Caption（EN / ZH）                                                                     |
+| --- | -------------------------------------- | -------------------------------------- | ---------------------------- | -------------------------------------------------------------------------------------- |
+| 1   | `workbench-empty.png`                  | `screen-01-workbench.png`              | `screen-01-workbench-zh.png` | Drop, pick a format, convert on your own machine / 拖入、选格式，在你自己电脑上转换    |
+| 2   | `batch-files.png`                      | `screen-02-batch.png`                  | `screen-02-batch-zh.png`     | Batch: mixed source formats, one target / 批量：多种源格式，一个目标格式               |
+| 3   | `batch-results.png`                    | `screen-03-zip.png`                    | `screen-03-zip-zh.png`       | One mixed batch, one ZIP download / 一次混合批量，一个 ZIP 下载                        |
+| 4   | `preview-edit.png`                     | `screen-04-preview.png`                | `screen-04-preview-zh.png`   | Preview side by side, edit before you download / 左右对照预览，下载前直接改            |
+| 5   | `history.png`                          | `screen-05-history.png`                | `screen-05-history-zh.png`   | Searchable, filterable history with one-click reuse / 历史可搜索、可筛选、一键复用格式 |
+| 6   | `dark-mode.png`                        | `screen-06-dark-mode.png`              | `screen-06-dark-mode-zh.png` | 6 accent colours, light / dark / system / 6 种主题色，浅色 / 深色 / 跟随系统           |
+| 7   | `output-preset.png`                    | `screen-07-presets.png`                | `screen-07-presets-zh.png`   | Dial in size and quality, save it as a preset / 尺寸、质量、目标体积，存成一键预设     |
 
-Four constraints drive this set:
+四条约束决定了这一组素材：
 
-- **Five per language page, and five is the ceiling.** Google asks for _"at least 1—and preferably the maximum allowed
-  5—screenshots"_, so two of the seven above stay in the repo. Drop **#6** (`dark-mode`) first: it is the weakest
-  evidence, and theme support is already stated in the listing copy. Then **#5** (`history`), whose search, filter and
-  reuse controls are named in the detailed description but show no conversion of their own.
-- **Everything gets downscaled to 640×400.** Google: _"all screenshots are downscaled to 640x400 pixels"_. The PNGs
-  stay 1280×800 for retina surfaces, but the only render that matters for legibility is the halved one — which rules
-  out any caption smaller than this set's bar, and is why the UI is captured at its natural density rather than
-  shrunk to make room for a header band.
-- **The language pages do not inherit — but only the Chinese page exists after the locale gate.** EN and ZH tabs have
-  independent screenshot slots, so both sets must be uploaded, and the Chinese set is captured from a Chinese
-  workbench rather than the English one re-captioned. Until the package ships `_locales/zh_CN/` there is no second
-  tab to upload to, so the `-zh` files wait in the repo.
-- **Caption text is store metadata, and it has to be burned in.** There is no per-screenshot caption field in the
-  dashboard — unlike an app store, CWS stores screenshots ordered and nothing else — so the only place a caption can
-  live is the PNG. That text is reviewed under the same policy as the description, so it stays inside the vocabulary
-  the listing already uses: no competitor brand names, no absolute privacy claims, nothing that hints a PDF can
-  become a spreadsheet (`PDF → CSV / JSON / Excel` is greyed out in the picker), and no framing of `PDF → Word` as
-  layout-preserving, because it is text extraction.
+- **每个语言页五张，五张就是上限。** Google 要求 _"at least 1—and preferably the maximum allowed 5—screenshots"_，
+  所以上面七张里有两张留在仓库。先砍 **#6**（`dark-mode`）：它是证据最弱的一张，而主题支持在 listing 文案里已经写了。
+  然后是 **#5**（`history`）：它的搜索、筛选、复用控件在详细介绍里点了名，但那张图本身没有展示任何一次转换。
+- **所有截图都会被降到 640×400。** Google：_"all screenshots are downscaled to 640x400 pixels"_。PNG 仍然保持
+  1280×800 供高分屏使用，但可读性唯一要看的渲染就是那个减半版——这排比这一组的 caption 条更小的字号，也正是界面按
+  原生密度截取、而不是缩小腾出顶部横幅的原因。
+- **语言页之间不继承——两个语言页各传一套。** EN 与 ZH 标签页的截图槽互相独立，所以两套都要上传，
+  而且中文那套是从中文工作台截的，不是把英文图换字幕。`_locales/zh_CN/` 进包之后中文标签页真的存在了，
+  于是 `docs/assets/store/screens/` 里那七张 `-zh` 从「仓库里等着」变成要传上去的东西——每个页各挑五张，挑法相同。
+- **Caption 是 store 元数据，而且只能烧进图里。** 后台没有逐张截图的 caption 字段——这一点和 App Store 不同，
+  CWS 只存截图及其顺序——所以 caption 唯一能待的地方就是 PNG。这段文本按与详细介绍相同的政策评审，因此它的用词不能越出
+  listing 已有的范围：不出现竞品品牌名、不做绝对化的隐私主张、不暗示 PDF 能变表格（`PDF → CSV / JSON / Excel`
+  在选择器里是置灰的），也不能把 `PDF → Word` 描述成保留版式，因为它做的是文本提取。它还继承两次拒审留下的形状规则——
+  不许有冒号或逗号分隔的格式名列表——所以 `screen-02` 写的是「多种源格式」，而不是点出为那一帧准备的三个文件名。
+  图里仍然可读的是界面自身的文本（文件名、格式徽章、预设芯片），把它们抹掉就等于伪造产品。
 
-The caption bar is composited, not cropped: the UI keeps its full 1280×800 resolution and the bar sits over the bottom strip. Scaling the interface down to free up room for a header band would push its 12px text below legibility.
+caption 条是叠上去的，不是裁出来的：界面保持完整的 1280×800 分辨率，色条盖在底部一条上。把界面缩小来腾出顶部横幅，
+会让它的 12px 文字掉到可读性以下。
 
-### Icon tiers
+### 图标分两档
 
-Two masters cover two size regimes: `assets/icon.svg` draws a document sheet with a circular conversion badge for the large slots, while `assets/icon-small.svg` strips the artwork down to bold bidirectional arrows so it survives 16px.
+两份母版对应两档尺寸：`assets/icon.svg` 在大位置画的是文档页 + 环形转换徽章，`assets/icon-small.svg` 把图形削到
+只剩加粗的双向箭头，好让它在 16px 还活得下来。
 
-| Tier       | Master           | Use                          |
-| ---------- | ---------------- | ---------------------------- |
-| Simplified | `icon-small.svg` | anything rendered under 48px |
-| Detailed   | `icon.svg`       | 48px and above               |
+| 档位   | 母版             | 用在                    |
+| ------ | ---------------- | ----------------------- |
+| 简化档 | `icon-small.svg` | 48px 以下渲染的一切位置 |
+| 详细档 | `icon.svg`       | 48px 及以上             |
 
-The split is arithmetic, not taste: the detailed master's text lines are 5px tall on a 128 grid, so at 26px they land on ~1px and read as a white smear. That is why the favicon, the landing-page nav mark and the small promo tile all point at `icon-mark.png` — the slots where the extension is actually seen most are the small ones. `Brand master` above feeds the GitHub repository avatar and the JSON-LD `logo`/`image` pair, so CWS, GitHub and Pages all resolve to the same artwork.
+这个分法是算术不是口味：详细档母版的文字线在 128 网格上只有 5px 高，缩到 26px 就落在约 1px 上，读起来是一片白斑。
+这就是 favicon、落地页导航标记和 small promo tile 都指向 `icon-mark.png` 的原因——扩展被看得最多的位置恰恰是最小的那些。
+上面的「品牌母版」喂给 GitHub 仓库头像与 JSON-LD 的 `logo`/`image` 一对，于是 CWS、GitHub、Pages 解析到同一张图。
 
-### Screenshot Notes
+### 逐张说明
 
-1. `workbench-empty` — first-run state: topbar brand + tagline, drop zone, empty history, and the "14 formats supported, 46+ conversion paths" footer. Sets expectations for a brand-new user.
-2. `batch-files` — three mixed-format files (Markdown + CSV + Excel) staged with one target, showing the batch capability that most converters lack.
-3. `batch-results` — "Conversion complete! 3 files" with per-file preview / copy / download and a single "Download ZIP (3)" action.
-4. `preview-edit` — split source ↔ result with Rendered / Source / Edit / Copy controls. The strongest differentiator; also the hero image on the product page.
-5. `history` — searchable, filterable history with "Reuse this format".
-6. `dark-mode` — dark appearance, proof the UI is themeable.
-7. `output-preset` — one PDF staged with WebP as the target, arrived at by clicking a preset chip rather than the dropdown: the path strip renders the two-step chain (PDF → PNG → WebP), the output row carries all four parameters (70% quality, 1280 px longest edge, 200 KB target size, 200 DPI — the last one only because the source is a PDF), and the three saved chips sit below it.
+1. `workbench-empty` —— 首次打开的状态：顶栏品牌 + 副标题、拖放区、空历史，以及「支持 14 种格式，46+ 条转换路径」的页脚。给全新用户设定预期。
+2. `batch-files` —— 三个混格式文件（Markdown + CSV + Excel）配一个目标，展示多数转换器缺的批量能力。
+3. `batch-results` —— 「转换完成！3 个文件」，带逐文件的预览 / 复制 / 下载，以及一个「打包下载 ZIP (3)」。
+4. `preview-edit` —— 源 ↔ 结果左右对照，带 渲染 / 源码 / 编辑 / 复制 控件。最强的差异点，也是产品说明页的主图。
+5. `history` —— 可搜索、可筛选的历史，带「复用此格式」。
+6. `dark-mode` —— 深色外观，证明界面可主题化。
+7. `output-preset` —— 一个 PDF、目标 WebP，而且这个目标是点预设芯片选中的、不是下拉框选的：路径条渲染出两步链
+   （`PDF → PNG → WebP`），输出那一行带着四个参数（70% 质量、1280 px 最长边、200 KB 目标体积、200 DPI——最后这个
+   只因为源文件是 PDF），下面放着三张已保存的芯片。
 
-The raw English captures double as the README and product-page imagery. The Chinese captures are intermediates: they exist only long enough to be composited, because both READMEs and the product page reuse the English set. `scripts/capture-store-assets.mjs` runs both locales in a single pass, so the Chinese tab cannot be left showing an English workbench.
+英文原始截图同时充当 README 与产品页配图。中文截图是中间产物：它们只活到被叠上字幕为止，因为两份 README 与产品页
+都复用英文那一套。`scripts/capture-store-assets.mjs` 在一趟运行里跑完两种语言，所以中文标签页不会被留在一张英文界面上。
 
 ---
 
-## Permissions Justification
+## 权限与隐私申报
 
-| Permission | Type        | Justification                                                                                                                                                                                                                                                                                                                                                  |
-| ---------- | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `storage`  | permissions | Stores the user's own conversion history (file names, formats, sizes — never file contents) and interface preferences (theme, colour mode, language, notification and confirmation switches, custom shortcut) between sessions, via `chrome.storage.local`. Nothing is transmitted: the extension declares no host permissions and issues no network requests. |
+### 权限说明
 
-No `host_permissions`, no content scripts, no `tabs`, no `<all_urls>`, no remote code. The toolbar icon is wired through `chrome.action.onClicked` → `chrome.runtime.openOptionsPage()`; the workbench is an extension page, so no website access is ever requested. Expect the install prompt to show **no** data-access warnings.
+| 权限      | 类型        | 说明（中文摘要；要贴进后台的英文原句见[提交速查 → Tab 3](#tab-3--privacy-practices隐私实践)）                                                                                                                                  |
+| --------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `storage` | permissions | 通过 `chrome.storage.local` 跨会话保存用户自己的转换历史（文件名、格式、体积——绝不含文件内容）与界面偏好（主题色、显示模式、语言、通知与确认开关、自定义快捷键）。什么都不传输：扩展不声明 host 权限，自身代码不发起网络请求。 |
 
----
+没有 `host_permissions`、没有 content script、没有 `tabs`、没有 `<all_urls>`、没有远程代码。工具栏图标走
+`chrome.action.onClicked` → `chrome.runtime.openOptionsPage()`；工作台是扩展页面，因此从不申请访问任何网站。
+预期安装提示里**不会**出现数据访问警告。
 
-## Privacy & Data Use
+### 数据处理
 
-### Data handling — read this before touching the disclosure form
+**这个扩展会处理用户数据。它不传输任何一份。** 这是两个不同的问题，而表单问的是第一个。
 
-**The extension handles user data. It transmits none of it.** Those are different questions, and the dashboard form
-asks the first one.
-
-Google's own wording ([user data FAQ](https://developer.chrome.com/docs/webstore/program-policies/user-data-faq)):
+Google 自己的措辞（[user data FAQ](https://developer.chrome.com/docs/webstore/program-policies/user-data-faq)）：
 
 > "Generally, by 'handle' we mean collecting, transmitting, using, or sharing user data."
 >
 > "Extensions are required to disclose how they handle user data, **even when data is processed or stored locally on a
 > user's device and is not transmitted to external servers or third parties**."
 
-Reading the files the user picks, keeping a conversion history and storing preferences in `chrome.storage.local` all
-count as handling. So the form is **not** answered by "nothing leaves the machine" — that is the transmission
-question, and it comes later on the same page.
+读取用户选择的文件、保留转换历史、把偏好写进 `chrome.storage.local`，这些都算 handle。所以这个表单**不是**
+「什么都不离开本机」就能答完的——那是传输问题，排在同一页更靠后的位置。
 
-| Data type                    | Handled?                              | Transmitted Off-Device? | Purpose                                                       | Shared with Third Parties? |
-| ---------------------------- | ------------------------------------- | ----------------------- | ------------------------------------------------------------- | -------------------------- |
-| Personally identifiable info | No                                    | No                      | —                                                             | No                         |
-| Health info                  | No                                    | No                      | —                                                             | No                         |
-| Financial info               | No                                    | No                      | —                                                             | No                         |
-| Authentication info          | No                                    | No                      | —                                                             | No                         |
-| Personal communications      | No                                    | No                      | —                                                             | No                         |
-| Location                     | No                                    | No                      | —                                                             | No                         |
-| Web history                  | No                                    | No                      | —                                                             | No                         |
-| App activity                 | Yes — kept on-device                  | No                      | Conversion history and recently-used target formats           | No                         |
-| Website content              | No                                    | No                      | —                                                             | No                         |
-| User files                   | Yes — read, converted, then discarded | Never                   | Format conversion, then handed back to the user as a download | No                         |
+| 数据类型     | 是否处理               | 是否传出设备 | 用途                               | 是否共享给第三方 |
+| ------------ | ---------------------- | ------------ | ---------------------------------- | ---------------- |
+| 个人身份信息 | 否                     | 否           | —                                  | 否               |
+| 健康信息     | 否                     | 否           | —                                  | 否               |
+| 财务信息     | 否                     | 否           | —                                  | 否               |
+| 身份认证信息 | 否                     | 否           | —                                  | 否               |
+| 个人通讯     | 否                     | 否           | —                                  | 否               |
+| 位置信息     | 否                     | 否           | —                                  | 否               |
+| 网页浏览历史 | 否                     | 否           | —                                  | 否               |
+| 应用活动     | 是 —— 留在设备本地     | 否           | 转换历史与最近使用的目标格式       | 否               |
+| 网站内容     | 否                     | 否           | —                                  | 否               |
+| 用户文件     | 是 —— 读取、转换后即弃 | 从不         | 格式转换，随后以下载的形式交还用户 | 否               |
 
-**On the form: declare that the extension handles user data**, tick the types the live form offers for what actually
-happens (user files, and the app-activity / other-types line covering the local history), and use the description
-field for the sentence that is true: _processed entirely on-device, never transmitted to the developer or anyone
-else, never retained after the tab is closed._ Confirm the checkbox labels against the dashboard rather than
-hardcoding them — Google revises that list, and this file has no way to know what the form says next month.
+**表单上：如实声明本扩展处理用户数据**，勾选实际发生的那几类（用户文件，以及覆盖本地历史的 app-activity /
+其他类型那一行），并在描述框里写那句真话：_全程在设备本地处理，从不传给开发者或任何其他人，标签页关闭后不再保留。_
+复选框的文案以 dashboard 当时显示为准，不要照抄本文——Google 会改这份清单，而本文件没法知道下个月它写成什么样。
 
-**Do not select "We don't collect any user data from this extension."** It is inaccurate for an extension that opens
-the user's files, and an inaccurate declaration is a stated policy violation, not a formatting nit: Google warns
-that discrepancies "can result in suspension of the item and, in some instances, ban of the entire publisher entity".
-This is the one mistake in this document that can cost the whole developer account.
+**不要选「我们不从本扩展收集任何用户数据」。** 对一个要打开用户文件的扩展来说它不准确，而不准确的申报是一条
+写明的政策违规，不是格式瑕疵：Google 警告这类不一致 "can result in suspension of the item and, in some instances,
+ban of the entire publisher entity"。这是整份文档里唯一可能赔上整个开发者账号的错误。
 
-What the offline guarantee does buy you is the _other_ answers on that page — no transmission, so nothing to
-certify under the transfer rules. Re-run the assertion behind it before each submission with `pnpm verify:offline`
-(no network call appears anywhere in `entrypoints/`, `components/`, `composables/` or `utils/`, and the manifest
-declares no host permission), and remember that the request paths sitting unused inside jsPDF / pdf.js can neither
-read a response nor reach any website's data. CI runs `verify:offline` on every push.
+离线保证真正换来的是那一页**其他**答案——没有传输，于是传输规则那几条根本没有东西要认证。每次提交前用
+`pnpm verify:offline` 重跑它背后的断言（`entrypoints/`、`components/`、`composables/`、`utils/` 里没有网络请求入口，
+manifest 不声明任何 host 权限），并记住 jsPDF / pdf.js 里那些无人调用的请求路径既读不到响应、也碰不到任何网站的数据。
+CI 每次 push 都会跑 `verify:offline`。
 
-### Data Use Certification
+### 数据使用认证
 
-Tick each statement the form presents for the data declared above:
+对上表申报的每一项数据，勾选表单给出的每条声明：
 
-- [x] Data is not sold to third parties
-- [x] Data is not used or transferred for purposes unrelated to the item's core functionality
-- [x] Data is not used or transferred to determine creditworthiness or for lending purposes
-- [x] Limited Use: data is processed on-device only, and is not transferred or shared at all
+- [x] 数据不会出售给第三方
+- [x] 数据不会用于、也不会转让给与条目核心功能无关的目的
+- [x] 数据不会用于、也不会转让给信用评估或借贷目的
+- [x] Limited Use：数据只在设备本地处理，完全不传输、不共享
 
----
+### 隐私政策
 
-## Privacy Policy
+**隐私政策 URL** [必填] —— ⚠️ 提交前必须可访问
 
-**Privacy Policy URL** [REQUIRED] — ⚠️ must be live before submission
-
-Required because the item **handles** user data, not because of any permission: Google's FAQ answers this case
-directly — _"My extension or app handles user data, but only stores information locally. Do I still need to post a
-privacy policy? Yes."_
+需要它，是因为条目**处理**用户数据，而不是因为某项权限：Google 的 FAQ 直接回答了这种情形——
+_"My extension or app handles user data, but only stores information locally. Do I still need to post a privacy policy?
+Yes."_
 
 ```
 https://liaolongdong.github.io/transfer-any-file/privacy.html
 ```
 
-The page lives at `docs/privacy.html` (bilingual, no analytics, no external assets). **Verified live 2026-09-08**:
-GitHub Pages now serves `docs/` as the site root, so both `https://liaolongdong.github.io/transfer-any-file/` and
-`/privacy.html` answer `HTTP/2 200`. Earlier revisions of this file recorded a 404 here — that was the deploy created
-by GitHub's own wizard, which published the _repository_ root instead of `docs/`; `.github/workflows/static.yml` has
-since replaced it.
+页面在 `docs/privacy.html`（中英同时呈现、无统计代码、无外部资源）。**2026-09-08 已在线验证**：GitHub Pages 现在把
+`docs/` 作为站点根发布，所以 `https://liaolongdong.github.io/transfer-any-file/` 与 `/privacy.html` 都返回
+`HTTP/2 200`。本文件更早的版本在这里记过一个 404——那是 GitHub 自己的向导创建的那次部署，它把**仓库根**而不是 `docs/`
+发成了站点根；`.github/workflows/static.yml` 已经取代了它。
 
-Still verify rather than assume, because a later Pages regression blocks the submission outright — the dashboard will
-not accept a submission whose policy URL is unreachable:
+仍然要验证而不是假设，因为 Pages 之后任何一次回归都会直接卡住提交——后台不接受隐私政策 URL 不可达的提交：
 
 ```bash
-curl -Is https://liaolongdong.github.io/transfer-any-file/privacy.html | head -1   # expect: HTTP/2 200
+curl -Is https://liaolongdong.github.io/transfer-any-file/privacy.html | head -1   # 期望：HTTP/2 200
 ```
 
 ---
 
-## Distribution
+## 分发与开发者信息
 
-**Visibility**: Public
-**Regions**: All regions
+**可见性**：Public　**地区**：All regions　**价格**：free
+
+| 字段           | 值                                                                                                      |
+| -------------- | ------------------------------------------------------------------------------------------------------- |
+| Publisher Name | ⚠️ _需要你来定_ —— CWS 开发者账号的公开名称                                                             |
+| Contact Email  | `924902324@qq.com` —— 在商店 listing 上公开展示（2026-09-06 决定）；与 `package.json#author.email` 一致 |
+| Support URL    | `https://github.com/liaolongdong/transfer-any-file/issues`                                              |
+| Homepage URL   | `https://liaolongdong.github.io/transfer-any-file/`                                                     |
+
+> **没有放微信群的字段。** 社群渠道（微信 `lld_1025`，备注 `taf`）在产品页的 `#contact` 小节和两份 README 里，
+> 配图 `docs/assets/wx-qrcode/wechat-qrcode.jpg`。CWS 对用户只暴露上面那三行，所以这张码永远不需要往这个表单里传——
+> 而且**不能**烧进截图或推广图，因为那些东西按 listing 文本评审。
 
 ---
 
-## Developer Info
+## 首次上架（手工步骤）
 
-| Field          | Value                                                                                                                  |
-| -------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| Publisher Name | ⚠️ _you must provide_ — the CWS developer account name                                                                 |
-| Contact Email  | `924902324@qq.com` — displayed publicly on the store listing (decided 2026-09-06); matches `package.json#author.email` |
-| Support URL    | `https://github.com/liaolongdong/transfer-any-file/issues`                                                             |
-| Homepage URL   | `https://liaolongdong.github.io/transfer-any-file/`                                                                    |
+商店**不可能**端到端自动化，假装可以只会浪费一个提交名额。本仓库已经通过 WXT 使用的那个 CLI
+（`publish-browser-extension`）原文写着："You are responsible for uploading and submitting an extension for the first
+time by hand."。创建条目、粘贴 listing 文本、上传截图、勾选隐私申报全部发生在后台里；API 只能把一个包推给**已存在**的
+条目。下面这套顺序做一次，之后的每个版本就只是推一个 tag。
 
----
+### 1. 账号一次性设置
 
-## GitHub Repository Metadata
+1. 给这个 Google 账号开启**两步验证**——没开的话，Google 既不给发布也不给更新。
+2. 到 [Chrome Web Store Developer Dashboard](https://chrome.google.com/webstore/devconsole) 注册，交一次性
+   **$5** 注册费。
+3. 填完开发者资料（身份、地址、电话）并**验证联系邮箱**。邮箱未验证的表现是「Submit for review」点了没反应，
+   看起来像后台的 bug，但不是。公开联系邮箱是 `924902324@qq.com`（2026-09-06 决定）。
 
-Source of truth is `.github/repo-metadata.json`; `.github/workflows/repo-meta.yml` pushes it onto the repository. Re-checked 2026-09-08 against `GET /repos/liaolongdong/transfer-any-file`: the repository exists (default branch `main`, license `ISC`), but it still reports `description: null`, `homepage: null` and `topics: []` — **none of the About metadata has been applied yet**, because `gh` is not installed on this machine and the workflow has never been given a `REPO_METADATA_TOKEN`. Land it either by running the workflow with that secret, or by the one-off `gh repo edit` at the end of this section; the purely manual path is the repository's **Settings → General → About** block.
-
-**Repository name** — `transfer-any-file`
-
-Every link already written into `README.md`, `README.zh-CN.md`, `docs/index.html` (including JSON-LD `codeRepository`), `docs/privacy.html` and this file points at `github.com/liaolongdong/transfer-any-file`, and the slug equals `package.json#name` and the manifest brand. Creating the repository under any other name silently breaks all of them.
-
-**Description (About)** — 119 chars (GitHub allows 350; under 120 keeps the whole string inside Google's snippet width)
-
-```
-Offline file format converter for Chrome: 14 formats — Markdown, Word, PDF, Excel, CSV, JSON, HTML, images. No uploads.
-```
-
-It leads with the exact phrase `file format converter` on purpose: that is the keyword coverage the brand slug deliberately gives up, and the About field is where GitHub search and the search snippet read it from. `14 formats` is the same figure the workbench footer computes (`entrypoints/options/App.vue → formatCount`); re-derive it from the code, not from this file, if the converter set changes.
-
-**Topics** — 20, one per group axis (GitHub accepts unlisted topic names, so a missing one is not an error). This fills GitHub's 20-topic budget, so any future addition has to displace an existing one:
-
-| Group   | Topics                                                                                                                                                                            |
-| ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Purpose | `file-format-converter`, `file-converter`, `file-conversion`, `document-conversion`, `markdown-converter`, `pdf-converter`, `image-conversion`, `xlsx`, `csv`, `batch-processing` |
-| Values  | `offline-first`, `local-first`, `privacy-first`, `privacy-tools`                                                                                                                  |
-| Stack   | `chrome-extension`, `browser-extension`, `wxt`, `vue3`, `typescript`, `vite`                                                                                                      |
-
-`file-format-converter` and `file-converter` are not redundant, so keep both. Verified 2026-09-07: the former is a small topic whose listing tops out at 340 stars — the one surface where a zero-star repository appears near the top on day one — while the latter is head-dominated by ConvertX at 18.8k stars and is where the browsing volume actually is.
-
-Revised 2026-09-11 to use the full budget. Three format-specific topics were added — `markdown-converter`, `xlsx` and `csv` — because each names a conversion people actually search for and the project performs it; `format-conversion` was dropped to stay inside the cap, since it duplicates `file-format-converter` and `file-conversion` without contributing a distinct phrase.
-
-**Social preview** — Settings → General → Social preview → upload `docs/assets/store/github-social-preview.png` (1280×640, already generated by `pnpm assets:capture`). It is what every shared link renders as, and unlike stars it cannot be grown into later.
-
-`gh` is not installed here, so the two paths that work are these. Prefer the first — it keeps
-`.github/repo-metadata.json` as the single source of truth and re-applies itself on every push to `main`:
-
-1. **Workflow.** Add a `REPO_METADATA_TOKEN` repository secret (classic PAT, `repo` scope, or fine-grained with
-   _Administration → Read and write_ on this repository), then run
-   **Actions → Sync repository About → Run workflow**. Nothing else to type.
-2. **One-off `curl`.** Same token in `$PAT`; two calls, because GitHub splits About and topics across endpoints. The
-   `topics` call **replaces the entire list**, so send all twenty names at once.
+### 2. 仓库侧前置条件
 
 ```bash
-PAT='…'   # export it in this shell only; never commit it
-
-curl -sS -X PATCH https://api.github.com/repos/liaolongdong/transfer-any-file \
-  -H "Authorization: Bearer $PAT" -H "Accept: application/vnd.github+json" \
-  -d '{"description":"Offline file format converter for Chrome: 14 formats — Markdown, Word, PDF, Excel, CSV, JSON, HTML, images. No uploads.","homepage":"https://liaolongdong.github.io/transfer-any-file/"}'
-
-curl -sS -X PUT https://api.github.com/repos/liaolongdong/transfer-any-file/topics \
-  -H "Authorization: Bearer $PAT" -H "Accept: application/vnd.github+json" \
-  -d '{"names":["file-format-converter","file-converter","file-conversion","document-conversion","markdown-converter","pdf-converter","image-conversion","xlsx","csv","batch-processing","offline-first","local-first","privacy-first","privacy-tools","chrome-extension","browser-extension","wxt","vue3","typescript","vite"]}'
+pnpm verify:offline   # 第一方源码无网络请求，manifest 只有 storage
+pnpm verify:meta      # 132 字符的简介在 package.json 与 wxt.config.ts 一致
+pnpm verify:listing   # 下面每个粘贴字段都在上限内，且与 manifest 一致
+curl -Is https://liaolongdong.github.io/transfer-any-file/privacy.html | head -1   # 必须是 HTTP/2 200
 ```
 
-Check it landed: `curl -sS https://api.github.com/repos/liaolongdong/transfer-any-file | grep -E '"(description|homepage)"'`
-— unauthenticated is fine, these fields are public. The **social preview** image has no API at all; upload it in
-Settings → General → Social preview.
+隐私政策 URL 是硬闸门：政策不可达的提交会被后台直接拒。它由 GitHub Pages 从 `docs/` 提供
+（`.github/workflows/static.yml`），所以那个工作流必须**已经成功完成过一次**部署——跑上面那条 `curl`，不要凭记忆。
+在进后台之前做这件事，而不是填到一半才想起来。
+
+### 3. 产出包
+
+`pnpm build && pnpm package` 写出 `.output/transfer-any-file-<version>-chrome.zip`。推荐路径是推 tag：
+`.github/workflows/release.yml` 会校验 tag 与 `package.json#version` 一致、跑上面两项守卫、确认 `manifest.json`
+位于压缩包根目录且旁边没有仓库文件，然后把 zip 挂到 GitHub Release 上。
+
+### 4. 填后台条目
+
+这里要贴的东西本文件里全有——**复制，不要重打**：
+
+| 后台标签页         | 本文件里的小节                                                                                                                                                                   |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Store listing      | [商店文案](#商店文案)（`Chinese (China)` 默认：33/75 + 66/132 + 中文详描；`English (United States)`：49/75 + 127/132 + 英文详描；`Productivity`、单一目的）                      |
+| Screenshots & icon | [图形与素材](#图形与素材)——**两个语言页各传一套**，各从 7 张 1280×800 里传 5 张（各砍 `history` 与 `dark-mode`）、`public/icon/128.png`、small 与 marquee 推广图（推广图只一套） |
+| Privacy practices  | [权限与隐私申报](#权限与隐私申报)——声明条目_处理_用户数据；只在设备本地、从不传输。**不是**「不收集任何用户数据」。                                                              |
+| Distribution       | [分发与开发者信息](#分发与开发者信息)（public、全部地区）；item ID 出现在这一页                                                                                                  |
+
+提交审核，然后盯后台的 **Package → status**，或者配好下面那套凭据后问 API：
+`pnpm exec wxt-publish-extension status`。
+
+### 5. 交接给自动化（条目已存在之后）
+
+从后台 URL 里复制 32 位 **item ID**，然后为 Chrome Web Store API 生成 OAuth 凭据。有人维护的路径是 CLI 自带的向导，
+它会带你走完 Google Cloud 那侧（在某个项目里启用 _Chrome Web Store API_、创建 OAuth client、用授权码换 refresh token），
+并把结果写进 `.env.submit`：
+
+```bash
+pnpm exec wxt-publish-extension init   # 交互式；.env.submit 已在 .gitignore 里
+```
+
+补上四个仓库 secrets——`CHROME_EXTENSION_ID`、`CHROME_CLIENT_ID`、`CHROME_CLIENT_SECRET`、
+`CHROME_REFRESH_TOKEN`——`release.yml` 里的 `Submit to the Chrome Web Store` 步骤就不再说「跳过」，而是从下一个 tag
+开始真正发布。头几次运行有用的 flag：
+
+| Flag                                                     | 作用                                                                   |
+| -------------------------------------------------------- | ---------------------------------------------------------------------- |
+| `--dry-run`                                              | 只做认证，什么都不上传、什么都不提交。在相信一个 tag 之前先跑它。      |
+| `--chrome-skip-submit-review`                            | 把包作为草稿上传，不请求审核。                                         |
+| `--chrome-publish-target trustedTesters`                 | 限定范围发布，而不是 `default`（public）。                             |
+| `--chrome-api-version v2` + `--chrome-service-account-*` | v2 API 路径，用于拿到的不是 OAuth client 而是 service account 的账号。 |
+
+注意 CLI 把 OAuth 那几个 flag 标成 `[Deprecated: API v1.1 only]`：Google 正在把这个 API 迁到带 service account 的
+v2，所以如果 `init` 建不出 v1.1 client，就用 v2 的 flag。工作流保留 v1.1 三件套，因为那是今天发给新开发者账号的东西。
+
+### 无法自动化的部分（别排期，然后困惑）
+
+- 创建条目，以及对 listing 文本、截图、推广图、隐私申报的**任何**编辑。
+- **GitHub 社交预览图**（Settings → General → Social preview），用 `pnpm assets:capture` 生成的
+  `docs/assets/store/github-social-preview.png` 同一张。
+- 审核本身：首次提交按 1–5 个工作日规划，并且每次尝试都要抬 `package.json#version`——版本号等于或低于已上线版本的
+  更新会被直接拒。
 
 ---
 
-## First Publication (manual)
+## 上架后的运营
 
-The store **cannot** be automated end to end, and pretending otherwise wastes a submission slot.
-`publish-browser-extension` — the CLI this repository already ships through WXT — states the rule
-verbatim: "You are responsible for uploading and submitting an extension for the first time by
-hand." Creating the item, pasting the listing text, uploading screenshots and ticking the
-disclosure form all happen in the dashboard; the API only pushes a package onto an item that
-already exists. Do this sequence once, then every later version is a tag push.
+后台报的是 listing 级的数字，每一个都指向本文件里的一份素材。先看数字再改东西，改动才能瞄准真正弱的那一项：
 
-### 1. One-time account setup
+| 后台指标                        | 数值偏弱指向什么                                   | 能修它的素材                                   |
+| ------------------------------- | -------------------------------------------------- | ---------------------------------------------- |
+| Impressions 曝光                | listing 没被搜到                                   | 名称、简介、20 个 topics——只有这三项影响被发现 |
+| Detail-page views ÷ impressions | 在搜索里看到了却没点                               | 图标与第一张截图                               |
+| Installs ÷ detail-page views    | 点进来了却没装                                     | 第一张截图、详细介绍的开头几节、权限叙事       |
+| Uninstalls 卸载                 | 上手流程或稳定性，不是 listing 文案                | 扩展内部的首次运行行为                         |
+| Rating 评分                     | 评论处理；评分下滑会独立压制上面所有指标带来的安装 | 回复评论，并修掉它们报的问题                   |
 
-1. Enable **2-step verification** on the Google account — Google refuses to publish or update an
-   item from an account without it.
-2. Register at the [Chrome Web Store Developer Dashboard](https://chrome.google.com/webstore/devconsole) and pay the one-time **$5** registration fee.
-3. Finish the developer profile (identity, address, phone) and **verify the contact email**. An
-   unverified email shows up as "Submit for review" doing nothing, which reads like a bug in the
-   dashboard and is not one. The public contact email is `924902324@qq.com` (decided 2026-09-06).
+三条惯例让这些数字可归因：
 
-### 2. Preconditions, checked from the repository
-
-```bash
-pnpm verify:offline   # no network call in first-party source, storage-only manifest
-pnpm verify:meta      # the 132-char short description agrees in package.json and wxt.config.ts
-pnpm verify:listing   # every paste field below is inside its limit and agrees with the manifest
-curl -Is https://liaolongdong.github.io/transfer-any-file/privacy.html | head -1   # must be HTTP/2 200
-```
-
-The privacy policy URL is a hard gate: the dashboard rejects a submission whose policy is not
-reachable. It is served by GitHub Pages from `docs/` (`.github/workflows/static.yml`) — a Pages
-deploy of that workflow has to have **completed successfully** first, so run the `curl` above
-rather than trusting that it has. Do this before the dashboard, not while filling it in.
-
-### 3. Produce the package
-
-`pnpm build && pnpm package` writes `.output/transfer-any-file-<version>-chrome.zip`. The
-recommended path is pushing the tag: `.github/workflows/release.yml` asserts that the tag matches
-`package.json#version`, runs both guards above, verifies that `manifest.json` sits at the archive
-root with no repository files alongside it, and attaches the zip to a GitHub Release.
-
-### 4. Fill the dashboard item
-
-Everything pasted here already exists in this file — copy, do not retype:
-
-| Dashboard tab      | Source in this file                                                                                                                                                |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Store listing      | **Store Listing** (name 49/75, short 127/132, detailed description, `Productivity`, single purpose). One locale until the _Locale gate_ section above is resolved. |
-| Screenshots & icon | **Graphics & Assets** — upload 5 of the 7 × 1280×800 shots (drop `history` and `dark-mode`), `public/icon/128.png`, small and marquee promo tiles                  |
-| Privacy practices  | **Privacy & Data Use** — declare that the item _handles_ user data; on-device-only, never transmitted. **Not** "we don't collect any user data".                   |
-| Summary / rollout  | **Distribution** (public, all regions); the item ID lands here                                                                                                     |
-
-Submit for review, then watch **Package → status** in the dashboard, or ask the API:
-`pnpm exec wxt-publish-extension status` with the credentials below configured.
-
-### 5. Hand-over to automation (after the item exists)
-
-Copy the 32-character **item ID** from the dashboard URL, then generate OAuth credentials for the
-Chrome Web Store API. The maintained path is the CLI's own wizard, which walks through the Google
-Cloud side (enable _Chrome Web Store API_ in a project, create an OAuth client, exchange an
-authorisation code for a refresh token) and writes `.env.submit`:
-
-```bash
-pnpm exec wxt-publish-extension init   # interactive; .env.submit is gitignored
-```
-
-Add four repository secrets — `CHROME_EXTENSION_ID`, `CHROME_CLIENT_ID`, `CHROME_CLIENT_SECRET`,
-`CHROME_REFRESH_TOKEN` — and the `Submit to the Chrome Web Store` step in `release.yml` stops
-reporting "skipped" and starts publishing on the next tag. Useful flags for the first runs:
-
-| Flag                                                     | Effect                                                                                |
-| -------------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| `--dry-run`                                              | Authenticate only; uploads nothing and submits nothing. Run it before trusting a tag. |
-| `--chrome-skip-submit-review`                            | Upload the package as a draft without requesting review.                              |
-| `--chrome-publish-target trustedTesters`                 | Limited rollout instead of `default` (public).                                        |
-| `--chrome-api-version v2` + `--chrome-service-account-*` | The v2 API path, for accounts issued a service account rather than an OAuth client.   |
-
-Note that the OAuth flags are labelled `[Deprecated: API v1.1 only]` by the CLI: Google is moving
-this API to v2 with service accounts, so if `init` cannot create a v1.1 client, use the v2 flags.
-The workflow keeps the v1.1 triple because it is what a first-time developer account is handed today.
-
-### Not automatable (do not schedule it, then wonder)
-
-- Creating the item, and any edit to listing text, screenshots, promo tiles or privacy disclosures.
-- The **GitHub social preview** image (Settings → General → Social preview), from the same file
-  `docs/assets/store/github-social-preview.png` that `pnpm assets:capture` regenerates.
-- Review itself: plan 1–5 working days for a first submission, and bump `package.json#version` on
-  every attempt — an update with a version equal to or below what is live is rejected outright.
-
----
-
-## After Publication
-
-The dashboard reports listing-level numbers, and each one points at a different asset in this file. Read them before editing anything, so the change is aimed at the number that is actually weak:
-
-| Dashboard metric                | What a weak value points at                                                             | The asset that fixes it                                                                      |
-| ------------------------------- | --------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| Impressions                     | The listing is not being found                                                          | The name, the short description and the 20 topics — the only levers on discovery             |
-| Detail-page views ÷ impressions | People saw the listing in search and did not click it                                   | The icon and the first screenshot                                                            |
-| Installs ÷ detail-page views    | People opened the page and did not install                                              | The first screenshot, the opening sections of the detailed description, the permission story |
-| Uninstalls                      | Onboarding or stability, not the listing copy                                           | First-run behaviour inside the extension                                                     |
-| Rating                          | Review handling; a falling rating suppresses installs independently of everything above | Reply to reviews, and fix what they report                                                   |
-
-Three conventions make the numbers attributable:
-
-- Tag every external promotion link with UTM parameters, e.g. `?utm_source=v2ex&utm_medium=post&utm_campaign=launch`. The dashboard's **Analytics → Traffic sources** groups installs by `utm_source`, so a channel that produces nothing is visible instead of guessed at. For GitHub links a plain `?ref=` is enough — the repository's **Insights → Traffic → Referrers** reports those.
-- Record the day-one baseline (impressions, detail-page views, installs) before announcing the extension anywhere, so the first week's movement has something to be measured against.
-- Add the live Chrome Web Store badges to both READMEs, which is why their badge rows carry none today: there is no listing to link to yet, and a badge pointing at a missing item is worse than no badge. Once the item exists, key the three shields to the 32-character item ID copied from the dashboard URL, with all three linking to the listing:
+- 站外推广链接一律带 UTM 参数，例如 `?utm_source=v2ex&utm_medium=post&utm_campaign=launch`。后台的
+  **Analytics → Traffic sources** 按 `utm_source` 归组安装，于是一个不出量的渠道是**看得见**的，不是靠猜。
+  GitHub 链接带一个普通 `?ref=` 就够——仓库的 **Insights → Traffic → Referrers** 会报出来。
+- 在任何地方宣布这个扩展**之前**记下当天基线（曝光、详情页浏览、安装），第一周的波动才有参照。
+- 条目上线后再往两份 README 加 Chrome 应用商店徽章——这就是它们的徽章行今天什么都没有的原因：还没有 listing 可指，
+  而一个指向不存在条目的徽章比没有徽章更糟。条目存在之后，三个 shields 都用后台 URL 里那 32 位 item ID，三个都链向 listing：
   - `https://img.shields.io/chrome-web-store/v/<ITEM_ID>?label=CWS&logo=googlechrome&logoColor=white&color=4285F4`
   - `https://img.shields.io/chrome-web-store/users/<ITEM_ID>?label=Users&logo=googlechrome&logoColor=white&color=4285F4`
   - `https://img.shields.io/chrome-web-store/rating/<ITEM_ID>?label=Rating&color=4285F4`
 
-  The rating badge only reads a meaningful number once the extension has at least one rating, so expect it to look odd for the first few days.
+  评分徽章至少要有一个评分才读得出有意义的数字，所以头几天它看着会怪。
 
-Because the dashboard reports listing-level numbers rather than per-screenshot ones, change one asset at a time and let a reporting cycle pass before the next edit — a batch of simultaneous changes cannot be attributed to any single one of them.
-
----
-
-## Version History
-
-| Version | Date       | Changes                                                                                                                                                                                                                                                                                                                                                                                                                                                 | Status              |
-| ------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------- |
-| 1.0.0   | 2026-09-07 | First submission: 14 formats / 46 direct routes, batch + ZIP, multi-step chains, preview & edit, failure diagnostics, recently-used target group, history, 6 themes, zh/en UI. Listing copy is pasteable in English; the Chinese copy is drafted here but gated on `_locales/` — see _Locale gate_. Reviewed and **rejected 2026-09-14** over the short description's format list — see _Rejection History_; refiling with the category-worded Summary. | Rejected → refiling |
+因为后台给的是 listing 级而不是逐张截图的数字，一次只改一个素材，并让一个统计周期过去再看下一个——一批同时发生的改动
+无法归因到其中任何一个。
 
 ---
 
-## Review Notes
+## 审核要点
 
-### Known Issues / Limitations (disclose proactively if the reviewer asks)
+### 已知限制（审核员问到时主动披露）
 
-- PDF output is image-based by design (jsPDF renders the page); selectable-text PDF export is not offered. Documented in the description so it cannot be read as a misleading claim.
-- PDF input is text extraction only; layout and embedded images are dropped.
-- No OCR, so image → text/data is intentionally greyed out in the target picker rather than failing at convert time.
-- BMP / GIF / SVG are input-only because browsers expose no encoders for them.
-- Three contrast pairs are asserted by the end-to-end suite in all 6 accent themes × light/dark (12 combinations): topbar brand text on the topbar at 4.5:1 or better, the primary button's label in its rest / hover / pressed states at 4.5:1 or better (read off an enabled button, since the text rule exempts disabled controls), and the focus ring on a card at 3:1 or better. Worst measured value, 2026-09-14: 4.70:1. Known gap: a control's fill also needs 3:1 against the surface behind it (WCAG 1.4.11), which holds in 10 of the 12 but not under the light forest-green and orange buttons (2.21 / 2.96:1) — documented in the README rather than presented as passing.
+- PDF 输出按设计就是图片（jsPDF 逐页渲染），不提供可选中文字的 PDF 导出。已写进详细介绍，避免被读成误导性主张。
+- PDF 输入只做文本提取；原版式与内嵌图片不保留。
+- 没有 OCR，所以 图片 → 文本/数据 在目标选择器里是刻意置灰的，而不是等到转换时才失败。
+- BMP / GIF / SVG 只能作为输入，因为浏览器不给它们提供编码器。
+- 对比度三元组由端到端套件在 6 主题色 × 浅/深（12 种组合）下断言：顶栏品牌文字对顶栏 ≥ 4.5:1；主按钮标签在
+  常态 / hover / 按下三态 ≥ 4.5:1（取自已启用的按钮，因为文本规则豁免禁用控件）；卡片上的焦点环 ≥ 3:1。
+  最差实测值（2026-09-14）：4.70:1。已知缺口：控件的填充色还需要与它底下的表面满足 3:1（WCAG 1.4.11），
+  12 种组合里 10 种满足，浅森林绿与橙色按钮不满足（2.21 / 2.96:1）——这一点写在 README 里，而不是当作已达标呈现。
 
-### Pre-Publish Checklist
+### 发布前检查清单
 
-- [x] `manifest_version: 3`, MV3-only APIs
-- [x] All four icon sizes exist and match their declared dimensions
-- [x] Every slot under 48px uses the simplified tier; the detailed master is used at 48px and above
-- [x] Only `storage` permission; every permission has a specific justification above
-- [x] No remote code, no CDN assets, no `eval` / `new Function`
-- [x] No obfuscation (Vite minification only); source maps excluded
-- [x] Description matches shipped behaviour, including limitations
-- [ ] **No colon- or comma-separated format list in any paste field or burned-in image** — this is what the 2026-09-14 rejection quoted, in the Summary and again on the marquee promo tile. `pnpm verify:listing` measures length and cross-file sync, not shape, so the check is a read: both short descriptions, both detailed descriptions, the promo tiles and the seven screenshot captions. See _Rejection History_.
-- [x] Screenshots at exactly 1280×800, generated from the built bundle
-- [x] Privacy policy text authored (bilingual), hosted under `docs/`
-- [x] **GitHub Pages serving `docs/` as the site root** — verified 2026-09-08: `https://liaolongdong.github.io/transfer-any-file/` returns `HTTP/2 200`, which is what `.github/workflows/static.yml` is written to produce. The earlier repository-root deploy (created by GitHub's own wizard, which put the repo root at the site root) has been superseded; re-run the `curl` below if the artifact path ever changes.
-- [x] **Privacy policy URL is publicly reachable** — `HTTP/2 200` confirmed 2026-09-08, and it matches the disclosure form. Re-check with `curl -Is https://liaolongdong.github.io/transfer-any-file/privacy.html | head -1` immediately before each submission: this blocks the submission outright if it ever regresses
-- [x] Public contact email chosen and consistent with `package.json#author.email`
-- [ ] **Publisher name decided** — must match the CWS developer account's public name
-- [x] Store name renamed to the brand + keyword form above (2026-09-06); `manifest.name` matches it
-- [x] Repository created as `liaolongdong/transfer-any-file` (default branch `main`)
-- [ ] About description + 20 topics above applied (GitHub search coverage lives here, not in the slug) — via `.github/workflows/repo-meta.yml`, or the `curl` one-off in _GitHub Repository Metadata_ (`gh` is not installed here)
-- [ ] GitHub social preview uploaded from `docs/assets/store/github-social-preview.png` — dashboard only, there is no API for it
-- [x] `pnpm package` zip inspected: excludes `.git/`, `node_modules/`, `.test-*`, `CHROMEWEBSTORE.md`, `docs/`, `fixtures/` — asserted by `.github/workflows/release.yml`
-- [ ] `pnpm lint:all`, `pnpm verify:meta`, `pnpm verify:offline`, `pnpm verify:listing` and `pnpm test:e2e` green on the commit being packaged
+- [x] `manifest_version: 3`，只用 MV3 API
+- [x] 四个图标尺寸都在，且与各自声明的尺寸一致
+- [x] 48px 以下的每个位置都用简化档；详细档只出现在 48px 及以上
+- [x] 权限只有 `storage`；每一项权限在上面都有具体说明
+- [x] 无远程代码、无 CDN 资源、无 `eval` / `new Function`
+- [x] 无混淆（只有 Vite 压缩）；不含 source map
+- [x] 描述与实际行为一致，包含限制条件
+- [x] **任何粘贴字段、任何烧进图片的文本里，都没有冒号或逗号分隔的格式名列表**——两次拒审引用的就是这个：
+      09-14 是简介，09-15 是详细介绍里的 family bullet。`pnpm verify:listing` 量的是长度与跨文件一致性，
+      **不是形状**，所以这一条只能靠读：两份简介、两份详细介绍、两张推广图、七条截图 caption。
+      2026-09-15 逐条读过并清空；留在受审素材里的格式名只剩截图里界面自身的文本。见[拒审记录](#拒审记录与政策口径)。
+- [x] 截图严格 1280×800，由构建产物生成
+- [x] 隐私政策文本已撰写（中英），托管在 `docs/` 下
+- [x] **GitHub Pages 以 `docs/` 作为站点根** —— 2026-09-08 已验证：`https://liaolongdong.github.io/transfer-any-file/`
+      返回 `HTTP/2 200`，这正是 `.github/workflows/static.yml` 的产物结构。更早那次把仓库根发成站点根的部署
+      （GitHub 自己的向导建的）已被取代；一旦产物路径有变，重跑下面那条 `curl`。
+- [x] **隐私政策 URL 公网可达** —— `HTTP/2 200` 于 2026-09-08 确认，且与隐私申报表一致。每次提交前立刻复查：
+      `curl -Is https://liaolongdong.github.io/transfer-any-file/privacy.html | head -1`——它一旦回归就直接卡住提交
+- [x] 公开联系邮箱已选定，且与 `package.json#author.email` 一致
+- [ ] **发布者名称待定** —— 必须与 CWS 开发者账号的公开名一致
+- [x] 商店名称已改成「品牌 + 关键词」形态（2026-09-06）；`manifest.name` 与它一致
+- [x] 仓库已建成 `liaolongdong/transfer-any-file`（默认分支 `main`）
+- [ ] 上面的 About 描述 + 20 个 topics 尚未应用（GitHub 搜索覆盖在这里，不在 slug）——见
+      [`.github/repo-metadata.md`](.github/repo-metadata.md)（本机没装 `gh`）
+- [ ] GitHub 社交预览图尚未上传（`docs/assets/store/github-social-preview.png`）——只能后台操作，没有 API
+- [x] `pnpm package` 的 zip 已检查：不含 `.git/`、`node_modules/`、`.test-*`、`CHROMEWEBSTORE.md`、`docs/`、
+      `fixtures/` —— 由 `.github/workflows/release.yml` 断言
+- [ ] 在被打包的那个 commit 上 `pnpm lint:all`、`pnpm verify:meta`、`pnpm verify:offline`、`pnpm verify:listing`、
+      `pnpm test:e2e` 全绿
 
-### Rejection History
+---
 
-**2026-09-14 · v1.0.0 · 违规类型：垃圾内容和商店中的排名 · 参考 ID `Yellow Argon`**
+## 版本历史
+
+| 版本  | 日期       | 变更                                                                                                                                                                                                                                                                                                                                                                                                | 状态                 |
+| ----- | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------- |
+| 1.0.0 | 2026-09-07 | 首次提交：14 种格式 / 46 条直接路径、批量 + ZIP、多步链路、预览与编辑、失败诊断、最近使用的目标分组、历史、6 种主题、中英界面。英文 listing 文案可直接粘贴；中文文案已写好但被 `_locales/` 拦着——见[语言闸门](#语言闸门)。审核后**被拒两次**——09-14 因为简介里的格式列表，09-15 因为详细介绍——同一条政策；见[拒审记录](#拒审记录与政策口径)。重新提交时，每个商店字段都改成按品类而非按格式名表述。 | 被拒 ×2 → 重新提交中 |
+
+---
+
+## 拒审记录与政策口径
+
+两次裁决的价值不在于「被拒了两次」，而在于它们共同划出的那条线：**看形状，不看次数**。这一节留下全部测量，
+因为下次有人想把卖点写得更具体时，需要知道代价。
+
+### 2026-09-14 · v1.0.0 · 违规类型：垃圾内容和商店中的排名 · 参考 ID `Yellow Argon`
 
 > 违规行为：产品说明中有过多关键字。
-> English: "Markdown, Word, PDF, Excel, CSV, JSON, HTML, images" in Summary.
+> 英文：Summary 里的 "Markdown, Word, PDF, Excel, CSV, JSON, HTML, images"。
 > 如何纠正：移除说明中的过多关键字并重新提交产品。
-> 计划政策的相关部分：我们禁止发布含有误导性、格式不正确、非描述性、不相关、**过多**或不恰当的元数据的扩展程序，包括但不限于扩展程序的名称、图标、说明、开发者名称、**屏幕截图和宣传图片**。
+> 计划政策的相关部分：我们禁止发布含有误导性、格式不正确、非描述性、不相关、**过多**或不恰当的元数据的扩展程序，
+> 包括但不限于扩展程序的名称、图标、说明、开发者名称、**屏幕截图和宣传图片**。
 
-**What the quoted string actually was.** Not the long description — the eight names sat in the second half of the
-129-character **Summary** (the dashboard's short-description field), which this file keeps byte-identical to
-`wxt.config.ts → manifest.description` and `package.json#description`. One sentence, four places, all asserted by
-`pnpm verify:listing`; fixing only the sheet would have resubmitted the same violation from the manifest.
+**被引用的那串到底是什么。** 不是详细介绍——那八个名字待在 129 字符的 **简介**（后台的 short-description 字段）后半段，
+而本文件让这个字段与 `wxt.config.ts → manifest.description`、`package.json#description` 逐字节相同。一句话、四个地方，
+全部由 `pnpm verify:listing` 断言；只改素材包的话，下一次提交就会从 manifest 里把同一条违规再交一遍。
 
-| Where                                                         | Before                                                                                                                                    | After                                                                                                                                                                                                                                            |
-| ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Summary / `manifest.description` / `package.json#description` | `Convert 14 file formats locally in your browser: Markdown, Word, PDF, Excel, CSV, JSON, HTML, images. Batch, offline, no uploads.` (129) | `Convert between 14 common document, spreadsheet and image file formats right in your browser — offline, in batches, no uploads.` (127)                                                                                                          |
-| `Chinese (China)` short description                           | Same list after a colon, 98 chars                                                                                                         | Category wording, 66 chars. Never pasted — the locale gate means no Chinese tab exists yet — but it carried the identical shape, so leaving it would have banked the same violation for the round that ships `_locales/`.                        |
-| Marquee promo tile subtitle (1400×560)                        | `Markdown, Word, PDF, Excel, CSV, JSON, HTML and images in one offline workbench.`                                                        | `Documents, spreadsheets and images in one offline workbench.` The policy sentence the reviewer quoted names 宣传图片 explicitly, so a burned-in list is the same exposure as a text field. Recaptured with `pnpm build && pnpm assets:capture`. |
+| 位置                                                       | 改之前                                                                                                                                    | 改之后                                                                                                                                                                                            |
+| ---------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 简介 / `manifest.description` / `package.json#description` | `Convert 14 file formats locally in your browser: Markdown, Word, PDF, Excel, CSV, JSON, HTML, images. Batch, offline, no uploads.` (129) | `Convert between 14 common document, spreadsheet and image file formats right in your browser — offline, in batches, no uploads.` (127)                                                           |
+| `Chinese (China)` 简介                                     | 冒号后面同样的列表，98 字符                                                                                                               | 改成品类表述，66 字符。从未被贴过——语言闸门意味着中文标签页还不存在——但它带的是同一个形状，留着就是给上一个带 `_locales/` 的版本存同一条违规。                                                    |
+| Marquee 推广图副标题（1400×560）                           | `Markdown, Word, PDF, Excel, CSV, JSON, HTML and images in one offline workbench.`                                                        | `Documents, spreadsheets and images in one offline workbench.`。审核员引用的那句政策**明确**点了宣传图片，所以烧进图里的列表和文本字段是同一份暴露。用 `pnpm build && pnpm assets:capture` 重摄。 |
 
-**What was deliberately left alone.** The detailed descriptions still carry WHAT YOU CAN CONVERT (one bullet per
-family) and COMMON CONVERSIONS (31 named pairs of 116) — 7,958 / 3,240 characters, ~87 format-name tokens in the
-English block. None of it was quoted. Rewriting it in the same attempt would also destroy attribution: if a second
-rejection arrived, there would be no way to tell whether the Summary fix worked. It is the next lever, not this one —
-and if a second verdict names the long description, cut COMMON CONVERSIONS first, since the same enumeration already
-sits on the product page where no listing policy applies to it.
+**故意没动什么，以及这个选择换来了什么。** 第一轮只碰这一组字段就收手：两份详细介绍保留 WHAT YOU CAN CONVERT
+（每个 family 一条）与 COMMON CONVERSIONS（116 个可选组合里点名 31 个）——7,958 / 3,240 字符，94 / 96 个格式名 token。
+这些一个字都没被引用，而在同一次尝试里重写它们会毁掉归因。赌注是：第二次裁决如果来了，它就是关于详细介绍的证据，
+而不是关于简介的。它精确地兑现了——09-15 的裁决引用的是详细介绍、不是简介，这既确认第一轮的修复落地了，
+也认定枚举是唯一还活着的违规。
 
-**Resubmission path.** A rejected draft stays editable in the dashboard: edit the Summary in place, replace the
-marquee promo tile, upload the rebuilt package, and run the four pre-flight commands in _Submission worksheet_ first.
-The version stays **1.0.0** — the "must be higher than what is live" rule has nothing to compare against while
-nothing is live, and keeping it leaves `release.yml`'s tag-matches-version assertion untouched. Two rejections on the
-same policy line, though, is an account-level pattern rather than a copy nit; if that happens, the remaining
-enumeration goes too and the appeal form gets used.
+### 2026-09-15 · v1.0.0 · 违规类型：垃圾内容和商店中的排名 · 参考 ID `Yellow Argon`
+
+> 违规行为：产品说明中有过多关键字。
+> 英文：Images 条目下的 "PNG, JPEG, WebP, BMP, GIF and SVG"，Documents 条目下的 "Markdown, HTML, Word (.docx), PDF and
+> plain text"，Data 条目下的 "CSV, Excel (.xlsx) and JSON"。
+> 如何纠正：移除说明中的过多关键字并重新提交产品。
+
+**被引用的那几串是什么。** 就是 WHAT YOU CAN CONVERT 的三条 family bullet，逐字，两种语言的块里都是——而且审核员
+是按 Images / Documents / Data 的顺序列的，也就是相对页面**从下往上**，这说明他们读了那个块，而不是模式匹配。
+第一轮给这种情况开的方子（「先砍 COMMON CONVERSIONS，因为同一份枚举产品页上已经有」）把顺序判错了：裁决点名的是
+那个更短、看起来更无害的块，那个读起来像功能摘要而不像关键词网格的块。两次裁决的共性不是提及次数，而是**形状**——
+`Family: name, name, name`——而这个形状现在已经从 Google 评审的每个字段里消失了。
+
+| 位置                                               | 改之前                                                                                                                                                                                                                                  | 改之后                                                                                                                                                         |
+| -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| EN 详细介绍 —— WHAT YOU CAN CONVERT                | 三条 bullet 在两行里点名 14 个格式                                                                                                                                                                                                      | 改成「按族 + 计数」的 bullet；这个块不再点名任何东西                                                                                                           |
+| EN —— COMMON CONVERSIONS                           | 五条 bullet 点名 116 个可选组合里的 31 个                                                                                                                                                                                               | 整节删除；它唯一不重复的那句承诺（没列出的组合只要两种格式在图上相连就照样能转）并进 WHAT YOU CAN CONVERT                                                      |
+| ZH —— 能转换什么 / 常用转换                        | 同上，96 个 token                                                                                                                                                                                                                       | 同一刀，剩 3 个 token                                                                                                                                          |
+| 两个块里其他每一处                                 | `Markdown / HTML / CSV / JSON / plain text`、`for PNG, JPEG and WebP targets only`、`BMP, GIF and SVG can be converted from`、`Converting to JPEG or WebP`、`Excel-friendly CSV`、`Multi-page PDFs`、`Markdown → HTML → PDF` 这类示例链 | 同样的句子，限定词留着、名字拿掉：a compressed image target、an image target、three of the image formats、a multi-page source、a spreadsheet-friendly encoding |
+| `screen-02-batch` 的 caption（两种语言都烧在图里） | `Batch: Markdown, CSV and Excel in one run` / `批量：Markdown、CSV、Excel 一次转完`                                                                                                                                                     | `Batch: mixed source formats, one target` / `批量：多种源格式，一个目标格式`；每一帧与每张推广图重摄                                                           |
+
+**还剩什么被点名，为什么。** 每个块里活下来三个 token：`PDF` 两次，在那两条不写 PDF 就没法表述的限制里
+（转出的 PDF 是逐页图片；读入 PDF 会丢版式），`JSON` 一次，指历史导出用的容器。`.zip` 还出现两次，一次是用户拖进来的
+东西、一次是批次下载成的东西。全部是句子里的名词，不是列表；而 listing 用来开头的两个数字（`14` 种格式、`46` 条路径）
+是算术不是关键词——Google 真正在意的形状是枚举。
+
+**残余暴露在截图里，不在文案里。** 界面渲染的是真实的文件徽章——`Markdown (.md)`、`CSV (.csv)`、`Excel (.xlsx)`——
+而 `screen-07` 里的预设芯片字面上就叫 `WebP · 200 KB`、`JPEG · 1600 px`、`PNG · 4096 px`。那就是产品本身：
+把批次换成单一格式、或者给夹具改名来藏住它，这些图描述的就是一个扩展并不会做的事。如果第三次裁决点名的是屏幕截图，
+那才是该动的杠杆——而到那时候，问题的读法就从文案变成账号模式了。
+
+**申诉：这一次不申。** 第一轮的笔记写着「同一条政策两次拒审，就该用申诉表单了」。这个判断被它自己的前提推翻了：
+申诉是针对一项裁决提出异议，而两次裁决引用的文本都确实在提交里，也确实对得上政策自己举的那个反例。
+递一份上去等于在一个我们必输的主张上消耗立场。如果第三次裁决落在一份**不带列表**的文案上，那时才轮到那个表单——
+那是这个模式不再关于我们文案的临界点。
+
+**重新提交路径。** 被拒的草稿可以继续编辑：上传带 `_locales/` 的新包（`Chinese (China)` 标签页由此出现）、
+用上面的块替换两份详细介绍与四个名称/简介字段、两个语言页各传五张重摄的截图、把两张推广图换成重摄的，
+并先跑[提交速查](#提交速查)开头的五条前置命令。版本保持 **1.0.0**——「必须高于已上线版本」这条规则在没有任何东西上线时没有可比较的对象，而保持不动也顺便让
+`release.yml` 的 tag-等于-版本断言不受影响。同一次尝试里**别改任何其他东西**：让第一轮可归因的那套逻辑在这里同样成立，
+下一次裁决应该只关于这一刀。
+
+**这一条归因性已经被 locale 改动削弱了，说清楚。** listing 的默认语言从英文换成中文，意味着一份从未被审过的中文文案
+第一次成为主字段。缓解是那条形状规则同样落在这份中文上（简介 98→66、详细介绍按族表述，见上面的实测数字），
+但它带的是不同的词，也就带着不同的风险。如果第三次裁决落在中文侧，那不该记成「去列表那一刀没生效」——
+先按语言把两份文案分开归因，再决定动哪一份。
+
+---
+
+## 本文件的变更记录
+
+> 这些是关于**本文件**的修订记录，不是产品发布说明（产品在 `CHANGELOG.md`）。数字全部由 `pnpm verify:listing` 实测。
+
+- **2026-09-16（语言）** —— listing 的默认语言从英文换成中文：包里新增 `public/_locales/zh_CN/messages.json`
+  （`manifest.default_locale`）与 `public/_locales/en/messages.json`，`wxt.config.ts` 的 `name` / `description`
+  从英文字面量改成 `__MSG_extensionName__` / `__MSG_extensionDescription__`。[语言闸门](#语言闸门)整节由「两条路待选」
+  改写为「已解决 + 机制与代价」；Tab 1 的语言行、`主要语言` 字段（`English` → `Chinese (China)`）、中文名称与简介
+  两处「被闸门拦着」的说法、截图小节「中文页不存在」的说法、以及后台映射表与重新提交路径随之翻转；前置命令从四条变五条
+  （多一条 `ls .output/chrome-mv3/_locales`）。守卫同步扩：`verify:listing` 现在逐字比对两份 locale 文件与本文件四个
+  名称/简介粘贴块并断言 key 集一致，`verify:meta` 改比对 `_locales/en` ↔ `package.json#description`
+  （此前它比的是 manifest 字面量）。**代价**：一份从未被审过的中文文案第一次成为主字段，见[拒审记录](#拒审记录与政策口径)
+  末尾那条归因说明。构建产物已复核：`.output/chrome-mv3/manifest.json` 带 `"default_locale":"zh_CN"`，
+  两个 `messages.json` 落在扩展根，包体 3.73 MB（+617 B）。
+- **2026-09-16** —— 全文改为中文优先并重排结构：开头的六段「Revised 2026-09-XX」流水账挪到这里、压成条目；
+  原来散在各节的「为什么要这样写」并进各自字段；GitHub 仓库元数据整节移出到 [`.github/repo-metadata.md`](.github/repo-metadata.md)；
+  加目录。七个粘贴字段与两张推广图相关的取值**逐字节未动**（改前后由 `pnpm verify:listing` 与字段抽取脚本双向校验）。
+  章节标题与字段标签中文化时，`scripts/check-store-listing.mjs` 的字面量锚点同步改了，所以 `verify:listing` 与 CI 不断。
+  同日稍后：「语言闸门」与「数据处理」两个小节标题去掉 emoji 与破折号——标题文字会进 GitHub 的锚点 slug，
+  而指向这两节的链接一共 5 处；三处 `<a id>` 手工锚点一并删除，改由自动 slug 承担。
+- **2026-09-15（第二轮，回应第二次拒审）** —— 详细介绍里剩下的枚举全部移除，两种语言都是，连带那条同形状的烧图 caption。
+  用同一个脚本对 `git HEAD` 与工作树测量：英文块从 **94 个格式名 token 降到 3**，中文从 **96 降到 3**，
+  活下来的三处是两条不提 PDF 就写不出的 PDF 限制，加上历史文件的导出格式。WHAT YOU CAN CONVERT / 能转换什么
+  改按族与计数表述覆盖，而 COMMON CONVERSIONS / 常用转换——它点名 116 个可选组合里的 31 个、存在的理由正是承载
+  人们会输入的路径短语——整节删除，因为政策那句话描述的就是这个块。字符数几乎没动
+  （英文 7,958 → 7,948，中文 3,240 → 2,845），而九十一个格式名离开了英文块：名字原本承担的主张改由句子承担，
+  于是 listing 保住了长度、只丢掉列表形状。`screen-02-batch` 的 caption 在两种语言里都失去那三个名字，
+  截图随之重摄——被引用的政策原文把屏幕截图和说明并列。路径短语并没有变得不重要——它们搬去 `docs/index.html`，
+  那里已经有完整的逐格式矩阵，而那里不适用任何 listing 政策。
+- **2026-09-15（第一轮，回应 09-14 拒审）** —— 简介去掉八个名字的格式列表，改按品类描述同样的覆盖，132 里用 127 字符。
+  `Chinese (China)` 简介同样裁剪（66/132），而带同一份列表、同样属于受审图片的 marquee 推广图副标题在
+  `scripts/capture-store-assets.mjs` 里改掉并重摄。详细介绍**故意没动**：被引用的只有简介，而一次提交只动一个字段
+  才能让下一次裁决可归因——这个赌局没兑现，见上一条。本文件里有两个字符数与它们描述的文案漂移了，
+  这次按 `pnpm verify:listing`（下面每个数字的权威）纠正：英文详细介绍块是 7,948 字符（不是 6,939），中文是 2,845
+  （不是 2,832）。另外，09-12/13 笔记里那些逐 token 密度数字是那一轮的快照——09-14 的新增内容已经改动了它们，
+  把它们当历史而不是当前测量。
+- **2026-09-14** —— 本轮 shipped 的两个能力进两份详细介绍：图片输出参数（质量、最长边、目标体积，PDF 源另有渲染密度）
+  与转换预设，放在「最近使用」之后以保持历史与个性化条目的顺序；使用方法从四步长到六步，覆盖输出面板与保存预设；
+  QUESTIONS 新增「能把图片体积压小吗」一对，因为「离线压小图片」是这个 listing 能被搜到的最高意图。
+  CSV 那一行从「回退 GBK」更正为解码器真正执行的链（UTF-8 → GB18030 → GBK），产品页同样漂移过。
+  所有粘贴字段用 `pnpm verify:listing` 重测。素材包另加第七张 listing 帧 `screen-07-presets`（输出参数 + 预设芯片），
+  于是 Tab 2 的五槽选择变成 01–04 + 07，`history` 与 `dark-mode` 转为备胎。
+- **2026-09-12/13** —— 英文名靠加图片关键词扩到 57 字符，**同一轮退回 49**（决定它的测量见「扩展名称」）；
+  中文名首次引入，33/75（它没有更早的值，这一节本身是新增）。两份详细介绍在本轮加了 COMMON CONVERSIONS / 常用转换，
+  因为用户真正输入的路径短语——"markdown to pdf"、"csv to excel"、"png to webp"——在两份文案里哪里都没有——
+  然后同一轮又从一整段密排散文回退成五条分类 bullet：该块点名 **116 个可选组合里的 31 个**（EN 711 / ZH 391 字符），
+  整篇介绍的格式 token 密度英文从 **93 → 73**、中文从 **95 → 77**，最高的单个 token 是 `PDF` 的 13 次。
+  完整的逐格式矩阵——每条直连边、每个多步目标、每个被置灰的组合及其原因——搬到产品页，那里可以承载这份枚举而没有任何
+  listing 政策暴露。最后，隐私那句 "makes no network requests of any kind" 改写成行为上可验证的形式，
+  这样它经得起审核员挂代理去查。
+- **2026-09-11** —— 中文简介用掉未用的字符、两份详细介绍新增 QUESTIONS / 常见问题、listing 截图开始为两种商店语言
+  各生成带 caption 的版本，仓库 topics 扩满 20 个预算。
+- **2026-09-08** —— 复核 GitHub Pages 已上线、仓库已存在，并纠正此前记为 404 的隐私政策 URL（那次部署由 GitHub 向导
+  把仓库根发成站点根，现已被 `static.yml` 取代）。
+- **2026-09-06** —— 商店名称从 `File Any Transfer` 改为现在的品牌 + 关键词形态；公开联系邮箱定为
+  `924902324@qq.com`。
+
+---
+
+## 相关文档
+
+- **仓库与 About 元数据**：[`.github/repo-metadata.md`](.github/repo-metadata.md)（About 描述、20 个 topics、社交预览图怎么落地）
+- **产品说明页与隐私政策**：`docs/index.html`、`docs/privacy.html`（对外文案，含逐格式转换矩阵）
+- **编码规则与架构**：`.qoder/rules/wxt-rules.md`、`AGENTS.md`
+- **贡献须知与安全策略**：`CONTRIBUTING.md`、`SECURITY.md`（中英成对，英文用 `.en.md`）
+- **发布说明**：`CHANGELOG.md`（中文）· `CHANGELOG.en.md`（英文）
+- **术语表**：**受审字段** = Google 会按 listing 政策评审的载体：名称、图标、简介、详细介绍、开发者名称、屏幕截图、
+  宣传图片。**形状规则** = 不许出现 `族名：名字, 名字, 名字` 这种列表，文本与烧进图里的文本同等对待。

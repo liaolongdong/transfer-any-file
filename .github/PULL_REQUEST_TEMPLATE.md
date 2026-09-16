@@ -23,7 +23,7 @@ Keep the title in the repository's existing style: `type(scope): description`, i
 按改动范围勾选，并把实际输出贴进来；跑不了的项请写明原因。Tick what applies and paste the real output; explain anything you could not run.
 
 - [ ] `pnpm lint:all`
-- [ ] `pnpm verify:meta` — 改到 `package.json` / `wxt.config.ts` / `.github/repo-metadata.json` 时 / when those change
+- [ ] `pnpm verify:meta` — 改到 `package.json` / `public/_locales/**` / `wxt.config.ts` / `.github/repo-metadata.json` 时 / when those change
 - [ ] `pnpm test:e2e` — 改到转换逻辑或端到端行为时 / when conversion logic or end-to-end behaviour changes
 - [ ] `pnpm build` 且 `.output/chrome-mv3` 内没有 `docs/`、`CHROMEWEBSTORE.md` 等仓库文档
 - [ ] `pnpm assets:capture` — 界面有变化时，截图必须与实现同步 / after any UI change, so store and README shots do not drift
@@ -32,7 +32,7 @@ Keep the title in the repository's existing style: `type(scope): description`, i
 ## 文档同步 / Documentation
 
 - [ ] 用户可见文案同时提供中英文（`utils/i18n/zh.ts` 与 `en.ts` 的 key 集一致）
-- [ ] `README.md` 与 `README.zh-CN.md` 成对更新
-- [ ] 发布级改动在 `CHANGELOG.md` 与 `CHANGELOG.zh-CN.md` 各写一条，版本号等于 `package.json#version` / new release-worthy entry in both changelogs
+- [ ] `README.md`（中文）与 `README.en.md`（英文）成对更新
+- [ ] 发布级改动在 `CHANGELOG.md`（中文）与 `CHANGELOG.en.md`（英文）各写一条，版本号等于 `package.json#version` / new release-worthy entry in both changelogs
 - [ ] 影响对外说明时，同步 `docs/index.html` / `docs/privacy.html` / `CHROMEWEBSTORE.md` 与 `wxt.config.ts` 的 `description`（与 `package.json#description` 一致且 ≤132 字符）
 - [ ] 新的对外数字（格式数、路径数、体积、阈值）已从代码或构建输出取证，而不是沿用旧文档

@@ -57,8 +57,8 @@ const SCREEN_CAPTIONS = [
   {
     shot: 'batch-files',
     slug: 'screen-02-batch',
-    en: 'Batch: Markdown, CSV and Excel in one run',
-    zh: '批量：Markdown、CSV、Excel 一次转完',
+    en: 'Batch: mixed source formats, one target',
+    zh: '批量：多种源格式，一个目标格式',
   },
   {
     shot: 'batch-results',
@@ -620,7 +620,7 @@ async function run() {
     console.log('▸ UI screenshots at 1280×800 — English (README, product page, English store tab)');
     await captureScreens('en', SHOT_DIR);
     // The Chinese raw captures are intermediates only: the Chinese store tab shows a Chinese
-    // workbench, but README.zh-CN.md and the product page reuse the English set, so there is
+    // workbench, but README.md (Chinese) and the product page reuse the English set, so there is
     // nothing to keep on disk after the captioned versions are composited.
     console.log('▸ UI screenshots at 1280×800 — Chinese (store tab only)');
     const zhRaw = fs.mkdtempSync(path.join(os.tmpdir(), 'fat-store-zh-'));

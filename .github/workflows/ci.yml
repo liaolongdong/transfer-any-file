@@ -23,11 +23,11 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint:all
-      # Store-facing metadata: package.json / wxt.config.ts / .github/repo-metadata.json must agree
+      # 对外元数据：package.json / wxt.config.ts / .github/repo-metadata.json 三者必须一致
       - run: pnpm verify:meta
-      # The privacy claim every document repeats: no network call in first-party source
+      # 每一份文档都在重复的那句隐私承诺：第一方源码里没有网络调用
       - run: pnpm verify:offline
-      # Dashboard paste fields inside their character limits, and in sync with the manifest
+      # 商店后台的每个粘贴字段都在字数上限内，且与 manifest 一致
       - run: pnpm verify:listing
 
   build:

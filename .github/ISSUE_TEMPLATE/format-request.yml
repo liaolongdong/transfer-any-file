@@ -1,4 +1,4 @@
-name: New format request / 新格式请求
+name: 新格式请求 / New format request
 description: 希望多转一种格式，或希望某个现在被置灰的目标能开放。 / Ask for a conversion that is missing today, or for a target that is currently greyed out.
 labels:
   - enhancement

@@ -3,12 +3,19 @@
  * Static guard for the repository's outward-facing metadata.
  *
  * The store short description lives in two machine-readable places that must agree byte for byte —
- * `package.json#description` and `wxt.config.ts → manifest.description` — and the Chrome Web Store
- * caps it at 132 characters while truncating an over-long submission rather than rejecting it. Two
- * more copies exist and are deliberately out of reach of this check: the text pasted into the
- * dashboard (`CHROMEWEBSTORE.md`, kept in sync by hand) and the repository's About description
- * (`.github/repo-metadata.json`), which is a **different sentence** about the same product — so only
- * its `homepage` is compared here.
+ * `package.json#description` and `public/_locales/en/messages.json → extensionDescription.message` —
+ * and the Chrome Web Store caps it at 132 characters while truncating an over-long submission rather
+ * than rejecting it. The manifest itself carries neither: `wxt.config.ts` points `name` and
+ * `description` at `__MSG_extensionName__` / `__MSG_extensionDescription__` with
+ * `default_locale: "zh_CN"`, so a placeholder that no locale file defines ships as a literal
+ * `__MSG_…` on the extension manager page. Asserting the placeholders and the default locale here is
+ * what keeps that shape intact; `check-store-listing.mjs` reads both locale files and covers the
+ * dashboard copy.
+ *
+ * Two more copies exist and are deliberately out of reach of this check: the text pasted into the
+ * dashboard (`CHROMEWEBSTORE.md`, kept in sync by `verify:listing`) and the repository's About
+ * description (`.github/repo-metadata.json`), which is a **different sentence** about the same product
+ * — so only its `homepage` is compared here.
  *
  * The guard also covers the link fields (`repository`, `bugs`, `homepage`, `engines`) that npm-style
  * tooling, GitHub and the store listing read from `package.json`.
@@ -24,11 +31,15 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 /** Hard limit enforced by the Chrome Web Store for the short description. */
 const STORE_DESCRIPTION_LIMIT = 132;
 
+/** Locale that backs the packaged name/description, and the manifest message keys they resolve from. */
+const DEFAULT_LOCALE = 'zh_CN';
+const MESSAGE_KEYS = { name: '__MSG_extensionName__', description: '__MSG_extensionDescription__' };
+
 /**
- * Read the manifest `description` out of `wxt.config.ts`.
+ * Read a manifest string field out of `wxt.config.ts`.
  *
  * The config is TypeScript and CI runs Node 20, which cannot import it directly;
- * the value needed is a single string literal, so a targeted read beats shelling out
+ * the values needed are single string literals, so a targeted read beats shelling out
  * to a transpiler. The pattern is deliberately strict: an unrecognisable shape throws
  * instead of quietly returning nothing.
  *
@@ -37,13 +48,32 @@ const STORE_DESCRIPTION_LIMIT = 132;
  * single quotes, and a double-quote-only pattern would throw on a correctly formatted tree.
  *
  * @param {string} source Raw contents of `wxt.config.ts`.
- * @returns {string} The declared manifest description.
- * @throws {Error} When no `description` string literal is present.
+ * @param {string} field Manifest key to read.
+ * @returns {string} The declared value.
+ * @throws {Error} When no string literal is present for that field.
  */
-function readManifestDescription(source) {
-  const match = /description:\s*(?:\r?\n\s*)?(['"])((?:\\.|(?!\1)[^\\])*)\1/.exec(source);
-  if (!match) throw new Error('no `description` string literal found in wxt.config.ts');
+function readManifestField(source, field) {
+  const match = new RegExp(`${field}:\\s*(?:\\r?\\n\\s*)?(['"])((?:\\\\.|(?!\\1)[^\\\\])*)\\1`).exec(source);
+  if (!match) throw new Error(`no \`${field}\` string literal found in wxt.config.ts`);
   return match[2].replace(/\\(["'\\])/g, '$1');
+}
+
+/**
+ * Read one localized string out of `public/_locales/<code>/messages.json`.
+ *
+ * @param {string} code Locale directory name.
+ * @param {string} key Message name.
+ * @returns {string} The message text.
+ * @throws {Error} When the locale file or the message is absent, so a rename cannot pass silently.
+ */
+function readLocaleMessage(code, key) {
+  const file = path.join(ROOT, 'public', '_locales', code, 'messages.json');
+  if (!fs.existsSync(file)) throw new Error(`public/_locales/${code}/messages.json is missing`);
+  const message = JSON.parse(fs.readFileSync(file, 'utf8'))?.[key]?.message;
+  if (typeof message !== 'string' || message === '') {
+    throw new Error(`public/_locales/${code}/messages.json defines no non-empty "${key}" message`);
+  }
+  return message;
 }
 
 /**
@@ -81,8 +111,9 @@ function check(ok, message) {
 }
 
 const pkg = readPackageJson();
-const manifestDescription = readManifestDescription(fs.readFileSync(path.join(ROOT, 'wxt.config.ts'), 'utf8'));
+const wxtSource = fs.readFileSync(path.join(ROOT, 'wxt.config.ts'), 'utf8');
 const repoMetadata = readRepoMetadata();
+const enDescription = readLocaleMessage('en', 'extensionDescription');
 
 for (const field of ['name', 'version', 'license', 'displayName', 'packageManager', 'homepage']) {
   check(typeof pkg[field] === 'string' && pkg[field].length > 0, `package.json#${field} must be a non-empty string`);
@@ -97,13 +128,27 @@ for (const [label, value] of [
   check(typeof value === 'string' && value.length > 0, `package.json#${label} must be a non-empty string`);
 }
 
+/* The manifest is localized, so its two visible fields must stay placeholders and the default locale
+   must stay the one the copy is written for: an inline English string here would silently win over
+   `_locales/zh_CN` and make the listing and the installed extension disagree on the name. */
+for (const [field, placeholder] of Object.entries(MESSAGE_KEYS)) {
+  check(
+    readManifestField(wxtSource, field) === placeholder,
+    `wxt.config.ts manifest.${field} must be ${placeholder} — the copy lives in public/_locales/*/messages.json`,
+  );
+}
 check(
-  pkg.description === manifestDescription,
-  'package.json#description and wxt.config.ts manifest.description must match exactly — edit both, then CHROMEWEBSTORE.md',
+  readManifestField(wxtSource, 'default_locale') === DEFAULT_LOCALE,
+  `wxt.config.ts manifest.default_locale must be "${DEFAULT_LOCALE}" — it decides which locale the store treats as the listing default`,
+);
+
+check(
+  pkg.description === enDescription,
+  'package.json#description and _locales/en extensionDescription must match exactly — edit both, then CHROMEWEBSTORE.md',
 );
 check(
-  typeof pkg.description === 'string' && pkg.description.length <= STORE_DESCRIPTION_LIMIT,
-  `short description is ${String(pkg.description?.length)} chars, over the ${String(STORE_DESCRIPTION_LIMIT)}-char store limit`,
+  [...enDescription].length <= STORE_DESCRIPTION_LIMIT,
+  `short description is ${String([...enDescription].length)} chars, over the ${String(STORE_DESCRIPTION_LIMIT)}-char store limit`,
 );
 
 if (repoMetadata) {
@@ -124,7 +169,7 @@ if (failures.length > 0) {
 }
 
 console.log(
-  `Package metadata OK — short description ${String(pkg.description.length)}/${String(STORE_DESCRIPTION_LIMIT)} chars, identical in package.json and wxt.config.ts${
+  `Package metadata OK — short description ${String([...pkg.description].length)}/${String(STORE_DESCRIPTION_LIMIT)} code points, identical in package.json and _locales/en, manifest resolves it through __MSG__ with default_locale ${DEFAULT_LOCALE}${
     repoMetadata ? `, homepage shared with .github/repo-metadata.json` : ''
   }.`,
 );

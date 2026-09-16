@@ -1,5 +1,5 @@
 {
-  "$comment": "Source of truth for this repository's About block, applied by .github/workflows/repo-meta.yml. Rationale for every value (why the description leads with `file format converter`, why both `file-format-converter` and `file-converter` are kept) lives in CHROMEWEBSTORE.md → GitHub Repository Metadata. `homepage` is the GitHub Pages site published from docs/ by .github/workflows/static.yml.",
+  "$comment": "本仓库 About 块的事实源，由 .github/workflows/repo-meta.yml 推送落地。每个值背后的理由（描述为什么以 `file format converter` 开头、为什么同时保留 `file-format-converter` 与 `file-converter`）见 .github/repo-metadata.md。`homepage` 是由 .github/workflows/static.yml 从 docs/ 发布的 GitHub Pages 站点。",
   "description": "Offline file format converter for Chrome: 14 formats — Markdown, Word, PDF, Excel, CSV, JSON, HTML, images. No uploads.",
   "homepage": "https://liaolongdong.github.io/transfer-any-file/",
   "topics": [

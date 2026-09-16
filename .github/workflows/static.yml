@@ -1,11 +1,10 @@
-# Deploys the product site to GitHub Pages.
+# 把产品说明页部署到 GitHub Pages。
 #
-# The artifact root is `docs/`, never the repository: every public URL this project
-# publishes is written against the site root — the canonical / OG / JSON-LD blocks in
-# docs/index.html, docs/sitemap.xml, docs/robots.txt, docs/llms.txt and the Privacy
-# Policy URL in CHROMEWEBSTORE.md. Publishing the repository root instead makes
-# `<site>/` and `<site>/privacy.html` answer 404, which also blocks the Chrome Web
-# Store submission (the dashboard requires a reachable policy URL).
+# 产物根是 `docs/`，**不是仓库根**：本项目对外发布的每一个 URL 都是按「站点根」写的——
+# docs/index.html 里的 canonical / OG / JSON-LD 区块、docs/sitemap.xml、docs/robots.txt、
+# docs/llms.txt，以及 CHROMEWEBSTORE.md 里的隐私政策 URL。若改成发布仓库根，`<site>/` 与
+# `<site>/privacy.html` 会一起变 404，而这会直接卡住 Chrome 应用商店提交——后台要求一个
+# 可访问的政策 URL。
 name: Deploy GitHub Pages
 
 on:
@@ -15,23 +14,23 @@ on:
       - 'docs/**'
       - '.github/workflows/static.yml'
 
-  # Allows you to run this workflow manually from the Actions tab
+  # 允许从 Actions 标签页手工触发一次
   workflow_dispatch:
 
-# Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
+# GITHUB_TOKEN 需要这些权限才能部署到 GitHub Pages
 permissions:
   contents: read
   pages: write
   id-token: write
 
-# Allow only one concurrent deployment, skipping runs queued between the run in-progress and latest queued.
-# However, do NOT cancel in-progress runs as we want to allow these production deployments to complete.
+# 同一时间只允许一次部署：排队中比它更新的运行可以跳过，但正在跑的运行不许被取消——
+# 生产部署要让它跑完。
 concurrency:
   group: 'pages'
   cancel-in-progress: false
 
 jobs:
-  # Single deploy job since we're just publishing static files
+  # 只是发布静态文件，所以单个部署 job 就够
   deploy:
     environment:
       name: github-pages
@@ -41,19 +40,18 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # Unpublished marketing drafts live in docs/promo/ (per AGENTS.md they stay in the
-      # repo and are never shipped); everything else under docs/ is the site.
+      # 未发布的推广稿放在 docs/promo/（按 AGENTS.md，它们只留在仓库里，永不发布）；
+      # docs/ 下其余的都是站点本身。
       - name: Stage site
         run: rsync -a --exclude 'promo/' docs/ _site/
 
-      # Fails here rather than deploying an artifact that would 404 the pages the rest of
-      # the project links to.
+      # 宁可在这里失败，也不要部署出一个让项目其余链接指向的页面 404 的产物。
       - name: Verify staged site
         run: |
           for f in index.html privacy.html .nojekyll; do
-            test -f "_site/$f" || { echo "::error::_site/$f is missing"; exit 1; }
+            test -f "_site/$f" || { echo "::error::_site/$f 缺失"; exit 1; }
           done
-          test ! -e _site/promo || { echo "::error::docs/promo drafts must not be published"; exit 1; }
+          test ! -e _site/promo || { echo "::error::docs/promo 草稿不许被发布"; exit 1; }
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
@@ -61,7 +59,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          # Upload the site directory, so docs/index.html becomes the site root
+          # 上传站点目录本身，于是 docs/index.html 就成了站点根
           path: '_site'
 
       - name: Deploy to GitHub Pages

@@ -1,4 +1,4 @@
-name: Bug report / 问题反馈
+name: 问题反馈 / Bug report
 description: 某个转换结果不正确、界面异常，或扩展没有兑现它承诺的行为。 / A conversion came out wrong, the UI misbehaved, or the extension did not do what it promises.
 labels:
   - bug
@@ -16,8 +16,8 @@ body:
       label: 问题描述 / What happened
       description: 实际发生了什么，以及你期望发生什么。 / What you saw, and what you expected instead.
       placeholder: |
-        Expected: Markdown → PDF produces one page per screenful of content.
-        Actual: the second half of the document is missing.
+        期望：Markdown → PDF 按内容分页输出。
+        实际：文档后半部分缺失。
     validations:
       required: true
 
@@ -73,10 +73,10 @@ body:
       label: 复现步骤 / Steps to reproduce
       description: 从打开工作台开始，一步一步。请标明是单个文件还是批量、是否走了多步链路。 / Starting from opening the workbench. Say whether it is one file or a batch, and whether the route had intermediate steps.
       placeholder: |
-        1. Drop `report.docx` on the upload area
-        2. Target: PDF
-        3. Route shown under the picker: Word → HTML → PDF
-        4. Press Convert
+        1. 把 `report.docx` 拖到上传区
+        2. 目标格式：PDF
+        3. 格式选择框下方显示的路径：Word → HTML → PDF
+        4. 点击「开始转换」
     validations:
       required: true
 
@@ -86,11 +86,11 @@ body:
       label: 环境与版本 / Environment
       description: 粘贴 `chrome://version` 里的 Chrome 一行、操作系统，以及扩展来源（`git rev-parse --short HEAD`，或商店版本号）。 / Chrome line from `chrome://version`, OS, and where the build came from (commit short hash, or the store version).
       value: |
-        Chrome:
-        OS:
-        Extension build:
-        Language (中/EN):
-        Theme / appearance:
+        Chrome：
+        操作系统：
+        扩展来源：
+        界面语言（中/EN）：
+        主题 / 外观：
       render: text
     validations:
       required: true
@@ -108,5 +108,5 @@ body:
       options:
         - label: 我没有在本 issue 中附带任何文件内容或截图里的敏感数据。 / I have not attached file contents or sensitive data visible in a screenshot.
           required: true
-        - label: 我确认这不是格式请求（那请用 "New format request" 模板）。 / This is not a format request (use the "New format request" template for those).
+        - label: 我确认这不是格式请求（那请用「新格式请求 / New format request」模板）。 / This is not a format request (use the "New format request" template for those).
           required: true

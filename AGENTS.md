@@ -13,24 +13,24 @@
 
 ## 常用命令
 
-| 用途               | 命令                                                                                                                            |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
-| 开发（热重载）     | `pnpm dev`                                                                                                                      |
-| 生产构建           | `pnpm build`（输出 `.output/chrome-mv3`）                                                                                       |
-| 打包分发 zip       | `pnpm package`                                                                                                                  |
-| 类型检查           | `pnpm typecheck`（vue-tsc）                                                                                                     |
-| ESLint / Stylelint | `pnpm lint` / `pnpm lint:style`                                                                                                 |
-| 全量检查           | `pnpm lint:all`（typecheck + eslint + stylelint）                                                                               |
-| 元数据一致性       | `pnpm verify:meta`（`package.json` ↔ `wxt.config.ts` ↔ `.github/repo-metadata.json`）                                           |
-| 离线断言           | `pnpm verify:offline`（第一方源码无网络调用；manifest 仅 `storage`、无 host 权限）                                              |
-| 商店文案一致性     | `pnpm verify:listing`（`CHROMEWEBSTORE.md` 每个粘贴字段不超限、与 manifest / `package.json` / 仓库 About 一致、速查区块未漂移） |
-| E2E 测试           | `pnpm test:e2e`（= build + `node scripts/e2e-test.mjs`，Playwright + Chrome）                                                   |
-| 图标重建           | `node scripts/render-icons.mjs`（源 `assets/*.svg` → `public/icon/*.png` + `docs/assets/icon*.png`）                            |
-| 商店/文档素材      | `pnpm build && pnpm assets:capture`（脚本自身不构建，缺 `.output/chrome-mv3` 会直接退出）                                       |
-| 公众号稿排版       | `pnpm promo:wechat`（`scripts/render-wechat-html.mjs`，内联样式 + 图片内嵌 + 外链转文末）                                       |
-| 产物校验           | `node scripts/verify-extension.mjs`                                                                                             |
-| 发布               | `git tag vX.Y.Z && git push --tags` → `.github/workflows/release.yml`（校版本/包内容 → GitHub Release → 凭证齐备时提交商店）    |
-| 仓库 About 同步    | 改 `.github/repo-metadata.json` → `.github/workflows/repo-meta.yml`（需 `REPO_METADATA_TOKEN`）                                 |
+| 用途               | 命令                                                                                                                                               |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 开发（热重载）     | `pnpm dev`                                                                                                                                         |
+| 生产构建           | `pnpm build`（输出 `.output/chrome-mv3`）                                                                                                          |
+| 打包分发 zip       | `pnpm package`                                                                                                                                     |
+| 类型检查           | `pnpm typecheck`（vue-tsc）                                                                                                                        |
+| ESLint / Stylelint | `pnpm lint` / `pnpm lint:style`                                                                                                                    |
+| 全量检查           | `pnpm lint:all`（typecheck + eslint + stylelint）                                                                                                  |
+| 元数据一致性       | `pnpm verify:meta`（`package.json` ↔ `wxt.config.ts` 的 `__MSG__` / `default_locale` ↔ `_locales/en` ↔ `.github/repo-metadata.json`）             |
+| 离线断言           | `pnpm verify:offline`（第一方源码无网络调用；manifest 仅 `storage`、无 host 权限）                                                                 |
+| 商店文案一致性     | `pnpm verify:listing`（`CHROMEWEBSTORE.md` 每个粘贴字段不超限、与 `_locales` / manifest / `package.json` / 仓库 About 一致、速查区块未漂移）        |
+| E2E 测试           | `pnpm test:e2e`（= build + `node scripts/e2e-test.mjs`，Playwright + Chrome）                                                                      |
+| 图标重建           | `node scripts/render-icons.mjs`（源 `assets/*.svg` → `public/icon/*.png` + `docs/assets/icon*.png`）                                               |
+| 商店/文档素材      | `pnpm build && pnpm assets:capture`（脚本自身不构建，缺 `.output/chrome-mv3` 会直接退出）                                                          |
+| 公众号稿排版       | `pnpm promo:wechat`（`scripts/render-wechat-html.mjs`，内联样式 + 图片内嵌 + 外链转文末）                                                          |
+| 产物校验           | `node scripts/verify-extension.mjs`                                                                                                                |
+| 发布               | `git tag vX.Y.Z && git push --tags` → `.github/workflows/release.yml`（校版本/包内容 → GitHub Release → 凭证齐备时提交商店）                       |
+| 仓库 About 同步    | 改 `.github/repo-metadata.json` → `.github/workflows/repo-meta.yml`（需 `REPO_METADATA_TOKEN`）；理由与一次性落地命令见 `.github/repo-metadata.md` |
 
 > 包管理器固定 `pnpm`（见 `package.json#packageManager`），勿混用 npm/yarn。`pnpm fix:all` 会重写全仓库，局部任务改用 `pnpm exec eslint --fix <file>` / `stylelint --fix` / `prettier --write <file>`。
 
@@ -51,7 +51,12 @@
 - **`utils/core/` 其它工具**：`conversion-policy.ts`（`getBlockedReason`：图上可达但语义无效的 from→to 组合，UI 置灰而非报错）、`output-options.ts`（图片输出参数的合法区间与 `optionsForStep`：只有终点编码能吃 `quality`/`targetSizeKB`）、`presets.ts`（预设的纯规则：上限、名称截断、`sanitizePresets`、自动描述）、`format-labels.ts`（`FORMAT_INFO` 元数据 + label/category）、`text-decode.ts`（UTF-8 → GB18030 → GBK 兜底）、`error-keys.ts`（`CONVERSION_ERROR_KEYS` + 分类）、`abort.ts`、`html-raster.ts`、`html-document.ts`、`image-utils.ts`（含 `encodeCanvas` / `releaseCanvas`）、`preview.ts`、`alt-chunk.ts`、`format.ts`（`formatSize` + `TEXT_FORMATS` 可编辑/可复制文本格式 + `isZipCompressible` 逐条目压缩策略）、`shortcut.ts`（纯快捷键解析/校验/匹配，无响应式与 storage）、`platform.ts`（`isApplePlatform` 单一事实来源）。
 - **`utils/storage.ts`**：唯一存储边界。`STORAGE_KEYS`（全部 `fat:` 前缀）+ `storageGet/Set`（try/catch 静默降级）+ `onStorageChange`（返回取消订阅）。仅用 `storage.local`，**无加密、无 session**。
 - **`assets/`**：`theme/tokens.css`（`--fat-*` 令牌，6 主题 + dark）、`styles/global.css`（`@import` tokens + 基础样式 + reduced-motion）、图标 SVG 母版（`icon.svg` 详细档：文档 + 环形转换徽章 / `icon-small.svg` 简化档：加粗双向箭头，为 16px 可读性而画）。
-- **对外文档层（不打包进扩展）**：`docs/index.html`（产品说明页，兼作 GitHub Pages 根目录，单文件内嵌中英双语——正文按 `lang="zh-CN"` / `lang="en"` 成对写入，由页内 `<style>` 依据 `<html lang>` 显隐，头部内联脚本在首帧前定语言；含 JSON-LD `SoftwareApplication` + `FAQPage` + `HowTo`）、`docs/privacy.html`（双语隐私政策，CWS 必需）、`docs/llms.txt` / `robots.txt` / `sitemap.xml`、`docs/assets/`（原始界面截图与推广图——README 与产品说明页用原始截图；商店列表用同目录下 `store/screens/` 的带卖点文案 1280×800 截图，中英各一套；均由 `scripts/capture-store-assets.mjs` 一次运行生成）、`docs/promo/`（推广稿：`wechat-article.md` 中文公众号稿 + `blog-article.en.md` 英文对应稿（面向 dev blog，两者数字与取证口径必须同步改）+ `weibo-posts.md` 微博文案；**草稿不发布**，生成的 `*.html` 已 gitignore，`static.yml` 明确拒绝把 `promo/` 发上线）、`CHROMEWEBSTORE.md`（商店文案、隐私披露与**首次上架手工 runbook**，**尚未上架**）、`CHANGELOG.md` / `CHANGELOG.zh-CN.md`（发布说明双语对，版本号即 manifest 版本）、`SECURITY.md` / `SECURITY.zh-CN.md` 与 `CONTRIBUTING.md` / `CONTRIBUTING.zh-CN.md`（政策与贡献须知双语对，H1 下第一行是语言切换行，改英文正文必须同步中文）。
+- **`public/_locales/{zh_CN,en}/messages.json`**：manifest 级字符串，只有两条——`extensionName` 与
+  `extensionDescription`。`wxt.config.ts` 以 `__MSG_*__` 引用它们，并由 `default_locale: "zh_CN"` 把 `zh_CN` 定为
+  回落值，Chrome 按浏览器界面语言解析（中文系统看中文名，英文系统看英文名）。必须在 `public/` 下：WXT 把 `publicDir`
+  原样落到扩展根，而 `_locales/` 的位置是 Chrome 硬要求的。它同时决定商店 listing 的**默认语言**（`Chinese (China)`）
+  与后台开放的本地化标签页集合——界面语言不受它影响，那是 `composables/useI18n.ts`。
+- **对外文档层（不打包进扩展）**：`docs/index.html`（产品说明页，兼作 GitHub Pages 根目录，单文件内嵌中英双语——正文按 `lang="zh-CN"` / `lang="en"` 成对写入，由页内 `<style>` 依据 `<html lang>` 显隐，头部内联脚本在首帧前定语言；含 JSON-LD `SoftwareApplication` + `FAQPage` + `HowTo`）、`docs/privacy.html`（双语隐私政策，CWS 必需）、`docs/llms.txt` / `robots.txt` / `sitemap.xml`、`docs/assets/`（原始界面截图与推广图——README 与产品说明页用原始截图；商店列表用同目录下 `store/screens/` 的带卖点文案 1280×800 截图，中英各一套；均由 `scripts/capture-store-assets.mjs` 一次运行生成）、`docs/promo/`（推广稿：`wechat-article.md` 中文公众号稿 + `blog-article.en.md` 英文对应稿（面向 dev blog，两者数字与取证口径必须同步改）+ `weibo-posts.md` 微博文案；**草稿不发布**，生成的 `*.html` 已 gitignore，`static.yml` 明确拒绝把 `promo/` 发上线）、`CHROMEWEBSTORE.md`（商店文案、隐私披露与**首次上架手工 runbook**，**尚未上架**）、`CHANGELOG.md` / `CHANGELOG.en.md`（发布说明双语对，**中文为主文件**、`.en.md` 是英文对照；版本号即 manifest 版本；`release.yml` 从中文主文件抽取 `## [X.Y.Z]` 区块作为 GitHub Release 说明）、`SECURITY.md` / `SECURITY.en.md` 与 `CONTRIBUTING.md` / `CONTRIBUTING.en.md`（政策与贡献须知同为「中文主文件 + 英文 `.en.md`」，H1 下第一行是互指的语言切换行，改一边必须同步另一边）。
 - **`utils/stubs/unbundled-dep.ts`**：`wxt.config.ts` 将 jspdf 未用的 `html2canvas`/`canvg` 别名到此空 stub，减包约 200KB。
 
 ## 核心数据流
@@ -83,9 +88,9 @@
 
 ## i18n 与文档同步
 
-- 文案源 `utils/i18n/zh.ts`，`en.ts` 类型 `typeof zh`；增删改 key 时中英必须一致。默认 `zh`，`t(key, params)` 支持 `{param}` 插值。
-- 文档按影响分层更新：功能/用法 → `README.md` + `README.zh-CN.md`（双语一致）；对外产品说明/隐私政策 → `docs/index.html` + `docs/privacy.html`；商店文案 → `CHROMEWEBSTORE.md`；manifest 名称/描述/权限 → `wxt.config.ts`（`description` 与 `package.json` 同步且 ≤132 字符）；GitHub About（描述/网站/topics）→ `.github/repo-metadata.json`（由 `repo-meta.yml` 落地，勿只在页面上手改）。发版级改动另记 `CHANGELOG.md` + `CHANGELOG.zh-CN.md`；安全策略与贡献须知同样成对（`SECURITY.md` + `SECURITY.zh-CN.md`、`CONTRIBUTING.md` + `CONTRIBUTING.zh-CN.md`）。
-- 根目录**无** `index.html`（产品页故意放 `docs/`，避开与 `entrypoints/options/index.html` 混淆）；亦无 `_locales/`、HelpDialog、popup；**尚未上架 Chrome 应用商店**，勿引用不存在的商店链接。
+- 文案源 `utils/i18n/zh.ts`，`en.ts` 类型 `typeof zh`；增删改 key 时中英必须一致。`zh` 只是**兜底字典**——首次打开的界面语言按浏览器语言解析（存储里有明确选择则优先），见 `composables/useI18n.ts` 的 `resolveLocale`。`t(key, params)` 支持 `{param}` 插值。这条链路只管界面，与 manifest 级的 `public/_locales/` 是两套东西。
+- 文档按影响分层更新：功能/用法 → `README.md`（中文）+ `README.en.md`（英文，双语一致）；对外产品说明/隐私政策 → `docs/index.html` + `docs/privacy.html`；商店文案 → `CHROMEWEBSTORE.md`；manifest 名称/描述 → `public/_locales/{zh_CN,en}/messages.json`（`wxt.config.ts` 里只放 `__MSG_extensionName__` / `__MSG_extensionDescription__` 与 `default_locale: "zh_CN"`，英文值与 `package.json#description` 同步且 ≤132 字符）；权限 → `wxt.config.ts`；GitHub About（描述/网站/topics）→ `.github/repo-metadata.json`（由 `repo-meta.yml` 落地，勿只在页面上手改）。发版级改动另记 `CHANGELOG.md`（中文）+ `CHANGELOG.en.md`；安全策略与贡献须知按同一约定成对（`SECURITY.md` + `SECURITY.en.md`、`CONTRIBUTING.md` + `CONTRIBUTING.en.md`）——仓库根双语文档统一「中文为主文件、`.en.md` 为英文对照」，新增根文档不要再产出 `*.zh-CN.md`。
+- 根目录**无** `index.html`（产品页故意放 `docs/`，避开与 `entrypoints/options/index.html` 混淆）；亦无 HelpDialog、popup；`_locales/` 只存在于 `public/` 下、只有 `zh_CN`（`default_locale`）与 `en` 两个 locale；**尚未上架 Chrome 应用商店**，勿引用不存在的商店链接。
 
 ## 测试与验证
 
@@ -104,8 +109,9 @@
 - **转换语义边界**（改动前须确认）：PDF 输出为图片（文字不可选）；PDF 输入仅提取文本；多 sheet XLSX→CSV 输出 ZIP；多页 PDF→图片输出 ZIP；BMP/GIF/SVG 仅支持作为输入（浏览器无法编码），GIF 取首帧、SVG 栅格化。
 - **图标分两档母版，按尺寸取用**：`assets/icon.svg`（文档 + 环形转换徽章）用于 ≥48px；`assets/icon-small.svg`（加粗双向箭头）用于 <48px。**<48px 的位置必须取简化档**（`public/icon/16|32.png`、`docs/assets/icon-mark.png`）——详细档文档线在 128 网格上只有 5px，缩到 26px 就糊成白斑。两档图形不同，改图标时先确认改的是哪一档。
 - **文档素材不得入包**：`docs/` 与 `CHROMEWEBSTORE.md` 是仓库文档，而 `public/` 会被 WXT 原样打包——截图/推广图只能放 `docs/assets/`。UI 变更后必须重跑 `pnpm build && pnpm assets:capture`，否则商店截图与实际界面漂移。
+- **`_locales/` 是 `public/` 里唯一该待着的源码**：位置换了（例如被挪去 `assets/`）Chrome 就读不到，`name` 会以字面量 `__MSG_extensionName__` 出现在扩展管理页。两个 locale 的 key 集必须一致、值必须与 `CHROMEWEBSTORE.md` 的四个名称/简介粘贴块逐字相同、`default_locale` 必须是 `zh_CN`——这三条分别由 `pnpm verify:listing` 与 `pnpm verify:meta` 守着，改一处不改另一处就是 CI 红。它改的是**商店页与 Chrome 自己的字符串**，不是界面语言（那是 `fat:locale` + `useI18n`），别把两件事混成一个改动。
 - **Pages 产物根必须是 `docs/`**：`static.yml` 以 staging 目录（`docs/` 去 `promo/`）作为 `upload-pages-artifact` 的 `path`。若改回 `'.'`，站点根就会变成仓库根，`https://…/transfer-any-file/` 与 `/privacy.html` 直接 404（产品页会跑到 `/docs/index.html`），而 canonical / sitemap / robots / llms.txt / 商店隐私政策 URL 全按站点根写死；隐私政策 404 也会直接阻断 CWS 提交。
-- **商店首发不可自动化**：Chrome Web Store Publish API 不能创建条目，也不能写商品文案/截图/隐私披露（`publish-browser-extension` README 原文要求手工首发）。`release.yml` 的商店步骤在四个 `CHROME_*` secrets 齐备前只报「跳过」；手工步骤见 `CHROMEWEBSTORE.md → First Publication (manual)`。
+- **商店首发不可自动化**：Chrome Web Store Publish API 不能创建条目，也不能写商品文案/截图/隐私披露（`publish-browser-extension` README 原文要求手工首发）。`release.yml` 的商店步骤在四个 `CHROME_*` secrets 齐备前只报「跳过」；手工步骤见 `CHROMEWEBSTORE.md → 首次上架（手工步骤）`。
 - **对外文案数字要取证**：格式数 14 / 路径数 46+ 来自工作台页脚（`App.vue` 的 `formatCount`/`pathCount`，当前精确值为 14 与 46）；143 是同一邻接图的 BFS 传递闭包（每种源格式除自身外可达全部 11 种可写格式），**但 143 不能写成"可选/可用"**——`availableTargets` 还会经 `utils/core/conversion-policy.ts` 去掉 27 个语义无效组合（24 个图片 → TXT/CSV/JSON/XLSX + 3 个 PDF → CSV/JSON/XLSX），界面实际提供 **116** 个；体积来自 `pnpm build` 输出，阈值来自 `FileUpload.vue`（100MB 拒绝 / 20MB 警告 / 200 文件上限）与 `useConversion.ts`（>5 文件或 >20MB 弹确认），ZIP 压缩收益来自 `utils/core/format.ts` 的 JSDoc 实测记录；改这些常量时同步改 `README*`、`docs/*`、`CHROMEWEBSTORE.md`。
 
 ## 完成标准

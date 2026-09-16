@@ -1,13 +1,13 @@
 # Transfer Any File
 
-> Transfer Any File is an open-source Chrome extension (Manifest V3, ISC licence) that converts files between 14 formats — Markdown, HTML, Word (.docx), PDF, TXT, CSV, Excel (.xlsx), JSON, PNG, JPEG, WebP, BMP, GIF, SVG — entirely on the user's own machine. It requests one permission (`storage`), its own code issues no network request of any kind (asserted on every push by `pnpm verify:offline`), and it works with the network disabled. Batch conversion of mixed source formats, automatic multi-step conversion chains over 46 direct routes, per-file error isolation with copyable failure diagnostics, split preview with inline editing, a recently-used group in the target picker, ZIP download, and a local conversion history.
+> Transfer Any File is an open-source Chrome extension (Manifest V3, MIT licence) that converts files between 14 formats — Markdown, HTML, Word (.docx), PDF, TXT, CSV, Excel (.xlsx), JSON, PNG, JPEG, WebP, BMP, GIF, SVG — entirely on the user's own machine. It requests one permission (`storage`), its own code issues no network request of any kind (asserted on every push by `pnpm verify:offline`), and it works with the network disabled. Batch conversion of mixed source formats, automatic multi-step conversion chains over 46 direct routes, per-file error isolation with copyable failure diagnostics, split preview with inline editing, a recently-used group in the target picker, ZIP download, and a local conversion history.
 
 Primary language: the product page is bilingual with an in-page Chinese / English switch; the privacy policy carries both languages on one page. Neither needs a server. Interface languages: English and Chinese; with no stored choice the extension follows the browser language (a `zh*` browser gets Chinese, anything else English), and an explicit choice is remembered.
 Category: productivity / file conversion. Price: free, no paid tier, no ads, no account.
 
 ## Product page
 
-- [Product page](https://liaolongdong.github.io/transfer-any-file/): Formats, features, comparison with online converters, install steps, FAQ, technical details
+- [Product page](https://liaolongdong.github.io/transfer-any-file/): Formats, how a conversion is routed, features, comparison with online converters, install steps, FAQ, technical details, contact
 - [Privacy policy](https://liaolongdong.github.io/transfer-any-file/privacy.html): Bilingual (EN / 简体中文) — no data collection, no transmission, on-device storage only
 
 ## What it converts
@@ -41,7 +41,7 @@ Category: productivity / file conversion. Price: free, no paid tier, no ads, no 
 | OCR and complex PDF layout repair | Not bundled                                                                   | Commonly offered                            | Requires a separate Tesseract install                              |
 | Price and account                 | Free, no sign-up, no paid tier                                                | Free quota, a subscription lifts the limits | Usually free                                                       |
 | Chinese interface and encoding    | Bilingual UI; CSV written with a UTF-8 BOM                                    | Depends on the service                      | Encoding is left to you                                            |
-| Source code                       | Open source (ISC)                                                             | Closed                                      | Open source                                                        |
+| Source code                       | Open source (MIT)                                                             | Closed                                      | Open source                                                        |
 
 The comparison summarises the typical behaviour of each class of tool rather than one specific vendor; Pandoc and ImageMagick stand in for the command-line column. The three are not substitutes.
 
@@ -56,15 +56,19 @@ pnpm install && pnpm build
 # chrome://extensions → enable Developer mode → Load unpacked → select .output/chrome-mv3
 ```
 
+## Who maintains it
+
+Sole author: Better ([github.com/liaolongdong](https://github.com/liaolongdong)). Contact channels, in the order they get answered: GitHub issues, email `924902324@qq.com` (also the address published on the store listing), and a WeChat group reached by adding `lld_1025` with the note `taf`. Security issues are reported privately, never as a public issue — see the security policy below. The same author maintains [Account Password Helper](https://github.com/liaolongdong/account-password-helper), a local-first password manager with the same no-cloud constraint.
+
 ## Repository
 
-- [README (English)](https://github.com/liaolongdong/transfer-any-file/blob/main/README.md)
-- [README (简体中文)](https://github.com/liaolongdong/transfer-any-file/blob/main/README.zh-CN.md)
+- [README (简体中文)](https://github.com/liaolongdong/transfer-any-file/blob/main/README.md)
+- [README (English)](https://github.com/liaolongdong/transfer-any-file/blob/main/README.en.md)
 - [Source code](https://github.com/liaolongdong/transfer-any-file)
 - [Issues / feature requests](https://github.com/liaolongdong/transfer-any-file/issues)
-- [Changelog](https://github.com/liaolongdong/transfer-any-file/blob/main/CHANGELOG.md): release notes per version ([中文](https://github.com/liaolongdong/transfer-any-file/blob/main/CHANGELOG.zh-CN.md))
-- [Security policy](https://github.com/liaolongdong/transfer-any-file/blob/main/SECURITY.md): how to report a vulnerability, and the offline attack-surface claims you can verify ([中文](https://github.com/liaolongdong/transfer-any-file/blob/main/SECURITY.zh-CN.md))
-- [Contributing guide](https://github.com/liaolongdong/transfer-any-file/blob/main/CONTRIBUTING.md): the offline-only rule, how to add a converter, and which docs must move together ([中文](https://github.com/liaolongdong/transfer-any-file/blob/main/CONTRIBUTING.zh-CN.md))
+- [Changelog](https://github.com/liaolongdong/transfer-any-file/blob/main/CHANGELOG.en.md): release notes per version ([简体中文](https://github.com/liaolongdong/transfer-any-file/blob/main/CHANGELOG.md))
+- [Security policy](https://github.com/liaolongdong/transfer-any-file/blob/main/SECURITY.en.md): how to report a vulnerability, and the offline attack-surface claims you can verify ([简体中文](https://github.com/liaolongdong/transfer-any-file/blob/main/SECURITY.md))
+- [Contributing guide](https://github.com/liaolongdong/transfer-any-file/blob/main/CONTRIBUTING.en.md): the offline-only rule, how to add a converter, and which docs must move together ([简体中文](https://github.com/liaolongdong/transfer-any-file/blob/main/CONTRIBUTING.md))
 - [Chrome Web Store listing copy and disclosures](https://github.com/liaolongdong/transfer-any-file/blob/main/CHROMEWEBSTORE.md)
 
 ## Tech stack

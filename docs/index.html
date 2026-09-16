@@ -169,7 +169,7 @@
             "alternateName": "Transfer Any File — Offline File Format Converter",
             "softwareVersion": "1.0.0",
             "datePublished": "2026-09-07",
-            "dateModified": "2026-09-14",
+            "dateModified": "2026-09-15",
             "applicationCategory": "UtilitiesApplication",
             "applicationSubCategory": "File Format Converter",
             "keywords": "offline file format converter, file converter chrome extension, markdown to pdf, word to pdf, csv to excel, json to csv, png to webp, svg to png, html to docx, batch file conversion, convert files without uploading, local-first, privacy",
@@ -198,9 +198,16 @@
               "name": "Better",
               "url": "https://github.com/liaolongdong"
             },
+            "support": {
+              "@type": "ContactPoint",
+              "contactType": "support",
+              "email": "924902324@qq.com",
+              "url": "https://liaolongdong.github.io/transfer-any-file/#contact",
+              "availableLanguage": ["en", "zh-CN"]
+            },
             "codeRepository": "https://github.com/liaolongdong/transfer-any-file",
             "issueTracker": "https://github.com/liaolongdong/transfer-any-file/issues",
-            "license": "https://spdx.org/licenses/ISC.html",
+            "license": "https://spdx.org/licenses/MIT.html",
             "isAccessibleForFree": true,
             "offers": {
               "@type": "Offer",
@@ -508,7 +515,7 @@
                 "name": "Is it free, and is there a paid version?",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "It is free, with no paid tier. The project is open source under the ISC licence: no account, no subscription, no advertising, and no feature gated behind anything. There is also no code path that could report usage — first-party source contains no network call at all."
+                  "text": "It is free, with no paid tier. The project is open source under the MIT licence: no account, no subscription, no advertising, and no feature gated behind anything. There is also no code path that could report usage — first-party source contains no network call at all."
                 }
               },
               {
@@ -516,7 +523,7 @@
                 "name": "它免费吗？有没有付费版？",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "免费，而且没有付费版。项目以 ISC 协议开源，没有账号、没有订阅、没有广告，也没有任何被锁在付费墙之后的功能。它同样没有可以上报使用量的代码路径——第一方源码中不存在任何网络调用。"
+                  "text": "免费，而且没有付费版。项目以 MIT 协议开源，没有账号、没有订阅、没有广告，也没有任何被锁在付费墙之后的功能。它同样没有可以上报使用量的代码路径——第一方源码中不存在任何网络调用。"
                 }
               }
             ]
@@ -594,7 +601,7 @@
             "codeRepository": "https://github.com/liaolongdong/transfer-any-file",
             "programmingLanguage": ["TypeScript", "Vue"],
             "runtimePlatform": "Chromium (Manifest V3)",
-            "license": "https://spdx.org/licenses/ISC.html",
+            "license": "https://spdx.org/licenses/MIT.html",
             "isPartOf": { "@id": "https://liaolongdong.github.io/transfer-any-file/#website" }
           }
         ]
@@ -1497,7 +1504,8 @@
         border-radius: var(--radius);
       }
 
-      .step .n {
+      .step .n,
+      .flow-node .n {
         display: inline-grid;
         place-items: center;
         width: 30px;
@@ -1514,6 +1522,159 @@
       .step p {
         color: var(--ink-soft);
         font-size: 15px;
+      }
+
+      /* ============ Conversion pipeline ============ */
+      /* Serpentine layout: the top row reads left→right, the bottom row right→left, so every
+         connector points at the node that actually follows it in the conversion. The <ol> keeps
+         the true reading order in the markup — grid placement only reorders the visuals. */
+      .flow {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 34px 46px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .flow li:nth-child(4) {
+        grid-column: 3;
+        grid-row: 2;
+      }
+
+      .flow li:nth-child(5) {
+        grid-column: 2;
+        grid-row: 2;
+      }
+
+      .flow li:nth-child(6) {
+        grid-column: 1;
+        grid-row: 2;
+      }
+
+      .flow-node {
+        position: relative;
+        padding: 20px 20px 18px;
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow-sm);
+      }
+
+      .flow-node h3 {
+        margin: 0 0 6px;
+        font-size: 17px;
+      }
+
+      .flow-node p {
+        margin: 0;
+        color: var(--ink-soft);
+        font-size: 15px;
+      }
+
+      /* One horizontal (or vertical, for the turn) connector per node, drawn in the gap. */
+      .flow-node::before,
+      .flow-node::after {
+        position: absolute;
+        content: '';
+      }
+
+      .flow-node::before {
+        top: 50%;
+        width: 26px;
+        height: 2px;
+        background: var(--brand-line);
+        transform: translateY(-50%);
+      }
+
+      .flow-node::after {
+        top: 50%;
+        width: 9px;
+        height: 9px;
+        border-top: 2px solid var(--brand);
+        border-right: 2px solid var(--brand);
+        transform: translateY(-50%) rotate(45deg);
+      }
+
+      .flow-node:not(.flow-turn):not(.flow-back):not(.flow-end)::before {
+        right: -28px;
+      }
+
+      .flow-node:not(.flow-turn):not(.flow-back):not(.flow-end)::after {
+        right: -22px;
+      }
+
+      /* Node 3 sits at the right end of the top row: the arrow bends down to node 4. */
+      .flow-turn::before {
+        top: auto;
+        bottom: -32px;
+        left: 50%;
+        width: 2px;
+        height: 30px;
+        background: var(--brand-line);
+        transform: translateX(-50%);
+      }
+
+      .flow-turn::after {
+        top: auto;
+        bottom: -30px;
+        left: 50%;
+        transform: translateX(-50%) rotate(135deg);
+      }
+
+      /* Bottom row runs right→left, so its connectors point left. */
+      .flow-back::before {
+        left: -28px;
+      }
+
+      .flow-back::after {
+        left: -22px;
+        transform: translateY(-50%) rotate(-135deg);
+      }
+
+      .flow-end::before,
+      .flow-end::after {
+        content: none;
+      }
+
+      /* ============ Contact ============ */
+      .contact-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 230px;
+        gap: 34px;
+        align-items: start;
+      }
+
+      .contact-list {
+        display: grid;
+        gap: 12px;
+        margin: 0 0 18px;
+        padding-left: 22px;
+      }
+
+      .contact-list li {
+        color: var(--ink-soft);
+        font-size: 16px;
+      }
+
+      .contact-list b {
+        color: var(--ink);
+      }
+
+      .qr {
+        margin: 0;
+        text-align: center;
+      }
+
+      .qr img {
+        margin: 0 auto;
+        border: 1px solid var(--line);
+        border-radius: var(--radius-sm);
+      }
+
+      .qr figcaption {
+        color: var(--ink-faint);
+        font-size: 13.5px;
       }
 
       pre {
@@ -1741,6 +1902,41 @@
         .nav .gh {
           display: none;
         }
+
+        .flow {
+          grid-template-columns: minmax(0, 1fr);
+          gap: 32px;
+        }
+
+        .flow li:nth-child(4),
+        .flow li:nth-child(5),
+        .flow li:nth-child(6) {
+          grid-column: auto;
+          grid-row: auto;
+        }
+
+        /* Stacked: every connector becomes the downward one, whichever variant the node carries. */
+        .flow-node:not(.flow-end)::before {
+          top: auto;
+          right: auto;
+          bottom: -30px;
+          left: 50%;
+          width: 2px;
+          height: 28px;
+          transform: translateX(-50%);
+        }
+
+        .flow-node:not(.flow-end)::after {
+          top: auto;
+          right: auto;
+          bottom: -28px;
+          left: 50%;
+          transform: translateX(-50%) rotate(135deg);
+        }
+
+        .contact-grid {
+          grid-template-columns: minmax(0, 1fr);
+        }
       }
 
       @media (width <= 620px) {
@@ -1886,8 +2082,8 @@
           <div>
             <span class="eyebrow">
               <span class="dot"></span>
-              <span lang="zh-CN">开源 ISC · Manifest V3 · 零网络请求</span
-              ><span lang="en">Open source (ISC) · Manifest V3 · zero network requests</span>
+              <span lang="zh-CN">开源 MIT · Manifest V3 · 零网络请求</span
+              ><span lang="en">Open source (MIT) · Manifest V3 · zero network requests</span>
             </span>
             <h1>
               <span lang="zh-CN"
@@ -2927,6 +3123,172 @@
                 >
               </p>
             </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= HOW IT WORKS ================= -->
+      <section
+        id="how"
+        class="alt"
+      >
+        <div class="wrap">
+          <div class="section-head">
+            <span class="eyebrow-sm"><span lang="zh-CN">工作原理</span><span lang="en">How it works</span></span>
+            <h2>
+              <span lang="zh-CN">一次转换走过的六步</span>
+              <span lang="en">The six steps inside one conversion</span>
+            </h2>
+            <p class="sub">
+              <span lang="zh-CN"
+                >你只点四下：拖进来、选格式、按开始、拿结果。中间真正跑起来的是下面这六步，全程在浏览器标签页内完成——没有任何一步会把文件发给别处。</span
+              >
+              <span lang="en"
+                >You click four times: drop, pick, start, download. These are the six steps that actually run in
+                between, and every one of them happens inside the tab — none of them sends a file anywhere.</span
+              >
+            </p>
+          </div>
+
+          <ol class="flow reveal">
+            <li class="flow-node">
+              <span class="n">01</span>
+              <h3><span lang="zh-CN">识别</span><span lang="en">Identify</span></h3>
+              <p>
+                <span lang="zh-CN">先看扩展名，看不清再退到 MIME 类型；两者都对不上就不猜，直接说明无法识别。</span>
+                <span lang="en"
+                  >The extension decides first; a MIME type is the fallback. If neither matches, it says so instead of
+                  guessing.</span
+                >
+              </p>
+            </li>
+            <li class="flow-node">
+              <span class="n">02</span>
+              <h3><span lang="zh-CN">取交集</span><span lang="en">Narrow</span></h3>
+              <p>
+                <span lang="zh-CN"
+                  >混合批次只保留对每个文件都可达的目标格式。14 种格式、46 条直连路径构成一张有向图。</span
+                >
+                <span lang="en"
+                  >A mixed batch keeps only the targets reachable from every file. 14 formats and 46 direct routes form
+                  one directed graph.</span
+                >
+              </p>
+            </li>
+            <li class="flow-node flow-turn">
+              <span class="n">03</span>
+              <h3><span lang="zh-CN">置灰</span><span lang="en">Screen out</span></h3>
+              <p>
+                <span lang="zh-CN"
+                  >图上能走通、语义上没意义的 27 个组合（比如图片转 XLSX）会置灰并写出原因，而不是悄悄藏掉。</span
+                >
+                <span lang="en"
+                  >The 27 combinations that are routable but meaningless (image to XLSX, say) are greyed out with a
+                  reason rather than quietly hidden.</span
+                >
+              </p>
+            </li>
+            <li class="flow-node flow-back">
+              <span class="n">04</span>
+              <h3><span lang="zh-CN">寻路</span><span lang="en">Route</span></h3>
+              <p>
+                <span lang="zh-CN"
+                  >宽度优先搜索找最短链路。没有直连时自动串多步，例如
+                  <code>MD → HTML → PDF</code>，每一步在界面上都看得见。</span
+                >
+                <span lang="en"
+                  >A breadth-first search finds the shortest chain. With no direct edge it stacks steps —
+                  <code>MD → HTML → PDF</code> — and shows you each one.</span
+                >
+              </p>
+            </li>
+            <li class="flow-node flow-back">
+              <span class="n">05</span>
+              <h3><span lang="zh-CN">执行</span><span lang="en">Convert</span></h3>
+              <p>
+                <span lang="zh-CN"
+                  >逐个文件独立跑，重依赖首次用到才加载。一个文件失败不影响同批其它文件，中途可按取消。</span
+                >
+                <span lang="en"
+                  >Files run one at a time and heavy libraries load on first use. One failure never stops the rest of
+                  the batch, and cancel works mid-run.</span
+                >
+              </p>
+            </li>
+            <li class="flow-node flow-end">
+              <span class="n">06</span>
+              <h3><span lang="zh-CN">交付</span><span lang="en">Deliver</span></h3>
+              <p>
+                <span lang="zh-CN"
+                  >单文件直接下，多结果打包成 ZIP。历史只记名字、格式、大小这类元数据，不存文件内容。</span
+                >
+                <span lang="en"
+                  >One result downloads directly, several get bundled into a ZIP. History stores metadata — name,
+                  format, size — never the content.</span
+                >
+              </p>
+            </li>
+          </ol>
+
+          <div
+            class="grid"
+            style="margin-top: 34px"
+          >
+            <article class="card">
+              <div class="icon teal">
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M20 6 9 17l-5-5" />
+                </svg>
+              </div>
+              <h3><span lang="zh-CN">取消不是失败</span><span lang="en">Cancelling is not failing</span></h3>
+              <p>
+                <span lang="zh-CN"
+                  >按取消之后，界面会区分「已经跑完」和「中途停下」：已完成的结果照样可以下载，剩下的标记为已取消，不会出现一份看不清状态的清单。</span
+                >
+                <span lang="en"
+                  >After you cancel, the UI still separates "finished" from "stopped halfway": completed results stay
+                  downloadable, the rest are labelled cancelled, so you never stare at a list of unknown status.</span
+                >
+              </p>
+            </article>
+            <article class="card">
+              <div class="icon amber">
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M12 5v14M5 12h14" />
+                </svg>
+              </div>
+              <h3><span lang="zh-CN">没有手工维护的转换矩阵</span><span lang="en">No hand-maintained matrix</span></h3>
+              <p>
+                <span lang="zh-CN"
+                  >每个转换器只声明自己「从哪来、到哪去」，多步链路由搜索自动发现。加一个新格式不用补一张表，新链路会自己出现在下拉框里。</span
+                >
+                <span lang="en"
+                  >Each converter only declares where it comes from and where it goes; chains are discovered by the
+                  search. Adding a format never means patching a table — new routes show up in the selector on their
+                  own.</span
+                >
+              </p>
+            </article>
           </div>
         </div>
       </section>
@@ -3976,7 +4338,7 @@ pnpm build</code><button
                 </tr>
                 <tr>
                   <th scope="row"><span lang="zh-CN">源码</span><span lang="en">Source code</span></th>
-                  <td class="yes"><span lang="zh-CN">开源（ISC）</span><span lang="en">Open source (ISC)</span></td>
+                  <td class="yes"><span lang="zh-CN">开源（MIT）</span><span lang="en">Open source (MIT)</span></td>
                   <td class="no"><span lang="zh-CN">闭源</span><span lang="en">Closed</span></td>
                   <td class="yes"><span lang="zh-CN">开源</span><span lang="en">Open source</span></td>
                 </tr>
@@ -4761,11 +5123,11 @@ pnpm build</code><button
               </summary>
               <div class="faq-a">
                 <span lang="zh-CN"
-                  >免费，而且没有付费版。项目以 ISC
+                  >免费，而且没有付费版。项目以 MIT
                   协议开源，没有账号、没有订阅、没有广告，也没有任何被锁在付费墙之后的功能。它同样没有可以上报使用量的代码路径——第一方源码中不存在任何网络调用。</span
                 >
                 <span lang="en"
-                  >It is free, with no paid tier. The project is open source under the ISC licence: no account, no
+                  >It is free, with no paid tier. The project is open source under the MIT licence: no account, no
                   subscription, no advertising, and no feature gated behind anything. There is also no code path that
                   could report usage — first-party source contains no network call at all.</span
                 >
@@ -4854,14 +5216,14 @@ pnpm build</code><button
           </div>
           <p class="updated">
             <span lang="zh-CN"
-              ><strong>版本 1.0.0 · 本页最后更新 2026-09-14。</strong>文中全部数字从代码取证：14 种格式来自
+              ><strong>版本 1.0.0 · 本页最后更新 2026-09-15。</strong>文中全部数字从代码取证：14 种格式来自
               <code>FileFormat</code> 枚举，46 条路径与 143 个可达组合来自转换器注册表的邻接图，116 个可选组合是 143
               减去 <code>utils/core/conversion-policy.ts</code> 置灰的 27 个，3.73 MB 来自
               <code>pnpm build</code> 输出，权限与上限来自 manifest 与源码常量。截图与推广图由
               <code>pnpm assets:capture</code> 从构建产物生成。</span
             >
             <span lang="en"
-              ><strong>Version 1.0.0 · page last updated 2026-09-14.</strong> Every number on this page is taken from
+              ><strong>Version 1.0.0 · page last updated 2026-09-15.</strong> Every number on this page is taken from
               the code: 14 formats from the <code>FileFormat</code> enum, 46 routes and 143 reachable combinations from
               the converter registry's adjacency graph, and 116 selectable combinations — that is 143 minus the 27 pairs
               <code>utils/core/conversion-policy.ts</code> greys out. 3.73 MB comes from <code>pnpm build</code> output,
@@ -4869,6 +5231,109 @@ pnpm build</code><button
               bundle by <code>pnpm assets:capture</code>.</span
             >
           </p>
+        </div>
+      </section>
+
+      <!-- ================= CONTACT ================= -->
+      <section
+        id="contact"
+        class="alt tight"
+      >
+        <div class="wrap">
+          <div class="section-head">
+            <span class="eyebrow-sm"><span lang="zh-CN">联系</span><span lang="en">Contact</span></span>
+            <h2>
+              <span lang="zh-CN">报问题、提格式、进交流群</span>
+              <span lang="en">Report a bug, request a format, join the group</span>
+            </h2>
+            <p class="sub">
+              <span lang="zh-CN">四个渠道都通到同一个人。Issue 优先——群里得到的结论会回填到可检索的地方。</span>
+              <span lang="en"
+                >All four reach the same person. Issues first — whatever a chat concludes gets written back somewhere
+                searchable.</span
+              >
+            </p>
+          </div>
+
+          <div class="contact-grid">
+            <div>
+              <ul class="contact-list">
+                <li>
+                  <b><span lang="zh-CN">微信</span><span lang="en">WeChat</span></b>
+                  <span lang="zh-CN"
+                    >：<code>lld_1025</code>，备注「taf」（Transfer Any File
+                    的首字母）。问题反馈、格式需求、新版本试用都在群里。</span
+                  >
+                  <span lang="en"
+                    >: <code>lld_1025</code>, with the note "taf" (the initials of Transfer Any File). Bugs, format
+                    requests and pre-release testing all go through the group.</span
+                  >
+                </li>
+                <li>
+                  <b><span lang="zh-CN">邮箱</span><span lang="en">Email</span></b>
+                  <span lang="zh-CN"
+                    >：<a href="mailto:924902324@qq.com">924902324@qq.com</a
+                    >，与商店列表公开的联系邮箱是同一个地址。</span
+                  >
+                  <span lang="en"
+                    >: <a href="mailto:924902324@qq.com">924902324@qq.com</a> — the same address published on the store
+                    listing.</span
+                  >
+                </li>
+                <li>
+                  <b><span lang="zh-CN">Issue</span><span lang="en">Issues</span></b>
+                  <span lang="zh-CN"
+                    >：<a href="https://github.com/liaolongdong/transfer-any-file/issues">缺陷与格式需求</a
+                    >，可检索，也最不容易被漏掉。</span
+                  >
+                  <span lang="en"
+                    >:<a href="https://github.com/liaolongdong/transfer-any-file/issues"> Bugs &amp; format requests</a
+                    >, searchable and the least likely to be lost.</span
+                  >
+                </li>
+                <li>
+                  <b><span lang="zh-CN">关于这张码</span><span lang="en">About this code</span></b>
+                  <span lang="zh-CN"
+                    >：它是添加个人微信的二维码，不是群码，所以不存在群码 7
+                    天过期那一说。安全漏洞请走私密渠道，不要开公开&nbsp;Issue。</span
+                  >
+                  <span lang="en"
+                    >: this adds the author personally rather than a group chat, so it does not expire after seven days
+                    the way group codes do. Security issues go through a private channel, never a public issue.</span
+                  >
+                </li>
+              </ul>
+              <p class="answer">
+                <span lang="zh-CN"
+                  ><strong>同作者的另一个完全离线扩展</strong>：<a
+                    href="https://github.com/liaolongdong/account-password-helper"
+                    >账号密码管理助手</a
+                  >——本地 AES-256-GCM 加密的密码管理器，无云端、无账号，同样只跑在本机。</span
+                >
+                <span lang="en"
+                  ><strong>Another fully offline extension by the same author</strong>:<a
+                    href="https://github.com/liaolongdong/account-password-helper"
+                  >
+                    Account Password Helper</a
+                  >
+                  — a local AES-256-GCM password manager with no cloud and no account, also entirely on-device.</span
+                >
+              </p>
+            </div>
+            <figure class="qr">
+              <img
+                src="assets/wx-qrcode/wechat-qrcode.jpg"
+                width="168"
+                height="169"
+                loading="lazy"
+                decoding="async"
+                alt="作者微信二维码，扫码添加微信号 lld_1025，备注 taf 加入插件交流群。QR code for the author's WeChat — add lld_1025 with the note taf to join the extension group chat."
+              />
+              <figcaption>
+                <span lang="zh-CN">扫码添加 · 备注「taf」</span><span lang="en">Scan to add · note "taf"</span>
+              </figcaption>
+            </figure>
+          </div>
         </div>
       </section>
     </main>
@@ -4882,6 +5347,10 @@ pnpm build</code><button
               <a href="#why"
                 ><span lang="zh-CN">为什么不用在线转换网站</span><span lang="en">Why not an online converter</span></a
               >
+              <a href="#how"
+                ><span lang="zh-CN">一次转换走过的六步</span
+                ><span lang="en">The six steps inside one conversion</span></a
+              >
               <a href="#privacy"
                 ><span lang="zh-CN">「不上传」怎么验证</span><span lang="en">How "no uploads" is verified</span></a
               >
@@ -4892,19 +5361,20 @@ pnpm build</code><button
               <a href="https://github.com/liaolongdong/transfer-any-file/issues">
                 <span lang="zh-CN">提需求 &amp; 报问题</span><span lang="en">Issues &amp; format requests</span>
               </a>
-              <a href="https://github.com/liaolongdong/transfer-any-file/blob/main/README.md">README (EN)</a>
-              <a href="https://github.com/liaolongdong/transfer-any-file/blob/main/README.zh-CN.md">README (中文)</a>
+              <a href="#contact"><span lang="zh-CN">微信群 / 邮箱</span><span lang="en">WeChat group / email</span></a>
+              <a href="https://github.com/liaolongdong/transfer-any-file/blob/main/README.md">README (中文)</a>
+              <a href="https://github.com/liaolongdong/transfer-any-file/blob/main/README.en.md">README (EN)</a>
               <a href="privacy.html"><span lang="zh-CN">隐私政策</span><span lang="en">Privacy policy</span></a>
               <a href="llms.txt">llms.txt</a>
             </nav>
             <p>
               <span lang="zh-CN"
-                >Transfer Any File —— 面向 Chrome 的离线文件格式转换工具。所有处理都在你的设备上完成，以 ISC
+                >Transfer Any File —— 面向 Chrome 的离线文件格式转换工具。所有处理都在你的设备上完成，以 MIT
                 许可证发布。</span
               >
               <span lang="en"
                 >Transfer Any File — offline file format conversion for Chrome. All processing happens on your device.
-                Released under the ISC licence.</span
+                Released under the MIT licence.</span
               >
             </p>
           </div>

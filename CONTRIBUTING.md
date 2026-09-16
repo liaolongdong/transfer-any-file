@@ -1,55 +1,55 @@
-# Contributing to Transfer Any File
+# 为 Transfer Any File 贡献代码
 
-[简体中文](CONTRIBUTING.zh-CN.md) · English
+简体中文 · [English](CONTRIBUTING.en.md)
 
-Contributions are welcome — format requests and bug reports included. This project is small and opinionated, so here is the whole rule set in one page. The mandatory coding rules live in `.qoder/rules/wxt-rules.md`; architecture, commands, conventions and workflows in `AGENTS.md`.
+欢迎贡献代码——格式需求与 bug 报告同样欢迎。这个项目不大，主张也很明确，所以整套规则压缩在这一页里。完整的机器校验规则见 `.qoder/rules/wxt-rules.md`，架构、命令与工作流见 `AGENTS.md`。
 
-## Three steps
+## 三步
 
-1. **Fork, branch off `main`, and get the dev loop running**
-
-   ```bash
-   pnpm install          # Node.js ≥ 20.12 (WXT needs util.parseEnv), pnpm pinned in package.json
-   pnpm dev              # hot reload; load .output/chrome-mv3 as an unpacked extension
-   ```
-
-2. **Make the change, keeping the guarantees intact**
+1. **Fork，从 `main` 切分支，把开发循环跑起来**
 
    ```bash
-   pnpm lint:all         # typecheck + eslint + stylelint — must pass
-   pnpm verify:offline   # first-party source makes no network call; manifest stays `storage`-only
-   pnpm verify:meta      # package.json / wxt.config.ts / .github/repo-metadata.json agree
-   pnpm test:e2e         # build + Playwright over fixtures/ — must pass
+   pnpm install          # Node.js ≥ 20.12（WXT 需要 util.parseEnv），pnpm 版本在 package.json 中锁定
+   pnpm dev              # 热重载；把 .output/chrome-mv3 以「加载已解压的扩展程序」方式载入
    ```
 
-3. **Open a pull request** that says what changed, why, and which checks you ran.
+2. **改代码，同时保证那些承诺依然成立**
 
-## The one rule that matters
+   ```bash
+   pnpm lint:all         # 类型检查 + eslint + stylelint —— 必须通过
+   pnpm verify:offline   # 第一方源码不发起网络请求；manifest 权限仍只有 storage
+   pnpm verify:meta      # package.json / public/_locales/en / wxt.config.ts / .github/repo-metadata.json 一致
+   pnpm test:e2e         # 构建 + Playwright 跑 fixtures/ —— 必须通过
+   ```
 
-**Keep it offline.** No network request, no remote asset, no new permission, no telemetry. The manifest requests only `storage`, and no first-party source file issues a request — `pnpm verify:offline` greps `entrypoints/`, `components/`, `composables/` and `utils/` for `fetch` / `XMLHttpRequest` / `WebSocket` / `EventSource` / `sendBeacon` and fails on a hit. (Unused request paths do exist inside bundled third-party converters; what makes them inert is that the extension holds no `host_permissions`, so the browser refuses them.) If a change genuinely needs one of those, open an issue first — do not slip it into a PR.
+3. **提 PR**，说清楚改了什么、为什么改、跑了哪些检查。
 
-Everything else follows from that: user files, clipboard content, ZIP entries and storage values are all treated as untrusted input, validated at the boundary (20 MB warning / 100 MB rejection per file, 200 files per batch), and any HTML / SVG / Markdown produced from them is sanitised with DOMPurify before it is rendered.
+## 唯一那条真正重要的规则
 
-## Adding a converter
+**保持离线。** 不加网络请求，不加远程资源，不加权限，不做遥测。manifest 只申请 `storage`，并且没有任何第一方源文件发起请求——`pnpm verify:offline` 会在 `entrypoints/`、`components/`、`composables/`、`utils/` 里 grep `fetch` / `XMLHttpRequest` / `WebSocket` / `EventSource` / `sendBeacon`，命中即失败。（打包进来的第三方转换器里确实存在未被调用的请求路径；让它们失效的是扩展没有 `host_permissions`，浏览器会直接拒掉。）如果某个改动确实需要其中之一，请先开 issue，不要塞进 PR。
 
-1. Create `utils/converters/<from>-to-<to>.ts` implementing `Converter` (`from`, `to`, `convert(blob)`); import heavy libraries dynamically inside `convert()`.
-2. If the conversion is long, needs to know which file it came from, or produces an image, take the optional second argument `ctx` — `{ signal, source, options }`. Honour `signal` at your cancellable points (a batch that is being cancelled keeps its finished results), and route any canvas encoding through `encodeCanvas(canvas, mime, options)` so the user's output parameters apply. Return `containerExt` when the bytes are a different container from the nominal target (a multi-sheet or multi-page result is a ZIP).
-3. Register it in `utils/converters/index.ts`.
-4. Only if it introduces a new format: extend `FileFormat` (`utils/core/types.ts`), `FORMAT_INFO` (`utils/core/format-labels.ts`), the extension/MIME maps (`composables/useFileDetect.ts`), and the zh/en dictionaries.
-5. Add a fixture under `fixtures/` and a scenario in `scripts/e2e-test.mjs`.
+其余要求都由它推出：用户文件、剪贴板内容、ZIP 条目与 storage 中的值一律视为不可信输入，在边界处校验（单文件 20 MB 警告 / 100 MB 拒绝，单批次 200 个文件），由它们生成的 HTML / SVG / Markdown 在渲染前必须经 DOMPurify 净化。
 
-Multi-step routes through your new converter are discovered automatically by the registry's BFS — no wiring needed.
+## 新增一个转换器
 
-## Conventions worth knowing
+1. 新建 `utils/converters/<from>-to-<to>.ts`，实现 `Converter`（`from`、`to`、`convert(blob)`）；重型库在 `convert()` 内部动态 `import()`。
+2. 若转换耗时较长、需要知道来源文件，或产出图片，就接收可选的第二个参数 `ctx` —— `{ signal, source, options }`。在可中断处响应 `signal`（取消中的批次要保留已完成的结果）；所有 canvas 编码都走 `encodeCanvas(canvas, mime, options)`，用户的输出参数才会生效；返回的字节与名义目标不是同一个容器时（多 sheet / 多页结果是 ZIP），用 `containerExt` 声明。
+3. 在 `utils/converters/index.ts` 中注册。
+4. 仅当引入了新格式时：扩展 `FileFormat`（`utils/core/types.ts`）、`FORMAT_INFO`（`utils/core/format-labels.ts`）、扩展名/MIME 映射（`composables/useFileDetect.ts`），并补齐中英文案。
+5. 在 `fixtures/` 下加一个夹具，并在 `scripts/e2e-test.mjs` 里加一个场景。
 
-- **Stack**: WXT + Vue 3 (`<script setup lang="ts">`) + TypeScript + Element Plus, all on-demand. Alias is `~/`, not `@/`.
-- **Styling**: scoped CSS using the `--fat-*` tokens in `assets/theme/tokens.css`; no hard-coded colours.
-- **i18n**: every user-visible string exists in both `utils/i18n/zh.ts` (source) and `en.ts`; no literals in components.
-- **Logging**: no `console` in `entrypoints/`, `components/`, `composables/`, `utils/` — errors surface in the UI. Scripts under `scripts/` are exempt.
-- **Docs**: user-facing changes update `README.md` **and** `README.zh-CN.md`; store copy lives in `CHROMEWEBSTORE.md`; the product page is `docs/index.html`. Release-worthy changes get one entry in **both** `CHANGELOG.md` and `CHANGELOG.zh-CN.md`, whose version equals `package.json#version` (that is also what the release tag must match). The repository's GitHub About block is edited in `.github/repo-metadata.json` — not by hand in the dashboard — so it stays versioned and checked by `pnpm verify:meta`. Security reporting is `SECURITY.md`, not an issue — and both policy files are bilingual pairs (`SECURITY.zh-CN.md`, `CONTRIBUTING.zh-CN.md`) whose English and Chinese bodies must stay in sync. After a UI change, run `pnpm assets:capture` so the screenshots do not drift.
-- **Icons**: two SVG masters cover two size regimes — `assets/icon.svg` (document sheet + conversion badge) for slots 48px and up, `assets/icon-small.svg` (bold swap arrows) for anything smaller, because the detailed artwork's 5px text lines dissolve below 48px. Regenerate both with `node scripts/render-icons.mjs`.
-- Do not weaken ESLint / Stylelint / TypeScript settings to make a check pass. If a rule genuinely must be bypassed, scope the suppression to the single line and explain why in the diff.
+经过新格式的多步路径由注册表的 BFS 自动发现，不需要手写链路。
 
-## Licence
+## 值得先知道的约定
 
-By contributing you agree that your contributions are licensed under the project's [ISC licence](LICENSE).
+- **技术栈**：WXT + Vue 3（`<script setup lang="ts">`）+ TypeScript + Element Plus，全部按需引入。别名是 `~/`，不是 `@/`。
+- **样式**：scoped CSS，使用 `assets/theme/tokens.css` 里的 `--fat-*` 设计令牌；不硬编码颜色。
+- **国际化**：每一处用户可见文案都要同时存在于 `utils/i18n/zh.ts`（源）与 `en.ts`；组件里不写字面量。
+- **日志**：`entrypoints/`、`components/`、`composables/`、`utils/` 中不得出现 `console`——错误通过 UI 反馈给用户。`scripts/` 下的脚本除外。
+- **文档**：面向用户的改动要同时更新 `README.md`（中文）**和** `README.en.md`（英文）；商店文案在 `CHROMEWEBSTORE.md`；产品说明页是 `docs/index.html`。值得发布的改动要在 `CHANGELOG.md`（中文）与 `CHANGELOG.en.md`（英文）**各**记一条，版本号等于 `package.json#version`（发布 tag 也必须与之一致）。仓库的 GitHub About 描述改在 `.github/repo-metadata.json` 里，**不要**只在页面上手改，这样它才受版本管理并被 `pnpm verify:meta` 校验；每个值为什么这么写、本机没装 `gh` 时怎么一次性落地，见 `.github/repo-metadata.md`。安全漏洞走 `SECURITY.md`，不是 issue。仓库根的双语文档一律成对：中文是主文件，英文版用 `.en.md` 后缀（`CONTRIBUTING.md` / `CONTRIBUTING.en.md`、`SECURITY.md` / `SECURITY.en.md`、`CHANGELOG.md` / `CHANGELOG.en.md`），H1 下第一行是互指的语言切换行，改一边必须同步另一边。UI 变更后跑 `pnpm assets:capture` 重新生成截图，避免素材与实际界面漂移。
+- **图标**：两份 SVG 母版对应两档尺寸——`assets/icon.svg`（文档 + 环形转换徽章）用于 48px 及以上，`assets/icon-small.svg`（加粗双向箭头）用于更小的位置，因为详细版的 5px 线条在 48px 以下会糊成一团。用 `node scripts/render-icons.mjs` 重新生成两档。
+- 不要为了让检查通过而弱化 ESLint / Stylelint / TypeScript 配置。确实需要绕过某条规则时，把抑制范围限制到单独一行，并在 diff 里说明原因。
+
+## 许可证
+
+一旦提交贡献，即表示你同意这些贡献按项目的 [MIT 许可证](LICENSE)发布。
