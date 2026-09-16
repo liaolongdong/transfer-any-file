@@ -30,46 +30,35 @@
 
 </div>
 
-![Markdown 转 HTML 的左右对照预览：左侧源码，右侧渲染结果](docs/assets/screenshots/preview-edit.png)
+<p align="center">
+  <img src="docs/assets/screenshots/preview-edit.png" alt="Markdown 转 HTML 的左右对照预览：左侧源码，右侧渲染结果" width="100%" />
+  <br />
+  <sub>左边是 Markdown 源码，右边是它转出来的 HTML——一次点击，全程在你自己的电脑上完成。</sub>
+</p>
 
 ---
 
 ## 界面截图
 
 <p align="center">
-  <img src="docs/assets/screenshots/workbench-empty.png" alt="空白的工作台：邀请拖入文件的上传区、旁边的目标格式选择器，以及下方的历史记录卡片" width="100%" />
+  <img src="docs/assets/screenshots/workbench-empty.png" alt="空白的工作台：邀请拖入文件的上传区、旁边的目标格式选择器，以及下方的历史记录卡片" width="49%" />
+  <img src="docs/assets/screenshots/batch-files.png" alt="工作台中已加入三个混合格式文件：sample.md、sample.csv 与 sample.xlsx，目标格式选为 HTML" width="49%" />
   <br />
-  <sub><b>拖入、选格式，在你自己电脑上转换</b> — 空白工作台，页脚给出格式数与路径数。</sub>
+  <sub><b>左：拖入、选格式，在你自己电脑上转换</b>（页脚给出格式数与路径数）｜ <b>右：Markdown、CSV、Excel 一次转完</b>（每个文件各自求出到公共目标的路径）</sub>
 </p>
 
 <p align="center">
-  <img src="docs/assets/screenshots/batch-files.png" alt="工作台中已加入三个混合格式文件：sample.md、sample.csv 与 sample.xlsx，目标格式选为 HTML" width="100%" />
+  <img src="docs/assets/screenshots/batch-results.png" alt="转换完成提示，列出三个生成的 HTML 文件及其体积、逐项预览 / 复制 / 下载按钮，以及整批打包下载 ZIP 操作" width="49%" />
+  <img src="docs/assets/screenshots/output-preset.png" alt="图片输出参数面板与预设卡片：最长边、质量、目标体积、PDF 清晰度，以及三条已保存的预设" width="49%" />
   <br />
-  <sub><b>批量：Markdown、CSV、Excel 一次转完</b> — 每个文件各自求出到公共目标的路径。</sub>
+  <sub><b>左：一次混合批量，一个 ZIP 下载</b>（逐文件结果，各自带预览与复制按钮）｜ <b>右：尺寸、质量、目标体积存成一键预设</b></sub>
 </p>
 
 <p align="center">
-  <img src="docs/assets/screenshots/batch-results.png" alt="转换完成提示，列出三个生成的 HTML 文件及其体积、逐项预览 / 复制 / 下载按钮，以及整批打包下载 ZIP 操作" width="100%" />
+  <img src="docs/assets/screenshots/history.png" alt="转换历史面板：记录带源格式与目标格式标签、文件名、体积，以及搜索框、全部 / 源格式 / 目标格式筛选与「复用此格式」按钮" width="49%" />
+  <img src="docs/assets/screenshots/dark-mode.png" alt="深色模式下的工作台：深色背景上的上传区与历史记录卡片" width="49%" />
   <br />
-  <sub><b>一次混合批量，一个 ZIP 下载</b> — 逐文件结果，各自带预览与复制按钮。</sub>
-</p>
-
-<p align="center">
-  <img src="docs/assets/screenshots/preview-edit.png" alt="Markdown 转 HTML 的左右对照预览：左侧源码，右侧渲染结果，上方是渲染 / 源码 / 编辑 / 复制控件" width="100%" />
-  <br />
-  <sub><b>左右对照预览，下载前直接改</b> — 对照视图及其「渲染 / 源码 / 编辑 / 复制」控件。</sub>
-</p>
-
-<p align="center">
-  <img src="docs/assets/screenshots/history.png" alt="转换历史面板：记录带源格式与目标格式标签、文件名、体积，以及搜索框、全部 / 源格式 / 目标格式筛选与「复用此格式」按钮" width="100%" />
-  <br />
-  <sub><b>历史可搜索、可筛选、一键复用格式</b> — 只存元数据，绝不保存文件内容。</sub>
-</p>
-
-<p align="center">
-  <img src="docs/assets/screenshots/dark-mode.png" alt="深色模式下的工作台：深色背景上的上传区与历史记录卡片" width="100%" />
-  <br />
-  <sub><b>6 种主题色，浅色 / 深色 / 跟随系统</b> — 同一工作台在启动时应用深色外观。</sub>
+  <sub><b>左：历史可搜索、可筛选、一键复用格式</b>（只存元数据，绝不保存文件内容）｜ <b>右：6 种主题色，浅色 / 深色 / 跟随系统</b></sub>
 </p>
 
 ## 为什么做这个
@@ -97,21 +86,14 @@ pnpm build
 
 ## 工作原理
 
-```
-拖入 / 选择 / 粘贴文件           选择一个目标格式
-        │                                  │
-        ▼                                  ▼
-  识别格式   ──────►  在转换器图上做 BFS 寻路  ◄── 自动求出最短路径
-  （扩展名 +           14 种格式 · 46+ 条直连路径
-   魔数字节）                      │
-                                     ▼
-                     逐文件转换，可随时取消
-                     单个失败 ≠ 整批失败
-                                     │
-                     ┌───────────────┴───────────────┐
-                     ▼                               ▼
-                  下载单个文件                 整批 → 一个 ZIP
-                  可预览可编辑                 写入历史（仅元数据）
+```mermaid
+flowchart TD
+  A["拖入 / 选择 / 粘贴文件"] --> C["识别格式<br/>扩展名 + 魔数字节"]
+  B["选择一个目标格式"] --> D["在转换器图上做 BFS 寻路<br/>自动求出最短路径 · 14 种格式 · 46+ 条直连路径"]
+  C --> D
+  D --> E["逐文件转换，可随时取消<br/>单个失败 ≠ 整批失败"]
+  E --> F["下载单个文件<br/>可预览可编辑"]
+  E --> G["整批 → 一个 ZIP<br/>写入历史（仅元数据）"]
 ```
 
 每个转换对都把自己注册成图上的一条边，所以多步链路是"寻路求出来的"而不是写死的：Markdown → HTML → PDF、Word → HTML → Markdown，都是一次点击。新增一个转换器只需约 20 行，它参与的所有路径立刻自动可用。
@@ -124,9 +106,23 @@ pnpm build
 | 数据 | CSV ⇄ Excel (.xlsx)、JSON              | 互相转换，并经 HTML/CSV 桥接进入文档簇                                                  |
 | 图片 | PNG、JPEG、WebP、BMP、GIF、SVG         | PNG、JPEG、WebP（GIF 取首帧、SVG 光栅化）                                               |
 
-**常用路线。** 直接路径：Markdown ⇄ HTML、Word ⇄ HTML、HTML ⇄ PDF、CSV ⇄ Excel、JSON ⇄ CSV、JSON ⇄ HTML、Excel 转 JSON、CSV 转 HTML、Excel 转 HTML、TXT 转 HTML、TXT 转 Markdown、HTML 转 TXT、HTML 转 PNG、PNG ⇄ JPEG、PNG ⇄ WebP、JPEG ⇄ WebP、BMP 转 PNG / JPEG / WebP、GIF 转 PNG / JPEG / WebP、SVG 转 PNG / JPEG / WebP、PNG 转 PDF、JPEG 转 PDF、WebP 转 PDF、BMP 转 PDF、GIF 转 PDF、PDF 转 PNG。经 HTML 枢纽的两到三步链路：Word 转 PDF、PDF 转 Word、Word ⇄ Markdown、Markdown 转 PDF、Markdown 转 Word、PDF 转 Markdown、PDF 转 TXT、CSV 转 PDF、JSON 转 Excel、Excel 转 PDF、HTML 转 Excel、SVG 转 PDF，以及 6 种图片格式中任意一种转 Word 或 Markdown。目标格式下拉会展示解析出的完整链路，多步转换同样是一次点击；BFS 图上可达但语义不成立的组合（图片转 TXT / CSV / JSON / Excel、PDF 转 CSV / JSON / Excel）会置灰并说明原因，而不是等你点了转换才失败。
+**常用路线。**
 
-> 说明：PDF 输出为图片渲染（文字不可选中）；PDF 输入仅提取文本（不保留版式与图片）；PDF → 图片逐页渲染，多页文档下载为"每页一张 PNG"的 ZIP 包；BMP、GIF、SVG 仅支持作为输入——浏览器无法编码它们；多工作表 XLSX → CSV 会下载包含"每表一个 CSV"的 ZIP 包。目标格式下拉会列出全部格式，并对不可用的转换置灰、给出原因：46 条注册路径经 BFS 可到达 143 个源→目标组合，其中 27 个因语义无效被屏蔽——图片无法转换为文本或表格数据（这需要 OCR，本扩展完全离线、未内置），PDF 也无法可靠转换为表格/结构化数据——因此实际提供 116 个组合。
+_一步直达_
+
+- **文档** — Markdown ⇄ HTML、Word ⇄ HTML、HTML ⇄ PDF、HTML → TXT、TXT → HTML / Markdown
+- **数据** — CSV ⇄ Excel、JSON ⇄ CSV、JSON ⇄ HTML、Excel → JSON、CSV / Excel → HTML
+- **图片** — PNG ⇄ JPEG、PNG ⇄ WebP、JPEG ⇄ WebP；BMP / GIF / SVG → PNG / JPEG / WebP；PNG / JPEG / WebP / BMP / GIF → PDF；PDF → PNG；HTML → PNG
+
+_经 HTML 枢纽的两到三步（同样是一次点击，下拉会展示解析出的完整链路）_
+
+Word → PDF、PDF → Word、Word ⇄ Markdown、Markdown → PDF、Markdown → Word、PDF → Markdown、PDF → TXT、CSV → PDF、JSON → Excel、Excel → PDF、HTML → Excel、SVG → PDF，以及 6 种图片格式中任意一种 → Word 或 Markdown。
+
+_图上可达但语义不成立，因此置灰并说明原因，而不是等你点了转换才失败_
+
+图片 → TXT / CSV / JSON / Excel（需要 OCR，本扩展完全离线、未内置），PDF → CSV / JSON / Excel（无法可靠还原表格结构）。
+
+> 说明：PDF 输出为图片渲染（文字不可选中）；PDF 输入仅提取文本（不保留版式与图片）；PDF → 图片逐页渲染，多页文档下载为"每页一张 PNG"的 ZIP 包；BMP、GIF、SVG 仅支持作为输入——浏览器无法编码它们；多工作表 XLSX → CSV 会下载包含"每表一个 CSV"的 ZIP 包。上面三组的计数口径：46 条注册路径经 BFS 可到达 143 个源→目标组合，其中 27 个因语义无效被屏蔽（24 个图片 → TXT / CSV / JSON / XLSX，3 个 PDF → CSV / JSON / XLSX），因此目标格式下拉实际提供 116 个组合。
 
 ## 横向对比
 
@@ -182,7 +178,7 @@ pnpm build
 - **转换预设** — 把目标格式连同它的图片输出参数存成一键卡片（最多 12 个），点一下两样同时恢复。和「最近使用」的区别在于：后者只记住一个格式，预设记住的是整套配方——「JPEG、最长边 1280 px、控制在 200 KB 以内」。还没上传文件时选的预设会被记住，交给下一批能接住它的文件；当前批次转不了的预设会说明原因而不是静默改掉目标。没起名字的预设按它做什么自动命名
 - **界面状态记忆** — 对照视图的分隔条位置，以及转换历史与预设两张卡片的折叠状态都会持久化，下次打开工作台即恢复
 - **键盘可达** — 提供跳转主内容的 skip link、可见焦点环，完整支持 `prefers-reduced-motion`
-- **可测量的对比度** — 端到端套件在 6 种主题色 × 明暗共 12 组配置下逐项断言三组对比度：顶栏品牌文字对顶栏背景 ≥ 4.5:1（文本类 WCAG 2.1 AA）、焦点环对卡片背景 ≥ 3:1（用户界面组件类 AA）、以及主按钮文字在**常态 / 悬停 / 按下**三种状态下均 ≥ 4.5:1——读数取自已放入文件、已选目标、确实可点击的那颗按钮（文本规则豁免禁用控件）。2026-09-14 在真实页面实测的最低值为 4.70:1（浅色玫瑰红），深色六档均在 7.03:1 以上。另单独断言第一次 Tab 落在 skip link 上且该链接显示可见焦点环。已知限制：控件的填充色对它所在的背景还需 ≥ 3:1（WCAG 1.4.11），12 组里有 10 组满足，浅色的森林绿与活力橙主按钮不满足（最浅状态 2.21 / 2.96:1）——这两档填充本身就接近白色，再加深到 3:1 就要花掉文字那一侧的余量。
+- **可测量的对比度** — 端到端套件在 6 种主题色 × 明暗共 12 组配置下逐项断言三组 WCAG 对比度（顶栏文字、焦点环、主按钮三种状态），并断言第一次 Tab 落在 skip link 上且显示可见焦点环；阈值、实测读数与已知限制见 [CONTRIBUTING.md](CONTRIBUTING.md#无障碍与对比度断言) · [English](CONTRIBUTING.en.md#accessibility-and-contrast-assertions)
 - **个性化** — 6 种主题色 × 浅色 / 深色 / 跟随系统，中英文界面切换
 
 ## 隐私
@@ -231,73 +227,13 @@ pnpm build
 **转换历史存在哪，怎么清空？**
 存在本机的 `chrome.storage.local` 中，只包含文件名、格式与体积——绝不保存文件内容。历史面板支持删除单条记录、一键清空，以及把列表导出/导入为 JSON。卸载扩展会一并删除这份本地存储，因为别处没有副本。
 
-## 开发
-
-```bash
-pnpm dev              # 开发模式，热重载（WXT）
-pnpm build            # 生产构建，输出到 .output/chrome-mv3
-pnpm package          # 打包 zip 用于分发
-pnpm typecheck        # vue-tsc 类型检查
-pnpm lint:all         # typecheck + eslint + stylelint
-pnpm verify:meta      # package.json / wxt.config.ts / .github/repo-metadata.json 保持一致
-pnpm verify:offline   # 第一方源码无网络调用，manifest 仅声明 storage 权限
-pnpm test:e2e         # 构建 + 基于 fixtures/ 的 Playwright 套件
-pnpm assets:capture   # 重新生成商店与 README 用的截图和推广图（需先 pnpm build）
-node scripts/render-icons.mjs   # 从 assets/*.svg 重新渲染图标
-git tag v1.0.0 && git push --tags   # release.yml：产出商店包、校验包内容并创建 GitHub Release
-```
-
-### 技术栈
-
-- [WXT](https://wxt.dev/) + Vue 3 + TypeScript + Element Plus
-- 转换器：[marked](https://github.com/markedjs/marked)、[turndown](https://github.com/mixmark-io/turndown)、[mammoth](https://github.com/mwilliamson/mammoth.js)、[html-docx-js-typescript](https://github.com/caiyexiang/html-docx-js-typescript)、[jsPDF](https://github.com/parallax/jsPDF) + [html-to-image](https://github.com/bubkoo/html-to-image)、[pdf.js](https://mozilla.github.io/pdf.js/)、[SheetJS](https://sheetjs.com/)、[fflate](https://github.com/101arrowz/fflate)、[DOMPurify](https://github.com/cure53/DOMPurify)
-- 重型依赖按转换器动态 `import()`，首屏保持精简（完整产物 3.73 MB）
-
-### 项目结构
-
-```
-entrypoints/
-  background.ts        # 点击图标打开工作台
-  options/             # 转换工作台（Vue 应用）
-components/            # 共享 UI（上传、格式选择、预览、结果、历史）
-composables/           # useConversion / useFileDetect / useHistory / useI18n / useTheme
-utils/
-  core/                # 转换器注册表（BFS 寻路）、类型、格式元数据
-  converters/          # 每个转换对一个模块
-  i18n/                # 中 / 英文词典
-assets/                # 图标 SVG 母版、全局样式、主题令牌
-docs/                  # 产品说明页 + 隐私政策（GitHub Pages 源目录，不打包进扩展）
-  assets/screenshots/  # 1280×800 原始界面截图，README 与产品说明页使用
-  assets/store/        # 社交预览图 + Chrome 应用商店推广图
-    screens/           # 带文案的 1280×800 商店截图（中英两套）
-scripts/               # e2e 套件、素材生成、图标渲染、元数据与离线断言
-.github/
-  workflows/           # ci.yml · static.yml（Pages）· release.yml · repo-meta.yml
-  ISSUE_TEMPLATE/      # 问题反馈与新格式请求表单
-  repo-metadata.md     # 仓库 About 描述、20 个 topics、社交预览图为什么这么写与怎么落地
-CHROMEWEBSTORE.md      # 商店文案、权限说明、隐私披露
-CHANGELOG.md           # 发布说明（.en.md 为英文对照）
-CONTRIBUTING.md        # 一页说完全部贡献规则（.en.md 为英文对照）
-SECURITY.md            # 漏洞披露渠道与离线攻击面说明（.en.md 为英文对照）
-```
-
-`docs/` 只是仓库文档，永远不会被复制进 `.output/chrome-mv3`。
-
-### 新增一个转换器
-
-1. 创建 `utils/converters/<from>-to-<to>.ts`，实现 `Converter` 接口（`from`、`to`、`convert(blob, ctx?)`——可选的 `ctx` 携带取消信号、来源文件与图片输出参数）
-2. 在 `utils/converters/index.ts` 中注册
-3. 若引入了新格式：扩展 `FileFormat`、`FORMAT_INFO`，以及 `composables/useFileDetect.ts` 中的扩展名/MIME 映射
-
-经过新格式的多步转换路径会被自动发现。
-
 ## 参与贡献
 
 1. Fork 后从 `main` 切分支，跑 `pnpm install && pnpm dev`
 2. 保持离线底线：不新增权限、不发起网络请求、不引用远程资源；确有必要请在 PR 里写明
 3. 提交前跑 `pnpm lint:all` 与 `pnpm test:e2e`，新增转换器请一并补上 fixture 与测试场景
 
-完整规则（新增转换器、编码约定、哪些文档必须同步改）见 [CONTRIBUTING.md](CONTRIBUTING.md) · [English](CONTRIBUTING.en.md)。安全问题请私密报告，不要开 issue：[SECURITY.md](SECURITY.md) · [English](SECURITY.en.md)。
+完整规则见 [CONTRIBUTING.md](CONTRIBUTING.md) · [English](CONTRIBUTING.en.md)：开发命令清单、技术栈、项目结构、新增一个转换器的五步流程、编码与文档同步约定、图标两档母版，以及无障碍对比度断言的阈值与实测值。安全问题请私密报告，不要开 issue：[SECURITY.md](SECURITY.md) · [English](SECURITY.en.md)。
 
 ## 联系方式
 

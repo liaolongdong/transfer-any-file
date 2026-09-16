@@ -30,46 +30,35 @@ A Chrome extension (Manifest V3) that does every conversion inside a tab on your
 
 </div>
 
-![Split preview of a Markdown file converted to HTML, source on the left, rendered result on the right](docs/assets/screenshots/preview-edit.png)
+<p align="center">
+  <img src="docs/assets/screenshots/preview-edit.png" alt="Split preview of a Markdown file converted to HTML, source on the left, rendered result on the right" width="100%" />
+  <br />
+  <sub>Markdown source on the left, the HTML it converted to on the right — one click, entirely on your own machine.</sub>
+</p>
 
 ---
 
 ## Screenshots
 
 <p align="center">
-  <img src="docs/assets/screenshots/workbench-empty.png" alt="The empty workbench: a drop zone inviting files, a target-format picker beside it, and the history card below" width="100%" />
+  <img src="docs/assets/screenshots/workbench-empty.png" alt="The empty workbench: a drop zone inviting files, a target-format picker beside it, and the history card below" width="49%" />
+  <img src="docs/assets/screenshots/batch-files.png" alt="Three mixed-format files staged in the workbench: sample.md, sample.csv and sample.xlsx, with HTML selected as the target format" width="49%" />
   <br />
-  <sub><b>Drop, pick a format, convert on your own machine</b> — the empty workbench, with the format and route counts the footer derives.</sub>
+  <sub><b>Left: drop, pick a format, convert on your own machine</b> (the footer derives the format and route counts) ｜ <b>Right: Markdown, CSV and Excel in one run</b> (each file resolves its own route to the shared target)</sub>
 </p>
 
 <p align="center">
-  <img src="docs/assets/screenshots/batch-files.png" alt="Three mixed-format files staged in the workbench: sample.md, sample.csv and sample.xlsx, with HTML selected as the target format" width="100%" />
+  <img src="docs/assets/screenshots/batch-results.png" alt="Conversion complete message listing three generated HTML files with their sizes, per-file preview, copy and download buttons, and a Download ZIP action for the batch" width="49%" />
+  <img src="docs/assets/screenshots/output-preset.png" alt="The image output parameters panel and preset cards: longest edge, quality, target size, PDF render density, plus three saved presets" width="49%" />
   <br />
-  <sub><b>Batch: Markdown, CSV and Excel in one run</b> — each file resolves its own route to the shared target.</sub>
+  <sub><b>Left: one mixed batch, one ZIP download</b> (per-file results, each with its own preview and copy button) ｜ <b>Right: size, quality and a size ceiling saved as a one-click preset</b></sub>
 </p>
 
 <p align="center">
-  <img src="docs/assets/screenshots/batch-results.png" alt="Conversion complete message listing three generated HTML files with their sizes, per-file preview, copy and download buttons, and a Download ZIP action for the batch" width="100%" />
+  <img src="docs/assets/screenshots/history.png" alt="Conversion history panel showing records with source and target format badges, file names, sizes, a search field, All / Source / Target filters and a Reuse this format button" width="49%" />
+  <img src="docs/assets/screenshots/dark-mode.png" alt="The workbench in dark mode, showing the drop zone and history card on a dark background" width="49%" />
   <br />
-  <sub><b>One mixed batch, one ZIP download</b> — per-file results, each with its own preview and copy button.</sub>
-</p>
-
-<p align="center">
-  <img src="docs/assets/screenshots/preview-edit.png" alt="Split preview of a Markdown file converted to HTML, source on the left, rendered result on the right, with Rendered, Source, Edit and Copy controls above" width="100%" />
-  <br />
-  <sub><b>Preview side by side, edit before you download</b> — the split view with its Rendered / Source / Edit / Copy controls.</sub>
-</p>
-
-<p align="center">
-  <img src="docs/assets/screenshots/history.png" alt="Conversion history panel showing records with source and target format badges, file names, sizes, a search field, All / Source / Target filters and a Reuse this format button" width="100%" />
-  <br />
-  <sub><b>Searchable, filterable history with one-click reuse</b> — metadata only, never file contents.</sub>
-</p>
-
-<p align="center">
-  <img src="docs/assets/screenshots/dark-mode.png" alt="The workbench in dark mode, showing the drop zone and history card on a dark background" width="100%" />
-  <br />
-  <sub><b>6 accent colours, light / dark / system</b> — the same workbench with the dark appearance applied at startup.</sub>
+  <sub><b>Left: searchable, filterable history with one-click reuse</b> (metadata only, never file contents) ｜ <b>Right: 6 accent colours, light / dark / system</b></sub>
 </p>
 
 ## Why this exists
@@ -97,21 +86,14 @@ There is no store listing yet; `CHROMEWEBSTORE.md` holds the publish-ready listi
 
 ## How it works
 
-```
-drop / pick / paste files          pick one target format
-        │                                  │
-        ▼                                  ▼
-  detect format  ──────►  BFS over the converter graph  ◄── finds the shortest route
-  (extension +            14 formats · 46+ direct routes
-   magic bytes)                      │
-                                     ▼
-                     convert file-by-file, cancellable
-                     one failure ≠ a failed batch
-                                     │
-                     ┌───────────────┴───────────────┐
-                     ▼                               ▼
-              download one file              batch → single ZIP
-              preview & edit first           history written (metadata only)
+```mermaid
+flowchart TD
+  A["Drop / pick / paste files"] --> C["Detect format<br/>extension + magic bytes"]
+  B["Pick one target format"] --> D["BFS over the converter graph<br/>shortest route found automatically · 14 formats · 46+ direct routes"]
+  C --> D
+  D --> E["Convert file by file, cancellable<br/>one failure ≠ a failed batch"]
+  E --> F["Download one file<br/>preview & edit first"]
+  E --> G["Batch → single ZIP<br/>history written (metadata only)"]
 ```
 
 Because every conversion pair registers itself as an edge, multi-step chains are discovered rather than hard-coded: Markdown → HTML → PDF, or Word → HTML → Markdown, run as one click. Adding a converter is 20 lines and instantly unlocks every route through it.
@@ -124,9 +106,23 @@ Because every conversion pair registers itself as an edge, multi-step chains are
 | Data      | CSV ⇄ Excel (.xlsx), JSON              | Each other and the document cluster via HTML/CSV bridges                                                |
 | Images    | PNG, JPEG, WebP, BMP, GIF, SVG         | PNG, JPEG, WebP (GIF renders its first frame; SVG is rasterized)                                        |
 
-**Common routes.** Direct: Markdown ⇄ HTML, Word ⇄ HTML, HTML ⇄ PDF, CSV ⇄ Excel, JSON ⇄ CSV, JSON ⇄ HTML, Excel → JSON, CSV → HTML, Excel → HTML, TXT → HTML, TXT → Markdown, HTML → TXT, HTML → PNG, PNG ⇄ JPEG, PNG ⇄ WebP, JPEG ⇄ WebP, BMP → PNG / JPEG / WebP, GIF → PNG / JPEG / WebP, SVG → PNG / JPEG / WebP, PNG → PDF, JPEG → PDF, WebP → PDF, BMP → PDF, GIF → PDF, PDF → PNG. Through the HTML hub, in two or three steps: Word → PDF, PDF → Word, Word ⇄ Markdown, Markdown → PDF, Markdown → Word, PDF → Markdown, PDF → HTML → TXT, CSV → PDF, JSON → Excel, Excel → PDF, HTML → Excel, SVG → PDF, and any of the six image formats → Word or Markdown. The target picker shows the resolved chain, so a multi-step route is no extra work — and the formats that BFS reaches but cannot mean anything (image → TXT / CSV / JSON / Excel, PDF → CSV / JSON / Excel) are greyed out with the reason instead of failing later.
+**Common routes.**
 
-> Notes: PDF output is rendered as images (text is not selectable). PDF input extracts text only (layout and images are not preserved). PDF → image renders each page; multi-page documents download as a ZIP of per-page PNGs. BMP, GIF and SVG are input-only — browsers cannot encode them. Multi-sheet XLSX → CSV downloads a ZIP with one CSV per worksheet. The target dropdown lists every format and greys out unavailable ones with a reason: of the 143 source→target combinations BFS finds reachable over the 46 registered routes, 27 are blocked as semantically invalid — images cannot become text or tabular data (that needs OCR, which this offline extension does not bundle), and PDF cannot be reliably converted to tabular/structured data — so 116 are actually offered.
+_One step_
+
+- **Documents** — Markdown ⇄ HTML, Word ⇄ HTML, HTML ⇄ PDF, HTML → TXT, TXT → HTML / Markdown
+- **Data** — CSV ⇄ Excel, JSON ⇄ CSV, JSON ⇄ HTML, Excel → JSON, CSV / Excel → HTML
+- **Images** — PNG ⇄ JPEG, PNG ⇄ WebP, JPEG ⇄ WebP; BMP / GIF / SVG → PNG / JPEG / WebP; PNG / JPEG / WebP / BMP / GIF → PDF; PDF → PNG; HTML → PNG
+
+_Two or three steps through the HTML hub (still one click, and the picker shows the chain it resolved)_
+
+Word → PDF, PDF → Word, Word ⇄ Markdown, Markdown → PDF, Markdown → Word, PDF → Markdown, PDF → TXT, CSV → PDF, JSON → Excel, Excel → PDF, HTML → Excel, SVG → PDF, and any of the six image formats → Word or Markdown.
+
+_Reachable in the graph but meaningless, so greyed out with the reason instead of failing later_
+
+Image → TXT / CSV / JSON / Excel (that needs OCR, which this offline extension does not bundle), PDF → CSV / JSON / Excel (tabular structure cannot be recovered reliably).
+
+> Notes: PDF output is rendered as images (text is not selectable). PDF input extracts text only (layout and images are not preserved). PDF → image renders each page; multi-page documents download as a ZIP of per-page PNGs. BMP, GIF and SVG are input-only — browsers cannot encode them. Multi-sheet XLSX → CSV downloads a ZIP with one CSV per worksheet. How the three groups above count up: the 46 registered routes make 143 source→target combinations reachable through BFS, 27 of them are blocked as semantically invalid (24 image → TXT / CSV / JSON / XLSX, 3 PDF → CSV / JSON / XLSX), so the target picker offers 116.
 
 ## How it compares
 
@@ -182,7 +178,7 @@ Summarised from the typical behaviour of each class of tool rather than one spec
 - **Conversion presets** — save a target format together with its image output parameters as a one-click card (up to 12), and one click restores both. Unlike "recently used", which only remembers a format, a preset remembers the whole recipe — "JPEG, 1280 px, under 200 KB". A preset chosen before any file is added is remembered and applied to the next batch that can take it; one the current batch cannot reach is refused with a reason. An untitled preset names itself after what it does
 - **Remembered UI state** — the split-view divider position and the collapsed/expanded state of the history and preset cards are persisted and restored the next time the workbench opens
 - **Keyboard accessible** — skip link to the main content, visible focus rings, and full `prefers-reduced-motion` support
-- **Measured contrast** — the end-to-end suite asserts three contrast pairs in all 6 themes × light/dark (12 combinations): topbar brand text on the topbar at 4.5:1 or better (WCAG 2.1 AA for text), the focus ring on a card at 3:1 or better (AA for user-interface components), and the primary button's label in its **rest, hover and pressed** states at 4.5:1 or better — read off the enabled button with a file and a target staged, because the text rule exempts disabled controls. Worst measured value (2026-09-14, live page): 4.70:1, rose in light mode; the dark themes land at 7.03:1 and up. It separately asserts that the first Tab lands on the skip link and that the link shows a visible ring. Known limitation: a control's fill needs 3:1 against the surface behind it as well (WCAG 1.4.11), and that holds in 10 of the 12 combinations but not under the forest-green and orange buttons in light mode (2.21 / 2.96:1 at their lightest state) — those two fills sit close to white, and deepening them to clear 3:1 would spend the label's margin.
+- **Measured contrast** — the end-to-end suite asserts three WCAG contrast pairs (topbar text, focus ring, and the primary button label in its rest / hover / pressed states) across all 6 themes × light/dark, 12 combinations, and separately asserts that the first Tab lands on the skip link with a visible ring; thresholds, measured readings and the known limitation live in [CONTRIBUTING.en.md](CONTRIBUTING.en.md#accessibility-and-contrast-assertions) · [简体中文](CONTRIBUTING.md#无障碍与对比度断言)
 - **Personalization** — 6 theme colors × light / dark / system, Chinese/English interface
 
 ## Privacy
@@ -231,73 +227,13 @@ The build produces a Chrome Manifest V3 package, which also loads in Edge, Brave
 **Where is the conversion history kept, and how do I clear it?**
 In `chrome.storage.local` on your own machine, holding file names, formats and sizes only — never file contents. The history panel can delete a single record, clear everything, and export or import the list as JSON. Removing the extension removes that local storage with it, because there is no copy anywhere else.
 
-## Development
-
-```bash
-pnpm dev              # dev mode with hot reload (WXT)
-pnpm build            # production build to .output/chrome-mv3
-pnpm package          # zip for distribution
-pnpm typecheck        # vue-tsc
-pnpm lint:all         # typecheck + eslint + stylelint
-pnpm verify:meta      # package.json / wxt.config.ts / .github/repo-metadata.json stay in sync
-pnpm verify:offline   # no network call in first-party source, storage-only manifest
-pnpm test:e2e         # build + Playwright suite over fixtures/
-pnpm assets:capture   # regenerate store/README screenshots + promo graphics (needs pnpm build first)
-node scripts/render-icons.mjs   # re-render icons from assets/*.svg
-git tag v1.0.0 && git push --tags   # release.yml: build the store zip, verify it, open the GitHub Release
-```
-
-### Tech stack
-
-- [WXT](https://wxt.dev/) + Vue 3 + TypeScript + Element Plus
-- Converters: [marked](https://github.com/markedjs/marked), [turndown](https://github.com/mixmark-io/turndown), [mammoth](https://github.com/mwilliamson/mammoth.js), [html-docx-js-typescript](https://github.com/caiyexiang/html-docx-js-typescript), [jsPDF](https://github.com/parallax/jsPDF) + [html-to-image](https://github.com/bubkoo/html-to-image), [pdf.js](https://mozilla.github.io/pdf.js/), [SheetJS](https://sheetjs.com/), [fflate](https://github.com/101arrowz/fflate), [DOMPurify](https://github.com/cure53/DOMPurify)
-- Heavy dependencies are dynamically imported per converter, so the first paint stays small (whole bundle: 3.73 MB)
-
-### Project structure
-
-```
-entrypoints/
-  background.ts        # opens the workbench on icon click
-  options/             # the conversion workbench (Vue app)
-components/            # shared UI (upload, format selector, preview, results, history)
-composables/           # useConversion / useFileDetect / useHistory / useI18n / useTheme
-utils/
-  core/                # converter registry (BFS pathfinding), types, format metadata
-  converters/          # one module per conversion pair
-  i18n/                # zh / en dictionaries
-assets/                # icon SVG masters, global styles, theme tokens
-docs/                  # product page + privacy policy (GitHub Pages source, not bundled)
-  assets/screenshots/  # raw 1280×800 UI shots used by this file and the product page
-  assets/store/        # social preview + Chrome Web Store promo tiles
-    screens/           # captioned 1280×800 listing screenshots (English and Chinese)
-scripts/               # e2e suite, asset capture, icon rendering, metadata + offline guards
-.github/
-  workflows/           # ci.yml · static.yml (Pages) · release.yml · repo-meta.yml
-  ISSUE_TEMPLATE/      # bug report and format request forms
-  repo-metadata.md     # why the About description and 20 topics read this way, and how they get applied
-CHROMEWEBSTORE.md      # store listing copy, permissions justification, disclosures
-CHANGELOG.en.md        # release notes (Chinese is the primary CHANGELOG.md)
-CONTRIBUTING.en.md     # the whole rule set, in one page (Chinese is the primary CONTRIBUTING.md)
-SECURITY.en.md         # disclosure channel and the offline attack-surface claims (Chinese is primary)
-```
-
-`docs/` is repository documentation only — it is never copied into `.output/chrome-mv3`.
-
-### Adding a new converter
-
-1. Create `utils/converters/<from>-to-<to>.ts` implementing the `Converter` interface (`from`, `to`, `convert(blob, ctx?)` — the optional `ctx` carries the abort signal, the source file and the image output parameters)
-2. Register it in `utils/converters/index.ts`
-3. If it introduces a new format: extend `FileFormat`, `FORMAT_INFO` and the extension/MIME maps in `composables/useFileDetect.ts`
-
-Multi-step paths through the new format are discovered automatically.
-
 ## Contributing
 
 1. Fork, branch off `main`, and run `pnpm install && pnpm dev`
 2. Keep it offline: no new permission, no network call, no remote asset — say so in the PR if a change needs one
 3. Run `pnpm lint:all` and `pnpm test:e2e`, and add a fixture + scenario for any new converter
 
-Full rule set — adding a converter, conventions, and which docs must move together: [CONTRIBUTING.en.md](CONTRIBUTING.en.md) · [简体中文](CONTRIBUTING.md). Security issues are reported privately, not as issues: [SECURITY.en.md](SECURITY.en.md) · [简体中文](SECURITY.md).
+The full rule set lives in [CONTRIBUTING.en.md](CONTRIBUTING.en.md) · [简体中文](CONTRIBUTING.md): the command list, tech stack, project structure, the five steps for adding a converter, coding and documentation-sync conventions, the two icon masters, and the accessibility contrast thresholds with their measured values. Report security issues privately, not as an issue: [SECURITY.en.md](SECURITY.en.md) · [简体中文](SECURITY.md).
 
 ## Contact
 

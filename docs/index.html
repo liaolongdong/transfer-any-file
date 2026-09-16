@@ -921,6 +921,25 @@
         font-size: 14px;
       }
 
+      /* Reading progress: JS writes --scroll-p on the sticky bar, so the rule needs no extra node
+         and the bar stays glued to the nav's bottom edge at every breakpoint. */
+      .nav::after {
+        position: absolute;
+        right: 0;
+        bottom: -2px;
+        left: 0;
+        height: 3px;
+        background: linear-gradient(90deg, var(--brand) 0%, var(--violet) 100%);
+        content: '';
+        transform: scaleX(var(--scroll-p, 0));
+        transform-origin: 0 50%;
+      }
+
+      .nav-links > a.active {
+        background: var(--brand-soft);
+        color: var(--brand-dark);
+      }
+
       .menu-btn {
         display: none;
         padding: 8px 10px;
@@ -1161,12 +1180,12 @@
       /* ============ Cards ============ */
       .grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(258px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 258px), 1fr));
         gap: 18px;
       }
 
       .grid-2 {
-        grid-template-columns: repeat(auto-fit, minmax(330px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 330px), 1fr));
       }
 
       .card {
@@ -1349,7 +1368,7 @@
 
       .paths {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
         gap: 12px;
         margin-top: 18px;
       }
@@ -1384,7 +1403,7 @@
 
       .limits {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(272px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 272px), 1fr));
         gap: 12px;
         margin-top: 14px;
       }
@@ -1489,10 +1508,111 @@
         font-size: 13.5px;
       }
 
+      /* Screenshots are worth a closer look: the slide opens the lightbox below, and the track only
+         claims horizontal gestures so a vertical swipe still scrolls the page. */
+      .carousel-track img {
+        cursor: zoom-in;
+      }
+
+      .carousel-track {
+        touch-action: pan-y;
+      }
+
+      .lightbox {
+        position: fixed;
+        inset: 0;
+        z-index: 90;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+        background: rgb(16 24 40 / 82%);
+        cursor: zoom-out;
+      }
+
+      .lightbox[hidden] {
+        display: none;
+      }
+
+      .lightbox figure {
+        max-width: min(1200px, 94vw);
+        margin: 0;
+      }
+
+      .lightbox img {
+        max-height: 78vh;
+        width: auto;
+        margin: 0 auto;
+        border-radius: 12px;
+        background: #fff;
+        box-shadow: var(--shadow-lg);
+        cursor: zoom-out;
+      }
+
+      .lightbox figcaption {
+        margin-top: 14px;
+        color: #e4e7ec;
+        font-size: 14.5px;
+        text-align: center;
+      }
+
+      .lightbox-close {
+        position: absolute;
+        top: 14px;
+        right: 14px;
+        display: grid;
+        place-items: center;
+        width: 44px;
+        height: 44px;
+        background: rgb(255 255 255 / 14%);
+        border: 1px solid rgb(255 255 255 / 26%);
+        border-radius: 12px;
+        color: #fff;
+      }
+
+      .lightbox-close:hover {
+        background: rgb(255 255 255 / 24%);
+      }
+
+      .to-top {
+        position: fixed;
+        right: 18px;
+        bottom: 18px;
+        z-index: 40;
+        display: grid;
+        place-items: center;
+        width: 46px;
+        height: 46px;
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 50%;
+        color: var(--ink-soft);
+        box-shadow: var(--shadow-md);
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+        transform: translateY(8px);
+        transition:
+          opacity 0.2s ease,
+          visibility 0.2s,
+          transform 0.2s ease,
+          color 0.2s ease;
+      }
+
+      .to-top.show {
+        opacity: 1;
+        visibility: visible;
+        pointer-events: auto;
+        transform: none;
+      }
+
+      .to-top:hover {
+        color: var(--brand-dark);
+      }
+
       /* ============ Steps ============ */
       .steps-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr));
         gap: 16px;
       }
 
@@ -1835,6 +1955,10 @@
         .carousel-track {
           transition: none;
         }
+
+        .to-top {
+          transition: none;
+        }
       }
 
       /* ============ Responsive ============ */
@@ -1903,6 +2027,52 @@
           display: none;
         }
 
+        /* Touch targets: 38px arrows and a 9px dot are too small for a thumb, so the controls grow
+           and the dots keep their look while an invisible box widens what actually responds. */
+        .carousel-arrow {
+          width: 44px;
+          height: 44px;
+        }
+
+        .dots button {
+          position: relative;
+        }
+
+        .dots button::after {
+          position: absolute;
+          inset: -17px;
+          content: '';
+        }
+
+        .lang-toggle button {
+          padding: 9px 16px;
+        }
+
+        /* Wide tables stay scrollable, but the row label has to survive the scroll. */
+        .table-wrap {
+          -webkit-overflow-scrolling: touch;
+        }
+
+        table {
+          font-size: 14.5px;
+        }
+
+        th,
+        td {
+          padding: 9px 11px;
+        }
+
+        .table-wrap thead th:first-child,
+        .table-wrap tbody th {
+          position: sticky;
+          left: 0;
+          z-index: 1;
+        }
+
+        .section-head {
+          margin-bottom: 24px;
+        }
+
         .flow {
           grid-template-columns: minmax(0, 1fr);
           gap: 32px;
@@ -1944,12 +2114,30 @@
           font-size: 16px;
         }
 
+        .wrap {
+          padding: 0 18px;
+        }
+
         section {
           padding: 52px 0;
         }
 
         .hero {
           padding: 44px 0 40px;
+        }
+
+        /* The badges float over the screenshot's edges; on a phone they land on top of the UI they
+           are supposed to point at, so the frame speaks for itself. */
+        .float-badge {
+          display: none;
+        }
+
+        .lede {
+          font-size: 17px;
+        }
+
+        .hero-cta .btn {
+          flex: 1 1 100%;
         }
 
         .metrics-inner {
@@ -1959,12 +2147,49 @@
         .metric b {
           font-size: 25px;
         }
+
+        .card,
+        .step,
+        .flow-node {
+          padding: 18px 16px;
+        }
+
+        pre {
+          padding: 16px 14px;
+          font-size: 13px;
+        }
+
+        .copy-btn {
+          min-height: 36px;
+          padding: 7px 12px;
+        }
+
+        details.faq-item > summary {
+          padding: 15px 14px;
+          font-size: 15.5px;
+        }
+
+        .carousel-track figcaption {
+          font-size: 14px;
+        }
+
+        .contact-grid .qr img {
+          width: 100%;
+          max-width: 260px;
+        }
+
+        .to-top {
+          right: 14px;
+          bottom: 14px;
+        }
       }
 
       @media print {
         .nav,
         .carousel-ctl,
-        .copy-btn {
+        .copy-btn,
+        .to-top,
+        .lightbox {
           display: none !important;
         }
 
@@ -3871,7 +4096,7 @@
               <figure
                 role="group"
                 aria-roledescription="slide"
-                aria-label="1 / 6"
+                aria-label="1 / 7"
               >
                 <img
                   src="assets/screenshots/workbench-empty.png"
@@ -3891,7 +4116,7 @@
               <figure
                 role="group"
                 aria-roledescription="slide"
-                aria-label="2 / 6"
+                aria-label="2 / 7"
               >
                 <img
                   src="assets/screenshots/batch-files.png"
@@ -3913,7 +4138,7 @@
               <figure
                 role="group"
                 aria-roledescription="slide"
-                aria-label="3 / 6"
+                aria-label="3 / 7"
               >
                 <img
                   src="assets/screenshots/batch-results.png"
@@ -3935,7 +4160,7 @@
               <figure
                 role="group"
                 aria-roledescription="slide"
-                aria-label="4 / 6"
+                aria-label="4 / 7"
               >
                 <img
                   src="assets/screenshots/preview-edit.png"
@@ -3957,7 +4182,7 @@
               <figure
                 role="group"
                 aria-roledescription="slide"
-                aria-label="5 / 6"
+                aria-label="5 / 7"
               >
                 <img
                   src="assets/screenshots/history.png"
@@ -3977,7 +4202,7 @@
               <figure
                 role="group"
                 aria-roledescription="slide"
-                aria-label="6 / 6"
+                aria-label="6 / 7"
               >
                 <img
                   src="assets/screenshots/dark-mode.png"
@@ -3994,6 +4219,30 @@
                   <span lang="en"
                     >Dark appearance: 6 accent colours × light / dark / system, with the topbar text, primary button
                     label and focus-ring contrast measured in all 12 combinations.</span
+                  >
+                </figcaption>
+              </figure>
+              <figure
+                role="group"
+                aria-roledescription="slide"
+                aria-label="7 / 7"
+              >
+                <img
+                  src="assets/screenshots/output-preset.png"
+                  width="1280"
+                  height="800"
+                  alt="The image output parameters panel and preset cards: longest edge, encoder quality, target file size, PDF render density, plus three saved presets."
+                  loading="lazy"
+                />
+                <figcaption>
+                  <span lang="zh-CN"
+                    >输出参数与预设：最长边、编码质量、体积上限与 PDF
+                    清晰度都要主动设置，一个都不设就是编码器原本的默认值；存成预设之后，一次点击把整套配方带回来。</span
+                  >
+                  <span lang="en"
+                    >Output parameters and presets: longest edge, encoder quality, a size ceiling and PDF render density
+                    are each opt-in — set none and the encoders use their own defaults. Save the recipe as a preset and
+                    one click restores all of it.</span
                   >
                 </figcaption>
               </figure>
@@ -4046,7 +4295,7 @@
               role="tablist"
               aria-label="Screenshot selector"
             ></div>
-            <span class="counter"><span id="slideNow">1</span> / 6</span>
+            <span class="counter"><span id="slideNow">1</span> / <span id="slideTotal">7</span></span>
           </div>
         </div>
       </section>
@@ -5391,6 +5640,69 @@ pnpm build</code><button
       </div>
     </footer>
 
+    <!-- ================= OVERLAYS (both inert until the script below wakes them up) ================= -->
+    <div
+      class="lightbox"
+      id="lightbox"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Screenshot viewer"
+      hidden
+    >
+      <figure>
+        <img
+          id="lightboxImg"
+          src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"
+          alt=""
+          width="1280"
+          height="800"
+        />
+        <figcaption id="lightboxCaption"></figcaption>
+      </figure>
+      <button
+        class="lightbox-close"
+        type="button"
+        id="lightboxClose"
+      >
+        <span class="sr-only"
+          ><span lang="zh-CN">关闭放大预览</span><span lang="en">Close enlarged screenshot</span></span
+        >
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2.2"
+          stroke-linecap="round"
+          aria-hidden="true"
+        >
+          <path d="M6 6l12 12M18 6 6 18" />
+        </svg>
+      </button>
+    </div>
+
+    <button
+      class="to-top"
+      type="button"
+      id="toTop"
+    >
+      <span class="sr-only"><span lang="zh-CN">回到页面顶部</span><span lang="en">Back to top</span></span>
+      <svg
+        width="20"
+        height="20"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2.2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        aria-hidden="true"
+      >
+        <path d="M12 19V5m-6 6 6-6 6 6" />
+      </svg>
+    </button>
+
     <script>
       (function () {
         'use strict';
@@ -5516,6 +5828,87 @@ pnpm build</code><button
           });
         }
 
+        // The <figure> elements are the only truth about how many slides exist: the counter and each
+        // slide's aria-label are derived from them, so adding a screenshot needs no other edit.
+        var total = document.getElementById('slideTotal');
+        if (total) total.textContent = String(slides);
+        if (track) {
+          Array.prototype.forEach.call(track.children, function (fig, n) {
+            fig.setAttribute('aria-label', n + 1 + ' / ' + slides);
+          });
+        }
+
+        // ---- Swipe to change slide -------------------------------------------
+        var swiped = false;
+        if (track && 'PointerEvent' in window) {
+          var startX = 0;
+          var startY = 0;
+          track.addEventListener(
+            'pointerdown',
+            function (e) {
+              if (e.pointerType === 'mouse') return;
+              startX = e.clientX;
+              startY = e.clientY;
+            },
+            { passive: true },
+          );
+          track.addEventListener(
+            'pointerup',
+            function (e) {
+              if (e.pointerType === 'mouse' || !startX) return;
+              var dx = e.clientX - startX;
+              var dy = e.clientY - startY;
+              startX = 0;
+              // Horizontal must clearly beat vertical, or it was the page scroll the track is not claiming.
+              if (Math.abs(dx) > 44 && Math.abs(dx) > Math.abs(dy)) {
+                swiped = true;
+                go(index + (dx < 0 ? 1 : -1));
+              }
+            },
+            { passive: true },
+          );
+        }
+
+        // ---- Zoom a screenshot -----------------------------------------------
+        var box = document.getElementById('lightbox');
+        var boxImg = document.getElementById('lightboxImg');
+        var boxCap = document.getElementById('lightboxCaption');
+        var boxClose = document.getElementById('lightboxClose');
+        var lastFocus = null;
+
+        function closeLightbox() {
+          if (!box || box.hidden) return;
+          box.hidden = true;
+          if (lastFocus && typeof lastFocus.focus === 'function') lastFocus.focus();
+          lastFocus = null;
+        }
+
+        if (track && box) {
+          track.addEventListener('click', function (e) {
+            if (swiped) {
+              swiped = false;
+              return;
+            }
+            var img = e.target.closest('img');
+            var slide = img && img.closest('figure');
+            if (!slide) return;
+            lastFocus = document.activeElement;
+            boxImg.src = img.currentSrc || img.src;
+            boxImg.alt = img.alt;
+            boxCap.textContent = '';
+            var caption = slide.querySelector('figcaption');
+            var shown =
+              caption && (caption.querySelector('[lang="' + root.getAttribute('lang') + '"]') || caption.firstChild);
+            if (shown) boxCap.appendChild(shown.cloneNode(true));
+            box.hidden = false;
+            boxClose.focus();
+          });
+          box.addEventListener('click', closeLightbox);
+          document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') closeLightbox();
+          });
+        }
+
         // ---- Scroll reveal (skipped entirely when motion is reduced) --------
         var reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
         var revealables = document.querySelectorAll('.reveal');
@@ -5537,6 +5930,61 @@ pnpm build</code><button
           );
           Array.prototype.forEach.call(revealables, function (el) {
             io.observe(el);
+          });
+        }
+
+        // ---- Reading progress, current section, back to top ------------------
+        var nav = document.querySelector('.nav');
+        var toTop = document.getElementById('toTop');
+        var navAnchors = Array.prototype.slice.call(document.querySelectorAll('.nav-links > a[href^="#"]'));
+        var watched = [];
+        navAnchors.forEach(function (a) {
+          var section = document.querySelector(a.getAttribute('href'));
+          if (section) watched.push({ node: section, link: a });
+        });
+
+        function onScroll() {
+          raf = 0;
+          var max = root.scrollHeight - window.innerHeight;
+          if (nav) nav.style.setProperty('--scroll-p', max > 0 ? String(Math.min(1, window.scrollY / max)) : '0');
+          if (toTop) toTop.classList.toggle('show', window.scrollY > 600);
+        }
+
+        var raf = 0;
+        window.addEventListener(
+          'scroll',
+          function () {
+            if (!raf) raf = window.requestAnimationFrame(onScroll);
+          },
+          { passive: true },
+        );
+        window.addEventListener('resize', onScroll);
+        onScroll();
+
+        if ('IntersectionObserver' in window) {
+          var spy = new IntersectionObserver(
+            function (entries) {
+              entries.forEach(function (entry) {
+                if (!entry.isIntersecting) return;
+                var hit = watched.filter(function (w) {
+                  return w.node === entry.target;
+                })[0];
+                if (!hit) return;
+                navAnchors.forEach(function (a) {
+                  a.classList.toggle('active', a === hit.link);
+                });
+              });
+            },
+            { rootMargin: '-45% 0px -50% 0px', threshold: 0 },
+          );
+          watched.forEach(function (w) {
+            spy.observe(w.node);
+          });
+        }
+
+        if (toTop) {
+          toTop.addEventListener('click', function () {
+            window.scrollTo({ top: 0, behavior: reduced ? 'auto' : 'smooth' });
           });
         }
 
