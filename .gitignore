@@ -15,3 +15,5 @@ _site/
 # Generated paste-ready drafts (images inlined as data URIs, ~MBs each); the .md sources are tracked.
 docs/promo/*.html
 .DS_Store
+# Qoder agent local settings (per-machine approvals); `.qoder/rules/` stays tracked
+.qoder/settings.local.json
