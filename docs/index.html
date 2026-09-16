@@ -631,6 +631,14 @@
         --shadow-sm: 0 1px 2px rgb(16 24 40 / 6%);
         --shadow-md: 0 4px 24px -12px rgb(16 24 40 / 18%);
         --shadow-lg: 0 30px 60px -30px rgb(16 24 40 / 35%);
+        /* Motion ladder: presses and colour states take --dur-fast, state changes (underlines, panels,
+           pops) --dur-mid, anything that carries content in --dur-slow. --ease-out starts fast and
+           settles, which is what an arrival should feel like; --ease-in is reserved for leaving. */
+        --dur-fast: 0.16s;
+        --dur-mid: 0.24s;
+        --dur-slow: 0.42s;
+        --ease-out: cubic-bezier(0.22, 0.61, 0.36, 1);
+        --ease-in: cubic-bezier(0.55, 0, 0.55, 0.2);
       }
 
       /* ============ Reset & base ============ */
@@ -832,10 +840,40 @@
       }
 
       .nav-links > a {
+        position: relative;
         padding: 7px 11px;
         border-radius: 8px;
         color: var(--ink-soft);
         font-weight: 500;
+        transition:
+          color var(--dur-fast) ease,
+          background-color var(--dur-fast) ease;
+      }
+
+      /* The underline is the position indicator, and it is the reason the nav can be read without
+         looking at it: it grows out of the link's own left edge, so the direction of the movement
+         matches the direction you scrolled. Half opacity on hover keeps it distinct from "you are
+         here", which is the only state allowed to sit at full strength. */
+      .nav-links > a::after {
+        position: absolute;
+        right: 11px;
+        bottom: 3px;
+        left: 11px;
+        height: 2px;
+        background: var(--brand);
+        border-radius: 2px;
+        content: '';
+        opacity: 0;
+        transform: scaleX(0);
+        transform-origin: 0 50%;
+        transition:
+          transform var(--dur-mid) var(--ease-out),
+          opacity var(--dur-fast) ease;
+      }
+
+      .nav-links > a:hover::after {
+        opacity: 0.45;
+        transform: scaleX(1);
       }
 
       .nav-links > a:hover {
@@ -941,6 +979,11 @@
       .nav-links > a.active {
         background: var(--brand-soft);
         color: var(--brand-dark);
+      }
+
+      .nav-links > a.active::after {
+        opacity: 1;
+        transform: scaleX(1);
       }
 
       .menu-btn {
@@ -1115,6 +1158,7 @@
 
       .metric b {
         display: block;
+        font-variant-numeric: tabular-nums;
         font-size: 30px;
         font-weight: 700;
         letter-spacing: -0.03em;
@@ -1494,7 +1538,7 @@
 
       .carousel-track {
         display: flex;
-        transition: transform 0.42s cubic-bezier(0.22, 0.61, 0.36, 1);
+        transition: transform var(--dur-slow) var(--ease-out);
       }
 
       .carousel-track > figure {
@@ -1661,7 +1705,8 @@
           opacity 0.25s ease,
           visibility 0.25s,
           color 0.2s ease,
-          background 0.2s ease;
+          background 0.2s ease,
+          transform var(--dur-fast) var(--ease-out);
       }
 
       .scroll-rail button:hover {
@@ -2132,7 +2177,8 @@
         font-size: 12px;
         transition:
           color 0.2s,
-          border-color 0.2s;
+          border-color 0.2s,
+          transform var(--dur-fast) var(--ease-out);
       }
 
       .wx-copy:hover {
@@ -2150,12 +2196,16 @@
       }
 
       /* ============ Motion ============ */
+      /* Everything below moves with transform and opacity only, never longer than half a second, and
+         every piece of it has a job: telling you where you are, confirming that a press registered, or
+         showing which action caused the change that followed. The blanket rule at the end of this
+         section stops all of it for `prefers-reduced-motion` without hiding anything. */
       .js .reveal {
         opacity: 0;
         transform: translateY(14px);
         transition:
-          opacity 0.5s ease,
-          transform 0.5s ease;
+          opacity var(--dur-slow) var(--ease-out),
+          transform var(--dur-slow) var(--ease-out);
       }
 
       .reveal.in {
@@ -2163,25 +2213,213 @@
         transform: none;
       }
 
+      /* A grid of cards arrives column by column rather than all at once, which reads as one set instead
+         of twelve separate events. The offset is capped at 110ms so the last card never looks like it is
+         still loading. */
+      .js .grid > .reveal:nth-child(3n-1),
+      .js .steps-grid > .reveal:nth-child(3n-1) {
+        transition-delay: 60ms;
+      }
+
+      .js .grid > .reveal:nth-child(3n),
+      .js .steps-grid > .reveal:nth-child(3n) {
+        transition-delay: 110ms;
+      }
+
+      @keyframes rise-in {
+        from {
+          opacity: 0;
+          transform: translateY(14px);
+        }
+      }
+
+      /* The first screen is a read order: badge, headline, pitch, then the actions — 70ms apart, which
+         is about how long it takes to decide an element is not the next thing to look at. `backwards`
+         holds each element at its start frame during the delay, and since the delay only ever runs on
+         first paint, nothing can be caught invisible by scrolling. */
+      .js .hero-copy > * {
+        animation: rise-in 0.44s var(--ease-out) backwards;
+      }
+
+      .js .hero-copy > :nth-child(2) {
+        animation-delay: 70ms;
+      }
+
+      .js .hero-copy > :nth-child(3) {
+        animation-delay: 140ms;
+      }
+
+      .js .hero-copy > :nth-child(4) {
+        animation-delay: 210ms;
+      }
+
+      .js .hero-copy > :nth-child(5) {
+        animation-delay: 280ms;
+      }
+
+      @keyframes visual-in {
+        from {
+          opacity: 0;
+          transform: scale(0.985) translateY(18px);
+        }
+      }
+
+      /* The screenshot arrives a beat behind the copy, from slightly further down, so it reads as the
+         thing the headline was pointing at rather than a second announcement. */
+      .js .hero-visual {
+        animation: visual-in 0.5s var(--ease-out) 120ms backwards;
+      }
+
+      /* One press response for every control, declared once so the feel is literally shared: 0.97 for
+         as long as the pointer is down, back on release, at the shortest step of the ladder. Colour
+         states ride along here because this rule replaces each control's own transition list. */
+      .btn,
+      .copy-btn,
+      .lang-toggle button,
+      .menu-btn,
+      .carousel-arrow,
+      .lightbox-close,
+      details.faq-item > summary {
+        transition:
+          transform var(--dur-fast) var(--ease-out),
+          background-color var(--dur-fast) ease,
+          border-color var(--dur-fast) ease,
+          color var(--dur-fast) ease;
+      }
+
+      .btn:active,
+      .copy-btn:active,
+      .wx-copy:active,
+      .lang-toggle button:active,
+      .menu-btn:active,
+      .carousel-arrow:active,
+      .lightbox-close:active,
+      .scroll-rail button:active,
+      details.faq-item > summary:active {
+        transform: scale(0.97);
+      }
+
+      @keyframes confirm-pop {
+        45% {
+          transform: scale(1.07);
+        }
+      }
+
+      /* Copying a string has no other visible consequence, so the chip carries the whole confirmation:
+         it turns green and pops once. Green is the same value used by the ✓ column, so the colour is
+         already "this is the good state" in this page's vocabulary. */
+      .copy-btn.is-copied,
+      .wx-copy.is-copied {
+        color: #6ee7b7;
+        border-color: rgb(110 231 183 / 55%);
+        animation: confirm-pop var(--dur-mid) var(--ease-out);
+      }
+
+      /* Chrome 131+ can animate the panel a <details> element opens, and this page is read by Chrome
+         users, so the answer should grow out of the question rather than land mid-scroll. Doubly
+         gated: without `interpolate-size` `auto` is not an animatable length, and without
+         `::details-content` there is no panel to address — either absence leaves the instant snap. */
+      @supports (interpolate-size: allow-keywords) and (selector(::details-content)) {
+        html {
+          interpolate-size: allow-keywords;
+        }
+
+        details.faq-item::details-content {
+          block-size: 0;
+          opacity: 0;
+          overflow: clip;
+          transition:
+            block-size var(--dur-mid) var(--ease-out),
+            opacity 0.18s ease,
+            content-visibility var(--dur-mid) allow-discrete;
+        }
+
+        details.faq-item[open]::details-content {
+          block-size: auto;
+          opacity: 1;
+        }
+
+        /* Closing is the short end of the pair: a panel that collapses at opening speed feels like it
+           is waiting for you. */
+        details.faq-item:not([open])::details-content {
+          transition-duration: var(--dur-fast);
+        }
+      }
+
+      @keyframes veil-in {
+        from {
+          opacity: 0;
+        }
+      }
+
+      @keyframes plate-in {
+        from {
+          opacity: 0;
+          transform: scale(0.94);
+        }
+      }
+
+      /* The enlargement starts from smaller than the thumbnail you clicked, so the screenshot you were
+         looking at becomes the screenshot you are now looking at instead of a new one appearing. */
+      .lightbox:not([hidden]) {
+        animation: veil-in var(--dur-fast) ease-out;
+      }
+
+      .lightbox:not([hidden]) figure {
+        animation: plate-in var(--dur-mid) var(--ease-out);
+      }
+
+      /* The arrow leans the way it will take you — the one hover state on this page that can carry
+         information rather than only decorate. */
+      .scroll-rail button svg {
+        transition: transform var(--dur-fast) var(--ease-out);
+      }
+
+      .rail-top:hover svg {
+        transform: translateY(-2px);
+      }
+
+      .rail-bottom:hover svg {
+        transform: translateY(2px);
+      }
+
+      @keyframes found {
+        from {
+          color: var(--brand-dark);
+        }
+      }
+
+      /* A fragment jump can land you anywhere inside a section, and the heading is the only thing that
+         says where. One pass back to the body colour, then it stops: the marker is spent, and a
+         permanently tinted heading would tell you nothing. */
+      section:target .section-head h2 {
+        animation: found 1.2s var(--ease-out);
+      }
+
       @media (prefers-reduced-motion: reduce) {
         html {
           scroll-behavior: auto;
         }
 
-        .js .reveal {
+        /* A blanket stop rather than a per-component opt-out, so motion added later cannot slip past
+           it. Durations collapse instead of the properties being removed, which keeps every element
+           at the state it was animating *to*. */
+        *,
+        *::before,
+        *::after {
+          animation-duration: 0.01ms !important;
+          animation-delay: 0ms !important;
+          transition-duration: 0.01ms !important;
+          transition-delay: 0ms !important;
+        }
+
+        /* And the two states that begin invisible are pinned visible, so nothing depends on the
+           animations above having run. */
+        .js .reveal,
+        .js .hero-copy > *,
+        .js .hero-visual {
           opacity: 1;
           transform: none;
-          transition: none;
-        }
-
-        .carousel-track {
-          transition: none;
-        }
-
-        .scroll-rail,
-        .scroll-rail button,
-        .scroll-rail-divider {
-          transition: none;
         }
       }
 
@@ -2360,6 +2598,30 @@
           font-size: 17px;
         }
 
+        /* 28px was the clamp's floor, not a mobile size, so on a phone every heading broke in half and
+           the head read as three unrelated lines. Below 620px the title takes the size that keeps the
+           short headings on one line (15 CJK characters fit the 354px gutter), the subtitle steps down
+           with it so the pair keeps its ratio, and the eyebrow closes in until it reads as the title's
+           caption rather than a row of its own. */
+        .section-head h2 {
+          font-size: 1.4rem;
+          line-height: 1.3;
+        }
+
+        .section-head p.sub {
+          font-size: 16px;
+        }
+
+        .eyebrow-sm {
+          margin-bottom: 7px;
+          font-size: 12.5px;
+        }
+
+        .sec-ico {
+          width: 14px;
+          height: 14px;
+        }
+
         .hero-cta .btn {
           flex: 1 1 100%;
         }
@@ -2433,9 +2695,13 @@
           display: none !important;
         }
 
-        .js .reveal {
+        .js .reveal,
+        .js .hero-copy > *,
+        .js .hero-visual,
+        section:target .section-head h2 {
           opacity: 1;
           transform: none;
+          animation: none;
         }
 
         /* The night palette is for the screen: #94a3b8 lands at 2.6:1 on white paper. */
@@ -2767,7 +3033,7 @@
         id="app"
       >
         <div class="wrap hero-grid">
-          <div>
+          <div class="hero-copy">
             <span class="eyebrow">
               <span class="dot"></span>
               <span lang="zh-CN">开源 MIT · Manifest V3 · 零网络请求</span
@@ -2933,7 +3199,7 @@
               >
             </div>
             <div class="metric">
-              <b>3.71&nbsp;MB</b>
+              <b>3.73&nbsp;MB</b>
               <span class="label"><span lang="zh-CN">完整包体</span><span lang="en">whole bundle</span></span>
             </div>
           </div>
@@ -6644,6 +6910,42 @@ pnpm build</code><button
           });
         }
 
+        // ---- Roll the metric band up, once, as it comes into view ----------
+        // Only bare integers are touched: "3.73 MB" is a measurement with a unit, not a tally, and
+        // rolling it would advertise a precision the build does not have. The real value stays in the
+        // HTML, so crawlers, no-JS readers and reduced-motion readers all see the answer immediately.
+        var metricNums = Array.prototype.slice.call(document.querySelectorAll('.metric b')).filter(function (el) {
+          return /^\d{2,}$/.test(el.textContent.trim());
+        });
+
+        function runCount(el) {
+          var target = parseInt(el.textContent, 10);
+          var start = performance.now();
+          var span = 620;
+          el.textContent = '0';
+          requestAnimationFrame(function step(now) {
+            var p = Math.min(1, (now - start) / span);
+            el.textContent = String(Math.round(target * (1 - Math.pow(1 - p, 3))));
+            if (p < 1) requestAnimationFrame(step);
+          });
+        }
+
+        if (!reduced && metricNums.length && 'IntersectionObserver' in window) {
+          var countIO = new IntersectionObserver(
+            function (entries) {
+              entries.forEach(function (entry) {
+                if (!entry.isIntersecting) return;
+                countIO.unobserve(entry.target);
+                runCount(entry.target);
+              });
+            },
+            { threshold: 0.4 },
+          );
+          metricNums.forEach(function (el) {
+            countIO.observe(el);
+          });
+        }
+
         // ---- Reading progress, current section, scroll rail ------------------
         var nav = document.querySelector('.nav');
         var rail = document.getElementById('scrollRail');
@@ -6719,8 +7021,10 @@ pnpm build</code><button
             var label = copyBtn.querySelector('[lang="' + root.getAttribute('lang') + '"]') || copyBtn;
             var done = function (text) {
               label.textContent = text;
+              copyBtn.classList.add('is-copied');
               setTimeout(function () {
                 label.textContent = root.getAttribute('lang') === 'zh-CN' ? '复制' : 'Copy';
+                copyBtn.classList.remove('is-copied');
               }, 1800);
             };
             if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -6746,8 +7050,10 @@ pnpm build</code><button
             var zh = root.getAttribute('lang') === 'zh-CN';
             var done = function (text) {
               wxId.textContent = text;
+              wxCopy.classList.add('is-copied');
               setTimeout(function () {
                 wxId.textContent = wxIdValue;
+                wxCopy.classList.remove('is-copied');
               }, 1800);
             };
             if (navigator.clipboard && navigator.clipboard.writeText) {
