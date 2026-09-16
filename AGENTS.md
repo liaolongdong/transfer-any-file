@@ -13,24 +13,25 @@
 
 ## 常用命令
 
-| 用途               | 命令                                                                                                                                               |
-| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 开发（热重载）     | `pnpm dev`                                                                                                                                         |
-| 生产构建           | `pnpm build`（输出 `.output/chrome-mv3`）                                                                                                          |
-| 打包分发 zip       | `pnpm package`                                                                                                                                     |
-| 类型检查           | `pnpm typecheck`（vue-tsc）                                                                                                                        |
-| ESLint / Stylelint | `pnpm lint` / `pnpm lint:style`                                                                                                                    |
-| 全量检查           | `pnpm lint:all`（typecheck + eslint + stylelint）                                                                                                  |
-| 元数据一致性       | `pnpm verify:meta`（`package.json` ↔ `wxt.config.ts` 的 `__MSG__` / `default_locale` ↔ `_locales/en` ↔ `.github/repo-metadata.json`）             |
-| 离线断言           | `pnpm verify:offline`（第一方源码无网络调用；manifest 仅 `storage`、无 host 权限）                                                                 |
-| 商店文案一致性     | `pnpm verify:listing`（`CHROMEWEBSTORE.md` 每个粘贴字段不超限、与 `_locales` / manifest / `package.json` / 仓库 About 一致、速查区块未漂移）        |
-| E2E 测试           | `pnpm test:e2e`（= build + `node scripts/e2e-test.mjs`，Playwright + Chrome）                                                                      |
-| 图标重建           | `node scripts/render-icons.mjs`（源 `assets/*.svg` → `public/icon/*.png` + `docs/assets/icon*.png`）                                               |
-| 商店/文档素材      | `pnpm build && pnpm assets:capture`（脚本自身不构建，缺 `.output/chrome-mv3` 会直接退出）                                                          |
-| 公众号稿排版       | `pnpm promo:wechat`（`scripts/render-wechat-html.mjs`，内联样式 + 图片内嵌 + 外链转文末）                                                          |
-| 产物校验           | `node scripts/verify-extension.mjs`                                                                                                                |
-| 发布               | `git tag vX.Y.Z && git push --tags` → `.github/workflows/release.yml`（校版本/包内容 → GitHub Release → 凭证齐备时提交商店）                       |
-| 仓库 About 同步    | 改 `.github/repo-metadata.json` → `.github/workflows/repo-meta.yml`（需 `REPO_METADATA_TOKEN`）；理由与一次性落地命令见 `.github/repo-metadata.md` |
+| 用途               | 命令                                                                                                                                                                   |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 开发（热重载）     | `pnpm dev`                                                                                                                                                             |
+| 生产构建           | `pnpm build`（输出 `.output/chrome-mv3`）                                                                                                                              |
+| 打包分发 zip       | `pnpm package`                                                                                                                                                         |
+| 类型检查           | `pnpm typecheck`（vue-tsc）                                                                                                                                            |
+| ESLint / Stylelint | `pnpm lint` / `pnpm lint:style`                                                                                                                                        |
+| 全量检查           | `pnpm lint:all`（typecheck + eslint + stylelint）                                                                                                                      |
+| 元数据一致性       | `pnpm verify:meta`（`package.json` ↔ `wxt.config.ts` 的 `__MSG__` / `default_locale` ↔ `_locales/en` ↔ `.github/repo-metadata.json`）                                  |
+| 离线断言           | `pnpm verify:offline`（第一方源码无网络调用；manifest 仅 `storage`、无 host 权限）                                                                                     |
+| 商店文案一致性     | `pnpm verify:listing`（`CHROMEWEBSTORE.md` 每个粘贴字段不超限、与 `_locales` / manifest / `package.json` / 仓库 About 一致、速查区块未漂移）                           |
+| E2E 测试           | `pnpm test:e2e`（= build + `node scripts/e2e-test.mjs`，Playwright + Chrome）                                                                                          |
+| 图标重建           | `node scripts/render-icons.mjs`（源 `assets/*.svg` → `public/icon/*.png` + `docs/assets/icon*.png`）                                                                   |
+| 商店/文档素材      | `pnpm build && pnpm assets:capture`（脚本自身不构建，缺 `.output/chrome-mv3` 会直接退出）                                                                              |
+| README 演示 GIF    | `pnpm build && node scripts/render-demo-gif.mjs`（录制真实构建产物 → `docs/assets/demo/demo-<locale>.gif`，中/英各一条，`DEMO_LOCALES` 控制；另需 PATH 上有 `ffmpeg`） |
+| 公众号稿排版       | `pnpm promo:wechat`（`scripts/render-wechat-html.mjs`，内联样式 + 图片内嵌 + 外链转文末）                                                                              |
+| 产物校验           | `node scripts/verify-extension.mjs`                                                                                                                                    |
+| 发布               | `git tag vX.Y.Z && git push --tags` → `.github/workflows/release.yml`（校版本/包内容 → GitHub Release → 凭证齐备时提交商店）                                           |
+| 仓库 About 同步    | 改 `.github/repo-metadata.json` → `.github/workflows/repo-meta.yml`（需 `REPO_METADATA_TOKEN`）；理由与一次性落地命令见 `.github/repo-metadata.md`                     |
 
 > 包管理器固定 `pnpm`（见 `package.json#packageManager`），勿混用 npm/yarn。`pnpm fix:all` 会重写全仓库，局部任务改用 `pnpm exec eslint --fix <file>` / `stylelint --fix` / `prettier --write <file>`。
 

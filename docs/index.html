@@ -721,7 +721,7 @@
 
       h2 {
         margin-bottom: 10px;
-        font-size: clamp(1.55rem, 3.2vw, 2.15rem);
+        font-size: clamp(1.75rem, 3.6vw, 2.5rem);
       }
 
       h3 {
@@ -803,7 +803,10 @@
         display: flex;
         align-items: center;
         gap: 18px;
-        padding: 11px 0;
+
+        /* Longhand on purpose: `.wrap` owns the horizontal gutter, and re-declaring the `padding`
+           shorthand here would zero it and pull the nav out of line with every section. */
+        padding-block: 11px;
       }
 
       .brand {
@@ -1128,7 +1131,7 @@
 
       /* ============ Sections ============ */
       section {
-        padding: 70px 0;
+        padding: 56px 0;
         border-bottom: 1px solid var(--line);
       }
 
@@ -1137,12 +1140,18 @@
       }
 
       section.tight {
-        padding: 56px 0;
+        padding: 44px 0;
       }
 
+      /* A section's whitespace belongs under its title, not above its eyebrow: the divider does the
+         separating, so the head and the content it introduces read as one group. */
       .section-head {
         max-width: 72ch;
-        margin-bottom: 30px;
+        margin-bottom: 34px;
+      }
+
+      .section-head h2 {
+        text-wrap: balance;
       }
 
       .section-head p.sub {
@@ -1152,13 +1161,33 @@
       }
 
       .eyebrow-sm {
-        display: inline-block;
-        margin-bottom: 12px;
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        margin-bottom: 10px;
         color: var(--brand-dark);
         font-size: 13px;
         font-weight: 700;
         letter-spacing: 0.04em;
         text-transform: uppercase;
+      }
+
+      /* Every section glyph lives once in a hidden sprite right after <body>, so an eyebrow carries
+         a single <use> instead of a copy of the path data. The stroke is set here rather than on the
+         symbols so all eleven glyphs share one weight and pick up the eyebrow's colour. */
+      .sprite {
+        display: none;
+      }
+
+      .sec-ico {
+        flex: none;
+        width: 15px;
+        height: 15px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
       }
 
       /* The 40-60 word answer blocks AI engines can lift verbatim */
@@ -1364,6 +1393,33 @@
       .no {
         color: var(--warn);
         font-weight: 700;
+      }
+
+      /* The comparison is read down our own column, so that column carries the visual weight.
+         The ✓ / ✕ glyphs matter as much as the tint: colour alone would drop the verdict in
+         greyscale, for colour-blind readers, and for anything reading the table as text.
+         Scoped to #compare — `.yes` also means "n/a" in the privacy table. */
+      #compare .own {
+        background: var(--brand-soft);
+      }
+
+      #compare thead .own {
+        color: var(--brand-dark);
+        font-size: 14px;
+      }
+
+      #compare .yes::before,
+      #compare .no::before {
+        margin-right: 5px;
+        font-weight: 700;
+      }
+
+      #compare .yes::before {
+        content: '✓';
+      }
+
+      #compare .no::before {
+        content: '✕';
       }
 
       .paths {
@@ -1573,40 +1629,73 @@
         background: rgb(255 255 255 / 24%);
       }
 
-      .to-top {
+      /* One pill, two arrows. Whichever end you are already at collapses — and takes itself out of
+         the tab order with it — so the rail never offers a jump that goes nowhere. */
+      .scroll-rail {
         position: fixed;
         right: 18px;
         bottom: 18px;
         z-index: 40;
-        display: grid;
-        place-items: center;
-        width: 46px;
-        height: 46px;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
         background: #fff;
         border: 1px solid var(--line);
-        border-radius: 50%;
-        color: var(--ink-soft);
+        border-radius: 999px;
         box-shadow: var(--shadow-md);
+        transition: opacity 0.25s ease;
+      }
+
+      .scroll-rail button {
+        display: grid;
+        place-items: center;
+        width: 42px;
+        height: 42px;
+        max-height: 42px;
+        padding: 0;
+        color: var(--ink-soft);
+        background: transparent;
+        border: 0;
+        transition:
+          max-height 0.25s ease,
+          opacity 0.25s ease,
+          visibility 0.25s,
+          color 0.2s ease,
+          background 0.2s ease;
+      }
+
+      .scroll-rail button:hover {
+        color: var(--brand-dark);
+        background: var(--brand-soft);
+      }
+
+      .scroll-rail button:focus-visible {
+        outline: 2px solid var(--brand);
+        outline-offset: -2px;
+      }
+
+      .scroll-rail-divider {
+        height: 1px;
+        margin: 0 11px;
+        background: var(--line);
+        transition: opacity 0.25s ease;
+      }
+
+      .scroll-rail.at-top .rail-top,
+      .scroll-rail.at-bottom .rail-bottom {
         opacity: 0;
         visibility: hidden;
-        pointer-events: none;
-        transform: translateY(8px);
-        transition:
-          opacity 0.2s ease,
-          visibility 0.2s,
-          transform 0.2s ease,
-          color 0.2s ease;
+        max-height: 0;
       }
 
-      .to-top.show {
-        opacity: 1;
-        visibility: visible;
-        pointer-events: auto;
-        transform: none;
+      .scroll-rail.at-top .scroll-rail-divider,
+      .scroll-rail.at-bottom .scroll-rail-divider {
+        opacity: 0;
       }
 
-      .to-top:hover {
-        color: var(--brand-dark);
+      .scroll-rail.at-top.at-bottom {
+        opacity: 0;
+        visibility: hidden;
       }
 
       /* ============ Steps ============ */
@@ -1897,25 +1986,158 @@
       }
 
       /* ============ Footer ============ */
+      /* The page ends on a dark block on purpose: it is the one place the palette inverts, so a
+         read-through has a visible stopping point and the last-chance links sit apart from body
+         copy. The tokens are scoped to this rule for the same reason — nothing above the footer
+         should be able to reach a "night" colour by accident. Both text colours clear AA on
+         #0f172a (#cbd5e1 is 12:1, #94a3b8 is 7:1), and the focus ring below is set per element
+         because the page-wide `:focus-visible` brand blue drops to ~2.6:1 against this background. */
       footer.site {
-        padding: 46px 0 60px;
-        color: var(--ink-faint);
+        --night: #0f172a;
+        --night-raised: rgb(255 255 255 / 4%);
+        --night-line: rgb(255 255 255 / 10%);
+        --on-night: #cbd5e1;
+        --on-night-soft: #94a3b8;
+        padding: 44px 0 52px;
+        background: var(--night);
+        color: var(--on-night-soft);
         font-size: 14.5px;
       }
 
-      .foot-grid {
+      footer.site a {
+        color: var(--on-night);
+      }
+
+      footer.site a:hover {
+        color: #fff;
+        text-decoration: underline;
+      }
+
+      footer.site :focus-visible {
+        outline-color: #93c5fd;
+      }
+
+      .foot-inner {
         display: flex;
         flex-wrap: wrap;
-        gap: 24px;
+        gap: 32px;
         align-items: flex-start;
         justify-content: space-between;
       }
 
-      footer.site nav {
+      .foot-main {
+        flex: 1 1 430px;
+        min-width: 0;
+      }
+
+      footer.site .brand {
+        margin-bottom: 14px;
+        color: #fff;
+        font-size: 16.5px;
+      }
+
+      footer.site .brand img {
+        width: 26px;
+        height: 26px;
+      }
+
+      .foot-disclaimer {
+        max-width: 660px;
+        margin: 0;
+        line-height: 1.7;
+      }
+
+      .foot-disclaimer strong {
+        color: var(--on-night);
+      }
+
+      /* The nav bar carries the six sections a first visit needs; the footer carries all eleven,
+         so no section on this page is a dead end once you have scrolled past it. */
+      .foot-index {
         display: flex;
         flex-wrap: wrap;
+        gap: 8px 18px;
+        margin-top: 18px;
+        font-size: 14px;
+      }
+
+      .foot-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px 22px;
+        margin-top: 16px;
+        color: var(--on-night-soft);
+        font-size: 13px;
+      }
+
+      .foot-meta svg {
+        vertical-align: -2px;
+      }
+
+      .foot-note {
+        margin: 14px 0 0;
+        font-size: 12.5px;
+      }
+
+      .foot-wechat {
+        display: flex;
+        flex: 0 0 auto;
         gap: 16px;
-        margin-bottom: 14px;
+        align-items: center;
+        padding: 16px 20px;
+        background: var(--night-raised);
+        border: 1px solid var(--night-line);
+        border-radius: var(--radius);
+      }
+
+      .foot-wechat img {
+        width: 108px;
+        height: auto;
+        padding: 5px;
+        background: #fff;
+        border-radius: var(--radius-sm);
+      }
+
+      .foot-wechat-body {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        align-items: flex-start;
+      }
+
+      .foot-wechat-title {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        color: #fff;
+        font-weight: 600;
+      }
+
+      .foot-wechat-desc {
+        max-width: 232px;
+        margin: 0;
+        font-size: 12.5px;
+        line-height: 1.6;
+      }
+
+      .wx-copy {
+        display: inline-flex;
+        gap: 6px;
+        align-items: center;
+        padding: 6px 14px;
+        color: var(--on-night);
+        background: transparent;
+        border: 1px solid rgb(255 255 255 / 18%);
+        border-radius: 999px;
+        font-size: 12px;
+        transition:
+          color 0.2s,
+          border-color 0.2s;
+      }
+
+      .wx-copy:hover {
+        color: #fff;
+        border-color: rgb(255 255 255 / 45%);
       }
 
       .updated {
@@ -1956,7 +2178,9 @@
           transition: none;
         }
 
-        .to-top {
+        .scroll-rail,
+        .scroll-rail button,
+        .scroll-rail-divider {
           transition: none;
         }
       }
@@ -2119,7 +2343,7 @@
         }
 
         section {
-          padding: 52px 0;
+          padding: 44px 0;
         }
 
         .hero {
@@ -2178,9 +2402,25 @@
           max-width: 260px;
         }
 
-        .to-top {
+        .scroll-rail {
           right: 14px;
           bottom: 14px;
+        }
+
+        .foot-wechat {
+          flex-direction: column;
+          align-items: center;
+          width: 100%;
+        }
+
+        .foot-wechat-body {
+          align-items: center;
+          text-align: center;
+        }
+
+        .wx-copy {
+          min-height: 40px;
+          padding: 9px 16px;
         }
       }
 
@@ -2188,7 +2428,7 @@
         .nav,
         .carousel-ctl,
         .copy-btn,
-        .to-top,
+        .scroll-rail,
         .lightbox {
           display: none !important;
         }
@@ -2197,10 +2437,233 @@
           opacity: 1;
           transform: none;
         }
+
+        /* The night palette is for the screen: #94a3b8 lands at 2.6:1 on white paper. */
+        footer.site {
+          background: none;
+          color: var(--ink-soft);
+        }
+
+        footer.site a,
+        footer.site .brand,
+        .foot-disclaimer strong,
+        .foot-wechat-title {
+          color: var(--ink);
+        }
+
+        .foot-meta {
+          color: var(--ink-soft);
+        }
+
+        .foot-wechat {
+          background: none;
+          border-color: var(--line);
+        }
       }
     </style>
   </head>
   <body>
+    <!-- Section-head glyphs. Hidden root + <use> keeps eleven eyebrows from carrying a copy of the same
+         path data; symbols carry their own viewBox, the shared stroke lives in `.sec-ico`. -->
+    <svg
+      class="sprite"
+      aria-hidden="true"
+    >
+      <defs>
+        <symbol
+          id="i-alert"
+          viewBox="0 0 24 24"
+        >
+          <circle
+            cx="12"
+            cy="12"
+            r="10"
+          />
+          <line
+            x1="12"
+            y1="8"
+            x2="12"
+            y2="12"
+          />
+          <line
+            x1="12"
+            y1="16"
+            x2="12.01"
+            y2="16"
+          />
+        </symbol>
+        <symbol
+          id="i-grid"
+          viewBox="0 0 24 24"
+        >
+          <rect
+            x="3"
+            y="3"
+            width="7"
+            height="7"
+          />
+          <rect
+            x="14"
+            y="3"
+            width="7"
+            height="7"
+          />
+          <rect
+            x="14"
+            y="14"
+            width="7"
+            height="7"
+          />
+          <rect
+            x="3"
+            y="14"
+            width="7"
+            height="7"
+          />
+        </symbol>
+        <symbol
+          id="i-repeat"
+          viewBox="0 0 24 24"
+        >
+          <polyline points="17 1 21 5 17 9" />
+          <path d="M3 11V9a4 4 0 0 1 4-4h14" />
+          <polyline points="7 23 3 19 7 15" />
+          <path d="M21 13v2a4 4 0 0 1-4 4H3" />
+        </symbol>
+        <symbol
+          id="i-layers"
+          viewBox="0 0 24 24"
+        >
+          <polygon points="12 2 2 7 12 12 22 7 12 2" />
+          <polyline points="2 17 12 22 22 17" />
+          <polyline points="2 12 12 17 22 12" />
+        </symbol>
+        <symbol
+          id="i-image"
+          viewBox="0 0 24 24"
+        >
+          <rect
+            x="3"
+            y="3"
+            width="18"
+            height="18"
+            rx="2"
+            ry="2"
+          />
+          <circle
+            cx="8.5"
+            cy="8.5"
+            r="1.5"
+          />
+          <polyline points="21 15 16 10 5 21" />
+        </symbol>
+        <symbol
+          id="i-download"
+          viewBox="0 0 24 24"
+        >
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+          <polyline points="7 10 12 15 17 10" />
+          <line
+            x1="12"
+            y1="15"
+            x2="12"
+            y2="3"
+          />
+        </symbol>
+        <symbol
+          id="i-award"
+          viewBox="0 0 24 24"
+        >
+          <circle
+            cx="12"
+            cy="8"
+            r="7"
+          />
+          <polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88" />
+        </symbol>
+        <symbol
+          id="i-lock"
+          viewBox="0 0 24 24"
+        >
+          <rect
+            x="3"
+            y="11"
+            width="18"
+            height="11"
+            rx="2"
+            ry="2"
+          />
+          <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+        </symbol>
+        <symbol
+          id="i-help"
+          viewBox="0 0 24 24"
+        >
+          <circle
+            cx="12"
+            cy="12"
+            r="10"
+          />
+          <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+          <line
+            x1="12"
+            y1="17"
+            x2="12.01"
+            y2="17"
+          />
+        </symbol>
+        <symbol
+          id="i-list"
+          viewBox="0 0 24 24"
+        >
+          <line
+            x1="8"
+            y1="6"
+            x2="21"
+            y2="6"
+          />
+          <line
+            x1="8"
+            y1="12"
+            x2="21"
+            y2="12"
+          />
+          <line
+            x1="8"
+            y1="18"
+            x2="21"
+            y2="18"
+          />
+          <line
+            x1="3"
+            y1="6"
+            x2="3.01"
+            y2="6"
+          />
+          <line
+            x1="3"
+            y1="12"
+            x2="3.01"
+            y2="12"
+          />
+          <line
+            x1="3"
+            y1="18"
+            x2="3.01"
+            y2="18"
+          />
+        </symbol>
+        <symbol
+          id="i-chat"
+          viewBox="0 0 24 24"
+        >
+          <path
+            d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"
+          />
+        </symbol>
+      </defs>
+    </svg>
+
     <a
       class="skip"
       href="#main"
@@ -2481,6 +2944,15 @@
       <section id="why">
         <div class="wrap">
           <div class="section-head">
+            <span class="eyebrow-sm">
+              <svg
+                class="sec-ico"
+                aria-hidden="true"
+              >
+                <use href="#i-alert" />
+              </svg>
+              <span lang="zh-CN">问题</span><span lang="en">The problem</span>
+            </span>
             <h2>
               <span lang="zh-CN">为什么人们会离开在线转换网站</span>
               <span lang="en">Why people leave online converters</span>
@@ -2633,7 +3105,15 @@
       >
         <div class="wrap">
           <div class="section-head">
-            <span class="eyebrow-sm"><span lang="zh-CN">支持的格式</span><span lang="en">Supported formats</span></span>
+            <span class="eyebrow-sm">
+              <svg
+                class="sec-ico"
+                aria-hidden="true"
+              >
+                <use href="#i-grid" />
+              </svg>
+              <span lang="zh-CN">支持的格式</span><span lang="en">Supported formats</span>
+            </span>
             <h2>
               <span lang="zh-CN">哪种格式能转成哪种</span>
               <span lang="en">Which formats convert to which</span>
@@ -3359,7 +3839,15 @@
       >
         <div class="wrap">
           <div class="section-head">
-            <span class="eyebrow-sm"><span lang="zh-CN">工作原理</span><span lang="en">How it works</span></span>
+            <span class="eyebrow-sm">
+              <svg
+                class="sec-ico"
+                aria-hidden="true"
+              >
+                <use href="#i-repeat" />
+              </svg>
+              <span lang="zh-CN">工作原理</span><span lang="en">How it works</span>
+            </span>
             <h2>
               <span lang="zh-CN">一次转换走过的六步</span>
               <span lang="en">The six steps inside one conversion</span>
@@ -3522,7 +4010,15 @@
       <section id="features">
         <div class="wrap">
           <div class="section-head">
-            <span class="eyebrow-sm"><span lang="zh-CN">核心能力</span><span lang="en">Core capabilities</span></span>
+            <span class="eyebrow-sm">
+              <svg
+                class="sec-ico"
+                aria-hidden="true"
+              >
+                <use href="#i-layers" />
+              </svg>
+              <span lang="zh-CN">核心能力</span><span lang="en">Core capabilities</span>
+            </span>
             <h2>
               <span lang="zh-CN">单文件转换之外的那些事</span>
               <span lang="en">What it does beyond a single conversion</span>
@@ -4065,7 +4561,15 @@
       >
         <div class="wrap">
           <div class="section-head">
-            <span class="eyebrow-sm"><span lang="zh-CN">界面</span><span lang="en">Interface</span></span>
+            <span class="eyebrow-sm">
+              <svg
+                class="sec-ico"
+                aria-hidden="true"
+              >
+                <use href="#i-image" />
+              </svg>
+              <span lang="zh-CN">界面</span><span lang="en">Interface</span>
+            </span>
             <h2>
               <span lang="zh-CN">工作台长什么样</span>
               <span lang="en">The workbench, screen by screen</span>
@@ -4304,7 +4808,15 @@
       <section id="install">
         <div class="wrap">
           <div class="section-head">
-            <span class="eyebrow-sm"><span lang="zh-CN">安装与使用</span><span lang="en">Install &amp; use</span></span>
+            <span class="eyebrow-sm">
+              <svg
+                class="sec-ico"
+                aria-hidden="true"
+              >
+                <use href="#i-download" />
+              </svg>
+              <span lang="zh-CN">安装与使用</span><span lang="en">Install &amp; use</span>
+            </span>
             <h2>
               <span lang="zh-CN">安装四步，日常四步</span>
               <span lang="en">Four steps to install, four steps a day</span>
@@ -4432,20 +4944,31 @@ pnpm build</code><button
       >
         <div class="wrap">
           <div class="section-head">
-            <span class="eyebrow-sm"><span lang="zh-CN">横向对比</span><span lang="en">Comparison</span></span>
+            <span class="eyebrow-sm">
+              <svg
+                class="sec-ico"
+                aria-hidden="true"
+              >
+                <use href="#i-award" />
+              </svg>
+              <span lang="zh-CN">横向对比</span><span lang="en">Comparison</span>
+            </span>
             <h2>
               <span lang="zh-CN">本地扩展 vs 在线转换网站 vs 命令行工具</span>
               <span lang="en">Local extension vs online converter vs command-line tool</span>
             </h2>
             <p class="sub">
               <span lang="zh-CN"
-                >诚实的权衡：在线服务能覆盖更多格式（视频、音频、电子书、CAD），因为它们能跑重型服务器；命令行工具能处理成百上千个文件且可编排；在浏览器能解码的格式上，本地扩展胜在隐私、限制与开箱即用。三者不是替代关系。</span
+                >行按本扩展那一列排序：前九行是 ✅
+                ——多数是对在线网站的净胜，与命令行工具互有胜负；后四行是它明确让位给在线服务或命令行的维度。诚实的权衡：在线服务能覆盖更多格式（视频、音频、电子书、CAD），因为它们能跑重型服务器；命令行工具能处理成百上千个文件且可编排；在浏览器能解码的格式上，本地扩展胜在隐私、限制与开箱即用。三者不是替代关系。</span
               >
               <span lang="en"
-                >An honest trade-off: online services cover far more formats (video, audio, e-books, CAD) because they
-                can run heavy servers; command-line tools handle thousands of files and script well. Where a browser can
-                decode the format, a local extension wins on privacy, limits and convenience. The three are not
-                substitutes.</span
+                >Rows are ordered by our own column: the first nine are ✅ — outright wins over online services in most
+                cases, a split against a CLI — and the last four are where an online service or a command-line tool
+                plainly does better. An honest trade-off: online services cover far more formats (video, audio, e-books,
+                CAD) because they can run heavy servers; command-line tools handle thousands of files and script well.
+                Where a browser can decode the format, a local extension wins on privacy, limits and convenience. The
+                three are not substitutes.</span
               >
             </p>
           </div>
@@ -4463,7 +4986,12 @@ pnpm build</code><button
               <thead>
                 <tr>
                   <th scope="col"><span lang="zh-CN">维度</span><span lang="en">Dimension</span></th>
-                  <th scope="col">Transfer Any File</th>
+                  <th
+                    scope="col"
+                    class="own"
+                  >
+                    <span aria-hidden="true">⭐</span> Transfer Any File
+                  </th>
                   <th scope="col"><span lang="zh-CN">在线转换网站</span><span lang="en">Online converter</span></th>
                   <th scope="col"><span lang="zh-CN">命令行工具</span><span lang="en">CLI tool</span></th>
                 </tr>
@@ -4473,15 +5001,104 @@ pnpm build</code><button
                   <th scope="row">
                     <span lang="zh-CN">文件离开设备</span><span lang="en">Your file leaves the device</span>
                   </th>
-                  <td class="yes"><span lang="zh-CN">从不</span><span lang="en">Never</span></td>
+                  <td class="yes own"><span lang="zh-CN">从不</span><span lang="en">Never</span></td>
                   <td class="no">
                     <span lang="zh-CN">总是（机制如此）</span><span lang="en">Always (that is the mechanism)</span>
                   </td>
                   <td class="yes"><span lang="zh-CN">从不</span><span lang="en">Never</span></td>
                 </tr>
                 <tr>
-                  <th scope="row"><span lang="zh-CN">安装成本</span><span lang="en">Setup cost</span></th>
+                  <th scope="row">
+                    <span lang="zh-CN">离线 / 飞行可用</span><span lang="en">Works offline / on a plane</span>
+                  </th>
+                  <td class="yes own"><span lang="zh-CN">是</span><span lang="en">Yes</span></td>
+                  <td class="no"><span lang="zh-CN">否</span><span lang="en">No</span></td>
+                  <td class="yes"><span lang="zh-CN">是</span><span lang="en">Yes</span></td>
+                </tr>
+                <tr>
+                  <th scope="row"><span lang="zh-CN">价格与账号</span><span lang="en">Price and account</span></th>
+                  <td class="yes own">
+                    <span lang="zh-CN">免费，无需注册，无付费版</span
+                    ><span lang="en">Free, no sign-up, no paid tier</span>
+                  </td>
                   <td class="no">
+                    <span lang="zh-CN">免费额度，订阅才能解除限制</span
+                    ><span lang="en">Free quota, subscription lifts the limits</span>
+                  </td>
+                  <td class="yes"><span lang="zh-CN">通常免费</span><span lang="en">Usually free</span></td>
+                </tr>
+                <tr>
+                  <th scope="row">
+                    <span lang="zh-CN">预览与转换后微调</span><span lang="en">Preview and tweak the result</span>
+                  </th>
+                  <td class="yes own">
+                    <span lang="zh-CN">内置对比视图 + 内联编辑</span
+                    ><span lang="en">Built-in comparison view and inline editing</span>
+                  </td>
+                  <td class="no">
+                    <span lang="zh-CN">通常只有缩略图</span><span lang="en">Usually a thumbnail at best</span>
+                  </td>
+                  <td class="no"><span lang="zh-CN">无</span><span lang="en">None</span></td>
+                </tr>
+                <tr>
+                  <th scope="row">
+                    <span lang="zh-CN">混合格式批次</span><span lang="en">Batch of mixed formats</span>
+                  </th>
+                  <td class="yes own">
+                    <span lang="zh-CN">是，整批共用一个目标</span
+                    ><span lang="en">Yes, one target for the whole batch</span>
+                  </td>
+                  <td class="no">
+                    <span lang="zh-CN">通常付费或排队</span><span lang="en">Usually paid or queue-bound</span>
+                  </td>
+                  <td class="yes"><span lang="zh-CN">是，且可编排</span><span lang="en">Yes, and scriptable</span></td>
+                </tr>
+                <tr>
+                  <th scope="row"><span lang="zh-CN">免费额度限制</span><span lang="en">Free-tier limits</span></th>
+                  <td class="yes own">
+                    <span lang="zh-CN">单文件 100 MB、单批 200 个</span
+                    ><span lang="en">100 MB per file, 200 files per batch</span>
+                  </td>
+                  <td class="no">
+                    <span lang="zh-CN">每日配额、体积上限、水印</span
+                    ><span lang="en">Daily quotas, size caps, watermarks</span>
+                  </td>
+                  <td class="yes"><span lang="zh-CN">无</span><span lang="en">None</span></td>
+                </tr>
+                <tr>
+                  <th scope="row"><span lang="zh-CN">使用门槛</span><span lang="en">Learning curve</span></th>
+                  <td class="yes own">
+                    <span lang="zh-CN">拖文件、选格式</span><span lang="en">Drop a file, pick a format</span>
+                  </td>
+                  <td class="yes">
+                    <span lang="zh-CN">上传、等下载</span><span lang="en">Upload, wait, download</span>
+                  </td>
+                  <td class="no">
+                    <span lang="zh-CN">需记参数与格式名</span><span lang="en">Flags and format names</span>
+                  </td>
+                </tr>
+                <tr>
+                  <th scope="row"><span lang="zh-CN">源码</span><span lang="en">Source code</span></th>
+                  <td class="yes own"><span lang="zh-CN">开源（MIT）</span><span lang="en">Open source (MIT)</span></td>
+                  <td class="no"><span lang="zh-CN">闭源</span><span lang="en">Closed</span></td>
+                  <td class="yes"><span lang="zh-CN">开源</span><span lang="en">Open source</span></td>
+                </tr>
+                <tr>
+                  <th scope="row">
+                    <span lang="zh-CN">中文界面与编码</span><span lang="en">Chinese interface and encoding</span>
+                  </th>
+                  <td class="yes own">
+                    <span lang="zh-CN">中英双语界面；CSV 输出带 BOM，Excel 打开不乱码</span
+                    ><span lang="en">Bilingual UI; CSV written with a BOM so Excel opens it cleanly</span>
+                  </td>
+                  <td><span lang="zh-CN">视具体服务而定</span><span lang="en">Depends on the service</span></td>
+                  <td class="no">
+                    <span lang="zh-CN">编码需自行处理</span><span lang="en">Encoding is left to you</span>
+                  </td>
+                </tr>
+                <tr>
+                  <th scope="row"><span lang="zh-CN">安装成本</span><span lang="en">Setup cost</span></th>
+                  <td class="no own">
                     <span lang="zh-CN">构建一次，加载未打包目录</span
                     ><span lang="en">Build once, load the unpacked folder</span>
                   </td>
@@ -4493,66 +5110,8 @@ pnpm build</code><button
                   </td>
                 </tr>
                 <tr>
-                  <th scope="row"><span lang="zh-CN">使用门槛</span><span lang="en">Learning curve</span></th>
-                  <td class="yes">
-                    <span lang="zh-CN">拖文件、选格式</span><span lang="en">Drop a file, pick a format</span>
-                  </td>
-                  <td class="yes">
-                    <span lang="zh-CN">上传、等下载</span><span lang="en">Upload, wait, download</span>
-                  </td>
-                  <td class="no">
-                    <span lang="zh-CN">需记参数与格式名</span><span lang="en">Flags and format names</span>
-                  </td>
-                </tr>
-                <tr>
-                  <th scope="row"><span lang="zh-CN">免费额度限制</span><span lang="en">Free-tier limits</span></th>
-                  <td class="yes">
-                    <span lang="zh-CN">单文件 100 MB、单批 200 个</span
-                    ><span lang="en">100 MB per file, 200 files per batch</span>
-                  </td>
-                  <td class="no">
-                    <span lang="zh-CN">每日配额、体积上限、水印</span
-                    ><span lang="en">Daily quotas, size caps, watermarks</span>
-                  </td>
-                  <td class="yes"><span lang="zh-CN">无</span><span lang="en">None</span></td>
-                </tr>
-                <tr>
-                  <th scope="row">
-                    <span lang="zh-CN">离线 / 飞行可用</span><span lang="en">Works offline / on a plane</span>
-                  </th>
-                  <td class="yes"><span lang="zh-CN">是</span><span lang="en">Yes</span></td>
-                  <td class="no"><span lang="zh-CN">否</span><span lang="en">No</span></td>
-                  <td class="yes"><span lang="zh-CN">是</span><span lang="en">Yes</span></td>
-                </tr>
-                <tr>
-                  <th scope="row">
-                    <span lang="zh-CN">混合格式批次</span><span lang="en">Batch of mixed formats</span>
-                  </th>
-                  <td class="yes">
-                    <span lang="zh-CN">是，整批共用一个目标</span
-                    ><span lang="en">Yes, one target for the whole batch</span>
-                  </td>
-                  <td class="no">
-                    <span lang="zh-CN">通常付费或排队</span><span lang="en">Usually paid or queue-bound</span>
-                  </td>
-                  <td class="yes"><span lang="zh-CN">是，且可编排</span><span lang="en">Yes, and scriptable</span></td>
-                </tr>
-                <tr>
-                  <th scope="row">
-                    <span lang="zh-CN">预览与转换后微调</span><span lang="en">Preview and tweak the result</span>
-                  </th>
-                  <td class="yes">
-                    <span lang="zh-CN">内置对比视图 + 内联编辑</span
-                    ><span lang="en">Built-in comparison view and inline editing</span>
-                  </td>
-                  <td class="no">
-                    <span lang="zh-CN">通常只有缩略图</span><span lang="en">Usually a thumbnail at best</span>
-                  </td>
-                  <td class="no"><span lang="zh-CN">无</span><span lang="en">None</span></td>
-                </tr>
-                <tr>
                   <th scope="row"><span lang="zh-CN">格式广度</span><span lang="en">Format breadth</span></th>
-                  <td class="no">
+                  <td class="no own">
                     <span lang="zh-CN">14 种文档 / 数据 / 图片</span
                     ><span lang="en">14 document / data / image formats</span>
                   </td>
@@ -4569,7 +5128,7 @@ pnpm build</code><button
                   <th scope="row">
                     <span lang="zh-CN">OCR / 复杂排版修复</span><span lang="en">OCR, complex PDF layout repair</span>
                   </th>
-                  <td class="no"><span lang="zh-CN">未内置</span><span lang="en">Not bundled</span></td>
+                  <td class="no own"><span lang="zh-CN">未内置</span><span lang="en">Not bundled</span></td>
                   <td class="yes"><span lang="zh-CN">常见</span><span lang="en">Commonly offered</span></td>
                   <td class="no">
                     <span lang="zh-CN">需额外装 Tesseract 等</span
@@ -4578,43 +5137,14 @@ pnpm build</code><button
                 </tr>
                 <tr>
                   <th scope="row"><span lang="zh-CN">可编排 / CI</span><span lang="en">Scriptable / CI</span></th>
-                  <td class="no"><span lang="zh-CN">无命令行入口</span><span lang="en">No CLI entry point</span></td>
+                  <td class="no own">
+                    <span lang="zh-CN">无命令行入口</span><span lang="en">No CLI entry point</span>
+                  </td>
                   <td class="no">
                     <span lang="zh-CN">无官方 API（有则付费）</span
                     ><span lang="en">No official API (paid when offered)</span>
                   </td>
                   <td class="yes"><span lang="zh-CN">天生为脚本设计</span><span lang="en">Designed for it</span></td>
-                </tr>
-                <tr>
-                  <th scope="row"><span lang="zh-CN">源码</span><span lang="en">Source code</span></th>
-                  <td class="yes"><span lang="zh-CN">开源（MIT）</span><span lang="en">Open source (MIT)</span></td>
-                  <td class="no"><span lang="zh-CN">闭源</span><span lang="en">Closed</span></td>
-                  <td class="yes"><span lang="zh-CN">开源</span><span lang="en">Open source</span></td>
-                </tr>
-                <tr>
-                  <th scope="row"><span lang="zh-CN">价格与账号</span><span lang="en">Price and account</span></th>
-                  <td class="yes">
-                    <span lang="zh-CN">免费，无需注册，无付费版</span
-                    ><span lang="en">Free, no sign-up, no paid tier</span>
-                  </td>
-                  <td class="no">
-                    <span lang="zh-CN">免费额度，订阅才能解除限制</span
-                    ><span lang="en">Free quota, subscription lifts the limits</span>
-                  </td>
-                  <td class="yes"><span lang="zh-CN">通常免费</span><span lang="en">Usually free</span></td>
-                </tr>
-                <tr>
-                  <th scope="row">
-                    <span lang="zh-CN">中文界面与编码</span><span lang="en">Chinese interface and encoding</span>
-                  </th>
-                  <td class="yes">
-                    <span lang="zh-CN">中英双语界面；CSV 输出带 BOM，Excel 打开不乱码</span
-                    ><span lang="en">Bilingual UI; CSV written with a BOM so Excel opens it cleanly</span>
-                  </td>
-                  <td><span lang="zh-CN">视具体服务而定</span><span lang="en">Depends on the service</span></td>
-                  <td class="no">
-                    <span lang="zh-CN">编码需自行处理</span><span lang="en">Encoding is left to you</span>
-                  </td>
                 </tr>
               </tbody>
             </table>
@@ -4626,9 +5156,15 @@ pnpm build</code><button
       <section id="privacy">
         <div class="wrap">
           <div class="section-head">
-            <span class="eyebrow-sm"
-              ><span lang="zh-CN">隐私与权限</span><span lang="en">Privacy &amp; permissions</span></span
-            >
+            <span class="eyebrow-sm">
+              <svg
+                class="sec-ico"
+                aria-hidden="true"
+              >
+                <use href="#i-lock" />
+              </svg>
+              <span lang="zh-CN">隐私与权限</span><span lang="en">Privacy &amp; permissions</span>
+            </span>
             <h2>
               <span lang="zh-CN">“不上传”不是口号，是可验证的结构</span>
               <span lang="en">"No uploads" is a verifiable structure, not a claim</span>
@@ -4755,7 +5291,15 @@ pnpm build</code><button
       >
         <div class="wrap">
           <div class="section-head">
-            <span class="eyebrow-sm"><span lang="zh-CN">常见问题</span><span lang="en">FAQ</span></span>
+            <span class="eyebrow-sm">
+              <svg
+                class="sec-ico"
+                aria-hidden="true"
+              >
+                <use href="#i-help" />
+              </svg>
+              <span lang="zh-CN">常见问题</span><span lang="en">FAQ</span>
+            </span>
             <h2>
               <span lang="zh-CN">使用前后你可能会问的</span>
               <span lang="en">Questions people ask before and after installing</span>
@@ -5390,7 +5934,15 @@ pnpm build</code><button
       <section id="details">
         <div class="wrap">
           <div class="section-head">
-            <span class="eyebrow-sm"><span lang="zh-CN">技术细节</span><span lang="en">Technical details</span></span>
+            <span class="eyebrow-sm">
+              <svg
+                class="sec-ico"
+                aria-hidden="true"
+              >
+                <use href="#i-list" />
+              </svg>
+              <span lang="zh-CN">技术细节</span><span lang="en">Technical details</span>
+            </span>
             <h2>
               <span lang="zh-CN">它是怎么构建与验证的</span>
               <span lang="en">How it is built and verified</span>
@@ -5490,7 +6042,15 @@ pnpm build</code><button
       >
         <div class="wrap">
           <div class="section-head">
-            <span class="eyebrow-sm"><span lang="zh-CN">联系</span><span lang="en">Contact</span></span>
+            <span class="eyebrow-sm">
+              <svg
+                class="sec-ico"
+                aria-hidden="true"
+              >
+                <use href="#i-chat" />
+              </svg>
+              <span lang="zh-CN">联系</span><span lang="en">Contact</span>
+            </span>
             <h2>
               <span lang="zh-CN">报问题、提格式、进交流群</span>
               <span lang="en">Report a bug, request a format, join the group</span>
@@ -5589,52 +6149,176 @@ pnpm build</code><button
 
     <!-- ================= FOOTER ================= -->
     <footer class="site">
-      <div class="wrap">
-        <div class="foot-grid">
-          <div>
-            <nav aria-label="Footer">
-              <a href="#why"
-                ><span lang="zh-CN">为什么不用在线转换网站</span><span lang="en">Why not an online converter</span></a
+      <div class="wrap foot-inner">
+        <div class="foot-main">
+          <a
+            class="brand"
+            href="#top"
+          >
+            <img
+              src="assets/icon-mark.png"
+              alt=""
+              width="28"
+              height="28"
+            />
+            <span>Transfer Any File</span>
+          </a>
+          <p class="foot-disclaimer">
+            <span lang="zh-CN"
+              ><strong>安全声明</strong>：本扩展完全离线运行——14
+              种格式互转全部在浏览器本地完成，文件不出设备，第一方源码不发起任何网络请求，manifest 只申请
+              <code>storage</code>
+              一项权限。它处理的仍是你自己的文件：请只转换你有权处置的文档，涉及证件、账单等高敏感材料时，留意输出文件与浏览器下载记录的存放位置。</span
+            >
+            <span lang="en"
+              ><strong>Security note</strong>: this extension runs fully offline — all 14 formats convert inside your
+              browser, files never leave the device, the first-party source makes no network request, and the manifest
+              asks for a single permission (<code>storage</code>). It still handles your own documents: convert only
+              files you have the right to process, and for identity or financial material watch where the outputs and
+              your browser's download history end up.</span
+            >
+          </p>
+          <nav
+            class="foot-index"
+            aria-label="Page sections"
+          >
+            <a href="#why"><span lang="zh-CN">问题</span><span lang="en">The problem</span></a>
+            <a href="#formats"><span lang="zh-CN">支持的格式</span><span lang="en">Supported formats</span></a>
+            <a href="#how"><span lang="zh-CN">工作原理</span><span lang="en">How it works</span></a>
+            <a href="#features"><span lang="zh-CN">核心能力</span><span lang="en">Core capabilities</span></a>
+            <a href="#showcase"><span lang="zh-CN">界面</span><span lang="en">Interface</span></a>
+            <a href="#install"><span lang="zh-CN">安装与使用</span><span lang="en">Install &amp; use</span></a>
+            <a href="#compare"><span lang="zh-CN">横向对比</span><span lang="en">Comparison</span></a>
+            <a href="#privacy"><span lang="zh-CN">隐私与权限</span><span lang="en">Privacy &amp; permissions</span></a>
+            <a href="#faq"><span lang="zh-CN">常见问题</span><span lang="en">FAQ</span></a>
+            <a href="#details"><span lang="zh-CN">技术细节</span><span lang="en">Technical details</span></a>
+            <a href="#contact"><span lang="zh-CN">联系</span><span lang="en">Contact</span></a>
+          </nav>
+          <div class="foot-meta">
+            <span>
+              <span lang="zh-CN">邮箱：</span><span lang="en">Email: </span
+              ><a href="mailto:924902324@qq.com">924902324@qq.com</a>
+            </span>
+            <span
+              ><a href="privacy.html"><span lang="zh-CN">隐私政策</span><span lang="en">Privacy policy</span></a></span
+            >
+            <span
+              ><a
+                href="https://github.com/liaolongdong/transfer-any-file/blob/main/LICENSE"
+                rel="noopener"
+                target="_blank"
+                >MIT</a
+              ><span lang="zh-CN"> 许可证</span><span lang="en"> licence</span></span
+            >
+            <span
+              ><a href="https://github.com/liaolongdong/transfer-any-file/blob/main/README.md">README（中文）</a></span
+            >
+            <span
+              ><a href="https://github.com/liaolongdong/transfer-any-file/blob/main/README.en.md"
+                >README (English)</a
+              ></span
+            >
+            <span><a href="llms.txt">llms.txt</a></span>
+            <span>
+              <a
+                href="https://github.com/liaolongdong/transfer-any-file"
+                rel="noopener"
+                target="_blank"
               >
-              <a href="#how"
-                ><span lang="zh-CN">一次转换走过的六步</span
-                ><span lang="en">The six steps inside one conversion</span></a
-              >
-              <a href="#privacy"
-                ><span lang="zh-CN">「不上传」怎么验证</span><span lang="en">How "no uploads" is verified</span></a
-              >
-              <a href="#details"
-                ><span lang="zh-CN">构建与验证方式</span><span lang="en">Build &amp; verification</span></a
-              >
-              <a href="https://github.com/liaolongdong/transfer-any-file">GitHub</a>
-              <a href="https://github.com/liaolongdong/transfer-any-file/issues">
-                <span lang="zh-CN">提需求 &amp; 报问题</span><span lang="en">Issues &amp; format requests</span>
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 16 16"
+                  fill="currentColor"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.012 8.012 0 0 0 16 8c0-4.42-3.58-8-8-8z"
+                  />
+                </svg>
+                <span lang="zh-CN">GitHub 仓库</span><span lang="en">GitHub repository</span>
               </a>
-              <a href="#contact"><span lang="zh-CN">微信群 / 邮箱</span><span lang="en">WeChat group / email</span></a>
-              <a href="https://github.com/liaolongdong/transfer-any-file/blob/main/README.md">README (中文)</a>
-              <a href="https://github.com/liaolongdong/transfer-any-file/blob/main/README.en.md">README (EN)</a>
-              <a href="privacy.html"><span lang="zh-CN">隐私政策</span><span lang="en">Privacy policy</span></a>
-              <a href="llms.txt">llms.txt</a>
-            </nav>
-            <p>
-              <span lang="zh-CN"
-                >Transfer Any File —— 面向 Chrome 的离线文件格式转换工具。所有处理都在你的设备上完成，以 MIT
-                许可证发布。</span
+            </span>
+            <span>
+              <span lang="zh-CN">最后更新 2026-09-15 · </span><span lang="en">Last updated 2026-09-15 · </span
+              ><a
+                href="https://github.com/liaolongdong/transfer-any-file/blob/main/CHANGELOG.md"
+                rel="noopener"
+                target="_blank"
+                >v1.0.0</a
               >
-              <span lang="en"
-                >Transfer Any File — offline file format conversion for Chrome. All processing happens on your device.
-                Released under the MIT licence.</span
-              >
-            </p>
+            </span>
           </div>
-          <div>
-            <p class="hero-note">
-              <span lang="zh-CN">本页为产品说明页（GitHub Pages 源），不是扩展的一部分，也不会被打包进产物。</span>
+          <p class="foot-note">
+            <span lang="zh-CN">本页为产品说明页（GitHub Pages 源），不是扩展的一部分，也不会被打包进产物。</span>
+            <span lang="en"
+              >This is the product page (GitHub Pages source); it is not part of the extension and is never bundled into
+              it.</span
+            >
+          </p>
+        </div>
+        <div class="foot-wechat">
+          <img
+            src="assets/wx-qrcode/wechat-qrcode.jpg"
+            width="168"
+            height="169"
+            loading="lazy"
+            decoding="async"
+            alt="作者微信二维码，扫码添加微信号 lld_1025，备注 taf 加入插件交流群。QR code for the author's WeChat — add lld_1025 with the note taf to join the extension group chat."
+          />
+          <div class="foot-wechat-body">
+            <div class="foot-wechat-title">
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 16 16"
+                fill="#07c160"
+                aria-hidden="true"
+              >
+                <path
+                  d="M11.176 14.429c-2.665 0-4.826-1.8-4.826-4.018 0-2.22 2.159-4.02 4.824-4.02S16 8.191 16 10.411c0 1.21-.65 2.301-1.666 3.036a.32.32 0 0 0-.12.366l.218.81a.6.6 0 0 1 .029.117.166.166 0 0 1-.162.162.2.2 0 0 1-.092-.03l-1.057-.61a.5.5 0 0 0-.256-.074.5.5 0 0 0-.142.021 5.7 5.7 0 0 1-1.576.22ZM9.064 9.542a.647.647 0 1 0 .557-1 .645.645 0 0 0-.646.647.6.6 0 0 0 .09.353Zm3.232.001a.646.646 0 1 0 .546-1 .645.645 0 0 0-.644.644.63.63 0 0 0 .098.356Z"
+                />
+                <path
+                  d="M0 6.826c0 1.455.781 2.765 2.001 3.656a.385.385 0 0 1 .143.439l-.161.6-.1.373a.5.5 0 0 0-.032.14.19.19 0 0 0 .193.193q.06 0 .111-.029l1.268-.733a.6.6 0 0 1 .308-.088q.088 0 .171.025a6.8 6.8 0 0 0 1.625.26 4.5 4.5 0 0 1-.177-1.251c0-2.936 2.785-5.02 5.824-5.02l.15.002C10.587 3.429 8.392 2 5.796 2 2.596 2 0 4.16 0 6.826"
+                />
+              </svg>
+              <span lang="zh-CN">微信交流群</span><span lang="en">WeChat group</span>
+            </div>
+            <p class="foot-wechat-desc">
+              <span lang="zh-CN"
+                >扫码添加作者微信，备注「taf」邀你进插件交流群；群里定下来的结论会回填到 Issue 与文档。</span
+              >
               <span lang="en"
-                >This is the product page (GitHub Pages source); it is not part of the extension and is never bundled
-                into it.</span
+                >Scan to add the author on WeChat and note "taf" for an invite; whatever the group settles on gets
+                written back to issues and docs.</span
               >
             </p>
+            <button
+              class="wx-copy"
+              type="button"
+              id="wxCopy"
+            >
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                aria-hidden="true"
+              >
+                <rect
+                  x="9"
+                  y="9"
+                  width="13"
+                  height="13"
+                  rx="2"
+                />
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+              </svg>
+              <span class="sr-only"><span lang="zh-CN">复制微信号</span><span lang="en">Copy the WeChat ID</span></span>
+              <span id="wxIdText">lld_1025</span>
+            </button>
           </div>
         </div>
       </div>
@@ -5682,26 +6366,53 @@ pnpm build</code><button
       </button>
     </div>
 
-    <button
-      class="to-top"
-      type="button"
-      id="toTop"
+    <!-- One control per corner: the rail collapses whichever arrow points where you already are. -->
+    <div
+      class="scroll-rail at-top"
+      id="scrollRail"
     >
-      <span class="sr-only"><span lang="zh-CN">回到页面顶部</span><span lang="en">Back to top</span></span>
-      <svg
-        width="20"
-        height="20"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2.2"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-        aria-hidden="true"
+      <button
+        class="rail-top"
+        type="button"
+        id="railTop"
       >
-        <path d="M12 19V5m-6 6 6-6 6 6" />
-      </svg>
-    </button>
+        <span class="sr-only"><span lang="zh-CN">回到页面顶部</span><span lang="en">Back to top</span></span>
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2.2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M12 19V5m-6 6 6-6 6 6" />
+        </svg>
+      </button>
+      <div class="scroll-rail-divider"></div>
+      <button
+        class="rail-bottom"
+        type="button"
+        id="railBottom"
+      >
+        <span class="sr-only"><span lang="zh-CN">跳到页面底部</span><span lang="en">Jump to the bottom</span></span>
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2.2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M12 5v14m6-6-6 6-6-6" />
+        </svg>
+      </button>
+    </div>
 
     <script>
       (function () {
@@ -5933,9 +6644,11 @@ pnpm build</code><button
           });
         }
 
-        // ---- Reading progress, current section, back to top ------------------
+        // ---- Reading progress, current section, scroll rail ------------------
         var nav = document.querySelector('.nav');
-        var toTop = document.getElementById('toTop');
+        var rail = document.getElementById('scrollRail');
+        var railTop = document.getElementById('railTop');
+        var railBottom = document.getElementById('railBottom');
         var navAnchors = Array.prototype.slice.call(document.querySelectorAll('.nav-links > a[href^="#"]'));
         var watched = [];
         navAnchors.forEach(function (a) {
@@ -5947,7 +6660,11 @@ pnpm build</code><button
           raf = 0;
           var max = root.scrollHeight - window.innerHeight;
           if (nav) nav.style.setProperty('--scroll-p', max > 0 ? String(Math.min(1, window.scrollY / max)) : '0');
-          if (toTop) toTop.classList.toggle('show', window.scrollY > 600);
+          if (rail) {
+            rail.classList.toggle('at-top', window.scrollY < 200);
+            // Nothing scrollable means both ends are already reached, which hides the whole rail.
+            rail.classList.toggle('at-bottom', max <= 80 || window.scrollY >= max - 80);
+          }
         }
 
         var raf = 0;
@@ -5982,9 +6699,15 @@ pnpm build</code><button
           });
         }
 
-        if (toTop) {
-          toTop.addEventListener('click', function () {
+        if (railTop) {
+          railTop.addEventListener('click', function () {
             window.scrollTo({ top: 0, behavior: reduced ? 'auto' : 'smooth' });
+          });
+        }
+
+        if (railBottom) {
+          railBottom.addEventListener('click', function () {
+            window.scrollTo({ top: root.scrollHeight, behavior: reduced ? 'auto' : 'smooth' });
           });
         }
 
@@ -6005,6 +6728,33 @@ pnpm build</code><button
                 .writeText(code.textContent)
                 .then(function () {
                   done(root.getAttribute('lang') === 'zh-CN' ? '已复制' : 'Copied');
+                })
+                .catch(function () {
+                  /* clipboard blocked (insecure context / permission): leave the button inert */
+                });
+            }
+          });
+        }
+
+        // ---- Copy the WeChat ID from the footer ------------------------------
+        var wxCopy = document.getElementById('wxCopy');
+        if (wxCopy) {
+          var wxId = document.getElementById('wxIdText');
+          // The label is swapped out to confirm the copy, so read the ID once up front.
+          var wxIdValue = wxId.textContent;
+          wxCopy.addEventListener('click', function () {
+            var zh = root.getAttribute('lang') === 'zh-CN';
+            var done = function (text) {
+              wxId.textContent = text;
+              setTimeout(function () {
+                wxId.textContent = wxIdValue;
+              }, 1800);
+            };
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              navigator.clipboard
+                .writeText(wxIdValue)
+                .then(function () {
+                  done(zh ? '已复制' : 'Copied');
                 })
                 .catch(function () {
                   /* clipboard blocked (insecure context / permission): leave the button inert */

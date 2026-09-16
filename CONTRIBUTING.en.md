@@ -41,10 +41,13 @@ pnpm verify:offline   # no network call in first-party source, storage-only mani
 pnpm verify:listing   # every CHROMEWEBSTORE.md paste block is within its limit, agrees with the manifest, and the quick-reference scaffold has not drifted
 pnpm test:e2e         # build + Playwright suite over fixtures/
 pnpm assets:capture   # regenerate store/README screenshots + promo graphics (needs pnpm build first)
+node scripts/render-demo-gif.mjs   # re-record the demo GIF at the top of the README (needs pnpm build, plus ffmpeg on PATH)
 node scripts/render-icons.mjs   # re-render both icon tiers from assets/*.svg
 node scripts/verify-extension.mjs   # check the built package contents
 git tag v1.0.0 && git push --tags   # release.yml: build the store zip, verify it, open the GitHub Release
 ```
+
+Like the screenshots, the demo GIF is recorded from the real build output (`docs/assets/demo/demo-<locale>.gif`, one per language, chosen with `DEMO_LOCALES="zh en"`); if the UI changes and the GIF is not re-recorded, the README drifts from the actual workbench.
 
 `pnpm fix:all` rewrites the whole repository; for a local task use `pnpm exec eslint --fix <file>` / `stylelint --fix <file>` / `prettier --write <file>` instead.
 

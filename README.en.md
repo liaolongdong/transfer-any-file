@@ -26,7 +26,7 @@ A Chrome extension (Manifest V3) that does every conversion inside a tab on your
 &nbsp;
 ![License MIT](https://img.shields.io/badge/license-MIT-blue?style=for-the-badge)
 
-[Screenshots](#screenshots) · [Why this exists](#why-this-exists) · [Quick start](#quick-start) · [How it works](#how-it-works) · [Supported formats](#supported-conversions) · [How it compares](#how-it-compares) · [Privacy](#privacy) · [FAQ](#faq) · [Contributing](#contributing) · [Contact](#contact) · [Product page](https://liaolongdong.github.io/transfer-any-file/)
+[Core advantages](#-core-advantages) · [In action](#-in-action) · [How it works](#-how-it-works) · [Supported formats](#-supported-conversions) · [How it compares](#-how-it-compares) · [Feature overview](#-feature-overview) · [Privacy](#-privacy) · [Installation and usage](#-installation-and-usage) · [FAQ](#-faq) · [Contributing](#-contributing) · [Contact](#-contact) · [Product page](https://liaolongdong.github.io/transfer-any-file/)
 
 </div>
 
@@ -38,7 +38,35 @@ A Chrome extension (Manifest V3) that does every conversion inside a tab on your
 
 ---
 
-## Screenshots
+## ✨ Core advantages
+
+Most "free online converter" sites ask you to upload the file first. That is fine for a public dataset and unacceptable for an HR spreadsheet, a client contract, a medical report, or a draft you have not told anyone about yet — and they add an account wall, a daily quota and a size cap on top of the upload round-trip. Transfer Any File keeps the whole job local: a 3 MB Word file becomes Markdown without a single packet leaving the machine.
+
+| Advantage                                              | What makes it different from the alternatives                                                                                                                                                                  |
+| ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 🔌 **Zero uploads, and that is checkable**             | No first-party source file issues a request (`pnpm verify:offline` asserts it) and the manifest asks for `storage` only. Not a "we delete it in 24 hours" promise — there is never a copy to delete            |
+| 🧭 **46 edges + BFS pathfinding, chains in one click** | Markdown → HTML → PDF and Word → HTML → Markdown are discovered by the graph, not hard-coded; a new converter is about 20 lines and instantly unlocks every route through it                                   |
+| 📦 **Mixed-format batches that cannot cascade**        | 40 different file types share one target with per-file error isolation; failures expand into a diagnostic and copy out as issue-ready text. 200 files per batch, 100 MB per file                               |
+| 👀 **Look at it and edit it before downloading**       | Built-in split view (draggable divider, sync scrolling) plus inline editing and one-click copy — no "download first, then open an editor"                                                                      |
+| 🖼️ **Image output parameters and presets**             | Longest edge, encoder quality, a file-size ceiling and PDF render density are all adjustable and savable as one-click presets (up to 12). "Compress my image" on the web means another site and another upload |
+| 🇨🇳 **Chinese encoding handled**                        | CSV reads UTF-8 with a GB18030 → GBK fallback and writes UTF-8 with BOM, **so Excel opens it without mojibake**; the UI is bilingual                                                                           |
+| ♿ **Accessibility you can measure**                   | The end-to-end suite asserts WCAG contrast across 6 themes × light/dark (12 combinations) and asserts the skip link and visible focus ring — a regression turns CI red rather than a design note               |
+
+**Who it fits**
+
+- 🗂️ **Anyone handling sensitive files** — HR, legal, finance, medical: files staying on the machine is a mechanism, not a promise
+- ✍️ **Writers** — Markdown ⇄ Word ⇄ HTML ⇄ PDF both ways, so a draft never has to be uploaded to see how it lays out
+- 📊 **Data work** — CSV ⇄ Excel ⇄ JSON, every worksheet exported, no mojibake in Excel
+- 🎨 **Front-end and design** — six image formats interconverted, with longest edge / quality / size ceiling and presets in one screen
+- ✈️ **Offline and air-gapped machines** — airplane mode, disconnected laptops and intranet boxes behave identically
+
+## 🖼️ In action
+
+<p align="center">
+  <img src="docs/assets/demo/demo-en.gif" alt="A 12-second demo: sample.md, sample.csv and sample.xlsx are staged in the workbench, HTML is chosen as the target format, one run produces three HTML files and a ZIP of the whole batch" width="100%" />
+  <br />
+  <sub>One mixed batch end to end: drop in 3 files → pick HTML → convert once → download each or take the ZIP. It all happens on your own machine, with no network request.</sub>
+</p>
 
 <p align="center">
   <img src="docs/assets/screenshots/workbench-empty.png" alt="The empty workbench: a drop zone inviting files, a target-format picker beside it, and the history card below" width="49%" />
@@ -61,30 +89,7 @@ A Chrome extension (Manifest V3) that does every conversion inside a tab on your
   <sub><b>Left: searchable, filterable history with one-click reuse</b> (metadata only, never file contents) ｜ <b>Right: 6 accent colours, light / dark / system</b></sub>
 </p>
 
-## Why this exists
-
-Most "free online converter" sites ask you to upload the file first. That is fine for a public dataset and unacceptable for an HR spreadsheet, a client contract, a medical report, or a draft you have not told anyone about yet. They also add an account wall, a daily quota and a size cap, and make you pay an upload round-trip for something your own laptop can finish without a network.
-
-Transfer Any File keeps the whole job local. The converters run in the extension page, so a 3 MB Word file becomes Markdown without a single packet leaving the machine — and it still works on a plane.
-
-## Quick start
-
-```bash
-# Requirements: Node.js 20.12+ (WXT needs util.parseEnv) and pnpm
-pnpm install
-pnpm build
-```
-
-Then in Chrome:
-
-1. Open `chrome://extensions`
-2. Enable **Developer mode** (top right)
-3. Click **Load unpacked** and select `.output/chrome-mv3`
-4. Click the toolbar icon — the workbench opens in a new tab
-
-There is no store listing yet; `CHROMEWEBSTORE.md` holds the publish-ready listing copy, graphics and disclosure answers for when there is.
-
-## How it works
+## 🧭 How it works
 
 ```mermaid
 flowchart TD
@@ -98,7 +103,7 @@ flowchart TD
 
 Because every conversion pair registers itself as an edge, multi-step chains are discovered rather than hard-coded: Markdown → HTML → PDF, or Word → HTML → Markdown, run as one click. Adding a converter is 20 lines and instantly unlocks every route through it.
 
-## Supported conversions
+## 📚 Supported conversions
 
 | Category  | From                                   | To                                                                                                      |
 | --------- | -------------------------------------- | ------------------------------------------------------------------------------------------------------- |
@@ -124,27 +129,31 @@ Image → TXT / CSV / JSON / Excel (that needs OCR, which this offline extension
 
 > Notes: PDF output is rendered as images (text is not selectable). PDF input extracts text only (layout and images are not preserved). PDF → image renders each page; multi-page documents download as a ZIP of per-page PNGs. BMP, GIF and SVG are input-only — browsers cannot encode them. Multi-sheet XLSX → CSV downloads a ZIP with one CSV per worksheet. How the three groups above count up: the 46 registered routes make 143 source→target combinations reachable through BFS, 27 of them are blocked as semantically invalid (24 image → TXT / CSV / JSON / XLSX, 3 PDF → CSV / JSON / XLSX), so the target picker offers 116.
 
-## How it compares
+## 🆚 How it compares
 
-| Dimension                         | Transfer Any File                                                             | Online converter                            | CLI tool                                                           |
-| --------------------------------- | ----------------------------------------------------------------------------- | ------------------------------------------- | ------------------------------------------------------------------ |
-| Your file leaves the device       | Never                                                                         | Always (that is the mechanism)              | Never                                                              |
-| Setup cost                        | Build once, load the unpacked folder                                          | None, it is a web page                      | Package manager and PATH                                           |
-| Free-tier limits                  | 100 MB per file, 200 files per batch                                          | Daily quotas, size caps, watermarks         | None                                                               |
-| Works offline / on a plane        | Yes                                                                           | No                                          | Yes                                                                |
-| Batch of mixed formats            | Yes, one target for the whole batch                                           | Usually paid or queue-bound                 | Yes, and scriptable                                                |
-| Preview and tweak the result      | Built-in comparison view and inline editing                                   | Usually a thumbnail at best                 | None                                                               |
-| Format breadth                    | 14 document / data / image formats                                            | Hundreds, including video and audio         | Pandoc 40+ document formats, ImageMagick hundreds of image formats |
-| OCR and complex PDF layout repair | Not bundled                                                                   | Commonly offered                            | Requires a separate Tesseract install                              |
-| Price and account                 | Free, no sign-up, no paid tier                                                | Free quota, a subscription lifts the limits | Usually free                                                       |
-| Chinese interface and encoding    | Bilingual UI; CSV written with a UTF-8 BOM so Excel opens it without mojibake | Depends on the service                      | Encoding is left to you                                            |
-| Source code                       | Open source (MIT)                                                             | Closed                                      | Open source                                                        |
+Ordered by what should actually decide your choice: the first eight rows are where this extension beats online converters outright (against a CLI it is a split), the last three are where it plainly hands the ground to them or to a command-line tool.
 
-Summarised from the typical behaviour of each class of tool rather than one specific vendor; Pandoc and ImageMagick stand in for the command-line column. The three are not substitutes — online services reach formats a browser cannot decode, and a CLI can be scripted across thousands of files.
+| Dimension                         | ⭐ **Transfer Any File**                                                    | Online converter                       | CLI tool                                                              |
+| --------------------------------- | :-------------------------------------------------------------------------- | -------------------------------------- | --------------------------------------------------------------------- |
+| Your file leaves the device       | **✅ Never, and the first-party source is checkable**                       | ❌ Always (that is the mechanism)      | ✅ Never                                                              |
+| Works offline / on a plane        | **✅ Yes**                                                                  | ❌ No                                  | ✅ Yes                                                                |
+| Price and account                 | **✅ Free, no sign-up, no paid tier**                                       | ⚠️ Free quota, a subscription lifts it | ✅ Usually free                                                       |
+| Preview and tweak the result      | **✅ Split view + inline editing + copy**                                   | ❌ Usually a thumbnail at best         | ❌ None                                                               |
+| Batch of mixed formats            | **✅ One target for the batch, per-file error isolation**                   | ⚠️ Usually paid or queue-bound         | ✅ Yes, and scriptable                                                |
+| Size and count limits             | **✅ 100 MB per file, 200 files per batch**                                 | ❌ Daily quotas, size caps, watermarks | ✅ None                                                               |
+| Chinese interface and encoding    | **✅ Bilingual UI; CSV written with a UTF-8 BOM so Excel opens it cleanly** | ⚠️ Depends on the service              | ⚠️ Encoding is left to you                                            |
+| Source code                       | **✅ Open source (MIT)**                                                    | ❌ Closed                              | ✅ Open source                                                        |
+| Setup cost                        | ⚠️ Build once, load the unpacked folder                                     | ✅ None, it is a web page              | ⚠️ Package manager and PATH                                           |
+| Format breadth                    | ⚠️ 14 document / data / image formats                                       | ✅ Hundreds, including video and audio | ✅ Pandoc 40+ document formats, ImageMagick hundreds of image formats |
+| OCR and complex PDF layout repair | ❌ Not bundled (it would break the offline guarantee)                       | ⚠️ Commonly offered                    | ⚠️ Requires a separate Tesseract install                              |
 
-## What you can do with it
+**When you should not pick it.** Audio or video, or any format a browser cannot decode; thousands of files to script through; image → text. Those are online-service or CLI jobs, and this extension is not a substitute for either.
 
-**Batch and scale**
+Summarised from the typical behaviour of each class of tool rather than one specific vendor; Pandoc and ImageMagick stand in for the command-line column.
+
+## 📋 Feature overview
+
+### 📦 Batch and scale
 
 - **Mixed-format batches** — drop 40 files of different types; each resolves its own route to the shared target, and only formats reachable from _every_ selected file are offered
 - **Per-file error isolation** — one broken file never blocks the batch; failures are listed with their reason, and each one expands to show the diagnostic (the conversion path and the step that failed) and copies out as plain text, ready to paste into an issue
@@ -154,7 +163,7 @@ Summarised from the typical behaviour of each class of tool rather than one spec
 - **Multi-sheet and multi-page aware** — XLSX → CSV exports every worksheet; PDF → image exports every page
 - **Size guards at the boundary** — warns above 20 MB, rejects above 100 MB per file, caps a batch at 200 files
 
-**Preview and edit**
+### 👀 Preview and edit
 
 - **Split view** — source and result side by side with a draggable divider, plus Source-only / Result-only modes and sync scrolling; <kbd>1</kbd> / <kbd>2</kbd> / <kbd>3</kbd> switch between the three modes and <kbd>←</kbd> / <kbd>→</kbd> nudge the divider by 5%
 - **Inline editing** — text results (Markdown / HTML / TXT / CSV / JSON) can be corrected before you download them
@@ -162,7 +171,7 @@ Summarised from the typical behaviour of each class of tool rather than one spec
 - **Paste to convert** — <kbd>⌘V</kbd> / <kbd>Ctrl+V</kbd> drops in a clipboard image or text snippet
 - **Encoding-aware CSV** — reads UTF-8 with a GB18030 → GBK fallback, writes UTF-8 with BOM so Excel opens it without mojibake
 
-**Control and recovery**
+### 🎛️ Control and recovery
 
 - **Undo** — restore the previous batch of results in one click; the snapshot is dropped when you change the selected files or the target format
 - **Confirm before big batches** — a summary dialog once a batch exceeds 5 files or 20 MB (fixed thresholds), switchable off in Preferences or from the dialog's own **Don't ask again** box
@@ -171,7 +180,7 @@ Summarised from the typical behaviour of each class of tool rather than one spec
 - **Cancellation** — a long batch can be stopped mid-run; finished files are kept, and the result panel says the batch was cancelled rather than showing it as a failure
 - **Image output parameters** — when the target is PNG / JPEG / WebP, cap the longest edge, pick an encoder quality, set a best-effort file-size ceiling, and choose the render density a PDF source is rasterized at. Every one is opt-in: with nothing set the encoders run exactly as they did before. On a multi-step route the geometric settings apply at every step while quality and size apply only to the file you download — chasing a size ceiling through an intermediate encode would just throw away detail the last step would have needed
 
-**History and personalization**
+### 🕘 History and personalization
 
 - **Conversion history** — the last 50 conversions (metadata only) with one-click "reuse this format", search by file name, filter by source/target format, per-record delete, a size-trend sparkline, and JSON export/import (merged by record ID). A multi-file batch is labelled `"<first file> +N"`; new records also keep the full file list, so every file in the batch is searchable and all of them show on hover. Records saved by earlier versions can only match that label
 - **Recently used targets** — the target dropdown leads with a "recently used" group holding up to 6 of the formats you convert to most often, kept only while they remain selectable for the current source; everything else stays in the document / image / data groups
@@ -181,14 +190,33 @@ Summarised from the typical behaviour of each class of tool rather than one spec
 - **Measured contrast** — the end-to-end suite asserts three WCAG contrast pairs (topbar text, focus ring, and the primary button label in its rest / hover / pressed states) across all 6 themes × light/dark, 12 combinations, and separately asserts that the first Tab lands on the skip link with a visible ring; thresholds, measured readings and the known limitation live in [CONTRIBUTING.en.md](CONTRIBUTING.en.md#accessibility-and-contrast-assertions) · [简体中文](CONTRIBUTING.md#无障碍与对比度断言)
 - **Personalization** — 6 theme colors × light / dark / system, Chinese/English interface
 
-## Privacy
+## 🔒 Privacy
 
 - All conversions run **100% locally** in the extension page — the load-bearing fact is that no first-party source file issues a request (`fetch`, `XMLHttpRequest`, `WebSocket`, `EventSource` and `sendBeacon` appear nowhere in `entrypoints/`, `components/`, `composables/` or `utils/`, asserted by `pnpm verify:offline`). On top of that, the manifest declares no host permissions and registers no content scripts, so the request paths sitting unused inside third-party converter libraries can neither read a response nor reach any site's data
 - The only permission requested is `storage`, used for history (file names, formats, sizes — never contents) and preferences
 - No analytics, no tracking, no account, no ads, no paid tier
 - Full text: [`docs/privacy.html`](docs/privacy.html) · store-facing answers: [`CHROMEWEBSTORE.md`](CHROMEWEBSTORE.md)
 
-## Usage
+## 📥 Installation and usage
+
+### Install
+
+```bash
+# Requirements: Node.js 20.12+ (WXT needs util.parseEnv) and pnpm
+pnpm install
+pnpm build
+```
+
+Then in Chrome:
+
+1. Open `chrome://extensions`
+2. Enable **Developer mode** (top right)
+3. Click **Load unpacked** and select `.output/chrome-mv3`
+4. Click the toolbar icon — the workbench opens in a new tab
+
+There is no store listing yet; `CHROMEWEBSTORE.md` holds the publish-ready listing copy, graphics and disclosure answers for when there is.
+
+### Usage
 
 1. Click the extension icon — the conversion workbench opens in a new tab
 2. Drop files anywhere on the page (no need to hit the upload zone), click to select, or paste from the clipboard
@@ -198,7 +226,7 @@ Summarised from the typical behaviour of each class of tool rather than one spec
 6. Do this often? Save the format plus its parameters as a **preset** in the preset card and one click restores the whole recipe next time
 7. Open **Preferences** (top right) to switch theme / language / dark mode, toggle completion notifications and the large-batch confirmation, or rebind the convert shortcut
 
-## FAQ
+## ❓ FAQ
 
 **Does any part of my file get uploaded?**
 No. The converters are JavaScript bundled into the extension, and the manifest requests only `storage`. There is no server to upload to and no first-party code that calls a request API; with no host permission and no content script, the request paths left unused inside those libraries cannot read a response either.
@@ -227,7 +255,7 @@ The build produces a Chrome Manifest V3 package, which also loads in Edge, Brave
 **Where is the conversion history kept, and how do I clear it?**
 In `chrome.storage.local` on your own machine, holding file names, formats and sizes only — never file contents. The history panel can delete a single record, clear everything, and export or import the list as JSON. Removing the extension removes that local storage with it, because there is no copy anywhere else.
 
-## Contributing
+## 🤝 Contributing
 
 1. Fork, branch off `main`, and run `pnpm install && pnpm dev`
 2. Keep it offline: no new permission, no network call, no remote asset — say so in the PR if a change needs one
@@ -235,7 +263,7 @@ In `chrome.storage.local` on your own machine, holding file names, formats and s
 
 The full rule set lives in [CONTRIBUTING.en.md](CONTRIBUTING.en.md) · [简体中文](CONTRIBUTING.md): the command list, tech stack, project structure, the five steps for adding a converter, coding and documentation-sync conventions, the two icon masters, and the accessibility contrast thresholds with their measured values. Report security issues privately, not as an issue: [SECURITY.en.md](SECURITY.en.md) · [简体中文](SECURITY.md).
 
-## Contact
+## 📮 Contact
 
 <div align="center">
   <img src="docs/assets/wx-qrcode/wechat-qrcode.jpg" alt="The author's WeChat QR code; scanning it adds WeChat ID lld_1025" width="160" height="161" />
@@ -250,7 +278,7 @@ The full rule set lives in [CONTRIBUTING.en.md](CONTRIBUTING.en.md) · [简体�
 
 Security issues go through the private channel in [SECURITY.en.md](SECURITY.en.md) above.
 
-## License
+## 📄 License
 
 [MIT](LICENSE)
 

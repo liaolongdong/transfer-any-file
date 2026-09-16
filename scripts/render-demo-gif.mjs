@@ -149,8 +149,15 @@ async function recordFlow(context, locale) {
   await page.keyboard.press('Escape');
   await wait(700);
 
-  await page.locator('.download-actions').scrollIntoViewIfNeeded().catch(() => null);
-  await page.locator('.download-actions .el-button').first().hover().catch(() => null);
+  await page
+    .locator('.download-actions')
+    .scrollIntoViewIfNeeded()
+    .catch(() => null);
+  await page
+    .locator('.download-actions .el-button')
+    .first()
+    .hover()
+    .catch(() => null);
   await wait(1800);
 
   const video = page.video();
@@ -169,7 +176,8 @@ function toGif(webm, out, hold) {
   ].join(',');
   const args = ['-y', '-ss', '0.3', '-t', String(hold), '-i', webm, '-vf', filter, out];
   const result = spawnSync('ffmpeg', args, { stdio: ['ignore', 'ignore', 'pipe'] });
-  if (result.status !== 0) throw new Error(`ffmpeg failed for ${path.basename(out)}:\n${result.stderr?.toString().slice(-800)}`);
+  if (result.status !== 0)
+    throw new Error(`ffmpeg failed for ${path.basename(out)}:\n${result.stderr?.toString().slice(-800)}`);
 }
 
 async function run() {

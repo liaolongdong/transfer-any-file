@@ -41,10 +41,13 @@ pnpm verify:offline   # 第一方源码无网络调用，manifest 仅声明 stor
 pnpm verify:listing   # CHROMEWEBSTORE.md 每个粘贴字段不超限、与 manifest 一致、速查区块未漂移
 pnpm test:e2e         # 构建 + 基于 fixtures/ 的 Playwright 套件
 pnpm assets:capture   # 重新生成商店与 README 用的截图和推广图（需先 pnpm build）
+node scripts/render-demo-gif.mjs   # 重录 README 顶部的演示 GIF（需先 pnpm build，另需 PATH 上有 ffmpeg）
 node scripts/render-icons.mjs   # 从 assets/*.svg 重新渲染两档图标
 node scripts/verify-extension.mjs   # 校验构建产物内容
 git tag v1.0.0 && git push --tags   # release.yml：产出商店包、校验包内容并创建 GitHub Release
 ```
+
+演示 GIF 与截图一样从真实构建产物录制（`docs/assets/demo/demo-<locale>.gif`，中/英各一条，用 `DEMO_LOCALES="zh en"` 控制），界面交互变更后若不重录，README 会与实际控制台漂移。
 
 `pnpm fix:all` 会重写全仓库，局部任务改用 `pnpm exec eslint --fix <file>` / `stylelint --fix <file>` / `prettier --write <file>`。
 
