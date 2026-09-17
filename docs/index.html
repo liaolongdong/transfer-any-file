@@ -1173,6 +1173,41 @@
         font-size: 13px;
       }
 
+      /* The bundle-size number is a measurement, not a tally, so it is the one metric that does
+         not roll — the bar underneath gives it the same "arrives as you watch" treatment by
+         drawing itself in once, on reveal. Absolutely positioned so it cannot change the band
+         height, and the fill is a transform, so the reveal costs no layout. */
+      .metric-size {
+        position: relative;
+      }
+
+      .metric-size .size-bar {
+        position: absolute;
+        bottom: 12px;
+        left: 50%;
+        width: 56px;
+        height: 3px;
+        overflow: hidden;
+        background: var(--brand-soft);
+        border-radius: 999px;
+        transform: translateX(-50%);
+      }
+
+      .metric-size .size-bar::after {
+        position: absolute;
+        inset: 0;
+        background: var(--brand);
+        border-radius: inherit;
+        transform: scaleX(0);
+        transform-origin: left;
+        transition: transform 0.9s var(--ease-out) 0.15s;
+        content: '';
+      }
+
+      .metric-size.in .size-bar::after {
+        transform: scaleX(1);
+      }
+
       /* ============ Sections ============ */
       section {
         padding: 56px 0;
@@ -1324,6 +1359,58 @@
 
       .card h3 .tag {
         margin-left: 6px;
+      }
+
+      /* ============ Sibling tools ============ */
+      .sibling-card {
+        display: flex;
+        flex-direction: column;
+      }
+
+      .sibling-card h3 {
+        margin-bottom: 8px;
+        font-size: 17.5px;
+      }
+
+      .sibling-card h3 a {
+        color: var(--ink);
+      }
+
+      .sibling-card h3 a:hover {
+        color: var(--brand-dark);
+      }
+
+      .sibling-card p {
+        flex: 1;
+      }
+
+      .sibling-card .sib-ico {
+        width: 20px;
+        height: 20px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+
+      .sibling-link {
+        margin-top: 14px;
+        font-size: 14.5px;
+        font-weight: 600;
+      }
+
+      /* Amber, the same triple the .icon.amber chip uses — the one card in this pair the
+         author points at first. The star is decoration; the 主推/Featured text carries the
+         meaning. */
+      .sibling-card .sib-star {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        background: #fff6e5;
+        border-color: #fedf89;
+        color: #b54708;
+        vertical-align: 2px;
       }
 
       /* ============ Formats ============ */
@@ -1892,13 +1979,6 @@
       }
 
       /* ============ Contact ============ */
-      .contact-grid {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) 230px;
-        gap: 34px;
-        align-items: start;
-      }
-
       .contact-list {
         display: grid;
         gap: 12px;
@@ -1913,22 +1993,6 @@
 
       .contact-list b {
         color: var(--ink);
-      }
-
-      .qr {
-        margin: 0;
-        text-align: center;
-      }
-
-      .qr img {
-        margin: 0 auto;
-        border: 1px solid var(--line);
-        border-radius: var(--radius-sm);
-      }
-
-      .qr figcaption {
-        color: var(--ink-faint);
-        font-size: 13.5px;
       }
 
       pre {
@@ -1960,6 +2024,12 @@
         border: 1px solid rgb(255 255 255 / 18%);
         border-radius: 8px;
         color: #cfd8ea;
+        /* Inside <pre> the button would otherwise inherit white-space: pre and the mono font, so the
+           source indentation around the label rendered as real whitespace and ballooned the box. */
+        white-space: nowrap;
+        font-family:
+          -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'PingFang SC',
+          'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
         font-size: 12.5px;
         font-weight: 600;
       }
@@ -2096,7 +2166,7 @@
         color: var(--on-night);
       }
 
-      /* The nav bar carries the six sections a first visit needs; the footer carries all eleven,
+      /* The nav bar carries the six sections a first visit needs; the footer carries all twelve,
          so no section on this page is a dead end once you have scrolled past it. */
       .foot-index {
         display: flex;
@@ -2396,6 +2466,139 @@
         animation: found 1.2s var(--ease-out);
       }
 
+      /* ---- Playful layer: three ambient loops and one hover detail ---- */
+
+      /* The badges beside the hero screenshot float as if pinned over it: a slow ±5px bob,
+         out of phase between the two, and nothing else on the page loops. translate-only,
+         so it costs no layout and reads as life rather than as movement. */
+      @keyframes bob {
+        from {
+          transform: translateY(-5px);
+        }
+
+        to {
+          transform: translateY(5px);
+        }
+      }
+
+      .js .float-badge {
+        animation: bob 5.5s ease-in-out infinite alternate;
+      }
+
+      .js .float-badge.b2 {
+        animation-duration: 6.4s;
+        animation-delay: -1.6s;
+      }
+
+      /* The pipeline diagram says "files travel this way" in a static line and chevron. Lighting
+         each connector in step order — one 4s cycle, the five lines firing 0.55s apart, then a
+         beat of dark before the next pass — lets the eye walk the route without reading.
+         Only the colour moves; the geometry is fixed, so no layout or repaint beyond 26×2px. */
+      @keyframes wire {
+        0% {
+          background-color: var(--brand);
+        }
+
+        26%,
+        100% {
+          background-color: var(--brand-line);
+        }
+      }
+
+      .js .flow-node::before {
+        animation: wire 4s ease-in-out infinite;
+      }
+
+      .js .flow-node:nth-child(2)::before {
+        animation-delay: 0.55s;
+      }
+
+      .js .flow-node:nth-child(3)::before {
+        animation-delay: 1.1s;
+      }
+
+      .js .flow-node:nth-child(4)::before {
+        animation-delay: 1.65s;
+      }
+
+      .js .flow-node:nth-child(5)::before {
+        animation-delay: 2.2s;
+      }
+
+      /* A block of build commands ending in a live caret is the terminal everyone has stared at.
+         The glyph is generated content, so the copy button — which reads textContent — still
+         copies exactly the four commands. */
+      @keyframes caret {
+        50% {
+          opacity: 0;
+        }
+      }
+
+      .js #installCode > code::after {
+        content: '';
+        display: inline-block;
+        width: 8px;
+        height: 1.05em;
+        margin-left: 3px;
+        vertical-align: -0.18em;
+        background: #6ee7b7;
+        animation: caret 1.1s steps(1) infinite;
+      }
+
+      @keyframes brand-spin {
+        to {
+          transform: rotate(1turn);
+        }
+      }
+
+      a.brand img.spin {
+        animation: brand-spin 0.7s var(--ease-out);
+      }
+
+      @media (hover: hover) and (pointer: fine) {
+        .card .icon {
+          transition: transform var(--dur-mid) var(--ease-out);
+        }
+
+        .card:hover .icon {
+          transform: rotate(-6deg) scale(1.06);
+        }
+      }
+
+      /* The comparison table tells the reader to scan down the Transfer Any File column; once, as
+         the table comes into view, a band of light travels down exactly that column and stops.
+         Every .own cell carries the same one-pass animation with the same timing, so the separate
+         boxes read as one continuous sweep. Finite by construction, so the blanket reduced-motion
+         rule parks it off-cell — no explicit stop needed. */
+      #compare .own {
+        position: relative;
+        overflow: hidden;
+      }
+
+      #compare .own::after {
+        content: '';
+        position: absolute;
+        inset: -25% -60%;
+        pointer-events: none;
+        background: linear-gradient(
+          100deg,
+          rgb(255 255 255 / 0%) 42%,
+          rgb(255 255 255 / 70%) 50%,
+          rgb(255 255 255 / 0%) 58%
+        );
+        transform: translateX(-140%);
+      }
+
+      @keyframes shine {
+        to {
+          transform: translateX(140%);
+        }
+      }
+
+      #compare .table-wrap.shine .own::after {
+        animation: shine 1.2s ease-in-out 0.25s forwards;
+      }
+
       @media (prefers-reduced-motion: reduce) {
         html {
           scroll-behavior: auto;
@@ -2420,6 +2623,16 @@
         .js .hero-visual {
           opacity: 1;
           transform: none;
+        }
+
+        /* The blanket stop collapses finite entrances to their end frame, but an infinite loop at
+           0.01ms keeps sampling a different phase every frame — that is flicker, not stillness.
+           The three perpetual loops are therefore switched off by name; the caret stays visible,
+           it just stops blinking. */
+        .js .float-badge,
+        .js .flow-node::before,
+        .js #installCode > code::after {
+          animation: none;
         }
       }
 
@@ -2565,10 +2778,6 @@
           left: 50%;
           transform: translateX(-50%) rotate(135deg);
         }
-
-        .contact-grid {
-          grid-template-columns: minmax(0, 1fr);
-        }
       }
 
       @media (width <= 620px) {
@@ -2659,11 +2868,6 @@
           font-size: 14px;
         }
 
-        .contact-grid .qr img {
-          width: 100%;
-          max-width: 260px;
-        }
-
         .scroll-rail {
           right: 14px;
           bottom: 14px;
@@ -2729,7 +2933,7 @@
     </style>
   </head>
   <body>
-    <!-- Section-head glyphs. Hidden root + <use> keeps eleven eyebrows from carrying a copy of the same
+    <!-- Section-head glyphs. Hidden root + <use> keeps the twelve eyebrows from carrying a copy of the same
          path data; symbols carry their own viewBox, the shared stroke lives in `.sec-ico`. -->
     <svg
       class="sprite"
@@ -3198,9 +3402,16 @@
                 ><span lang="en">permission (<code>storage</code>)</span></span
               >
             </div>
-            <div class="metric">
+            <div
+              class="metric metric-size"
+              data-onview="in"
+            >
               <b>3.73&nbsp;MB</b>
               <span class="label"><span lang="zh-CN">完整包体</span><span lang="en">whole bundle</span></span>
+              <span
+                class="size-bar"
+                aria-hidden="true"
+              ></span>
             </div>
           </div>
         </div>
@@ -5238,7 +5449,10 @@ pnpm build</code><button
               >
             </p>
           </div>
-          <div class="table-wrap">
+          <div
+            class="table-wrap"
+            data-onview="shine"
+          >
             <table>
               <caption>
                 <span lang="zh-CN"
@@ -6301,6 +6515,133 @@ pnpm build</code><button
         </div>
       </section>
 
+      <!-- ================= SIBLING TOOLS ================= -->
+      <section id="more">
+        <div class="wrap">
+          <div class="section-head">
+            <span class="eyebrow-sm">
+              <svg
+                class="sec-ico"
+                aria-hidden="true"
+              >
+                <use href="#i-layers" />
+              </svg>
+              <span lang="zh-CN">同作者工具</span><span lang="en">More by the author</span>
+            </span>
+            <h2>
+              <span lang="zh-CN">同一位作者的另外两个本地优先扩展</span>
+              <span lang="en">Two more local-first extensions by the same author</span>
+            </h2>
+            <p class="sub">
+              <span lang="zh-CN">三个扩展遵循同一套原则：开源、离线、数据不出本机。各自的产品页有演示与安装说明。</span>
+              <span lang="en"
+                >All three share the same principles: open source, offline, data stays on your machine. Each product
+                page carries its own demo and install instructions.</span
+              >
+            </p>
+          </div>
+
+          <div class="grid grid-2">
+            <div class="card sibling-card reveal">
+              <div class="icon violet">
+                <svg
+                  class="sib-ico"
+                  aria-hidden="true"
+                >
+                  <use href="#i-lock" />
+                </svg>
+              </div>
+              <h3>
+                <a
+                  href="https://liaolongdong.github.io/account-password-helper/"
+                  rel="noopener"
+                  target="_blank"
+                >
+                  <span lang="zh-CN">账号密码管理助手</span><span lang="en">Account Password Helper</span>
+                </a>
+                <span class="tag sib-star">
+                  <svg
+                    width="11"
+                    height="11"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                    aria-hidden="true"
+                  >
+                    <path
+                      d="M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21l6.18-3.73z"
+                    />
+                  </svg>
+                  <span lang="zh-CN">主推</span><span lang="en">Featured</span>
+                </span>
+              </h3>
+              <p>
+                <span lang="zh-CN"
+                  >为开发者与测试人员量身打造的 Chrome 密码管理扩展：按下 Ctrl+Shift+F
+                  一键登录（填充+勾选+点击），精确域名匹配隔离 dev/test/staging/prod 多环境账号；内置 TOTP
+                  两步验证、安全体检与密码生成器，所有数据本地 AES-256-GCM 加密，永远不离开你的电脑。</span
+                >
+                <span lang="en"
+                  >A Chrome password manager built for developers and testers: press Ctrl+Shift+F for one-click login
+                  (fill + check + submit), exact domain matching isolates dev/test/staging/prod accounts; TOTP
+                  two-factor, a security audit and a password generator are built in — all data encrypted locally with
+                  AES-256-GCM, never leaving your computer.</span
+                >
+              </p>
+              <p class="sibling-link">
+                <a
+                  href="https://liaolongdong.github.io/account-password-helper/"
+                  rel="noopener"
+                  target="_blank"
+                >
+                  <span lang="zh-CN">使用说明、演示与下载 →</span><span lang="en">Docs, demo &amp; download →</span>
+                </a>
+              </p>
+            </div>
+            <div class="card sibling-card reveal">
+              <div class="icon teal">
+                <svg
+                  class="sib-ico"
+                  aria-hidden="true"
+                >
+                  <use href="#i-repeat" />
+                </svg>
+              </div>
+              <h3>
+                <a
+                  href="https://liaolongdong.github.io/cross-origin-proxy/"
+                  rel="noopener"
+                  target="_blank"
+                >
+                  <span lang="zh-CN">跨域代理助手</span><span lang="en">Cross-origin Proxy</span>
+                </a>
+              </h3>
+              <p>
+                <span lang="zh-CN"
+                  >一款开源 Chrome 扩展（Manifest V3），把页面发出的 API 请求代理到另一个后端环境。重写
+                  URL、请求头与响应，条件化 Mock、注入延迟、阻断请求、失败重试、转发
+                  WebSocket——全部在浏览器里配置，数据只存在你的电脑上。</span
+                >
+                <span lang="en"
+                  >An open-source Chrome extension (Manifest V3) that proxies a page's API requests to another backend
+                  environment. Rewrite URLs, headers and responses, mock conditionally, inject delays, block requests,
+                  retry failures and forward WebSocket — all configured in the browser, with data stored only on your
+                  computer.</span
+                >
+              </p>
+              <p class="sibling-link">
+                <a
+                  href="https://liaolongdong.github.io/cross-origin-proxy/"
+                  rel="noopener"
+                  target="_blank"
+                >
+                  <span lang="zh-CN">使用说明、演示与下载 →</span><span lang="en">Docs, demo &amp; download →</span>
+                </a>
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <!-- ================= CONTACT ================= -->
       <section
         id="contact"
@@ -6330,85 +6671,52 @@ pnpm build</code><button
             </p>
           </div>
 
-          <div class="contact-grid">
-            <div>
-              <ul class="contact-list">
-                <li>
-                  <b><span lang="zh-CN">微信</span><span lang="en">WeChat</span></b>
-                  <span lang="zh-CN"
-                    >：<code>lld_1025</code>，备注「taf」（Transfer Any File
-                    的首字母）。问题反馈、格式需求、新版本试用都在群里。</span
-                  >
-                  <span lang="en"
-                    >: <code>lld_1025</code>, with the note "taf" (the initials of Transfer Any File). Bugs, format
-                    requests and pre-release testing all go through the group.</span
-                  >
-                </li>
-                <li>
-                  <b><span lang="zh-CN">邮箱</span><span lang="en">Email</span></b>
-                  <span lang="zh-CN"
-                    >：<a href="mailto:924902324@qq.com">924902324@qq.com</a
-                    >，与商店列表公开的联系邮箱是同一个地址。</span
-                  >
-                  <span lang="en"
-                    >: <a href="mailto:924902324@qq.com">924902324@qq.com</a> — the same address published on the store
-                    listing.</span
-                  >
-                </li>
-                <li>
-                  <b><span lang="zh-CN">Issue</span><span lang="en">Issues</span></b>
-                  <span lang="zh-CN"
-                    >：<a href="https://github.com/liaolongdong/transfer-any-file/issues">缺陷与格式需求</a
-                    >，可检索，也最不容易被漏掉。</span
-                  >
-                  <span lang="en"
-                    >:<a href="https://github.com/liaolongdong/transfer-any-file/issues"> Bugs &amp; format requests</a
-                    >, searchable and the least likely to be lost.</span
-                  >
-                </li>
-                <li>
-                  <b><span lang="zh-CN">关于这张码</span><span lang="en">About this code</span></b>
-                  <span lang="zh-CN"
-                    >：它是添加个人微信的二维码，不是群码，所以不存在群码 7
-                    天过期那一说。安全漏洞请走私密渠道，不要开公开&nbsp;Issue。</span
-                  >
-                  <span lang="en"
-                    >: this adds the author personally rather than a group chat, so it does not expire after seven days
-                    the way group codes do. Security issues go through a private channel, never a public issue.</span
-                  >
-                </li>
-              </ul>
-              <p class="answer">
-                <span lang="zh-CN"
-                  ><strong>同作者的另一个完全离线扩展</strong>：<a
-                    href="https://github.com/liaolongdong/account-password-helper"
-                    >账号密码管理助手</a
-                  >——本地 AES-256-GCM 加密的密码管理器，无云端、无账号，同样只跑在本机。</span
-                >
-                <span lang="en"
-                  ><strong>Another fully offline extension by the same author</strong>:<a
-                    href="https://github.com/liaolongdong/account-password-helper"
-                  >
-                    Account Password Helper</a
-                  >
-                  — a local AES-256-GCM password manager with no cloud and no account, also entirely on-device.</span
-                >
-              </p>
-            </div>
-            <figure class="qr">
-              <img
-                src="assets/wx-qrcode/wechat-qrcode.jpg"
-                width="168"
-                height="169"
-                loading="lazy"
-                decoding="async"
-                alt="作者微信二维码，扫码添加微信号 lld_1025，备注 taf 加入插件交流群。QR code for the author's WeChat — add lld_1025 with the note taf to join the extension group chat."
-              />
-              <figcaption>
-                <span lang="zh-CN">扫码添加 · 备注「taf」</span><span lang="en">Scan to add · note "taf"</span>
-              </figcaption>
-            </figure>
-          </div>
+          <ul class="contact-list">
+            <li>
+              <b><span lang="zh-CN">微信</span><span lang="en">WeChat</span></b>
+              <span lang="zh-CN"
+                >：<code>lld_1025</code>，备注「taf」（Transfer Any File
+                的首字母）。问题反馈、格式需求、新版本试用都在群里。</span
+              >
+              <span lang="en"
+                >: <code>lld_1025</code>, with the note "taf" (the initials of Transfer Any File). Bugs, format requests
+                and pre-release testing all go through the group.</span
+              >
+            </li>
+            <li>
+              <b><span lang="zh-CN">邮箱</span><span lang="en">Email</span></b>
+              <span lang="zh-CN"
+                >：<a href="mailto:924902324@qq.com">924902324@qq.com</a>，与商店列表公开的联系邮箱是同一个地址。</span
+              >
+              <span lang="en"
+                >: <a href="mailto:924902324@qq.com">924902324@qq.com</a> — the same address published on the store
+                listing.</span
+              >
+            </li>
+            <li>
+              <b><span lang="zh-CN">Issue</span><span lang="en">Issues</span></b>
+              <span lang="zh-CN"
+                >：<a href="https://github.com/liaolongdong/transfer-any-file/issues">缺陷与格式需求</a
+                >，可检索，也最不容易被漏掉。</span
+              >
+              <span lang="en"
+                >:<a href="https://github.com/liaolongdong/transfer-any-file/issues"> Bugs &amp; format requests</a>,
+                searchable and the least likely to be lost.</span
+              >
+            </li>
+            <li>
+              <b><span lang="zh-CN">关于扫码</span><span lang="en">About scanning</span></b>
+              <span lang="zh-CN"
+                >：页面底部那张码是添加个人微信的二维码，不是群码，所以不存在群码 7
+                天过期那一说。安全漏洞请走私密渠道，不要开公开&nbsp;Issue。</span
+              >
+              <span lang="en"
+                >: the code at the bottom of this page adds the author personally rather than a group chat, so it does
+                not expire after seven days the way group codes do. Security issues go through a private channel, never
+                a public issue.</span
+              >
+            </li>
+          </ul>
         </div>
       </section>
     </main>
@@ -6458,6 +6766,7 @@ pnpm build</code><button
             <a href="#privacy"><span lang="zh-CN">隐私与权限</span><span lang="en">Privacy &amp; permissions</span></a>
             <a href="#faq"><span lang="zh-CN">常见问题</span><span lang="en">FAQ</span></a>
             <a href="#details"><span lang="zh-CN">技术细节</span><span lang="en">Technical details</span></a>
+            <a href="#more"><span lang="zh-CN">同作者工具</span><span lang="en">More by the author</span></a>
             <a href="#contact"><span lang="zh-CN">联系</span><span lang="en">Contact</span></a>
           </nav>
           <div class="foot-meta">
@@ -6943,6 +7252,48 @@ pnpm build</code><button
           );
           metricNums.forEach(function (el) {
             countIO.observe(el);
+          });
+        }
+
+        // ---- Brand icon easter egg -------------------------------------------
+        // The one place on the page that rewards a click with something that is not a
+        // navigation. Both brand icons (nav and footer) spin once per click; the class is
+        // dropped on animationend so a second click can fire it again, and a click during
+        // a spin is ignored rather than restarting it mid-turn.
+        if (!reduced) {
+          Array.prototype.forEach.call(document.querySelectorAll('a.brand img'), function (img) {
+            img.addEventListener('click', function () {
+              if (!img.classList.contains('spin')) img.classList.add('spin');
+            });
+            img.addEventListener('animationend', function () {
+              img.classList.remove('spin');
+            });
+          });
+        }
+
+        // ---- One-pass scroll reveals declared in the markup -------------------
+        // data-onview names the class an element gains the first time it is 35% in view:
+        // the size bar under "3.73 MB" (in) and the light sweep over the comparison column
+        // (shine). Both classes only arm finite animations, so reduced-motion readers get
+        // the end state directly and there is nothing to unsee.
+        var onView = Array.prototype.slice.call(document.querySelectorAll('[data-onview]'));
+        if ('IntersectionObserver' in window) {
+          var viewIO = new IntersectionObserver(
+            function (entries) {
+              entries.forEach(function (entry) {
+                if (!entry.isIntersecting) return;
+                viewIO.unobserve(entry.target);
+                entry.target.classList.add(entry.target.getAttribute('data-onview'));
+              });
+            },
+            { threshold: 0.35 },
+          );
+          onView.forEach(function (el) {
+            viewIO.observe(el);
+          });
+        } else {
+          onView.forEach(function (el) {
+            el.classList.add(el.getAttribute('data-onview'));
           });
         }
 
