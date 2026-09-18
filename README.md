@@ -31,9 +31,9 @@
 </div>
 
 <p align="center">
-  <img src="docs/assets/screenshots/preview-edit.png" alt="Markdown 转 HTML 的左右对照预览：左侧源码，右侧渲染结果" width="100%" />
+  <a href="docs/assets/demo/demo-zh.gif"><img src="docs/assets/demo/demo-zh.gif" alt="12 秒演示：离线文件格式转换——把 Markdown、CSV、Excel 三个混合格式文件拖入工作台，目标格式选为 HTML，一次转换得到三个 HTML，并整批打包下载 ZIP，全程零上传、零网络请求" width="100%" /></a>
   <br />
-  <sub>左边是 Markdown 源码，右边是它转出来的 HTML——一次点击，全程在你自己的电脑上完成。</sub>
+  <sub>一批混合格式走完一遍：拖入 3 个文件 → 选 HTML → 一次转换 → 逐个下载或打包 ZIP。全部在你自己的电脑上完成，没有一次网络请求。</sub>
 </p>
 
 ---
@@ -63,28 +63,28 @@
 ## 🖼️ 功能演示
 
 <p align="center">
-  <img src="docs/assets/demo/demo-zh.gif" alt="12 秒演示：把 sample.md、sample.csv、sample.xlsx 三个文件加入工作台，目标格式选为 HTML，一次转换得到三个 HTML，并提供整批打包下载 ZIP" width="100%" />
+  <a href="docs/assets/screenshots/preview-edit.png"><img src="docs/assets/screenshots/preview-edit.png" alt="Markdown 转 HTML 的左右对照预览：左侧源码，右侧渲染结果，支持内联编辑与一键复制" width="100%" /></a>
   <br />
-  <sub>一批混合格式走完一遍：拖入 3 个文件 → 选 HTML → 一次转换 → 逐个下载或打包 ZIP。全部在你自己的电脑上完成，没有一次网络请求。</sub>
+  <sub>左边是 Markdown 源码，右边是它转出来的 HTML——下载之前先看、先改。本页截图点击均可查看原尺寸。</sub>
 </p>
 
 <p align="center">
-  <img src="docs/assets/screenshots/workbench-empty.png" alt="空白的工作台：邀请拖入文件的上传区、旁边的目标格式选择器，以及下方的历史记录卡片" width="49%" />
-  <img src="docs/assets/screenshots/batch-files.png" alt="工作台中已加入三个混合格式文件：sample.md、sample.csv 与 sample.xlsx，目标格式选为 HTML" width="49%" />
+  <a href="docs/assets/screenshots/workbench-empty.png"><img src="docs/assets/screenshots/workbench-empty.png" alt="空白的工作台：邀请拖入文件的上传区、旁边的目标格式选择器，以及下方的历史记录卡片" width="49%" /></a>
+  <a href="docs/assets/screenshots/batch-files.png"><img src="docs/assets/screenshots/batch-files.png" alt="工作台中已加入三个混合格式文件：sample.md、sample.csv 与 sample.xlsx，目标格式选为 HTML" width="49%" /></a>
   <br />
   <sub><b>左：拖入、选格式，在你自己电脑上转换</b>（页脚给出格式数与路径数）｜ <b>右：Markdown、CSV、Excel 一次转完</b>（每个文件各自求出到公共目标的路径）</sub>
 </p>
 
 <p align="center">
-  <img src="docs/assets/screenshots/batch-results.png" alt="转换完成提示，列出三个生成的 HTML 文件及其体积、逐项预览 / 复制 / 下载按钮，以及整批打包下载 ZIP 操作" width="49%" />
-  <img src="docs/assets/screenshots/output-preset.png" alt="图片输出参数面板与预设卡片：最长边、质量、目标体积、PDF 清晰度，以及三条已保存的预设" width="49%" />
+  <a href="docs/assets/screenshots/batch-results.png"><img src="docs/assets/screenshots/batch-results.png" alt="转换完成提示，列出三个生成的 HTML 文件及其体积、逐项预览 / 复制 / 下载按钮，以及整批打包下载 ZIP 操作" width="49%" /></a>
+  <a href="docs/assets/screenshots/output-preset.png"><img src="docs/assets/screenshots/output-preset.png" alt="图片输出参数面板与预设卡片：最长边、质量、目标体积、PDF 清晰度，以及三条已保存的预设" width="49%" /></a>
   <br />
   <sub><b>左：一次混合批量，一个 ZIP 下载</b>（逐文件结果，各自带预览与复制按钮）｜ <b>右：尺寸、质量、目标体积存成一键预设</b></sub>
 </p>
 
 <p align="center">
-  <img src="docs/assets/screenshots/history.png" alt="转换历史面板：记录带源格式与目标格式标签、文件名、体积，以及搜索框、全部 / 源格式 / 目标格式筛选与「复用此格式」按钮" width="49%" />
-  <img src="docs/assets/screenshots/dark-mode.png" alt="深色模式下的工作台：深色背景上的上传区与历史记录卡片" width="49%" />
+  <a href="docs/assets/screenshots/history.png"><img src="docs/assets/screenshots/history.png" alt="转换历史面板：记录带源格式与目标格式标签、文件名、体积，以及搜索框、全部 / 源格式 / 目标格式筛选与「复用此格式」按钮" width="49%" /></a>
+  <a href="docs/assets/screenshots/dark-mode.png"><img src="docs/assets/screenshots/dark-mode.png" alt="深色模式下的工作台：深色背景上的上传区与历史记录卡片" width="49%" /></a>
   <br />
   <sub><b>左：历史可搜索、可筛选、一键复用格式</b>（只存元数据，绝不保存文件内容）｜ <b>右：6 种主题色，浅色 / 深色 / 跟随系统</b></sub>
 </p>
@@ -117,7 +117,7 @@ _一步直达_
 
 - **文档** — Markdown ⇄ HTML、Word ⇄ HTML、HTML ⇄ PDF、HTML → TXT、TXT → HTML / Markdown
 - **数据** — CSV ⇄ Excel、JSON ⇄ CSV、JSON ⇄ HTML、Excel → JSON、CSV / Excel → HTML
-- **图片** — PNG ⇄ JPEG、PNG ⇄ WebP、JPEG ⇄ WebP；BMP / GIF / SVG → PNG / JPEG / WebP；PNG / JPEG / WebP / BMP / GIF → PDF；PDF → PNG；HTML → PNG
+- **图片** — PNG ⇄ JPEG、PNG ⇄ WebP、JPEG ⇄ WebP；BMP / GIF / SVG → PNG / JPEG / WebP；PNG / JPEG / WebP / BMP / GIF → PDF；PDF → PNG / JPEG / WebP；HTML → PNG
 
 _经 HTML 枢纽的两到三步（同样是一次点击，下拉会展示解析出的完整链路）_
 
@@ -127,7 +127,7 @@ _图上可达但语义不成立，因此置灰并说明原因，而不是等你�
 
 图片 → TXT / CSV / JSON / Excel（需要 OCR，本扩展完全离线、未内置），PDF → CSV / JSON / Excel（无法可靠还原表格结构）。
 
-> 说明：PDF 输出为图片渲染（文字不可选中）；PDF 输入仅提取文本（不保留版式与图片）；PDF → 图片逐页渲染，多页文档下载为"每页一张 PNG"的 ZIP 包；BMP、GIF、SVG 仅支持作为输入——浏览器无法编码它们；多工作表 XLSX → CSV 会下载包含"每表一个 CSV"的 ZIP 包。上面三组的计数口径：48 条注册路径经 BFS 可到达 143 个源→目标组合，其中 27 个因语义无效被屏蔽（24 个图片 → TXT / CSV / JSON / XLSX，3 个 PDF → CSV / JSON / XLSX），因此目标格式下拉实际提供 116 个组合。
+> 说明：PDF 输出为图片渲染（文字不可选中）；PDF 输入仅提取文本（不保留版式与图片）；PDF → 图片逐页渲染，多页文档下载为按所选格式（PNG / JPEG / WebP）逐页出图的 ZIP 包；BMP、GIF、SVG 仅支持作为输入——浏览器无法编码它们；多工作表 XLSX → CSV 会下载包含"每表一个 CSV"的 ZIP 包。上面三组的计数口径：48 条注册路径经 BFS 可到达 143 个源→目标组合，其中 27 个因语义无效被屏蔽（24 个图片 → TXT / CSV / JSON / XLSX，3 个 PDF → CSV / JSON / XLSX），因此目标格式下拉实际提供 116 个组合。
 
 ## 🆚 横向对比
 
@@ -195,7 +195,7 @@ _图上可达但语义不成立，因此置灰并说明原因，而不是等你�
 - 所有转换 **100% 在本地** 的扩展页面内完成——这是可验证的核心事实：第一方源码中没有任何一处发起请求（`entrypoints/`、`components/`、`composables/`、`utils/` 里找不到 `fetch`、`XMLHttpRequest`、`WebSocket`、`EventSource`、`sendBeacon`，由 `pnpm verify:offline` 断言）。在此之上，manifest 不声明任何 host 权限、也不注册 content script，因此第三方转换库里那些从未被调用的请求路径即使被走到，也读不到任何响应、碰不到任何网站的数据
 - 仅申请 `storage` 一项权限，用于保存历史（文件名、格式、体积——绝不含文件内容）与偏好设置
 - 无统计埋点、无追踪、无账号、无广告、无付费版
-- 完整文本：[`docs/privacy.html`](docs/privacy.html) · 面向商店的披露答复：[`CHROMEWEBSTORE.md`](CHROMEWEBSTORE.md)
+- 完整文本：[隐私政策（在线，中英双语）](https://liaolongdong.github.io/transfer-any-file/privacy.html)（仓库源文件 `docs/privacy.html`） · 面向商店的披露答复：[`CHROMEWEBSTORE.md`](CHROMEWEBSTORE.md)
 
 ## 📥 安装与上手
 
@@ -280,7 +280,7 @@ pnpm build
 
 ## 📄 许可证
 
-[MIT](LICENSE)
+[MIT](LICENSE) —— 发布历史见 [CHANGELOG.md](CHANGELOG.md) · [English](CHANGELOG.en.md)
 
 ---
 

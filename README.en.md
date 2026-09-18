@@ -31,9 +31,9 @@ A Chrome extension (Manifest V3) that does every conversion inside a tab on your
 </div>
 
 <p align="center">
-  <img src="docs/assets/screenshots/preview-edit.png" alt="Split preview of a Markdown file converted to HTML, source on the left, rendered result on the right" width="100%" />
+  <a href="docs/assets/demo/demo-en.gif"><img src="docs/assets/demo/demo-en.gif" alt="A 12-second demo of an offline file format converter: Markdown, CSV and Excel files are dropped into the workbench, HTML is chosen as the target format, one run produces three HTML files and a ZIP of the whole batch — zero uploads, zero network requests" width="100%" /></a>
   <br />
-  <sub>Markdown source on the left, the HTML it converted to on the right — one click, entirely on your own machine.</sub>
+  <sub>One mixed batch end to end: drop in 3 files → pick HTML → convert once → download each or take the ZIP. It all happens on your own machine, with no network request.</sub>
 </p>
 
 ---
@@ -63,28 +63,28 @@ Most "free online converter" sites ask you to upload the file first. That is fin
 ## 🖼️ In action
 
 <p align="center">
-  <img src="docs/assets/demo/demo-en.gif" alt="A 12-second demo: sample.md, sample.csv and sample.xlsx are staged in the workbench, HTML is chosen as the target format, one run produces three HTML files and a ZIP of the whole batch" width="100%" />
+  <a href="docs/assets/screenshots/preview-edit.png"><img src="docs/assets/screenshots/preview-edit.png" alt="Split preview of a Markdown file converted to HTML, source on the left, rendered result on the right, with inline editing and one-click copy" width="100%" /></a>
   <br />
-  <sub>One mixed batch end to end: drop in 3 files → pick HTML → convert once → download each or take the ZIP. It all happens on your own machine, with no network request.</sub>
+  <sub>Markdown source on the left, the HTML it converted to on the right — look at it and edit it before downloading. Every screenshot opens at full size when clicked.</sub>
 </p>
 
 <p align="center">
-  <img src="docs/assets/screenshots/workbench-empty.png" alt="The empty workbench: a drop zone inviting files, a target-format picker beside it, and the history card below" width="49%" />
-  <img src="docs/assets/screenshots/batch-files.png" alt="Three mixed-format files staged in the workbench: sample.md, sample.csv and sample.xlsx, with HTML selected as the target format" width="49%" />
+  <a href="docs/assets/screenshots/workbench-empty.png"><img src="docs/assets/screenshots/workbench-empty.png" alt="The empty workbench: a drop zone inviting files, a target-format picker beside it, and the history card below" width="49%" /></a>
+  <a href="docs/assets/screenshots/batch-files.png"><img src="docs/assets/screenshots/batch-files.png" alt="Three mixed-format files staged in the workbench: sample.md, sample.csv and sample.xlsx, with HTML selected as the target format" width="49%" /></a>
   <br />
   <sub><b>Left: drop, pick a format, convert on your own machine</b> (the footer derives the format and route counts) ｜ <b>Right: Markdown, CSV and Excel in one run</b> (each file resolves its own route to the shared target)</sub>
 </p>
 
 <p align="center">
-  <img src="docs/assets/screenshots/batch-results.png" alt="Conversion complete message listing three generated HTML files with their sizes, per-file preview, copy and download buttons, and a Download ZIP action for the batch" width="49%" />
-  <img src="docs/assets/screenshots/output-preset.png" alt="The image output parameters panel and preset cards: longest edge, quality, target size, PDF render density, plus three saved presets" width="49%" />
+  <a href="docs/assets/screenshots/batch-results.png"><img src="docs/assets/screenshots/batch-results.png" alt="Conversion complete message listing three generated HTML files with their sizes, per-file preview, copy and download buttons, and a Download ZIP action for the batch" width="49%" /></a>
+  <a href="docs/assets/screenshots/output-preset.png"><img src="docs/assets/screenshots/output-preset.png" alt="The image output parameters panel and preset cards: longest edge, quality, target size, PDF render density, plus three saved presets" width="49%" /></a>
   <br />
   <sub><b>Left: one mixed batch, one ZIP download</b> (per-file results, each with its own preview and copy button) ｜ <b>Right: size, quality and a size ceiling saved as a one-click preset</b></sub>
 </p>
 
 <p align="center">
-  <img src="docs/assets/screenshots/history.png" alt="Conversion history panel showing records with source and target format badges, file names, sizes, a search field, All / Source / Target filters and a Reuse this format button" width="49%" />
-  <img src="docs/assets/screenshots/dark-mode.png" alt="The workbench in dark mode, showing the drop zone and history card on a dark background" width="49%" />
+  <a href="docs/assets/screenshots/history.png"><img src="docs/assets/screenshots/history.png" alt="Conversion history panel showing records with source and target format badges, file names, sizes, a search field, All / Source / Target filters and a Reuse this format button" width="49%" /></a>
+  <a href="docs/assets/screenshots/dark-mode.png"><img src="docs/assets/screenshots/dark-mode.png" alt="The workbench in dark mode, showing the drop zone and history card on a dark background" width="49%" /></a>
   <br />
   <sub><b>Left: searchable, filterable history with one-click reuse</b> (metadata only, never file contents) ｜ <b>Right: 6 accent colours, light / dark / system</b></sub>
 </p>
@@ -117,7 +117,7 @@ _One step_
 
 - **Documents** — Markdown ⇄ HTML, Word ⇄ HTML, HTML ⇄ PDF, HTML → TXT, TXT → HTML / Markdown
 - **Data** — CSV ⇄ Excel, JSON ⇄ CSV, JSON ⇄ HTML, Excel → JSON, CSV / Excel → HTML
-- **Images** — PNG ⇄ JPEG, PNG ⇄ WebP, JPEG ⇄ WebP; BMP / GIF / SVG → PNG / JPEG / WebP; PNG / JPEG / WebP / BMP / GIF → PDF; PDF → PNG; HTML → PNG
+- **Images** — PNG ⇄ JPEG, PNG ⇄ WebP, JPEG ⇄ WebP; BMP / GIF / SVG → PNG / JPEG / WebP; PNG / JPEG / WebP / BMP / GIF → PDF; PDF → PNG / JPEG / WebP; HTML → PNG
 
 _Two or three steps through the HTML hub (still one click, and the picker shows the chain it resolved)_
 
@@ -127,7 +127,7 @@ _Reachable in the graph but meaningless, so greyed out with the reason instead o
 
 Image → TXT / CSV / JSON / Excel (that needs OCR, which this offline extension does not bundle), PDF → CSV / JSON / Excel (tabular structure cannot be recovered reliably).
 
-> Notes: PDF output is rendered as images (text is not selectable). PDF input extracts text only (layout and images are not preserved). PDF → image renders each page; multi-page documents download as a ZIP of per-page PNGs. BMP, GIF and SVG are input-only — browsers cannot encode them. Multi-sheet XLSX → CSV downloads a ZIP with one CSV per worksheet. How the three groups above count up: the 48 registered routes make 143 source→target combinations reachable through BFS, 27 of them are blocked as semantically invalid (24 image → TXT / CSV / JSON / XLSX, 3 PDF → CSV / JSON / XLSX), so the target picker offers 116.
+> Notes: PDF output is rendered as images (text is not selectable). PDF input extracts text only (layout and images are not preserved). PDF → image renders each page, and a multi-page document downloads as a ZIP of per-page images in the chosen format (PNG / JPEG / WebP). BMP, GIF and SVG are input-only — browsers cannot encode them. Multi-sheet XLSX → CSV downloads a ZIP with one CSV per worksheet. How the three groups above count up: the 48 registered routes make 143 source→target combinations reachable through BFS, 27 of them are blocked as semantically invalid (24 image → TXT / CSV / JSON / XLSX, 3 PDF → CSV / JSON / XLSX), so the target picker offers 116.
 
 ## 🆚 How it compares
 
@@ -195,7 +195,7 @@ Summarised from the typical behaviour of each class of tool rather than one spec
 - All conversions run **100% locally** in the extension page — the load-bearing fact is that no first-party source file issues a request (`fetch`, `XMLHttpRequest`, `WebSocket`, `EventSource` and `sendBeacon` appear nowhere in `entrypoints/`, `components/`, `composables/` or `utils/`, asserted by `pnpm verify:offline`). On top of that, the manifest declares no host permissions and registers no content scripts, so the request paths sitting unused inside third-party converter libraries can neither read a response nor reach any site's data
 - The only permission requested is `storage`, used for history (file names, formats, sizes — never contents) and preferences
 - No analytics, no tracking, no account, no ads, no paid tier
-- Full text: [`docs/privacy.html`](docs/privacy.html) · store-facing answers: [`CHROMEWEBSTORE.md`](CHROMEWEBSTORE.md)
+- Full text: [privacy policy (online, bilingual)](https://liaolongdong.github.io/transfer-any-file/privacy.html) (repository source `docs/privacy.html`) · store-facing answers: [`CHROMEWEBSTORE.md`](CHROMEWEBSTORE.md)
 
 ## 📥 Installation and usage
 
@@ -280,7 +280,7 @@ Security issues go through the private channel in [SECURITY.en.md](SECURITY.en.m
 
 ## 📄 License
 
-[MIT](LICENSE)
+[MIT](LICENSE) — release history in [CHANGELOG.en.md](CHANGELOG.en.md) · [简体中文](CHANGELOG.md)
 
 ---
 
