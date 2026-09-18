@@ -65,6 +65,15 @@ always name the same release.
   the CSV/XLSX/JSON round-trips produce. Tables are now serialized as GFM pipe tables: ragged rows are padded
   with empty cells, `|` and `\` inside a cell are escaped, cell content survives as plain text, and a nested
   table flattens into the row of its enclosing table.
+- **Two new interactions on the product page.** The six-step diagram under `#how` now surfaces in route order
+  as it scrolls into view (80–400ms per step, pure CSS hung on the existing `.reveal` observer, no new JS);
+  `#formats` gains a wall of the 14 format badges ahead of the matrix, and within 90px of the pointer a chip
+  leans toward it (distance²-damped, capped at 9px), snapping back on leave. The magnet binds only under
+  `(hover: hover) and (pointer: fine)`, and under `prefers-reduced-motion` the flow nodes are pinned to their
+  visible end state and the magnet listener is never attached. The metric count-up already existed and was not
+  reimplemented. A Playwright pass over the real page in both scenarios (normal / reduced motion) reports
+  13/13, with zero console errors and zero external requests; `docs/` stays out of the bundle and the
+  extension's behaviour is untouched.
 
 ### Changed
 

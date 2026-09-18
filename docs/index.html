@@ -1516,6 +1516,47 @@
         color: #6d28d9;
       }
 
+      /* The fourteen formats as one glanceable strip above the matrix, reusing the exact
+         .fmt/.fmt-* tokens the source column paints with — the wall and the table are the same
+         vocabulary at two sizes. On fine pointers the chips lean toward the cursor (JS block
+         near the brand easter egg); the hover ring below is the part that works with no JS at
+         all, and the blanket reduced-motion rule parks the lean. */
+      .fmt-wall {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+        margin: 2px 0 22px;
+        padding: 0;
+        list-style: none;
+      }
+
+      .fmt-wall .fam {
+        margin: 0 2px 0 10px;
+        color: var(--ink-soft);
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+      }
+
+      .fmt-wall .fam:first-child {
+        margin-left: 0;
+      }
+
+      .fmt-wall .fmt {
+        padding: 4px 11px;
+        font-size: 13px;
+        transition:
+          transform var(--dur-fast) var(--ease-out),
+          box-shadow var(--dur-fast) var(--ease-out);
+      }
+
+      @media (hover: hover) and (pointer: fine) {
+        .fmt-wall .fmt:hover {
+          box-shadow: var(--shadow-sm);
+        }
+      }
+
       .yes {
         color: var(--ok);
         font-weight: 700;
@@ -2296,6 +2337,43 @@
         transition-delay: 110ms;
       }
 
+      /* The pipeline nodes arrive 01→06 in route order instead of as one block: the entrance walks
+         the same path the wire pulses later trace, so the section is read as a sequence even by
+         someone who never looks at the numbers. Each node moves for one --dur-slow; only the
+         delays differ, capped at 400ms so the last node never reads as still loading. */
+      .js .flow .flow-node {
+        opacity: 0;
+        transform: translateY(10px);
+        transition:
+          opacity var(--dur-slow) var(--ease-out),
+          transform var(--dur-slow) var(--ease-out);
+      }
+
+      .js .flow.in .flow-node {
+        opacity: 1;
+        transform: none;
+      }
+
+      .js .flow .flow-node:nth-child(2) {
+        transition-delay: 80ms;
+      }
+
+      .js .flow .flow-node:nth-child(3) {
+        transition-delay: 160ms;
+      }
+
+      .js .flow .flow-node:nth-child(4) {
+        transition-delay: 240ms;
+      }
+
+      .js .flow .flow-node:nth-child(5) {
+        transition-delay: 320ms;
+      }
+
+      .js .flow .flow-node:nth-child(6) {
+        transition-delay: 400ms;
+      }
+
       @keyframes rise-in {
         from {
           opacity: 0;
@@ -2616,9 +2694,10 @@
           transition-delay: 0ms !important;
         }
 
-        /* And the two states that begin invisible are pinned visible, so nothing depends on the
+        /* And the states that begin invisible are pinned visible, so nothing depends on the
            animations above having run. */
         .js .reveal,
+        .js .flow .flow-node,
         .js .hero-copy > *,
         .js .hero-visual {
           opacity: 1;
@@ -3608,6 +3687,28 @@
               >
             </p>
           </div>
+          <ul
+            class="fmt-wall reveal"
+            id="fmtWall"
+          >
+            <li class="fam"><span lang="zh-CN">文档</span><span lang="en">Documents</span></li>
+            <li class="fmt fmt-doc">Markdown</li>
+            <li class="fmt fmt-doc">HTML</li>
+            <li class="fmt fmt-doc">DOCX</li>
+            <li class="fmt fmt-doc">PDF</li>
+            <li class="fmt fmt-doc">TXT</li>
+            <li class="fam"><span lang="zh-CN">数据</span><span lang="en">Data</span></li>
+            <li class="fmt fmt-data">CSV</li>
+            <li class="fmt fmt-data">XLSX</li>
+            <li class="fmt fmt-data">JSON</li>
+            <li class="fam"><span lang="zh-CN">图片</span><span lang="en">Images</span></li>
+            <li class="fmt fmt-img">PNG</li>
+            <li class="fmt fmt-img">JPEG</li>
+            <li class="fmt fmt-img">WebP</li>
+            <li class="fmt fmt-img">BMP</li>
+            <li class="fmt fmt-img">GIF</li>
+            <li class="fmt fmt-img">SVG</li>
+          </ul>
           <div class="answer">
             <span lang="zh-CN"
               ><strong>一句话答案：</strong>能读入 14 种格式，能写出 11 种（SVG、BMP、GIF
@@ -7270,6 +7371,80 @@ pnpm build</code><button
               img.classList.remove('spin');
             });
           });
+        }
+
+        // ---- Format-chip magnetism ---------------------------------------------
+        // Chips within ~90px of the pointer lean toward it, distance²-damped so the pull
+        // fades before it can be noticed as a threshold. Centers are measured once (with the
+        // lean cleared) rather than per frame, because a moved chip must not chase a stale
+        // position it just produced; the next pointerenter re-measures for free. Touch never
+        // matches the query, reduced-motion gets the static wall, and the only writes are
+        // inline transforms the .fmt-wall transition already smooths.
+        var wall = document.getElementById('fmtWall');
+        if (wall && !reduced && window.matchMedia('(hover: hover) and (pointer: fine)').matches) {
+          var chips = Array.prototype.slice.call(wall.querySelectorAll('.fmt'));
+          var centers = null;
+          var frame = 0;
+
+          function measure() {
+            chips.forEach(function (chip) {
+              chip.style.transform = '';
+            });
+            centers = chips.map(function (chip) {
+              var r = chip.getBoundingClientRect();
+              return [r.left + r.width / 2, r.top + r.height / 2];
+            });
+          }
+
+          function lean(x, y) {
+            frame = 0;
+            if (!centers) measure();
+            chips.forEach(function (chip, i) {
+              var dx = x - centers[i][0];
+              var dy = y - centers[i][1];
+              var d = Math.sqrt(dx * dx + dy * dy);
+              var reach = 90;
+              if (d > reach) {
+                chip.style.transform = '';
+                return;
+              }
+              var pull = (1 - d / reach) * (1 - d / reach) * 9;
+              var k = pull / (d || 1);
+              chip.style.transform = 'translate(' + dx * k + 'px, ' + dy * k + 'px)';
+            });
+          }
+
+          wall.addEventListener(
+            'pointerenter',
+            function () {
+              measure();
+            },
+            { passive: true },
+          );
+          wall.addEventListener(
+            'pointermove',
+            function (e) {
+              if (frame) return;
+              frame = requestAnimationFrame(function () {
+                lean(e.clientX, e.clientY);
+              });
+            },
+            { passive: true },
+          );
+          wall.addEventListener(
+            'pointerleave',
+            function () {
+              if (frame) {
+                cancelAnimationFrame(frame);
+                frame = 0;
+              }
+              chips.forEach(function (chip) {
+                chip.style.transform = '';
+              });
+            },
+            { passive: true },
+          );
+          window.addEventListener('resize', measure);
         }
 
         // ---- One-pass scroll reveals declared in the markup -------------------
