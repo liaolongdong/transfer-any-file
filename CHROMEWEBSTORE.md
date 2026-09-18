@@ -30,6 +30,10 @@
 
 - [提交速查](#提交速查) —— 按后台四个标签页排列，可直接照抄
 - [商店文案](#商店文案) —— 逐字段：中文解说 + 中英粘贴块
+  - [扩展名称](#扩展名称) —— 英文 / 中文
+  - [简介](#简介) —— 英文 / 中文
+  - [详细介绍](#详细介绍) —— 英文 / 中文
+  - [类别与语言](#类别与语言)
 - [图形与素材](#图形与素材) —— 图标、七张截图取五张、两张推广图
 - [权限与隐私申报](#权限与隐私申报) —— `storage` 说明、数据处理表单、数据使用认证、隐私政策
 - [分发与开发者信息](#分发与开发者信息)
@@ -59,13 +63,15 @@ curl -Is https://liaolongdong.github.io/transfer-any-file/privacy.html | head -1
 
 ### Tab 1 — Store listing（商店页面）
 
-| 字段                   | 取值                                                                          |
-| ---------------------- | ----------------------------------------------------------------------------- |
-| 名称 Name              | 下方代码块 —— 49/75，且必须与 `_locales/en → extensionName` 完全一致          |
-| 简介 Short description | 下方代码块 —— 127/132，且必须与 `_locales/en → extensionDescription` 完全一致 |
-| 详描 Full description  | [商店文案](#商店文案) → 详细介绍的英文代码块（实测 7,948 字符）               |
-| 类别 Category          | `Productivity`                                                                |
-| 语言 Languages         | `Chinese (China)`（默认）+ `English (United States)`，由包内 `_locales/` 决定 |
+| 字段                   | 英文取值                                                                                          | 中文取值（默认语言标签页）                                                                        |
+| ---------------------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| 名称 Extension Name      | `Transfer Any File — Offline File Format Converter` (49/75)                                       | `文件格式任意转换助手 — 离线转换无上传` (28/75)                                          |
+| 简介 Short description   | `Convert between 14 common document, spreadsheet and image file formats right in your browser...` (127/132) | `在本机浏览器内互转 14 种常见的文档、表格与图片格式。支持混合批量、多步链路、预览编辑与 ZIP 打包，全程离线，不上传、无账号。` (66/132) |
+| 详描 Full description    | [英文详细介绍](#英文详细介绍) (7,948 字符)                                                          | [中文详细介绍](#中文详细介绍) (2,845 字符)                                                          |
+| 类别 Category            | `Productivity`                                                                                    | `Productivity`                                                                                    |
+| 主要语言 Primary Language | -                                                                                                 | `Chinese (China)`                                                                               |
+| 附加语言 Additional Languages | `English (United States)`                                                                       | -                                                                                                 |
+| 产品页 Product page      | [https://liaolongdong.github.io/transfer-any-file/](https://liaolongdong.github.io/transfer-any-file/) | [https://liaolongdong.github.io/transfer-any-file/](https://liaolongdong.github.io/transfer-any-file/) |
 
 ```
 Transfer Any File — Offline File Format Converter
@@ -211,19 +217,16 @@ key 集一致、`default_locale` 仍是 `zh_CN`；`pnpm verify:meta` 比对 `_lo
 
 推广图不受语言影响：_"Small promo tiles and marquee promo tiles cannot be localized."_ 一套英文推广图就是正确答案。
 
-**中文名称（Chinese (China) extension name）** —— 33 字符，上限 75
+**中文名称（Chinese (China) extension name）** —— 28 字符，上限 75
 
 ```
-Transfer Any File — 离线文件格式与图片转换扩展
+文件格式任意转换助手 — 离线转换无上传
 ```
 
 它就是默认 `Chinese (China)` 标签页的名称，同时也是 `__MSG_extensionName__` 在 `zh_CN` 下的取值——中文系统用户在
-扩展管理页与安装提示里看到的正是这一行。品牌词不翻译（`utils/i18n/zh.ts → appName` 同样是 `Transfer Any File`）。
-
-破折号后面的关键词短语不再逐字对齐英文名称，这是刻意的，不是漂移。把 `Image` 从英文字段拿掉的三条论据在这边不成立：
-这个名字用了 33/75 字符，远低于类目里每个竞品都待着的 44 字符天花板；图片转换是中文里的原生复合词，不是硬贴上去的
-英文词，而且它点名了这个扩展所转换的三个格式族之一；并且这是主要受众真正落地的那个 locale。文件格式转换仍然是中文用户
-真正会输入的词，而整个名字读起来依旧是一个名词短语而不是列表——与英文字段同一条形状规则。
+扩展管理页与安装提示里看到的正是这一行。**"任意转换"对应英文"Transfer Any File"**，比直译更自然；"助手"比"扩展"更亲和。
+破折号后强调核心价值："离线转换无上传"，直接命中隐私敏感用户的最强需求。这个名字用了 28/75 字符，远低于类目天花板；
+读起来是名词短语而非列表——与英文字段同一条形状规则。
 
 **简介（Short Description）** [必填] —— 127 字符，上限 132
 
