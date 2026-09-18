@@ -10,7 +10,7 @@ import htmlToDocxConverter from '~/utils/converters/html-to-docx';
 import { csvToHtmlConverter, xlsxToHtmlConverter } from '~/utils/converters/data-to-html';
 import htmlToPdfConverter from '~/utils/converters/html-to-pdf';
 import pdfToHtmlConverter from '~/utils/converters/pdf-to-html';
-import pdfToPngConverter from '~/utils/converters/pdf-to-image';
+import { pdfToImageConverters } from '~/utils/converters/pdf-to-image';
 import { htmlToPngConverter } from '~/utils/converters/html-to-png';
 import { pngToPdfConverter } from '~/utils/converters/png-to-pdf';
 import imageToHtmlConverter from '~/utils/converters/image-to-html';
@@ -40,8 +40,10 @@ export function initConverters(): void {
   converterRegistry.register(htmlToPdfConverter);
   converterRegistry.register(pdfToHtmlConverter);
 
-  // PDF -> PNG (JPG/WEBP/BMP/GIF-SVG targets then reachable via image graph)
-  converterRegistry.register(pdfToPngConverter);
+  // PDF -> PNG / JPG / WEBP direct edges (BMP/GIF-SVG targets stay reachable via the image graph)
+  for (const converter of pdfToImageConverters) {
+    converterRegistry.register(converter);
+  }
 
   // CSV <-> XLSX
   converterRegistry.register(csvToXlsxConverter);

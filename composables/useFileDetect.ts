@@ -44,23 +44,25 @@ export const SUPPORTED_EXTENSIONS: string[] = Object.keys(EXTENSION_MAP);
 export function useFileDetect() {
   /** Detect FileFormat from File object (extension first, MIME fallback) */
   function detectFormat(file: File): FileFormat | null {
+    // Own-property lookups only: `file.type` and the name suffix are user-controlled,
+    // and `MIME_MAP['__proto__']` would otherwise resolve through the prototype chain
+    // and hand back a bogus format.
+    const extOf = (map: Record<string, FileFormat>, key: string): FileFormat | undefined =>
+      Object.hasOwn(map, key) ? map[key] : undefined;
+
     // Try extension first
     const name = file.name.toLowerCase();
     const dotIndex = name.lastIndexOf('.');
     if (dotIndex !== -1) {
-      const ext = name.slice(dotIndex);
-      if (EXTENSION_MAP[ext]) {
-        return EXTENSION_MAP[ext];
+      const byExt = extOf(EXTENSION_MAP, name.slice(dotIndex));
+      if (byExt) {
+        return byExt;
       }
     }
 
     // Fallback to MIME type
-    const mime = file.type.toLowerCase();
-    if (mime && MIME_MAP[mime]) {
-      return MIME_MAP[mime];
-    }
-
-    return null;
+    const byMime = extOf(MIME_MAP, file.type.toLowerCase());
+    return byMime ?? null;
   }
 
   return { detectFormat };

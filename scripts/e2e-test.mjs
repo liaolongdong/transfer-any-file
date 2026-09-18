@@ -1,5 +1,6 @@
 import { chromium } from 'playwright';
 import { fileURLToPath } from 'url';
+import { Buffer } from 'node:buffer';
 import path from 'path';
 import fs from 'fs';
 import http from 'http';
@@ -11,6 +12,16 @@ const FIXTURE_PATH = path.resolve(__dirname, '../fixtures');
 const HEADLESS = process.env.CI === 'true' || process.env.E2E_HEADLESS === 'true';
 const SCREENSHOT_DIR = process.env.E2E_SCREENSHOT_DIR || path.resolve(__dirname, '../.test-screenshots');
 const PORT = parseInt(process.env.E2E_PORT || '9876', 10);
+
+/**
+ * Every request the harness server receives under `/canary/…`.
+ *
+ * The offline sentinel scenario feeds the workbench an HTML document whose subresources all point
+ * back at this server; any entry here means a render boundary actually tried to fetch remote
+ * markup resources — the behavioral check behind the "no network requests" promise that
+ * `verify:offline` can only make statically.
+ */
+const canaryHits = [];
 
 let passed = 0;
 let failed = 0;
@@ -130,6 +141,12 @@ function startServer() {
       '.woff2': 'font/woff2',
     };
     const server = http.createServer((req, res) => {
+      if (req.url && req.url.startsWith('/canary/')) {
+        canaryHits.push(req.url);
+        res.writeHead(404);
+        res.end('canary');
+        return;
+      }
       const filePath = path.join(EXTENSION_PATH, req.url === '/' ? '/options.html' : req.url);
       const ext = path.extname(filePath);
       const contentType = mimeTypes[ext] || 'application/octet-stream';
@@ -316,8 +333,8 @@ async function run() {
 
   // Check footer stats
   const footerText = await page.$eval('.footer', el => el.textContent).catch(() => '');
-  if (footerText.includes('14') && footerText.includes('46')) {
-    ok('Footer shows 14 formats, 46+ paths');
+  if (footerText.includes('14') && footerText.includes('48')) {
+    ok('Footer shows 14 formats, 48+ paths');
   } else {
     fail('Footer stats', `unexpected: "${footerText}"`);
   }
@@ -383,6 +400,9 @@ async function run() {
     // PDF conversions
     ['sample.pdf', 'HTML (.html)', 'PDF→HTML'],
     ['sample.pdf', 'PNG (.png)', 'PDF→PNG'],
+    // Direct PDF→raster edges (were two-step through PNG before)
+    ['sample.pdf', 'JPEG (.jpg)', 'PDF→JPG'],
+    ['sample.pdf', 'WEBP (.webp)', 'PDF→WEBP'],
     // SVG conversions (new format)
     ['sample.svg', 'PNG (.png)', 'SVG→PNG'],
     ['sample.svg', 'HTML (.html)', 'SVG→HTML'],
@@ -490,6 +510,84 @@ async function run() {
     fail('Multi-page PDF→PNG ZIP', e.message);
   }
 
+  // Same bundle through the new direct PDF→JPG edge: the ZIP container must follow the
+  // target format, not just PNG.
+  section('Multi-page PDF → JPEG exports ZIP');
+  try {
+    await resetWorkbench(page);
+    const result = await convertFile(page, 'sample-2page.pdf', 'JPEG (.jpg)');
+    if (result.alertTitle.includes('完成') && result.resultName.endsWith('.zip')) {
+      ok(`Two-page PDF exported as JPEG ZIP: ${result.resultName}`);
+    } else {
+      fail('Multi-page PDF→JPEG', `alert="${result.alertTitle}" name="${result.resultName}"`);
+    }
+  } catch (e) {
+    fail('Multi-page PDF→JPEG ZIP', e.message);
+  }
+
+  // ═══════════════════════════════════════════
+  //  OFFLINE SENTINEL — remote references must never be fetched
+  // ═══════════════════════════════════════════
+
+  section('Offline Sentinel — zero subresource requests');
+  try {
+    canaryHits.length = 0;
+    await resetWorkbench(page);
+    // Re-point the canary URLs at the actual harness port before uploading.
+    const remoteHtml = fs
+      .readFileSync(path.join(FIXTURE_PATH, 'sample-remote.html'), 'utf8')
+      .replaceAll('127.0.0.1:9876', `127.0.0.1:${PORT}`);
+    const fi = await page.$('input[type="file"]');
+    await fi.setInputFiles({ name: 'sample-remote.html', mimeType: 'text/html', buffer: Buffer.from(remoteHtml) });
+    await page.waitForTimeout(1000);
+
+    // Boundary 1: the source preview dialog renders the document into a srcdoc iframe.
+    await (await page.$('.file-item button[title="预览"]')).click();
+    await page.waitForSelector('.preview-dialog iframe.doc-frame', { timeout: 10000 });
+    await page.waitForTimeout(1500);
+    // Boundary 2: the rasterizer renders the same document before encoding the PNG.
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(300);
+    await pickTarget(page, 'PNG (.png)');
+    await (await page.$('.convert-btn')).click();
+    await page.waitForFunction(
+      () => {
+        const alert = document.querySelector('.el-alert__title');
+        return alert && alert.textContent.length > 0;
+      },
+      { timeout: 30000 },
+    );
+    // Give any in-flight subresource request time to reach the server before judging.
+    await page.waitForTimeout(1500);
+
+    if (canaryHits.length === 0) {
+      ok('Remote img/link/@import/style-url/srcset/video references produced zero requests');
+    } else {
+      fail('Offline sentinel', `canary was fetched: ${[...new Set(canaryHits)].join(', ')}`);
+    }
+
+    // The strip must be surgical: plain anchor links are content, not subresources.
+    await (await page.$('.file-item button[title="预览"]')).click();
+    await page.waitForSelector('.preview-dialog iframe.doc-frame', { timeout: 10000 });
+    const srcdoc = await page.$eval('.preview-dialog iframe.doc-frame', el => el.getAttribute('srcdoc') || '');
+    if (srcdoc.includes(`/canary/anchor`) && !srcdoc.includes(`/canary/img.png`)) {
+      ok('Anchor href preserved while image references were stripped');
+    } else {
+      fail(
+        'Surgical strip check',
+        `anchor kept=${srcdoc.includes('/canary/anchor')}, image kept=${srcdoc.includes('/canary/img.png')}`,
+      );
+    }
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(300);
+    await page.screenshot({
+      path: shot(`${String(shotIdx++).padStart(2, '0')}-offline-sentinel.png`),
+      fullPage: true,
+    });
+  } catch (e) {
+    fail('Offline sentinel', e.message);
+  }
+
   // ═══════════════════════════════════════════
   //  JSON RESULT PREVIEW (regression: was blank)
   // ═══════════════════════════════════════════
@@ -517,6 +615,40 @@ async function run() {
     await page.waitForTimeout(400);
   } catch (e) {
     fail('JSON result preview', e.message);
+  }
+
+  // ═══════════════════════════════════════════
+  //  HTML→MD TABLE ROUNDTRIP (regression: default Turndown rules dropped tables)
+  // ═══════════════════════════════════════════
+
+  section('HTML→MD Table Roundtrip');
+  try {
+    await resetWorkbench(page);
+    await convertFile(page, 'sample.html', 'Markdown (.md)');
+
+    const previewBtn = await page.$('.result-item button[title="预览"]');
+    if (!previewBtn) throw new Error('result preview button not found');
+    await previewBtn.click();
+    await page.waitForTimeout(800);
+
+    // Markdown previews default to the rendered iframe; the raw GFM text only
+    // appears after switching the dialog to its source tab.
+    const sourceTab = await page.$('.preview-dialog .el-radio-button__inner:has-text("源码")');
+    if (sourceTab) await sourceTab.click();
+    await page.waitForTimeout(300);
+
+    const text = await page.$eval('.preview-dialog .text-preview', el => el.textContent).catch(() => '');
+    if (text.includes('| K | V |') && text.includes('| --- | --- |') && text.includes('| a | 1 |')) {
+      ok('HTML→MD keeps the sample table as a GFM pipe table');
+    } else {
+      fail('HTML→MD table roundtrip', `markdown lost the table: "${text.slice(0, 120)}"`);
+    }
+    await page.screenshot({ path: shot(`${String(shotIdx++).padStart(2, '0')}-html-to-md-table.png`), fullPage: true });
+
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(400);
+  } catch (e) {
+    fail('HTML→MD table roundtrip', e.message);
   }
 
   // ═══════════════════════════════════════════

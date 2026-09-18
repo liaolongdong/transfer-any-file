@@ -23,6 +23,9 @@ function createImageConverter(from: FileFormat, to: FileFormat, mimeType: string
       }
 
       let { naturalWidth: w, naturalHeight: h } = img;
+      // Some decoders report a successful load with zero intrinsic size (truncated files, odd
+      // BMP/GIF variants); a 0×0 canvas encodes to a corrupt-looking blob instead of an error.
+      if (!w || !h) throw new Error('errors.imageDecode');
       if (w > MAX_DIM || h > MAX_DIM) {
         const scale = Math.min(MAX_DIM / w, MAX_DIM / h);
         w = Math.round(w * scale);

@@ -15,8 +15,11 @@ const props = withDefaults(
     targetFormat: FileFormat | null;
     /** Most recently used targets, ordered newest-first. */
     recentTargets?: FileFormat[];
+    /** Blocks target switching while a batch is running — mid-batch changes would clear the
+     *  in-flight results and leave them re-labelled under the new target. */
+    disabled?: boolean;
   }>(),
-  { recentTargets: () => [] },
+  { recentTargets: () => [], disabled: false },
 );
 
 const emit = defineEmits<{
@@ -126,6 +129,7 @@ function handleChange(format: FileFormat): void {
           :model-value="targetFormat"
           :placeholder="t('format.selectTarget')"
           filterable
+          :disabled="disabled"
           :no-match-text="t('format.noMatch')"
           size="default"
           style="width: 100%"
@@ -159,7 +163,9 @@ function handleChange(format: FileFormat): void {
             >
               <span
                 :title="selectableSet.has(format) ? undefined : disabledReason(format)"
-                :aria-label="selectableSet.has(format) ? undefined : `${getFormatLabel(format)} — ${disabledReason(format)}`"
+                :aria-label="
+                  selectableSet.has(format) ? undefined : `${getFormatLabel(format)} — ${disabledReason(format)}`
+                "
               >
                 {{ getFormatLabel(format) }}
               </span>
@@ -173,9 +179,7 @@ function handleChange(format: FileFormat): void {
       class="path-hint"
     >
       <span class="path-label">{{ t('format.conversionPath') }}</span>
-      <span class="path-steps">
-        {{ getFormatLabel(sourceFormats[0]) }} → {{ conversionPathLabels.join(' → ') }}
-      </span>
+      <span class="path-steps"> {{ getFormatLabel(sourceFormats[0]) }} → {{ conversionPathLabels.join(' → ') }} </span>
     </div>
   </div>
   <div

@@ -1,0 +1,27 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Remote canary</title>
+    <link rel="stylesheet" href="http://127.0.0.1:9876/canary/link.css" />
+    <style>
+      @import url('http://127.0.0.1:9876/canary/import.css');
+      body {
+        background: url('http://127.0.0.1:9876/canary/body-bg.png');
+        font-family: sans-serif;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Offline sentinel document</h1>
+    <p style="background-image: url('http://127.0.0.1:9876/canary/inline.png')">Plain text paragraph.</p>
+    <img src="http://127.0.0.1:9876/canary/img.png" alt="canary" />
+    <img
+      src="http://127.0.0.1:9876/canary/srcset-fallback.png"
+      srcset="http://127.0.0.1:9876/canary/srcset-2x.png 2x, http://127.0.0.1:9876/canary/srcset-3x.png 3x"
+      alt="canary"
+    />
+    <video poster="http://127.0.0.1:9876/canary/poster.png"></video>
+    <a href="http://127.0.0.1:9876/canary/anchor">a link (must survive untouched)</a>
+  </body>
+</html>

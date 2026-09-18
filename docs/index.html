@@ -138,7 +138,7 @@
     />
     <meta
       name="twitter:description"
-      content="14 种格式、46 条直接路径、116 个可选组合、0 次网络请求，全部在你自己的浏览器里完成。 | 14 formats, 46 direct routes, 116 selectable combinations, zero network requests. Runs entirely in your browser."
+      content="14 种格式、48 条直接路径、116 个可选组合、0 次网络请求，全部在你自己的浏览器里完成。 | 14 formats, 48 direct routes, 116 selectable combinations, zero network requests. Runs entirely in your browser."
     />
     <meta
       name="twitter:image"
@@ -152,7 +152,7 @@
     <!--
       Structured data. Every number here is derived from the code, not from prose:
       · 14 formats       -> utils/core/types.ts `FileFormat`
-      · 46 direct edges  -> the converters registered by utils/converters/index.ts
+      · 48 direct edges  -> the converters registered by utils/converters/index.ts
       · 143 combinations -> BFS closure over the same graph (utils/core/registry.ts)
       · 116 selectable   -> 143 minus the 27 pairs utils/core/conversion-policy.ts greys out
                             (24 image -> text/data + 3 PDF -> data)
@@ -178,11 +178,11 @@
             "description": [
               {
                 "@language": "en",
-                "@value": "A Chrome extension (Manifest V3) that converts documents, spreadsheets and images between 14 file formats locally. Batch conversion of mixed source formats, automatic multi-step conversion chains over 46 registered routes, preview and inline editing, ZIP download, and conversion history. Performs no network requests and requests only the storage permission."
+                "@value": "A Chrome extension (Manifest V3) that converts documents, spreadsheets and images between 14 file formats locally. Batch conversion of mixed source formats, automatic multi-step conversion chains over 48 registered routes, preview and inline editing, ZIP download, and conversion history. Performs no network requests and requests only the storage permission."
               },
               {
                 "@language": "zh-CN",
-                "@value": "一款完全离线的 Chrome 扩展（Manifest V3），在本地完成 14 种文档、数据与图片格式互转：混合批量、自动多步链路（46 条注册路径）、预览与内联编辑、ZIP 打包与转换历史。不发起网络请求，只申请 storage 权限。"
+                "@value": "一款完全离线的 Chrome 扩展（Manifest V3），在本地完成 14 种文档、数据与图片格式互转：混合批量、自动多步链路（48 条注册路径）、预览与内联编辑、ZIP 打包与转换历史。不发起网络请求，只申请 storage 权限。"
               }
             ],
             "url": "https://liaolongdong.github.io/transfer-any-file/",
@@ -215,7 +215,7 @@
               "priceCurrency": "USD"
             },
             "featureList": [
-              "14 file formats and 46 direct conversion routes (143 combinations reachable, 116 selectable)",
+              "14 file formats and 48 direct conversion routes (143 combinations reachable, 116 selectable)",
               "Batch conversion of mixed source formats, up to 200 files",
               "Automatic multi-step conversion chains found by BFS, with the route shown before you convert",
               "Per-file error isolation with expandable, copyable failure diagnostics",
@@ -291,7 +291,7 @@
                 "name": "Which file formats can it convert?",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "Fourteen formats across three families: documents (Markdown, HTML, Word .docx, PDF, TXT), data (CSV, Excel .xlsx, JSON) and images (PNG, JPEG, WebP, BMP, GIF, SVG). Eleven of them can be written; the registry holds 46 direct routes and BFS over that graph makes 143 combinations reachable. The picker offers 116 of them — the other 27 (image→text/data and PDF→data) are greyed out with a reason. The format table above lists the reachable and selectable counts for every source format row by row."
+                  "text": "Fourteen formats across three families: documents (Markdown, HTML, Word .docx, PDF, TXT), data (CSV, Excel .xlsx, JSON) and images (PNG, JPEG, WebP, BMP, GIF, SVG). Eleven of them can be written; the registry holds 48 direct routes and BFS over that graph makes 143 combinations reachable. The picker offers 116 of them — the other 27 (image→text/data and PDF→data) are greyed out with a reason. The format table above lists the reachable and selectable counts for every source format row by row."
                 }
               },
               {
@@ -299,7 +299,7 @@
                 "name": "它能转换哪些文件格式？",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "三大类共 14 种：文档（Markdown、HTML、Word .docx、PDF、TXT）、数据（CSV、Excel .xlsx、JSON）与图片（PNG、JPEG、WebP、BMP、GIF、SVG）。其中 11 种可写出；注册表里有 46 条直接路径，经广度优先搜索可到达 143 个组合，格式下拉实际提供 116 个——另外 27 个（图片→文本/数据、PDF→数据）会置灰并说明原因。上面的格式表逐行列出了每种源格式的可达与可选目标数。"
+                  "text": "三大类共 14 种：文档（Markdown、HTML、Word .docx、PDF、TXT）、数据（CSV、Excel .xlsx、JSON）与图片（PNG、JPEG、WebP、BMP、GIF、SVG）。其中 11 种可写出；注册表里有 48 条直接路径，经广度优先搜索可到达 143 个组合，格式下拉实际提供 116 个——另外 27 个（图片→文本/数据、PDF→数据）会置灰并说明原因。上面的格式表逐行列出了每种源格式的可达与可选目标数。"
                 }
               },
               {
@@ -3383,7 +3383,7 @@
               <span class="label"><span lang="zh-CN">文件格式</span><span lang="en">file formats</span></span>
             </div>
             <div class="metric">
-              <b>46</b>
+              <b>48</b>
               <span class="label"><span lang="zh-CN">条直接转换路径</span><span lang="en">direct routes</span></span>
             </div>
             <div class="metric">
@@ -3612,7 +3612,7 @@
             <span lang="zh-CN"
               ><strong>一句话答案：</strong>能读入 14 种格式，能写出 11 种（SVG、BMP、GIF
               只能读，因为浏览器未提供它们的编码器）。注册表里有
-              <strong>46 条直接转换路径</strong>；对任意一种源格式，除自身以外的 11
+              <strong>48 条直接转换路径</strong>；对任意一种源格式，除自身以外的 11
               种可写目标在图上都<strong>可达</strong>，合计 <strong>143 个可达组合</strong>；其中 27 个（24
               个图片→文本/数据、3 个 PDF→数据）必然失败或只产出占位内容，被格式下拉置灰并写明原因，因此真正
               <strong>可选的是 116 个</strong
@@ -3621,7 +3621,7 @@
             <span lang="en"
               ><strong>Short answer:</strong> it reads 14 formats and writes 11 — SVG, BMP and GIF are input-only
               because browsers expose no encoders for them. The registry holds
-              <strong>46 direct conversion routes</strong>; from any source format, all 11 writable targets except
+              <strong>48 direct conversion routes</strong>; from any source format, all 11 writable targets except
               itself are <strong>reachable</strong> in the graph, which is <strong>143 reachable combinations</strong>.
               27 of them (24 image→text/data and 3 PDF→data) would always fail or produce a placeholder, so the picker
               greys them out with a reason and <strong>116 remain selectable</strong>. In the table below, "Direct"
@@ -4358,10 +4358,10 @@
               <h3><span lang="zh-CN">取交集</span><span lang="en">Narrow</span></h3>
               <p>
                 <span lang="zh-CN"
-                  >混合批次只保留对每个文件都可达的目标格式。14 种格式、46 条直连路径构成一张有向图。</span
+                  >混合批次只保留对每个文件都可达的目标格式。14 种格式、48 条直连路径构成一张有向图。</span
                 >
                 <span lang="en"
-                  >A mixed batch keeps only the targets reachable from every file. 14 formats and 46 direct routes form
+                  >A mixed batch keeps only the targets reachable from every file. 14 formats and 48 direct routes form
                   one directed graph.</span
                 >
               </p>
@@ -5928,14 +5928,14 @@ pnpm build</code><button
               <div class="faq-a">
                 <span lang="zh-CN"
                   >三大类共 14 种：文档（Markdown、HTML、Word .docx、PDF、TXT）、数据（CSV、Excel
-                  .xlsx、JSON）与图片（PNG、JPEG、WebP、BMP、GIF、SVG）。其中 11 种可写出；注册表里有 46
+                  .xlsx、JSON）与图片（PNG、JPEG、WebP、BMP、GIF、SVG）。其中 11 种可写出；注册表里有 48
                   条直接路径，经广度优先搜索可到达 143 个组合，格式下拉实际提供 116 个——另外 27
                   个（图片→文本/数据、PDF→数据）会置灰并说明原因。上面的格式表逐行列出了每种源格式的可达与可选目标数。</span
                 >
                 <span lang="en"
                   >Fourteen formats across three families: documents (Markdown, HTML, Word .docx, PDF, TXT), data (CSV,
                   Excel .xlsx, JSON) and images (PNG, JPEG, WebP, BMP, GIF, SVG). Eleven of them can be written; the
-                  registry holds 46 direct routes and BFS over that graph makes 143 combinations reachable. The picker
+                  registry holds 48 direct routes and BFS over that graph makes 143 combinations reachable. The picker
                   offers 116 of them — the other 27 (image→text/data and PDF→data) are greyed out with a reason. The
                   format table above lists the reachable and selectable counts for every source format row by row.</span
                 >
@@ -6499,14 +6499,14 @@ pnpm build</code><button
           <p class="updated">
             <span lang="zh-CN"
               ><strong>版本 1.0.0 · 本页最后更新 2026-09-18。</strong>文中全部数字从代码取证：14 种格式来自
-              <code>FileFormat</code> 枚举，46 条路径与 143 个可达组合来自转换器注册表的邻接图，116 个可选组合是 143
+              <code>FileFormat</code> 枚举，48 条路径与 143 个可达组合来自转换器注册表的邻接图，116 个可选组合是 143
               减去 <code>utils/core/conversion-policy.ts</code> 置灰的 27 个，3.73 MB 来自
               <code>pnpm build</code> 输出，权限与上限来自 manifest 与源码常量。截图与推广图由
               <code>pnpm assets:capture</code> 从构建产物生成。</span
             >
             <span lang="en"
               ><strong>Version 1.0.0 · page last updated 2026-09-18.</strong> Every number on this page is taken from
-              the code: 14 formats from the <code>FileFormat</code> enum, 46 routes and 143 reachable combinations from
+              the code: 14 formats from the <code>FileFormat</code> enum, 48 routes and 143 reachable combinations from
               the converter registry's adjacency graph, and 116 selectable combinations — that is 143 minus the 27 pairs
               <code>utils/core/conversion-policy.ts</code> greys out. 3.73 MB comes from <code>pnpm build</code> output,
               permissions and limits from the manifest and source constants. Screenshots are generated from the built
@@ -7011,7 +7011,7 @@ pnpm build</code><button
             ogTitle: 'Transfer Any File｜离线文件格式转换扩展（Chrome）',
             ogDescription:
               '在浏览器本地完成 14 种格式互转：批量、多步链路、预览编辑与 ZIP 打包，不上传一个字节，只申请 storage 权限。',
-            twitterDescription: '14 种格式、46 条直接路径、116 个可选组合、0 次网络请求，全部在你自己的浏览器里完成。',
+            twitterDescription: '14 种格式、48 条直接路径、116 个可选组合、0 次网络请求，全部在你自己的浏览器里完成。',
           },
           en: {
             title: 'Transfer Any File — Offline File Format Converter for Chrome',
@@ -7021,7 +7021,7 @@ pnpm build</code><button
             ogDescription:
               'Convert 14 file formats inside your browser. Batch, multi-step, preview and edit — without uploading a byte.',
             twitterDescription:
-              '14 formats, 46 direct routes, 116 selectable combinations, zero network requests. Runs entirely in your browser.',
+              '14 formats, 48 direct routes, 116 selectable combinations, zero network requests. Runs entirely in your browser.',
           },
         };
 

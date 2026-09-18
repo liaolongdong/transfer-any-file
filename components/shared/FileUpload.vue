@@ -2,7 +2,7 @@
 import { ref, computed, onMounted, onUnmounted, defineAsyncComponent } from 'vue';
 import type { Component } from 'vue';
 import { UploadFilled, Delete, Plus, Picture, Document, Grid, View } from '@element-plus/icons-vue';
-import { unzipSync } from 'fflate';
+import { unzip } from 'fflate';
 import { FileFormat } from '~/utils/core/types';
 import { getFormatLabel, getFormatCategory } from '~/utils/core/format-labels';
 import { formatSize } from '~/utils/core/format';
@@ -144,6 +144,51 @@ function handleDragLeave(): void {
 const MAX_WARN_SIZE = 20 * 1024 * 1024; // 20MB
 const MAX_REJECT_SIZE = 100 * 1024 * 1024; // 100MB
 const MAX_BATCH_FILES = 200;
+/** Ceiling for the declared uncompressed size of one archive, checked against the ZIP
+ *  central directory before any inflate happens so a small bomb is refused, not expanded. */
+const ZIP_TOTAL_BUDGET = 200 * 1024 * 1024; // 200MB
+
+/**
+ * Decompress an archive down to the supported entries it may contribute.
+ *
+ * The filter consults each entry's declared sizes in the central directory before anything is
+ * inflated: entries above the per-file limit, past the batch file cap, or pushing the archive
+ * past {@link ZIP_TOTAL_BUDGET} are skipped rather than decoded. `truncated` reports that a
+ * supported entry was refused for budget reasons (as opposed to being an unsupported type).
+ */
+async function readArchive(file: File): Promise<{ entries: Record<string, Uint8Array>; truncated: boolean }> {
+  const buffer = new Uint8Array(await file.arrayBuffer());
+  let declaredTotal = 0;
+  let kept = 0;
+  let truncated = false;
+  const entries = await new Promise<Record<string, Uint8Array>>((resolve, reject) => {
+    unzip(
+      buffer,
+      {
+        filter: info => {
+          if (info.name.endsWith('/') || info.name.startsWith('__MACOSX/')) return false;
+          const base = info.name.split('/').pop() ?? info.name;
+          const dot = base.lastIndexOf('.');
+          const ext = dot === -1 ? '' : base.slice(dot).toLowerCase();
+          if (!SUPPORTED_EXTENSIONS.includes(ext)) return false;
+          if (
+            info.originalSize > MAX_REJECT_SIZE ||
+            declaredTotal + info.originalSize > ZIP_TOTAL_BUDGET ||
+            kept >= MAX_BATCH_FILES
+          ) {
+            truncated = true;
+            return false;
+          }
+          declaredTotal += info.originalSize;
+          kept++;
+          return true;
+        },
+      },
+      (err, files) => (err ? reject(err) : resolve(files)),
+    );
+  });
+  return { entries, truncated };
+}
 
 /** Unpack .zip uploads so archives of documents/images convert as a batch */
 async function expandArchives(files: File[]): Promise<File[]> {
@@ -160,15 +205,19 @@ async function expandArchives(files: File[]): Promise<File[]> {
       continue;
     }
     try {
-      const entries = unzipSync(new Uint8Array(await file.arrayBuffer()));
+      // Gate the archive itself before decompressing: an oversized .zip can only yield
+      // oversized or refused entries, so reading it at all is wasted (and dangerous) work.
+      if (file.size > MAX_REJECT_SIZE) {
+        ElMessage.error(t('upload.tooLarge', { name: file.name }));
+        continue;
+      }
+      const { entries, truncated } = await readArchive(file);
       let added = 0;
       for (const [entryName, data] of Object.entries(entries)) {
-        if (entryName.endsWith('/') || entryName.startsWith('__MACOSX/')) continue;
         const base = entryName.split('/').pop() ?? entryName;
-        const dot = base.lastIndexOf('.');
-        const ext = dot === -1 ? '' : base.slice(dot).toLowerCase();
-        if (!SUPPORTED_EXTENSIONS.includes(ext)) continue;
-        out.push(new File([data], base));
+        // fflate's loose `Unzipped` typing allows SharedArrayBuffer-backed views; it always
+        // allocates plain ArrayBuffers, which is what BlobPart requires.
+        out.push(new File([data as BlobPart], base));
         added++;
         if (out.length >= MAX_BATCH_FILES) {
           done = true;
@@ -176,7 +225,10 @@ async function expandArchives(files: File[]): Promise<File[]> {
         }
       }
       if (added === 0) ElMessage.warning(t('upload.zipNoFiles', { name: file.name }));
-      else ElMessage.success(t('upload.zipExtracted', { name: file.name, count: added }));
+      else {
+        ElMessage.success(t('upload.zipExtracted', { name: file.name, count: added }));
+        if (truncated) ElMessage.warning(t('upload.zipBudget', { name: file.name }));
+      }
     } catch {
       ElMessage.error(t('upload.zipReadFail', { name: file.name }));
     }
@@ -188,8 +240,15 @@ function selectFiles(files: File[]): void {
   void applyFiles(files);
 }
 
+// Last-write-wins across the `expandArchives` await: two rapid selections (second drop while
+// the first archive is still inflating) would otherwise resolve out of order and the older,
+// slower one would clobber the newer list on completion.
+let applyGeneration = 0;
+
 async function applyFiles(files: File[]): Promise<void> {
+  const generation = ++applyGeneration;
   const expanded = await expandArchives(files);
+  if (generation !== applyGeneration) return;
   const validFiles: File[] = [];
   for (const file of expanded) {
     if (file.size > MAX_REJECT_SIZE) {
@@ -314,7 +373,10 @@ defineExpose({
       tag="div"
       class="file-list"
     >
-      <div key="header" class="file-list-header">
+      <div
+        key="header"
+        class="file-list-header"
+      >
         <span>{{ t('upload.selectedCount', { count: selectedFiles.length }) }}</span>
         <span class="header-actions">
           <el-button

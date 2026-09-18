@@ -1,6 +1,7 @@
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { FileFormat } from '~/utils/core/types';
-import type { Converter, ConvertResult } from '~/utils/core/types';
+import type { Converter, ConvertContext, ConvertResult } from '~/utils/core/types';
+import { throwIfAborted } from '~/utils/core/abort';
 import { escapeHtml, escapeAttr } from '~/utils/core/html-document';
 
 interface LinkRect {
@@ -19,6 +20,14 @@ function findLinkForPosition(x: number, y: number, links: LinkRect[]): string | 
   }
   return null;
 }
+
+/**
+ * Scheme allowlist for PDF link annotations.
+ *
+ * `annotation.url` is attacker-controlled text from the PDF; escaping alone would still ship a
+ * `javascript:` or `data:` href in the downloaded HTML, executable the moment a reader clicks it.
+ */
+const SAFE_LINK_SCHEME = /^(?:https?:|mailto:|tel:)/i;
 
 function lineToHtml(segments: Array<{ text: string; url: string | null }>): string {
   const fullText = segments.map(s => s.text).join('');
@@ -44,7 +53,7 @@ const pdfToHtmlConverter: Converter = {
   from: FileFormat.PDF,
   to: FileFormat.HTML,
 
-  async convert(input: Blob): Promise<ConvertResult> {
+  async convert(input: Blob, ctx?: ConvertContext): Promise<ConvertResult> {
     const pdfjsLib = await import('pdfjs-dist');
     if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
       pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
@@ -52,19 +61,31 @@ const pdfToHtmlConverter: Converter = {
     const arrayBuffer = await input.arrayBuffer();
     const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
 
+    // Parse failures get their own key rather than the library's raw `InvalidPDFException`
+    // string (same reasoning as `pdf-to-image`): a corrupt PDF is not a render problem.
+    let pdf: Awaited<typeof loadingTask.promise>;
+    try {
+      pdf = await loadingTask.promise;
+    } catch (error) {
+      await loadingTask.destroy();
+      if (ctx?.signal?.aborted) throw new Error('errors.cancelled', { cause: error });
+      throw new Error('errors.pdfParse', { cause: error });
+    }
+
     let htmlContent = '';
 
     try {
-      const pdf = await loadingTask.promise;
-
       for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+        // Extraction on a long PDF is the slow part of this converter, so cancellation can only
+        // take effect from inside the loop.
+        throwIfAborted(ctx?.signal);
         const page = await pdf.getPage(pageNum);
         const textContent = await page.getTextContent();
 
         const annotations = await page.getAnnotations();
         const links: LinkRect[] = [];
         for (const annotation of annotations) {
-          if (annotation.subtype === 'Link' && annotation.url) {
+          if (annotation.subtype === 'Link' && annotation.url && SAFE_LINK_SCHEME.test(annotation.url)) {
             const rect = annotation.rect;
             if (rect && rect.length === 4) {
               links.push({
@@ -131,6 +152,9 @@ const pdfToHtmlConverter: Converter = {
         }
 
         htmlContent += pageHtml;
+        // Releases the fonts/images pdf.js caches per page; if the loop aborts mid-page the
+        // `destroy()` below covers it.
+        page.cleanup();
       }
     } finally {
       await loadingTask.destroy();

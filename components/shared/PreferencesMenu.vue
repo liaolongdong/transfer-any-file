@@ -13,7 +13,12 @@ import type { ShortcutAction } from '~/utils/core/shortcut';
 
 const { theme, colorMode, setTheme, setColorMode, themes } = useTheme();
 const { t, locale, setLocale } = useI18n();
-const { enabled: notifyEnabled, permission: notifyPermission, enable: enableNotify, disable: disableNotify } = useNotification();
+const {
+  enabled: notifyEnabled,
+  permission: notifyPermission,
+  enable: enableNotify,
+  disable: disableNotify,
+} = useNotification();
 const { isEnabled: confirmEnabled, setEnabled: setConfirmEnabled } = useConfirmConvert();
 const shortcuts = useShortcuts();
 
@@ -23,10 +28,16 @@ const recording = ref<ShortcutAction | null>(null);
 
 function startRecording(action: ShortcutAction): void {
   recording.value = action;
+  // The listener lives only while recording: a permanently attached capture-phase handler
+  // would keep swallowing keystrokes if the popover ever closed mid-recording.
+  // Capture phase so recording a shortcut never reaches App.vue's bubbling convert handler
+  // (captureKey calls stopPropagation before it can fire).
+  document.addEventListener('keydown', captureKey, true);
 }
 
 async function stopRecording(): Promise<void> {
   recording.value = null;
+  document.removeEventListener('keydown', captureKey, true);
 }
 
 async function captureKey(event: KeyboardEvent): Promise<void> {
@@ -72,9 +83,9 @@ async function resetShortcut(action: ShortcutAction): Promise<void> {
   ElMessage.success(t('prefs.shortcutResetDone'));
 }
 
-// Capture-phase listener so recording a shortcut never reaches App.vue's bubbling
-// convert handler (captureKey calls stopPropagation before it can fire).
-document.addEventListener('keydown', captureKey, true);
+// The capture-phase listener is attached by startRecording and detached by stopRecording;
+// this is the safety net for unmount-while-recording (the popover no longer keeps this
+// component alive once closed, but a hot-reload or view swap can still cut it mid-capture).
 onBeforeUnmount(() => {
   document.removeEventListener('keydown', captureKey, true);
 });
@@ -211,7 +222,8 @@ const notifyStatusKey = computed<string>(() => {
       <span
         v-if="notifyStatusKey"
         class="notify-status"
-      >{{ t(notifyStatusKey) }}</span>
+        >{{ t(notifyStatusKey) }}</span
+      >
     </div>
 
     <div class="pref-section">
@@ -244,14 +256,17 @@ const notifyStatusKey = computed<string>(() => {
             class="shortcut-key recording"
             role="status"
             aria-live="polite"
-          >{{ t('prefs.shortcutRecording') }}</span>
+            >{{ t('prefs.shortcutRecording') }}</span
+          >
           <button
             v-if="recording !== 'convert'"
             type="button"
             class="shortcut-reset"
             :aria-label="t('prefs.shortcutReset')"
             @click="resetShortcut('convert')"
-          >{{ t('prefs.shortcutReset') }}</button>
+          >
+            {{ t('prefs.shortcutReset') }}
+          </button>
         </div>
       </div>
     </div>
@@ -330,7 +345,9 @@ const notifyStatusKey = computed<string>(() => {
 
 .theme-item.active .swatch {
   border-color: transparent;
-  box-shadow: 0 0 0 2px var(--fat-bg-card), 0 0 0 4px var(--fat-primary);
+  box-shadow:
+    0 0 0 2px var(--fat-bg-card),
+    0 0 0 4px var(--fat-primary);
 }
 
 .swatch-label {
@@ -472,8 +489,13 @@ const notifyStatusKey = computed<string>(() => {
 }
 
 @keyframes shortcut-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.65; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.65;
+  }
 }
 
 .shortcut-reset {

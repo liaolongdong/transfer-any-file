@@ -26,6 +26,7 @@ const en: typeof zh = {
     largeWarning: 'File "{name}" is large ({size}), conversion may be slow',
     zipExtracted: 'Extracted {count} convertible file(s) from "{name}"',
     zipNoFiles: 'No convertible files found in "{name}"',
+    zipBudget: 'Some files in "{name}" exceeded the decompression limit and were skipped',
     zipReadFail: 'Could not read archive "{name}"; it may be corrupted',
     addMore: 'Add files',
     clearAll: 'Clear',
@@ -122,7 +123,8 @@ const en: typeof zh = {
   // Conversion presets
   preset: {
     title: 'Presets',
-    empty: 'No presets yet. Choose a target format (and image options), then save it as a one-click card for next time.',
+    empty:
+      'No presets yet. Choose a target format (and image options), then save it as a one-click card for next time.',
     namePlaceholder: 'Preset name (optional)',
     save: 'Save as preset',
     needTarget: 'Choose a target format first',
@@ -154,7 +156,7 @@ const en: typeof zh = {
       'About to convert {count} files ({size}) to {target} format.\nSome files need multiple steps and may take longer.',
     confirmOk: 'Continue',
     confirmCancel: 'Cancel',
-    confirmDontAsk: 'Don\'t ask again',
+    confirmDontAsk: "Don't ask again",
     confirmCancelled: 'Conversion cancelled',
   },
 
@@ -207,7 +209,8 @@ const en: typeof zh = {
     exportEmpty: 'No history to export',
     exportSuccess: 'Exported {count} record(s)',
     importSuccess: 'Merged {count} record(s)',
-    importConfirm: 'Imported records will be merged with the current history by ID (duplicates will be overwritten). Continue?',
+    importConfirm:
+      'Imported records will be merged with the current history by ID (duplicates will be overwritten). Continue?',
     importInvalid: 'Invalid file format. Please select a history JSON exported by this extension.',
     importErrPayload: 'The file does not contain valid history data',
     importErrVersion: 'History file version mismatch. Please select a JSON exported by this version.',
@@ -261,6 +264,8 @@ const en: typeof zh = {
     unknownFormat: 'Unrecognized file format',
     docxParse: 'Failed to parse DOCX; the file may be corrupted',
     docxGen: 'Failed to generate DOCX',
+    docxEmpty: 'The DOCX file contains no convertible content',
+    pdfParse: 'Failed to parse PDF; the file may be corrupted',
     xlsxEmpty: 'The XLSX file contains no worksheets',
     csvDecode: 'Failed to decode CSV; please check the file encoding',
     imageDecode: 'Failed to decode image; the file may be corrupted',

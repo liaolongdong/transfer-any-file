@@ -16,7 +16,7 @@ A Chrome extension (Manifest V3) that does every conversion inside a tab on your
 
 [![Manifest V3](https://img.shields.io/badge/Manifest_V3-ready-blue?style=for-the-badge&logo=googlechrome&logoColor=white)](https://developer.chrome.com/docs/extensions/get-started)
 &nbsp;
-![14 formats · 46+ routes](https://img.shields.io/badge/14_formats_-_46%2B_routes-green?style=for-the-badge)
+![14 formats · 48+ routes](https://img.shields.io/badge/14_formats_-_48%2B_routes-green?style=for-the-badge)
 &nbsp;
 ![Zero network requests](https://img.shields.io/badge/zero_network_requests-brightgreen?style=for-the-badge)
 &nbsp;
@@ -45,7 +45,7 @@ Most "free online converter" sites ask you to upload the file first. That is fin
 | Advantage                                              | What makes it different from the alternatives                                                                                                                                                                  |
 | ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 🔌 **Zero uploads, and that is checkable**             | No first-party source file issues a request (`pnpm verify:offline` asserts it) and the manifest asks for `storage` only. Not a "we delete it in 24 hours" promise — there is never a copy to delete            |
-| 🧭 **46 edges + BFS pathfinding, chains in one click** | Markdown → HTML → PDF and Word → HTML → Markdown are discovered by the graph, not hard-coded; a new converter is about 20 lines and instantly unlocks every route through it                                   |
+| 🧭 **48 edges + BFS pathfinding, chains in one click** | Markdown → HTML → PDF and Word → HTML → Markdown are discovered by the graph, not hard-coded; a new converter is about 20 lines and instantly unlocks every route through it                                   |
 | 📦 **Mixed-format batches that cannot cascade**        | 40 different file types share one target with per-file error isolation; failures expand into a diagnostic and copy out as issue-ready text. 200 files per batch, 100 MB per file                               |
 | 👀 **Look at it and edit it before downloading**       | Built-in split view (draggable divider, sync scrolling) plus inline editing and one-click copy — no "download first, then open an editor"                                                                      |
 | 🖼️ **Image output parameters and presets**             | Longest edge, encoder quality, a file-size ceiling and PDF render density are all adjustable and savable as one-click presets (up to 12). "Compress my image" on the web means another site and another upload |
@@ -94,7 +94,7 @@ Most "free online converter" sites ask you to upload the file first. That is fin
 ```mermaid
 flowchart TD
   A["Drop / pick / paste files"] --> C["Detect format<br/>extension + magic bytes"]
-  B["Pick one target format"] --> D["BFS over the converter graph<br/>shortest route found automatically · 14 formats · 46+ direct routes"]
+  B["Pick one target format"] --> D["BFS over the converter graph<br/>shortest route found automatically · 14 formats · 48+ direct routes"]
   C --> D
   D --> E["Convert file by file, cancellable<br/>one failure ≠ a failed batch"]
   E --> F["Download one file<br/>preview & edit first"]
@@ -127,7 +127,7 @@ _Reachable in the graph but meaningless, so greyed out with the reason instead o
 
 Image → TXT / CSV / JSON / Excel (that needs OCR, which this offline extension does not bundle), PDF → CSV / JSON / Excel (tabular structure cannot be recovered reliably).
 
-> Notes: PDF output is rendered as images (text is not selectable). PDF input extracts text only (layout and images are not preserved). PDF → image renders each page; multi-page documents download as a ZIP of per-page PNGs. BMP, GIF and SVG are input-only — browsers cannot encode them. Multi-sheet XLSX → CSV downloads a ZIP with one CSV per worksheet. How the three groups above count up: the 46 registered routes make 143 source→target combinations reachable through BFS, 27 of them are blocked as semantically invalid (24 image → TXT / CSV / JSON / XLSX, 3 PDF → CSV / JSON / XLSX), so the target picker offers 116.
+> Notes: PDF output is rendered as images (text is not selectable). PDF input extracts text only (layout and images are not preserved). PDF → image renders each page; multi-page documents download as a ZIP of per-page PNGs. BMP, GIF and SVG are input-only — browsers cannot encode them. Multi-sheet XLSX → CSV downloads a ZIP with one CSV per worksheet. How the three groups above count up: the 48 registered routes make 143 source→target combinations reachable through BFS, 27 of them are blocked as semantically invalid (24 image → TXT / CSV / JSON / XLSX, 3 PDF → CSV / JSON / XLSX), so the target picker offers 116.
 
 ## 🆚 How it compares
 

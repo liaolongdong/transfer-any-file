@@ -28,6 +28,7 @@ export default {
     largeWarning: '文件 "{name}" 较大（{size}），转换可能较慢',
     zipExtracted: '已从 "{name}" 解出 {count} 个可转换文件',
     zipNoFiles: '"{name}" 中没有可转换的文件',
+    zipBudget: '"{name}" 解压体积或文件数超出上限，部分文件未导入',
     zipReadFail: '无法读取压缩包 "{name}"，文件可能已损坏',
     addMore: '追加文件',
     clearAll: '清空',
@@ -157,7 +158,8 @@ export default {
     // F15 — pre-conversion confirmation
     confirmTitle: '确认开始转换？',
     confirmSummary: '即将转换 {count} 个文件（共 {size}）至 {target} 格式。',
-    confirmSummaryMultiStep: '即将转换 {count} 个文件（共 {size}）至 {target} 格式。\n部分文件需要多步转换，可能耗时较久。',
+    confirmSummaryMultiStep:
+      '即将转换 {count} 个文件（共 {size}）至 {target} 格式。\n部分文件需要多步转换，可能耗时较久。',
     confirmOk: '继续转换',
     confirmCancel: '取消',
     confirmDontAsk: '下次不再询问',
@@ -271,6 +273,8 @@ export default {
     unknownFormat: '无法识别文件格式',
     docxParse: 'DOCX 解析失败，文件可能已损坏',
     docxGen: 'DOCX 生成失败',
+    docxEmpty: 'DOCX 文档内容为空，无法转换',
+    pdfParse: 'PDF 解析失败，文件可能已损坏',
     xlsxEmpty: 'XLSX 文件中没有工作表',
     csvDecode: 'CSV 解码失败，请检查文件编码',
     imageDecode: '图片解码失败，文件可能已损坏',

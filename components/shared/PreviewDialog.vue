@@ -7,6 +7,7 @@ import { getFormatLabel } from '~/utils/core/format-labels';
 import { formatSize } from '~/utils/core/format';
 import { docxToPreviewHtml, xlsxToPreviewHtml } from '~/utils/core/preview';
 import { DOCUMENT_CSS } from '~/utils/core/html-document';
+import { stripRemoteResources } from '~/utils/core/html-sanitize';
 import { useI18n } from '~/composables/useI18n';
 
 const props = defineProps<{
@@ -30,20 +31,13 @@ const renderedHtml = ref('');
 const htmlView = ref<'rendered' | 'source'>('rendered');
 const renderError = ref(false);
 
-const isText = computed(() =>
-  [FileFormat.TXT, FileFormat.CSV, FileFormat.JSON].includes(props.format),
-);
+const isText = computed(() => [FileFormat.TXT, FileFormat.CSV, FileFormat.JSON].includes(props.format));
 const isMarkdown = computed(() => props.format === FileFormat.MD);
 const isHtml = computed(() => props.format === FileFormat.HTML);
 const isImage = computed(() =>
-  [
-    FileFormat.PNG,
-    FileFormat.JPG,
-    FileFormat.WEBP,
-    FileFormat.BMP,
-    FileFormat.GIF,
-    FileFormat.SVG,
-  ].includes(props.format),
+  [FileFormat.PNG, FileFormat.JPG, FileFormat.WEBP, FileFormat.BMP, FileFormat.GIF, FileFormat.SVG].includes(
+    props.format,
+  ),
 );
 const isPdf = computed(() => props.format === FileFormat.PDF);
 const isDocx = computed(() => props.format === FileFormat.DOCX);
@@ -87,7 +81,9 @@ watch([() => props.visible, () => props.blob], async ([vis, blob], _prev, onClea
     const DOMPurify = purifyModule.default;
     const htmlBody = DOMPurify.sanitize(await marked(textContent.value), { USE_PROFILES: { html: true } });
     if (cancelled) return;
-    renderedHtml.value = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>${DOCUMENT_CSS}</style></head><body>${htmlBody}</body></html>`;
+    renderedHtml.value = stripRemoteResources(
+      `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>${DOCUMENT_CSS}</style></head><body>${htmlBody}</body></html>`,
+    );
   } else if (isHtml.value) {
     textContent.value = await blob.text();
     if (cancelled) return;
@@ -95,7 +91,9 @@ watch([() => props.visible, () => props.blob], async ([vis, blob], _prev, onClea
     const DOMPurify = purifyModule.default;
     const htmlBody = DOMPurify.sanitize(textContent.value, { USE_PROFILES: { html: true } });
     if (cancelled) return;
-    renderedHtml.value = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>${DOCUMENT_CSS}</style></head><body>${htmlBody}</body></html>`;
+    renderedHtml.value = stripRemoteResources(
+      `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>${DOCUMENT_CSS}</style></head><body>${htmlBody}</body></html>`,
+    );
   } else if (isImage.value) {
     imageUrl.value = URL.createObjectURL(blob);
     scale.value = 1;
@@ -105,7 +103,7 @@ watch([() => props.visible, () => props.blob], async ([vis, blob], _prev, onClea
     try {
       const html = await docxToPreviewHtml(blob);
       if (cancelled) return;
-      renderedHtml.value = html;
+      renderedHtml.value = stripRemoteResources(html);
     } catch {
       if (!cancelled) renderError.value = true;
     }
@@ -113,7 +111,7 @@ watch([() => props.visible, () => props.blob], async ([vis, blob], _prev, onClea
     try {
       const html = await xlsxToPreviewHtml(blob);
       if (cancelled) return;
-      renderedHtml.value = html;
+      renderedHtml.value = stripRemoteResources(html);
     } catch {
       if (!cancelled) renderError.value = true;
     }
@@ -158,7 +156,11 @@ function download(): void {
       <div class="preview-header">
         <div class="preview-title">
           <span class="filename">{{ filename }}</span>
-          <ElTag size="small" type="primary">{{ getFormatLabel(format) }}</ElTag>
+          <ElTag
+            size="small"
+            type="primary"
+            >{{ getFormatLabel(format) }}</ElTag
+          >
           <span class="file-size">{{ blob ? formatSize(blob.size) : '0 B' }}</span>
         </div>
         <div class="preview-actions">
@@ -188,7 +190,11 @@ function download(): void {
           >
             <ZoomIn />
           </ElButton>
-          <ElButton text :aria-label="t('preview.download')" @click="download">
+          <ElButton
+            text
+            :aria-label="t('preview.download')"
+            @click="download"
+          >
             <Download /> {{ t('preview.download') }}
           </ElButton>
         </div>
@@ -197,7 +203,10 @@ function download(): void {
 
     <div class="preview-content">
       <!-- Plain text / csv source -->
-      <pre v-if="isText" class="text-preview">{{ textContent }}</pre>
+      <pre
+        v-if="isText"
+        class="text-preview"
+        >{{ textContent }}</pre>
       <!-- Markdown: rendered iframe or raw source -->
       <iframe
         v-else-if="isMarkdown && htmlView === 'rendered' && renderedHtml"
@@ -206,7 +215,10 @@ function download(): void {
         :srcdoc="renderedHtml"
         :title="filename"
       ></iframe>
-      <pre v-else-if="isMarkdown && htmlView === 'source'" class="text-preview">{{ textContent }}</pre>
+      <pre
+        v-else-if="isMarkdown && htmlView === 'source'"
+        class="text-preview"
+        >{{ textContent }}</pre>
       <!-- HTML: rendered iframe or raw source -->
       <iframe
         v-else-if="isHtml && htmlView === 'rendered' && renderedHtml"
@@ -215,7 +227,10 @@ function download(): void {
         :srcdoc="renderedHtml"
         :title="filename"
       ></iframe>
-      <pre v-else-if="isHtml && htmlView === 'source'" class="text-preview">{{ textContent }}</pre>
+      <pre
+        v-else-if="isHtml && htmlView === 'source'"
+        class="text-preview"
+        >{{ textContent }}</pre>
       <!-- DOCX / XLSX rendered to HTML -->
       <iframe
         v-else-if="(isDocx || isXlsx) && renderedHtml"
@@ -224,14 +239,23 @@ function download(): void {
         :srcdoc="renderedHtml"
         :title="filename"
       ></iframe>
-      <div v-else-if="(isDocx || isXlsx) && renderError" class="render-error">
+      <div
+        v-else-if="(isDocx || isXlsx) && renderError"
+        class="render-error"
+      >
         {{ t('preview.renderFailed') }}
       </div>
-      <div v-else-if="isRenderedDoc" class="render-loading">
+      <div
+        v-else-if="isRenderedDoc"
+        class="render-loading"
+      >
         <ElIcon class="is-loading"><Loading /></ElIcon>
       </div>
       <!-- Image -->
-      <div v-else-if="isImage" class="image-preview">
+      <div
+        v-else-if="isImage"
+        class="image-preview"
+      >
         <img
           :src="imageUrl"
           :alt="filename"
@@ -240,7 +264,12 @@ function download(): void {
         />
       </div>
       <!-- PDF -->
-      <iframe v-else-if="isPdf" :src="pdfUrl" class="pdf-preview" :title="filename" />
+      <iframe
+        v-else-if="isPdf"
+        :src="pdfUrl"
+        class="pdf-preview"
+        :title="filename"
+      />
     </div>
 
     <template #footer>

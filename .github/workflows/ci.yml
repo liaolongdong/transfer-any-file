@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [main]
 
+# CI 只需要读仓库内容；显式收紧默认 token，防止依赖脚本拿到写权限
+permissions:
+  contents: read
+
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true

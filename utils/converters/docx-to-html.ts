@@ -34,19 +34,19 @@ const docxToHtmlConverter: Converter = {
             "p[style-name='Subtitle'] => h2.subtitle:fresh",
             "r[style-name='Strong'] => strong",
             "r[style-name='Emphasis'] => em",
-            "ul => ul:fresh",
-            "ol => ol:fresh",
-            "li => li:fresh",
+            'ul => ul:fresh',
+            'ol => ol:fresh',
+            'li => li:fresh',
           ],
-          convertImage: mammoth.images.imgElement(async (image) => {
-              const buffer = await image.readAsArrayBuffer();
-              const blob = new Blob([buffer], { type: image.contentType });
-              return new Promise<{ src: string }>((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = () => resolve({ src: reader.result as string });
-                reader.onerror = () => reject(new Error('Failed to encode image'));
-                reader.readAsDataURL(blob);
-              });
+          convertImage: mammoth.images.imgElement(async image => {
+            const buffer = await image.readAsArrayBuffer();
+            const blob = new Blob([buffer], { type: image.contentType });
+            return new Promise<{ src: string }>((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onload = () => resolve({ src: reader.result as string });
+              reader.onerror = () => reject(new Error('Failed to encode image'));
+              reader.readAsDataURL(blob);
+            });
           }),
         },
       );
@@ -63,6 +63,11 @@ const docxToHtmlConverter: Converter = {
     } catch (error) {
       throw new Error('errors.docxParse', { cause: error });
     }
+
+    // Outside the catch on purpose: an empty result after both passes (Mammoth + altChunk
+    // recovery) means the document genuinely has no convertible content, which is a different
+    // report from a parse failure — and different from the old silent blank HTML.
+    if (!htmlBody.trim()) throw new Error('errors.docxEmpty');
 
     const blob = wrapHtmlDocument(htmlBody);
     return { blob, filename: 'converted.html' };

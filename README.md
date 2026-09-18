@@ -16,7 +16,7 @@
 
 [![Manifest V3](https://img.shields.io/badge/Manifest_V3-ready-blue?style=for-the-badge&logo=googlechrome&logoColor=white)](https://developer.chrome.com/docs/extensions/get-started)
 &nbsp;
-![14 种格式 · 46+ 条路径](https://img.shields.io/badge/14_formats_-_46%2B_routes-green?style=for-the-badge)
+![14 种格式 · 48+ 条路径](https://img.shields.io/badge/14_formats_-_48%2B_routes-green?style=for-the-badge)
 &nbsp;
 ![零网络请求](https://img.shields.io/badge/zero_network_requests-brightgreen?style=for-the-badge)
 &nbsp;
@@ -45,7 +45,7 @@
 | 优势                                        | 与其他工具的差异                                                                                                                                  |
 | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 🔌 **零上传，而且可验证**                   | 第一方源码中没有任何一处发起请求（`pnpm verify:offline` 断言），manifest 只申请 `storage`。不是"承诺 24 小时内删除"，是**从来没有一份可删的副本** |
-| 🧭 **46 条边 + BFS 寻路，多步链路一次点击** | Markdown → HTML → PDF、Word → HTML → Markdown 由图求解而非写死；新增一个转换器约 20 行，它参与的所有路径**立刻自动可用**                          |
+| 🧭 **48 条边 + BFS 寻路，多步链路一次点击** | Markdown → HTML → PDF、Word → HTML → Markdown 由图求解而非写死；新增一个转换器约 20 行，它参与的所有路径**立刻自动可用**                          |
 | 📦 **混合源格式一次转完，单个失败不拖整批** | 40 个不同类型文件共用一个目标，逐文件错误隔离，失败项可展开诊断并一键复制成 issue 文本；单批 200 个、单文件 100 MB                                |
 | 👀 **下载之前先看、先改**                   | 内置左右对照视图（可拖分隔条、同步滚动）+ 文本结果内联编辑 + 一键复制，不必"先下载再开编辑器"                                                     |
 | 🖼️ **图片输出参数与预设**                   | 最长边、编码质量、目标体积、PDF 栅格清晰度四项全可调，并存成一键预设（≤ 12 个）；在线工具的"压缩图片"意味着另一站、另一次上传                     |
@@ -94,7 +94,7 @@
 ```mermaid
 flowchart TD
   A["拖入 / 选择 / 粘贴文件"] --> C["识别格式<br/>扩展名 + 魔数字节"]
-  B["选择一个目标格式"] --> D["在转换器图上做 BFS 寻路<br/>自动求出最短路径 · 14 种格式 · 46+ 条直连路径"]
+  B["选择一个目标格式"] --> D["在转换器图上做 BFS 寻路<br/>自动求出最短路径 · 14 种格式 · 48+ 条直连路径"]
   C --> D
   D --> E["逐文件转换，可随时取消<br/>单个失败 ≠ 整批失败"]
   E --> F["下载单个文件<br/>可预览可编辑"]
@@ -127,7 +127,7 @@ _图上可达但语义不成立，因此置灰并说明原因，而不是等你�
 
 图片 → TXT / CSV / JSON / Excel（需要 OCR，本扩展完全离线、未内置），PDF → CSV / JSON / Excel（无法可靠还原表格结构）。
 
-> 说明：PDF 输出为图片渲染（文字不可选中）；PDF 输入仅提取文本（不保留版式与图片）；PDF → 图片逐页渲染，多页文档下载为"每页一张 PNG"的 ZIP 包；BMP、GIF、SVG 仅支持作为输入——浏览器无法编码它们；多工作表 XLSX → CSV 会下载包含"每表一个 CSV"的 ZIP 包。上面三组的计数口径：46 条注册路径经 BFS 可到达 143 个源→目标组合，其中 27 个因语义无效被屏蔽（24 个图片 → TXT / CSV / JSON / XLSX，3 个 PDF → CSV / JSON / XLSX），因此目标格式下拉实际提供 116 个组合。
+> 说明：PDF 输出为图片渲染（文字不可选中）；PDF 输入仅提取文本（不保留版式与图片）；PDF → 图片逐页渲染，多页文档下载为"每页一张 PNG"的 ZIP 包；BMP、GIF、SVG 仅支持作为输入——浏览器无法编码它们；多工作表 XLSX → CSV 会下载包含"每表一个 CSV"的 ZIP 包。上面三组的计数口径：48 条注册路径经 BFS 可到达 143 个源→目标组合，其中 27 个因语义无效被屏蔽（24 个图片 → TXT / CSV / JSON / XLSX，3 个 PDF → CSV / JSON / XLSX），因此目标格式下拉实际提供 116 个组合。
 
 ## 🆚 横向对比
 

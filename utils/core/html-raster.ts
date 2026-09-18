@@ -1,5 +1,6 @@
 import { throwIfAborted } from '~/utils/core/abort';
 import { asErrorKey } from '~/utils/core/error-keys';
+import { stripRemoteResources } from '~/utils/core/html-sanitize';
 
 /** Layout width used to render the document before rasterizing */
 const RENDER_WIDTH = 800;
@@ -24,8 +25,8 @@ async function waitForAssets(doc: Document, signal?: AbortSignal): Promise<void>
 
   await Promise.all(
     images.map(
-      (img) =>
-        new Promise<void>((resolve) => {
+      img =>
+        new Promise<void>(resolve => {
           if (img.complete && img.naturalWidth > 0) {
             resolve();
             return;
@@ -38,9 +39,7 @@ async function waitForAssets(doc: Document, signal?: AbortSignal): Promise<void>
   );
 
   await Promise.all(
-    images.map((img) =>
-      typeof img.decode === 'function' ? img.decode().catch(() => undefined) : Promise.resolve(),
-    ),
+    images.map(img => (typeof img.decode === 'function' ? img.decode().catch(() => undefined) : Promise.resolve())),
   );
 
   try {
@@ -50,7 +49,7 @@ async function waitForAssets(doc: Document, signal?: AbortSignal): Promise<void>
   }
 
   throwIfAborted(signal);
-  await new Promise((resolve) => setTimeout(resolve, LAYOUT_SETTLE_MS));
+  await new Promise(resolve => setTimeout(resolve, LAYOUT_SETTLE_MS));
 }
 
 /**
@@ -75,15 +74,21 @@ export async function renderHtmlToCanvas(html: string, signal?: AbortSignal): Pr
 
   // Keep the WHOLE document (head, <style>, <link>) so the page renders with its own
   // layout/styles/images; scripts are stripped for safety.
-  const sanitizedHtml = DOMPurify.sanitize(html, {
+  const purified = DOMPurify.sanitize(html, {
     WHOLE_DOCUMENT: true,
     ADD_TAGS: ['link', 'style'],
     ADD_ATTR: ['target', 'rel'],
   });
+  // Sanitizing keeps remote URLs — strip them so rendering this untrusted document
+  // cannot make the offline extension issue a single network request.
+  const sanitizedHtml = stripRemoteResources(purified);
 
   throwIfAborted(signal);
 
   const iframe = document.createElement('iframe');
+  // `allow-same-origin` keeps `contentDocument` reachable; scripts stay blocked by the
+  // sandbox on top of DOMPurify's script removal.
+  iframe.setAttribute('sandbox', 'allow-same-origin');
   iframe.style.cssText = `position: fixed; left: -9999px; top: 0; width: ${RENDER_WIDTH}px; height: 100px; border: none;`;
   document.body.appendChild(iframe);
 

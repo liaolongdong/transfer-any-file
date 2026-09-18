@@ -130,6 +130,14 @@ export function useConversion() {
   const previousBatch: Ref<BatchSnapshot | null> = ref(null);
 
   let abortController: AbortController | null = null;
+  // Re-entrancy lock covering the pre-conversion confirm dialog: `isConverting` only turns true
+  // after the dialog resolves, so without this a second Ctrl+Enter during the dialog would open
+  // another one and run two batches over each other's state.
+  let convertLocked = false;
+  // Bumped by `reset()`, the one operation that clears the workspace while a batch may still be
+  // running. The batch compares epochs before its tail writes so an abandoned loop cannot
+  // resurrect state the user just threw away.
+  let workspaceEpoch = 0;
 
   const sourceFile: ComputedRef<File | null> = computed(() => sourceFiles.value[0] ?? null);
   const sourceFormat: ComputedRef<FileFormat | null> = computed(() => sourceFormats.value[0] ?? null);
@@ -187,7 +195,7 @@ export function useConversion() {
       error.value = 'errors.noFileOrTarget';
       return;
     }
-    if (isConverting.value) return;
+    if (isConverting.value || convertLocked) return;
 
     // F15 — pre-conversion confirmation. The user opts in once via the
     // PreferencesMenu toggle (stored as fat:confirmConvert, default true); the value is
@@ -200,7 +208,9 @@ export function useConversion() {
     const formats = [...sourceFormats.value];
     const totalBytes = files.reduce((sum, f) => sum + f.size, 0);
     const overThreshold = files.length > CONFIRM_FILE_COUNT || totalBytes > CONFIRM_TOTAL_BYTES;
+    const epochAtConfirm = workspaceEpoch;
     if (overThreshold && confirmConvertEnabled.value) {
+      convertLocked = true;
       const hasMultiStep = formats.some((fmt): boolean => {
         if (fmt === null) return false;
         const steps = converterRegistry.findConversionPath(fmt, target);
@@ -238,9 +248,15 @@ export function useConversion() {
         );
         if (dontAsk.value) await setConfirmConvertEnabled(false);
       } catch {
+        convertLocked = false;
         ElMessage.info(t('convert.confirmCancelled'));
         return;
       }
+      convertLocked = false;
+      // Everything awaited above happened while the dialog had the screen. If the workspace was
+      // reset or re-targeted in that window, the summary the user confirmed no longer describes
+      // this batch — drop it instead of converting under a stale target.
+      if (workspaceEpoch !== epochAtConfirm || targetFormat.value !== target) return;
     }
 
     // Capture the current batch as the undo target before this run overwrites it.
@@ -270,10 +286,17 @@ export function useConversion() {
     if (abortController && !abortController.signal.aborted) {
       abortController.abort();
     }
-    abortController = new AbortController();
+    // Snapshot the controller for this batch: `reset()` may swap the module-level reference
+    // while the loop runs, and the batch must obey its own signal, not whoever holds the slot.
+    const controller = new AbortController();
+    const signal = controller.signal;
+    abortController = controller;
 
     const results: ConvertResult[] = [];
     const failures: ConversionFailure[] = [];
+    // History accounting follows what actually converted: a failed file must not inflate the
+    // stored fileCount / fileNames / source size of an otherwise successful batch.
+    const converted: Array<{ name: string; size: number; format: FileFormat }> = [];
 
     // Read once for the whole batch: the panel is disabled while converting, but a snapshot also
     // keeps one batch from being encoded under two different settings if the value ever changes.
@@ -297,7 +320,7 @@ export function useConversion() {
 
     try {
       for (let i = 0; i < files.length; i++) {
-        if (abortController.signal.aborted) break;
+        if (signal.aborted) break;
         currentIndex.value = i;
         const file = files[i];
         const format = formats[i];
@@ -326,12 +349,12 @@ export function useConversion() {
           // converters that have not declared it.
           let outExt: string = target;
           for (let stepIndex = 0; stepIndex < steps.length; stepIndex++) {
-            if (abortController.signal.aborted) break;
+            if (signal.aborted) break;
             const step = steps[stepIndex];
             // Built per step because only the final encode may honour `quality` and `targetSizeKB`;
             // the signal and the source identity stay the same across the whole chain.
             const ctx: ConvertContext = {
-              signal: abortController.signal,
+              signal,
               source: file,
               options: optionsForStep(batchOptions, stepIndex === steps.length - 1),
             };
@@ -344,15 +367,16 @@ export function useConversion() {
               throw stepError;
             }
           }
-          if (abortController.signal.aborted) break;
+          if (signal.aborted) break;
 
           const base = file.name.replace(/\.[^.]+$/, '');
           results.push({ blob: currentBlob, filename: uniqueName(base, outExt) });
+          converted.push({ name: file.name, size: file.size, format });
         } catch (e) {
           // A cancel surfacing from inside a long step is not a failure of that file: the user
           // asked to stop and the batch ends here anyway. Recording it would put a "Conversion
           // cancelled" row in the failures list beside the results still worth downloading.
-          if (abortController.signal.aborted) break;
+          if (signal.aborted) break;
           // Isolate per-file errors: keep converting the remaining files
           const failure: ConversionFailure = {
             fileName: file.name,
@@ -366,30 +390,32 @@ export function useConversion() {
         }
         completedCount.value = i + 1;
       }
-      // B2: assign once after the loop so Vue only fires one reactive update
-      batchResults.value = results;
+      // B2: assign once after the loop so Vue only fires one reactive update. Skipped when the
+      // workspace was reset mid-batch — `reset()` already cleared it, and writing the abandoned
+      // batch's results back would resurrect a results panel for files that are gone.
+      if (workspaceEpoch === epochAtConfirm) batchResults.value = results;
 
-      // Record successful conversions in history (metadata only, no blob);
-      // a storage failure must never leave the UI stuck in "converting"
-      const firstFormat = formats.find((f): f is FileFormat => f !== null) ?? null;
-      if (results.length > 0 && firstFormat) {
+      // Record successful conversions in history (metadata only, no blob); a storage failure
+      // must never leave the UI stuck in "converting". The accounting runs over `converted`, not
+      // the input list, so failed files cannot inflate a record of an otherwise good batch.
+      if (converted.length > 0) {
         try {
-          const totalSourceSize = files.reduce((sum, f) => sum + f.size, 0);
+          const totalSourceSize = converted.reduce((sum, c) => sum + c.size, 0);
           const totalResultSize = results.reduce((sum, r) => sum + r.blob.size, 0);
           // For a batch, fold the remaining count into the stored name so the raw
           // history field stays self-describing (UI and tooltip both render it as-is).
-          const firstName = files[0].name;
-          const batchName = files.length > 1 ? `${firstName} + ${files.length - 1}` : firstName;
+          const firstName = converted[0].name;
+          const batchName = converted.length > 1 ? `${firstName} + ${converted.length - 1}` : firstName;
           await addRecord({
             fileName: batchName,
             // Full list alongside the label so search and the row tooltip can reach the
             // files the label hides. Bounded by MAX_BATCH_FILES (200).
-            fileNames: files.map(f => f.name),
-            sourceFormat: firstFormat,
+            fileNames: converted.map(c => c.name),
+            sourceFormat: converted[0].format,
             targetFormat: target,
             fileSize: totalSourceSize,
             resultSize: totalResultSize,
-            fileCount: files.length,
+            fileCount: converted.length,
           });
         } catch {
           // History is best-effort; ignore storage errors
@@ -399,28 +425,33 @@ export function useConversion() {
         void recordTarget(target);
       }
     } finally {
-      const wasCancelled = abortController?.signal.aborted ?? false;
-      // Publish the fact for the UI: `isDone` alone cannot tell a finished batch from one the user
-      // stopped halfway, and a cancel before the first result used to render an empty screen.
-      cancelled.value = wasCancelled;
-      isConverting.value = false;
-      currentIndex.value = -1;
-      abortController = null;
-      // Desktop notification on natural completion (skip when user cancelled or batch was empty).
-      // The composable internally no-ops if permission is missing or the tab is already focused.
-      if (!wasCancelled && (results.length > 0 || failures.length > 0)) {
-        const title = t('prefs.notificationTitle');
-        let body: string;
-        if (failures.length === 0) {
-          body = t('prefs.notificationBodyAllOk', { count: results.length });
-        } else if (results.length === 0) {
-          body = t('prefs.notificationBodyAllFail', { count: failures.length });
-        } else {
-          body = t('prefs.notificationBodyPartial', { ok: results.length, fail: failures.length });
+      if (abortController === controller) abortController = null;
+      // A `reset()` mid-batch already normalized isConverting/currentIndex/cancelled when it
+      // cleared the workspace; re-stamping them (and notifying) from the abandoned loop would
+      // paint the discarded batch's state back onto the empty screen.
+      if (workspaceEpoch === epochAtConfirm) {
+        const wasCancelled = signal.aborted;
+        // Publish the fact for the UI: `isDone` alone cannot tell a finished batch from one the user
+        // stopped halfway, and a cancel before the first result used to render an empty screen.
+        cancelled.value = wasCancelled;
+        isConverting.value = false;
+        currentIndex.value = -1;
+        // Desktop notification on natural completion (skip when user cancelled or batch was empty).
+        // The composable internally no-ops if permission is missing or the tab is already focused.
+        if (!wasCancelled && (results.length > 0 || failures.length > 0)) {
+          const title = t('prefs.notificationTitle');
+          let body: string;
+          if (failures.length === 0) {
+            body = t('prefs.notificationBodyAllOk', { count: results.length });
+          } else if (results.length === 0) {
+            body = t('prefs.notificationBodyAllFail', { count: failures.length });
+          } else {
+            body = t('prefs.notificationBodyPartial', { ok: results.length, fail: failures.length });
+          }
+          // No onClick handler: useNotification already calls window.focus() before
+          // invoking it, so passing one would focus the window twice.
+          notify(title, body);
         }
-        // No onClick handler: useNotification already calls window.focus() before
-        // invoking it, so passing one would focus the window twice.
-        notify(title, body);
       }
     }
   }
@@ -505,6 +536,11 @@ export function useConversion() {
   }
 
   function reset(): void {
+    // Abandon any in-flight batch: the abort stops its loop at the next signal check, and the
+    // epoch bump keeps the abandoned batch's tail writes (cancelled/results/notification) from
+    // landing on this cleared workspace. `isConverting` is normalized right here.
+    abortController?.abort();
+    workspaceEpoch++;
     sourceFiles.value = [];
     sourceFormats.value = [];
     targetFormat.value = null;

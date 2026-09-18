@@ -57,6 +57,14 @@ always name the same release.
   and the `taf` friend-request note, framed as the place to ask for a missing format. The English draft keeps the
   issue tracker as its only channel: a WeChat group is not a plausible route to an English reader, and the two
   drafts stay in step on numbers and evidence, not on distribution channels.
+- **PDF → JPEG / WebP direct output.** Those two targets previously detoured through PNG as a two-step chain:
+  one fully lossless encode, then a re-compression of its output, and every page image inside a multi-page ZIP
+  was still named `.png`. There are now three converters — one per target — sharing a single page loop, pages
+  carry their own extension, and the footer path count moves from 46 to 48.
+- **HTML→Markdown preserves tables.** Turndown's default rules drop `<table>` entirely, which is exactly what
+  the CSV/XLSX/JSON round-trips produce. Tables are now serialized as GFM pipe tables: ragged rows are padded
+  with empty cells, `|` and `\` inside a cell are escaped, cell content survives as plain text, and a nested
+  table flattens into the row of its enclosing table.
 
 ### Changed
 
@@ -244,6 +252,77 @@ zero network requests`) and the Chinese equivalent never appeared in a search re
   persisted preference ran against a page with no storage, and the pinned-locale guard the suite
   depends on had never applied. The stub is now an IIFE; the suite passes with storage actually
   functioning.
+- **Untrusted HTML could leak the "zero network" promise at render time.** First-party source makes no
+  requests, but a page carrying remote images, fonts or `@import` — fed to the HTML→PNG rasterizer, the
+  HTML→PDF paginator or the preview iframe — makes the browser fetch them itself: a `sandbox=""` srcdoc
+  iframe still loads subresources, and html-to-image's cacheBust is designed to re-fetch on purpose. Every
+  entry point that renders untrusted HTML now strips remote-facing `url()` / `@import` / `src` / `srcset` /
+  `poster` / `<base>` / meta-refresh before the renderer sees it, and the raster iframe additionally gets
+  `sandbox="allow-same-origin"` (scripting stays off, and anything that still slips through has no host
+  permission to catch it). The e2e suite gains a zero-request sentinel behind a canary URL.
+- **An uploaded ZIP is now accounted for before it is inflated.** The old flow could not measure an archive
+  until it was fully decompressed, so a few hundred KB could yield a couple of gigabytes. The archive itself
+  now passes the same 100 MB gate as a plain file, and entries are accepted or refused from their declared
+  uncompressed sizes in the central directory before any inflate happens: an entry past the per-file limit,
+  one that would push the archive past 200 MB total, or one past the 200-file batch cap is never decoded,
+  and a truncated archive says so instead of silently dropping files.
+- **CSV / JSON→CSV could turn data into formulas.** A string starting with `=`, `+`, `-`, `@`, TAB or CR is
+  re-parsed as a formula when the file opens in Excel / WPS. String cells are now prefixed with `'` on
+  export — numeric cells stay as they are — across both the xlsx→csv and json→csv routes.
+- **PDF→HTML link targets are whitelisted.** A PDF link annotation's destination is free text, and HTML
+  escaping cannot stop a `javascript:` or `data:` scheme from executing when clicked. Only http(s), mailto
+  and tel are written into an `<a href>` now.
+- **Format detection had a prototype-chain blind spot.** Both the extension and the MIME lookup were bare
+  `map[key]` reads that could hit values on the prototype chain. They are now explicit own-property checks;
+  DOCX altChunk recovery additionally tightens its MHT part content-type whitelist and its location length
+  check.
+- **CI's built-in token was the one workflow permission nobody declared.** It is now an explicit
+  `permissions: contents: read`; the other three workflows were already minimal.
+- **The target format was still changeable mid-conversion.** The upload zone, output parameters and presets
+  all disable while a batch runs, but the format dropdown was missed: changing it halfway clears the
+  in-flight results and then presents them under the new target. It is disabled now too.
+- **The big-batch confirmation could fire twice.** Pressing Ctrl+Enter while the dialog was still open
+  stacked a second dialog, and two batches ran at once and overwrote each other's progress and results.
+  New triggers are ignored while the dialog is open, and if the workspace is cleared or retargeted
+  underneath an open dialog, that batch is abandoned instead of running on with a target the user already
+  changed.
+- **A reset batch still had writes pending.** After a mid-run reset, the loop still owed a few tail writes
+  (result population, the cancelled flag, the completion notification), which could repaint an
+  "interrupted" card onto a freshly cleared workspace. Batches now carry a workspace epoch and skip their
+  tail writes when a reset is detected; reset also aborts the running batch.
+- **History counted failed files.** The label, file count and source size were recorded from the full input,
+  so 3 broken files out of 10 still read `fileCount 10`. The whole record now counts the set that actually
+  converted.
+- **A corrupt PDF was reported as "the browser does not support this output format."** Parse failure and
+  encode failure shared one `imageEncode` key, but the two problems have different fixes. A parse failure is
+  now its own "Failed to parse PDF; the file may be corrupted" message, with the raw library error kept in
+  the expanded diagnostic.
+- **An empty DOCX "succeeded".** When Mammoth produced nothing and there was no altChunk to recover, the
+  user received a structurally complete, content-empty HTML page. It now reports "The DOCX file contains no
+  convertible content".
+- **PDF→HTML was a stop-less black hole.** PDF→image already supported per-page cancellation and per-page
+  release; the text-extraction path checked no abort signal and returned no per-page pdf.js cache. The two
+  are now aligned: cancellable per page, with `cleanup()` after each page.
+- **SVG `width="100%"` was treated as 100 px.** `parseFloat` ignores units, so a relative length was
+  truncated into pixels and the raster came out an order of magnitude small. Only unitless numbers and `px`
+  are accepted now; everything else falls back to the viewBox or the default square.
+- **A 0×0 image "converted successfully".** Some decoders do not throw on truncated data — they report zero
+  intrinsic size, and the canvas produced a blank artifact as usual. Zero-size input is now an image decode
+  failure.
+- **The preferences panel kept a key listener after closing.** Popovers are persistent by default, so after
+  the first open the component — with its capture-phase document listener from shortcut recording — lived
+  on: close the panel mid-recording and the next keypress, or Escape, was swallowed by an invisible UI. The
+  panel now destroys itself on close, and the listener mounts only while recording and detaches immediately
+  after.
+- **The file list could be overwritten by the slower request.** Dropping files again while a first ZIP was
+  still expanding started a second apply round, and whichever finished first lost to whichever finished
+  later. A generation counter now puts the last request on screen, not the first to return.
+- **Closing the comparison view quickly leaked a keydown listener.** The view waited on a storage read
+  before registering its handler; unmounted before that resolved, its own removal ran before its own
+  addition and a dead handler stayed on document, stacking one more per remount. Registration is synchronous
+  now and only the split position fills in asynchronously.
+- **The notification switch accepted any truthy value.** A non-boolean `fat:notifyOnComplete` (from an old
+  build or hand-edited storage) turned notifications on; only a real `true` does now.
 
 ## [1.0.0] - 2026-09-07
 

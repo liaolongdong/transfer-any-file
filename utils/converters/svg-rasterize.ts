@@ -28,9 +28,20 @@ async function prepareSvg(input: Blob): Promise<{ blob: Blob; width: number; hei
     }
   });
 
-  let width = parseFloat(svg.getAttribute('width') ?? '');
-  let height = parseFloat(svg.getAttribute('height') ?? '');
-  const viewBox = svg.getAttribute('viewBox')?.trim().split(/[\s,]+/).map(Number);
+  // Relative units carry no meaning for a raster canvas, but `parseFloat` would happily read
+  // "100%" as 100 and "20em" as 20 — anything that is not a plain number or px length counts as
+  // missing and falls back to the viewBox (or the default square).
+  const pixelAttr = (name: string): number => {
+    const raw = svg.getAttribute(name)?.trim() ?? '';
+    return /^\d+(?:\.\d+)?(?:px)?$/i.test(raw) ? parseFloat(raw) : NaN;
+  };
+  let width = pixelAttr('width');
+  let height = pixelAttr('height');
+  const viewBox = svg
+    .getAttribute('viewBox')
+    ?.trim()
+    .split(/[\s,]+/)
+    .map(Number);
   if (!Number.isFinite(width) || width <= 0) width = viewBox && viewBox[2] > 0 ? viewBox[2] : DEFAULT_DIM;
   if (!Number.isFinite(height) || height <= 0) height = viewBox && viewBox[3] > 0 ? viewBox[3] : DEFAULT_DIM;
   svg.setAttribute('width', String(width));

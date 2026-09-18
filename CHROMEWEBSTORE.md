@@ -280,7 +280,7 @@ WHAT YOU CAN CONVERT
 • Fourteen formats across three families: documents, spreadsheets and data files, and images
 • Inside the document and data families, any format converts to any other, in either direction
 • Six image formats can be read and three can be written, and an image can also be embedded into a document
-• 46 direct routes connect the formats. Where two of them share no direct route, the workbench works out the intermediate steps itself and shows the path it will take before it starts
+• 48 direct routes connect the formats. Where two of them share no direct route, the workbench works out the intermediate steps itself and shows the path it will take before it starts
 • A pairing is supported whenever the two formats are connected anywhere in that graph, whether or not it looks obvious from the counts above
 • A pairing that is reachable but makes no sense — turning a photograph into a spreadsheet, for instance — is greyed out with its reason instead of failing once you press Convert
 • The format-by-format matrix, listing every route and every blocked pairing with its reason, is published on the extension's website rather than pasted here
@@ -356,7 +356,7 @@ Transfer Any File 是一款开源、完全离线的 Chrome 文件格式转换扩
 • 三大类共 14 种格式：文档、表格与数据文件，以及图片
 • 文档类与数据类内部，任意两种格式都能互相转换，两个方向都行
 • 图片可读 6 种格式、可写 3 种格式，此外图片还能嵌入文档
-• 这些格式之间由 46 条直接路径相连。两个格式没有直连路径时，转换工作台会自动求出中间步骤，并在开始之前显示它将要经过的路径
+• 这些格式之间由 48 条直接路径相连。两个格式没有直连路径时，转换工作台会自动求出中间步骤，并在开始之前显示它将要经过的路径
 • 只要两种格式在这张转换图上彼此相连，这个组合就支持，不必先从上面那几行数字里看出端倪
 • 图上可达但语义无效的组合（比如把一张照片变成表格）会置灰并给出原因，而不是等你点了「开始转换」才失败
 • 逐格式的完整矩阵——每条路径、每个置灰组合及其原因——发布在扩展的官网页面，不列在这里
@@ -514,7 +514,7 @@ caption 条是叠上去的，不是裁出来的：界面保持完整的 1280×80
 
 ### 逐张说明
 
-1. `workbench-empty` —— 首次打开的状态：顶栏品牌 + 副标题、拖放区、空历史，以及「支持 14 种格式，46+ 条转换路径」的页脚。给全新用户设定预期。
+1. `workbench-empty` —— 首次打开的状态：顶栏品牌 + 副标题、拖放区、空历史，以及「支持 14 种格式，48+ 条转换路径」的页脚。给全新用户设定预期。
 2. `batch-files` —— 三个混格式文件（Markdown + CSV + Excel）配一个目标，展示多数转换器缺的批量能力。
 3. `batch-results` —— 「转换完成！3 个文件」，带逐文件的预览 / 复制 / 下载，以及一个「打包下载 ZIP (3)」。
 4. `preview-edit` —— 源 ↔ 结果左右对照，带 渲染 / 源码 / 编辑 / 复制 控件。最强的差异点，也是产品说明页的主图。
@@ -852,7 +852,7 @@ v2，所以如果 `init` 建不出 v1.1 client，就用 v2 的 flag。工作流�
 
 **还剩什么被点名，为什么。** 每个块里活下来三个 token：`PDF` 两次，在那两条不写 PDF 就没法表述的限制里
 （转出的 PDF 是逐页图片；读入 PDF 会丢版式），`JSON` 一次，指历史导出用的容器。`.zip` 还出现两次，一次是用户拖进来的
-东西、一次是批次下载成的东西。全部是句子里的名词，不是列表；而 listing 用来开头的两个数字（`14` 种格式、`46` 条路径）
+东西、一次是批次下载成的东西。全部是句子里的名词，不是列表；而 listing 用来开头的两个数字（`14` 种格式、`48` 条路径）
 是算术不是关键词——Google 真正在意的形状是枚举。
 
 **残余暴露在截图里，不在文案里。** 界面渲染的是真实的文件徽章——`Markdown (.md)`、`CSV (.csv)`、`Excel (.xlsx)`——

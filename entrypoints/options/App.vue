@@ -338,7 +338,8 @@ onUnmounted(() => {
     <a
       href="#main-content"
       class="skip-link"
-    >{{ t('a11y.skipToContent') }}</a>
+      >{{ t('a11y.skipToContent') }}</a
+    >
 
     <header class="topbar">
       <div class="topbar-inner">
@@ -346,10 +347,14 @@ onUnmounted(() => {
           <span class="brand-name">{{ t('appName') }}</span>
           <span class="brand-tag">{{ t('options.subtitle') }}</span>
         </div>
+        <!-- persistent=false: the default keeps the content mounted after the first open,
+             which would leave PreferencesMenu's shortcut-recording state (and its document
+             keydown listener) alive while the popover is closed. -->
         <el-popover
           :width="260"
           trigger="click"
           placement="bottom-end"
+          :persistent="false"
         >
           <template #reference>
             <el-button
@@ -385,9 +390,14 @@ onUnmounted(() => {
           role="status"
           aria-live="polite"
           aria-atomic="true"
-        >{{ statusAnnouncement ?? '' }}</div>
+        >
+          {{ statusAnnouncement ?? '' }}
+        </div>
 
-        <Transition name="card" mode="out-in">
+        <Transition
+          name="card"
+          mode="out-in"
+        >
           <div
             v-if="hasFiles"
             key="action-bar"
@@ -399,6 +409,7 @@ onUnmounted(() => {
                 :available-targets="availableTargets"
                 :target-format="targetFormat"
                 :recent-targets="recentTargets"
+                :disabled="isConverting"
                 @update:target-format="setTargetFormat"
               />
               <el-button
@@ -454,7 +465,10 @@ onUnmounted(() => {
           />
         </CollapsibleCard>
 
-        <Transition name="card" mode="out-in">
+        <Transition
+          name="card"
+          mode="out-in"
+        >
           <div
             v-if="(isConverting && !showBatchProgress) || displayError"
             key="conversion-progress"
@@ -468,7 +482,10 @@ onUnmounted(() => {
           </div>
         </Transition>
 
-        <Transition name="card" mode="out-in">
+        <Transition
+          name="card"
+          mode="out-in"
+        >
           <div
             v-if="isDone"
             key="result-download"
@@ -587,7 +604,9 @@ onUnmounted(() => {
   transform: translateY(0);
   outline: 2px solid var(--fat-text-primary);
   outline-offset: 2px;
-  box-shadow: 0 0 0 2px var(--fat-bg-card), var(--fat-shadow-lg);
+  box-shadow:
+    0 0 0 2px var(--fat-bg-card),
+    var(--fat-shadow-lg);
 }
 
 /* Visually hidden but exposed to assistive tech (live region, screen-reader-only

@@ -1,6 +1,7 @@
 import { FileFormat } from '~/utils/core/types';
 import type { Converter, ConvertResult } from '~/utils/core/types';
 import { decodeTextBlob } from '~/utils/core/text-decode';
+import { guardCsvValue } from '~/utils/core/csv-guard';
 
 const jsonToCsvConverter: Converter = {
   from: FileFormat.JSON,
@@ -34,14 +35,16 @@ const jsonToCsvConverter: Converter = {
     }
 
     const headerList = [...headers];
-    const aoa: unknown[][] = [headerList];
+    const aoa: unknown[][] = [headerList.map(guardCsvValue)];
     for (const item of parsed) {
       if (item && typeof item === 'object' && !Array.isArray(item)) {
         const row = headerList.map(h => {
           const val = (item as Record<string, unknown>)[h];
           if (val === null || val === undefined) return '';
           if (typeof val === 'object') return JSON.stringify(val);
-          return val;
+          // JSON strings are free to carry "=HYPERLINK(...)" payloads that Excel would
+          // happily evaluate once the CSV is opened.
+          return typeof val === 'string' ? guardCsvValue(val) : val;
         });
         aoa.push(row);
       }

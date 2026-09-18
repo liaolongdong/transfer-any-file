@@ -70,7 +70,10 @@ function parseMht(mhtText: string): MhtPart[] {
     const sep = trimmed.search(/\r?\n\r?\n/);
     if (sep === -1) continue;
     const headerBlock = trimmed.slice(0, sep);
-    const body = trimmed.slice(sep).replace(/^\r?\n\r?\n/, '').replace(/\r?\n$/, '');
+    const body = trimmed
+      .slice(sep)
+      .replace(/^\r?\n\r?\n/, '')
+      .replace(/\r?\n$/, '');
     const headers = parseHeaders(headerBlock);
     parts.push({
       contentType: (headers['content-type'] ?? '').split(';')[0].trim(),
@@ -91,23 +94,25 @@ export function extractAltChunkHtml(docxBytes: Uint8Array): string | null {
     return null;
   }
 
-  const mhtKey = Object.keys(entries).find((k) => k.endsWith('.mht'));
+  const mhtKey = Object.keys(entries).find(k => k.endsWith('.mht'));
   if (!mhtKey) return null;
 
   const parts = parseMht(strFromU8(entries[mhtKey]));
-  const htmlPart = parts.find((p) => p.contentType === 'text/html');
+  const htmlPart = parts.find(p => p.contentType === 'text/html');
   if (!htmlPart) return null;
 
-  let html =
-    htmlPart.encoding === 'quoted-printable'
-      ? decodeQuotedPrintable(htmlPart.body)
-      : htmlPart.body;
+  let html = htmlPart.encoding === 'quoted-printable' ? decodeQuotedPrintable(htmlPart.body) : htmlPart.body;
 
-  // Re-inline image parts that the generator swapped out for fake file URLs
+  // Re-inline image parts that the generator swapped out for fake file URLs.
+  // Both fields come from attacker-controlled MHT headers: `contentType` is
+  // validated so the assembled `data:` URL cannot carry quotes or markup into
+  // the document, and a too-short `location` is refused because `split()` on it
+  // would rewrite every occurrence of that text, destroying the document.
   for (const part of parts) {
-    if (!part.location || !part.contentType.startsWith('image/')) continue;
+    if (!part.location || part.location.length < 6) continue;
+    if (!/^image\/[a-z0-9.+-]{1,32}$/i.test(part.contentType)) continue;
     const base64 = part.body.replace(/\s+/g, '');
-    const dataUrl = `data:${part.contentType};base64,${base64}`;
+    const dataUrl = `data:${part.contentType.toLowerCase()};base64,${base64}`;
     html = html.split(part.location).join(dataUrl);
   }
 

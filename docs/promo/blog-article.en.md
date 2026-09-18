@@ -3,7 +3,7 @@
 
 # I turned file format conversion into a Chrome extension that never goes online
 
-> 14 formats, 46+ conversion routes, 0 network requests. Three things this post tries to make clear: why online converters are the wrong tool for sensitive files, why the browser is already a converter, and which engineering trade-offs you actually hit when you move the work local.
+> 14 formats, 48+ conversion routes, 0 network requests. Three things this post tries to make clear: why online converters are the wrong tool for sensitive files, why the browser is already a converter, and which engineering trade-offs you actually hit when you move the work local.
 
 ![Concept illustration: a file changes format entirely inside the browser window, with no line leading to the cloud](assets/hero-local-conversion.png)
 
@@ -54,7 +54,7 @@ JSON     ──► HTML ──► XLSX
 SVG      ──► HTML ──► PNG
 ```
 
-Two consequences. First, **multi-hop chains are computed, not written** — the user clicks "Markdown to PDF" once and two converters run. Second, **a new converter is about 20 lines**, and every route through it becomes available immediately. The graph currently holds 46 direct edges, and the footer line in the workbench ("14 formats supported, 46+ conversion paths") is computed from the graph at runtime, not pasted from copy.
+Two consequences. First, **multi-hop chains are computed, not written** — the user clicks "Markdown to PDF" once and two converters run. Second, **a new converter is about 20 lines**, and every route through it becomes available immediately. The graph currently holds 48 direct edges, and the footer line in the workbench ("14 formats supported, 48+ conversion paths") is computed from the graph at runtime, not pasted from copy.
 
 "How many conversions do you support" has exactly one honest answer: **143 are reachable in the graph, 116 are offered in the UI.** The other 27 are greyed out by a policy layer (`utils/core/conversion-policy.ts`) — they're structurally reachable but semantically empty: 24 from images to TXT/CSV/JSON/XLSX (a raster image has no text layer without OCR) and 3 from PDF to CSV/JSON/XLSX (a PDF carries no table structure). I can't just delete those edges, because the same edge is perfectly valid for a different source (`htmlToJson` works fine on a real table), so the invalid pairs are filtered per source+target combination, with the reason surfaced in the UI.
 

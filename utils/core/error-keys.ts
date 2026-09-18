@@ -16,6 +16,12 @@ export const CONVERSION_ERROR_KEYS = new Set([
   'errors.unknownFormat',
   'errors.docxParse',
   'errors.docxGen',
+  // Mammoth produced nothing (and no altChunk fallback recovered content) — an empty document is
+  // a different complaint from a corrupted one, so it needs its own key.
+  'errors.docxEmpty',
+  // pdf.js rejected the document itself; rendering failures keep travelling as imageEncode/render
+  // keys, and mislabelling a corrupt PDF as "browser cannot encode" sends users to the wrong fix.
+  'errors.pdfParse',
   'errors.xlsxEmpty',
   'errors.csvDecode',
   'errors.imageDecode',

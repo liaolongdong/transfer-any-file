@@ -6,6 +6,7 @@ import type { ConvertResult } from '~/utils/core/types';
 import { getFormatLabel, getFormatCategory } from '~/utils/core/format-labels';
 import { formatSize, TEXT_FORMATS } from '~/utils/core/format';
 import { docxToPreviewHtml, xlsxToPreviewHtml } from '~/utils/core/preview';
+import { stripRemoteResources } from '~/utils/core/html-sanitize';
 import { useI18n } from '~/composables/useI18n';
 import { STORAGE_KEYS, storageGet, storageSet } from '~/utils/storage';
 
@@ -63,6 +64,10 @@ function docHintKey(fmt: FileFormat): 'preview.docxHint' | 'preview.xlsxHint' {
 
 const htmlView = ref<'rendered' | 'source'>('rendered');
 
+// `resultText` stays verbatim (it feeds the editor, copy and download); only the
+// rendered iframe gets remote references stripped so previewing cannot reach the network.
+const resultHtmlPreview = computed(() => (resultText.value ? stripRemoteResources(resultText.value) : ''));
+
 // Panel visibility derived from split position
 const showSourcePanel = computed(() => !isResultOnly.value);
 const showResultPanel = computed(() => !isSourceOnly.value);
@@ -88,16 +93,22 @@ watch(
       sourcePdfUrl.value = URL.createObjectURL(file);
     } else if (format === FileFormat.DOCX) {
       try {
-        sourceDocHtml.value = await docxToPreviewHtml(file);
-      } catch { /* preview is best-effort */ }
+        sourceDocHtml.value = stripRemoteResources(await docxToPreviewHtml(file));
+      } catch {
+        /* preview is best-effort */
+      }
     } else if (format === FileFormat.XLSX) {
       try {
-        sourceDocHtml.value = await xlsxToPreviewHtml(file);
-      } catch { /* preview is best-effort */ }
+        sourceDocHtml.value = stripRemoteResources(await xlsxToPreviewHtml(file));
+      } catch {
+        /* preview is best-effort */
+      }
     } else if (TEXT_FORMATS.has(format)) {
       try {
         sourceText.value = await file.text();
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     }
   },
   { immediate: true },
@@ -125,16 +136,22 @@ watch(
       resultPdfUrl.value = URL.createObjectURL(result.blob);
     } else if (format === FileFormat.DOCX) {
       try {
-        resultDocHtml.value = await docxToPreviewHtml(result.blob);
-      } catch { /* preview is best-effort */ }
+        resultDocHtml.value = stripRemoteResources(await docxToPreviewHtml(result.blob));
+      } catch {
+        /* preview is best-effort */
+      }
     } else if (format === FileFormat.XLSX) {
       try {
-        resultDocHtml.value = await xlsxToPreviewHtml(result.blob);
-      } catch { /* preview is best-effort */ }
+        resultDocHtml.value = stripRemoteResources(await xlsxToPreviewHtml(result.blob));
+      } catch {
+        /* preview is best-effort */
+      }
     } else if (TEXT_FORMATS.has(format)) {
       try {
         resultText.value = await result.blob.text();
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     }
   },
   { immediate: true },
@@ -224,9 +241,15 @@ function handleKeydown(e: KeyboardEvent): void {
   if (target.closest('.el-select, .el-dropdown, .el-popper')) return;
 
   switch (e.key) {
-    case '1': showSourceOnly(); break;
-    case '2': showSplitView(); break;
-    case '3': showResultOnly(); break;
+    case '1':
+      showSourceOnly();
+      break;
+    case '2':
+      showSplitView();
+      break;
+    case '3':
+      showResultOnly();
+      break;
     case 'ArrowLeft':
       e.preventDefault();
       splitPercent.value = Math.max(0, splitPercent.value - 5);
@@ -235,26 +258,31 @@ function handleKeydown(e: KeyboardEvent): void {
       e.preventDefault();
       splitPercent.value = Math.min(100, splitPercent.value + 5);
       break;
-    default: return;
+    default:
+      return;
   }
 }
 
 // --- Split position persistence ---
 let persistDebounce: ReturnType<typeof setTimeout> | undefined;
 
-watch(splitPercent, (value) => {
+watch(splitPercent, value => {
   clearTimeout(persistDebounce);
   persistDebounce = setTimeout(() => {
     void storageSet(STORAGE_KEYS.splitPosition, value);
   }, 500);
 });
 
-onMounted(async () => {
-  const saved = await storageGet<number>(STORAGE_KEYS.splitPosition, 50);
-  if (saved >= 0 && saved <= 100) {
-    splitPercent.value = saved;
-  }
+onMounted(() => {
+  // Registered synchronously: `onUnmounted` removes this listener, so awaiting storage first
+  // would let a quick unmount run the removal before the add — leaking a handler that then
+  // stacks once more on every remount.
   document.addEventListener('keydown', handleKeydown);
+  void storageGet<number>(STORAGE_KEYS.splitPosition, 50).then(saved => {
+    if (saved >= 0 && saved <= 100) {
+      splitPercent.value = saved;
+    }
+  });
 });
 
 // --- Scroll sync ---
@@ -268,7 +296,9 @@ function handleSourceScroll(): void {
   if (maxSrc > 0 && maxDst > 0) {
     dst.scrollTop = (src.scrollTop / maxSrc) * maxDst;
   }
-  nextTick(() => { isSyncing.value = false; });
+  nextTick(() => {
+    isSyncing.value = false;
+  });
 }
 
 function handleResultScroll(): void {
@@ -281,7 +311,9 @@ function handleResultScroll(): void {
   if (maxSrc > 0 && maxDst > 0) {
     dst.scrollTop = (src.scrollTop / maxSrc) * maxDst;
   }
-  nextTick(() => { isSyncing.value = false; });
+  nextTick(() => {
+    isSyncing.value = false;
+  });
 }
 
 function handleResultEdit(value: string): void {
@@ -301,7 +333,9 @@ async function copyResult(): Promise<void> {
   try {
     await navigator.clipboard.writeText(resultText.value);
     ElMessage.success(t('comparison.copied'));
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
 }
 
 function toggleEdit(): void {
@@ -324,7 +358,11 @@ function toggleEdit(): void {
       >
         <div class="panel-header">
           <span class="panel-title">{{ t('comparison.sourceTitle') }}</span>
-          <el-tag v-if="sourceFormat" size="small" effect="plain">
+          <el-tag
+            v-if="sourceFormat"
+            size="small"
+            effect="plain"
+          >
             {{ getFormatLabel(sourceFormat) }}
           </el-tag>
         </div>
@@ -334,8 +372,14 @@ function toggleEdit(): void {
           @scroll="handleSourceScroll"
         >
           <!-- Image source -->
-          <div v-if="isSourceImage && sourceImageUrl" class="image-content">
-            <img :src="sourceImageUrl" :alt="sourceFile?.name ?? ''" />
+          <div
+            v-if="isSourceImage && sourceImageUrl"
+            class="image-content"
+          >
+            <img
+              :src="sourceImageUrl"
+              :alt="sourceFile?.name ?? ''"
+            />
           </div>
           <!-- PDF source -->
           <iframe
@@ -352,15 +396,24 @@ function toggleEdit(): void {
             :srcdoc="sourceDocHtml"
             :title="sourceFile?.name ?? ''"
           ></iframe>
-          <div v-else-if="(isSourceDocx || isSourceXlsx) && sourceFile" class="docx-info">
+          <div
+            v-else-if="(isSourceDocx || isSourceXlsx) && sourceFile"
+            class="docx-info"
+          >
             <p class="docx-name">{{ sourceFile.name }}</p>
             <p class="docx-size">{{ formatSize(sourceFile.size) }}</p>
             <p class="docx-hint">{{ t(docHintKey(sourceFormat!), { size: formatSize(sourceFile.size) }) }}</p>
           </div>
           <!-- Text source -->
-          <pre v-else-if="isSourceText && sourceText" class="text-content">{{ sourceText }}</pre>
+          <pre
+            v-else-if="isSourceText && sourceText"
+            class="text-content"
+            >{{ sourceText }}</pre>
           <!-- Unsupported -->
-          <div v-else class="no-preview">
+          <div
+            v-else
+            class="no-preview"
+          >
             {{ t('comparison.noPreview') }}
           </div>
         </div>
@@ -402,9 +455,30 @@ function toggleEdit(): void {
           type="button"
           @click.stop="showSplitView"
         >
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-            <line x1="12" y1="3" x2="12" y2="21"></line>
+          <svg
+            width="12"
+            height="12"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <rect
+              x="3"
+              y="3"
+              width="18"
+              height="18"
+              rx="2"
+              ry="2"
+            ></rect>
+            <line
+              x1="12"
+              y1="3"
+              x2="12"
+              y2="21"
+            ></line>
           </svg>
         </button>
         <button
@@ -426,11 +500,16 @@ function toggleEdit(): void {
       <div
         v-if="showResultPanel"
         class="panel result-panel"
-        :style="{ flexBasis: isResultOnly ? '100%' : (100 - splitPercent) + '%' }"
+        :style="{ flexBasis: isResultOnly ? '100%' : 100 - splitPercent + '%' }"
       >
         <div class="panel-header">
           <span class="panel-title">{{ t('comparison.resultTitle') }}</span>
-          <el-tag v-if="targetFormat" size="small" type="success" effect="plain">
+          <el-tag
+            v-if="targetFormat"
+            size="small"
+            type="success"
+            effect="plain"
+          >
             {{ getFormatLabel(targetFormat) }}
           </el-tag>
           <div class="panel-actions">
@@ -473,8 +552,14 @@ function toggleEdit(): void {
           @scroll="handleResultScroll"
         >
           <!-- Image result -->
-          <div v-if="isResultImage && resultImageUrl" class="image-content">
-            <img :src="resultImageUrl" :alt="result?.filename ?? ''" />
+          <div
+            v-if="isResultImage && resultImageUrl"
+            class="image-content"
+          >
+            <img
+              :src="resultImageUrl"
+              :alt="result?.filename ?? ''"
+            />
           </div>
           <!-- PDF result -->
           <iframe
@@ -491,13 +576,19 @@ function toggleEdit(): void {
             :srcdoc="resultDocHtml"
             :title="result?.filename ?? ''"
           ></iframe>
-          <div v-else-if="(isResultDocx || isResultXlsx) && result" class="docx-info">
+          <div
+            v-else-if="(isResultDocx || isResultXlsx) && result"
+            class="docx-info"
+          >
             <p class="docx-name">{{ result.filename }}</p>
             <p class="docx-size">{{ formatSize(result.blob.size) }}</p>
             <p class="docx-hint">{{ t(docHintKey(targetFormat!), { size: formatSize(result.blob.size) }) }}</p>
           </div>
           <!-- Editable text (takes priority over rendered view) -->
-          <div v-else-if="isResultEditable && isEditing" class="edit-content">
+          <div
+            v-else-if="isResultEditable && isEditing"
+            class="edit-content"
+          >
             <textarea
               class="edit-textarea"
               :value="resultText"
@@ -510,13 +601,19 @@ function toggleEdit(): void {
             v-else-if="isResultHtml && htmlView === 'rendered' && resultText"
             class="html-frame"
             sandbox=""
-            :srcdoc="resultText"
+            :srcdoc="resultHtmlPreview"
             :title="result?.filename ?? ''"
           ></iframe>
           <!-- Text view (includes HTML source view) -->
-          <pre v-else-if="isResultText && resultText" class="text-content">{{ resultText }}</pre>
+          <pre
+            v-else-if="isResultText && resultText"
+            class="text-content"
+            >{{ resultText }}</pre>
           <!-- Unsupported -->
-          <div v-else class="no-preview">
+          <div
+            v-else
+            class="no-preview"
+          >
             {{ t('comparison.noPreview') }}
           </div>
         </div>
@@ -549,9 +646,30 @@ function toggleEdit(): void {
           :aria-pressed="!isSourceOnly && !isResultOnly"
           @click="showSplitView"
         >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-            <line x1="12" y1="3" x2="12" y2="21"></line>
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <rect
+              x="3"
+              y="3"
+              width="18"
+              height="18"
+              rx="2"
+              ry="2"
+            ></rect>
+            <line
+              x1="12"
+              y1="3"
+              x2="12"
+              y2="21"
+            ></line>
           </svg>
           <span>{{ t('comparison.splitView') }}</span>
         </button>
@@ -913,7 +1031,7 @@ function toggleEdit(): void {
   flex-shrink: 0;
 }
 
-.sync-toggle input[type="checkbox"] {
+.sync-toggle input[type='checkbox'] {
   accent-color: var(--fat-primary);
 }
 

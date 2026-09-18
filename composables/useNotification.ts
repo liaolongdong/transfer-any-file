@@ -38,7 +38,9 @@ async function initNotification(): Promise<void> {
     storageGet<boolean>(STORAGE_KEYS.notifyOnComplete, false),
     readBrowserPermission(),
   ]);
-  state.enabled = enabled;
+  // Strict check: the stored value is untrusted, and a stray truthy (a string from an old
+  // build, an object) would enable notifications the user never asked for.
+  state.enabled = enabled === true;
   state.permission = permission;
 
   storageUnsub = onStorageChange<boolean>(STORAGE_KEYS.notifyOnComplete, value => {
