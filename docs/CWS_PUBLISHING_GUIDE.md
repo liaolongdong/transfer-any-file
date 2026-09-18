@@ -158,19 +158,25 @@ storage: persists the user's own conversion history (file names, formats and siz
 
 ### 3.2 配置 GitHub Secrets
 
-在 GitHub Repository Settings → Secrets and variables → Actions 中配置以下 4 个 secrets：
+在 GitHub Repository Settings → Secrets and variables → Actions 中配置以下 secrets：
 
+**共用凭据（与 account-password-helper 共享）：**
 ```bash
-CHROME_EXTENSION_ID  # 32 位扩展 ID（从 CWS Dashboard 获取）
-CHROME_CLIENT_ID     # Google Cloud OAuth Client ID
-CHROME_CLIENT_SECRET # Google Cloud OAuth Client Secret  
-CHROME_REFRESH_TOKEN # OAuth Refresh Token
+CWS_CLIENT_ID        # Google Cloud OAuth Client ID
+CWS_CLIENT_SECRET    # Google Cloud OAuth Client Secret  
+CWS_REFRESH_TOKEN    # OAuth Refresh Token
+```
+
+**本扩展专用：**
+```bash
+CHROME_EXTENSION_ID_TAF  # Transfer Any File 扩展 ID（从 CWS Dashboard 获取，32 位 a-p 小写字母）
 ```
 
 > ⚠️ **重要提示**：
 > - 复制 secret 值时确保不带空格/换行等不可见字符
 > - 扩展 ID 必须是 32 位 a-p 小写字母
 > - OAuth 应用在 Testing 模式下 refresh token 约 7 天过期，建议发布为 In production
+> - OAuth 凭据只需配置一次，两个扩展共用同一套
 
 ### 3.3 发布流程
 
@@ -278,9 +284,9 @@ dry_run: true  # 只验证，不实际发布
 
 发布前请确保：
 
-- [ ] GitHub Secrets 配置齐全（4 个）
+- [ ] GitHub Secrets 配置齐全（3 个共用凭据 + 1 个本扩展专用 ID）
 - [ ] OAuth 应用状态正常（In production 或 token 未过期）
-- [ ] 扩展 ID 格式正确（32 位 a-p 字母）
+- [ ] 扩展 ID 格式正确（32 位 a-p 字母，`CHROME_EXTENSION_ID_TAF`）
 - [ ] 所有验证通过（`pnpm verify:all`）
 - [ ] 商店文案与 `_locales` 文件一致
 - [ ] 隐私政策 URL 可达

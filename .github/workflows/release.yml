@@ -156,10 +156,10 @@ jobs:
       - name: Detect Chrome Web Store credentials
         id: store
         env:
-          CHROME_EXTENSION_ID: ${{ secrets.CHROME_EXTENSION_ID }}
-          CHROME_CLIENT_ID: ${{ secrets.CHROME_CLIENT_ID }}
-          CHROME_CLIENT_SECRET: ${{ secrets.CHROME_CLIENT_SECRET }}
-          CHROME_REFRESH_TOKEN: ${{ secrets.CHROME_REFRESH_TOKEN }}
+          CHROME_EXTENSION_ID: ${{ secrets.CHROME_EXTENSION_ID_TAF }}
+          CHROME_CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
+          CHROME_CLIENT_SECRET: ${{ secrets.CWS_CLIENT_SECRET }}
+          CHROME_REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
         run: |
           if [ -n "$CHROME_EXTENSION_ID" ] && [ -n "$CHROME_CLIENT_ID" ] && [ -n "$CHROME_CLIENT_SECRET" ] && [ -n "$CHROME_REFRESH_TOKEN" ]; then
             echo 'ready=true' >> "$GITHUB_OUTPUT"
@@ -169,7 +169,7 @@ jobs:
               echo '### 已跳过 Chrome 应用商店提交'
               echo
               echo '四项 secrets 必须全部配置（Settings → Secrets and variables → Actions）：'
-              echo '`CHROME_EXTENSION_ID`、`CHROME_CLIENT_ID`、`CHROME_CLIENT_SECRET`、`CHROME_REFRESH_TOKEN`。'
+              echo '`CHROME_EXTENSION_ID_TAF`（本扩展专用）、`CWS_CLIENT_ID`、`CWS_CLIENT_SECRET`、`CWS_REFRESH_TOKEN`。'
               echo
               echo '第一个版本同样要手工创建并手工提交——API 建不了条目，也填不了商品文案、截图和隐私申报。'
               echo '手工步骤见 CHROMEWEBSTORE.md。'
@@ -179,10 +179,10 @@ jobs:
       # ──────────────────────────────────────────────────────────────
       # Chrome Web Store auto-publish
       # 需要在 GitHub repo Settings → Secrets and variables → Actions 中配置：
-      #   CHROME_EXTENSION_ID  — 扩展 ID（从 CWS Dashboard 获取）
-      #   CHROME_CLIENT_ID     — Google Cloud OAuth 2.0 Client ID
-      #   CHROME_CLIENT_SECRET — Google Cloud OAuth 2.0 Client Secret
-      #   CHROME_REFRESH_TOKEN — OAuth 2.0 Refresh Token
+      #   CHROME_EXTENSION_ID_TAF — Transfer Any File 扩展 ID（从 CWS Dashboard 获取）
+      #   CWS_CLIENT_ID           — Google Cloud OAuth 2.0 Client ID（与 account-password-helper 共用）
+      #   CWS_CLIENT_SECRET       — Google Cloud OAuth 2.0 Client Secret（与 account-password-helper 共用）
+      #   CWS_REFRESH_TOKEN       — OAuth 2.0 Refresh Token（与 account-password-helper 共用）
       # ──────────────────────────────────────────────────────────────
       # wxt-publish-extension 的 --chrome-zip 不支持 glob 通配符，
       # 会将 ".output/*-chrome.zip" 当作字面文件名打开而报 ENOENT。
@@ -203,9 +203,9 @@ jobs:
       - name: Verify CWS OAuth credentials
         if: steps.store.outputs.ready == 'true'
         env:
-          CHROME_CLIENT_ID: ${{ secrets.CHROME_CLIENT_ID }}
-          CHROME_CLIENT_SECRET: ${{ secrets.CHROME_CLIENT_SECRET }}
-          CHROME_REFRESH_TOKEN: ${{ secrets.CHROME_REFRESH_TOKEN }}
+          CHROME_CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
+          CHROME_CLIENT_SECRET: ${{ secrets.CWS_CLIENT_SECRET }}
+          CHROME_REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
         run: |
           HTTP_CODE=$(curl -s -o token_resp.json -w '%{http_code}' \
             --data-urlencode "client_id=$CHROME_CLIENT_ID" \
@@ -232,9 +232,9 @@ jobs:
         if: steps.store.outputs.ready == 'true'
         run: |
           if printf '%s' "$CHROME_EXTENSION_ID" | grep -qE '^[a-p]{32}$'; then
-            echo "CHROME_EXTENSION_ID 格式 OK（32 位 a-p 字母）。"
+            echo "CHROME_EXTENSION_ID_TAF 格式 OK（32 位 a-p 字母）。"
           else
-            echo "CHROME_EXTENSION_ID 格式非法：应为 32 位 a-p 小写字母，实际长度 $(printf '%s' "$CHROME_EXTENSION_ID" | wc -c | tr -d ' ')。"
+            echo "CHROME_EXTENSION_ID_TAF 格式非法：应为 32 位 a-p 小写字母，实际长度 $(printf '%s' "$CHROME_EXTENSION_ID" | wc -c | tr -d ' ')。"
             echo "多为复制时带入了空格/换行，请在仓库 Secrets 中重新粘贴纯净的扩展 ID。"
             exit 1
           fi
@@ -243,10 +243,10 @@ jobs:
         if: steps.store.outputs.ready == 'true' && github.event.inputs.dry_run != 'true'
         env:
           ZIP: ${{ steps.cws_zip.outputs.path }}
-          CHROME_EXTENSION_ID: ${{ secrets.CHROME_EXTENSION_ID }}
-          CHROME_CLIENT_ID: ${{ secrets.CHROME_CLIENT_ID }}
-          CHROME_CLIENT_SECRET: ${{ secrets.CHROME_CLIENT_SECRET }}
-          CHROME_REFRESH_TOKEN: ${{ secrets.CHROME_REFRESH_TOKEN }}
+          CHROME_EXTENSION_ID: ${{ secrets.CHROME_EXTENSION_ID_TAF }}
+          CHROME_CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
+          CHROME_CLIENT_SECRET: ${{ secrets.CWS_CLIENT_SECRET }}
+          CHROME_REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
         run: |
           # 命令行上只传非密参数：publish-extension 会从同名的大写下划线环境变量读取每个 flag，
           # 这样 refresh token 不会出现在进程参数列表里。
