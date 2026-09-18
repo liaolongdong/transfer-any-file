@@ -292,6 +292,9 @@ Security issues go through the private channel in [SECURITY.en.md](SECURITY.en.m
 
 Authored by [Better](https://github.com/liaolongdong).
 
-**Another fully offline extension by the same author**: [Account Password Helper](https://github.com/liaolongdong/account-password-helper) — local AES-256-GCM, one-click login, built-in TOTP · [product page](https://liaolongdong.github.io/account-password-helper/)
+**Two more fully offline extensions by the same author** (data stays on your machine, open source under MIT):
+
+- ★ Featured · [Account Password Helper](https://github.com/liaolongdong/account-password-helper) — Ctrl+Shift+F one-click login, exact domain matching isolates dev/test/staging/prod accounts, built-in TOTP, local AES-256-GCM encryption · [product page](https://liaolongdong.github.io/account-password-helper/)
+- [Cross-origin Proxy](https://github.com/liaolongdong/cross-origin-proxy) — proxy a page's API requests to another backend environment: rewrite URLs, headers and responses, conditional mocks, injected delays, WebSocket forwarding · [product page](https://liaolongdong.github.io/cross-origin-proxy/)
 
 </div>

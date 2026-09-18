@@ -292,6 +292,9 @@ pnpm build
 
 作者：[Better](https://github.com/liaolongdong)
 
-**同作者的另一个完全离线扩展**：[账号密码管理助手](https://github.com/liaolongdong/account-password-helper) —— 本地 AES-256-GCM 加密、一键登录、内置 TOTP · [产品说明页](https://liaolongdong.github.io/account-password-helper/)
+**同作者的另外两个完全离线扩展**（数据只留本机，开源 MIT）：
+
+- ★ 主推 · [账号密码管理助手](https://github.com/liaolongdong/account-password-helper) —— Ctrl+Shift+F 一键登录、精确域名隔离多环境账号、内置 TOTP，本地 AES-256-GCM 加密 · [产品说明页](https://liaolongdong.github.io/account-password-helper/)
+- [跨域代理助手](https://github.com/liaolongdong/cross-origin-proxy) —— 把页面的 API 请求代理到另一个后端环境：重写 URL / 请求头 / 响应、条件化 Mock、注入延迟、转发 WebSocket · [产品说明页](https://liaolongdong.github.io/cross-origin-proxy/)
 
 </div>
