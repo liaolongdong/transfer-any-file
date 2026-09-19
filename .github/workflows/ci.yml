@@ -32,6 +32,10 @@ jobs:
       # 每一份文档都在重复的那句隐私承诺：第一方源码里没有网络调用、manifest 源只要 storage。
       # 这里只跑源码层——本 job 在干净检出上先于任何 build，产物层断言在 build job 里执行。
       - run: pnpm verify:offline:source
+      # 转换路径快照：等长路由由哪条 register() 先注册决定，注册顺序一变就必须显式更新基线。
+      # 纯静态解析源码，不需要产物，所以和上面的源码层守卫放在同一个 job。
+      - name: Verify conversion paths
+        run: pnpm verify:paths
       # 商店后台的每个粘贴字段都在字数上限内，且与 manifest 一致
       - run: pnpm verify:listing
 

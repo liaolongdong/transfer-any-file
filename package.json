@@ -36,6 +36,7 @@
     "verify:offline": "node scripts/check-offline.mjs",
     "verify:offline:source": "node scripts/check-offline.mjs --source-only",
     "verify:listing": "node scripts/check-store-listing.mjs",
+    "verify:paths": "node scripts/check-path-snapshot.mjs",
     "assets:capture": "node scripts/capture-store-assets.mjs",
     "promo:wechat": "node scripts/render-wechat-html.mjs docs/promo/wechat-article.md"
   },
