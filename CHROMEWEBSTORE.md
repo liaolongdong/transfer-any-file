@@ -111,7 +111,7 @@ Converts user-selected documents, spreadsheets and images between common file fo
 ```
 
 ```
-storage: persists the user's own conversion history (file names, formats and sizes — never file contents) and interface preferences (theme, colour mode, language, notification and confirmation switches, custom shortcut) via chrome.storage.local. Nothing leaves the device: the extension declares no host permissions and its own code issues no network request. No narrower permission can do this.
+storage: persists the user's own conversion history (file names, formats and sizes — never file contents), interface preferences (theme, colour mode, language, notification and confirmation switches, custom shortcut), image output options (longest edge, quality, target size, PDF render density) and conversion presets (the preset name the user types, together with the target format and output options it records) via chrome.storage.local. Nothing leaves the device: the extension declares no host permissions and its own code issues no network request. No narrower permission can do this.
 ```
 
 ```
@@ -536,9 +536,9 @@ caption 条是叠上去的，不是裁出来的：界面保持完整的 1280×80
 
 ### 权限说明
 
-| 权限      | 类型        | 说明（中文摘要；要贴进后台的英文原句见[提交速查 → Tab 3](#tab-3--privacy-practices隐私实践)）                                                                                                                                  |
-| --------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `storage` | permissions | 通过 `chrome.storage.local` 跨会话保存用户自己的转换历史（文件名、格式、体积——绝不含文件内容）与界面偏好（主题色、显示模式、语言、通知与确认开关、自定义快捷键）。什么都不传输：扩展不声明 host 权限，自身代码不发起网络请求。 |
+| 权限      | 类型        | 说明（中文摘要；要贴进后台的英文原句见[提交速查 → Tab 3](#tab-3--privacy-practices隐私实践)）                                                                                                                                                                                                                                                              |
+| --------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `storage` | permissions | 通过 `chrome.storage.local` 跨会话保存用户自己的转换历史（文件名、格式、体积——绝不含文件内容）、界面偏好（主题色、显示模式、语言、通知与确认开关、自定义快捷键）、图片输出参数（最长边、质量、目标体积、PDF 渲染清晰度）与转换预设（用户自己输入的预设名称，连同它记录的目标格式与输出参数）。什么都不传输：扩展不声明 host 权限，自身代码不发起网络请求。 |
 
 没有 `host_permissions`、没有 content script、没有 `tabs`、没有 `<all_urls>`、没有远程代码。工具栏图标走
 `chrome.action.onClicked` → `chrome.runtime.openOptionsPage()`；工作台是扩展页面，因此从不申请访问任何网站。
