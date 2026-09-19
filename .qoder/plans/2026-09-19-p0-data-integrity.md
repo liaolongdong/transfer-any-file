@@ -19,6 +19,16 @@
 1. **项目无单元测试框架**（`AGENTS.md` 明写无 vitest）。转换层断言的唯一落点是 `scripts/e2e-test.mjs`。
 2. **e2e 不加载扩展**：`e2e-test.mjs:319-327` 用 `chromium.launch({channel:'chrome'})` + `newPage()`，把 `.output/chrome-mv3` 当普通网页用 HTTP 起服务，并 `addInitScript(mockChromeStorage())` 伪造 `chrome.storage`。因此**任何依赖真实扩展 API（`chrome.runtime.getURL` 等）的断言都不可用**。
 3. **`pnpm test:e2e` = build + 跑测试**，单轮数分钟。改一次转换器就跑全量是最贵的做法，所以 Task 0.3 先给 harness 加场景过滤器。
+   **执行期实测修正**：既有 ~30 个节的函数体不看 `section()` 返回值，所以过滤跑**并不省时间**；
+   它的实际价值是目标节的结果不被埋在长日志里，以及 `not a full suite run` 那行让过滤跑无法被误当成全绿。
+   需要真正省时就直接跑全量。
+4. **`downloadBatchArtifact(page)`（原名 `downloadLastResult`，Task 1.1 已改名）只处理单文件产物**：
+   它点批次主下载按钮，单文件批次拿到该文件、多文件批次拿到 ZIP，而它只解**一层**容器。
+   因此内置了熔断——`suggestedFilename()` 以 `.zip` 结尾就抛错。
+   本计划所有复用点（2.1b / 2.2 / 2.3 / 2.5 / 2.6）都刻意用**单文件**夹具；
+   若某次改动让夹具变成多表/多页从而产出 ZIP，会直接抛错而不是静默给出不可 grep 的字节——这是设计，不要拆掉熔断。
+   另外：断言用的 marker **不得含 `=`**（altChunk 的 HTML 段会被 QP 转义成 `=3D`），
+   且必须是**夹具唯一**的串，不能用 `iVBORw0KGgo` 这类通用魔数——详见 Task 1.1 的实测修正块。
 
 ## 文件结构
 
@@ -198,7 +208,7 @@ git commit -m "test(e2e): E2E_ONLY 场景过滤器，跳过的节显式计数而
  * `batchResults`, and reaching for it would mean adding a debug-only global to production source
  * to satisfy a test.
  */
-async function downloadLastResult(page) {
+async function downloadBatchArtifact(page) {
   const [download] = await Promise.all([
     page.waitForEvent('download', { timeout: 15000 }),
     (await page.$('.result-download .el-button')).click(),
@@ -221,11 +231,11 @@ async function downloadLastResult(page) {
 
 > **自检修正 → 已被 Task 1.1 实测推翻，按下面的事实执行**：原判断「MHT 部件常带 quoted-printable / base64，不解码就 includes 会假红」是**错的**。实测 `html-docx-js-typescript` 产物：altChunk 是 `word/afchunk.mht`，HTML 段虽**声明** `Content-Transfer-Encoding: quoted-printable`，但该库唯一的 QP 变换是 `src=` → `src=3D`（`src/utils.ts` 的 `htmlSource.replace(/\=/g, '=3D')`），不折行、不对 HTML 段做 base64；ZIP 条目是 **stored（method=0，jszip 默认）而非 deflate**。
 >
-> 结论三条：① **不需要 `decodeMimeParts`**，加了反而坏事——base64 段一旦解码成二进制，`data:` 探针就消失了。② **探针 marker 不得含 `=`**（含 `=` 会被 QP 变换成 `=3D` 而命不中）；`canary/img.png` 与 `/canary/anchor` 都不含 `=`，red→green 有效。③ `downloadLastResult` 的 JSDoc 已按实测改写。
+> 结论三条：① **不需要 `decodeMimeParts`**，加了反而坏事——base64 段一旦解码成二进制，`data:` 探针就消失了。② **探针 marker 不得含 `=`**（含 `=` 会被 QP 变换成 `=3D` 而命不中）；`canary/img.png` 与 `/canary/anchor` 都不含 `=`，red→green 有效。③ `downloadBatchArtifact` 的 JSDoc 已按实测改写。
 >
 > **计划原有两条断言被证伪并已替换（后续任务照替换后的写法）**：
 > 1. `includes('data:image/png;base64,')` **修复前后恒为 false**——`getMHTdocument()` 会把带双引号的 `data:` src 从 altChunk **摘出去**做成独立 base64 MIME part，img 改写成 `file:///C:/fake/image0.png`，该字面量不进产物。照抄会让对照断言永久报「over-eager filter」假失败。改为探测 payload 标记 **`iVBORw0KGgo`**，语义更强（既证明 strip 没吃内联图，也证明 Word 无需外联即可渲染）。
-> 2. `.result-download .el-button` 命中的是结果行的**预览**按钮（`ResultDownload.vue:125`），只表现为 download timeout。正确选择器 **`.result-download .download-actions .el-button`**（`:165-176`）。Task 2.1b / 2.2 / 2.3 / 2.5 / 2.6 复用已提交的 `downloadLastResult`，无需再改。
+> 2. `.result-download .el-button` 命中的是结果行的**预览**按钮（`ResultDownload.vue:125`），只表现为 download timeout。正确选择器 **`.result-download .download-actions .el-button`**（`:165-176`）。Task 2.1b / 2.2 / 2.3 / 2.5 / 2.6 复用已提交的 `downloadBatchArtifact`，无需再改。
 >
 > **提交清单必须含生成的夹具**：`fixtures/` 全是 tracked 文件，而 `ci.yml:65` 直接跑 `node scripts/e2e-test.mjs` **且没有 make-fixtures 步骤**——不提交新夹具 CI 必 `ENOENT`。本计划各任务 `git add` 凡涉及新夹具都要加上 `fixtures/<file>`。
 >
@@ -281,7 +291,7 @@ node scripts/make-fixtures.cjs && ls -la fixtures/sample-egress.html
       );
       await page.waitForTimeout(500);
 
-      const docxText = await downloadLastResult(page);
+      const docxText = await downloadBatchArtifact(page);
 
       const wanted = ['canary/img.png', 'canary/css-import', 'canary/css-bg.png'];
       const survived = wanted.filter(m => docxText.includes(m));
@@ -860,7 +870,7 @@ grep -n "pdf" scripts/e2e-test.mjs | grep -i "size\|KB\|MB" | head
 ```js
       // The slice format is observable in the artifact: jsPDF writes the image XObject's Filter,
       // so a PNG slice says /FlateDecode and a JPEG slice says /DCTDecode.
-      const pdfBytes = await downloadLastResult(page);
+      const pdfBytes = await downloadBatchArtifact(page);
       if (pdfBytes.includes('/FlateDecode') && !pdfBytes.includes('/DCTDecode')) {
         ok('PDF page slices are PNG (Flate), not JPEG (DCT)');
       } else {
@@ -1191,7 +1201,7 @@ export default csvToXlsxConverter;
     try {
       const result = await convertFile(page, 'sample-typing.csv', 'Excel (.xlsx)');
       if (!result.alertTitle.includes('完成')) throw new Error(`conversion failed: ${result.alertTitle}`);
-      const xlsxText = await downloadLastResult(page);
+      const xlsxText = await downloadBatchArtifact(page);
 
       const checks = [
         ['leading zeros kept', xlsxText.includes('00424')],
@@ -1396,7 +1406,7 @@ export function guardFormulaCells(sheet: WorkSheet): WorkSheet {
     try {
       const csvRun = await convertFile(page, 'sample-typed.xlsx', 'CSV (.csv)');
       if (!csvRun.alertTitle.includes('完成')) throw new Error(`csv failed: ${csvRun.alertTitle}`);
-      const csv = await downloadLastResult(page);
+      const csv = await downloadBatchArtifact(page);
       const csvChecks = [
         ['amount is the value not the display text', csv.includes('1234.5') && !csv.includes('1,234.50')],
         ['ratio is 0.25 not 25.0%', csv.includes('0.25') && !csv.includes('25.0%')],
@@ -1411,7 +1421,7 @@ export function guardFormulaCells(sheet: WorkSheet): WorkSheet {
       await resetWorkbench(page);
       const jsonRun = await convertFile(page, 'sample-typed.xlsx', 'JSON (.json)');
       if (!jsonRun.alertTitle.includes('完成')) throw new Error(`json failed: ${jsonRun.alertTitle}`);
-      const json = await downloadLastResult(page);
+      const json = await downloadBatchArtifact(page);
       if (/"amount":\s*1234\.5/.test(json)) ok('XLSX→JSON emits a real number, not "1,234.50"');
       else fail('XLSX→JSON numeric', `no unquoted amount in: ${json.slice(0, 200)}`);
       if (!json.includes('"1,234.50"')) ok('No display-text numbers left in the JSON');
@@ -1607,7 +1617,7 @@ node scripts/make-fixtures.cjs && ls -la fixtures/sample-svg-*.md
     try {
       const r = await convertFile(page, 'sample-svg-diagram.md', 'HTML (.html)');
       if (!r.alertTitle.includes('完成')) throw new Error(`failed: ${r.alertTitle}`);
-      const html = await downloadLastResult(page);
+      const html = await downloadBatchArtifact(page);
       if (html.includes('<svg') && html.includes('<rect')) {
         ok('Inline <svg> survives md→html');
       } else {
@@ -1617,7 +1627,7 @@ node scripts/make-fixtures.cjs && ls -la fixtures/sample-svg-*.md
       await resetWorkbench(page);
       const a = await convertFile(page, 'sample-svg-attack.md', 'HTML (.html)');
       if (!a.alertTitle.includes('完成')) throw new Error(`attack failed: ${a.alertTitle}`);
-      const attackHtml = (await downloadLastResult(page)).toLowerCase();
+      const attackHtml = (await downloadBatchArtifact(page)).toLowerCase();
       const leftovers = ['<script', 'foreignobject', 'onerror'].filter(m => attackHtml.includes(m));
       if (leftovers.length === 0 && attackHtml.includes('<rect')) {
         ok('svg profile keeps the graphic and drops script / foreignObject / on* handlers');
@@ -1813,8 +1823,10 @@ export async function replaceInlineSvgWithPng(html: string): Promise<string> {
         await resetWorkbench(page);
         const r = await convertFile(page, fixture, 'Word (.docx)');
         if (!r.alertTitle.includes('完成')) throw new Error(`${label} failed: ${r.alertTitle}`);
-        const docx = await downloadLastResult(page);
-        if (docx.includes('data:image/png;base64,') && !docx.includes('<svg')) {
+        const docx = await downloadBatchArtifact(page);
+        // 探针必须是**夹具唯一**的串，不能用通用 PNG 魔数 iVBORw0KGgo：本节会往同一个 docx 里
+        // 内嵌一张 SVG 栅格出的 PNG，用通用头会在图被吃掉时仍然绿。
+        if (docx.includes('AAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQ') && !docx.includes('<svg')) {
           ok(`${label} carries a rasterized PNG and no inline <svg> for Word to fail on`);
         } else {
           fail(`${label} inline svg`, `png=${String(docx.includes('data:image/png'))} svgLeft=${String(docx.includes('<svg'))}`);
