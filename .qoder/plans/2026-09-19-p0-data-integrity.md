@@ -984,6 +984,28 @@ JPEG 是 /DCTDecode，故断言直接读下载到的 PDF 字节。"
 
 ### Task 2.1c：路由偏好显式化（F-5b）
 
+> **执行期实测记录（已完成于 `4074b82`，零漂移、221/221）**
+>
+> 1. **守卫是镜像，不是被测物——本计划最重要的方法论教训。** `check-path-snapshot.mjs` 的
+>    `buildAdjacency` 自己重写了一遍 `register()`（push + 稳定 sort），所以真实
+>    `registry.ts` 的插入循环若写成 `>=` 这类 off-by-one，`verify:paths` **照样打印 OK**。
+>    实现者用 jiti 在 node 里加载**真实的** `registry.ts` 补测三条：
+>    0-after-10 确实插到前面（`["webp","pdf","jpg"]`）、全 0 时与旧 `push()` 逐位相同、
+>    真 `findConversionPath` 跑 182 对零差异且变异复现出与守卫**完全相同的 14 条翻转**。
+>    **Task 3.1 给 `AGENTS.md` / rules 补 `verify:paths` 时必须写明这条限制**，
+>    否则后来者会把「守卫绿」当成「registry 正确」的证据，而它两者都不是。
+> 2. **第 15 对并列路由，本任务刻意未声明（挂账）**：`svg→pdf` 有四条等长 2 步路
+>    （`svg>png>pdf` 今日赢家 / `svg>jpg>pdf` / `svg>webp>pdf` / `svg>html>pdf`），
+>    胜者由 `utils/converters/svg-rasterize.ts:108-112` 的数组字面量顺序 + `index.ts:93` 决定。
+>    今天赢的恰好是四种里语义最优的（无损 PNG 进 PDF、按图 sizing），属**脆弱性而非缺陷**。
+>    **动到 svg 边的 Task 2.4 / 2.6 应顺手为这族声明 `edgePreference`。**
+> 3. `edgePreference: 0` 对排序是字面 no-op，作用是把「这条边刻意在前」写成代码；
+>    真正防回归的是 png 的 `10` 加快照。
+> 4. **完成判据里的 `216/216` 已过期**：Task 1.1 与 2.1b 各加了节，现为 **221/221**。
+> 5. Step 5 的 `git checkout` 复原指令确认可疑（会连 2.1b 的切片改动一起撤回），
+>    实际用「先 `git add` 目标态再变异、改回后 `git diff --exit-code` + sha256 双证」替代；
+>    注意 `git diff --exit-code` 比的是索引，不先 stage 就恒为非 0、证明不了任何东西。
+
 **Files:** Modify `utils/core/types.ts:116-120`、`utils/core/registry.ts:13-24`、`utils/converters/html-to-pdf.ts`、`utils/converters/html-to-png.ts`
 
 - [ ] **Step 1: 加类型字段** — `utils/core/types.ts` 的 `Converter` 接口（`:116-120`）替换为：
