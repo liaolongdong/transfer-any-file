@@ -844,6 +844,61 @@ async function run() {
   }
 
   // ═══════════════════════════════════════════
+  //  F-6 — CSV→XLSX must not re-type the data
+  // ═══════════════════════════════════════════
+
+  if (section('CSV Typing Fidelity')) {
+    try {
+      await resetWorkbench(page);
+      const result = await convertFile(page, 'sample-typing.csv', 'Excel (.xlsx)');
+      if (!result.alertTitle.includes('完成')) throw new Error(`conversion failed: ${result.alertTitle}`);
+      const xlsxText = await downloadBatchArtifact(page);
+
+      // Asserted against the workbook's own XML, because the claim is about what the file stores:
+      // every one of these markers is one of the fixture's values, so nothing generic can stand in
+      // for them, and two of them (`1234.5`, `-42`) are controls that must stay *numeric* — a fix
+      // that pinned the whole sheet as text would break those two while satisfying the rest.
+      //
+      // `'=1+1` reaches the artifact XML-escaped as `&apos;=1+1`, because the value sits in a <v>
+      // element. A marker carrying `=` is safe here even though it is not safe inside the DOCX
+      // altChunk above: the XLSX parts have no quoted-printable layer, so the bytes are verbatim.
+      const checks = [
+        ['leading zeros kept', xlsxText.includes('00424')],
+        ['20-digit account intact', xlsxText.includes('12345678901234567890')],
+        ['formula neutralized', xlsxText.includes('&apos;=1+1')],
+        ['date kept as text', xlsxText.includes('2024-01-05')],
+        ['fraction kept as text', xlsxText.includes('1/2')],
+        ['quoted thousands separators kept', xlsxText.includes('1,234.50')],
+        ['real number still numeric', xlsxText.includes('<v>1234.5</v>')],
+        ['negative number still numeric', xlsxText.includes('<v>-42</v>') && !xlsxText.includes('&apos;-42')],
+      ];
+      const broken = checks.filter(([, pass]) => !pass).map(([name]) => name);
+      if (broken.length === 0) {
+        ok('CSV→XLSX preserves zip / account / date / fraction / quoted text and still numbers 1234.5 and -42');
+      } else {
+        fail('CSV typing fidelity', broken.join('; '));
+      }
+
+      // The formula branch is the one that executes code: SheetJS emitted `<c r="C2"><f>1+1</f></c>`,
+      // which Excel computes the moment the workbook is opened. Absence of `<f>` is asserted
+      // separately from the guarded value above, because the guard could change shape while this
+      // invariant may not.
+      if (!xlsxText.includes('<f>')) {
+        ok('No live formula emitted');
+      } else {
+        fail('CSV formula re-arm', 'the xlsx contains an <f> element');
+      }
+
+      await page.screenshot({
+        path: shot(`${String(shotIdx++).padStart(2, '0')}-csv-typing.png`),
+        fullPage: true,
+      });
+    } catch (e) {
+      fail('CSV Typing Fidelity', e.message);
+    }
+  }
+
+  // ═══════════════════════════════════════════
   //  JSON RESULT PREVIEW (regression: was blank)
   // ═══════════════════════════════════════════
 

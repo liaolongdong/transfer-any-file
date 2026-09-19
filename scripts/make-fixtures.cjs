@@ -108,6 +108,17 @@ body{background:url('http://127.0.0.1:9876/canary/css-bg.png')}</style>
 `;
   fs.writeFileSync(path.join(outDir, 'sample-egress.html'), egressHtml);
 
+  // F-6 fixture: every column is one SheetJS used to destroy on the way into an XLSX. `00424` and
+  // `12345678901234567890` are the leading-zero and precision cases, `=1+1` the formula re-arm,
+  // `2024-01-05` / `1/2` the date-inference pair. `1234.5` is the control that SHOULD still be a
+  // number, `"1,234.50"` the quoted field whose commas the reader used to swallow, and `-42` the
+  // negative number that must stay numeric — it is the case a guard applied before the numeric test
+  // would silently turn into the text `'-42`.
+  fs.writeFileSync(
+    path.join(outDir, 'sample-typing.csv'),
+    'zip,acct,note,dt,fraction,amount,quoted,delta\n00424,12345678901234567890,=1+1,2024-01-05,1/2,1234.5,"1,234.50",-42\n',
+  );
+
   // ZIP archive with two convertible entries and one unsupported entry
   const archive = zipSync({
     'docs/hello.md': strToU8('# Hello\n\nArchive content for batch conversion.\n'),
