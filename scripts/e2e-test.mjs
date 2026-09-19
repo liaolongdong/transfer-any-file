@@ -332,6 +332,65 @@ async function downloadBatchArtifact(page) {
   return buf.toString('latin1');
 }
 
+/**
+ * Upload an inline HTML document (markup held in the test rather than in `fixtures/`), convert it to
+ * PDF and return the downloaded artifact's bytes as a latin1 string.
+ *
+ * Inline content exists because the assertion that uses it is about the *shape* of the output — long
+ * enough to make the A4 slicing loop run more than once — and no file in `fixtures/` has that shape.
+ */
+async function convertInlineHtmlToPdf(page, name, html) {
+  await resetWorkbench(page);
+  const fi = await page.$('input[type="file"]');
+  if (!fi) throw new Error('file input not found');
+  await fi.setInputFiles({ name, mimeType: 'text/html', buffer: Buffer.from(html) });
+  await page.waitForTimeout(1000);
+  await pickTarget(page, 'PDF (.pdf)');
+  await (await page.$('.convert-btn')).click();
+  // A longer budget than `convertFile`'s 30s: the document is deliberately multi-page, and slicing a
+  // tall canvas page by page is the slow part of this converter.
+  await page.waitForFunction(
+    () => {
+      const alert = document.querySelector('.el-alert__title');
+      return alert && alert.textContent.length > 0;
+    },
+    { timeout: 60000 },
+  );
+  await page.waitForTimeout(500);
+  return downloadBatchArtifact(page);
+}
+
+/**
+ * Read the page-slice encoders out of a PDF, from the bytes `downloadBatchArtifact` returns.
+ *
+ * jsPDF writes each image XObject's `/Filter` from the encoder it was handed, so the artifact records
+ * which one ran: a PNG slice is `/FlateDecode`, a JPEG slice `/DCTDecode`. Measured on this
+ * converter's output — switching the slice flipped every image XObject to FlateDecode, and no other
+ * object in the file carries a filter name at all (jsPDF leaves page content uncompressed here).
+ *
+ * Scoped to the image dictionaries rather than scanning the whole file for either name, and that is
+ * deliberate: a substring scan cannot say *which* object it matched, so the first jsPDF version that
+ * Flates its page streams would make "contains /FlateDecode" true however the slices were encoded.
+ * The per-object read also gives the slice count, which is what lets the caller assert one slice per
+ * page instead of trusting that some image survived.
+ *
+ * Returns `{ pages, filters }` — `pages` counts page objects, `filters` lists one entry per image
+ * XObject, `'none'` for an image dictionary that declares no filter.
+ */
+function readPdfSliceFilters(pdfBytes) {
+  const pages = (pdfBytes.match(/\/Type\s*\/Page(?!s)/g) ?? []).length;
+  const filters = pdfBytes
+    .split(/\/Subtype\s*\/Image/)
+    .slice(1)
+    .map(dict => {
+      // Only the dictionary itself: everything after `stream` is compressed image data, whose
+      // random-looking bytes must not be able to supply a filter name.
+      const head = dict.split('\nstream')[0];
+      return (/\/Filter\s*\/(\w+)/.exec(head) ?? [])[1] ?? 'none';
+    });
+  return { pages, filters };
+}
+
 /** Set one image output parameter from the output panel, by its field label. */
 async function setOutputOption(page, label, option) {
   const field = page.locator(`.output-options .output-field:has(.output-label:text-is("${label}")) .el-select`);
@@ -502,6 +561,46 @@ async function run() {
       }
     } catch (e) {
       fail(label, e.message);
+    }
+  }
+
+  // ═══════════════════════════════════════════
+  //  F-5a — HTML→PDF page slices must be PNG, not JPEG
+  // ═══════════════════════════════════════════
+
+  // Deliberately long: the slicing loop is what this guards, and a one-page document would pass even
+  // if every page after the first were encoded by a different path.
+  const multiPageHtml = `<!doctype html><html><head><meta charset="utf-8"><title>Slices</title></head><body>${Array.from(
+    { length: 40 },
+    (_, i) => `<h3>Section ${i}</h3><p>${'The quick brown fox jumps over the lazy dog. '.repeat(6)}</p>`,
+  ).join('')}</body></html>`;
+
+  if (section('HTML→PDF page slices are PNG')) {
+    try {
+      const pdfBytes = await convertInlineHtmlToPdf(page, 'pdf-slices.html', multiPageHtml);
+      const { pages, filters } = readPdfSliceFilters(pdfBytes);
+
+      // The structural claim before the encoder claim: one image XObject per page. Without it a PDF
+      // that lost its slices would report "zero filters, none of them DCT" and pass.
+      if (pages < 2) {
+        fail(
+          'PDF page count',
+          `expected a multi-page document, got ${pages} page object(s) — the slicing loop never repeated`,
+        );
+      } else if (filters.length !== pages) {
+        fail('PDF slice count', `${pages} pages but ${filters.length} image XObjects`);
+      } else if (filters.every(f => f === 'FlateDecode')) {
+        ok(`PDF page slices are PNG (${filters.length} slices, every one /FlateDecode)`);
+      } else {
+        fail('PDF slice format', `${filters.length} slices, filters seen: ${[...new Set(filters)].join(', ')}`);
+      }
+
+      await page.screenshot({
+        path: shot(`${String(shotIdx++).padStart(2, '0')}-pdf-slice-format.png`),
+        fullPage: true,
+      });
+    } catch (e) {
+      fail('HTML→PDF page slices are PNG', e.message);
     }
   }
 

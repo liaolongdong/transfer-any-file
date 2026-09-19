@@ -47,9 +47,16 @@ const htmlToPdfConverter: Converter = {
         pageCtx.fillRect(0, 0, canvas.width, remainingH);
         pageCtx.drawImage(canvas, 0, yStart, canvas.width, remainingH, 0, 0, canvas.width, remainingH);
 
-        const pageImgData = pageCanvas.toDataURL('image/jpeg', 0.92);
+        // PNG, not JPEG. Two reasons, and the second is the one that reaches users:
+        // (a) a document that goes on to an image target (MD→JPG routes md→html→pdf→jpg) was
+        //     JPEG-compressed here and JPEG-compressed again at the encoder, a guaranteed
+        //     generational loss; (b) text edges are exactly what JPEG's ringing artefact ruins,
+        //     and every document→PDF output is mostly text. Flat white pages with glyph edges
+        //     also deflate smaller than lossy DCT block noise, so the common case does not pay
+        //     for this. Photo-heavy documents do grow — accepted, and disclosed in CHANGELOG.
+        const pageImgData = pageCanvas.toDataURL('image/png');
         const pageImgHeightMm = (remainingH * imgWidth) / canvas.width;
-        pdf.addImage(pageImgData, 'JPEG', 0, 0, imgWidth, pageImgHeightMm, undefined, 'FAST');
+        pdf.addImage(pageImgData, 'PNG', 0, 0, imgWidth, pageImgHeightMm, undefined, 'FAST');
       }
     } finally {
       // Both buffers are live for the whole loop; releasing them is what keeps a 100-page
