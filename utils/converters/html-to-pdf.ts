@@ -8,6 +8,13 @@ import { renderHtmlToCanvas } from '~/utils/core/html-raster';
 const htmlToPdfConverter: Converter = {
   from: FileFormat.HTML,
   to: FileFormat.PDF,
+  // Ties with html→png→<image> for any image target, and the tie is resolved here rather than by
+  // registration order. Kept ahead of html→png deliberately: routing a document to an image
+  // through PDF is a FEATURE — it is what gives you one A4 page per image, the useful answer for
+  // a multi-page document. The alternative, html→png→jpg, hands back a single 800px-wide strip of
+  // the whole document. The real defect on that path was the double JPEG encode, and that is
+  // fixed at the source (PNG slices), not by re-pointing the route.
+  edgePreference: 0,
 
   async convert(input: Blob, ctx?: ConvertContext): Promise<ConvertResult> {
     const jspdfModule = await import('jspdf');

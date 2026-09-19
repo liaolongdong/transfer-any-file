@@ -116,6 +116,17 @@ export interface ConvertContext {
 export interface Converter {
   from: FileFormat;
   to: FileFormat;
+  /**
+   * Tie-breaker among equal-length conversion routes, lower winning.
+   *
+   * `findConversionPath` is a BFS over an adjacency list and returns the FIRST shortest path, so
+   * when two routes tie — `html→pdf→jpg` vs `html→png→jpg` — the winner was decided by which
+   * `register()` call happened earlier in `initConverters()`. That made source-file order an
+   * undeclared input to which artifact a user receives. This field makes the choice a property of
+   * the edge. Absent means 0, i.e. "no declared preference", and ties among equals still fall back
+   * to registration order — declared, not accidental.
+   */
+  edgePreference?: number;
   convert(input: Blob, ctx?: ConvertContext): Promise<ConvertResult>;
 }
 

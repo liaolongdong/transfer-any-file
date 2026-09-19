@@ -7,6 +7,8 @@ import { renderHtmlToCanvas } from '~/utils/core/html-raster';
 export const htmlToPngConverter: Converter = {
   from: FileFormat.HTML,
   to: FileFormat.PNG,
+  // Explicitly behind html→pdf for tied image targets; see html-to-pdf.ts.
+  edgePreference: 10,
 
   async convert(input: Blob, ctx?: ConvertContext): Promise<ConvertResult> {
     // A GBK-exported HTML file is unreadable as UTF-8, and the rasterizer would happily
