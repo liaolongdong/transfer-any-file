@@ -391,6 +391,28 @@ function readPdfSliceFilters(pdfBytes) {
   return { pages, filters };
 }
 
+/**
+ * Read one cell's stored type and its raw `<v>` payload out of an XLSX artifact's XML.
+ *
+ * The type has to come from the `<c>` element, not from the value: SheetJS writes a numeric cell as
+ * `<c r="I2">` and a text cell as `<c r="I2" s="1" t="str">`, and the number itself sits in `<v>` in
+ * both, so `includes('4111111111111111')` says nothing about which branch the converter took. Only
+ * `t=` is read; the style index is incidental to the claim and would tie this to the writer's style
+ * table. A `t=` shape this helper does not know is reported verbatim rather than guessed at, so an
+ * unexpected one shows up in the failure message instead of passing as "not text".
+ *
+ * Returns `{ kind, value }` with `kind` one of `'number'`, `'text'`, `'other(<attrs>)'`,
+ * `'missing'`.
+ */
+function readXlsxCell(xlsxText, ref) {
+  const cell = new RegExp(`<c r="${ref}"([^>]*)>(?:<v>([^<]*)</v>)?`).exec(xlsxText);
+  if (!cell) return { kind: 'missing', value: '' };
+  const { 1: attrs, 2: value = '' } = cell;
+  if (!attrs) return { kind: 'number', value };
+  if (/t="str"/.test(attrs)) return { kind: 'text', value };
+  return { kind: `other(${attrs})`, value };
+}
+
 /** Set one image output parameter from the output panel, by its field label. */
 async function setOutputOption(page, label, option) {
   const field = page.locator(`.output-options .output-field:has(.output-label:text-is("${label}")) .el-select`);
@@ -877,6 +899,38 @@ async function run() {
         ok('CSV→XLSX preserves zip / account / date / fraction / quoted text and still numbers 1234.5 and -42');
       } else {
         fail('CSV typing fidelity', broken.join('; '));
+      }
+
+      // The 15-significant-digit boundary, asserted on the *cell element* rather than on the value
+      // bytes: `<v>4111111111111111</v>` is what a text cell looks like just as much as a numeric
+      // one, so the `checks` list above cannot say which branch a long number took — it only proves
+      // the digits survived. Column letters follow the fixture's order (A zip … H delta, then
+      // I cardvisa, J cardup, K id16, L id15, M tiny).
+      //
+      // I2/J2/K2 are the regression this guards: 16-digit values reproduce themselves through
+      // `Number`, so the round trip alone let them through as numbers, and Excel renders a number of
+      // that width as `4.11111111111111E+15` — the identifier is stored faithfully but read back
+      // wrong by eye. L2 and M2 are the controls on the other side: the boundary sits at 15 *significant
+      // digits*, not at 16 characters, so an ordinary 15-digit value and a small decimal whose 17
+      // digit characters carry 13 significant ones must both stay summable numbers.
+      const digitBoundary = [
+        ['16-digit Visa-shaped PAN kept as text', 'I2', 'text', '4111111111111111'],
+        ['16-digit UnionPay-shaped PAN kept as text', 'J2', 'text', '6222021234567890'],
+        ['ordinary 16-digit value kept as text', 'K2', 'text', '1234567890123456'],
+        ['15-digit value still numeric', 'L2', 'number', '123456789012345'],
+        ['small decimal still numeric (17 digit chars, 13 significant)', 'M2', 'number', '0.0001234567890123'],
+      ];
+      const misplaced = digitBoundary
+        .map(([name, ref, want, wantValue]) => {
+          const cell = readXlsxCell(xlsxText, ref);
+          if (cell.kind === want && cell.value === wantValue) return null;
+          return `${name}: ${ref} is ${cell.kind} <v>${cell.value}</v>, expected ${want} <v>${wantValue}</v>`;
+        })
+        .filter(Boolean);
+      if (misplaced.length === 0) {
+        ok('CSV→XLSX keeps values of more than 15 significant digits as text and 15-or-fewer as numbers');
+      } else {
+        for (const message of misplaced) fail('CSV significant-digit boundary', message);
       }
 
       // The formula branch is the one that executes code: SheetJS emitted `<c r="C2"><f>1+1</f></c>`,

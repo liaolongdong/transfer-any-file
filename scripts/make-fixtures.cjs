@@ -114,9 +114,16 @@ body{background:url('http://127.0.0.1:9876/canary/css-bg.png')}</style>
   // number, `"1,234.50"` the quoted field whose commas the reader used to swallow, and `-42` the
   // negative number that must stay numeric — it is the case a guard applied before the numeric test
   // would silently turn into the text `'-42`.
+  //
+  // The last five columns are the 15-significant-digit boundary: `4111111111111111` (Visa test PAN)
+  // and `6222021234567890` (UnionPay-shaped) are the 16-digit identifiers that survive the round trip
+  // yet render `4.11111111111111E+15` in Excel, `id16` is an ordinary 16-digit value with the same
+  // fate, and `id15` is the control proving the boundary is *not* moved to 16 digits — a 15-digit
+  // value still has to be summable. `tiny` is the leading-zero counter-case: 17 digit characters, but
+  // only 13 significant ones, so a rule that counted characters instead of digits would textify it.
   fs.writeFileSync(
     path.join(outDir, 'sample-typing.csv'),
-    'zip,acct,note,dt,fraction,amount,quoted,delta\n00424,12345678901234567890,=1+1,2024-01-05,1/2,1234.5,"1,234.50",-42\n',
+    'zip,acct,note,dt,fraction,amount,quoted,delta,cardvisa,cardup,id16,id15,tiny\n00424,12345678901234567890,=1+1,2024-01-05,1/2,1234.5,"1,234.50",-42,4111111111111111,6222021234567890,1234567890123456,123456789012345,0.0001234567890123\n',
   );
 
   // ZIP archive with two convertible entries and one unsupported entry
