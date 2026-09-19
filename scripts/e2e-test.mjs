@@ -39,8 +39,26 @@ function fail(name, err) {
   failures.push({ name, error: err });
   console.log(`  ✗ ${name}: ${err}`);
 }
+/**
+ * Scenario filter. `E2E_ONLY` is a comma-separated list of case-insensitive substrings; when set,
+ * `section()` reports every other section as skipped. Exists because a full run costs minutes and
+ * the phase-2 converter tasks each need one or two scenarios — without a filter the temptation is
+ * to skip verification entirely.
+ */
+const ONLY = (process.env.E2E_ONLY || '')
+  .split(',')
+  .map(s => s.trim().toLowerCase())
+  .filter(Boolean);
+let skippedSections = 0;
+
 function section(name) {
+  if (ONLY.length > 0 && !ONLY.some(needle => name.toLowerCase().includes(needle))) {
+    skippedSections++;
+    console.log(`\n▸ ${name}  (skipped by E2E_ONLY)`);
+    return false;
+  }
   console.log(`\n▸ ${name}`);
+  return true;
 }
 
 // WCAG relative-luminance contrast, applied to colours read back from the live page so
@@ -2033,6 +2051,7 @@ async function run() {
     }
   }
   console.log('╚══════════════════════════════════════════════╝');
+  if (skippedSections > 0) console.log(`  ! ${skippedSections} sections skipped by E2E_ONLY — not a full suite run`);
 
   console.log(`\nScreenshots: ${SCREENSHOT_DIR}/`);
   fs.readdirSync(SCREENSHOT_DIR)
