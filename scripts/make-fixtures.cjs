@@ -126,6 +126,45 @@ body{background:url('http://127.0.0.1:9876/canary/css-bg.png')}</style>
     'zip,acct,note,dt,fraction,amount,quoted,delta,cardvisa,cardup,id16,id15,tiny\n00424,12345678901234567890,=1+1,2024-01-05,1/2,1234.5,"1,234.50",-42,4111111111111111,6222021234567890,1234567890123456,123456789012345,0.0001234567890123\n',
   );
 
+  // F-7 fixture: typed *and* formatted cells, so the display-text-vs-value difference is visible in
+  // the output, plus the three shapes a formula cell actually takes on disk.
+  //
+  // Dates are written as *serials* with an explicit number format, never as JS `Date` objects:
+  // measured on xlsx 0.18.5, `XLSX.write` of `new Date(2024, 0, 5)` stores 45296.000497685185 in
+  // Asia/Shanghai — 43 seconds of timezone artefact baked into the file — so a Date-valued fixture
+  // would hold different bytes depending on the timezone of whoever regenerated it. The serial is
+  // also what Excel, LibreOffice and openpyxl actually write.
+  //
+  //   amount / ratio   1234.5 renders as `1,234.50`, 0.25 as `25.0%` — the value/display split
+  //   date             integer serial on the *built-in* `m/d/yy` format: today it exports `1/5/24`
+  //   datetime         same built-in format with a time component, which today is silently dropped
+  //   flag             boolean, `TRUE` as text and `true` as a value
+  //   calc             LibreOffice/Excel shape: `<f>` plus a cached value, on a `#,##0.00` format
+  //   link             `<f>` with a cached *string* value that is itself the injection payload
+  //   nocache          `<f>` with an empty cached value — the shape that survives the reader at all
+  //                    (openpyxl's `<f>` with no `<v>` is dropped by SheetJS before any guard runs)
+  {
+    const typed = XLSX.utils.book_new();
+    const sheet = XLSX.utils.aoa_to_sheet([
+      ['amount', 'ratio', 'date', 'datetime', 'flag', 'calc', 'link', 'nocache'],
+      [0, 0, 0, 0, false, 0, '', ''],
+    ]);
+    sheet.A2 = { t: 'n', v: 1234.5, z: '#,##0.00' };
+    sheet.B2 = { t: 'n', v: 0.25, z: '0.0%' };
+    sheet.C2 = { t: 'n', v: 45296, z: 'm/d/yy' };
+    sheet.D2 = { t: 'n', v: 45296.604166666664, z: 'm/d/yy' };
+    sheet.E2 = { t: 'b', v: true };
+    sheet.F2 = { t: 'n', v: 2469, f: 'A2*2', z: '#,##0.00' };
+    sheet.G2 = { t: 's', v: '=HYPERLINK("http://x")', f: 'HYPERLINK("http://x")' };
+    sheet.H2 = { t: 's', v: '', f: 'A2*3' };
+    sheet['!ref'] = 'A1:H2';
+    XLSX.utils.book_append_sheet(typed, sheet, 'Money');
+    fs.writeFileSync(
+      path.join(outDir, 'sample-typed.xlsx'),
+      Buffer.from(XLSX.write(typed, { type: 'buffer', bookType: 'xlsx' })),
+    );
+  }
+
   // ZIP archive with two convertible entries and one unsupported entry
   const archive = zipSync({
     'docs/hello.md': strToU8('# Hello\n\nArchive content for batch conversion.\n'),

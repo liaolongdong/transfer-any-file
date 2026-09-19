@@ -413,6 +413,19 @@ function readXlsxCell(xlsxText, ref) {
   return { kind: `other(${attrs})`, value };
 }
 
+/**
+ * True only when `ref` is stored as a *numeric* cell whose value is exactly `value`.
+ *
+ * The two controls of the F-6 fixture are the ones that must stay numbers, and asserting them the
+ * way the text markers are asserted proves nothing: `includes('<v>1234.5</v>')` is satisfied just as
+ * well by `<c r="F2" s="1" t="str"><v>1234.5</v></c>`, i.e. by the exact failure the check is named
+ * after. The type has to come off the cell element.
+ */
+function xlsxCellIsNumber(xlsxText, ref, value) {
+  const cell = readXlsxCell(xlsxText, ref);
+  return cell.kind === 'number' && cell.value === value;
+}
+
 /** Set one image output parameter from the output panel, by its field label. */
 async function setOutputOption(page, label, option) {
   const field = page.locator(`.output-options .output-field:has(.output-label:text-is("${label}")) .el-select`);
@@ -891,8 +904,15 @@ async function run() {
         ['date kept as text', xlsxText.includes('2024-01-05')],
         ['fraction kept as text', xlsxText.includes('1/2')],
         ['quoted thousands separators kept', xlsxText.includes('1,234.50')],
-        ['real number still numeric', xlsxText.includes('<v>1234.5</v>')],
-        ['negative number still numeric', xlsxText.includes('<v>-42</v>') && !xlsxText.includes('&apos;-42')],
+        // Both controls read the type off the cell element, not off the value bytes: `<v>1234.5</v>`
+        // is what a text cell holding that string looks like too, so the earlier form of these two
+        // passed under exactly the regression they were written to catch. Column letters follow the
+        // fixture's header order (A zip … F amount … H delta).
+        ['amount is stored as a number, not as text reading 1234.5', xlsxCellIsNumber(xlsxText, 'F2', '1234.5')],
+        [
+          'delta is stored as a number, not as text reading -42',
+          xlsxCellIsNumber(xlsxText, 'H2', '-42') && !xlsxText.includes('&apos;-42'),
+        ],
       ];
       const broken = checks.filter(([, pass]) => !pass).map(([name]) => name);
       if (broken.length === 0) {
@@ -949,6 +969,87 @@ async function run() {
       });
     } catch (e) {
       fail('CSV Typing Fidelity', e.message);
+    }
+  }
+
+  // ═══════════════════════════════════════════
+  //  F-7 — XLSX→CSV/JSON emit values, and formulas never survive as formulas
+  // ═══════════════════════════════════════════
+
+  if (section('XLSX Value Fidelity')) {
+    try {
+      await resetWorkbench(page);
+      const csvRun = await convertFile(page, 'sample-typed.xlsx', 'CSV (.csv)');
+      if (!csvRun.alertTitle.includes('完成')) throw new Error(`csv failed: ${csvRun.alertTitle}`);
+      const csv = await downloadBatchArtifact(page);
+
+      // Asserted on the downloaded CSV text. Every negative marker is a *display text* the fixture
+      // provably renders (`1,234.50` for 1234.5, `25.0%` for 0.25, `1/5/24` for the built-in date
+      // format, `2,469.00` for the cached formula cell), so a run that merely keeps the old
+      // behaviour cannot satisfy them.
+      const csvChecks = [
+        ['amount is the value, not the formatted text', csv.includes('1234.5') && !csv.includes('1,234.50')],
+        ['ratio is 0.25, not 25.0%', csv.includes('0.25') && !csv.includes('25.0%')],
+        ['boolean is the value, not TRUE', csv.includes(',true,') && !csv.includes('TRUE')],
+        ['cached formula exports its value, not its stale text', csv.includes(',2469,') && !csv.includes('2,469.00')],
+        ['plain date carries no zero time', csv.includes('2024-01-05') && !csv.includes('2024-01-05 00:00:00')],
+        ['datetime keeps its time', csv.includes('2024-01-05 14:30:00') && !csv.includes('1/5/24')],
+      ];
+      const csvBroken = csvChecks.filter(([, pass]) => !pass).map(([name]) => name);
+      if (csvBroken.length === 0) {
+        ok('XLSX→CSV emits values with two-form ISO dates instead of display text');
+      } else {
+        fail('XLSX→CSV values', csvBroken.join('; '));
+      }
+
+      // The formula policy, asserted as an invariant rather than as three markers: no cell may
+      // contribute a live formula to the CSV. Each of the fixture's three formula shapes gets its
+      // own check, because the one that has a cached value must NOT appear as text at all.
+      const formulaChecks = [
+        ['formula with a cached value contributes no formula text', !csv.includes('A2*2')],
+        ['cached string result is guarded', csv.includes("'=HYPERLINK")],
+        ['formula with an empty cached value is guarded, not dropped', csv.includes("'=A2*3")],
+      ];
+      const formulaBroken = formulaChecks.filter(([, pass]) => !pass).map(([name]) => name);
+      if (formulaBroken.length === 0) {
+        ok('XLSX→CSV neutralizes every formula shape');
+      } else {
+        fail('XLSX→CSV formula policy', formulaBroken.join('; '));
+      }
+
+      await resetWorkbench(page);
+      const jsonRun = await convertFile(page, 'sample-typed.xlsx', 'JSON (.json)');
+      if (!jsonRun.alertTitle.includes('完成')) throw new Error(`json failed: ${jsonRun.alertTitle}`);
+      const json = await downloadBatchArtifact(page);
+
+      const jsonChecks = [
+        ['amount is a JSON number', /"amount":\s*1234\.5\s*[,\n}]/.test(json)],
+        ['ratio is a JSON number', /"ratio":\s*0\.25\s*[,\n}]/.test(json)],
+        ['flag is a JSON boolean', /"flag":\s*true\s*[,\n}]/.test(json)],
+        ['cached formula value is a JSON number', /"calc":\s*2469\s*[,\n}]/.test(json)],
+        [
+          'date is two-form ISO with no zero time',
+          /"date":\s*"2024-01-05"/.test(json) && !json.includes('2024-01-05 00:00:00'),
+        ],
+        ['datetime keeps its time', /"datetime":\s*"2024-01-05 14:30:00"/.test(json)],
+        [
+          'no formatted text survived',
+          !json.includes('1,234.50') && !json.includes('25.0%') && !json.includes('"TRUE"'),
+        ],
+      ];
+      const jsonBroken = jsonChecks.filter(([, pass]) => !pass).map(([name]) => name);
+      if (jsonBroken.length === 0) {
+        ok('XLSX→JSON emits real numbers, booleans and ISO dates instead of display text');
+      } else {
+        fail('XLSX→JSON values', jsonBroken.join('; '));
+      }
+
+      await page.screenshot({
+        path: shot(`${String(shotIdx++).padStart(2, '0')}-xlsx-value-fidelity.png`),
+        fullPage: true,
+      });
+    } catch (e) {
+      fail('XLSX Value Fidelity', e.message);
     }
   }
 
