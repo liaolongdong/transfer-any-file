@@ -69,14 +69,20 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       # 先跑便宜的守卫：它们正是商店文案与隐私政策里反复出现的那几条断言。
-      - name: Verify metadata and offline guarantee
+      # 离线检查此处只到源码层——产物层要用 .output/chrome-mv3，放在 Build 之后。
+      - name: Verify metadata and offline guarantee (source)
         run: |
           pnpm verify:meta
-          pnpm verify:offline
+          pnpm verify:offline:source
           pnpm verify:listing
 
       - name: Build
         run: pnpm build
+
+      # 打包/发布之前必须确认浏览器实际加载的那份 manifest 只持有 storage：
+      # 这是唯一能拦住 WXT 模块或 manifest transform 偷偷加权限的检查，而它只有产物存在时才跑得动。
+      - name: Verify offline (built manifest)
+        run: pnpm verify:offline
 
       - name: Package
         id: package

@@ -29,8 +29,9 @@ jobs:
       - run: pnpm lint:all
       # 对外元数据：package.json / wxt.config.ts / .github/repo-metadata.json 三者必须一致
       - run: pnpm verify:meta
-      # 每一份文档都在重复的那句隐私承诺：第一方源码里没有网络调用
-      - run: pnpm verify:offline
+      # 每一份文档都在重复的那句隐私承诺：第一方源码里没有网络调用、manifest 源只要 storage。
+      # 这里只跑源码层——本 job 在干净检出上先于任何 build，产物层断言在 build job 里执行。
+      - run: pnpm verify:offline:source
       # 商店后台的每个粘贴字段都在字数上限内，且与 manifest 一致
       - run: pnpm verify:listing
 
@@ -46,6 +47,10 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
+      # 产物层守卫：浏览器实际加载的那份 manifest 只允许 storage。WXT 模块或 manifest transform
+      # 会加上源码配置里从未出现的权限，只有这一步能发现——缺 .output 时脚本直接失败，不再静默跳过。
+      - name: Verify offline (built manifest)
+        run: pnpm verify:offline
 
   e2e:
     name: E2E Tests

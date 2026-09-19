@@ -19,7 +19,7 @@
 | 历史记录     | 只保存文件名、格式与体积，写在 `chrome.storage.local`，留在本机。                                                                                                   |
 | 不可信输入   | 上传的文件、剪贴板内容、ZIP 条目与已存储的值都在边界处校验；由它们生成的 HTML / SVG / Markdown 在渲染前一律经 DOMPurify 净化。                                      |
 
-验证方法：`pnpm verify:offline`（与 CI 完全相同的断言）——它在那四个第一方目录里 grep 上述请求入口，并检查 `wxt.config.ts` 是否仍然只声明 `storage`、没有 `host_permissions`。对 `.output/chrome-mv3` 做 grep 并不是正确的检查方式：打包进来的转换库确实**在扩展永远不会进入的路径上**带着请求代码。而即使真的走到那些路径，也做不成任何有意义的事——没有 host 权限、没有 content script 时，扩展页面发出的请求就是一个受 CORS 限制的普通网页请求，既读不到响应，也碰不到任何网站的数据。真正撑得住这条保证的是第一点：**第一方代码没有任何一处调用请求 API**。
+验证方法：`pnpm verify:offline:source` 负责源码层——在那四个第一方目录里 grep 上述请求入口，并检查 `wxt.config.ts` 是否仍然只声明 `storage`、没有 `host_permissions`；`pnpm verify:offline`（CI 在 `pnpm build` 之后跑的那条，本地也须先构建）在此之上再断言浏览器实际加载的 `.output/chrome-mv3/manifest.json` 权限仍然只有 `storage`，产物缺失时直接失败而不是跳过。对 `.output/chrome-mv3` 做 grep 并不是正确的检查方式：打包进来的转换库确实**在扩展永远不会进入的路径上**带着请求代码。而即使真的走到那些路径，也做不成任何有意义的事——没有 host 权限、没有 content script 时，扩展页面发出的请求就是一个受 CORS 限制的普通网页请求，既读不到响应，也碰不到任何网站的数据。真正撑得住这条保证的是第一点：**第一方代码没有任何一处调用请求 API**。
 
 ## 报告漏洞
 

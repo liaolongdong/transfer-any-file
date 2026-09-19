@@ -16,10 +16,11 @@
 2. **改代码，同时保证那些承诺依然成立**
 
    ```bash
-   pnpm lint:all         # 类型检查 + eslint + stylelint —— 必须通过
-   pnpm verify:offline   # 第一方源码不发起网络请求；manifest 权限仍只有 storage
-   pnpm verify:meta      # package.json / public/_locales/en / wxt.config.ts / .github/repo-metadata.json 一致
-   pnpm test:e2e         # 构建 + Playwright 跑 fixtures/ —— 必须通过
+   pnpm lint:all              # 类型检查 + eslint + stylelint —— 必须通过
+   pnpm verify:offline:source # 第一方源码不发起网络请求；wxt.config.ts 仍只声明 storage
+   pnpm verify:meta           # package.json / public/_locales/en / wxt.config.ts / .github/repo-metadata.json 一致
+   pnpm test:e2e              # 构建 + Playwright 跑 fixtures/ —— 必须通过
+   pnpm verify:offline        # 构建之后断言产物 manifest：浏览器加载的那份只有 storage 权限
    ```
 
 3. **提 PR**，说清楚改了什么、为什么改、跑了哪些检查。
@@ -37,7 +38,8 @@ pnpm lint             # eslint
 pnpm lint:style       # stylelint（assets/**/*.css 与 .vue）
 pnpm lint:all         # typecheck + eslint + stylelint
 pnpm verify:meta      # package.json / wxt.config.ts / public/_locales/en / .github/repo-metadata.json 保持一致
-pnpm verify:offline   # 第一方源码无网络调用，manifest 仅声明 storage 权限
+pnpm verify:offline   # 源码层检查 + 产物 manifest 断言（须先 pnpm build；缺 .output/chrome-mv3 时直接失败，不再静默跳过）
+pnpm verify:offline:source # 只跑源码层：第一方源码无网络调用，wxt.config.ts 仅声明 storage 权限（无需先构建）
 pnpm verify:listing   # CHROMEWEBSTORE.md 每个粘贴字段不超限、与 manifest 一致、速查区块未漂移
 pnpm test:e2e         # 构建 + 基于 fixtures/ 的 Playwright 套件
 pnpm assets:capture   # 重新生成商店与 README 用的截图和推广图（需先 pnpm build）

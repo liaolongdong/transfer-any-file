@@ -190,8 +190,8 @@ CHROME_EXTENSION_ID_TAF  # Transfer Any File 扩展 ID（从 CWS Dashboard 获�
 
 2. **自动触发**：`.github/workflows/release.yml` 会自动执行：
    - 验证 tag 与 package.json 版本一致
-   - 运行所有检查（`verify:meta`、`verify:offline`、`verify:listing`）
-   - 构建并打包扩展
+   - 运行源码层检查（`verify:meta`、`verify:offline:source`、`verify:listing`）
+   - 构建扩展，随后对产物再跑一次 `verify:offline`（断言浏览器实际加载的那份 manifest 只有 `storage` 权限），最后打包
    - 验证包内容（manifest.json 在根目录，无仓库文件）
    - 创建 GitHub Release
    - 校验 OAuth 凭据
@@ -233,7 +233,7 @@ CHROME_EXTENSION_ID_TAF  # Transfer Any File 扩展 ID（从 CWS Dashboard 获�
 
 - ✅ **每次更新都要升版本号**：版本号等于或低于已上线版本的更新会被直接拒
 - ✅ **保持文案一致性**：所有商店字段必须与 `_locales` 文件逐字一致
-- ✅ **重新运行验证**：`pnpm verify:meta`、`pnpm verify:offline`、`pnpm verify:listing`
+- ✅ **重新运行验证**：`pnpm verify:meta`、`pnpm verify:offline`、`pnpm verify:listing`（离线那条含产物层，本地要先 `pnpm build`；推 tag 时由 `release.yml` 按构建前/后两层跑齐）
 
 ---
 

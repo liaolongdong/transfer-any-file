@@ -78,4 +78,5 @@ trigger: always_on
 
 - 每次功能开发或修复后必须自审 diff，禁止引入新问题或破坏存量功能与交互。
 - 按改动范围执行：TS/Vue/运行时 → `pnpm lint:all`；入口/manifest/依赖/打包 → `pnpm build`；转换逻辑或端到端行为 → `pnpm test:e2e`（Playwright + `fixtures/`）；商店文案 `CHROMEWEBSTORE.md` → `pnpm verify:listing`。
+- 离线守卫分两层，**两层都跑过才算守全**：`pnpm verify:offline:source` 断言第一方源码无网络调用且 `wxt.config.ts` 只声明 `storage`；`pnpm verify:offline` 在此之上断言**产物** `.output/chrome-mv3/manifest.json` 的 `permissions` 恰为 `["storage"]`、无 `host_permissions` / `optional_permissions`——只有这一层能发现 WXT 模块或 manifest transform 加上的、源码里从没写过的权限，所以它在产物缺失时**直接失败**，不许改回「有产物才检查」。CI 的拓扑与此一致：lint job 跑源码层（干净检出、build 之前），build job 在 `pnpm build` 之后跑产物层，`release.yml` 同理。
 - 改动 `docs/`、`CHROMEWEBSTORE.md` 或新增素材脚本后，`pnpm build` 并确认 `.output/chrome-mv3` 内**没有** `docs/`、`CHROMEWEBSTORE.md` 等文档产物；改到商店粘贴字段时另跑 `pnpm verify:listing`（限长、与 manifest 一致、速查区块未漂移）；对外文案里的数字（格式数、路径数、体积、阈值）必须从代码或构建输出取证，不得沿用旧文档估计。

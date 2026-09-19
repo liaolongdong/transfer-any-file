@@ -16,10 +16,11 @@ Contributions are welcome — format requests and bug reports included. This pro
 2. **Make the change, keeping the guarantees intact**
 
    ```bash
-   pnpm lint:all         # typecheck + eslint + stylelint — must pass
-   pnpm verify:offline   # first-party source makes no network call; manifest stays `storage`-only
-   pnpm verify:meta      # package.json / public/_locales/en / wxt.config.ts / .github/repo-metadata.json agree
-   pnpm test:e2e         # build + Playwright over fixtures/ — must pass
+   pnpm lint:all              # typecheck + eslint + stylelint — must pass
+   pnpm verify:offline:source # first-party source makes no network call; wxt.config.ts still declares `storage` only
+   pnpm verify:meta           # package.json / public/_locales/en / wxt.config.ts / .github/repo-metadata.json agree
+   pnpm test:e2e              # build + Playwright over fixtures/ — must pass
+   pnpm verify:offline        # after the build: asserts the manifest the browser actually loads is `storage`-only
    ```
 
 3. **Open a pull request** that says what changed, why, and which checks you ran.
@@ -37,7 +38,8 @@ pnpm lint             # eslint
 pnpm lint:style       # stylelint (assets/**/*.css and .vue)
 pnpm lint:all         # typecheck + eslint + stylelint
 pnpm verify:meta      # package.json / wxt.config.ts / public/_locales/en / .github/repo-metadata.json stay in sync
-pnpm verify:offline   # no network call in first-party source, storage-only manifest
+pnpm verify:offline   # source-level checks plus the built-manifest assertion (needs pnpm build first; fails outright when .output/chrome-mv3 is missing)
+pnpm verify:offline:source # source level only: no network call in first-party source, wxt.config.ts declares `storage` only (no build needed)
 pnpm verify:listing   # every CHROMEWEBSTORE.md paste block is within its limit, agrees with the manifest, and the quick-reference scaffold has not drifted
 pnpm test:e2e         # build + Playwright suite over fixtures/
 pnpm assets:capture   # regenerate store/README screenshots + promo graphics (needs pnpm build first)

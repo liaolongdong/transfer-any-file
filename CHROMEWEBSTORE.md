@@ -55,8 +55,8 @@
 
 ```bash
 pnpm verify:listing   # 下面每个字段都在上限内，且与 _locales / manifest / package.json / repo-metadata 一致
-pnpm verify:offline   # 第一方源码不发起网络请求；manifest 权限仍只有 storage
 pnpm build            # 产出要上传的包
+pnpm verify:offline   # 第一方源码不发起网络请求，且上面产物的 manifest 权限仍只有 storage（缺产物即失败）
 ls .output/chrome-mv3/_locales   # 必须同时有 en 与 zh_CN，否则后台只有一种语言可填
 curl -Is https://liaolongdong.github.io/transfer-any-file/privacy.html | head -1   # 必须是 HTTP/2 200，否则提交按钮点了没反应
 ```
@@ -581,8 +581,10 @@ ban of the entire publisher entity"。这是整份文档里唯一可能赔上整
 
 离线保证真正换来的是那一页**其他**答案——没有传输，于是传输规则那几条根本没有东西要认证。每次提交前用
 `pnpm verify:offline` 重跑它背后的断言（`entrypoints/`、`components/`、`composables/`、`utils/` 里没有网络请求入口，
-manifest 不声明任何 host 权限），并记住 jsPDF / pdf.js 里那些无人调用的请求路径既读不到响应、也碰不到任何网站的数据。
-CI 每次 push 都会跑 `verify:offline`。
+`wxt.config.ts` 不声明任何 host 权限，并且**要上传的那份产物** `.output/chrome-mv3/manifest.json` 的权限仍然只有
+`storage`——所以它必须在 `pnpm build` 之后跑，缺产物时它直接失败而不是跳过），并记住 jsPDF / pdf.js 里那些无人调用的
+请求路径既读不到响应、也碰不到任何网站的数据。CI 每次 push 两层都跑：lint job 先跑源码层
+（`verify:offline:source`，此时还没有产物可查），build job 在 `pnpm build` 之后跑这条完整的。
 
 ### 数据使用认证
 
@@ -653,9 +655,9 @@ time by hand."。创建条目、粘贴 listing 文本、上传截图、勾选隐
 ### 2. 仓库侧前置条件
 
 ```bash
-pnpm verify:offline   # 第一方源码无网络请求，manifest 只有 storage
-pnpm verify:meta      # 132 字符的简介在 package.json 与 wxt.config.ts 一致
-pnpm verify:listing   # 下面每个粘贴字段都在上限内，且与 manifest 一致
+pnpm verify:offline:source   # 源码层：第一方源码无网络请求，wxt.config.ts 只有 storage（产物断言见下面第 3 步）
+pnpm verify:meta             # 132 字符的简介在 package.json 与 wxt.config.ts 一致
+pnpm verify:listing          # 下面每个粘贴字段都在上限内，且与 manifest 一致
 curl -Is https://liaolongdong.github.io/transfer-any-file/privacy.html | head -1   # 必须是 HTTP/2 200
 ```
 
@@ -665,8 +667,10 @@ curl -Is https://liaolongdong.github.io/transfer-any-file/privacy.html | head -1
 
 ### 3. 产出包
 
-`pnpm build && pnpm package` 写出 `.output/transfer-any-file-<version>-chrome.zip`。推荐路径是推 tag：
-`.github/workflows/release.yml` 会校验 tag 与 `package.json#version` 一致、跑上面两项守卫、确认 `manifest.json`
+`pnpm build && pnpm package` 写出 `.output/transfer-any-file-<version>-chrome.zip`；构建之后补跑一次
+`pnpm verify:offline`，它才会断言这份产物的 manifest 权限只有 `storage`。推荐路径是推 tag：
+`.github/workflows/release.yml` 会校验 tag 与 `package.json#version` 一致、跑上面两项守卫（离线那条按同样的顺序拆成
+构建前的源码层与构建后的产物层）、确认 `manifest.json`
 位于压缩包根目录且旁边没有仓库文件，然后把 zip 挂到 GitHub Release 上。
 
 ### 4. 填后台条目
@@ -885,6 +889,10 @@ v2，所以如果 `init` 建不出 v1.1 client，就用 v2 的 flag。工作流�
 
 > 这些是关于**本文件**的修订记录，不是产品发布说明（产品在 `CHANGELOG.md`）。数字全部由 `pnpm verify:listing` 实测。
 
+- **2026-09-19（守卫）** —— 上面「开工前」代码块里 `pnpm build` 与 `pnpm verify:offline` 互换次序，第 2 步的前置命令
+  换成 `pnpm verify:offline:source`：产物层断言（浏览器实际加载的那份 `manifest.json` 只有 `storage`）只有在构建之后
+  才跑得动，而它现在缺产物即失败，不再静默跳过。第 3 步据此补了构建后重跑一次的说法，CI 那两句改成两层。
+  **七个粘贴字段与所有小节标题逐字节未动**，`pnpm verify:listing` 已复核。
 - **2026-09-16（语言）** —— listing 的默认语言从英文换成中文：包里新增 `public/_locales/zh_CN/messages.json`
   （`manifest.default_locale`）与 `public/_locales/en/messages.json`，`wxt.config.ts` 的 `name` / `description`
   从英文字面量改成 `__MSG_extensionName__` / `__MSG_extensionDescription__`。[语言闸门](#语言闸门)整节由「两条路待选」

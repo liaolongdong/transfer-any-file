@@ -184,8 +184,8 @@ Current configuration uses `wxt-publish-extension` CLI tool:
 
 2. **Auto-trigger**: `.github/workflows/release.yml` automatically executes:
    - Verify tag matches package.json version
-   - Run all checks (`verify:meta`, `verify:offline`, `verify:listing`)
-   - Build and package extension
+   - Run the source-layer checks (`verify:meta`, `verify:offline:source`, `verify:listing`)
+   - Build the extension, run `verify:offline` again against the artifact (asserting the manifest the browser loads holds only `storage`), then package it
    - Validate package contents (manifest.json at root, no repo files)
    - Create GitHub Release
    - Verify OAuth credentials
@@ -227,7 +227,7 @@ After approval, obtain the 32-character extension ID from Chrome Web Store Dashb
 
 - ✅ **Increment version for each update**: Versions equal to or lower than already published will be directly rejected
 - ✅ **Maintain文案consistency**: All store fields must match `_locales` files verbatim
-- ✅ **Re-run validations**: `pnpm verify:meta`, `pnpm verify:offline`, `pnpm verify:listing`
+- ✅ **Re-run validations**: `pnpm verify:meta`, `pnpm verify:offline`, `pnpm verify:listing` (the offline one includes the artifact layer, so build locally first with `pnpm build`; on a tag push `release.yml` runs both layers, before and after the build)
 
 ---
 

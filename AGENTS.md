@@ -22,7 +22,8 @@
 | ESLint / Stylelint | `pnpm lint` / `pnpm lint:style`                                                                                                                                        |
 | 全量检查           | `pnpm lint:all`（typecheck + eslint + stylelint）                                                                                                                      |
 | 元数据一致性       | `pnpm verify:meta`（`package.json` ↔ `wxt.config.ts` 的 `__MSG__` / `default_locale` ↔ `_locales/en` ↔ `.github/repo-metadata.json`）                                  |
-| 离线断言           | `pnpm verify:offline`（第一方源码无网络调用；manifest 仅 `storage`、无 host 权限）                                                                                     |
+| 离线断言（源码层） | `pnpm verify:offline:source`（第一方源码无网络调用；`wxt.config.ts` 只声明 `storage`、无 host 权限）                                                                   |
+| 离线断言（产物层） | `pnpm verify:offline`（同上源码检查，再断言产物 `.output/chrome-mv3/manifest.json` 权限只有 `storage`、无 host/optional 权限；缺产物即失败，须先 `pnpm build`）        |
 | 商店文案一致性     | `pnpm verify:listing`（`CHROMEWEBSTORE.md` 每个粘贴字段不超限、与 `_locales` / manifest / `package.json` / 仓库 About 一致、速查区块未漂移）                           |
 | E2E 测试           | `pnpm test:e2e`（= build + `node scripts/e2e-test.mjs`，Playwright + Chrome）                                                                                          |
 | 图标重建           | `node scripts/render-icons.mjs`（源 `assets/*.svg` → `public/icon/*.png` + `docs/assets/icon*.png`）                                                                   |
@@ -76,7 +77,7 @@
 ## 安全与隐私基线
 
 - 默认离线：无网络请求/遥测/数据收集，权限仅 `storage`。新增权限、host、远程资源或任何数据外传前必须获用户确认并更新 README 隐私说明。
-- 措辞边界：可验证的说法是「**第一方源码**不发起请求」（`pnpm verify:offline` 断言），不要写成「打包产物里没有 `fetch`/`XMLHttpRequest`」——jsPDF / pdf.js 的未调用路径确实带这些字符串，而它们因**无 host 权限**被浏览器直接拦下。
+- 措辞边界：可验证的说法是「**第一方源码**不发起请求」（`pnpm verify:offline:source` 断言，`pnpm verify:offline` 在此之上再断言产物 manifest 的权限），不要写成「打包产物里没有 `fetch`/`XMLHttpRequest`」——jsPDF / pdf.js 的未调用路径确实带这些字符串，而它们因**无 host 权限**被浏览器直接拦下。
 - 上传文件、剪贴板、ZIP 条目、storage 数据均为**不可信输入**：边界处校验类型/大小（如 100MB 上限）/格式，失败安全降级。
 - 渲染或转换不可信 HTML/SVG/Markdown 前必须 **DOMPurify 净化**（参考 `md-to-html`/`docx-to-html`/`html-to-pdf`/`html-to-png`/`svg-to-html`）；禁止 `v-html`、向实时 DOM 写 `innerHTML`、`eval`、`new Function`。
 - 不把用户文件内容写入日志、截图、`fixtures/` 或提交记录。
@@ -97,7 +98,7 @@
 
 - **无单元测试框架（无 vitest）**。端到端用 Playwright：`scripts/e2e-test.mjs` 加载构建产物，跑各转换场景并截图到 `.test-screenshots/`，夹具在 `fixtures/`（由 `scripts/make-fixtures.cjs` 生成）。
 - 交付前按改动范围执行：`pnpm lint:all`（必过）；涉及入口/manifest/依赖/打包 → `pnpm build`；涉及转换逻辑或端到端行为 → `pnpm test:e2e`。
-- CI（`.github/workflows/ci.yml`，Node 20）：lint（`pnpm lint:all` + `verify:meta` + `verify:offline` + `verify:listing`）+ build + e2e。另有三条独立工作流：`static.yml`（Pages，只在 `docs/**` 变更时部署）、`release.yml`（tag 发布）、`repo-meta.yml`（About 同步）。
+- CI（`.github/workflows/ci.yml`，Node 22）：lint（`pnpm lint:all` + `verify:meta` + `verify:offline:source` + `verify:listing`）+ build（`pnpm build` 后跑 `verify:offline` 断言产物 manifest）+ e2e。另有三条独立工作流：`static.yml`（Pages，只在 `docs/**` 变更时部署）、`release.yml`（tag 发布，守卫同样是「源码层在 build 前、产物层在 build 后」的拆法）、`repo-meta.yml`（About 同步）。
 - 截图脚本与 e2e 共用一套「静态服务 + mock `chrome.storage`」启动方式，目前**故意保留两份**（避免改动千行级测试文件引入回归）；出现第三个消费方时再抽 `scripts/e2e-harness.mjs`。
 - 不为通过检查而弱化规则、跳过或隐藏错误；无法运行的项在交付时说明原因。
 
@@ -111,6 +112,7 @@
 - **图标分两档母版，按尺寸取用**：`assets/icon.svg`（文档 + 环形转换徽章）用于 ≥48px；`assets/icon-small.svg`（加粗双向箭头）用于 <48px。**<48px 的位置必须取简化档**（`public/icon/16|32.png`、`docs/assets/icon-mark.png`）——详细档文档线在 128 网格上只有 5px，缩到 26px 就糊成白斑。两档图形不同，改图标时先确认改的是哪一档。
 - **文档素材不得入包**：`docs/` 与 `CHROMEWEBSTORE.md` 是仓库文档，而 `public/` 会被 WXT 原样打包——截图/推广图只能放 `docs/assets/`。UI 变更后必须重跑 `pnpm build && pnpm assets:capture`，否则商店截图与实际界面漂移。
 - **`_locales/` 是 `public/` 里唯一该待着的源码**：位置换了（例如被挪去 `assets/`）Chrome 就读不到，`name` 会以字面量 `__MSG_extensionName__` 出现在扩展管理页。两个 locale 的 key 集必须一致、值必须与 `CHROMEWEBSTORE.md` 的四个名称/简介粘贴块逐字相同、`default_locale` 必须是 `zh_CN`——这三条分别由 `pnpm verify:listing` 与 `pnpm verify:meta` 守着，改一处不改另一处就是 CI 红。它改的是**商店页与 Chrome 自己的字符串**，不是界面语言（那是 `fat:locale` + `useI18n`），别把两件事混成一个改动。
+- **离线守卫分两层，缺产物即失败**：`verify:offline:source` 只看第一方源码与 `wxt.config.ts`（CI lint job 跑在干净检出上，那时根本没有产物）；`verify:offline` 在此之上断言 `.output/chrome-mv3/manifest.json` 的 `permissions` 恰为 `["storage"]` 且无 `host_permissions` / `optional_permissions`——这是唯一能拦住「WXT 模块或 manifest transform 加上源码里从没写过的权限」的检查。产物缺失时它**直接失败**，别为了「让某条 job 绿」把它塞回 `if (fs.existsSync(...))`：一个从没跑过的守卫等于没有守卫，而 `.output` 是 gitignore 的，干净检出上永远没有。
 - **Pages 产物根必须是 `docs/`**：`static.yml` 以 staging 目录（`docs/` 去 `promo/`）作为 `upload-pages-artifact` 的 `path`。若改回 `'.'`，站点根就会变成仓库根，`https://…/transfer-any-file/` 与 `/privacy.html` 直接 404（产品页会跑到 `/docs/index.html`），而 canonical / sitemap / robots / llms.txt / 商店隐私政策 URL 全按站点根写死；隐私政策 404 也会直接阻断 CWS 提交。
 - **商店首发不可自动化**：Chrome Web Store Publish API 不能创建条目，也不能写商品文案/截图/隐私披露（`publish-browser-extension` README 原文要求手工首发）。`release.yml` 的商店步骤在四个 `CHROME_*` secrets 齐备前只报「跳过」；手工步骤见 `CHROMEWEBSTORE.md → 首次上架（手工步骤）`。
 - **对外文案数字要取证**：格式数 14 / 路径数 48+ 来自工作台页脚（`App.vue` 的 `formatCount`/`pathCount`，当前精确值为 14 与 48）；143 是同一邻接图的 BFS 传递闭包（每种源格式除自身外可达全部 11 种可写格式），**但 143 不能写成"可选/可用"**——`availableTargets` 还会经 `utils/core/conversion-policy.ts` 去掉 27 个语义无效组合（24 个图片 → TXT/CSV/JSON/XLSX + 3 个 PDF → CSV/JSON/XLSX），界面实际提供 **116** 个；体积来自 `pnpm build` 输出，阈值来自 `FileUpload.vue`（100MB 拒绝 / 20MB 警告 / 200 文件上限）与 `useConversion.ts`（>5 文件或 >20MB 弹确认），ZIP 压缩收益来自 `utils/core/format.ts` 的 JSDoc 实测记录；改这些常量时同步改 `README*`、`docs/*`、`CHROMEWEBSTORE.md`。
@@ -119,5 +121,5 @@
 
 - 需求满足，既有功能、交互、数据与隐私边界无未确认变化。
 - 自审 diff：无遗留调试 `console`、无敏感数据、无无关改动、异常路径已处理。
-- `pnpm lint:all` 通过，`pnpm verify:meta` 与 `pnpm verify:offline` 通过（改到对外文案、manifest 或仓库元数据时尤其），改到 `CHROMEWEBSTORE.md` 时另跑 `pnpm verify:listing`；按范围补 `pnpm build` / `pnpm test:e2e`，或说明未验证项。
+- `pnpm lint:all` 通过，`pnpm verify:meta` 与离线守卫通过（改到对外文案、manifest 或仓库元数据时尤其）：未构建时跑 `pnpm verify:offline:source`，`pnpm build` 之后必须再跑一次 `pnpm verify:offline`——只有产物层那条才真的断言「浏览器加载的包只有 `storage` 权限」，缺任一步都不算守全。改到 `CHROMEWEBSTORE.md` 时另跑 `pnpm verify:listing`；按范围补 `pnpm build` / `pnpm test:e2e`，或说明未验证项。
 - 交付说明：改了什么、关键原因、执行了哪些验证、剩余风险。
