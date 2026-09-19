@@ -219,11 +219,17 @@ async function downloadLastResult(page) {
 
 在 `scripts/make-fixtures.cjs` 的 `main()` 内、写 `sample-archive.zip` 之前加：
 
-> **自检修正（重要，先读再动手）**：`html-docx-js-typescript` 把 HTML 写成 MHT altChunk，而 MHT 部件通常带 `Content-Transfer-Encoding: quoted-printable` 或 `base64`。若未解码就直接 `includes('canary/img.png')`，Step 4 的「红」会是**假红**（编码本身就吃掉了字面量），Step 6 的 `data:` 对照也会在修好之后仍然失败。
+> **自检修正 → 已被 Task 1.1 实测推翻，按下面的事实执行**：原判断「MHT 部件常带 quoted-printable / base64，不解码就 includes 会假红」是**错的**。实测 `html-docx-js-typescript` 产物：altChunk 是 `word/afchunk.mht`，HTML 段虽**声明** `Content-Transfer-Encoding: quoted-printable`，但该库唯一的 QP 变换是 `src=` → `src=3D`（`src/utils.ts` 的 `htmlSource.replace(/\=/g, '=3D')`），不折行、不对 HTML 段做 base64；ZIP 条目是 **stored（method=0，jszip 默认）而非 deflate**。
 >
-> 因此 `downloadLastResult` 对 DOCX 必须多做一步：对拼好的成员文本再跑一个 `decodeMimeParts(text)` 辅助函数——正则找 `Content-Transfer-Encoding:\s*(base64|quoted-printable)` 后的空行与块，base64 用 `Buffer.from(x,'base64').toString('latin1')` 还原，quoted-printable 把 `=3D`/`=4E` 之类还原成字节，替换回原位。
+> 结论三条：① **不需要 `decodeMimeParts`**，加了反而坏事——base64 段一旦解码成二进制，`data:` 探针就消失了。② **探针 marker 不得含 `=`**（含 `=` 会被 QP 变换成 `=3D` 而命不中）；`canary/img.png` 与 `/canary/anchor` 都不含 `=`，red→green 有效。③ `downloadLastResult` 的 JSDoc 已按实测改写。
 >
-> 落地顺序：**先加解码，再跑 Step 4**。若 Step 4 在未解码时就已经红，用 `node -e` 解包打印 MHT 原文、确认 `canary` 字面量确实存在于未解码文本中——否则这一整节的断言都是假的，红绿都无意义。
+> **计划原有两条断言被证伪并已替换（后续任务照替换后的写法）**：
+> 1. `includes('data:image/png;base64,')` **修复前后恒为 false**——`getMHTdocument()` 会把带双引号的 `data:` src 从 altChunk **摘出去**做成独立 base64 MIME part，img 改写成 `file:///C:/fake/image0.png`，该字面量不进产物。照抄会让对照断言永久报「over-eager filter」假失败。改为探测 payload 标记 **`iVBORw0KGgo`**，语义更强（既证明 strip 没吃内联图，也证明 Word 无需外联即可渲染）。
+> 2. `.result-download .el-button` 命中的是结果行的**预览**按钮（`ResultDownload.vue:125`），只表现为 download timeout。正确选择器 **`.result-download .download-actions .el-button`**（`:165-176`）。Task 2.1b / 2.2 / 2.3 / 2.5 / 2.6 复用已提交的 `downloadLastResult`，无需再改。
+>
+> **提交清单必须含生成的夹具**：`fixtures/` 全是 tracked 文件，而 `ci.yml:65` 直接跑 `node scripts/e2e-test.mjs` **且没有 make-fixtures 步骤**——不提交新夹具 CI 必 `ENOENT`。本计划各任务 `git add` 凡涉及新夹具都要加上 `fixtures/<file>`。
+>
+> **两条既存坑记账（本计划不修）**：① `node scripts/make-fixtures.cjs` 非确定性重写 4 个已跟踪二进制夹具（jsPDF 时间戳、`_rels` 随机 Id），跑完记得 `git checkout --` 还原无关 diff；② `isLocalUrl` 把协议相对 URL（`//host/x.png`）判为 relative 而放行，DOCX 路径上 Word 只当本地解析、本次缺陷已闭合，但 srcdoc / 栅格化边界会按 http(s) 解析，收紧属独立决策。
 
 ```js
   // F-1 fixture: the DOCX boundary is the one untrusted-HTML consumer that had no subresource
