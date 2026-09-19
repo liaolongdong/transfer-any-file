@@ -67,10 +67,13 @@ F-9（2.5）必须先于 F-8（2.6），因为 `md-to-html` 的 `USE_PROFILES:{h
 cd /Users/liaolongdong/code/chrome-plugins/transfer-any-file
 git status --short          # 期望：无输出
 pnpm build                  # 期望：成功，输出 .output/chrome-mv3
+pnpm package                # 期望：产出 .output/transfer-any-file-1.0.0-chrome.zip
 ls -la .output/transfer-any-file-1.0.0-chrome.zip
 ```
 
-记下 zip 字节数。当前基线是 **1,138,593 B**（本计划编写时实测）。F-5a 之后必须重测并写进 CHANGELOG。
+> **执行期修正（Task 0.1）**：`pnpm build` 是 `wxt build`，**不产 zip**；zip 由 `pnpm package`（`wxt zip`）生成。凡是「改了代码要看 zip 体积」的步骤都必须先 `pnpm package`，否则量到的是旧包。
+
+记下 zip 字节数。当前基线是 **1,138,593 B**（Task 0.1 实测确认，且与 `.output/chrome-mv3` 逐文件字节等价）。F-5a 之后必须重测并写进 CHANGELOG。
 
 - [ ] **Step 2: 跑全量，确认起点是绿的**
 
@@ -881,7 +884,7 @@ pnpm build && E2E_ONLY="html to pdf" pnpm test:e2e 2>&1 | grep -A3 "PDF slice fo
 - [ ] **Step 5: 跑全部 PDF 场景 + 重测体积**
 
 ```bash
-E2E_ONLY="pdf" pnpm test:e2e 2>&1 | tail -40 && ls -la .output/transfer-any-file-1.0.0-chrome.zip
+E2E_ONLY="pdf" pnpm test:e2e 2>&1 | tail -40 && pnpm package && ls -la .output/transfer-any-file-1.0.0-chrome.zip
 ```
 
 期望：所有 PDF 场景绿（特别是「HTML→PDF 成功」与「MD→PDF 多步链」）。记下新 zip 字节数，与 Task 0.1 的 1,138,593 B 对比，写进 CHANGELOG。
@@ -1871,7 +1874,7 @@ git commit -m "docs(changelog): 记录隐私披露补全、CI 守卫落地与转
 - [ ] **Step 2: 汇总验证结果**
 
 ```bash
-pnpm lint:all && pnpm verify:meta && pnpm verify:offline && pnpm verify:listing && pnpm verify:paths && pnpm build && pnpm test:e2e
+pnpm lint:all && pnpm verify:meta && pnpm verify:offline && pnpm verify:listing && pnpm verify:paths && pnpm build && pnpm package && pnpm test:e2e
 ls -la .output/transfer-any-file-1.0.0-chrome.zip
 ```
 
