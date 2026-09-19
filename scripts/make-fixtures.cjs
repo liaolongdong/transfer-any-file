@@ -89,6 +89,19 @@ async function main() {
 `;
   fs.writeFileSync(path.join(outDir, 'sample.svg'), svg);
 
+  // F-1 fixture: the DOCX boundary is the one untrusted-HTML consumer that had no subresource
+  // stripping. The data: image is the control — it must SURVIVE, because mammoth inlines every
+  // DOCX image as a data URL and a strip that eats those "passes" the privacy check while
+  // breaking the feature. The anchor is the second control: hrefs are content, not subresources.
+  const egressHtml = `<!doctype html><html><head>
+<style>@import url('http://127.0.0.1:9876/canary/css-import');
+body{background:url('http://127.0.0.1:9876/canary/css-bg.png')}</style></head><body>
+<img src="http://127.0.0.1:9876/canary/img.png">
+<img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==">
+<a href="http://127.0.0.1:9876/canary/anchor">link</a>
+</body></html>`;
+  fs.writeFileSync(path.join(outDir, 'sample-egress.html'), egressHtml);
+
   // ZIP archive with two convertible entries and one unsupported entry
   const archive = zipSync({
     'docs/hello.md': strToU8('# Hello\n\nArchive content for batch conversion.\n'),

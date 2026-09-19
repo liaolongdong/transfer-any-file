@@ -281,6 +281,46 @@ async function pickTarget(page, text) {
   await page.waitForTimeout(300);
 }
 
+/**
+ * Download the current single-file result and return its bytes as a latin1 string, so a test can
+ * grep the artifact itself rather than trusting what the UI claimed. Containers are unzipped first:
+ * a marker is only findable once it is out of its member, and unzipping keeps the check independent
+ * of how the producing library chooses to pack it (jszip stores these entries today, but that is its
+ * default rather than a guarantee this suite should lean on).
+ *
+ * latin1 is deliberate: it is a byte-preserving 1:1 encoding, so `includes('canary/img.png')`
+ * matches raw bytes without a decode step, and no assertion here depends on text decoding
+ * correctly. The members we probe — the MHT altChunk and the OOXML parts around it — are ASCII.
+ *
+ * No MIME decoding is applied, and measurement is what makes that safe: inside the altChunk
+ * (`word/afchunk.mht`) html-docx-js-typescript declares `quoted-printable`, but its only
+ * transformation is `=` → `=3D` (utils.ts) — no line wrapping, and no base64 for the HTML part. A
+ * probe marker containing no `=` is therefore stored verbatim; do not add one with an `=` in it
+ * without decoding here.
+ *
+ * Downloads are intercepted rather than read from app state: the Vue instance does not expose
+ * `batchResults`, and reaching for it would mean adding a debug-only global to production source
+ * to satisfy a test.
+ */
+async function downloadLastResult(page) {
+  // `download-actions` rather than the first button under `.result-download`: each result row
+  // renders its own preview button ahead of the primary one, and clicking it opens a dialog
+  // instead of downloading, which would only surface here as a download timeout.
+  const [download] = await Promise.all([
+    page.waitForEvent('download', { timeout: 15000 }),
+    (await page.$('.result-download .download-actions .el-button')).click(),
+  ]);
+  const buf = fs.readFileSync(await download.path());
+  if (buf.readUInt32LE(0) === 0x04034b50) {
+    const { unzipSync } = await import('fflate');
+    const members = unzipSync(new Uint8Array(buf));
+    return Object.values(members)
+      .map(u => Buffer.from(u).toString('latin1'))
+      .join('\n');
+  }
+  return buf.toString('latin1');
+}
+
 /** Set one image output parameter from the output panel, by its field label. */
 async function setOutputOption(page, label, option) {
   const field = page.locator(`.output-options .output-field:has(.output-label:text-is("${label}")) .el-select`);
@@ -604,6 +644,70 @@ async function run() {
     });
   } catch (e) {
     fail('Offline sentinel', e.message);
+  }
+
+  // ═══════════════════════════════════════════
+  //  F-1 — DOCX boundary must not carry remote subresources into a Word document
+  // ═══════════════════════════════════════════
+
+  if (section('DOCX Subresource Egress')) {
+    try {
+      await resetWorkbench(page);
+      const fi = await page.$('input[type="file"]');
+      const egressHtml = fs
+        .readFileSync(path.join(FIXTURE_PATH, 'sample-egress.html'), 'utf8')
+        .replaceAll('127.0.0.1:9876', `127.0.0.1:${PORT}`);
+      await fi.setInputFiles({ name: 'sample-egress.html', mimeType: 'text/html', buffer: Buffer.from(egressHtml) });
+      await page.waitForTimeout(1000);
+      await pickTarget(page, 'Word (.docx)');
+      await (await page.$('.convert-btn')).click();
+      await page.waitForFunction(
+        () => {
+          const alert = document.querySelector('.el-alert__title');
+          return alert && alert.textContent.length > 0;
+        },
+        { timeout: 30000 },
+      );
+      await page.waitForTimeout(500);
+
+      // The browser never fetches these URLs, so `canaryHits` stays empty either way: the markup is
+      // packed into an MHT altChunk and it is Microsoft Word that would resolve them, on the user's
+      // machine, when they open the file. Only the artifact itself can be asserted on.
+      const docxText = await downloadLastResult(page);
+
+      const wanted = ['canary/img.png', 'canary/css-import', 'canary/css-bg.png'];
+      const survived = wanted.filter(m => docxText.includes(m));
+      if (survived.length === 0) {
+        ok('Remote img / @import / style url() stripped from the DOCX altChunk');
+      } else {
+        fail('DOCX egress strip', `survived: ${survived.join(', ')}`);
+      }
+
+      // The control for "not an over-eager filter". Probed on the payload rather than on the
+      // `data:` prefix, because the prefix is never in the artifact: getMHTdocument() hoists every
+      // quoted data: src out of the altChunk into its own base64 MIME part and rewrites the img to
+      // file:///C:/fake/imageN.png. Payload present therefore means both "the strip kept the
+      // inline image" and "Word renders it without reaching out" — mammoth's DOCX→HTML→DOCX
+      // roundtrip depends on exactly that.
+      if (docxText.includes('iVBORw0KGgo')) {
+        ok('Inline data: image preserved (mammoth images must not be collateral damage)');
+      } else {
+        fail('DOCX data: control', 'the data: image was stripped too — over-eager filter');
+      }
+
+      if (docxText.includes('/canary/anchor')) {
+        ok('Anchor href preserved (surgical strip, not blanket)');
+      } else {
+        fail('DOCX anchor control', 'anchor href was stripped — the filter is not surgical');
+      }
+
+      await page.screenshot({
+        path: shot(`${String(shotIdx++).padStart(2, '0')}-docx-egress.png`),
+        fullPage: true,
+      });
+    } catch (e) {
+      fail('DOCX Subresource Egress', e.message);
+    }
   }
 
   // ═══════════════════════════════════════════
