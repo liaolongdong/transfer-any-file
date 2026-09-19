@@ -282,27 +282,35 @@ async function pickTarget(page, text) {
 }
 
 /**
- * Download the current single-file result and return its bytes as a latin1 string, so a test can
- * grep the artifact itself rather than trusting what the UI claimed. Containers are unzipped first:
- * a marker is only findable once it is out of its member, and unzipping keeps the check independent
- * of how the producing library chooses to pack it (jszip stores these entries today, but that is its
- * default rather than a guarantee this suite should lean on).
+ * Download the current batch artifact (single file, or ZIP for a multi-file batch) and return its
+ * bytes as a latin1 string, so a test can grep the artifact itself rather than trusting what the UI
+ * claimed. ZIP *magic* is unzipped one level: a marker is only findable once it is out of its
+ * member, and unzipping keeps the check independent of how the producing library chooses to pack it
+ * (jszip stores these entries today, but that is its default rather than a guarantee this suite
+ * should lean on). This is what makes a `.docx` / `.xlsx` greppable — those are containers, not
+ * payloads.
+ *
+ * One level only, which is exactly why a multi-file batch is rejected rather than unwrapped: for a
+ * ZIP-of-DOCX the returned text would be the inner DOCX's raw *bytes*, and whether a marker survives
+ * in them would then depend on the inner packing. A caller that needs that must unzip explicitly.
  *
  * latin1 is deliberate: it is a byte-preserving 1:1 encoding, so `includes('canary/img.png')`
  * matches raw bytes without a decode step, and no assertion here depends on text decoding
- * correctly. The members we probe — the MHT altChunk and the OOXML parts around it — are ASCII.
+ * correctly. The altChunk carries *user* HTML, so arbitrary UTF-8 can pass through it; the markers
+ * used by the sections that call this are ASCII, which is what makes them greppable as-is.
  *
  * No MIME decoding is applied, and measurement is what makes that safe: inside the altChunk
  * (`word/afchunk.mht`) html-docx-js-typescript declares `quoted-printable`, but its only
  * transformation is `=` → `=3D` (utils.ts) — no line wrapping, and no base64 for the HTML part. A
- * probe marker containing no `=` is therefore stored verbatim; do not add one with an `=` in it
- * without decoding here.
+ * probe marker with no `=` in the HTML part is therefore stored verbatim; do not add one with an
+ * `=` there without decoding here. The base64 payload parts hoisted out of the altChunk are appended
+ * untouched, so a marker inside a `data:` payload is not subject to that escape.
  *
  * Downloads are intercepted rather than read from app state: the Vue instance does not expose
  * `batchResults`, and reaching for it would mean adding a debug-only global to production source
  * to satisfy a test.
  */
-async function downloadLastResult(page) {
+async function downloadBatchArtifact(page) {
   // `download-actions` rather than the first button under `.result-download`: each result row
   // renders its own preview button ahead of the primary one, and clicking it opens a dialog
   // instead of downloading, which would only surface here as a download timeout.
@@ -310,6 +318,9 @@ async function downloadLastResult(page) {
     page.waitForEvent('download', { timeout: 15000 }),
     (await page.$('.result-download .download-actions .el-button')).click(),
   ]);
+  if (download.suggestedFilename().endsWith('.zip')) {
+    throw new Error('downloadBatchArtifact: expected a single artifact, got a ZIP bundle');
+  }
   const buf = fs.readFileSync(await download.path());
   if (buf.readUInt32LE(0) === 0x04034b50) {
     const { unzipSync } = await import('fflate');
@@ -673,32 +684,55 @@ async function run() {
       // The browser never fetches these URLs, so `canaryHits` stays empty either way: the markup is
       // packed into an MHT altChunk and it is Microsoft Word that would resolve them, on the user's
       // machine, when they open the file. Only the artifact itself can be asserted on.
-      const docxText = await downloadLastResult(page);
+      const docxText = await downloadBatchArtifact(page);
 
-      const wanted = ['canary/img.png', 'canary/css-import', 'canary/css-bg.png'];
-      const survived = wanted.filter(m => docxText.includes(m));
-      if (survived.length === 0) {
-        ok('Remote img / @import / style url() stripped from the DOCX altChunk');
+      // Assert the altChunk exists before asserting anything about its contents. Every probe below
+      // reads it, so a package that lost it — a library bump, a template rename — would report "the
+      // data: image was stripped, over-eager filter" for a completely unrelated cause.
+      const altChunkInPackage = docxText.includes('file:///C:/fake/document.html');
+      if (altChunkInPackage) {
+        ok('DOCX carries the MHT altChunk the probes below read');
       } else {
-        fail('DOCX egress strip', `survived: ${survived.join(', ')}`);
+        fail('DOCX altChunk missing', 'no word/afchunk.mht in the artifact — the strip probes below prove nothing');
       }
 
-      // The control for "not an over-eager filter". Probed on the payload rather than on the
-      // `data:` prefix, because the prefix is never in the artifact: getMHTdocument() hoists every
-      // quoted data: src out of the altChunk into its own base64 MIME part and rewrites the img to
-      // file:///C:/fake/imageN.png. Payload present therefore means both "the strip kept the
-      // inline image" and "Word renders it without reaching out" — mammoth's DOCX→HTML→DOCX
-      // roundtrip depends on exactly that.
-      if (docxText.includes('iVBORw0KGgo')) {
-        ok('Inline data: image preserved (mammoth images must not be collateral damage)');
-      } else {
-        fail('DOCX data: control', 'the data: image was stripped too — over-eager filter');
-      }
+      if (altChunkInPackage) {
+        // One marker per vector `stripRemoteResources` handles on this path, including the two that
+        // need separate fixture markup to be exercised at all: `<link href>` and the inline
+        // `style=` attribute. A vector missing from the fixture is a branch never executed.
+        const wanted = [
+          'canary/img.png',
+          'canary/link.css',
+          'canary/css-import',
+          'canary/css-bg.png',
+          'canary/inline.png',
+        ];
+        const survived = wanted.filter(m => docxText.includes(m));
+        if (survived.length === 0) {
+          ok('Remote img / link / @import / style-element url / inline-style url stripped from the DOCX');
+        } else {
+          fail('DOCX egress strip', `survived: ${survived.join(', ')}`);
+        }
 
-      if (docxText.includes('/canary/anchor')) {
-        ok('Anchor href preserved (surgical strip, not blanket)');
-      } else {
-        fail('DOCX anchor control', 'anchor href was stripped — the filter is not surgical');
+        // The control for "not an over-eager filter". Probed on the payload rather than on the
+        // `data:` prefix, because the prefix is never in the artifact: getMHTdocument() hoists every
+        // quoted data: src out of the altChunk into its own base64 MIME part and rewrites the img to
+        // file:///C:/fake/imageN.png. A fixture-unique payload substring is required rather than a
+        // generic PNG header: later tasks put a second PNG into the same DOCX, and `iVBORw0KGgo`
+        // alone would stay green even if this fixture's image had been eaten. What it does establish
+        // is that the image is resolvable from inside the package, so rendering it needs no fetch —
+        // which is what mammoth's DOCX→HTML→DOCX roundtrip depends on.
+        if (docxText.includes('AAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQ')) {
+          ok('Inline data: image preserved (mammoth images must not be collateral damage)');
+        } else {
+          fail('DOCX data: control', 'the data: image was stripped too — over-eager filter');
+        }
+
+        if (docxText.includes('/canary/anchor')) {
+          ok('Anchor href preserved (surgical strip, not blanket)');
+        } else {
+          fail('DOCX anchor control', 'anchor href was stripped — the filter is not surgical');
+        }
       }
 
       await page.screenshot({

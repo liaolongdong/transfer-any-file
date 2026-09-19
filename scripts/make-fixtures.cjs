@@ -22,9 +22,7 @@ async function main() {
     <img src="${TINY_PNG}" alt="嵌入图片" />
   </body></html>`;
   const docxBlob = await asBlob(docxHtml);
-  const docxBuffer = Buffer.isBuffer(docxBlob)
-    ? docxBlob
-    : Buffer.from(await docxBlob.arrayBuffer());
+  const docxBuffer = Buffer.isBuffer(docxBlob) ? docxBlob : Buffer.from(await docxBlob.arrayBuffer());
   fs.writeFileSync(path.join(outDir, 'sample.docx'), docxBuffer);
 
   // XLSX with two sheets
@@ -93,13 +91,21 @@ async function main() {
   // stripping. The data: image is the control — it must SURVIVE, because mammoth inlines every
   // DOCX image as a data URL and a strip that eats those "passes" the privacy check while
   // breaking the feature. The anchor is the second control: hrefs are content, not subresources.
+  //
+  // Carries every vector `stripRemoteResources` claims to cover, because a vector absent here is a
+  // branch never executed: `<img src>`, `<link href>`, `@import`, `url()` inside a `<style>`
+  // element, and `url()` inside an inline `style=` attribute — the last two go through different
+  // branches of `stripElement` and both are live on this path.
   const egressHtml = `<!doctype html><html><head>
 <style>@import url('http://127.0.0.1:9876/canary/css-import');
-body{background:url('http://127.0.0.1:9876/canary/css-bg.png')}</style></head><body>
+body{background:url('http://127.0.0.1:9876/canary/css-bg.png')}</style>
+<link rel="stylesheet" href="http://127.0.0.1:9876/canary/link.css"></head><body>
 <img src="http://127.0.0.1:9876/canary/img.png">
 <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==">
+<p style="background:url('http://127.0.0.1:9876/canary/inline.png')">x</p>
 <a href="http://127.0.0.1:9876/canary/anchor">link</a>
-</body></html>`;
+</body></html>
+`;
   fs.writeFileSync(path.join(outDir, 'sample-egress.html'), egressHtml);
 
   // ZIP archive with two convertible entries and one unsupported entry
@@ -113,7 +119,7 @@ body{background:url('http://127.0.0.1:9876/canary/css-bg.png')}</style></head><b
   console.log('fixtures written to', outDir);
 }
 
-main().catch((err) => {
+main().catch(err => {
   console.error(err);
   process.exit(1);
 });

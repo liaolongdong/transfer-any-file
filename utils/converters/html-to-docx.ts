@@ -8,10 +8,7 @@ const htmlToDocxConverter: Converter = {
   to: FileFormat.DOCX,
 
   async convert(input: Blob): Promise<ConvertResult> {
-    const [{ asBlob }, purifyModule] = await Promise.all([
-      import('html-docx-js-typescript'),
-      import('dompurify'),
-    ]);
+    const [{ asBlob }, purifyModule] = await Promise.all([import('html-docx-js-typescript'), import('dompurify')]);
     const DOMPurify = purifyModule.default;
 
     const htmlString = await decodeTextBlobLenient(input);
@@ -22,6 +19,12 @@ const htmlToDocxConverter: Converter = {
     // tracking pixel issued by a different application, outside every CSP and outside what
     // `verify:offline` can see, from a tool whose stated guarantee is that nothing is requested.
     // Same boundary rule already applied at html-raster.ts:84 and in both preview components.
+    //
+    // Coverage is not blanket, by deliberate choice: `isLocalUrl` treats protocol-relative URLs
+    // (`//host/x.png`) as relative and lets them through. Word resolves those against a local base,
+    // so nothing is fetched on this path, but the helper's other callers parse them as http(s).
+    // Tightening it would change `html-raster` and both previews, so it stays a recorded gap
+    // (see the plan's Task 1.1 backlog note) rather than being fixed as a side effect here.
     const sanitized = stripRemoteResources(
       DOMPurify.sanitize(htmlString, {
         WHOLE_DOCUMENT: true,
