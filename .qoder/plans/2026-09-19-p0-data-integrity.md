@@ -644,6 +644,28 @@ verify:offline 照样绿，AGENTS.md 还把它写成已经守着的样子。
 
 ### Task 2.1a：路径快照守卫（先建，作为 F-5b 的护栏）
 
+> **执行期实测修正（Task 2.1a 已完成于 `a7f7bd5`；下面四条覆盖本任务的计划文本，后续任务以实际实现为准）**
+>
+> 1. **本任务 Step 2-4 的解析器是坏的，只能解析出 28/48 条边。** 漏掉三种真实写法：
+>    `image-convert.ts` 的工厂参数是**循环变量**（调用里没有 `FileFormat.` 字面量，12 条全漏）、
+>    `image-to-html.ts` 与 `image-to-pdf.ts` 的 `from` 写成**简写属性 `from,`**（正则看不见，9 条全漏）。
+>    实际实现改为显式解析 `utils/converters/index.ts` 的 `register()` 调用序列，
+>    并加了三条防漏边自检（注释掉一条 register / 把 `from` 改成非字面量 / 换成未知工厂 → 三者都必须变红）。
+> 2. **Step 7 的字面改行不可能变红，且计划版脚本天生跑不红它。** ① 调换 `mdToHtmlConverter` /
+>    `htmlToMdConverter` 这两条边落在**不同邻接表**，换序不改变任何列表顺序；② 计划版解析器按
+>    `fs.readdirSync` 字母序建邻接表、**根本不读 `index.ts`**，对任何注册换序天然无感。
+>    实际改用唯一能翻转路由的变异：**`register(htmlToPdfConverter)` ↔ `register(htmlToPngConverter)`**，
+>    实测 14 对变红（`html/md/docx/xlsx/csv/txt/json → jpg|webp`），撤回后回绿。
+>    **这条同时坐实了 2.1c 的立项前提。**
+> 3. **Step 4 的 `JSON.stringify(obj, null, 2)` 写基线过不了 `prettier --check`**（Prettier 会把短字符串数组
+>    收回单行），`--update` 的产物自身不合规。实际实现改为「一行一对」手写序列化。
+> 4. **BFS 保真的实测结论，不要照抄计划的暗示**：「`target` 判断在 `visited` 之前」这类细节今天
+>    **不是判别性的**——两种变体（出队时标记 visited、target 判断后置）与镜像实现结果完全相同。
+>    真正决定快照的是**邻接表顺序 = 注册顺序**。仍保留逐行精确镜像，因为 2.1c 的偏好插入靠那两行落地。
+>
+> **遗交给 Task 3.1**：`AGENTS.md` 常用命令表与 `.qoder/rules/wxt-rules.md` 目前**都没有** `verify:paths`，
+> 未来会话看不到这条守卫，必须补上。
+
 **Files:** Create `scripts/check-path-snapshot.mjs`、`scripts/__baseline__/conversion-paths.json`；Modify `package.json`、`.github/workflows/ci.yml`
 
 - [ ] **Step 1: 写快照脚本** — 创建 `scripts/check-path-snapshot.mjs`，内容见下一个 Step。
