@@ -40,14 +40,14 @@ export async function storageSet<T>(key: string, value: T): Promise<void> {
 export function onStorageChange<T>(key: string, callback: (value: T) => void): () => void {
   // storage.onChanged is unavailable outside an extension context; no-op there.
   if (!browser?.storage?.onChanged) {
-    return () => {}
+    return () => {};
   }
   const listener = (changes: Record<string, { newValue?: unknown }>, areaName: string): void => {
-    if (areaName !== 'local') return
+    if (areaName !== 'local') return;
     if (key in changes) {
-      callback(changes[key].newValue as T)
+      callback(changes[key].newValue as T);
     }
-  }
-  browser.storage.onChanged.addListener(listener)
-  return () => browser.storage.onChanged.removeListener(listener)
+  };
+  browser.storage.onChanged.addListener(listener);
+  return () => browser.storage.onChanged.removeListener(listener);
 }

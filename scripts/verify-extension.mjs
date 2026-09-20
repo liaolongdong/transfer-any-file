@@ -35,7 +35,10 @@ const context = await chromium.launchPersistentContext(PROFILE, {
 
 function extensionIdFromPath(p) {
   const hash = crypto.createHash('sha256').update(p).digest('hex').slice(0, 32);
-  return hash.split('').map(c => 'abcdefghijklmnop'[parseInt(c, 16)]).join('');
+  return hash
+    .split('')
+    .map(c => 'abcdefghijklmnop'[parseInt(c, 16)])
+    .join('');
 }
 
 let extId = '';
@@ -73,15 +76,21 @@ await page.click('.action-row .el-select');
 await page.waitForTimeout(500);
 await page.locator('.el-select-dropdown__item').filter({ hasText: 'HTML (.html)' }).first().click();
 await page.click('.convert-btn');
-await page.waitForFunction(() => {
-  const alert = document.querySelector('.el-alert__title');
-  return alert && alert.textContent.length > 0;
-}, { timeout: 30000 });
+await page.waitForFunction(
+  () => {
+    const alert = document.querySelector('.el-alert__title');
+    return alert && alert.textContent.length > 0;
+  },
+  { timeout: 30000 },
+);
 await page.waitForTimeout(1500);
 console.log('MD->HTML conversion completed');
 
 const lazyLoaded = requests.filter(u => /marked|purify/.test(u));
-console.log('Lazy chunks fetched during conversion:', lazyLoaded.map(u => u.split('/').pop()));
+console.log(
+  'Lazy chunks fetched during conversion:',
+  lazyLoaded.map(u => u.split('/').pop()),
+);
 
 // PDF -> HTML conversion (triggers pdfjs chunk + worker)
 await page.click('.reset-btn');
@@ -93,15 +102,21 @@ await page.click('.action-row .el-select');
 await page.waitForTimeout(500);
 await page.locator('.el-select-dropdown__item').filter({ hasText: 'HTML (.html)' }).first().click();
 await page.click('.convert-btn');
-await page.waitForFunction(() => {
-  const alert = document.querySelector('.el-alert__title');
-  return alert && alert.textContent.length > 0;
-}, { timeout: 30000 });
+await page.waitForFunction(
+  () => {
+    const alert = document.querySelector('.el-alert__title');
+    return alert && alert.textContent.length > 0;
+  },
+  { timeout: 30000 },
+);
 await page.waitForTimeout(1500);
 console.log('PDF->HTML conversion completed');
 
 const pdfLoaded = requests.filter(u => /pdf-BOIs|pdf\.worker/.test(u));
-console.log('pdfjs chunks/worker fetched:', pdfLoaded.map(u => u.split('/').pop()));
+console.log(
+  'pdfjs chunks/worker fetched:',
+  pdfLoaded.map(u => u.split('/').pop()),
+);
 
 await page.screenshot({ path: path.join(__dirname, '../.test-screenshots/60-real-extension.png'), fullPage: true });
 

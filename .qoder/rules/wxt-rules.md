@@ -44,8 +44,9 @@ trigger: always_on
 ## 7. 格式化与静态检查
 
 - 统一 ESLint + Prettier + Stylelint。Prettier：`semi`、`singleQuote`、`trailingComma: all`、`printWidth: 120`、`tabWidth: 2`、`arrowParens: avoid`、`singleAttributePerLine`、`endOfLine: lf`。
+- 格式化是真守卫：`pnpm format:check`（已并入 `lint:all` 与 CI 的 lint job），修格式用 `pnpm format`。`.prettierignore` 只挡三类东西——构建生成物（`pnpm-lock.yaml`、`auto-imports.d.ts`、`components.d.ts`）、`fixtures/`（e2e 按字节和大小断言的转换输入，重排等于改断言）、`.qoder/`（规格与计划文档）。新增这三类之外的例外要说明理由。
 - 禁止用宽泛 `eslint-disable` / `@ts-ignore` 规避规则；确需例外限制到最小行范围并说明原因。
-- **本项目未配置 husky / lint-staged**，提交前必须手动运行 `pnpm lint:all`（typecheck + eslint + stylelint）并确保通过。
+- **本项目未配置 husky / lint-staged**，提交前必须手动运行 `pnpm lint:all`（typecheck + eslint + stylelint + format:check）并确保通过。
 
 ## 8. 日志
 

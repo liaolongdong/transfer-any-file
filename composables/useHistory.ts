@@ -207,9 +207,7 @@ export function useHistory() {
     const merged = new Map<string, HistoryRecord>();
     for (const r of records.value) merged.set(r.id, r);
     for (const r of incoming) merged.set(r.id, r);
-    const next = [...merged.values()]
-      .sort((a, b) => b.time - a.time)
-      .slice(0, MAX_RECORDS);
+    const next = [...merged.values()].sort((a, b) => b.time - a.time).slice(0, MAX_RECORDS);
     records.value = next;
     await storageSet(STORAGE_KEYS.history, next);
     return { merged: incoming.length, total: next.length };

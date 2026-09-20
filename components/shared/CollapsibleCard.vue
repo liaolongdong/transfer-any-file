@@ -63,7 +63,7 @@ onUnmounted(() => {
   }
 });
 
-watch(isOpen, (value) => {
+watch(isOpen, value => {
   if (!props.cardId) return;
   clearTimeout(persistDebounce);
   persistDebounce = setTimeout(() => {

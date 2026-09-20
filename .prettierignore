@@ -1,0 +1,16 @@
+# Generated or vendored — never hand-formatted.
+pnpm-lock.yaml
+# Rewritten by `wxt prepare` / unplugin-vue-components on every build.
+auto-imports.d.ts
+components.d.ts
+.output/
+dist/
+node_modules/
+.test-screenshots/
+
+# Test fixtures are byte-exact conversion inputs; the e2e suite asserts on their
+# sizes and contents, so reformatting them changes the measurements, not the style.
+fixtures/
+
+# Agent-facing specs and plans: prose documents that gain nothing from a reflow diff.
+.qoder/

@@ -1,16 +1,15 @@
-import js from '@eslint/js'
-import tsPlugin from '@typescript-eslint/eslint-plugin'
-import tsParser from '@typescript-eslint/parser'
-import vuePlugin from 'eslint-plugin-vue'
-import eslintConfigPrettier from 'eslint-config-prettier'
+import js from '@eslint/js';
+import tsPlugin from '@typescript-eslint/eslint-plugin';
+import tsParser from '@typescript-eslint/parser';
+import vuePlugin from 'eslint-plugin-vue';
+import eslintConfigPrettier from 'eslint-config-prettier';
 
 // typescript-eslint exposes its preset as a flat-config array; flatten the
 // rule objects so we can reuse them (the eslintrc-style `.rules` only carries
 // a few rules because it relies on `extends`).
-const flattenRules = configArray =>
-  configArray.reduce((acc, config) => ({ ...acc, ...(config.rules || {}) }), {})
+const flattenRules = configArray => configArray.reduce((acc, config) => ({ ...acc, ...(config.rules || {}) }), {});
 
-const tsRules = flattenRules(tsPlugin.configs['flat/recommended'])
+const tsRules = flattenRules(tsPlugin.configs['flat/recommended']);
 
 export default [
   // Global ignores
@@ -112,4 +111,4 @@ export default [
 
   // Prettier config (must be last to override)
   eslintConfigPrettier,
-]
+];

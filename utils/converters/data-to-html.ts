@@ -9,7 +9,9 @@ function tablesOnly(html: string): string {
   const doc = new DOMParser().parseFromString(html, 'text/html');
   const tables = doc.querySelectorAll('table');
   if (tables.length === 0) return html;
-  return Array.from(tables).map(t => t.outerHTML).join('\n');
+  return Array.from(tables)
+    .map(t => t.outerHTML)
+    .join('\n');
 }
 
 async function workbookToHtmlBody(XLSX: typeof import('xlsx'), workbook: WorkBook): Promise<string> {

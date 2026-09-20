@@ -38,8 +38,8 @@ function isLocalUrl(value: string): boolean {
 function stripRemoteSrcset(value: string): string | null {
   const kept = value
     .split(',')
-    .map((candidate) => candidate.trim())
-    .filter((candidate) => candidate && isLocalUrl(candidate.split(/\s+/)[0]));
+    .map(candidate => candidate.trim())
+    .filter(candidate => candidate && isLocalUrl(candidate.split(/\s+/)[0]));
   return kept.length > 0 ? kept.join(', ') : null;
 }
 

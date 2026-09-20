@@ -39,9 +39,7 @@ const points = computed(() => {
 });
 
 const linePath = computed(() => {
-  return points.value
-    .map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(2)},${p.y.toFixed(2)}`)
-    .join(' ');
+  return points.value.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(2)},${p.y.toFixed(2)}`).join(' ');
 });
 
 /** Mirror the line across the X-axis to suggest a filled area without adding a second path element. */

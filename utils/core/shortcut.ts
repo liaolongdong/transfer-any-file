@@ -73,7 +73,10 @@ function sanitize(binding: string): string | null {
 export function parseBinding(binding: string): ParsedBinding | null {
   const clean = sanitize(binding);
   if (!clean) return null;
-  const parts = clean.split('+').map(p => p.trim()).filter(Boolean);
+  const parts = clean
+    .split('+')
+    .map(p => p.trim())
+    .filter(Boolean);
   if (parts.length < 2) return null;
   const key = parts[parts.length - 1];
   const mods = new Set(parts.slice(0, -1));

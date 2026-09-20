@@ -30,9 +30,7 @@ const state = reactive<{ theme: ThemeName; mode: ColorMode }>({
 });
 
 let initialized = false;
-const darkMq = typeof window !== 'undefined'
-  ? window.matchMedia('(prefers-color-scheme: dark)')
-  : null;
+const darkMq = typeof window !== 'undefined' ? window.matchMedia('(prefers-color-scheme: dark)') : null;
 let darkModeListener: ((event: MediaQueryListEvent) => void) | null = null;
 const storageUnsubs: Array<() => void> = [];
 
