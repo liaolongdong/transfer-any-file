@@ -88,6 +88,13 @@ const conversionPathLabels = computed(() => {
 function handleChange(format: FileFormat): void {
   emit('update:targetFormat', format);
 }
+
+/**
+ * Why there is nothing to pick. The parent only mounts this component once a batch exists, so an
+ * empty `sourceFormats` means none of those files was recognized — a different dead end from
+ * "recognized, but no target they all share", and the fix differs too.
+ */
+const noTargetTitle = computed(() => (hasSource.value ? t('format.noTarget') : t('format.noRecognizedSource')));
 </script>
 
 <template>
@@ -128,6 +135,7 @@ function handleChange(format: FileFormat): void {
         <el-select
           :model-value="targetFormat"
           :placeholder="t('format.selectTarget')"
+          :aria-label="t('a11y.targetFormat')"
           filterable
           :disabled="disabled"
           :no-match-text="t('format.noMatch')"
@@ -183,11 +191,11 @@ function handleChange(format: FileFormat): void {
     </div>
   </div>
   <div
-    v-else-if="hasSource"
+    v-else
     class="format-selector"
   >
     <el-alert
-      :title="t('format.noTarget')"
+      :title="noTargetTitle"
       type="warning"
       :closable="false"
       show-icon
