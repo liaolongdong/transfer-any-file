@@ -54,7 +54,7 @@ const docxToHtmlConverter: Converter = {
       if (!htmlBody.trim()) {
         // mammoth ignores altChunk documents (html-docx-js output, including
         // this app's own HTML→DOCX results); recover the embedded MHT HTML
-        const altHtml = extractAltChunkHtml(new Uint8Array(arrayBuffer));
+        const altHtml = await extractAltChunkHtml(new Uint8Array(arrayBuffer));
         if (altHtml) {
           const altDoc = new DOMParser().parseFromString(altHtml, 'text/html');
           htmlBody = DOMPurify.sanitize(altDoc.body?.innerHTML ?? '', SANITIZE_OPTIONS) as string;

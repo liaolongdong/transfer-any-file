@@ -1,7 +1,6 @@
 import { ref, computed, h } from 'vue';
 import type { Ref, ComputedRef } from 'vue';
 import { saveAs } from 'file-saver';
-import { Zip, ZipDeflate, ZipPassThrough } from 'fflate';
 import { FileFormat } from '~/utils/core/types';
 import type { ConvertContext, ConvertResult } from '~/utils/core/types';
 import { converterRegistry } from '~/utils/core/registry';
@@ -16,6 +15,7 @@ import { useConfirmConvert } from '~/composables/useConfirmConvert';
 import { useI18n } from '~/composables/useI18n';
 import { formatSize, isZipCompressible } from '~/utils/core/format';
 import { getFormatLabel } from '~/utils/core/format-labels';
+import { loadFflate } from '~/utils/core/zip';
 
 // F15 — pre-conversion confirmation thresholds. Any of these triggers the dialog.
 const CONFIRM_FILE_COUNT = 5;
@@ -468,7 +468,8 @@ export function useConversion() {
 
   /** Bundle all results into a single ZIP so the browser fires one download.
    *  Uses fflate's streaming Zip so entries are fed one at a time rather than building
-   *  the whole entry map up front.
+   *  the whole entry map up front; the library itself is loaded here, not at module scope,
+   *  so it stays off the first screen (see `~/utils/core/zip`).
    *  Each entry picks its own method: text results are deflated (a 7 MB CSV comes out
    *  ~10x smaller), while PNG / JPEG / WebP / PDF / XLSX / DOCX are stored — deflate
    *  cannot shrink an already-compressed container, it only burns CPU and can add a
@@ -486,6 +487,7 @@ export function useConversion() {
       return;
     }
     try {
+      const { Zip, ZipDeflate, ZipPassThrough } = await loadFflate();
       const chunks: BlobPart[] = [];
       await new Promise<void>((resolve, reject) => {
         const zipStream = new Zip((err, chunk, final) => {

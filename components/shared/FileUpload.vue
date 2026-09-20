@@ -2,10 +2,10 @@
 import { ref, computed, onMounted, onUnmounted, defineAsyncComponent } from 'vue';
 import type { Component } from 'vue';
 import { UploadFilled, Delete, Plus, Picture, Document, Grid, View } from '@element-plus/icons-vue';
-import { unzip } from 'fflate';
 import { FileFormat } from '~/utils/core/types';
 import { getFormatLabel, getFormatCategory } from '~/utils/core/format-labels';
 import { formatSize } from '~/utils/core/format';
+import { loadFflate } from '~/utils/core/zip';
 import { isMac } from '~/utils/core/platform';
 import { useFileDetect, SUPPORTED_EXTENSIONS } from '~/composables/useFileDetect';
 import { useI18n } from '~/composables/useI18n';
@@ -158,6 +158,7 @@ const ZIP_TOTAL_BUDGET = 200 * 1024 * 1024; // 200MB
  */
 async function readArchive(file: File): Promise<{ entries: Record<string, Uint8Array>; truncated: boolean }> {
   const buffer = new Uint8Array(await file.arrayBuffer());
+  const { unzip } = await loadFflate();
   let declaredTotal = 0;
   let kept = 0;
   let truncated = false;

@@ -1,9 +1,9 @@
-import { zipSync, strToU8 } from 'fflate';
 import type { Zippable } from 'fflate';
 import type { WorkSheet } from 'xlsx';
 import { FileFormat } from '~/utils/core/types';
 import type { Converter, ConvertResult } from '~/utils/core/types';
 import { guardFormulaCells, normalizeDateCells, XLSX_TEXT_DATE_FORMAT } from '~/utils/core/csv-guard';
+import { loadFflate } from '~/utils/core/zip';
 
 function csvBlob(csv: string): Blob {
   // UTF-8 BOM so Excel opens the CSV with the correct encoding
@@ -80,6 +80,7 @@ const xlsxToCsvConverter: Converter = {
 
     // Multi-sheet workbooks export every sheet as its own CSV inside a ZIP,
     // so no worksheet data is silently dropped
+    const { zipSync, strToU8 } = await loadFflate();
     const entries: Zippable = {};
     const taken = new Set<string>();
     for (const name of sheetNames) {

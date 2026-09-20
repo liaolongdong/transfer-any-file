@@ -1,4 +1,4 @@
-import { unzipSync, strFromU8 } from 'fflate';
+import { loadFflate } from '~/utils/core/zip';
 
 /**
  * DOCX files produced by html-docx-js (and this app's HTML→DOCX converter)
@@ -85,8 +85,10 @@ function parseMht(mhtText: string): MhtPart[] {
   return parts;
 }
 
-/** Extract the original HTML from an altChunk-based DOCX. Returns null when absent. */
-export function extractAltChunkHtml(docxBytes: Uint8Array): string | null {
+/** Extract the original HTML from an altChunk-based DOCX. Returns null when absent.
+ *  Async because `fflate` is loaded on demand rather than at module scope. */
+export async function extractAltChunkHtml(docxBytes: Uint8Array): Promise<string | null> {
+  const { unzipSync, strFromU8 } = await loadFflate();
   let entries: Record<string, Uint8Array>;
   try {
     entries = unzipSync(docxBytes);

@@ -1,9 +1,9 @@
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
-import { zipSync } from 'fflate';
 import type { Zippable } from 'fflate';
 import { FileFormat } from '~/utils/core/types';
 import type { ConvertContext, Converter, ConvertResult } from '~/utils/core/types';
 import { throwIfAborted } from '~/utils/core/abort';
+import { loadFflate } from '~/utils/core/zip';
 import { MAX_DIM, encodeCanvas, releaseCanvas } from '~/utils/core/image-utils';
 import { clampDpi, DEFAULT_PDF_DPI } from '~/utils/core/output-options';
 
@@ -115,6 +115,7 @@ function createPdfToImageConverter(to: FileFormat): Converter {
       }
 
       // Multi-page PDFs export one image per page inside a ZIP
+      const { zipSync } = await loadFflate();
       const entries: Zippable = {};
       pageImages.forEach((bytes, index) => {
         entries[`page-${index + 1}.${to}`] = bytes;
