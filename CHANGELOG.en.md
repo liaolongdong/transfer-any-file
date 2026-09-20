@@ -182,6 +182,28 @@ always name the same release.
   sentence nobody measured does not get written), animated WebP input (`webp→png` takes its first frame too, and
   that edge declares nothing), and turning an HTML page that embeds an animated GIF into an image or a PDF — that
   route really does end up with one frame, but neither its trigger nor its wording fits on this line.
+- **The result card now says so when it flattens a vector drawing too.** This closes the last item outstanding
+  against "lossy semantics are never disclosed in the UI" — the "unmeasured" caveat above was measured during F-8,
+  and the disclosure follows it. `html→docx` and `html→md` rasterize an inline `<svg>` into an embedded PNG: the
+  drawing survives, the vector does not, and until now only the README and the product page said so. Unlike the GIF
+  line, this one cannot hang off the _edge_ — inside a single `html→docx` batch a document with a diagram should say
+  it and one without should not — so it is a property of the document, reported by the converter that does the work
+  (`ConvertResult.svgRasterized`) and collected step by step by the orchestrator: `md→docx` and `svg→docx` are both
+  multi-step chains (`md→html→docx`, `svg→html→docx`), the flag is written at the end of the chain, and the UI still
+  receives it. What gets counted is the drawings this call _actually_ turned into a raster: a nested
+  `<svg>` already sits inside its parent's markup and lands in the same bitmap, and a diagram whose
+  rasterization failed is not counted either — the line says the drawing was written into the result as a
+  bitmap, which is no more true of a dropped one than of a preserved vector. `html→md` additionally looks at
+  the string it produced: `gfmTable` flattens a cell to its `textContent`, so a diagram inside a `<td>` never
+  reaches the markdown and a count taken from the input alone would be lying right there (cells dropping
+  images is pre-existing behaviour; this round does not change it, it just stops claiming the drawing
+  survived). Four new assertions: `md→docx`, `svg→docx` and `svg→md` must show the line, and a
+  `<svg>`-free `sample.html → docx` must not — with the latter requiring a real .docx first, since otherwise
+  "no note" would only prove that nothing rendered. Suite total: 254 → 258, and the same number in the
+  product page and both promo drafts moved with it. Still uncovered: animated WebP input (`webp→png` takes
+  its first frame too) and turning an HTML page
+  that embeds an animated GIF into an image or a PDF — that wording is GIF-specific, so widening it needs a new
+  sentence, not a new trigger.
 
 ### Changed
 
@@ -538,6 +560,12 @@ zero network requests`) and the Chinese equivalent never appeared in a search re
   16 MB is refused with the limit named in the message. That ceiling sits far above the largest export the
   extension can itself produce (50 records × at most 200 file names each), so no real history file is ever
   rejected — what goes away is "we will read however many you hand me".
+- **One keystroke in the result editor wiped the disclosures.** The comparison view emitted only
+  `{ blob, filename }` when it saved an edit, and the receiver replaces the whole entry, so `containerExt`,
+  `lostFrames` and this round's `svgRasterized` all disappeared from a file that had not changed in those
+  respects. `lostFrames` never showed it because a GIF's results are not an editable text format; Markdown
+  is, so the SVG line reached this path on its first day. The editor now emits `{ ...props.result, blob }` —
+  it replaces the one field it owns.
 
 ## [1.0.0] - 2026-09-07
 
