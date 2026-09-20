@@ -20,8 +20,26 @@ const props = withDefaults(
 const isOpen = ref(props.defaultOpen);
 let persistDebounce: ReturnType<typeof setTimeout> | undefined;
 let isMounted = false;
+let userInteracted = false;
+
+/**
+ * Tail of the write queue for the shared collapsedState map. Every card read-modify-writes
+ * that one key, so two unchained writes interleave and the later one silently drops the
+ * earlier card's state. storageGet/storageSet swallow their own failures, so a chain link
+ * can never reject and stall the queue behind it.
+ */
+let persistQueue: Promise<void> = Promise.resolve();
+
+function queuePersist(cardId: string, value: boolean): void {
+  persistQueue = persistQueue.then(async () => {
+    const map = await storageGet<Record<string, boolean>>(STORAGE_KEYS.collapsedState, {});
+    map[cardId] = value;
+    await storageSet(STORAGE_KEYS.collapsedState, map);
+  });
+}
 
 function toggle(): void {
+  userInteracted = true;
   isOpen.value = !isOpen.value;
 }
 
@@ -29,6 +47,9 @@ onMounted(async () => {
   isMounted = true;
   if (!props.cardId) return;
   const map = await storageGet<Record<string, boolean>>(STORAGE_KEYS.collapsedState, {});
+  // A click that lands while the read is in flight wins over the value it returns,
+  // otherwise restoring late both reverts the panel and persists the stale state back.
+  if (userInteracted) return;
   if (props.cardId in map) {
     isOpen.value = Boolean(map[props.cardId]);
   }
@@ -49,11 +70,7 @@ watch(isOpen, (value) => {
     persistDebounce = undefined;
     // The component may have unmounted between the debounce and the callback
     if (!isMounted) return;
-    void (async () => {
-      const map = await storageGet<Record<string, boolean>>(STORAGE_KEYS.collapsedState, {});
-      map[props.cardId] = value;
-      await storageSet(STORAGE_KEYS.collapsedState, map);
-    })();
+    queuePersist(props.cardId, value);
   }, 200);
 });
 </script>
