@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, h } from 'vue';
 import { Delete, Download, Right, Search, Upload } from '@element-plus/icons-vue';
 import { saveAs } from 'file-saver';
 import { useHistory, HISTORY_IMPORT_ERROR_KEYS, searchableFileNames } from '~/composables/useHistory';
@@ -13,8 +13,12 @@ const emit = defineEmits<{
   (e: 'reuse', payload: { sourceFormat: FileFormat; targetFormat: FileFormat }): void;
 }>();
 
-const { records, removeRecord, clear, exportData, importData } = useHistory();
+const { records, removeRecord, clear, restoreRecords, exportData, importData } = useHistory();
 const { t } = useI18n();
+
+/** How long the undo affordance stays on screen — long enough to notice and click, short enough
+ *  that a stale click never resurrects a record the user has already moved on from. */
+const UNDO_WINDOW = 5000;
 
 const importInput = ref<HTMLInputElement | null>(null);
 
@@ -87,8 +91,40 @@ function handleReuse(record: HistoryRecord): void {
   });
 }
 
+/**
+ * Toast that offers to put `removed` back.
+ *
+ * Delete and clear stay single-click — an extra confirmation step on every row would be a worse
+ * trade than a mistake that is recoverable for a few seconds. ElMessage renders as `role="alert"`,
+ * so the same toast is the screen-reader announcement, and `h()` builds the node instead of
+ * `dangerouslyUseHTMLString`, which would route the text through innerHTML.
+ */
+function offerUndo(count: number, removed: HistoryRecord[]): void {
+  ElMessage({
+    type: 'success',
+    duration: UNDO_WINDOW,
+    message: h('span', { class: 'history-undo' }, [
+      t('history.removed', { count }),
+      h(
+        'button',
+        {
+          type: 'button',
+          class: 'history-undo__btn',
+          onClick: () => {
+            void restoreRecords(removed);
+            ElMessage.success(t('history.restored', { count: removed.length }));
+          },
+        },
+        t('history.undo'),
+      ),
+    ]),
+  });
+}
+
 function handleRemove(id: string): void {
+  const record = records.value.find(r => r.id === id);
   void removeRecord(id);
+  if (record) offerUndo(1, [record]);
 }
 
 async function handleClear(): Promise<void> {
@@ -98,7 +134,9 @@ async function handleClear(): Promise<void> {
       cancelButtonText: t('common.close'),
       type: 'warning',
     });
+    const snapshot = [...records.value];
     await clear();
+    if (snapshot.length > 0) offerUndo(snapshot.length, snapshot);
   } catch {
     // user cancelled
   }
@@ -228,6 +266,7 @@ async function handleImportChange(e: Event): Promise<void> {
         v-model="filterFormat"
         size="small"
         clearable
+        :aria-label="t('a11y.historyFormatFilter')"
         :placeholder="t('history.filterAll')"
         class="history-format"
       >
@@ -245,6 +284,17 @@ async function handleImportChange(e: Event): Promise<void> {
       class="history-empty"
     >
       {{ t('history.empty') }}
+      <!-- Export and clear live in the head row, which only exists while there are
+           records — but import is the way back from a mistaken 清空, so it has to stay
+           reachable from the empty state it produces. -->
+      <el-button
+        text
+        size="small"
+        type="primary"
+        @click="triggerImport"
+      >
+        {{ t('history.import') }}
+      </el-button>
     </div>
 
     <div

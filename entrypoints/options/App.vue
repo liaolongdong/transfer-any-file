@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { computed, ref, watch, defineAsyncComponent, onMounted, onUnmounted } from 'vue';
+import { computed, ref, watch, nextTick, defineAsyncComponent, onMounted, onUnmounted } from 'vue';
 import { Setting, RefreshRight, CircleClose, UploadFilled } from '@element-plus/icons-vue';
+import zhCn from 'element-plus/es/locale/lang/zh-cn';
+import enUs from 'element-plus/es/locale/lang/en';
 import { initConverters } from '~/utils/converters';
 import { useConversion } from '~/composables/useConversion';
 import { CONVERSION_ERROR_KEYS } from '~/utils/core/error-keys';
@@ -27,10 +29,17 @@ const ComparisonView = defineAsyncComponent(() => import('~/components/shared/Co
 
 initConverters();
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
 const { recent: recentTargets } = useRecentTargets();
 const { setOptions } = useOutputOptions();
 const { matches: shortcutMatches, formatAction: formatConvertShortcut } = useShortcuts();
+
+/**
+ * Element Plus carries its own string table, and its default is English — so without this
+ * the dialog close button reads "Close this dialog" and the clearable input's button reads
+ * "Clear" inside a Chinese UI. ElConfigProvider renders no wrapper element, only the slot.
+ */
+const epLocale = computed(() => (locale.value === 'zh' ? zhCn : enUs));
 
 const fileUploadRef = ref<InstanceType<typeof FileUpload> | null>(null);
 
@@ -187,6 +196,24 @@ const statusAnnouncement = computed<string | null>(() => {
   return null;
 });
 
+/**
+ * Status for changes outside the conversion lifecycle. The file list is what the workbench
+ * revolves around, yet its count changes silently — a screen-reader user who dropped or removed
+ * a file has no way to tell the action took effect (WCAG 4.1.3). Conversion state keeps priority
+ * while a batch is in flight, which is why this is the fallback of one region, not a second one.
+ */
+const listAnnouncement = ref<string | null>(null);
+
+/** Clear before writing: a live region only speaks on DOM change, so a repeated message needs the gap. */
+function announce(text: string): void {
+  listAnnouncement.value = null;
+  void nextTick(() => {
+    listAnnouncement.value = text;
+  });
+}
+
+const liveRegionText = computed(() => statusAnnouncement.value ?? listAnnouncement.value);
+
 function progressFormat(): string {
   return `${completedCount.value}/${totalCount.value}`;
 }
@@ -196,8 +223,10 @@ function handleFilesUpdate(files: File[]): void {
   if (isConverting.value) return;
   if (files.length === 0) {
     reset();
+    announce(t('a11y.filesCleared'));
   } else {
     setFiles(files);
+    announce(t('a11y.filesLoaded', { count: files.length }));
   }
   if (pendingApplication.value && hasFiles.value) {
     const pending = pendingApplication.value;
@@ -334,233 +363,235 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="workbench">
-    <a
-      href="#main-content"
-      class="skip-link"
-      >{{ t('a11y.skipToContent') }}</a
-    >
+  <ElConfigProvider :locale="epLocale">
+    <div class="workbench">
+      <a
+        href="#main-content"
+        class="skip-link"
+        >{{ t('a11y.skipToContent') }}</a
+      >
 
-    <header class="topbar">
-      <div class="topbar-inner">
-        <div class="brand">
-          <span class="brand-name">{{ t('appName') }}</span>
-          <span class="brand-tag">{{ t('options.subtitle') }}</span>
-        </div>
-        <!-- persistent=false: the default keeps the content mounted after the first open,
+      <header class="topbar">
+        <div class="topbar-inner">
+          <div class="brand">
+            <span class="brand-name">{{ t('appName') }}</span>
+            <span class="brand-tag">{{ t('options.subtitle') }}</span>
+          </div>
+          <!-- persistent=false: the default keeps the content mounted after the first open,
              which would leave PreferencesMenu's shortcut-recording state (and its document
              keydown listener) alive while the popover is closed. -->
-        <el-popover
-          :width="260"
-          trigger="click"
-          placement="bottom-end"
-          :persistent="false"
-        >
-          <template #reference>
-            <el-button
-              :icon="Setting"
-              circle
-              :title="t('options.preferences')"
-              :aria-label="t('options.preferences')"
-            />
-          </template>
-          <PreferencesMenu />
-        </el-popover>
-      </div>
-    </header>
-
-    <main
-      id="main-content"
-      class="content"
-      tabindex="-1"
-    >
-      <div class="col col-main">
-        <div class="card">
-          <FileUpload
-            ref="fileUploadRef"
-            :disabled="isConverting"
-            @update:files="handleFilesUpdate"
-          />
-        </div>
-
-        <!-- F10 — live region for conversion status. Visually hidden, but
-             announced by screen readers whenever statusAnnouncement changes. -->
-        <div
-          class="sr-only"
-          role="status"
-          aria-live="polite"
-          aria-atomic="true"
-        >
-          {{ statusAnnouncement ?? '' }}
-        </div>
-
-        <Transition
-          name="card"
-          mode="out-in"
-        >
-          <div
-            v-if="hasFiles"
-            key="action-bar"
-            class="card action-bar"
+          <el-popover
+            :width="260"
+            trigger="click"
+            placement="bottom-end"
+            :persistent="false"
           >
-            <div class="action-row">
-              <FormatSelector
-                :source-formats="uniqueSourceFormats"
-                :available-targets="availableTargets"
-                :target-format="targetFormat"
-                :recent-targets="recentTargets"
-                :disabled="isConverting"
-                @update:target-format="setTargetFormat"
+            <template #reference>
+              <el-button
+                :icon="Setting"
+                circle
+                :title="t('options.preferences')"
+                :aria-label="t('options.preferences')"
               />
-              <el-button
-                type="primary"
-                :icon="RefreshRight"
-                :loading="isConverting"
-                :disabled="!canConvert"
-                class="convert-btn"
-                :title="t('convert.shortcutHint', { shortcut: formatConvertShortcut('convert') })"
-                @click="convert"
+            </template>
+            <PreferencesMenu />
+          </el-popover>
+        </div>
+      </header>
+
+      <main
+        id="main-content"
+        class="content"
+        tabindex="-1"
+      >
+        <div class="col col-main">
+          <div class="card">
+            <FileUpload
+              ref="fileUploadRef"
+              :disabled="isConverting"
+              @update:files="handleFilesUpdate"
+            />
+          </div>
+
+          <!-- F10 — live region for status. Visually hidden, but announced by screen readers
+             whenever statusAnnouncement (conversion) or listAnnouncement (file list) changes. -->
+          <div
+            class="sr-only"
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
+          >
+            {{ liveRegionText ?? '' }}
+          </div>
+
+          <Transition
+            name="card"
+            mode="out-in"
+          >
+            <div
+              v-if="hasFiles"
+              key="action-bar"
+              class="card action-bar"
+            >
+              <div class="action-row">
+                <FormatSelector
+                  :source-formats="uniqueSourceFormats"
+                  :available-targets="availableTargets"
+                  :target-format="targetFormat"
+                  :recent-targets="recentTargets"
+                  :disabled="isConverting"
+                  @update:target-format="setTargetFormat"
+                />
+                <el-button
+                  type="primary"
+                  :icon="RefreshRight"
+                  :loading="isConverting"
+                  :disabled="!canConvert"
+                  class="convert-btn"
+                  :title="t('convert.shortcutHint', { shortcut: formatConvertShortcut('convert') })"
+                  @click="convert"
+                >
+                  {{ convertButtonText }}
+                </el-button>
+                <el-button
+                  v-if="isConverting"
+                  :icon="CircleClose"
+                  type="danger"
+                  plain
+                  class="cancel-btn"
+                  :disabled="cancelRequested"
+                  @click="handleCancelConversion"
+                >
+                  {{ t('convert.cancel') }}
+                </el-button>
+              </div>
+              <OutputOptions
+                :source-formats="uniqueSourceFormats"
+                :target-format="targetFormat"
+                :disabled="isConverting"
+              />
+              <div
+                v-if="showBatchProgress"
+                class="batch-progress"
               >
-                {{ convertButtonText }}
-              </el-button>
-              <el-button
-                v-if="isConverting"
-                :icon="CircleClose"
-                type="danger"
-                plain
-                class="cancel-btn"
-                :disabled="cancelRequested"
-                @click="handleCancelConversion"
-              >
-                {{ t('convert.cancel') }}
-              </el-button>
+                <el-progress
+                  :percentage="batchProgressPercent"
+                  :stroke-width="6"
+                  :format="progressFormat"
+                />
+              </div>
             </div>
-            <OutputOptions
-              :source-formats="uniqueSourceFormats"
+          </Transition>
+
+          <CollapsibleCard
+            card-id="presets"
+            :title="t('preset.title')"
+            :default-open="false"
+          >
+            <PresetBar
               :target-format="targetFormat"
               :disabled="isConverting"
+              @apply="handleApplyPreset"
             />
+          </CollapsibleCard>
+
+          <Transition
+            name="card"
+            mode="out-in"
+          >
             <div
-              v-if="showBatchProgress"
-              class="batch-progress"
+              v-if="(isConverting && !showBatchProgress) || displayError"
+              key="conversion-progress"
+              class="card"
             >
-              <el-progress
-                :percentage="batchProgressPercent"
-                :stroke-width="6"
-                :format="progressFormat"
+              <ConversionProgress
+                :is-converting="isConverting"
+                :error="displayError"
+                :current-file-name="currentFileName"
               />
             </div>
-          </div>
-        </Transition>
+          </Transition>
 
-        <CollapsibleCard
-          card-id="presets"
-          :title="t('preset.title')"
-          :default-open="false"
-        >
-          <PresetBar
-            :target-format="targetFormat"
-            :disabled="isConverting"
-            @apply="handleApplyPreset"
-          />
-        </CollapsibleCard>
-
-        <Transition
-          name="card"
-          mode="out-in"
-        >
-          <div
-            v-if="(isConverting && !showBatchProgress) || displayError"
-            key="conversion-progress"
-            class="card"
+          <Transition
+            name="card"
+            mode="out-in"
           >
-            <ConversionProgress
-              :is-converting="isConverting"
-              :error="displayError"
-              :current-file-name="currentFileName"
-            />
-          </div>
-        </Transition>
-
-        <Transition
-          name="card"
-          mode="out-in"
-        >
-          <div
-            v-if="isDone"
-            key="result-download"
-            class="card"
-          >
-            <ResultDownload
-              :results="batchResults"
-              :failures="batchFailures"
-              :cancelled="cancelled"
-              :total-count="totalCount"
-              @download="downloadResult"
-              @download-all="downloadAllZip"
-            />
-            <div class="result-actions">
-              <el-button
-                text
-                type="info"
-                class="reset-btn"
-                @click="clearResults"
-              >
-                {{ t('convert.reconvert') }}
-              </el-button>
-              <el-button
-                v-if="hasUndo"
-                text
-                type="warning"
-                class="undo-btn"
-                @click="handleUndo"
-              >
-                {{ t('convert.undo') }}
-              </el-button>
+            <div
+              v-if="isDone"
+              key="result-download"
+              class="card"
+            >
+              <ResultDownload
+                :results="batchResults"
+                :failures="batchFailures"
+                :cancelled="cancelled"
+                :total-count="totalCount"
+                @download="downloadResult"
+                @download-all="downloadAllZip"
+              />
+              <div class="result-actions">
+                <el-button
+                  text
+                  type="info"
+                  class="reset-btn"
+                  @click="clearResults"
+                >
+                  {{ t('convert.reconvert') }}
+                </el-button>
+                <el-button
+                  v-if="hasUndo"
+                  text
+                  type="warning"
+                  class="undo-btn"
+                  @click="handleUndo"
+                >
+                  {{ t('convert.undo') }}
+                </el-button>
+              </div>
             </div>
-          </div>
-        </Transition>
+          </Transition>
 
-        <Transition name="card">
-          <ComparisonView
-            v-if="showComparison"
-            key="comparison"
-            :source-file="sourceFile"
-            :source-format="sourceFormat"
-            :result="batchResults[0]"
-            :target-format="targetFormat"
-            @update:result="handleResultUpdate"
-          />
-        </Transition>
+          <Transition name="card">
+            <ComparisonView
+              v-if="showComparison"
+              key="comparison"
+              :source-file="sourceFile"
+              :source-format="sourceFormat"
+              :result="batchResults[0]"
+              :target-format="targetFormat"
+              @update:result="handleResultUpdate"
+            />
+          </Transition>
 
-        <CollapsibleCard
-          card-id="history"
-          :title="t('history.title')"
-        >
-          <HistoryPanel @reuse="handleReuse" />
-        </CollapsibleCard>
-      </div>
-    </main>
-
-    <footer class="footer">
-      {{ t('footer.stats', { formats: formatCount, paths: pathCount }) }}
-    </footer>
-
-    <Transition name="fade">
-      <div
-        v-if="isWorkspaceDragging"
-        class="drop-overlay"
-        aria-hidden="true"
-      >
-        <div class="drop-overlay-inner">
-          <el-icon :size="64">
-            <UploadFilled />
-          </el-icon>
-          <p>{{ t('workspace.dropHint') }}</p>
+          <CollapsibleCard
+            card-id="history"
+            :title="t('history.title')"
+          >
+            <HistoryPanel @reuse="handleReuse" />
+          </CollapsibleCard>
         </div>
-      </div>
-    </Transition>
-  </div>
+      </main>
+
+      <footer class="footer">
+        {{ t('footer.stats', { formats: formatCount, paths: pathCount }) }}
+      </footer>
+
+      <Transition name="fade">
+        <div
+          v-if="isWorkspaceDragging"
+          class="drop-overlay"
+          aria-hidden="true"
+        >
+          <div class="drop-overlay-inner">
+            <el-icon :size="64">
+              <UploadFilled />
+            </el-icon>
+            <p>{{ t('workspace.dropHint') }}</p>
+          </div>
+        </div>
+      </Transition>
+    </div>
+  </ElConfigProvider>
 </template>
 
 <style scoped>
@@ -607,21 +638,6 @@ onUnmounted(() => {
   box-shadow:
     0 0 0 2px var(--fat-bg-card),
     var(--fat-shadow-lg);
-}
-
-/* Visually hidden but exposed to assistive tech (live region, screen-reader-only
-   labels, etc.). Standard 1px clip pattern — display:none / visibility:hidden
-   would actually hide the content from screen readers as well. */
-.sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
-  border: 0;
 }
 
 .topbar {

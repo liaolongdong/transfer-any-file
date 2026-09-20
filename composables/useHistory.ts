@@ -157,6 +157,23 @@ export function useHistory() {
     await storageSet(STORAGE_KEYS.history, []);
   }
 
+  /**
+   * Put deleted records back, for the undo affordance in `HistoryPanel`.
+   *
+   * Merge rather than replace: anything recorded after the deletion (a conversion that finished in
+   * the few seconds the toast was open) has to survive. Keyed by id so a record that came back via
+   * import in the meantime is not duplicated, then re-sorted and re-capped exactly like
+   * `importData` does — every mutator leaves the list in the same shape.
+   */
+  async function restoreRecords(restored: HistoryRecord[]): Promise<void> {
+    await initPromise;
+    const byId = new Map<string, HistoryRecord>();
+    for (const r of [...restored, ...records.value]) byId.set(r.id, r);
+    const next = [...byId.values()].sort((a, b) => b.time - a.time).slice(0, MAX_RECORDS);
+    records.value = next;
+    await storageSet(STORAGE_KEYS.history, next);
+  }
+
   /** Snapshot the current history for export. Returns a plain object so the caller
    *  can JSON-serialize without holding a live ref. */
   function exportData(): HistoryExport {
@@ -198,5 +215,5 @@ export function useHistory() {
     return { merged: incoming.length, total: next.length };
   }
 
-  return { records, addRecord, removeRecord, clear, exportData, importData };
+  return { records, addRecord, removeRecord, clear, restoreRecords, exportData, importData };
 }
