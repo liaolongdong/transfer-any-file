@@ -352,6 +352,22 @@
               },
               {
                 "@type": "Question",
+                "name": "Why can I copy text out of a PDF converted from an image?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Because the viewer did it, not this extension. A PDF written here is a page image with no text layer and no real characters. Some viewers recognise the text on a page as they display it, so the characters you copied came from the viewer and are not stored in the file. No OCR is bundled, so this extension can neither read nor write them."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "图片转成的 PDF 为什么还能复制出文字？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "那是 PDF 查看器做的，不是本扩展。转出的 PDF 是逐页位图，文件里既没有文字层也没有真实字符；部分查看器会在展示时自行识别图上的文字，所以你复制出的字符来自查看器，识别结果也不在这个文件里。本扩展不内置 OCR，既读不到也写不出这些字符。"
+                }
+              },
+              {
+                "@type": "Question",
                 "name": "Can I convert several different formats in one run?",
                 "acceptedAnswer": {
                   "@type": "Answer",
@@ -4320,10 +4336,14 @@
               </svg>
               <p>
                 <b><span lang="zh-CN">PDF 输出是图片。</span><span lang="en">PDF output is image-based.</span></b>
-                <span lang="zh-CN">转出的 PDF 逐页渲染为图片，不含文字层，也就无从搜索或提取文字。</span>
+                <span lang="zh-CN"
+                  >转出的 PDF
+                  逐页渲染为图片，不含文字层，里面没有可被搜索或提取的真实字符。你在查看器里选中复制出的文字，是那个查看器自己识别的，不在这个文件里。</span
+                >
                 <span lang="en"
-                  >Converted PDFs are rendered page by page as images, so they carry no text layer — nothing to search
-                  or extract.</span
+                  >Converted PDFs are rendered page by page as images, so they carry no text layer and hold no real
+                  characters to search or extract. Text you manage to select and copy in a viewer was recognised by that
+                  viewer — it is not in the file.</span
                 >
               </p>
             </div>
@@ -6146,6 +6166,39 @@ pnpm build</code><button
                   >That requires OCR. Bundling an OCR model would add tens of megabytes and a model download, which
                   conflicts with the offline guarantee, so it is not included. Those targets are greyed out in the
                   format picker with the reason shown, rather than failing after you press Convert.</span
+                >
+              </div>
+            </details>
+            <details class="faq-item">
+              <summary>
+                <span lang="zh-CN">图片转成的 PDF 为什么还能复制出文字？</span>
+                <span lang="en">Why can I copy text out of a PDF converted from an image?</span>
+                <svg
+                  class="chev"
+                  width="17"
+                  height="17"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.4"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="m9 6 6 6-6 6" />
+                </svg>
+              </summary>
+              <div class="faq-a">
+                <span lang="zh-CN"
+                  >那是 PDF 查看器做的，不是本扩展。转出的 PDF
+                  是逐页位图，文件里既没有文字层也没有真实字符；部分查看器会在展示时自行识别图上的文字，所以你复制出的字符来自查看器，识别结果也不在这个文件里。本扩展不内置
+                  OCR，既读不到也写不出这些字符，所以图片 → TXT / CSV 照旧置灰。</span
+                >
+                <span lang="en"
+                  >Because the viewer did it, not this extension. A PDF written here is a page image with no text layer
+                  and no real characters. Some viewers recognise the text on a page as they display it, so the
+                  characters you copied came from the viewer and are not stored in the file. No OCR is bundled, so this
+                  extension can neither read nor write them — which is why image → TXT / CSV stays greyed out.</span
                 >
               </div>
             </details>

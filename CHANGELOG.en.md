@@ -117,12 +117,14 @@ always name the same release.
   manifest reference these two keys", not "how those keys happen to be formatted".
 - **`pnpm verify:numbers` — someone finally reconciles the numbers in the outward prose.** Format count, route
   count, reachable and selectable combinations, how the 27 blocked pairs split up, the batch and size thresholds,
-  the theme count and the 12 combinations behind "6 themes × light/dark": all 20 values are derived during the run
-  itself. The enum comes from `utils/core/types.ts`, the edge count and the closure from
+  the theme count and the 12 combinations behind "6 themes × light/dark", plus the measured length of the two
+  store description blocks: all 22 values are derived during the run itself. The enum comes from
+  `utils/core/types.ts`, the edge count and the closure from
   `scripts/__baseline__/conversion-paths.json`, the blocked count is recomputed from the two sets in
-  `conversion-policy.ts` (the two branches failing to sum to the total is an error, not a number to fudge), and the
+  `conversion-policy.ts` (the two branches failing to sum to the total is an error, not a number to fudge), the
   thresholds are read back from the constants in `FileUpload.vue` / `useConversion.ts` / `presets.ts` /
-  `useHistory.ts` / `useRecentTargets.ts`. Those values then get compared against sentences in 13 documents —
+  `useHistory.ts` / `useRecentTargets.ts`, and the two description lengths are measured with the same ruler
+  `verify:listing` uses. Those values then get compared against sentences in 15 documents —
   sentences are exactly the class that drifted twice before, once when a description's character count moved under
   an unrelated edit and once when a name/limit pair shipped as 33/75 against a real 20/75.
   Two kinds of sentence are handled apart. Where the sentence names its fact (「可到达 143 个组合」 versus
@@ -148,6 +150,21 @@ always name the same release.
   one that measures its contrast against the `el-alert` tint it sits on, across all 6 themes × light/dark (worst
   11.34:1) — the informational-text gate further down runs against an empty workbench and cannot reach this string.
   Suite total: 242 → 244, and the same number in the product page and both promo drafts moved with it.
+- **"The text you copied out of a PDF was recognised by your viewer" is now said everywhere it is implied.** The
+  entry above put the limitation inside the product, but the outward prose only told half the story: the README,
+  the product page and the store description all said "no text layer", and none of them answered what a user
+  actually observes — a PDF converted from an image can be selected and copied. That leaves "image → TXT is
+  greyed out" reading as a contradiction. Three places now say it, in both languages: a new FAQ entry in the
+  README; the same question added as a pair in the product page's visible FAQ and its JSON-LD `FAQPage` (structured
+  data that disagrees with what the page shows is a search-engine penalty item), where the limitations card also
+  stops asserting that nothing can be extracted — the sentence was about viewer behaviour, and that is exactly the
+  claim that fails; and the same clause added to the "please know before installing" bullet in both store
+  descriptions, with the reviewer-facing note in `CHROMEWEBSTORE.md` aligned to it. Editing those blocks surfaced a
+  second problem: the character counts quoted in the quick-reference table and in the publishing guide were already
+  stale — the previous round's rewording moved them, and nothing noticed. That is precisely the class of number the
+  new guard exists for, so the two paste blocks are now measured the way `verify:listing` measures them and added as
+  facts 21 and 22, with both publishing guides brought into the comparison; the four places that quote those lengths
+  are checked from now on.
 
 ### Changed
 

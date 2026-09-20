@@ -67,7 +67,7 @@ curl -Is https://liaolongdong.github.io/transfer-any-file/privacy.html | head -1
 | ----------------------------- | ----------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
 | 名称 Extension Name           | `Transfer Any File — Offline File Format Converter` (49/75)                                                 | `文件格式任意转换助手 — 离线转换无上传` (20/75)                                                                                        |
 | 简介 Short description        | `Convert between 14 common document, spreadsheet and image file formats right in your browser...` (127/132) | `在本机浏览器内互转 14 种常见的文档、表格与图片格式。支持混合批量、多步链路、预览编辑与 ZIP 打包，全程离线，不上传、无账号。` (66/132) |
-| 详描 Full description         | [英文详细介绍](#英文详细介绍) (7,948 字符)                                                                  | [中文详细介绍](#中文详细介绍) (2,838 字符)                                                                                             |
+| 详描 Full description         | [英文详细介绍](#英文详细介绍) (8,030 字符)                                                                  | [中文详细介绍](#中文详细介绍) (2,877 字符)                                                                                             |
 | 类别 Category                 | `Productivity`                                                                                              | `Productivity`                                                                                                                         |
 | 主要语言 Primary Language     | -                                                                                                           | `Chinese (China)`                                                                                                                      |
 | 附加语言 Additional Languages | `English (United States)`                                                                                   | -                                                                                                                                      |
@@ -81,7 +81,7 @@ Transfer Any File — Offline File Format Converter
 Convert between 14 common document, spreadsheet and image file formats right in your browser — offline, in batches, no uploads.
 ```
 
-**Chinese (China) —— 默认语言标签页，先贴这一套。** 三个字段（名称 20/75、简介 66/132、详描 2,838 字符）在
+**Chinese (China) —— 默认语言标签页，先贴这一套。** 三个字段（名称 20/75、简介 66/132、详描 2,877 字符）在
 [商店文案](#商店文案)里；名称与简介同时活在 `public/_locales/zh_CN/messages.json`，`pnpm verify:listing` 逐字比对两边。
 那个标签页要等**带 `_locales/zh_CN/` 的包上传之后**才出现——先传包再填表，手上那份旧草稿看不到它是正常的。
 
@@ -260,7 +260,7 @@ Convert between 14 common document, spreadsheet and image file formats right in 
 扩展真正具备的能力（混格式批量、多步链路、预览与编辑、ZIP 下载），而不是文件扩展名。依旧不写 PDF 转 Word、PDF 转 Excel，
 因为这个扩展做不到无损的 PDF 转换。
 
-**详细介绍（Detailed Description）** [必填] —— 纯文本，本仓库自设上限 16,000 字符（英文块实测 7,948；下面的中文块实测 2,838）
+**详细介绍（Detailed Description）** [必填] —— 纯文本，本仓库自设上限 16,000 字符（英文块实测 8,030；下面的中文块实测 2,877）
 
 _Google 没有为这个字段公布长度_——75 与 132 是写在文档里的，16,000 不是。把它当成本仓库自己的守卫
 （`pnpm verify:listing`），按后台计数器设定，提交时以那个计数器为准，不要把 16,000 背给审核员。
@@ -319,7 +319,7 @@ PRIVACY
 • No analytics, no tracking, no sign-in, no advertising, no paid tier
 
 PLEASE KNOW BEFORE INSTALLING
-• A produced PDF is rendered page by page as an image, so it carries no text layer
+• A produced PDF is rendered page by page as an image, so it carries no text layer; text you select in a PDF viewer was recognised by that viewer, not by this extension
 • Reading a PDF in extracts its text; the original layout and embedded images are not preserved
 • Images cannot be turned into text or spreadsheets — that needs OCR, which is not bundled
 • Three of the image formats are input-only, because no browser can encode them; an animated source contributes its first frame, and a vector source is rasterised
@@ -395,7 +395,7 @@ Version 1.0.0 — first store submission.
 • 无统计埋点、无追踪、无登录、无广告、无付费版本
 
 安装前请了解
-• 转出的 PDF 是逐页渲染成的图片，因此其中不含文字层
+• 转出的 PDF 是逐页渲染成的图片，因此其中不含文字层；在 PDF 查看器里能选中复制出的文字，是那个查看器自己识别的，不是本扩展的功能
 • 读入 PDF 只提取文本，原有版式与内嵌图片不会保留
 • 图片无法转换为文本或表格——那需要 OCR，本扩展未内置
 • 有三种图片格式只能作为输入、不能作为输出，因为浏览器未提供它们的编码器；动图源文件取首帧，矢量源文件先展平
@@ -753,6 +753,7 @@ workflow_dispatch 时勾 `dry_run`（只做认证与校验，不上传、不提�
 ### 已知限制（审核员问到时主动披露）
 
 - PDF 输出按设计就是图片（jsPDF 逐页渲染），不提供可选中文字的 PDF 导出。已写进详细介绍，避免被读成误导性主张。
+  若有人从图片转出的 PDF 里复制出了文字，那是 PDF 查看器自己识别的结果——文件里没有文字层，识别结果也不在文件里；详细介绍、产品页 FAQ 与结果卡片上的提示都按这个口径写。
 - PDF 输入只做文本提取；原版式与内嵌图片不保留。
 - 没有 OCR，所以 图片 → 文本/数据 在目标选择器里是刻意置灰的，而不是等到转换时才失败。
 - BMP / GIF / SVG 只能作为输入，因为浏览器不给它们提供编码器。
@@ -886,6 +887,11 @@ workflow_dispatch 时勾 `dry_run`（只做认证与校验，不上传、不提�
 
 > 这些是关于**本文件**的修订记录，不是产品发布说明（产品在 `CHANGELOG.md`）。数字全部由 `pnpm verify:listing` 实测。
 
+- **2026-09-20（口径补全）** —— 两份详细介绍的「安装前请了解 / PLEASE KNOW BEFORE INSTALLING」各加同一从句：在 PDF
+  查看器里能选中复制出的文字由查看器识别，不是本扩展的功能；[审核要点](#审核要点) 的对应条目补上这条应对口径。
+  **副作用**：两个粘贴块随之变长，速查表、字段标签与上架手册里被引用的四处字符数按 `pnpm verify:listing` 重测为
+  英文 8,030 / 中文 2,877。此前那几处写着 7,948 与 2,838/2,845——上一轮改措辞时留下的陈旧值，没有任何脚本对比过；
+  现在这两个长度是 `pnpm verify:numbers` 推导的第 21、22 个事实，四个引用点由它盯住。
 - **2026-09-19（守卫）** —— 上面「开工前」代码块里 `pnpm build` 与 `pnpm verify:offline` 互换次序，第 2 步的前置命令
   换成 `pnpm verify:offline:source`：产物层断言（浏览器实际加载的那份 `manifest.json` 只有 `storage`）只有在构建之后
   才跑得动，而它现在缺产物即失败，不再静默跳过。第 3 步据此补了构建后重跑一次的说法，CI 那两句改成两层。

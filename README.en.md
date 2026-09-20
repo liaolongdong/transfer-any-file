@@ -242,6 +242,9 @@ Not losslessly. PDF input extracts text, and PDF output is rendered page-by-page
 **Why can't I turn a screenshot into a text file?**
 That requires OCR, and no OCR engine is bundled — it would add tens of megabytes and a model download, which the offline guarantee rules out. Image → TXT/CSV is greyed out with that reason instead of failing later.
 
+**I converted an image to PDF and could still select and copy text — how?**
+That is the PDF viewer talking, not this extension. The PDF we write is a page image: it has no text layer and no real characters in it. Some viewers recognise the text on a page as they display it, so the characters you copied came from the viewer, and the recognition result is not stored in the file either. This extension bundles no OCR and can neither read nor write those characters, which is why image → TXT / CSV stays greyed out. When a batch contains a PDF, the result card says the same thing.
+
 **Does it work without internet?**
 Yes. Once installed the UI and every converter run locally, and the text is set in system fonts rather than a downloaded webfont, so nothing has to be fetched; airplane mode changes nothing.
 

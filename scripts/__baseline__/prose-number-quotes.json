@@ -125,5 +125,15 @@
     "docs/promo/wechat-article.md": 1,
     "README.en.md": 4,
     "README.md": 2
+  },
+  "descEn": {
+    ".github/CWS_PUBLISHING_GUIDE.en.md": 1,
+    ".github/CWS_PUBLISHING_GUIDE.md": 1,
+    "CHROMEWEBSTORE.md": 2
+  },
+  "descZh": {
+    ".github/CWS_PUBLISHING_GUIDE.en.md": 1,
+    ".github/CWS_PUBLISHING_GUIDE.md": 1,
+    "CHROMEWEBSTORE.md": 2
   }
 }

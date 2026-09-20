@@ -143,6 +143,33 @@ function readThemeCount() {
   return (body[1].match(/^\s*\{\s*value:/gm) ?? []).length;
 }
 
+/**
+ * One of the two store description paste blocks, counted the way `check-store-listing.mjs` counts it:
+ * Unicode code points in the fenced block that follows the marker heading. The quick-reference table,
+ * the field label and the publishing guide all quote this number, and it had already gone stale twice
+ * when the block was trimmed for a store rejection.
+ */
+function storeDescriptionChars(marker) {
+  const sheetLines = read('CHROMEWEBSTORE.md').split('\n');
+  const start = sheetLines.findIndex(line => line.includes(marker));
+  if (start === -1) {
+    console.error(`prose numbers: heading not found in CHROMEWEBSTORE.md — ${marker}`);
+    process.exit(1);
+  }
+  let i = start + 1;
+  while (i < sheetLines.length && !sheetLines[i].startsWith('```')) i++;
+  const body = [];
+  for (i += 1; i < sheetLines.length && !sheetLines[i].startsWith('```'); i++) body.push(sheetLines[i]);
+  if (body.length === 0) {
+    console.error(`prose numbers: empty paste block after ${marker}.`);
+    process.exit(1);
+  }
+  return [...body.join('\n')].length;
+}
+
+const descEn = storeDescriptionChars('**详细介绍（Detailed Description）**');
+const descZh = storeDescriptionChars('**中文详细介绍（Chinese (China) detailed description）**');
+
 /** Every constant the prose can quote; a constant that moved shape fails the run. */
 const constants = {};
 for (const [name, filePath] of Object.entries({
@@ -350,6 +377,28 @@ const FACTS = [
     what: 'theme × light/dark combinations the contrast sweep asserts',
     patterns: [/(\d+)\s*组配置/, /(\d+)\s*种组合/, /\((\d+)\s+combinations?\)/, /,\s*(\d+)\s+combinations?\b/],
   },
+  {
+    key: 'descEn',
+    value: descEn,
+    what: 'characters in the English store description paste block',
+    patterns: [
+      /英文详细介绍\]\([^)]*\) \(([\d,]+) 字符\)/,
+      /英文块实测 ([\d,]+)/,
+      /英文详细说明：([\d,]+) 字符/,
+      /English detailed description: ([\d,]+) characters/,
+    ],
+  },
+  {
+    key: 'descZh',
+    value: descZh,
+    what: 'characters in the Chinese store description paste block',
+    patterns: [
+      /中文详细介绍\]\([^)]*\) \(([\d,]+) 字符\)/,
+      /中文块实测 ([\d,]+)/,
+      /中文详细说明：([\d,]+) 字符/,
+      /Chinese detailed description: ([\d,]+) characters/,
+    ],
+  },
 ];
 
 /**
@@ -399,6 +448,10 @@ const DOCS = [
   'docs/promo/blog-article.en.md',
   'docs/promo/weibo-posts.md',
   { file: 'CHROMEWEBSTORE.md', skipFrom: /^## 版本历史/m },
+  // The publishing runbook quotes the same store field lengths and the same release-layer facts, so it
+  // drifts the same way; it lives in `.github/` because `docs/` is the public site source.
+  '.github/CWS_PUBLISHING_GUIDE.md',
+  '.github/CWS_PUBLISHING_GUIDE.en.md',
   { file: 'CHANGELOG.md', only: /^## \[Unreleased\][\s\S]*?(?=^## \[)/m, floor: false },
   { file: 'CHANGELOG.en.md', only: /^## \[Unreleased\][\s\S]*?(?=^## \[)/m, floor: false },
 ];
@@ -450,6 +503,9 @@ function rejected(pattern) {
 const globalOf = pattern =>
   new RegExp(pattern.source, pattern.flags.includes('g') ? pattern.flags : `${pattern.flags}g`);
 
+/** Prose writes the four store counts with a thousands separator; the facts are plain numbers. */
+const readNumber = raw => Number(String(raw).replace(/[,\s]/g, ''));
+
 /** Count a shared quote toward whichever of the listed facts actually holds that value. */
 function attribute(doc, value, allowed) {
   for (const key of allowed) if (valueOf[key] === value) quotes[key][doc.name] = (quotes[key][doc.name] ?? 0) + 1;
@@ -477,7 +533,7 @@ for (const fact of FACTS) {
       // patterns are presence-only and need no group.
       if (pattern.is === undefined && rejected(pattern.re)) continue;
       for (const match of doc.text.matchAll(globalOf(pattern.re))) {
-        if (match[1] !== undefined && Number(match[1]) !== expected) {
+        if (match[1] !== undefined && readNumber(match[1]) !== expected) {
           const unit = fact.suffix ? ` ${fact.suffix}` : '';
           problems.push(
             `${doc.name}: ${JSON.stringify(match[0].trim())} quotes ${match[1]}${unit}, but ${fact.what} ` +
@@ -499,7 +555,7 @@ for (const shared of SHARED) {
   }
   for (const doc of documents) {
     for (const match of doc.text.matchAll(globalOf(shared.re))) {
-      const value = Number(match[1]);
+      const value = readNumber(match[1]);
       if (!shared.facts.some(key => valueOf[key] === value)) {
         problems.push(
           `${doc.name}: ${JSON.stringify(match[0].trim())} quotes ${value} as ${shared.what}, but that shape ` +
