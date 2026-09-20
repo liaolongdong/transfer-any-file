@@ -1,5 +1,7 @@
 # Chrome Web Store 上架指南 · Transfer Any File
 
+简体中文 · [English](CWS_PUBLISHING_GUIDE.en.md)
+
 本文档记录 Transfer Any File 上架 Chrome Web Store 的完整流程和关键配置。
 
 ## 📋 前置条件
@@ -65,6 +67,7 @@
 - **分类（Category）**：Productivity
 
 - **单一目的（Single Purpose）**：
+
   ```
   Converts user-selected documents, spreadsheets and images between common file formats entirely on the local machine.
   ```
@@ -103,11 +106,12 @@
 
 ### 4. 权限合理性说明（Justification）
 
-| 权限 | 用途说明 |
-|------|----------|
+| 权限      | 用途说明                                                                                                                                                                                                                                   |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `storage` | 保存用户的转换历史（文件名、格式和体积，从不保存文件内容）和界面偏好（主题、颜色模式、语言、通知和确认开关、自定义快捷键）。数据仅存储在设备本地：扩展未声明任何 host 权限，其自身代码不发起任何网络请求。没有更窄的权限可以实现这些功能。 |
 
 **完整中英文说明**（可直接粘贴）：
+
 ```
 storage: persists the user's own conversion history (file names, formats and sizes — never file contents) and interface preferences (theme, colour mode, language, notification and confirmation switches, custom shortcut) via chrome.storage.local. Nothing leaves the device: the extension declares no host permissions and its own code issues no network request. No narrower permission can do this.
 ```
@@ -135,15 +139,15 @@ storage: persists the user's own conversion history (file names, formats and siz
    - 记录下 **Client ID** 和 **Client Secret**
 
 5. 生成 Refresh Token：
-   
+
    在浏览器中打开以下 URL（替换 YOUR_CLIENT_ID）：
-   
+
    ```
    https://accounts.google.com/o/oauth2/auth?response_type=code&scope=https://www.googleapis.com/auth/chromewebstore&client_id=YOUR_CLIENT_ID&redirect_uri=urn:ietf:wg:oauth:2.0:oob
    ```
-   
+
    授权后获取授权码，然后用以下命令交换 refresh token：
-   
+
    ```bash
    curl -X POST \
      -d "client_id=YOUR_CLIENT_ID" \
@@ -153,7 +157,7 @@ storage: persists the user's own conversion history (file names, formats and siz
      -d "redirect_uri=urn:ietf:wg:oauth:2.0:oob" \
      https://oauth2.googleapis.com/token
    ```
-   
+
    响应中的 `refresh_token` 即为所需值。
 
 ### 3.2 配置 GitHub Secrets
@@ -161,28 +165,33 @@ storage: persists the user's own conversion history (file names, formats and siz
 在 GitHub Repository Settings → Secrets and variables → Actions 中配置以下 secrets：
 
 **共用凭据（与 account-password-helper 共享）：**
+
 ```bash
 CWS_CLIENT_ID        # Google Cloud OAuth Client ID
-CWS_CLIENT_SECRET    # Google Cloud OAuth Client Secret  
+CWS_CLIENT_SECRET    # Google Cloud OAuth Client Secret
 CWS_REFRESH_TOKEN    # OAuth Refresh Token
 ```
 
 **本扩展专用：**
+
 ```bash
 CHROME_EXTENSION_ID_TAF  # Transfer Any File 扩展 ID（从 CWS Dashboard 获取，32 位 a-p 小写字母）
 ```
 
 > ⚠️ **重要提示**：
+>
 > - 复制 secret 值时确保不带空格/换行等不可见字符
 > - 扩展 ID 必须是 32 位 a-p 小写字母
 > - OAuth 应用在 Testing 模式下 refresh token 约 7 天过期，建议发布为 In production
-> - OAuth 凭据只需配置一次，两个扩展共用同一套
+> - OAuth 凭据只需配置一次，两个扩展共用同一套；但 GitHub 个人账号没有组织级 secret 共享，
+>   这三个值仍要在**每个仓库里各填一次**
 
 ### 3.3 发布流程
 
-当前配置使用 `wxt-publish-extension` CLI 工具：
+当前配置用 runner 自带的 `curl` 直接打 Chrome Web Store 的上传 / 发布 API，**不引入第三方 npm 包或 action**：
 
 1. **打 Tag**：
+
    ```bash
    git tag v1.0.0
    git push origin v1.0.0
@@ -211,7 +220,7 @@ CHROME_EXTENSION_ID_TAF  # Transfer Any File 扩展 ID（从 CWS Dashboard 获�
 
 1. 打开 Dashboard → 找到你的扩展
 2. 扩展 ID 显示在页面 URL 中：`.../webstore/detail/[EXTENSION_ID]/edit`
-3. 复制该 ID 并更新 GitHub Secrets 中的 `CHROME_EXTENSION_ID`
+3. 复制该 ID 并更新 GitHub Secrets 中的 `CHROME_EXTENSION_ID_TAF`
 
 ---
 
@@ -222,6 +231,7 @@ CHROME_EXTENSION_ID_TAF  # Transfer Any File 扩展 ID（从 CWS Dashboard 获�
 1. 修改 `package.json` 中的版本号
 2. 更新 `CHANGELOG.md` 和 `CHANGELOG.en.md`
 3. 提交并打新 tag：
+
    ```bash
    git tag v1.1.0
    git push origin v1.1.0
@@ -242,6 +252,7 @@ CHROME_EXTENSION_ID_TAF  # Transfer Any File 扩展 ID（从 CWS Dashboard 获�
 ### Q1: OAuth token 过期怎么办？
 
 A: 刷新 token 的流程：
+
 1. 将 OAuth 应用发布为 In production（避免 7 天过期）
 2. 或重新走授权流程生成新的 refresh token
 3. 更新 GitHub Secrets 中的 `CHROME_REFRESH_TOKEN`
@@ -249,6 +260,7 @@ A: 刷新 token 的流程：
 ### Q2: 扩展 ID 格式错误？
 
 A: 确保：
+
 - 32 位小写字母（a-p）
 - 没有空格、换行等不可见字符
 - 直接从 Dashboard URL 复制，不要手动输入
@@ -256,6 +268,7 @@ A: 确保：
 ### Q3: 审核被拒怎么办？
 
 A: 参考 `CHROMEWEBSTORE.md` 中的"拒审记录与政策口径"章节，常见原因：
+
 - 关键词堆砌：不要在名称、摘要中使用逗号/冒号分隔的格式名列表
 - 描述与 manifest 不一致：确保所有字段逐字匹配
 - 隐私政策不可达：确保 URL 返回 HTTP 200
@@ -263,9 +276,10 @@ A: 参考 `CHROMEWEBSTORE.md` 中的"拒审记录与政策口径"章节，常见
 ### Q4: 如何测试发布流程？
 
 A: 使用 dry run 模式：
+
 ```yaml
 # 手动触发 workflow_dispatch
-dry_run: true  # 只验证，不实际发布
+dry_run: true # 只验证，不实际发布
 ```
 
 ---
@@ -287,7 +301,7 @@ dry_run: true  # 只验证，不实际发布
 - [ ] GitHub Secrets 配置齐全（3 个共用凭据 + 1 个本扩展专用 ID）
 - [ ] OAuth 应用状态正常（In production 或 token 未过期）
 - [ ] 扩展 ID 格式正确（32 位 a-p 字母，`CHROME_EXTENSION_ID_TAF`）
-- [ ] 所有验证通过（`pnpm verify:all`）
+- [ ] 所有验证通过（`pnpm lint:all && pnpm verify:meta && pnpm verify:listing && pnpm build && pnpm verify:offline`）
 - [ ] 商店文案与 `_locales` 文件一致
 - [ ] 隐私政策 URL 可达
 - [ ] 版本号高于线上版本

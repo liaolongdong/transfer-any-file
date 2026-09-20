@@ -1,5 +1,7 @@
 # Chrome Web Store Publishing Guide · Transfer Any File
 
+[简体中文](CWS_PUBLISHING_GUIDE.md) · English
+
 This document records the complete process and key configurations for publishing Transfer Any File to Chrome Web Store.
 
 ## 📋 Prerequisites
@@ -65,6 +67,7 @@ In Developer Dashboard:
 - **Category**: Productivity
 
 - **Single Purpose**:
+
   ```
   Converts user-selected documents, spreadsheets and images between common file formats entirely on the local machine.
   ```
@@ -103,11 +106,12 @@ In Developer Dashboard:
 
 ### 4. Permissions Justification
 
-| Permission | Purpose |
-|------------|---------|
-| `storage` | Persists the user's own conversion history (file names, formats and sizes — never file contents) and interface preferences (theme, colour mode, language, notification and confirmation switches, custom shortcut). Data only stored locally on device: extension declares no host permissions, its own code issues no network requests. No narrower permission can achieve these functions. |
+| Permission | Purpose                                                                                                                                                                                                                                                                                                                                                                                      |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `storage`  | Persists the user's own conversion history (file names, formats and sizes — never file contents) and interface preferences (theme, colour mode, language, notification and confirmation switches, custom shortcut). Data only stored locally on device: extension declares no host permissions, its own code issues no network requests. No narrower permission can achieve these functions. |
 
 **Complete bilingual explanation** (ready to paste):
+
 ```
 storage: persists the user's own conversion history (file names, formats and sizes — never file contents) and interface preferences (theme, colour mode, language, notification and confirmation switches, custom shortcut) via chrome.storage.local. Nothing leaves the device: the extension declares no host permissions and its own code issues no network request. No narrower permission can do this.
 ```
@@ -135,15 +139,15 @@ storage: persists the user's own conversion history (file names, formats and siz
    - Note down **Client ID** and **Client Secret**
 
 5. Generate Refresh Token:
-   
+
    Open the following URL in browser (replace YOUR_CLIENT_ID):
-   
+
    ```
    https://accounts.google.com/o/oauth2/auth?response_type=code&scope=https://www.googleapis.com/auth/chromewebstore&client_id=YOUR_CLIENT_ID&redirect_uri=urn:ietf:wg:oauth:2.0:oob
    ```
-   
+
    After authorization, exchange the authorization code for refresh token:
-   
+
    ```bash
    curl -X POST \
      -d "client_id=YOUR_CLIENT_ID" \
@@ -153,30 +157,44 @@ storage: persists the user's own conversion history (file names, formats and siz
      -d "redirect_uri=urn:ietf:wg:oauth:2.0:oob" \
      https://oauth2.googleapis.com/token
    ```
-   
+
    The `refresh_token` in response is what you need.
 
 ### 3.2 Configure GitHub Secrets
 
-Configure these 4 secrets in GitHub Repository Settings → Secrets and variables → Actions:
+Configure these secrets in GitHub Repository Settings → Secrets and variables → Actions.
+Three of them are **shared with account-password-helper** (the same Google Cloud project, the same developer
+account); only the extension ID is per-extension:
+
+**Shared OAuth credentials:**
 
 ```bash
-CHROME_EXTENSION_ID  # 32-character extension ID (from CWS Dashboard)
-CHROME_CLIENT_ID     # Google Cloud OAuth Client ID
-CHROME_CLIENT_SECRET # Google Cloud OAuth Client Secret  
-CHROME_REFRESH_TOKEN # OAuth Refresh Token
+CWS_CLIENT_ID        # Google Cloud OAuth Client ID
+CWS_CLIENT_SECRET    # Google Cloud OAuth Client Secret
+CWS_REFRESH_TOKEN    # OAuth Refresh Token
+```
+
+**This extension only:**
+
+```bash
+CHROME_EXTENSION_ID_TAF  # Transfer Any File extension ID (from CWS Dashboard, 32 lowercase a-p letters)
 ```
 
 > ⚠️ **Important notes**:
+>
 > - Ensure secret values have no spaces/newlines or invisible characters when copying
 > - Extension ID must be 32 lowercase letters (a-p)
 > - OAuth apps in Testing mode have ~7-day refresh token expiry; recommend publishing as In production
+> - The OAuth credentials are configured once and shared by both extensions; GitHub has no org-level
+>   secret sharing for personal accounts, so enter the three values in each repository
 
 ### 3.3 Publishing Flow
 
-Current configuration uses `wxt-publish-extension` CLI tool:
+Current configuration uses the runner's own `curl` against the Chrome Web Store upload / publish APIs —
+**no third-party npm package or action**:
 
 1. **Create Tag**:
+
    ```bash
    git tag v1.0.0
    git push origin v1.0.0
@@ -194,7 +212,7 @@ Current configuration uses `wxt-publish-extension` CLI tool:
 3. **Dry Run Test** (optional):
    ```yaml
    # Manually trigger workflow_dispatch from GitHub Actions page
-   dry_run: true  # Verification only, no actual publishing
+   dry_run: true # Verification only, no actual publishing
    ```
 
 ---
@@ -205,7 +223,7 @@ After approval, obtain the 32-character extension ID from Chrome Web Store Dashb
 
 1. Open Dashboard → Find your extension
 2. Extension ID appears in page URL: `.../webstore/detail/[EXTENSION_ID]/edit`
-3. Copy this ID and update `CHROME_EXTENSION_ID` in GitHub Secrets
+3. Copy this ID and update `CHROME_EXTENSION_ID_TAF` in GitHub Secrets
 
 ---
 
@@ -216,6 +234,7 @@ After approval, obtain the 32-character extension ID from Chrome Web Store Dashb
 1. Modify version number in `package.json`
 2. Update `CHANGELOG.md` and `CHANGELOG.en.md`
 3. Commit and create new tag:
+
    ```bash
    git tag v1.1.0
    git push origin v1.1.0
@@ -236,6 +255,7 @@ After approval, obtain the 32-character extension ID from Chrome Web Store Dashb
 ### Q1: What if OAuth token expires?
 
 A: To refresh token:
+
 1. Publish OAuth app to In production status (avoid 7-day expiry)
 2. Or re-authenticate to generate new refresh token
 3. Update `CHROME_REFRESH_TOKEN` in GitHub Secrets
@@ -243,6 +263,7 @@ A: To refresh token:
 ### Q2: Extension ID format error?
 
 A: Ensure:
+
 - 32 lowercase letters (a-p)
 - No spaces, newlines or invisible characters
 - Copy directly from Dashboard URL, don't type manually
@@ -250,6 +271,7 @@ A: Ensure:
 ### Q3: Rejected during review?
 
 A: Refer to "Rejection Records and Policy Guidelines" section in `CHROMEWEBSTORE.md`. Common reasons:
+
 - Keyword stuffing: Don't use format name lists separated by commas/colons in name/summary
 - Description inconsistent with manifest: Ensure all fields match verbatim
 - Privacy policy unreachable: Ensure URL returns HTTP 200
@@ -257,18 +279,22 @@ A: Refer to "Rejection Records and Policy Guidelines" section in `CHROMEWEBSTORE
 ### Q4: How to test publishing flow?
 
 A: Use dry run mode:
+
 ```yaml
 # Manually trigger workflow_dispatch
-dry_run: true  # Verify only, no actual publishing
+dry_run: true # Verify only, no actual publishing
 ```
 
 ---
 
 ## Related Documentation
 
+`CHROMEWEBSTORE.md` is written in Chinese (it is paste-ready material for the CWS console, not a bilingual doc),
+so its section names are quoted verbatim below:
+
 - **Complete store copy template**: `CHROMEWEBSTORE.md`
-- **Permissions and privacy disclosure**: `CHROMEWEBSTORE.md` → "Permissions and Privacy Disclosure"
-- **Rejection records and responses**: `CHROMEWEBSTORE.md` → "Rejection Records and Policy Guidelines"
+- **Permissions and privacy disclosure**: `CHROMEWEBSTORE.md` → "权限与隐私申报"
+- **Rejection records and responses**: `CHROMEWEBSTORE.md` → "拒审记录与政策口径"
 - **Product page**: https://liaolongdong.github.io/transfer-any-file/
 - **Privacy policy**: https://liaolongdong.github.io/transfer-any-file/privacy.html
 
@@ -278,10 +304,10 @@ dry_run: true  # Verify only, no actual publishing
 
 Before publishing, ensure:
 
-- [ ] GitHub Secrets configured completely (4 items)
+- [ ] GitHub Secrets configured completely (3 shared credentials + 1 extension-specific ID)
 - [ ] OAuth app status normal (In production or token not expired)
-- [ ] Extension ID format correct (32 a-p lowercase letters)
-- [ ] All validations passed (`pnpm verify:all`)
+- [ ] Extension ID format correct (32 a-p lowercase letters, `CHROME_EXTENSION_ID_TAF`)
+- [ ] All validations passed (`pnpm lint:all && pnpm verify:meta && pnpm verify:listing && pnpm build && pnpm verify:offline`)
 - [ ] Store copy consistent with `_locales` files
 - [ ] Privacy policy URL reachable
 - [ ] Version number higher than online version

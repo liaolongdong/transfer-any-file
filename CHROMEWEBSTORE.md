@@ -63,15 +63,15 @@ curl -Is https://liaolongdong.github.io/transfer-any-file/privacy.html | head -1
 
 ### Tab 1 — Store listing（商店页面）
 
-| 字段                   | 英文取值                                                                                          | 中文取值（默认语言标签页）                                                                        |
-| ---------------------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| 名称 Extension Name      | `Transfer Any File — Offline File Format Converter` (49/75)                                       | `文件格式任意转换助手 — 离线转换无上传` (28/75)                                          |
-| 简介 Short description   | `Convert between 14 common document, spreadsheet and image file formats right in your browser...` (127/132) | `在本机浏览器内互转 14 种常见的文档、表格与图片格式。支持混合批量、多步链路、预览编辑与 ZIP 打包，全程离线，不上传、无账号。` (66/132) |
-| 详描 Full description    | [英文详细介绍](#英文详细介绍) (7,948 字符)                                                          | [中文详细介绍](#中文详细介绍) (2,845 字符)                                                          |
-| 类别 Category            | `Productivity`                                                                                    | `Productivity`                                                                                    |
-| 主要语言 Primary Language | -                                                                                                 | `Chinese (China)`                                                                               |
-| 附加语言 Additional Languages | `English (United States)`                                                                       | -                                                                                                 |
-| 产品页 Product page      | [https://liaolongdong.github.io/transfer-any-file/](https://liaolongdong.github.io/transfer-any-file/) | [https://liaolongdong.github.io/transfer-any-file/](https://liaolongdong.github.io/transfer-any-file/) |
+| 字段                          | 英文取值                                                                                                    | 中文取值（默认语言标签页）                                                                                                             |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| 名称 Extension Name           | `Transfer Any File — Offline File Format Converter` (49/75)                                                 | `文件格式任意转换助手 — 离线转换无上传` (20/75)                                                                                        |
+| 简介 Short description        | `Convert between 14 common document, spreadsheet and image file formats right in your browser...` (127/132) | `在本机浏览器内互转 14 种常见的文档、表格与图片格式。支持混合批量、多步链路、预览编辑与 ZIP 打包，全程离线，不上传、无账号。` (66/132) |
+| 详描 Full description         | [英文详细介绍](#英文详细介绍) (7,948 字符)                                                                  | [中文详细介绍](#中文详细介绍) (2,838 字符)                                                                                             |
+| 类别 Category                 | `Productivity`                                                                                              | `Productivity`                                                                                                                         |
+| 主要语言 Primary Language     | -                                                                                                           | `Chinese (China)`                                                                                                                      |
+| 附加语言 Additional Languages | `English (United States)`                                                                                   | -                                                                                                                                      |
+| 产品页 Product page           | [https://liaolongdong.github.io/transfer-any-file/](https://liaolongdong.github.io/transfer-any-file/)      | [https://liaolongdong.github.io/transfer-any-file/](https://liaolongdong.github.io/transfer-any-file/)                                 |
 
 ```
 Transfer Any File — Offline File Format Converter
@@ -81,7 +81,7 @@ Transfer Any File — Offline File Format Converter
 Convert between 14 common document, spreadsheet and image file formats right in your browser — offline, in batches, no uploads.
 ```
 
-**Chinese (China) —— 默认语言标签页，先贴这一套。** 三个字段（名称 33/75、简介 66/132、详描 2,845 字符）在
+**Chinese (China) —— 默认语言标签页，先贴这一套。** 三个字段（名称 20/75、简介 66/132、详描 2,838 字符）在
 [商店文案](#商店文案)里；名称与简介同时活在 `public/_locales/zh_CN/messages.json`，`pnpm verify:listing` 逐字比对两边。
 那个标签页要等**带 `_locales/zh_CN/` 的包上传之后**才出现——先传包再填表，手上那份旧草稿看不到它是正常的。
 
@@ -127,7 +127,7 @@ Files are read into the extension page's memory, converted there, and returned t
 ### Tab 4 — Distribution（分发）
 
 Public · 全部地区 · 默认价格（free）。32 位 item ID 出现在这一页：**不要提交进 git**，放进
-[交接给自动化](#5-交接给自动化条目已存在之后)里说的 `CHROME_EXTENSION_ID` secret。
+[交接给自动化](#5-交接给自动化条目已存在之后)里说的 `CHROME_EXTENSION_ID_TAF` secret。
 
 ### 给审核员的备注（可选，能省一个来回）
 
@@ -196,7 +196,7 @@ Google 只把 listing 本地化到**包**里声明过的 locale：_"Each locale 
 
 | 目录                                  | 角色                                     | 承载的后台文案                         |
 | ------------------------------------- | ---------------------------------------- | -------------------------------------- |
-| `public/_locales/zh_CN/messages.json` | `default_locale`，**listing 的默认语言** | 中文名称（33/75）与中文简介（66/132）  |
+| `public/_locales/zh_CN/messages.json` | `default_locale`，**listing 的默认语言** | 中文名称（20/75）与中文简介（66/132）  |
 | `public/_locales/en/messages.json`    | 附加 locale                              | 英文名称（49/75）与英文简介（127/132） |
 
 `public/` 是 WXT 的 `publicDir`，整目录原样落到扩展根，所以 `_locales/` 必须在 `public/` 下——它在扩展根的位置
@@ -225,7 +225,7 @@ key 集一致、`default_locale` 仍是 `zh_CN`；`pnpm verify:meta` 比对 `_lo
 
 它就是默认 `Chinese (China)` 标签页的名称，同时也是 `__MSG_extensionName__` 在 `zh_CN` 下的取值——中文系统用户在
 扩展管理页与安装提示里看到的正是这一行。**"任意转换"对应英文"Transfer Any File"**，比直译更自然；"助手"比"扩展"更亲和。
-破折号后强调核心价值："离线转换无上传"，直接命中隐私敏感用户的最强需求。这个名字用了 28/75 字符，远低于类目天花板；
+破折号后强调核心价值："离线转换无上传"，直接命中隐私敏感用户的最强需求。这个名字用了 20/75 字符，远低于类目天花板；
 读起来是名词短语而非列表——与英文字段同一条形状规则。
 
 **简介（Short Description）** [必填] —— 127 字符，上限 132
@@ -260,7 +260,7 @@ Convert between 14 common document, spreadsheet and image file formats right in 
 扩展真正具备的能力（混格式批量、多步链路、预览与编辑、ZIP 下载），而不是文件扩展名。依旧不写 PDF 转 Word、PDF 转 Excel，
 因为这个扩展做不到无损的 PDF 转换。
 
-**详细介绍（Detailed Description）** [必填] —— 纯文本，本仓库自设上限 16,000 字符（英文块实测 7,948；下面的中文块实测 2,845）
+**详细介绍（Detailed Description）** [必填] —— 纯文本，本仓库自设上限 16,000 字符（英文块实测 7,948；下面的中文块实测 2,838）
 
 _Google 没有为这个字段公布长度_——75 与 132 是写在文档里的，16,000 不是。把它当成本仓库自己的守卫
 （`pnpm verify:listing`），按后台计数器设定，提交时以那个计数器为准，不要把 16,000 背给审核员。
@@ -679,37 +679,33 @@ curl -Is https://liaolongdong.github.io/transfer-any-file/privacy.html | head -1
 
 | 后台标签页         | 本文件里的小节                                                                                                                                                                   |
 | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Store listing      | [商店文案](#商店文案)（`Chinese (China)` 默认：33/75 + 66/132 + 中文详描；`English (United States)`：49/75 + 127/132 + 英文详描；`Productivity`、单一目的）                      |
+| Store listing      | [商店文案](#商店文案)（`Chinese (China)` 默认：20/75 + 66/132 + 中文详描；`English (United States)`：49/75 + 127/132 + 英文详描；`Productivity`、单一目的）                      |
 | Screenshots & icon | [图形与素材](#图形与素材)——**两个语言页各传一套**，各从 7 张 1280×800 里传 5 张（各砍 `history` 与 `dark-mode`）、`public/icon/128.png`、small 与 marquee 推广图（推广图只一套） |
 | Privacy practices  | [权限与隐私申报](#权限与隐私申报)——声明条目_处理_用户数据；只在设备本地、从不传输。**不是**「不收集任何用户数据」。                                                              |
 | Distribution       | [分发与开发者信息](#分发与开发者信息)（public、全部地区）；item ID 出现在这一页                                                                                                  |
 
-提交审核，然后盯后台的 **Package → status**，或者配好下面那套凭据后问 API：
-`pnpm exec wxt-publish-extension status`。
+提交审核，然后盯后台的 **Package → status**。配好下面那套凭据之后，也可以用 `release.yml` 打的同一组端点查状态：
+GET `https://www.googleapis.com/chromewebstore/v1.1/items/<item ID>`，带 `x-goog-api-version: 2` 和一个
+`Authorization: Bearer <access token>`；换 access token 的命令见 `.github/CWS_PUBLISHING_GUIDE.md → 3.1`。
 
 ### 5. 交接给自动化（条目已存在之后）
 
-从后台 URL 里复制 32 位 **item ID**，然后为 Chrome Web Store API 生成 OAuth 凭据。有人维护的路径是 CLI 自带的向导，
-它会带你走完 Google Cloud 那侧（在某个项目里启用 _Chrome Web Store API_、创建 OAuth client、用授权码换 refresh token），
-并把结果写进 `.env.submit`：
+从后台 URL 里复制 32 位 **item ID**，然后为 Chrome Web Store API 生成 OAuth 凭据。Google Cloud 那侧的完整步骤
+（在某个项目里启用 _Chrome Web Store API_、创建 OAuth client、用授权码换 refresh token）写在
+`.github/CWS_PUBLISHING_GUIDE.md → 3.1`，这里不重复。
 
-```bash
-pnpm exec wxt-publish-extension init   # 交互式；.env.submit 已在 .gitignore 里
-```
+补上四个仓库 secrets——本扩展专用的 `CHROME_EXTENSION_ID_TAF`，以及与 account-password-helper 共用的
+`CWS_CLIENT_ID` / `CWS_CLIENT_SECRET` / `CWS_REFRESH_TOKEN`（个人账号没有组织级 secret 共享，这三个值仍要在
+**每个仓库里各填一次**）——`release.yml` 里的 `Submit to the Chrome Web Store` 步骤就不再说「跳过」，而是从下一个 tag
+开始真正发布。它用 runner 自带的 `curl` 打 v1.1 端点：先 PUT `upload/items/<id>` 上传新包，再 POST
+`items/<id>?publishTarget=default` 提交审核；不引入第三方 npm 包或 action。头几次运行想先预演，手动触发
+workflow_dispatch 时勾 `dry_run`（只做认证与校验，不上传、不提交）。
 
-补上四个仓库 secrets——`CHROME_EXTENSION_ID`、`CHROME_CLIENT_ID`、`CHROME_CLIENT_SECRET`、
-`CHROME_REFRESH_TOKEN`——`release.yml` 里的 `Submit to the Chrome Web Store` 步骤就不再说「跳过」，而是从下一个 tag
-开始真正发布。头几次运行有用的 flag：
-
-| Flag                                                     | 作用                                                                   |
-| -------------------------------------------------------- | ---------------------------------------------------------------------- |
-| `--dry-run`                                              | 只做认证，什么都不上传、什么都不提交。在相信一个 tag 之前先跑它。      |
-| `--chrome-skip-submit-review`                            | 把包作为草稿上传，不请求审核。                                         |
-| `--chrome-publish-target trustedTesters`                 | 限定范围发布，而不是 `default`（public）。                             |
-| `--chrome-api-version v2` + `--chrome-service-account-*` | v2 API 路径，用于拿到的不是 OAuth client 而是 service account 的账号。 |
-
-注意 CLI 把 OAuth 那几个 flag 标成 `[Deprecated: API v1.1 only]`：Google 正在把这个 API 迁到带 service account 的
-v2，所以如果 `init` 建不出 v1.1 client，就用 v2 的 flag。工作流保留 v1.1 三件套，因为那是今天发给新开发者账号的东西。
+| 想改的行为                  | 改哪里                                                                                         |
+| --------------------------- | ---------------------------------------------------------------------------------------------- |
+| 限定范围发布（只给白名单）  | 那行 POST 的 `publishTarget` 换成 `trustedTesters`，它是工作流里的字面量，不是仓库变量         |
+| 只上传不请求审核（留草稿）  | 注释掉那行 POST；包已经上传，后台的 Package 页会停在草稿态                                     |
+| 用 v2 API + service account | 换掉整套端点与鉴权；**当前刻意留在 v1.1**，因为新开发者账号今天拿到的就是 v1.1 的 OAuth client |
 
 ### 无法自动化的部分（别排期，然后困惑）
 
@@ -902,7 +898,7 @@ v2，所以如果 `init` 建不出 v1.1 client，就用 v2 的 flag。工作流�
   名称/简介粘贴块并断言 key 集一致，`verify:meta` 改比对 `_locales/en` ↔ `package.json#description`
   （此前它比的是 manifest 字面量）。**代价**：一份从未被审过的中文文案第一次成为主字段，见[拒审记录](#拒审记录与政策口径)
   末尾那条归因说明。构建产物已复核：`.output/chrome-mv3/manifest.json` 带 `"default_locale":"zh_CN"`，
-  两个 `messages.json` 落在扩展根，包体 3.73 MB（+617 B）。
+  两个 `messages.json` 落在扩展根，包体 3.74 MB（+617 B）。
 - **2026-09-16** —— 全文改为中文优先并重排结构：开头的六段「Revised 2026-09-XX」流水账挪到这里、压成条目；
   原来散在各节的「为什么要这样写」并进各自字段；GitHub 仓库元数据整节移出到 [`.github/repo-metadata.md`](.github/repo-metadata.md)；
   加目录。七个粘贴字段与两张推广图相关的取值**逐字节未动**（改前后由 `pnpm verify:listing` 与字段抽取脚本双向校验）。
