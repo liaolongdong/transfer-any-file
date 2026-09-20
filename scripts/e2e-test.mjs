@@ -370,6 +370,25 @@ async function downloadBatchArtifact(page) {
 }
 
 /**
+ * The first 24 bytes of a PNG — signature, IHDR length, "IHDR", width, height — base64-encoded, i.e.
+ * the opening of that PNG's own byte stream.
+ *
+ * Used instead of the generic `iVBORw0KGgo` header so a probe cannot be satisfied by *some* PNG:
+ * several fixtures put a 1×1 control image into the same artifact, and a loose probe would stay green
+ * while the diagram under test was still being dropped. 24 bytes is a multiple of 3, so MIME base64
+ * line wrapping can never split it.
+ */
+function pngHead(w, h) {
+  const head = Buffer.alloc(24);
+  Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]).copy(head, 0);
+  head.writeUInt32BE(13, 8);
+  head.write('IHDR', 12, 'ascii');
+  head.writeUInt32BE(w, 16);
+  head.writeUInt32BE(h, 20);
+  return head.toString('base64');
+}
+
+/**
  * Upload an inline HTML document (markup held in the test rather than in `fixtures/`), convert it to
  * PDF and return the downloaded artifact's bytes as a latin1 string.
  *
@@ -1071,6 +1090,137 @@ async function run() {
       });
     } catch (e) {
       fail('DOCX Subresource Egress', e.message);
+    }
+  }
+
+  // ═══════════════════════════════════════════
+  //  F-9 — inline SVG in markdown must survive md→html, and its active content must not
+  // ═══════════════════════════════════════════
+
+  if (section('Markdown Inline SVG')) {
+    try {
+      await resetWorkbench(page);
+      const kept = await convertFile(page, 'sample-svg-diagram.md', 'HTML (.html)');
+      if (!kept.resultName) throw new Error(`md→html produced no artifact: ${kept.alertTitle}`);
+      const html = await downloadBatchArtifact(page);
+      if (html.includes('<svg') && html.includes('<rect')) {
+        ok('Inline <svg> survives md→html');
+      } else {
+        fail('md→html svg survival', `svg=${String(html.includes('<svg'))} rect=${String(html.includes('<rect'))}`);
+      }
+
+      await resetWorkbench(page);
+      const evil = await convertFile(page, 'sample-svg-attack.md', 'HTML (.html)');
+      if (!evil.resultName) throw new Error(`md→html (attack) produced no artifact: ${evil.alertTitle}`);
+      // The reason this half exists: widening the profile is only defensible if what comes through
+      // is the drawing and not the script. `<rect>` is the control proving the svg survived at all,
+      // so a sanitize that deleted everything cannot pass by having nothing left to leak.
+      const attack = (await downloadBatchArtifact(page)).toLowerCase();
+      const leftovers = ['<script', 'foreignobject', 'onerror'].filter(marker => attack.includes(marker));
+      if (leftovers.length === 0 && attack.includes('<rect')) {
+        ok('svg profile keeps the graphic and drops script / foreignObject / on* handlers');
+      } else {
+        fail('md→html svg sanitization', `leftovers=${leftovers.join(',')} rect=${String(attack.includes('<rect'))}`);
+      }
+
+      // …and the case that makes the widening worth something downstream: md→png renders through an
+      // iframe + foreignObject, so the diagram has to survive the sanitizer AND paint. A file being
+      // produced proves neither, so this counts the fixture's own red — a document that lost the
+      // `<svg>` comes out with zero red pixels, and no other fixture content is that colour.
+      await resetWorkbench(page);
+      const raster = await convertFile(page, 'sample-svg-diagram.md', 'PNG (.png)');
+      if (!raster.resultName) throw new Error(`md→png produced no artifact: ${raster.alertTitle}`);
+      const pngB64 = Buffer.from(await downloadBatchArtifact(page), 'latin1').toString('base64');
+      const redPixels = await page.evaluate(async dataUrl => {
+        const img = document.createElement('img');
+        img.src = dataUrl;
+        await img.decode();
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+        const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        let red = 0;
+        for (let i = 0; i < data.length; i += 4) {
+          if (data[i] > 180 && data[i + 1] < 80 && data[i + 2] < 80) red++;
+        }
+        return red;
+      }, `data:image/png;base64,${pngB64}`);
+      if (redPixels > 200) {
+        ok(`Inline <svg> still paints at the rasterized boundary (${redPixels} red pixels)`);
+      } else {
+        fail('md→png svg painting', `only ${redPixels} red pixels in the rendered page`);
+      }
+    } catch (e) {
+      fail('Markdown Inline SVG', e.message);
+    }
+  }
+
+  // ═══════════════════════════════════════════
+  //  F-8 — inline SVG must actually paint inside a .docx (was: a valid blank file)
+  // ═══════════════════════════════════════════
+
+  if (section('DOCX Inline SVG')) {
+    for (const [label, fixture, dims, altText] of [
+      ['md→docx', 'sample-svg-diagram.md', [40, 30], 'Red rectangle'],
+      ['svg→docx', 'sample.svg', [240, 140], null],
+    ]) {
+      try {
+        await resetWorkbench(page);
+        const r = await convertFile(page, fixture, 'Word (.docx)');
+        if (!r.resultName) throw new Error(`${label} produced no artifact: ${r.alertTitle}`);
+        const docx = await downloadBatchArtifact(page);
+        // AltChunk precondition, for the same reason the egress section has one: a package that lost
+        // the altChunk would otherwise report "the diagram was stripped" for an unrelated cause.
+        if (!docx.includes('Content-Type: text/html')) {
+          throw new Error('no MHT altChunk in the artifact — the probes below would prove nothing');
+        }
+        const svgLeft = /<svg[\s>]/i.test(docx);
+        const head = pngHead(...dims);
+        // The `<title>` probe is encoding-agnostic on purpose: it asks whether the words are still in
+        // the package, not whether they sit in an `alt="…"` verbatim. Combined with "no <svg> left",
+        // the img's alt is the only place they can have come from — and it is why that fixture has a
+        // title at all, since the raster path would otherwise never be observed setting one.
+        const labelKept = altText === null || docx.includes(altText);
+        if (!svgLeft && docx.includes(head) && labelKept) {
+          ok(`${label} embeds a ${dims.join('×')} PNG and leaves no inline <svg> for Word to fail on`);
+        } else {
+          const at = docx.indexOf('image/png');
+          const around = at < 0 ? '' : docx.slice(at, at + 220);
+          fail(
+            `${label} inline svg`,
+            `svgLeft=${String(svgLeft)} head=${String(docx.includes(head))} label=${String(
+              labelKept,
+            )} nearPng=${JSON.stringify(around)}`,
+          );
+        }
+      } catch (e) {
+        fail(`DOCX Inline SVG ${label}`, e.message);
+      }
+    }
+  }
+
+  // The same rasterizer on the Markdown boundary: without it turndown has no rule for `<svg>` and
+  // the document comes out as the diagram's stray `<text>` nodes.
+  if (section('SVG → Markdown Keeps The Drawing')) {
+    try {
+      await resetWorkbench(page);
+      const r = await convertFile(page, 'sample.svg', 'Markdown (.md)');
+      if (!r.resultName) throw new Error(`svg→md produced no artifact: ${r.alertTitle}`);
+      const md = await downloadBatchArtifact(page);
+      if (md.includes(`data:image/png;base64,${pngHead(240, 140)}`) && !/<svg[\s>]/i.test(md)) {
+        ok('svg→md embeds the 240×140 raster instead of dropping the diagram');
+      } else {
+        fail(
+          'svg→md inline svg',
+          `png=${String(md.includes('data:image/png'))} svgLeft=${String(/<svg[\s>]/i.test(md))} head=${String(
+            md.includes(pngHead(240, 140)),
+          )}`,
+        );
+      }
+    } catch (e) {
+      fail('SVG → Markdown Keeps The Drawing', e.message);
     }
   }
 
@@ -2334,6 +2484,86 @@ async function run() {
     ok('Row delete is undone from the toast');
   } catch (e) {
     fail('History delete undo', e.message);
+  }
+
+  section('History Import Size Cap');
+  try {
+    // Mirrors MAX_IMPORT_BYTES in composables/useHistory.ts. Not imported because the page ships a
+    // bundle, not the source: the guard under test is exactly this number, so a drift has to fail
+    // here rather than silently test a different threshold.
+    const CAP = 16 * 1024 * 1024;
+    const tmpDir = path.resolve(__dirname, '../.test-files');
+    fs.mkdirSync(tmpDir, { recursive: true });
+    const fileInput = await page.$('input.hidden-file-input');
+    if (!fileInput) throw new Error('import file input not found');
+
+    const bigPath = path.join(tmpDir, 'oversized-history.json');
+    fs.writeFileSync(bigPath, `{"version":1,"records":[],"pad":"${'x'.repeat(CAP)}"}`);
+    await fileInput.setInputFiles(bigPath);
+    await page.waitForTimeout(600);
+    const messages = await page.$$eval('.el-message', els => els.map(el => (el.textContent || '').trim()));
+    if (!messages.some(text => text.includes('超过') && text.includes('16.0 MB'))) {
+      fail('History import size cap', `messages after a ${CAP + 1}-byte file: ${JSON.stringify(messages)}`);
+    } else if ((await page.$('.el-message-box')) !== null) {
+      fail('History import size cap', 'merge confirmation opened for a rejected file');
+    } else {
+      ok('Oversized history JSON is refused before its bytes are read');
+    }
+    fs.unlinkSync(bigPath);
+  } catch (e) {
+    fail('History import size cap', e.message);
+  }
+
+  section('History Import Merge Still Works');
+  try {
+    await resetWorkbench(page);
+    const tmpDir = path.resolve(__dirname, '../.test-files');
+    fs.mkdirSync(tmpDir, { recursive: true });
+    const goodPath = path.join(tmpDir, 'history-fixture.json');
+    const stamp = Date.now();
+    fs.writeFileSync(
+      goodPath,
+      JSON.stringify({
+        version: 1,
+        records: ['a', 'b'].map(suffix => ({
+          id: `e2e-import-${suffix}`,
+          time: stamp,
+          fileName: `imported-${suffix}.md`,
+          sourceFormat: 'md',
+          targetFormat: 'html',
+          fileSize: 120,
+          resultSize: 240,
+          fileCount: 1,
+        })),
+      }),
+    );
+
+    const fileInput = await page.$('input.hidden-file-input');
+    if (!fileInput) throw new Error('import file input not found');
+    const before = (await page.$$('.history-item')).length;
+    await fileInput.setInputFiles(goodPath);
+    await page.waitForTimeout(500);
+
+    const box = await page.$('.el-message-box');
+    if (!box) throw new Error('merge confirmation did not open for a valid export');
+    // Element Plus puts Cancel first, so "the last button" is the confirm — but matching on the
+    // label is what survives a layout change.
+    let confirmBtn = null;
+    for (const btn of await page.$$('.el-message-box__btns .el-button')) {
+      const label = (await btn.evaluate(el => el.textContent || '')).trim();
+      if (label === '导入历史') confirmBtn = btn;
+    }
+    if (!confirmBtn) throw new Error('confirm button not found in the merge dialog');
+    await confirmBtn.click();
+    await page.waitForTimeout(800);
+
+    const after = (await page.$$('.history-item')).length;
+    const expected = Math.min(before + 2, 50);
+    if (after === expected) ok(`Valid export still merges: ${before} → ${after} record(s)`);
+    else fail('History import merge', `rows went ${before} → ${after}, expected ${expected}`);
+    fs.unlinkSync(goodPath);
+  } catch (e) {
+    fail('History import merge', e.message);
   }
 
   // ═══════════════════════════════════════════

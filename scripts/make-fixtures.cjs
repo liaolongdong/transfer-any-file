@@ -87,6 +87,21 @@ async function main() {
 `;
   fs.writeFileSync(path.join(outDir, 'sample.svg'), svg);
 
+  // F-9 fixtures: an inline `<svg>` diagram inside markdown. DOMPurify's `html` profile contains no
+  // svg tag at all, so the graphic used to be deleted at the md→html step and every downstream
+  // target (docx, png, and the html file itself) silently lost it. The dimensions are part of the
+  // test: the DOCX assertion reads the PNG header back, so a raster of the WRONG picture fails.
+  fs.writeFileSync(
+    path.join(outDir, 'sample-svg-diagram.md'),
+    '# Diagram\n\n<svg xmlns="http://www.w3.org/2000/svg" width="40" height="30" viewBox="0 0 40 30">\n  <title>Red rectangle</title>\n  <rect width="40" height="30" fill="#ff0000"/>\n  <text x="2" y="15">hi</text>\n</svg>\n\nAfter.\n',
+  );
+  // Same shape carrying an attack payload: widening the profile must keep the graphic and drop the
+  // active content, or "the diagram survived" is worth nothing.
+  fs.writeFileSync(
+    path.join(outDir, 'sample-svg-attack.md'),
+    '# Evil\n\n<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10">\n  <script>alert(1)</script>\n  <foreignObject><body xmlns="http://www.w3.org/1999/xhtml"><img src="x" onerror="alert(2)"/></body></foreignObject>\n  <rect width="10" height="10" fill="#00ff00"/>\n</svg>\n',
+  );
+
   // F-1 fixture: the DOCX boundary is the one untrusted-HTML consumer that had no subresource
   // stripping. The data: image is the control — it must SURVIVE, because mammoth inlines every
   // DOCX image as a data URL and a strip that eats those "passes" the privacy check while
