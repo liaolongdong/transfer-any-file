@@ -2,9 +2,10 @@
 import { ref, computed, h } from 'vue';
 import { Delete, Download, Right, Search, Upload } from '@element-plus/icons-vue';
 import { saveAs } from 'file-saver';
-import { useHistory, HISTORY_IMPORT_ERROR_KEYS, searchableFileNames } from '~/composables/useHistory';
+import { useHistory, MAX_IMPORT_BYTES, HISTORY_IMPORT_ERROR_KEYS, searchableFileNames } from '~/composables/useHistory';
 import type { HistoryRecord } from '~/composables/useHistory';
 import { useI18n } from '~/composables/useI18n';
+import { formatSize } from '~/utils/core/format';
 import { getFormatLabel } from '~/utils/core/format-labels';
 import type { FileFormat } from '~/utils/core/types';
 import HistoryTrendChart from '~/components/shared/HistoryTrendChart.vue';
@@ -167,6 +168,11 @@ async function handleImportChange(e: Event): Promise<void> {
   // Always reset so the same file can be re-selected after a failed import
   input.value = '';
   if (!file) return;
+  // Read the size, never the bytes, first: the parse below is synchronous and holds the tab.
+  if (file.size > MAX_IMPORT_BYTES) {
+    ElMessage.error(t('history.importTooLarge', { size: formatSize(MAX_IMPORT_BYTES) }));
+    return;
+  }
   let payload: unknown;
   try {
     const text = await file.text();

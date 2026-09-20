@@ -203,6 +203,7 @@ const en: typeof zh = {
     importErrPayload: 'The file does not contain valid history data',
     importErrVersion: 'History file version mismatch. Please select a JSON exported by this version.',
     importErrRecords: 'No history records found in the file',
+    importTooLarge: 'The history file is larger than the {size} limit, so the import was cancelled',
     importFailed: 'Import failed: {error}',
   },
 

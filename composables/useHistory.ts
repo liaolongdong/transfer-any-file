@@ -27,6 +27,20 @@ export interface HistoryRecord {
 }
 
 const MAX_RECORDS = 50;
+
+/**
+ * Largest history JSON the import will read, in bytes.
+ *
+ * The extension's own worst-case export is bounded by construction: `MAX_RECORDS` rows, each with
+ * at most `MAX_BATCH_FILES` (200) names of ~255 characters — a few megabytes of JSON at most. This
+ * ceiling sits well above that, so nothing the export button can produce is ever rejected, while
+ * the unbounded path is gone: `file.text()` reads the whole file into memory and `JSON.parse` then
+ * runs synchronously on the main thread, so without a cap a handcrafted file decides how long the
+ * workbench stops responding. 16 MB also stays under the 100 MB upload ceiling in `FileUpload`,
+ * which governs conversion inputs rather than this one small document.
+ */
+export const MAX_IMPORT_BYTES = 16 * 1024 * 1024;
+
 /** Bumped on breaking changes to the export shape so old imports fail loudly.
  *  Deliberately NOT bumped when `fileNames` was added: the field is optional, so
  *  old exports still import cleanly and new exports still open in an older build

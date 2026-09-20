@@ -209,6 +209,7 @@ export default {
     importErrPayload: '文件内容不是有效的历史数据',
     importErrVersion: '历史文件版本不匹配，请选择由当前版本导出的 JSON',
     importErrRecords: '文件中未找到历史记录列表',
+    importTooLarge: '历史文件超过 {size} 上限，已取消导入',
     importFailed: '导入失败：{error}',
   },
 
