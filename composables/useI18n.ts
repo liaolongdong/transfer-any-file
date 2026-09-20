@@ -34,11 +34,18 @@ function interpolate(template: string, params?: Record<string, string | number>)
 }
 
 /**
- * Keep `<html lang>` in step with the language actually rendered — it drives screen-reader
- * pronunciation and Chrome's translate prompt, and goes stale on a runtime switch otherwise.
+ * Tag the document with the language actually rendered: `<html lang>` and the tab title.
+ *
+ * `lang` drives screen-reader pronunciation and Chrome's translate prompt; the tab title is the one
+ * piece of the workbench's identity that is visible while the page itself is not, and a hardcoded
+ * English-only string there goes stale for every other language the app supports. The brand stays
+ * untranslated on purpose (`appName` is what the in-page header shows in both locales), so only the
+ * page-name half varies. Both go stale on a runtime switch unless they are set from here.
  */
-export function applyDocumentLang(locale: Locale): void {
+export function applyDocumentLocale(locale: Locale): void {
+  const dict = messages[locale] ?? messages[DEFAULT_LOCALE];
   document.documentElement.lang = locale === 'zh' ? 'zh-CN' : 'en';
+  document.title = `${resolveKey(dict, 'appName')} · ${resolveKey(dict, 'options.title')}`;
 }
 
 /**
@@ -57,16 +64,30 @@ export function resolveLocale(stored: unknown): Locale {
   return stored === 'zh' || stored === 'en' ? stored : detectLocale();
 }
 
+/**
+ * Put the resolved language into the shared state before the app mounts.
+ *
+ * `state.locale` starts at `DEFAULT_LOCALE` and `initLocale` only corrects it after a
+ * `storage.local` round-trip, and nothing consumes `ready` to gate rendering — so without this
+ * seed an English first run paints the whole workbench in Chinese for that window, which is the
+ * exact failure `detectLocale` exists to prevent. `main.ts` already awaits the same resolution
+ * for `<html lang>` and the tab title; seeding from that one value keeps the markup, the title
+ * and the rendered strings in agreement instead of letting only two of the three be early.
+ */
+export function seedLocale(locale: Locale): void {
+  state.locale = locale;
+}
+
 async function initLocale(): Promise<void> {
   if (initialized) return;
   initialized = true;
   state.locale = resolveLocale(await storageGet<unknown>(STORAGE_KEYS.locale, null));
-  applyDocumentLang(state.locale);
+  applyDocumentLocale(state.locale);
   state.ready = true;
   unsubscribe = onStorageChange<Locale>(STORAGE_KEYS.locale, value => {
     if (value !== 'zh' && value !== 'en') return;
     state.locale = value;
-    applyDocumentLang(value);
+    applyDocumentLocale(value);
   });
 }
 
@@ -90,7 +111,7 @@ export function useI18n() {
 
   async function setLocale(next: Locale): Promise<void> {
     state.locale = next;
-    applyDocumentLang(next);
+    applyDocumentLocale(next);
     await storageSet(STORAGE_KEYS.locale, next);
   }
 

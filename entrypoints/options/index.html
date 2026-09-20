@@ -1,6 +1,6 @@
 <!doctype html>
-<!-- Default locale is zh, so the static language matches the shipped default;
-     main.ts rewrites it from the stored preference before the app mounts. -->
+<!-- Default locale is zh, so lang and the tab title carry the Chinese page name;
+     main.ts rewrites both from the resolved locale before the app mounts. -->
 <html lang="zh-CN">
   <head>
     <meta charset="utf-8" />
@@ -8,7 +8,7 @@
     <!-- WXT reads per-entrypoint manifest options from meta tags; without
          this the workbench opens embedded inside chrome://extensions -->
     <meta name="manifest.open_in_tab" content="true" />
-    <title>Transfer Any File</title>
+    <title>Transfer Any File · 转换工作台</title>
   </head>
   <body>
     <div id="app"></div>
