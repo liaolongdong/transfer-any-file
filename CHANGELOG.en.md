@@ -74,9 +74,45 @@ always name the same release.
   reimplemented. A Playwright pass over the real page in both scenarios (normal / reduced motion) reports
   13/13, with zero console errors and zero external requests; `docs/` stays out of the bundle and the
   extension's behaviour is untouched.
+- **A mis-deleted history entry can be undone for 5 seconds.** Deleting one record, or clearing all of
+  them, used to take effect immediately with no way back. The success toast now carries an **Undo**
+  button — undo rather than a confirmation dialog, because a dialog would change the existing
+  single-click interaction while an undo changes nothing unless you reach for it. The window during
+  which recovery is possible _is_ the lifetime of that toast, both driven by one constant
+  (`UNDO_WINDOW = 5000`), so the affordance disappears with the message instead of lingering as a
+  dead button. `ElMessage` renders as `role="alert"`, so the same toast is already the screen-reader
+  announcement. Recovery goes through `useHistory().restoreRecords()`: merge by `id` into the current
+  list, sort newest-first, keep the usual most-recent 50 — pressing undo twice cannot duplicate a record.
+  The empty state a clear leaves behind now carries the **Import** button too: export and clear only exist
+  while there are records, and right after a mistaken clear is exactly when import is needed.
+- **File list changes now speak.** Only conversion progress had a `role="status"` announcement, so
+  dropping, appending or clearing files was silent for screen-reader users (WCAG 4.1.3) — the count
+  changed and nothing said so. The same region now announces "Loaded {count} file(s)" and "File list
+  cleared". It hangs on `update:files`, the single exit of the file list, so picking via the button,
+  dragging, pasting, appending and clearing all share one behaviour. Conversion status keeps priority:
+  while a batch runs, progress is what is spoken, not a file count. Each write clears the region first,
+  because a live region only speaks on an actual DOM change and a repeated message would be swallowed.
+- **A batch nothing could recognize explains itself.** The target picker used to show its hint only for
+  "recognized, but no shared target"; when not a single file was recognized it too left just an empty
+  select, and you could not tell whether the drop had failed or the format was unsupported. The two dead
+  ends now say different things — keep picking another target, or these files are not a supported type.
+- **The comparison view's split bar gained semantics and a hittable area.** It was a 12 px visible line
+  with no role to expose, and a pointer had to land inside that narrow band exactly. It now carries
+  `role="separator"`, `aria-orientation="vertical"`, `aria-valuenow/min/max` and a label describing what
+  it adjusts, with the hit area extended 6 px into each panel (24 px total, meeting the WCAG 2.5.8
+  minimum pointer target). The extension is a transparent pseudo-element, so the rendering is pixel for
+  pixel what it was; because that element paints over statically positioned panel content, the mode buttons
+  below it gained `position: relative` and stay clickable on top of it. Arrow-key adjustment already existed
+  and was not reimplemented.
 
 ### Changed
 
+- **The tab title follows the UI language.** `<title>` was permanently `Transfer Any File` and switching
+  to English left it alone — yet the tab title is the only string of this page that the browser chrome
+  shows, while everything beside it was already translated. It is now "brand · page name", where the
+  brand stays identical in both locales on purpose and only the second half follows `useI18n`. It is
+  written by the same `applyDocumentLocale()` call as `<html lang>`, still before mount, so the first
+  frame is already correct and there is no flash of a Chinese label.
 - **Bilingual root documents standardised on "Chinese primary + `.en.md` English twin".**
   `CONTRIBUTING`, `SECURITY` and `CHANGELOG` previously held English in the primary filename and Chinese in
   `*.zh-CN.md`, while the README pair ran the other way — three bilingual conventions in one repository, the third
@@ -332,6 +368,41 @@ zero network requests`) and the Chinese equivalent never appeared in a search re
   now and only the split position fills in asynchronously.
 - **The notification switch accepted any truthy value.** A non-boolean `fat:notifyOnComplete` (from an old
   build or hand-edited storage) turned notifications on; only a real `true` does now.
+- **English users still saw a screenful of Chinese first.** `<html lang>` and the tab title were resolved
+  from the browser language before mount, but the rendered strings started from the `zh` fallback dictionary
+  and only flipped after a `storage.local` round-trip — and nothing consumes the "locale ready" flag, so that
+  frame really did paint. The same resolved value now seeds the shared locale state before mount, so markup,
+  title and body agree from the very first frame.
+- **In dark mode, Element Plus's own tokens were still light-mode values.** The library puts its dark palette
+  behind an `html.dark` class this project never sets — dark here is `data-mode='dark'` — so every `--el-*`
+  token that `assets/theme/tokens.css` does not map kept its light value on a dark surface. Dropdown panels
+  stayed white while their text had already switched to dark-mode `#bac2de`: 1.77:1, measured. `is-light`
+  alert bands kept a near-white `*-light-9` fill, a 15:1 slab of highlight over the dark card. The overlay
+  background, the six `--el-fill-color*` steps and the `light-3…9` / `dark-2` sets for all five semantic
+  colours are now mapped with the same recipe the light side uses — keep the hue, swap the surface carrying it
+  for the dark card: alert text moves from 2.04–2.80:1 on the light palette to 4.59–6.31:1, and dropdown text
+  reads 9.26:1 against its own panel.
+- **A Markdown or HTML preview that failed to parse spun forever.** The docx and xlsx branches already caught
+  their errors and showed a failure message; markdown and html did not, so a `marked` throw landed in the
+  watcher and the dialog stayed in its loading state. Both branches now share one `try/catch` and end in the
+  same "render failed" line, whose condition also stopped being gated to docx/xlsx. Two accessibility problems
+  in the same dialog: the custom `#header` ignored the `titleId` Element Plus hands out while no `title` prop is
+  passed, leaving `aria-labelledby` pointing at an id that does not exist — a dialog with no accessible name —
+  and the loading spinner now carries `role="status"`.
+- **The two cards' collapsed states overwrote each other.** The history and preset cards read-modify-write the
+  same `fat:collapsedState` map; when their writes interleaved, the one that returned later wrote back the
+  snapshot it had read and dropped the other card's change entirely. Writes are now chained and run serially.
+  The other direction is fixed too: a click landing while the restore read is still in flight used to be
+  reverted by the value that came back — and that reverted state then got persisted. Once the user has
+  interacted, nothing writes back.
+- **Arrow keys reached the split bar behind an open preview dialog.** The comparison view listens on
+  `document`, and the preview dialog sits on top of it: pressing `←` / `→` inside the dialog also dragged the
+  divider it could not see. The guard covered `el-select`, `el-dropdown` and `el-popper`; `.el-overlay` and
+  `.el-dialog` are now on the list as well.
+- **The divider's active mode button had a hardcoded `#fff` label.** It follows `--fat-primary`, and white only
+  reaches 2.54:1 on the light-green fill — 1.69:1 at worst on the dark-mode pastels. It now takes
+  `--fat-on-btn-solid`, the same convention the primary button uses: the theme declares which ink belongs on its
+  own fill.
 
 ## [1.0.0] - 2026-09-07
 
