@@ -1260,6 +1260,46 @@ async function run() {
     }
   }
 
+  // An edit replaces the whole result entry in the store, so it is the one action that can make an
+  // accurate disclosure vanish from a file whose disclosed property never changed. Nothing else in
+  // the suite reaches this: a GIF's landing formats are not editable text, so `lostFrames` has never
+  // been exposed to it — Markdown has.
+  if (section('Result Edit Keeps The Disclosures')) {
+    try {
+      await resetWorkbench(page);
+      const edited = await convertFile(page, 'sample.svg', 'Markdown (.md)');
+      if (!edited.resultName) throw new Error(`svg→md produced no artifact: ${edited.alertTitle}`);
+      // Prove there is something to preserve before touching the editor, otherwise the assertion
+      // below passes on a card that never showed the note in the first place.
+      const before = await page.$$eval('.result-note', els => els.map(el => el.textContent.trim()));
+      if (!before.some(text => text.includes('矢量图'))) {
+        throw new Error(`no disclosure to preserve, notes were ${JSON.stringify(before)}`);
+      }
+      let editBtn = null;
+      for (const btn of await page.$$('.panel-actions .el-button')) {
+        if ((await btn.textContent()).trim() === '编辑') editBtn = btn;
+      }
+      if (!editBtn) throw new Error('no edit toggle rendered for a Markdown result');
+      await editBtn.click();
+      const area = await page.$('.edit-textarea');
+      if (!area) throw new Error('the edit toggle produced no textarea');
+      // A real keystroke rather than a synthetic `input` event: this is the path the user takes, and
+      // the handler under test reads `$event.target.value`.
+      await area.press('Space');
+      // The emit is debounced by 300ms; before that window the store still holds the old entry and a
+      // passing assertion would mean nothing.
+      await page.waitForTimeout(700);
+      const after = await page.$$eval('.result-note', els => els.map(el => el.textContent.trim()));
+      if (after.some(text => text.includes('矢量图'))) {
+        ok('editing a result keeps its vector disclosure');
+      } else {
+        fail('edit wipes disclosures', `notes after the edit: ${JSON.stringify(after)}`);
+      }
+    } catch (e) {
+      fail('Result Edit Keeps The Disclosures', e.message);
+    }
+  }
+
   // ═══════════════════════════════════════════
   //  F-6 — CSV→XLSX must not re-type the data
   // ═══════════════════════════════════════════
