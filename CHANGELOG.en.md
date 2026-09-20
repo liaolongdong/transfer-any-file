@@ -115,6 +115,19 @@ always name the same release.
   `__MSG_extensionName__` in `wxt.config.ts` through a double-quoted literal, which Prettier's object-key
   quoting turned into a permanent false. It now matches regardless of quote style — what it guards is "does the
   manifest reference these two keys", not "how those keys happen to be formatted".
+- **The "no text layer" fact about our PDFs is now sayable inside the product.** When a batch contains a PDF
+  result, the result card carries one extra line: the produced PDF is a page image with no text layer, and if you
+  need the text on it you can try selecting and copying in a PDF viewer — a step that viewer performs, not this
+  extension. The trigger was a user who copied text out of a PDF converted from an image and concluded we bundle
+  OCR: a limitation written only in the README had no counterpart in the product, so the greyed-out "images carry
+  no text to extract" note and the text they had just pasted contradicted each other. This is also the first entry
+  against the long-standing "lossy semantics are never disclosed in the UI" item. The check keys off the result
+  format, not the source format: every PDF this app writes is a page image (the converters call `addImage` and
+  have no path that draws text onto a page), so there is nothing to distinguish an image-sourced PDF from an
+  HTML- or DOCX-sourced one. Two new assertions keep it honest: one that the line appears and says what it should,
+  one that measures its contrast against the `el-alert` tint it sits on, across all 6 themes × light/dark (worst
+  11.34:1) — the informational-text gate further down runs against an empty workbench and cannot reach this string.
+  Suite total: 242 → 244, and the same number in the product page and both promo drafts moved with it.
 
 ### Changed
 

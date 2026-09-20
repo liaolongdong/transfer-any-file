@@ -74,6 +74,12 @@ function isTextResult(result: ConvertResult): boolean {
   return format !== null && TEXT_FORMATS.has(format);
 }
 
+/**
+ * Every PDF this app writes is a page image (`addImage`, never text operators), so the
+ * "no text layer" disclosure keys off the result format rather than off how it was made.
+ */
+const hasPdfResult = computed(() => props.results.some(r => detectFormatFromFilename(r.filename) === FileFormat.PDF));
+
 async function copyResult(result: ConvertResult): Promise<void> {
   if (!isTextResult(result)) {
     ElMessage.warning(t('result.copyUnavailable'));
@@ -159,6 +165,12 @@ function openPreview(result: ConvertResult): void {
         >
           <FailureDiagnosticItem :failure="failure" />
         </template>
+        <p
+          v-if="hasPdfResult"
+          class="result-note"
+        >
+          {{ t('result.pdfNoTextLayer') }}
+        </p>
       </div>
     </el-alert>
 
@@ -222,6 +234,15 @@ function openPreview(result: ConvertResult): void {
 .result-size {
   flex-shrink: 0;
   color: var(--fat-text-secondary);
+}
+
+/* Same reason as `.result-item`: the alert paints its own 10 % semantic tint behind this,
+   so the secondary ink would sit on a backdrop the contrast gate has never measured. */
+.result-note {
+  margin: var(--fat-space-xs) 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--fat-text-primary);
 }
 
 .download-actions {

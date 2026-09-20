@@ -156,6 +156,8 @@ const en: typeof zh = {
     preview: 'Preview',
     copy: 'Copy',
     copyUnavailable: 'Result is not a text format and cannot be copied',
+    pdfNoTextLayer:
+      'The produced PDF is a page image with no text layer. If you need the text on it, try selecting and copying it in a PDF viewer — some recognise the text themselves, and that step is not done by this extension.',
     // F19 — failure diagnostic panel
     failureSummary: 'Failed to convert {file}',
     expandDetails: 'Show diagnostic details',

@@ -729,10 +729,66 @@ async function run() {
         fail('PDF slice format', `${filters.length} slices, filters seen: ${[...new Set(filters)].join(', ')}`);
       }
 
+      // Read before the screenshot, so the shot records the disclosure in the default theme. This is
+      // the batch shape that reaches it: a PDF among the results, whatever the source format was.
+      const noteText = await page.$eval('.result-note', el => el.textContent.trim()).catch(() => '');
+      if (!noteText.includes('不含文字层')) {
+        fail(
+          'PDF result disclosure',
+          noteText ? `unexpected text: "${noteText}"` : 'no .result-note shown for a PDF result',
+        );
+      } else {
+        ok('PDF result disclosure says the output carries no text layer');
+      }
+
       await page.screenshot({
         path: shot(`${String(shotIdx++).padStart(2, '0')}-pdf-slice-format.png`),
         fullPage: true,
       });
+
+      // The same WCAG 1.4.3 gate as the sweep further down, run here because this string only ever
+      // paints on top of an `el-alert` tint, and the workbench is empty by the time that sweep runs.
+      const noteTheme = await page.evaluate(() => document.documentElement.dataset.theme ?? '');
+      const noteMode = await page.evaluate(() => document.documentElement.dataset.mode ?? '');
+      let noteWorst = Number.POSITIVE_INFINITY;
+      let noteFailed = false;
+      for (const mode of ['light', 'dark']) {
+        for (const theme of themeValues) {
+          await page.evaluate(
+            ([m, t]) => {
+              document.documentElement.dataset.mode = m;
+              document.documentElement.dataset.theme = t;
+            },
+            [mode, theme],
+          );
+          await page.waitForTimeout(400);
+          const { found, missing } = await infoTextSamples(page, ['.result-note']);
+          if (missing.length) {
+            noteFailed = true;
+            fail(`[${theme} ${mode}] PDF result note`, 'not rendered');
+            continue;
+          }
+          const ratio = contrast(found[0].color, found[0].bg);
+          if (!(ratio >= 4.5)) {
+            noteFailed = true;
+            fail(`[${theme} ${mode}] PDF result note`, `${ratio.toFixed(2)}:1 — ${found[0].color} on ${found[0].bg}`);
+          } else if (ratio < noteWorst) {
+            noteWorst = ratio;
+          }
+        }
+      }
+      if (!noteFailed) {
+        ok(`PDF result note ≥ 4.5:1 in 6 themes × 2 modes (worst ${noteWorst.toFixed(2)}:1)`);
+      }
+      await page.evaluate(
+        ([m, t]) => {
+          if (m) document.documentElement.dataset.mode = m;
+          else delete document.documentElement.dataset.mode;
+          if (t) document.documentElement.dataset.theme = t;
+          else delete document.documentElement.dataset.theme;
+        },
+        [noteMode, noteTheme],
+      );
     } catch (e) {
       fail('HTML→PDF page slices are PNG', e.message);
     }

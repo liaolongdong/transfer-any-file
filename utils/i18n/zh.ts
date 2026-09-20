@@ -163,6 +163,8 @@ export default {
     preview: '预览',
     copy: '复制',
     copyUnavailable: '当前结果为非文本格式，无法复制',
+    pdfNoTextLayer:
+      '转出的 PDF 是逐页位图，不含文字层；需要图中的文字时，可在 PDF 查看器里试试选中复制——部分查看器会自行识别，这一步不由本扩展完成。',
     // F19 — failure diagnostic panel
     failureSummary: '{file} 转换失败',
     expandDetails: '查看诊断详情',
