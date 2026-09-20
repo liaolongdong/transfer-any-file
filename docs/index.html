@@ -169,7 +169,7 @@
             "alternateName": "Transfer Any File — Offline File Format Converter",
             "softwareVersion": "1.0.0",
             "datePublished": "2026-09-07",
-            "dateModified": "2026-09-20",
+            "dateModified": "2026-09-21",
             "applicationCategory": "UtilitiesApplication",
             "applicationSubCategory": "File Format Converter",
             "keywords": "offline file format converter, file converter chrome extension, markdown to pdf, word to pdf, csv to excel, json to csv, png to webp, svg to png, html to docx, batch file conversion, convert files without uploading, local-first, privacy",
@@ -291,7 +291,7 @@
                 "name": "Which file formats can it convert?",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "Fourteen formats across three families: documents (Markdown, HTML, Word .docx, PDF, TXT), data (CSV, Excel .xlsx, JSON) and images (PNG, JPEG, WebP, BMP, GIF, SVG). Eleven of them can be written; the registry holds 48 direct routes and BFS over that graph makes 143 combinations reachable. The picker offers 116 of them — the other 27 (image→text/data and PDF→data) are greyed out with a reason. The format table above lists the reachable and selectable counts for every source format row by row."
+                  "text": "Fourteen formats across three families: documents (Markdown, HTML, Word .docx, PDF, TXT), data (CSV, Excel .xlsx, JSON) and images (PNG, JPEG, WebP, BMP, GIF, SVG). Eleven of them can be written; the registry holds 48 direct routes and BFS over that graph makes 143 combinations reachable. The picker offers 116 of them — the other 27 (image→text/data and PDF→data) are greyed out with a reason. The format table above lists the reachable and selectable counts for every source format row by row. An inline SVG converted into Word or Markdown is rasterized into an embedded PNG: the drawing survives, but it is a bitmap, not a vector."
                 }
               },
               {
@@ -299,7 +299,7 @@
                 "name": "它能转换哪些文件格式？",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "三大类共 14 种：文档（Markdown、HTML、Word .docx、PDF、TXT）、数据（CSV、Excel .xlsx、JSON）与图片（PNG、JPEG、WebP、BMP、GIF、SVG）。其中 11 种可写出；注册表里有 48 条直接路径，经广度优先搜索可到达 143 个组合，格式下拉实际提供 116 个——另外 27 个（图片→文本/数据、PDF→数据）会置灰并说明原因。上面的格式表逐行列出了每种源格式的可达与可选目标数。"
+                  "text": "三大类共 14 种：文档（Markdown、HTML、Word .docx、PDF、TXT）、数据（CSV、Excel .xlsx、JSON）与图片（PNG、JPEG、WebP、BMP、GIF、SVG）。其中 11 种可写出；注册表里有 48 条直接路径，经广度优先搜索可到达 143 个组合，格式下拉实际提供 116 个——另外 27 个（图片→文本/数据、PDF→数据）会置灰并说明原因。上面的格式表逐行列出了每种源格式的可达与可选目标数。内联 SVG 进入 Word 或 Markdown 时会栅格成 PNG 嵌进结果文件——图形不丢，但它是位图不是矢量。"
                 }
               },
               {
@@ -3733,7 +3733,8 @@
               种可写目标在图上都<strong>可达</strong>，合计 <strong>143 个可达组合</strong>；其中 27 个（24
               个图片→文本/数据、3 个 PDF→数据）必然失败或只产出占位内容，被格式下拉置灰并写明原因，因此真正
               <strong>可选的是 116 个</strong
-              >。下表的「直接」列是已注册转换器数，「可达」列是含自动多步后能到达的目标数，「可选」列是置灰之后仍然能选的数量。</span
+              >。下表的「直接」列是已注册转换器数，「可达」列是含自动多步后能到达的目标数，「可选」列是置灰之后仍然能选的数量。内联
+              SVG 进入 Word 或 Markdown 时会栅格成 PNG 嵌进结果文件——图形不丢，但它是位图不是矢量。</span
             >
             <span lang="en"
               ><strong>Short answer:</strong> it reads 14 formats and writes 11 — SVG, BMP and GIF are input-only
@@ -3743,7 +3744,9 @@
               27 of them (24 image→text/data and 3 PDF→data) would always fail or produce a placeholder, so the picker
               greys them out with a reason and <strong>116 remain selectable</strong>. In the table below, "Direct"
               counts registered converters, "Reachable" counts the targets a source can reach including automatic
-              multi-step chains, and "Selectable" counts what stays enabled after that policy.</span
+              multi-step chains, and "Selectable" counts what stays enabled after that policy. An inline SVG converted
+              into Word or Markdown is rasterized into an embedded PNG: the drawing survives, but it is a bitmap, not a
+              vector.</span
             >
           </div>
           <div
@@ -6628,7 +6631,7 @@ pnpm build</code><button
               <p>
                 <span lang="zh-CN"
                   >一套 Playwright 端到端套件加载真正的构建产物，用仓库内的夹具跑完各类转换场景、批量与
-                  ZIP、取消与改键、预览与编辑、图片输出参数与转换预设、历史与偏好，共 246 项断言全部通过（1.0.0
+                  ZIP、取消与改键、预览与编辑、图片输出参数与转换预设、历史与偏好，共 254 项断言全部通过（1.0.0
                   之后的未发布构建，2026-09-21 实测）；另在 6 主题 × 浅/深共 12
                   种组合下逐项校验四组对比度：顶栏文字、主按钮文字（常态 / 悬停 / 按下）、焦点环与正文信息文字。CI
                   每次推送跑 lint + build + e2e。</span
@@ -6636,7 +6639,7 @@ pnpm build</code><button
                 <span lang="en"
                   >A Playwright end-to-end suite drives the actual build output over the repository fixtures — every
                   conversion scenario, batching and ZIP handling, cancellation and shortcut rebinding, preview and
-                  editing, image output parameters and conversion presets, history and preferences — with 246/246
+                  editing, image output parameters and conversion presets, history and preferences — with 254/254
                   assertions passing (the unreleased build after 1.0.0, measured 2026-09-21). It also checks four
                   contrast pairs — topbar text, the primary button's label in its rest, hover and pressed states, the
                   focus ring, and informational text such as the drop hint and file sizes — in all 12 theme × light/dark
@@ -6662,14 +6665,14 @@ pnpm build</code><button
           </div>
           <p class="updated">
             <span lang="zh-CN"
-              ><strong>版本 1.0.0 · 本页最后更新 2026-09-20。</strong>文中全部数字从代码取证：14 种格式来自
+              ><strong>版本 1.0.0 · 本页最后更新 2026-09-21。</strong>文中全部数字从代码取证：14 种格式来自
               <code>FileFormat</code> 枚举，48 条路径与 143 个可达组合来自转换器注册表的邻接图，116 个可选组合是 143
               减去 <code>utils/core/conversion-policy.ts</code> 置灰的 27 个，3.76 MB 来自
               <code>pnpm build</code> 输出，权限与上限来自 manifest 与源码常量。截图与推广图由
               <code>pnpm assets:capture</code> 从构建产物生成。</span
             >
             <span lang="en"
-              ><strong>Version 1.0.0 · page last updated 2026-09-20.</strong> Every number on this page is taken from
+              ><strong>Version 1.0.0 · page last updated 2026-09-21.</strong> Every number on this page is taken from
               the code: 14 formats from the <code>FileFormat</code> enum, 48 routes and 143 reachable combinations from
               the converter registry's adjacency graph, and 116 selectable combinations — that is 143 minus the 27 pairs
               <code>utils/core/conversion-policy.ts</code> greys out. 3.76 MB comes from <code>pnpm build</code> output,
@@ -6980,7 +6983,7 @@ pnpm build</code><button
               </a>
             </span>
             <span>
-              <span lang="zh-CN">最后更新 2026-09-20 · </span><span lang="en">Last updated 2026-09-20 · </span
+              <span lang="zh-CN">最后更新 2026-09-21 · </span><span lang="en">Last updated 2026-09-21 · </span
               ><a
                 href="https://github.com/liaolongdong/transfer-any-file/blob/main/CHANGELOG.md"
                 rel="noopener"

@@ -360,6 +360,26 @@ manifest 的版本号，因此 `vX.Y.Z` 标签、构建产物与商店包始终�
   ≥ 4.5:1，本次最差 4.95:1（浅色玫瑰红下的 `.drop-text`）。读数前先放行 400ms 等 token 过渡落定——主题切换带
   0.18s 过渡，在过渡中间采样拿到的是插值色，那是一组看起来完全合理的假值（第一版就是这么读到 `rgb(187,187,193)`
   这种根本不存在的底色的）。
+- **Markdown / SVG → Word 交回一个空白文档。** DOMPurify 的 `html` 档不含任何 svg 标签，而这条链的两端都在用
+  它：`md-to-html` 净化 `marked` 的输出时，把 Markdown 里内联的 `<svg>` 整幅删掉；`html-to-docx` 在把 HTML
+  打包成 MHT altChunk 之前又删一次。于是 `SVG → Word` 和 `Markdown → Word` 报告「转换完成」，用户拿到的是
+  一个合法、能打开、里面没有图的空白页。`SVG → Markdown` 是同一个结果的另一半：turndown 没有 `<svg>` 规则，
+  一张图示转出来只剩 `<text>` 节点里那几个字。修分三段——把 `svg-rasterize.ts` 的尺寸推导（viewBox 回落、
+  相对单位拒读、`MAX_DIM` 缩放）抽进 `utils/core/svg-raster-common.ts`；`md-to-html` 的 profile 补 `svg` 与
+  `svgFilters`；新增 `utils/core/svg-embed.ts`，在 DOCX 与 Markdown 两个边界把每个内联 `<svg>` 先栅格成
+  PNG `<img>`，再走原来的净化。放开 profile 不是扩大安全面：`svg-to-html.ts` 早就用同一对档位处理用户上传的
+  不可信 SVG，svg 档自带 `svgDisallowed`（`script`、`set`、`animate`、`foreignObject`、`use` 一律排除），
+  `on*` 由 DOMPurify 默认剥离——两个边界此前只是不一致。顺序也不能反：先 sanitize 就没有 SVG 剩下可栅格化了。
+  代价写在脸上：docx 与 md 里的这张图是位图，不是矢量。选它是取舍不是妥协——Word 对 altChunk 里
+  `data:image/svg+xml` 的支持在本机无法验证（没有装 Word），而 PNG 必定渲染。没有内联 SVG 的文档走原路，
+  `replaceInlineSvgWithPng` 找不到 `<svg>` 时把输入字符串原样返回。断言按 PNG 的 IHDR 尺寸取证（40×30 与
+  240×140），不用通用 PNG 头：同一批夹具里另有一张 1×1 的控制图，宽松的信标会在图仍被吃掉时照样报绿。
+  `Markdown → PNG` 另数结果图里的红色像素——那条链经 iframe + foreignObject 出图，「生成了一个文件」既不证明
+  SVG 过了净化，也不证明它画得出来。
+- **导入历史之前不读大小，直接把整个文件读进来。** 「导入历史」对选中的文件先 `file.text()` 再 `JSON.parse`，
+  这两步都跑在工作台那个标签页的主线程上：一个手工构造的大 JSON 会让界面先失去响应，才去问用户要不要合并。
+  现在只看 `file.size`，超过 16 MB 当场拒绝并把上限说给用户。这个天花板远高于扩展自己能写出的最大导出
+  （50 条记录 × 每条至多 200 个文件名），所以它挡不住任何真实的历史文件，只挡住「多大都敢读」这条路。
 
 ## [1.0.0] - 2026-09-07
 

@@ -511,6 +511,33 @@ zero network requests`) and the Chinese equivalent never appeared in a search re
   (`.drop-text` under light rose). Each sample now waits 400 ms for the token transition to settle — reading
   mid-transition returns an interpolated colour, which is a plausible-looking wrong number (the first version of
   this guard sampled a backdrop of `rgb(187,187,193)`, a colour that exists nowhere in the palette).
+- **Markdown / SVG → Word handed back an empty page.** DOMPurify's `html` profile contains no svg tag at all, and
+  both ends of that chain were using it: `md-to-html` deleted an inline `<svg>` while sanitizing the output of
+  `marked`, and `html-to-docx` deleted it a second time before packing the markup into an MHT altChunk. So
+  `SVG → Word` and `Markdown → Word` reported success and delivered a valid, openable, picture-free page.
+  `SVG → Markdown` was the other half of the same result — turndown has no rule for `<svg>`, so a diagram came out
+  as the few characters sitting in its `<text>` nodes. The fix is three parts: the size derivation from
+  `svg-rasterize.ts` (viewBox fallback, relative units refused, `MAX_DIM` scaling) moves into
+  `utils/core/svg-raster-common.ts`; `md-to-html` adds `svg` and `svgFilters` to its profile; and a new
+  `utils/core/svg-embed.ts` rasterizes every inline `<svg>` into a PNG `<img>` at the DOCX and Markdown boundaries
+  _before_ the existing sanitize. Widening that profile is not a wider attack surface: `svg-to-html.ts` has long
+  run the same pair over untrusted uploaded SVG files, the svg profile carries its own `svgDisallowed` list
+  (`script`, `set`, `animate`, `foreignObject`, `use` are all excluded) and DOMPurify strips `on*` by default — the
+  two boundaries were simply inconsistent. The order cannot flip either: sanitize first and there is no SVG left
+  to rasterize. The cost is stated plainly: that picture is a bitmap inside the .docx and the .md, not a vector.
+  That was the trade, not a compromise — Word's support for `data:image/svg+xml` inside an altChunk cannot be
+  verified on this machine (there is no Word here), while a PNG always paints. Documents without inline SVG keep
+  the old path: `replaceInlineSvgWithPng` returns its input untouched when it finds no `<svg>`. The assertions
+  probe the PNG's IHDR dimensions (40×30 and 240×140) rather than a generic PNG header, because another fixture in
+  the same suite embeds a 1×1 control image and a loose beacon would stay green while the diagram was still being
+  eaten. `Markdown → PNG` counts the fixture's own red pixels instead: that chain renders through an iframe and a
+  foreignObject, so "a file was produced" proves neither that the SVG survived the sanitizer nor that it painted.
+- **Importing history read the whole file before asking how big it was.** The import handler ran `file.text()` and
+  then `JSON.parse` on the workbench tab's main thread, so a handcrafted oversized JSON made the interface
+  unresponsive _before_ it asked the user whether to merge. The size is now checked on its own, and anything above
+  16 MB is refused with the limit named in the message. That ceiling sits far above the largest export the
+  extension can itself produce (50 records × at most 200 file names each), so no real history file is ever
+  rejected — what goes away is "we will read however many you hand me".
 
 ## [1.0.0] - 2026-09-07
 
