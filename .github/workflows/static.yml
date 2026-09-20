@@ -41,7 +41,8 @@ jobs:
         uses: actions/checkout@v4
 
       # 未发布的推广稿放在 docs/promo/（按 AGENTS.md，它们只留在仓库里，永不发布）；
-      # docs/ 下其余的都是站点本身。
+      # docs/ 下其余的都是站点本身。内部运营文档（商店手册、上架 runbook）不属于站点，
+      # 一律放 `.github/`——放在 docs/ 下就会被这个工作流原样发到公网。
       - name: Stage site
         run: rsync -a --exclude 'promo/' docs/ _site/
 
@@ -52,6 +53,13 @@ jobs:
             test -f "_site/$f" || { echo "::error::_site/$f 缺失"; exit 1; }
           done
           test ! -e _site/promo || { echo "::error::docs/promo 草稿不许被发布"; exit 1; }
+          # 站点是 HTML + 纯文本 + 素材；出现 `.md` 就说明有人把仓库文档放进了 docs/。
+          # 单靠 `promo` 一条黑名单挡不住新的一类，所以改成按扩展名兜底。
+          if md="$(find _site -name '*.md' -print)"; [ -n "$md" ]; then
+            echo "::error::docs/ 里的 Markdown 不属于站点，请移到 .github/："
+            printf '%s\n' "$md"
+            exit 1
+          fi
 
       - name: Setup Pages
         uses: actions/configure-pages@v5

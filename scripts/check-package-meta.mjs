@@ -151,7 +151,17 @@ check(
   `short description is ${String([...enDescription].length)} chars, over the ${String(STORE_DESCRIPTION_LIMIT)}-char store limit`,
 );
 
-if (repoMetadata) {
+/**
+ * Assert the About metadata is present, then check the fields that can be compared.
+ *
+ * A missing `.github/repo-metadata.json` used to skip this whole block and still exit 0 —
+ * the same failure mode F-4 removed from `verify:offline`: a guard that never runs reads as green.
+ * The file is tracked in git and is the single source `repo-meta.yml` applies to GitHub, so its
+ * absence is always a mistake (deleted, renamed, or moved out of `.github/`), never a state to tolerate.
+ */
+if (!repoMetadata) {
+  failures.push('.github/repo-metadata.json is missing — it is the source of truth for the repository About block');
+} else {
   check(
     repoMetadata.homepage === pkg.homepage,
     'package.json#homepage must equal .github/repo-metadata.json#homepage (one is applied to GitHub, the other to npm tooling)',

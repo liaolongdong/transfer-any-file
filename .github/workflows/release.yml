@@ -157,7 +157,7 @@ jobs:
             echo "- 发布说明：\`CHANGELOG.md\` 里的 \`## [$VERSION]\` 区块"
           } >> "$GITHUB_STEP_SUMMARY"
 
-      # 在开发者后台出现第一个条目之前始终是休眠状态；`publish-extension` 既建不了条目，
+      # 在开发者后台出现第一个条目之前始终是休眠状态；商店 API 既建不了条目，
       # 也填不了商品文案、截图和隐私申报。
       - name: Detect Chrome Web Store credentials
         id: store
@@ -190,8 +190,8 @@ jobs:
       #   CWS_CLIENT_SECRET       — Google Cloud OAuth 2.0 Client Secret（与 account-password-helper 共用）
       #   CWS_REFRESH_TOKEN       — OAuth 2.0 Refresh Token（与 account-password-helper 共用）
       # ──────────────────────────────────────────────────────────────
-      # wxt-publish-extension 的 --chrome-zip 不支持 glob 通配符，
-      # 会将 ".output/*-chrome.zip" 当作字面文件名打开而报 ENOENT。
+      # 上传接口的 --data-binary/-T 需要一个具体文件路径，不接受 glob：
+      # 传 ".output/*-chrome.zip" 会被当作字面文件名而报 ENOENT。
       # 因此先解析出实际的 zip 路径（取最新构建产物），再传入发布步骤。
       - name: Resolve extension zip path
         if: steps.store.outputs.ready == 'true'
@@ -202,7 +202,7 @@ jobs:
           echo "Resolved Chrome zip: $ZIP_PATH"
 
       # 校验 CWS OAuth 凭据：用 refresh_token 换取 access_token。
-      # wxt-publish-extension 上传前会先做此交换，返回 400 通常意味着：
+      # 上传前要先做此交换，返回 400 通常意味着：
       #   - invalid_grant：refresh token 过期/被撤销（OAuth 应用处于 Testing 模式时约 7 天过期，最常见）
       #   - invalid_client：client id/secret 与该 refresh token 不是同一套
       # 本步骤把不透明的 400 转成明确错误信息；仅打印错误体，绝不打印 access_token。
@@ -245,6 +245,10 @@ jobs:
             exit 1
           fi
 
+      # 直接打 Chrome Web Store 上传 / 发布 API，不引入第三方 npm 包或 action：
+      # 本项目的全部主张就是「没有外部东西碰你的构建」，所以发布路径只用 runner 自带的 curl，
+      # 与上面用 `gh release create` 而不是第三方 action 是同一条理由。
+      # 端点见 https://developer.chrome.com/docs/webstore/publish —— 上传 PUT，发布 POST。
       - name: Submit to the Chrome Web Store
         if: steps.store.outputs.ready == 'true' && github.event.inputs.dry_run != 'true'
         env:
@@ -254,8 +258,64 @@ jobs:
           CHROME_CLIENT_SECRET: ${{ secrets.CWS_CLIENT_SECRET }}
           CHROME_REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
         run: |
-          # 命令行上只传非密参数：publish-extension 会从同名的大写下划线环境变量读取每个 flag，
-          # 这样 refresh token 不会出现在进程参数列表里。
-          pnpm exec wxt-publish-extension \
-            --chrome-zip "$ZIP" \
-            --chrome-publish-target default
+          set -euo pipefail
+          api='https://www.googleapis.com/chromewebstore/v1.1'
+          upload_api='https://www.googleapis.com/upload/chromewebstore/v1.1'
+
+          # access_token 只进临时 curl 配置文件（600 权限），不出现在进程参数列表里，
+          # 也不写进 $GITHUB_ENV——否则后续每一步都能看到它。
+          cfg="$(mktemp)"
+          trap 'rm -f "$cfg" token.json resp.json' EXIT
+          chmod 600 "$cfg"
+
+          curl -sS --max-time 60 -o token.json -w '%{http_code}' \
+            --data-urlencode "client_id=$CHROME_CLIENT_ID" \
+            --data-urlencode "client_secret=$CHROME_CLIENT_SECRET" \
+            --data-urlencode "refresh_token=$CHROME_REFRESH_TOKEN" \
+            --data-urlencode "grant_type=refresh_token" \
+            https://oauth2.googleapis.com/token > token_code
+          if [ "$(cat token_code)" != '200' ]; then
+            echo "::error::上一步凭据校验刚通过，这次交换却失败（HTTP $(cat token_code)）——多为两次调用之间凭据被轮换"
+            cat token.json
+            exit 1
+          fi
+          access_token="$(node -pe "JSON.parse(require('fs').readFileSync('token.json','utf8')).access_token")"
+          {
+            printf 'header = "Authorization: Bearer %s"\n' "$access_token"
+            printf 'header = "x-goog-api-version: 2"\n'
+          } >> "$cfg"
+          unset access_token
+
+          # 1) 上传新包。这里只按 HTTP 码判成败，把 Google 的响应体原样打出来：
+          #    status / statusCode / updateStatus 三者的组合语义没有稳定文档，
+          #    自己去解析它们只会造出假失败；404/400 的原因本来就在响应体里。
+          code="$(curl -sS --config "$cfg" --max-time 300 -o resp.json -w '%{http_code}' \
+            -T "$ZIP" "$upload_api/items/$CHROME_EXTENSION_ID")"
+          echo "上传响应 HTTP $code："
+          cat resp.json
+          if [ "$code" != '200' ]; then
+            echo "::error::上传失败。404 多为条目尚未在开发者后台手工创建（API 建不了条目）；版本号不高于线上包也会被拒"
+            exit 1
+          fi
+          status="$(node -pe "const r=JSON.parse(require('fs').readFileSync('resp.json','utf8'));(r.status||[]).join(',')")"
+          echo "上传后条目状态：$status"
+
+          # 2) 提交审核。publishTarget=default 走全体用户审核；trustedTesters 只在白名单内可见。
+          code="$(curl -sS --config "$cfg" --max-time 120 -o resp.json -w '%{http_code}' \
+            -X POST -H 'Content-Length: 0' \
+            "$api/items/$CHROME_EXTENSION_ID?publishTarget=default")"
+          echo "发布响应 HTTP $code："
+          cat resp.json
+          if [ "$code" != '200' ]; then
+            echo "::error::提交审核失败。商品文案/截图/隐私申报未填齐时 API 会在这里报 400，而这些字段只能手工填"
+            exit 1
+          fi
+          {
+            echo '### 已提交 Chrome 应用商店审核'
+            echo
+            echo "- 包：\`$ZIP\`"
+            echo "- 上传后状态：\`$status\`"
+            echo "- 发布响应：见本步骤日志（HTTP $code）"
+            echo
+            echo '审核时长不由本工作流控制；进度在开发者后台的 Package 页查看。'
+          } >> "$GITHUB_STEP_SUMMARY"
