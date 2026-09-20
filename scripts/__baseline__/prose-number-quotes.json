@@ -1,0 +1,129 @@
+{
+  "formats": {
+    "CHROMEWEBSTORE.md": 3,
+    "docs/index.html": 29,
+    "docs/llms.txt": 1,
+    "docs/promo/blog-article.en.md": 4,
+    "docs/promo/wechat-article.md": 4,
+    "docs/promo/weibo-posts.md": 4,
+    "README.en.md": 3,
+    "README.md": 2
+  },
+  "imageReadable": {
+    "CHROMEWEBSTORE.md": 1
+  },
+  "imageWritable": {
+    "CHROMEWEBSTORE.md": 1
+  },
+  "writable": {
+    "AGENTS.md": 1,
+    "docs/index.html": 7,
+    "docs/llms.txt": 1
+  },
+  "pairwise": {
+    "docs/promo/blog-article.en.md": 2
+  },
+  "routes": {
+    "AGENTS.md": 1,
+    "CHROMEWEBSTORE.md": 3,
+    "CONTRIBUTING.md": 1,
+    "docs/index.html": 13,
+    "docs/llms.txt": 2,
+    "docs/promo/blog-article.en.md": 1,
+    "docs/promo/wechat-article.md": 1,
+    "docs/promo/weibo-posts.md": 2,
+    "README.md": 3
+  },
+  "reachable": {
+    "docs/index.html": 22,
+    "docs/llms.txt": 3,
+    "README.en.md": 2,
+    "README.md": 1
+  },
+  "selectable": {
+    "docs/index.html": 18,
+    "docs/llms.txt": 1,
+    "docs/promo/wechat-article.md": 1,
+    "README.en.md": 1,
+    "README.md": 2
+  },
+  "blocked": {
+    "AGENTS.md": 1,
+    "docs/index.html": 9,
+    "README.en.md": 1,
+    "README.md": 2
+  },
+  "imageBlocked": {
+    "AGENTS.md": 1,
+    "docs/index.html": 2,
+    "docs/llms.txt": 1,
+    "README.md": 1
+  },
+  "pdfBlocked": {
+    "AGENTS.md": 1,
+    "docs/index.html": 2,
+    "docs/llms.txt": 1,
+    "README.md": 1
+  },
+  "batchFiles": {
+    "CHROMEWEBSTORE.md": 4,
+    "CONTRIBUTING.en.md": 1,
+    "CONTRIBUTING.md": 1,
+    "docs/index.html": 11,
+    "docs/llms.txt": 2,
+    "README.en.md": 3,
+    "README.md": 4
+  },
+  "rejectSize": {
+    "CHROMEWEBSTORE.md": 4,
+    "docs/index.html": 5,
+    "docs/llms.txt": 2,
+    "README.en.md": 5,
+    "README.md": 1
+  },
+  "warnSize": {
+    "AGENTS.md": 1,
+    "CONTRIBUTING.md": 1,
+    "docs/index.html": 2,
+    "README.en.md": 1,
+    "README.md": 4
+  },
+  "confirmFiles": {
+    "CHROMEWEBSTORE.md": 3,
+    "docs/index.html": 4,
+    "README.en.md": 3,
+    "README.md": 2
+  },
+  "presets": {
+    "docs/index.html": 4,
+    "README.en.md": 1,
+    "README.md": 1
+  },
+  "historyRecords": {
+    "AGENTS.md": 1,
+    "README.md": 1
+  },
+  "recentTargets": {
+    "AGENTS.md": 1,
+    "README.en.md": 1
+  },
+  "themes": {
+    "AGENTS.md": 2,
+    "CHROMEWEBSTORE.md": 5,
+    "CONTRIBUTING.en.md": 1,
+    "CONTRIBUTING.md": 1,
+    "docs/index.html": 7,
+    "docs/promo/wechat-article.md": 1,
+    "README.en.md": 3,
+    "README.md": 4
+  },
+  "themeCombos": {
+    "CHROMEWEBSTORE.md": 2,
+    "CONTRIBUTING.en.md": 3,
+    "CONTRIBUTING.md": 1,
+    "docs/index.html": 4,
+    "docs/promo/wechat-article.md": 1,
+    "README.en.md": 4,
+    "README.md": 2
+  }
+}

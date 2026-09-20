@@ -70,10 +70,12 @@ jobs:
 
       # 先跑便宜的守卫：它们正是商店文案与隐私政策里反复出现的那几条断言。
       # 离线检查此处只到源码层——产物层要用 .output/chrome-mv3，放在 Build 之后。
+      # verify:numbers 也在这一层：发版时对外文档里那些数字必须和这次构建的代码对得上。
       - name: Verify metadata and offline guarantee (source)
         run: |
           pnpm verify:meta
           pnpm verify:offline:source
+          pnpm verify:numbers
           pnpm verify:listing
 
       - name: Build

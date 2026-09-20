@@ -36,6 +36,10 @@ jobs:
       # 纯静态解析源码，不需要产物，所以和上面的源码层守卫放在同一个 job。
       - name: Verify conversion paths
         run: pnpm verify:paths
+      # 对外散文里的数字必须等于代码里的那一个：格式数、路径数、闭包与屏蔽数、各类阈值，
+      # 全部从源码与路径基线现推。跑的是同一条静态路线，因此也放在 build 之前。
+      - name: Verify prose numbers
+        run: pnpm verify:numbers
       # 商店后台的每个粘贴字段都在字数上限内，且与 manifest 一致
       - run: pnpm verify:listing
 

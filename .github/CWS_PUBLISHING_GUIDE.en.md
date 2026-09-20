@@ -202,7 +202,7 @@ Current configuration uses the runner's own `curl` against the Chrome Web Store 
 
 2. **Auto-trigger**: `.github/workflows/release.yml` automatically executes:
    - Verify tag matches package.json version
-   - Run the source-layer checks (`verify:meta`, `verify:offline:source`, `verify:listing`)
+   - Run the source-layer checks (`verify:meta`, `verify:offline:source`, `verify:numbers`, `verify:listing`)
    - Build the extension, run `verify:offline` again against the artifact (asserting the manifest the browser loads holds only `storage`), then package it
    - Validate package contents (manifest.json at root, no repo files)
    - Create GitHub Release
@@ -246,7 +246,7 @@ After approval, obtain the 32-character extension ID from Chrome Web Store Dashb
 
 - ✅ **Increment version for each update**: Versions equal to or lower than already published will be directly rejected
 - ✅ **Maintain文案consistency**: All store fields must match `_locales` files verbatim
-- ✅ **Re-run validations**: `pnpm verify:meta`, `pnpm verify:offline`, `pnpm verify:listing` (the offline one includes the artifact layer, so build locally first with `pnpm build`; on a tag push `release.yml` runs both layers, before and after the build)
+- ✅ **Re-run validations**: `pnpm verify:meta`, `pnpm verify:offline`, `pnpm verify:numbers`, `pnpm verify:listing` (the offline one includes the artifact layer, so build locally first with `pnpm build`; `verify:numbers` reconciles the figures in the outward prose against the code; on a tag push `release.yml` runs both layers, before and after the build)
 
 ---
 

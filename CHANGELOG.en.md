@@ -115,6 +115,26 @@ always name the same release.
   `__MSG_extensionName__` in `wxt.config.ts` through a double-quoted literal, which Prettier's object-key
   quoting turned into a permanent false. It now matches regardless of quote style — what it guards is "does the
   manifest reference these two keys", not "how those keys happen to be formatted".
+- **`pnpm verify:numbers` — someone finally reconciles the numbers in the outward prose.** Format count, route
+  count, reachable and selectable combinations, how the 27 blocked pairs split up, the batch and size thresholds,
+  the theme count and the 12 combinations behind "6 themes × light/dark": all 20 values are derived during the run
+  itself. The enum comes from `utils/core/types.ts`, the edge count and the closure from
+  `scripts/__baseline__/conversion-paths.json`, the blocked count is recomputed from the two sets in
+  `conversion-policy.ts` (the two branches failing to sum to the total is an error, not a number to fudge), and the
+  thresholds are read back from the constants in `FileUpload.vue` / `useConversion.ts` / `presets.ts` /
+  `useHistory.ts` / `useRecentTargets.ts`. Those values then get compared against sentences in 13 documents —
+  sentences are exactly the class that drifted twice before, once when a description's character count moved under
+  an unrelated edit and once when a name/limit pair shipped as 33/75 against a real 20/75.
+  Two kinds of sentence are handled apart. Where the sentence names its fact (「可到达 143 个组合」 versus
+  「实际提供 116 个」) the number is compared against that one fact. Where one shape carries several facts —
+  「N 个组合」 — the number only has to be the current value of one of them, so a stale or invented count still
+  fails without the guard pretending to read which one the sentence means.
+  `scripts/__baseline__/prose-number-quotes.json` records how many quotes each document carries today; when a
+  sentence is reworded out of every pattern, the cell that disappears from that diff is the reviewable signal
+  (`--update` re-takes it). The 1.0.0 section of this changelog and the version history and rejection log in
+  `CHROMEWEBSTORE.md` are excluded per file: those are records of what was true, and what was said, then. Numbers
+  in the Unreleased section are still compared, they just do not enter the baseline. The guard runs in the CI lint
+  job, on the same side as `verify:paths`: purely static, before the build.
 - **The "no text layer" fact about our PDFs is now sayable inside the product.** When a batch contains a PDF
   result, the result card carries one extra line: the produced PDF is a page image with no text layer, and if you
   need the text on it you can try selecting and copying in a PDF viewer — a step that viewer performs, not this

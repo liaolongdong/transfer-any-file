@@ -43,6 +43,8 @@ pnpm verify:meta      # package.json / wxt.config.ts / public/_locales/en / .git
 pnpm verify:offline   # source-level checks plus the built-manifest assertion (needs pnpm build first; fails outright when .output/chrome-mv3 is missing)
 pnpm verify:offline:source # source level only: no network call in first-party source, wxt.config.ts declares `storage` only (no build needed)
 pnpm verify:listing   # every CHROMEWEBSTORE.md paste block is within its limit, agrees with the manifest, and the quick-reference scaffold has not drifted
+pnpm verify:paths     # the 48-route snapshot still matches the converter registration order (a deliberate route change needs an explicit --update)
+pnpm verify:numbers   # every number in the outward prose equals the one in the code (formats / routes / combinations / thresholds, all derived from source)
 pnpm test:e2e         # build + Playwright suite over fixtures/
 pnpm assets:capture   # regenerate store/README screenshots + promo graphics (needs pnpm build first)
 node scripts/render-demo-gif.mjs   # re-record the demo GIF at the top of the README (needs pnpm build, plus ffmpeg on PATH)

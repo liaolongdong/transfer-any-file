@@ -26,6 +26,8 @@
 | 离线断言（源码层） | `pnpm verify:offline:source`（第一方源码无网络调用；`wxt.config.ts` 只声明 `storage`、无 host 权限）                                                                   |
 | 离线断言（产物层） | `pnpm verify:offline`（同上源码检查，再断言产物 `.output/chrome-mv3/manifest.json` 权限只有 `storage`、无 host/optional 权限；缺产物即失败，须先 `pnpm build`）        |
 | 商店文案一致性     | `pnpm verify:listing`（`CHROMEWEBSTORE.md` 每个粘贴字段不超限、与 `_locales` / manifest / `package.json` / 仓库 About 一致、速查区块未漂移）                           |
+| 转换路径快照       | `pnpm verify:paths`（静态解析转换器、重放 BFS，与 `scripts/__baseline__/conversion-paths.json` 逐对 diff；路由确有意的变更才 `--update`）                              |
+| 散文数字取证       | `pnpm verify:numbers`（对外文档里的格式数 / 路径数 / 组合数 / 阈值全部从 `FileFormat`、路径基线、`conversion-policy` 与常量现推；改写句子后 `--update` 重取引用基线）  |
 | E2E 测试           | `pnpm test:e2e`（= build + `node scripts/e2e-test.mjs`，Playwright + Chrome）                                                                                          |
 | 图标重建           | `node scripts/render-icons.mjs`（源 `assets/*.svg` → `public/icon/*.png` + `docs/assets/icon*.png`）                                                                   |
 | 商店/文档素材      | `pnpm build && pnpm assets:capture`（脚本自身不构建，缺 `.output/chrome-mv3` 会直接退出）                                                                              |
@@ -99,7 +101,7 @@
 
 - **无单元测试框架（无 vitest）**。端到端用 Playwright：`scripts/e2e-test.mjs` 加载构建产物，跑各转换场景并截图到 `.test-screenshots/`，夹具在 `fixtures/`（由 `scripts/make-fixtures.cjs` 生成）。
 - 交付前按改动范围执行：`pnpm lint:all`（必过）；涉及入口/manifest/依赖/打包 → `pnpm build`；涉及转换逻辑或端到端行为 → `pnpm test:e2e`。
-- CI（`.github/workflows/ci.yml`，Node 22）：lint（`pnpm lint:all` + `verify:meta` + `verify:offline:source` + `verify:listing`）+ build（`pnpm build` 后跑 `verify:offline` 断言产物 manifest）+ e2e。另有三条独立工作流：`static.yml`（Pages，只在 `docs/**` 变更时部署）、`release.yml`（tag 发布，守卫同样是「源码层在 build 前、产物层在 build 后」的拆法）、`repo-meta.yml`（About 同步）。
+- CI（`.github/workflows/ci.yml`，Node 22）：lint（`pnpm lint:all` + `verify:meta` + `verify:offline:source` + `verify:paths` + `verify:numbers` + `verify:listing`）+ build（`pnpm build` 后跑 `verify:offline` 断言产物 manifest）+ e2e。另有三条独立工作流：`static.yml`（Pages，只在 `docs/**` 变更时部署）、`release.yml`（tag 发布，守卫同样是「源码层在 build 前、产物层在 build 后」的拆法）、`repo-meta.yml`（About 同步）。
 - 截图脚本与 e2e 共用一套「静态服务 + mock `chrome.storage`」启动方式，目前**故意保留两份**（避免改动千行级测试文件引入回归）；出现第三个消费方时再抽 `scripts/e2e-harness.mjs`。
 - 不为通过检查而弱化规则、跳过或隐藏错误；无法运行的项在交付时说明原因。
 
@@ -116,11 +118,11 @@
 - **离线守卫分两层，缺产物即失败**：`verify:offline:source` 只看第一方源码与 `wxt.config.ts`（CI lint job 跑在干净检出上，那时根本没有产物）；`verify:offline` 在此之上断言 `.output/chrome-mv3/manifest.json` 的 `permissions` 恰为 `["storage"]` 且无 `host_permissions` / `optional_permissions`——这是唯一能拦住「WXT 模块或 manifest transform 加上源码里从没写过的权限」的检查。产物缺失时它**直接失败**，别为了「让某条 job 绿」把它塞回 `if (fs.existsSync(...))`：一个从没跑过的守卫等于没有守卫，而 `.output` 是 gitignore 的，干净检出上永远没有。
 - **Pages 产物根必须是 `docs/`**：`static.yml` 以 staging 目录（`docs/` 去 `promo/`）作为 `upload-pages-artifact` 的 `path`。若改回 `'.'`，站点根就会变成仓库根，`https://…/transfer-any-file/` 与 `/privacy.html` 直接 404（产品页会跑到 `/docs/index.html`），而 canonical / sitemap / robots / llms.txt / 商店隐私政策 URL 全按站点根写死；隐私政策 404 也会直接阻断 CWS 提交。**反向陷阱**：`docs/` 是公网站点源目录，内部运营文档（上架 runbook、发布配置说明）放这里就等于发到公网——它们属于 `.github/`。`static.yml` 的 `Verify staged site` 现在按扩展名兜底：staging 里出现任何 `.md` 即失败（`promo/` 那条例外随之变成冗余）。
 - **商店首发不可自动化**：Chrome Web Store 的发布 API 不能创建条目，也不能写商品文案/截图/隐私披露——所以上架手册（`.github/CWS_PUBLISHING_GUIDE.md`）的第一节始终是手工步骤。`release.yml` 末步用 runner 自带的 `curl` 打上传/发布 API（不引入第三方 npm 包或 action，与用 `gh release create` 同一条理由），在 `CHROME_EXTENSION_ID_TAF` 与三个共用凭据（`CWS_CLIENT_ID` / `CWS_CLIENT_SECRET` / `CWS_REFRESH_TOKEN`）齐备前只报「跳过」；手工步骤见 `CHROMEWEBSTORE.md → 首次上架（手工步骤）`。
-- **对外文案数字要取证**：格式数 14 / 路径数 48+ 来自工作台页脚（`App.vue` 的 `formatCount`/`pathCount`，当前精确值为 14 与 48）；143 是同一邻接图的 BFS 传递闭包（每种源格式除自身外可达全部 11 种可写格式），**但 143 不能写成"可选/可用"**——`availableTargets` 还会经 `utils/core/conversion-policy.ts` 去掉 27 个语义无效组合（24 个图片 → TXT/CSV/JSON/XLSX + 3 个 PDF → CSV/JSON/XLSX），界面实际提供 **116** 个；体积来自 `pnpm build` 输出，阈值来自 `FileUpload.vue`（100MB 拒绝 / 20MB 警告 / 200 文件上限）与 `useConversion.ts`（>5 文件或 >20MB 弹确认），ZIP 压缩收益来自 `utils/core/format.ts` 的 JSDoc 实测记录；改这些常量时同步改 `README*`、`docs/*`、`CHROMEWEBSTORE.md`。
+- **对外文案数字要取证**：格式数 14 / 路径数 48+ 来自工作台页脚（`App.vue` 的 `formatCount`/`pathCount`，当前精确值为 14 与 48）；143 是同一邻接图的 BFS 传递闭包（每种源格式除自身外可达全部 11 种可写格式），**但 143 不能写成"可选/可用"**——`availableTargets` 还会经 `utils/core/conversion-policy.ts` 去掉 27 个语义无效组合（24 个图片 → TXT/CSV/JSON/XLSX + 3 个 PDF → CSV/JSON/XLSX），界面实际提供 **116** 个；体积来自 `pnpm build` 输出，阈值来自 `FileUpload.vue`（100MB 拒绝 / 20MB 警告 / 200 文件上限）与 `useConversion.ts`（>5 文件或 >20MB 弹确认），ZIP 压缩收益来自 `utils/core/format.ts` 的 JSDoc 实测记录；改这些常量时同步改 `README*`、`docs/*`、`CHROMEWEBSTORE.md`。**这条口径现在由 `pnpm verify:numbers` 执行**：20 个数字全部现推（`FileFormat` 枚举、路径基线、`conversion-policy`、各处常量与主题数），比对 13 份对外散文，`scripts/__baseline__/prose-number-quotes.json` 还记着每份文档每类句子今天被引到几次——句子被改写走到处查不到，就是基线 diff 里少掉的那一格。历史陈述不在射程内（CHANGELOG 的 1.0.0 段、`CHROMEWEBSTORE.md` 的版本历史与拒审记录按文件排除）。
 
 ## 完成标准
 
 - 需求满足，既有功能、交互、数据与隐私边界无未确认变化。
 - 自审 diff：无遗留调试 `console`、无敏感数据、无无关改动、异常路径已处理。
-- `pnpm lint:all` 通过，`pnpm verify:meta` 与离线守卫通过（改到对外文案、manifest 或仓库元数据时尤其）：未构建时跑 `pnpm verify:offline:source`，`pnpm build` 之后必须再跑一次 `pnpm verify:offline`——只有产物层那条才真的断言「浏览器加载的包只有 `storage` 权限」，缺任一步都不算守全。改到 `CHROMEWEBSTORE.md` 时另跑 `pnpm verify:listing`；按范围补 `pnpm build` / `pnpm test:e2e`，或说明未验证项。
+- `pnpm lint:all` 通过，`pnpm verify:meta` 与离线守卫通过（改到对外文案、manifest 或仓库元数据时尤其）：未构建时跑 `pnpm verify:offline:source`，`pnpm build` 之后必须再跑一次 `pnpm verify:offline`——只有产物层那条才真的断言「浏览器加载的包只有 `storage` 权限」，缺任一步都不算守全。改到 `CHROMEWEBSTORE.md` 时另跑 `pnpm verify:listing`；改到任何对外文档里的数字（格式数、路径数、组合数、阈值、主题数）时另跑 `pnpm verify:numbers`；按范围补 `pnpm build` / `pnpm test:e2e`，或说明未验证项。
 - 交付说明：改了什么、关键原因、执行了哪些验证、剩余风险。

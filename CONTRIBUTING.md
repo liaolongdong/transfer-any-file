@@ -43,6 +43,8 @@ pnpm verify:meta      # package.json / wxt.config.ts / public/_locales/en / .git
 pnpm verify:offline   # 源码层检查 + 产物 manifest 断言（须先 pnpm build；缺 .output/chrome-mv3 时直接失败，不再静默跳过）
 pnpm verify:offline:source # 只跑源码层：第一方源码无网络调用，wxt.config.ts 仅声明 storage 权限（无需先构建）
 pnpm verify:listing   # CHROMEWEBSTORE.md 每个粘贴字段不超限、与 manifest 一致、速查区块未漂移
+pnpm verify:paths     # 转换器注册顺序与 48 条路径的快照一致（改路由须显式 --update 基线）
+pnpm verify:numbers   # 对外散文里的数字等于代码里的那一个（格式数 / 路径数 / 组合数 / 各阈值，全从源码现推）
 pnpm test:e2e         # 构建 + 基于 fixtures/ 的 Playwright 套件
 pnpm assets:capture   # 重新生成商店与 README 用的截图和推广图（需先 pnpm build）
 node scripts/render-demo-gif.mjs   # 重录 README 顶部的演示 GIF（需先 pnpm build，另需 PATH 上有 ffmpeg）
