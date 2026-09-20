@@ -71,7 +71,7 @@ SVG      ──► HTML ──► PNG
 
 **不可信输入必须净化。** 用户上传的 HTML / SVG / Markdown 全是攻击面。任何由用户文件生成的 HTML、SVG、Markdown 在渲染前都要过 DOMPurify，预览跑在 `sandbox` 的 iframe 里，全程禁止 `v-html`、`eval`、`new Function`。
 
-**首屏不该背着 pdf.js。** 所有重型依赖在转换器内部动态 `import()`，重型子组件用 `defineAsyncComponent` 懒加载。整个扩展产物 3.73 MB，但打开工作台时不会去拉 pdf.worker（1.26 MB）。
+**首屏不该背着 pdf.js。** 所有重型依赖在转换器内部动态 `import()`，重型子组件用 `defineAsyncComponent` 懒加载。整个扩展产物 3.74 MB，但打开工作台时不会去拉 pdf.worker（1.26 MB）。
 
 **让重复动作变便宜。** 有一批细节只有天天用才会察觉：最近用过的 6 个目标格式会以下拉顶部的「最近使用」分组呈现，并且只对当前批次仍然可选的那些出现；拖放区不限于那块虚线框，整个页面都能接住文件（转换进行中投放被忽略，光标显示为禁止）；剪贴板里的内容直接 `⌘V` / `Ctrl+V` 就能转；上一轮结果可以撤销；大批量确认框自带「下次不再询问」勾选；开始转换的 `Ctrl/⌘ + Enter` 可以改绑；分隔条位置和历史卡片的折叠状态跨会话保留；长批次在后台标签页跑完时，可以选择发一条桌面通知。
 
@@ -100,7 +100,7 @@ pnpm install && pnpm build
 
 商店需要的东西已经准备好了：名称与描述文案、1280×800 截图、权限逐条说明、隐私政策、数据披露答复，都写在仓库的 `CHROMEWEBSTORE.md` 和 `docs/privacy.html` 里。上架还差一个开发者账号和一次提交——如果你想推动这件事，去仓库开个 issue 就行。
 
-技术栈：**WXT + Vue 3 + TypeScript + Element Plus**，Manifest V3，权限只有 `storage`，MIT 协议。代码里的验证方式也一并交代：Playwright 驱动构建产物跑 208 条断言，夹具（`fixtures/`）随仓库走。
+技术栈：**WXT + Vue 3 + TypeScript + Element Plus**，Manifest V3，权限只有 `storage`，MIT 协议。代码里的验证方式也一并交代：Playwright 驱动构建产物跑 241 条断言，夹具（`fixtures/`）随仓库走。
 
 ## 六、谁不该用它
 

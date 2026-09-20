@@ -187,11 +187,11 @@ Summarised from the typical behaviour of each class of tool rather than one spec
 
 ### 🕘 History and personalization
 
-- **Conversion history** — the last 50 conversions (metadata only) with one-click "reuse this format", search by file name, filter by source/target format, per-record delete, a size-trend sparkline, and JSON export/import (merged by record ID). A multi-file batch is labelled `"<first file> +N"`; new records also keep the full file list, so every file in the batch is searchable and all of them show on hover. Records saved by earlier versions can only match that label
+- **Conversion history** — the last 50 conversions (metadata only) with one-click "reuse this format", search by file name, filter by source/target format, per-record delete, a size-trend sparkline, and JSON export/import (merged by record ID). A multi-file batch is labelled `"<first file> +N"`; new records also keep the full file list, so every file in the batch is searchable and all of them show on hover. Records saved by earlier versions can only match that label. Deleting one record, or clearing all of them, can be undone for the next 5 seconds from the **Undo** button in the toast
 - **Recently used targets** — the target dropdown leads with a "recently used" group holding up to 6 of the formats you convert to most often, kept only while they remain selectable for the current source; everything else stays in the document / image / data groups
 - **Conversion presets** — save a target format together with its image output parameters as a one-click card (up to 12), and one click restores both. Unlike "recently used", which only remembers a format, a preset remembers the whole recipe — "JPEG, 1280 px, under 200 KB". A preset chosen before any file is added is remembered and applied to the next batch that can take it; one the current batch cannot reach is refused with a reason. An untitled preset names itself after what it does
 - **Remembered UI state** — the split-view divider position and the collapsed/expanded state of the history and preset cards are persisted and restored the next time the workbench opens
-- **Keyboard accessible** — skip link to the main content, visible focus rings, and full `prefers-reduced-motion` support
+- **Keyboard and screen reader accessible** — skip link to the main content, visible focus rings, and full `prefers-reduced-motion` support; conversion progress, result counts and the file list's load/clear all land in a `role="status"` region, and the comparison view's divider exposes `role="separator"` with its current ratio
 - **Measured contrast** — the end-to-end suite asserts three WCAG contrast pairs (topbar text, focus ring, and the primary button label in its rest / hover / pressed states) across all 6 themes × light/dark, 12 combinations, and separately asserts that the first Tab lands on the skip link with a visible ring; thresholds, measured readings and the known limitation live in [CONTRIBUTING.en.md](CONTRIBUTING.en.md#accessibility-and-contrast-assertions) · [简体中文](CONTRIBUTING.md#无障碍与对比度断言)
 - **Personalization** — 6 theme colors × light / dark / system, Chinese/English interface
 
@@ -258,7 +258,7 @@ Yes. The project is MIT-licensed, with no account, no paid tier, no advertising 
 The build produces a Chrome Manifest V3 package, which also loads in Edge, Brave and other Chromium browsers. There is no Firefox build in this repository.
 
 **Where is the conversion history kept, and how do I clear it?**
-In `chrome.storage.local` on your own machine, holding file names, formats and sizes only — never file contents. The history panel can delete a single record, clear everything, and export or import the list as JSON. Removing the extension removes that local storage with it, because there is no copy anywhere else.
+In `chrome.storage.local` on your own machine, holding file names, formats and sizes only — never file contents. The history panel can delete a single record, clear everything, and export or import the list as JSON. A mistake is recoverable: after either delete action the toast offers **Undo** for 5 seconds. Removing the extension removes that local storage with it, because there is no copy anywhere else.
 
 ## 🤝 Contributing
 

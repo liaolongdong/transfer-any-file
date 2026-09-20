@@ -74,7 +74,7 @@ For a single file, online tools are fine. What forces the difference is "I have 
 
 **Untrusted input gets sanitised.** Uploaded HTML, SVG and Markdown are all attack surface. Every HTML/SVG/Markdown document generated from a user file passes through DOMPurify before it is rendered, previews run in a `sandbox`ed iframe, and there is no `v-html`, no `eval`, no `new Function` anywhere in the runtime path.
 
-**The first screen shouldn't carry pdf.js.** Every heavy dependency is dynamically `import()`ed inside its converter, and heavy child components are lazy-loaded with `defineAsyncComponent`. The whole extension builds to 3.73 MB, but opening the workbench never pulls `pdf.worker` (1.26 MB).
+**The first screen shouldn't carry pdf.js.** Every heavy dependency is dynamically `import()`ed inside its converter, and heavy child components are lazy-loaded with `defineAsyncComponent`. The whole extension builds to 3.74 MB, but opening the workbench never pulls `pdf.worker` (1.26 MB).
 
 **Make repeated actions cheap.** A set of details you only notice after daily use: your 6 most recent target formats appear as a _Recently used_ group at the top of the picker, and only while they're still selectable for the current batch; dropping files works anywhere on the page, not just inside the dashed zone (a drop during a running conversion is ignored, with a forbidden cursor); clipboard contents convert with `⌘V` / `Ctrl+V`; the previous batch can be undone; the large-batch confirmation carries its own _Don't ask again_ box; the `Ctrl/⌘ + Enter` convert shortcut is rebindable; the split-divider position and the history card's collapsed state persist across sessions; and a long batch finishing in a background tab can optionally raise a desktop notification.
 
@@ -103,7 +103,7 @@ Repository: [github.com/liaolongdong/transfer-any-file](https://github.com/liaol
 
 Everything the store needs is already prepared: name and description copy, 1280×800 screenshots, a line-by-line justification for each permission, the privacy policy, and the data-disclosure answers — all in `CHROMEWEBSTORE.md` and `docs/privacy.html`. What's missing is a developer account and one submission. If you want to push that forward, open an issue on the repo.
 
-Tech stack: **WXT + Vue 3 + TypeScript + Element Plus**, Manifest V3, `storage` as the only permission, MIT licence. How it's verified is part of the deliverable too: Playwright drives the built artifact through 208 assertions, and the fixtures it converts live in `fixtures/` next to the code.
+Tech stack: **WXT + Vue 3 + TypeScript + Element Plus**, Manifest V3, `storage` as the only permission, MIT licence. How it's verified is part of the deliverable too: Playwright drives the built artifact through 241 assertions, and the fixtures it converts live in `fixtures/` next to the code.
 
 ## 6. Who shouldn't use it
 

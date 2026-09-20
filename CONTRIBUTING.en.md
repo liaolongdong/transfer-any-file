@@ -73,7 +73,7 @@ Multi-step routes through your new converter are discovered automatically by the
 
 - [WXT](https://wxt.dev/) + Vue 3 + TypeScript + Element Plus (Manifest V3). Element Plus is pulled in per component through `unplugin-vue-components` + `ElementPlusResolver`; imperative APIs such as `ElMessage` are auto-imported by the resolver.
 - Converters: [marked](https://github.com/markedjs/marked), [turndown](https://github.com/mixmark-io/turndown), [mammoth](https://github.com/mwilliamson/mammoth.js), [html-docx-js-typescript](https://github.com/caiyexiang/html-docx-js-typescript), [jsPDF](https://github.com/parallax/jsPDF) + [html-to-image](https://github.com/bubkoo/html-to-image), [pdf.js](https://mozilla.github.io/pdf.js/), [SheetJS](https://sheetjs.com/), [fflate](https://github.com/101arrowz/fflate), [DOMPurify](https://github.com/cure53/DOMPurify)
-- Heavy dependencies are dynamically imported per converter, so the first paint stays small (whole bundle: 3.73 MB); heavy child components are lazy-loaded with `defineAsyncComponent` in `App.vue`
+- Heavy dependencies are dynamically imported per converter, so the first paint stays small (whole bundle: 3.74 MB); heavy child components are lazy-loaded with `defineAsyncComponent` in `App.vue`
 
 ## Project structure
 
