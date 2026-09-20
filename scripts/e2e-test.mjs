@@ -504,10 +504,72 @@ async function run() {
 
   // <html lang> must already match the stored locale before any interaction: screen
   // readers pick it up on first paint, and the mount-time read is the only chance to
-  // get it right for a user who previously switched language.
+  // get it right for a user who previously switched language. The tab title is pinned by
+  // the same call — it is the only part of the identity visible while the page is not.
   const langOnLoad = await page.evaluate(() => document.documentElement.lang);
   if (langOnLoad === 'zh-CN') ok(`Document language pinned on first paint (${langOnLoad})`);
   else fail('Document language on load', `lang="${langOnLoad}"`);
+
+  const titleOnLoad = await page.title();
+  if (titleOnLoad === 'Transfer Any File · 转换工作台') ok(`Tab title localized on first paint (${titleOnLoad})`);
+  else fail('Document title on load', `"${titleOnLoad}"`);
+
+  // ═══════════════════════════════════════════
+  //  DETECTED LANGUAGE MUST REACH THE FIRST FRAME
+  // ═══════════════════════════════════════════
+  //
+  // Both dictionaries are statically imported, so there is no async language payload to wait for;
+  // the risk is the *state*, which starts on the `zh` fallback and used to correct itself only after
+  // `initLocale`'s storage round-trip. Nothing consumes the `ready` flag, so a settled-DOM check
+  // cannot see that window — an observer installed before any page script runs can, and it is the
+  // only assertion here that fails if the pre-mount seed is ever removed.
+  section('Detected Language Reaches the First Frame');
+  try {
+    // An explicitly absent `fat:locale`: this is the first-run path, where the browser language decides.
+    // The locale is pinned on the page rather than inherited: the harness launches real Chrome with no
+    // `--lang`, so on a Chinese macOS `navigator.languages` is `zh-CN` and the detection it agrees with
+    // the seed is indistinguishable from the fallback this section exists to rule out.
+    const enPage = await browser.newPage({ locale: 'en-US' });
+    await enPage.setViewportSize({ width: 1280, height: 900 });
+    await enPage.addInitScript(mockChromeStorage({ 'fat:locale': undefined }));
+    // Injected as a script body rather than a callback, the same way `mockChromeStorage` is, so the
+    // browser-only globals stay out of the Node-side lint pass.
+    await enPage.addInitScript(`
+      document.__firstPaint = null;
+      const recordFirstPaint = () => {
+        if (document.__firstPaint !== null) return;
+        const app = document.getElementById('app');
+        const text = app ? app.textContent || '' : '';
+        if (text.trim()) document.__firstPaint = text;
+      };
+      new MutationObserver(recordFirstPaint).observe(document, { childList: true, subtree: true });
+      recordFirstPaint();
+    `);
+    await enPage.goto(`http://localhost:${PORT}/options.html`);
+    await enPage.waitForTimeout(1500);
+
+    const firstPaint = await enPage.evaluate(() => document.__firstPaint ?? '');
+    if (!firstPaint) fail('First painted frame', 'the observer never saw any app text');
+    else if (/[\u3400-\u9fff]/.test(firstPaint))
+      fail('Language of the first painted frame', `Chinese reached the screen: "${firstPaint.slice(0, 60)}"`);
+    else ok('No fallback-language text reaches the first frame');
+
+    const langDetected = await enPage.evaluate(() => document.documentElement.lang);
+    if (langDetected === 'en') ok('Browser language drives <html lang> when nothing is stored');
+    else fail('Detected document language', `lang="${langDetected}"`);
+
+    const titleDetected = await enPage.title();
+    if (titleDetected === 'Transfer Any File · Conversion Workbench')
+      ok(`Detected tab title is English (${titleDetected})`);
+    else fail('Detected tab title', `"${titleDetected}"`);
+
+    const settledText = await enPage.textContent('#app').catch(() => '');
+    if ((settledText || '').includes('Batch convert')) ok('Settled UI renders in the detected language');
+    else fail('Settled detected-language UI', `body reads "${(settledText || '').slice(0, 60)}"`);
+    await enPage.close();
+  } catch (e) {
+    fail('Detected-language first paint', e.message);
+  }
 
   // ═══════════════════════════════════════════
   //  CONVERSION SCENARIOS
@@ -1152,6 +1214,107 @@ async function run() {
   }
 
   // ═══════════════════════════════════════════
+  //  FILE LIST STATUS ANNOUNCEMENT (WCAG 4.1.3)
+  // ═══════════════════════════════════════════
+
+  section('File List Status Announced to Assistive Tech');
+  try {
+    const REGION = '.sr-only[role="status"]';
+    const readRegion = async () => {
+      const el = await page.$(REGION);
+      if (!el) throw new Error(`${REGION} not found — the live region disappeared`);
+      return (await el.evaluate(node => node.textContent)).trim();
+    };
+
+    await resetWorkbench(page);
+    const fi = await page.$('input[type="file"]');
+    await fi.setInputFiles(path.join(FIXTURE_PATH, 'sample.md'));
+    await page.waitForTimeout(1000);
+    const afterAdd = await readRegion();
+    if (!afterAdd.includes('已载入 1 个文件')) throw new Error(`after adding one file, region read "${afterAdd}"`);
+    ok('Adding a file announces the resulting batch size');
+
+    const addBtn = await page.$('.add-files-btn');
+    await addBtn.click();
+    await page.waitForTimeout(300);
+    await fi.setInputFiles(path.join(FIXTURE_PATH, 'sample.txt'));
+    await page.waitForTimeout(1000);
+    const afterAppend = await readRegion();
+    if (!afterAppend.includes('已载入 2 个文件')) throw new Error(`after appending, region read "${afterAppend}"`);
+    ok('Appending announces again — the message changed, so it is spoken again');
+
+    const clearBtn = await page.$('.clear-files-btn');
+    await clearBtn.click();
+    await page.waitForTimeout(500);
+    const afterClear = await readRegion();
+    if (!afterClear.includes('已清空文件列表')) throw new Error(`after clearing, region read "${afterClear}"`);
+    ok('Clearing announces the empty list');
+  } catch (e) {
+    fail('File list announcement', e.message);
+  }
+
+  section('Batch With No Recognized Format');
+  try {
+    await resetWorkbench(page);
+    const fi = await page.$('input[type="file"]');
+    await fi.setInputFiles([
+      { name: 'mystery.bin', mimeType: 'application/octet-stream', buffer: Buffer.from([0, 1, 2, 3]) },
+    ]);
+    await page.waitForTimeout(800);
+
+    const itemCount = await page.$$eval('.file-item', els => els.length);
+    if (itemCount !== 1) throw new Error(`unrecognized file never reached the list (${itemCount} items)`);
+
+    // The toast expires; the dead end must still be explained where the target picker would be.
+    const alertTitle = await page
+      .$eval('.format-selector .el-alert__title', el => el.textContent || '')
+      .catch(() => '');
+    if (!alertTitle.includes('没有可识别')) fail('No-format explanation', `alert read "${alertTitle.trim()}"`);
+    else ok('Unrecognized batch explains itself in place of the target picker');
+
+    const convertDisabled = await page.$eval('.convert-btn', el => el.disabled).catch(() => null);
+    if (convertDisabled !== true) fail('Convert stays enabled', `disabled=${convertDisabled}`);
+    else ok('Convert button stays disabled for the unrecognized batch');
+    await page.screenshot({
+      path: shot(`${String(shotIdx++).padStart(2, '0')}-no-recognized-format.png`),
+      fullPage: true,
+    });
+    await resetWorkbench(page);
+  } catch (e) {
+    fail('No recognized format', e.message);
+  }
+
+  section('Blocked Target Reason Is Reachable Without A Mouse');
+  try {
+    await resetWorkbench(page);
+    const fi = await page.$('input[type="file"]');
+    await fi.setInputFiles(path.join(FIXTURE_PATH, 'sample.gif'));
+    await page.waitForTimeout(1000);
+
+    const select = await page.$('.target-select .el-select');
+    if (!select) throw new Error('target selector missing for an image source');
+    await select.click();
+    await page.waitForTimeout(400);
+
+    // The hover `title` is decoration for pointer users; what a keyboard user hears while
+    // arrowing through the listbox is the option's accessible name, so the reason has to be
+    // part of that name rather than only a tooltip.
+    const named = await page.getByRole('option', { name: /需 OCR/ }).count();
+    const dimmed = await page.$$eval(
+      '.el-select-dropdown__item.is-disabled',
+      els => els.filter(e => e.getAttribute('aria-disabled') === 'true').length,
+    );
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(200);
+
+    if (named === 0) throw new Error('blocked options carry no reason in their accessible name');
+    if (dimmed === 0) throw new Error('disabled options are not exposed as aria-disabled');
+    ok(`${named} blocked option(s) announce the reason and their disabled state`);
+  } catch (e) {
+    fail('Blocked reason a11y', e.message);
+  }
+
+  // ═══════════════════════════════════════════
   //  CTRL/⌘ + ENTER SHORTCUT
   // ═══════════════════════════════════════════
 
@@ -1345,6 +1508,48 @@ async function run() {
     await page.screenshot({ path: shot(`${String(shotIdx++).padStart(2, '0')}-drag-divider.png`), fullPage: true });
   } catch (e) {
     fail('Draggable divider', e.message);
+  }
+
+  section('Comparison View — Divider Semantics & Target Size');
+  try {
+    const divider = await page.$('.panel-divider');
+    if (!divider) throw new Error('divider not found');
+    const attrs = await divider.evaluate(el => ({
+      role: el.getAttribute('role'),
+      orientation: el.getAttribute('aria-orientation'),
+      tabindex: el.getAttribute('tabindex'),
+      now: el.getAttribute('aria-valuenow'),
+      min: el.getAttribute('aria-valuemin'),
+      max: el.getAttribute('aria-valuemax'),
+      label: el.getAttribute('aria-label'),
+    }));
+    if (attrs.role !== 'separator' || attrs.orientation !== 'vertical') {
+      throw new Error(`separator semantics missing: ${JSON.stringify(attrs)}`);
+    }
+    if (attrs.tabindex !== '0' || !attrs.now || attrs.min !== '0' || attrs.max !== '100') {
+      throw new Error(`divider is not operable: ${JSON.stringify(attrs)}`);
+    }
+    if (!attrs.label) throw new Error('divider has no accessible name');
+
+    // The visible band is 12 px and WCAG 2.5.8 wants 24 px, so what matters is what the browser
+    // reports under the cursor, not the box CSS prints. Probed 5 px outside the band (past the
+    // 20 px mode buttons as well) and near the top, away from the handle.
+    const box = await divider.boundingBox();
+    const probeY = box.y + 8;
+    const hits = [];
+    for (const dx of [-5, 5]) {
+      hits.push(
+        await page.evaluate(
+          ([x, y]) => Boolean(document.elementFromPoint(x, y)?.closest('.panel-divider')),
+          [box.x + box.width / 2 + dx, probeY],
+        ),
+      );
+    }
+    if (hits.some(h => !h))
+      throw new Error(`pointer target too small, misses at dx=${[-5, 5].filter((_, i) => !hits[i])}`);
+    ok('Divider exposes separator semantics and a >= 24 px pointer target');
+  } catch (e) {
+    fail('Divider semantics', e.message);
   }
 
   // ═══════════════════════════════════════════
@@ -1755,6 +1960,9 @@ async function run() {
     const langEn = await page.evaluate(() => document.documentElement.lang);
     if (langEn === 'en') ok('Switching to English moves <html lang> to "en"');
     else fail('Document language after switch', `lang="${langEn}"`);
+    const titleEn = await page.title();
+    if (titleEn === 'Transfer Any File · Conversion Workbench') ok('Tab title follows the switch to English');
+    else fail('Document title after switch', `"${titleEn}"`);
     const footerEn = await page.$eval('.footer', el => el.textContent).catch(() => '');
     if (footerEn.includes('formats supported')) ok('Strings re-render in English without a reload');
     else fail('English UI', `footer read "${footerEn.trim()}"`);
@@ -1881,6 +2089,36 @@ async function run() {
     }
   } catch (e) {
     fail('History clear', e.message);
+  }
+
+  section('History — Delete Undo');
+  try {
+    await resetWorkbench(page);
+    await convertFile(page, 'sample.md', 'HTML (.html)');
+    await page.waitForTimeout(500);
+
+    const before = (await page.$$('.history-item')).length;
+    if (before === 0) throw new Error('no history rows to delete');
+
+    const removeBtn = await page.$('.history-item .history-actions .el-button:last-child');
+    if (!removeBtn) throw new Error('row delete button not found');
+    await removeBtn.click();
+    await page.waitForTimeout(300);
+
+    const afterDelete = (await page.$$('.history-item')).length;
+    if (afterDelete !== before - 1) throw new Error(`delete removed ${before - afterDelete} rows, expected 1`);
+
+    // Delete stays single-click; the safety net is the 5 s undo in the toast.
+    const undoBtn = await page.$('.history-undo__btn');
+    if (!undoBtn) throw new Error('undo affordance missing from the delete toast');
+    await undoBtn.click();
+    await page.waitForTimeout(400);
+
+    const afterUndo = (await page.$$('.history-item')).length;
+    if (afterUndo !== before) throw new Error(`undo restored to ${afterUndo}, expected ${before}`);
+    ok('Row delete is undone from the toast');
+  } catch (e) {
+    fail('History delete undo', e.message);
   }
 
   // ═══════════════════════════════════════════
