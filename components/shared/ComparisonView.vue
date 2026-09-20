@@ -231,14 +231,16 @@ function handleKeydown(e: KeyboardEvent): void {
   if (e.ctrlKey || e.metaKey || e.altKey) return;
 
   // Don't intercept when user is typing in an input/textarea/contenteditable,
-  // or interacting with Element Plus combobox/listbox widgets (el-select, dropdown menus).
+  // or interacting with Element Plus combobox/listbox widgets (el-select, dropdown menus),
+  // or while a modal dialog is open — this component is mounted behind the preview dialog,
+  // so an unguarded ArrowLeft here steals the key from the preview it cannot see.
   const target = e.target as HTMLElement | null;
   if (!target) return;
   const tag = target.tagName;
   if (tag === 'INPUT' || tag === 'TEXTAREA' || target.isContentEditable) return;
   const role = target.getAttribute('role');
   if (role === 'combobox' || role === 'listbox' || role === 'menu' || role === 'menuitem') return;
-  if (target.closest('.el-select, .el-dropdown, .el-popper')) return;
+  if (target.closest('.el-select, .el-dropdown, .el-popper, .el-overlay, .el-dialog')) return;
 
   switch (e.key) {
     case '1':
@@ -423,6 +425,14 @@ function toggleEdit(): void {
       <div
         class="panel-divider"
         :class="{ dragging: isDragging }"
+        role="separator"
+        aria-orientation="vertical"
+        tabindex="0"
+        :aria-label="t('a11y.splitDivider')"
+        :aria-valuenow="Math.round(splitPercent)"
+        aria-valuemin="0"
+        aria-valuemax="100"
+        :aria-valuetext="`${Math.round(splitPercent)}%`"
         @pointerdown="handleDragStart"
         @pointermove="handleDragMove"
         @pointerup="handleDragEnd"
@@ -752,6 +762,17 @@ function toggleEdit(): void {
   background: var(--fat-surface-hover);
 }
 
+/* WCAG 2.5.8 wants a >= 24 px pointer target, and the visible band is only 12 px wide.
+   Growing the box itself would widen the gap between the panels, so the hit area is what
+   grows: an out-of-flow overlay that reaches 6 px into each panel. It paints above static
+   panel content — a drag is the useful gesture there anyway — while the mode buttons below
+   carry `position: relative` so they stay clickable on top of it. */
+.panel-divider::before {
+  content: '';
+  position: absolute;
+  inset: 0 -6px;
+}
+
 .panel-divider.dragging {
   background: var(--fat-primary-bg);
 }
@@ -777,6 +798,7 @@ function toggleEdit(): void {
 }
 
 .divider-btn {
+  position: relative;
   width: 20px;
   height: 20px;
   border-radius: var(--fat-radius-sm);
@@ -800,7 +822,11 @@ function toggleEdit(): void {
 .divider-btn.active {
   border-color: var(--fat-primary);
   background: var(--fat-primary);
-  color: #fff;
+
+  /* Not #fff: the label has to follow whichever ink the theme declares readable on its
+     own primary fill — white only reaches 2.54:1 on light-green and 1.69:1 on the
+     dark-mode pastels, while --fat-on-btn-solid is the page ink there. */
+  color: var(--fat-on-btn-solid);
 }
 
 .panel-header {
