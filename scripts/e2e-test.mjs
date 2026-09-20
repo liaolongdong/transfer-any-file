@@ -1177,6 +1177,14 @@ async function run() {
           throw new Error('no MHT altChunk in the artifact — the probes below would prove nothing');
         }
         const svgLeft = /<svg[\s>]/i.test(docx);
+        // The disclosure has to travel with the artifact: nothing on a `sample_docx_….docx` name says
+        // the diagram inside it stopped being vector artwork, and this is where the user finds out.
+        const notes = await page.$$eval('.result-note', els => els.map(el => el.textContent.trim()));
+        if (notes.some(text => text.includes('矢量图'))) {
+          ok(`${label} discloses that inline SVG became a bitmap`);
+        } else {
+          fail(`${label} svg disclosure`, `notes rendered: ${JSON.stringify(notes)}`);
+        }
         const head = pngHead(...dims);
         // The `<title>` probe is encoding-agnostic on purpose: it asks whether the words are still in
         // the package, not whether they sit in an `alt="…"` verbatim. Combined with "no <svg> left",
@@ -1201,6 +1209,25 @@ async function run() {
     }
   }
 
+  // The other half, and the half that keeps the note worth reading: a document with no inline SVG
+  // must stay silent. `sample.html` is that document, and the precondition above — it really produced
+  // a .docx — is what turns "no note" into an assertion instead of a rendering that never happened.
+  if (section('SVG Flattening Disclosure Stays Silent Without SVG')) {
+    try {
+      await resetWorkbench(page);
+      const silent = await convertFile(page, 'sample.html', 'Word (.docx)');
+      if (!silent.resultName) throw new Error(`html→docx produced no artifact: ${silent.alertTitle}`);
+      const notes = await page.$$eval('.result-note', els => els.map(el => el.textContent.trim()));
+      if (notes.some(text => text.includes('矢量图'))) {
+        fail('svg-free html→docx disclosure', `unexpected note: ${JSON.stringify(notes)}`);
+      } else {
+        ok('svg-free HTML→DOCX renders no vector disclosure');
+      }
+    } catch (e) {
+      fail('SVG Flattening Disclosure Stays Silent Without SVG', e.message);
+    }
+  }
+
   // The same rasterizer on the Markdown boundary: without it turndown has no rule for `<svg>` and
   // the document comes out as the diagram's stray `<text>` nodes.
   if (section('SVG → Markdown Keeps The Drawing')) {
@@ -1218,6 +1245,15 @@ async function run() {
             md.includes(pngHead(240, 140)),
           )}`,
         );
+      }
+      // The Markdown boundary needs its own disclosure probe: the flag there is derived from the
+      // produced file rather than from the input, so "an .md exists with a raster in it" and "the card
+      // says so" have to be checked together or either half can drift.
+      const mdNotes = await page.$$eval('.result-note', els => els.map(el => el.textContent.trim()));
+      if (mdNotes.some(text => text.includes('矢量图'))) {
+        ok('svg→md discloses that inline SVG became a bitmap');
+      } else {
+        fail('svg→md svg disclosure', `notes rendered: ${JSON.stringify(mdNotes)}`);
       }
     } catch (e) {
       fail('SVG → Markdown Keeps The Drawing', e.message);

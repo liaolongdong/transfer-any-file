@@ -38,6 +38,15 @@ export interface ConvertResult {
    * plus the new extension, so nothing on a `sample_png_….png` says it started life as a GIF.
    */
   lostFrames?: boolean;
+  /**
+   * Set by the converters that run inline SVG through `replaceInlineSvgWithPng` (`html→docx`,
+   * `html→md`), and hoisted across the chain by the orchestrator so a `md→html→docx` route reports it
+   * from the step that actually did the work.
+   *
+   * Unlike `lostFrames` this cannot be a property of the edge: whether a document loses vector
+   * artwork depends on whether it contains an `<svg>` at all, which only the converter can see.
+   */
+  svgRasterized?: boolean;
 }
 
 /**

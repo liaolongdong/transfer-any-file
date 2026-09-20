@@ -34,7 +34,7 @@ const htmlToMdConverter: Converter = {
     // Turndown has no rule for an inline `<svg>`: the whole subtree collapsed to its `<text>` nodes,
     // so SVG→Markdown used to hand back a file with the diagram missing. Rasterizing first turns it
     // into an `<img>`, which the rule below already keeps as `![alt](src)`.
-    const html = await replaceInlineSvgWithPng(await decodeTextBlobLenient(input));
+    const { html, svgCount } = await replaceInlineSvgWithPng(await decodeTextBlobLenient(input));
     const doc = new DOMParser().parseFromString(html, 'text/html');
     const bodyHtml = doc.body?.innerHTML ?? html;
 
@@ -52,7 +52,11 @@ const htmlToMdConverter: Converter = {
     });
     const markdown = turndown.turndown(bodyHtml);
     const blob = new Blob([markdown], { type: 'text/markdown' });
-    return { blob, filename: 'converted.md' };
+    // The flag has to describe the file being handed back, not the one that came in: `gfmTable`
+    // flattens a cell to its textContent, so a diagram inside a `<td>` never reaches the markdown and
+    // "written into the result as a bitmap" would be a disclosure asserting something the file lacks.
+    const hasRaster = svgCount > 0 && markdown.includes('data:image/png');
+    return { blob, filename: 'converted.md', svgRasterized: hasRaster };
   },
 };
 

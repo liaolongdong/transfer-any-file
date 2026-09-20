@@ -58,16 +58,23 @@ async function rasterizeSvg(svgMarkup: string): Promise<string> {
  *
  * Documents without inline SVG are returned untouched, so the ordinary HTML→DOCX path keeps the
  * byte-for-byte behaviour it had before.
+ *
+ * `svgCount` is what the UI discloses: how many drawings this call actually replaced with a raster.
+ * Nested `<svg>` nodes are not counted — they sit inside their parent's markup and paint in the
+ * parent's raster — and neither is a diagram whose rasterization failed, because the note the count
+ * drives says the drawing was written into the result as a bitmap, and a dropped one was written into
+ * nothing. A caller that must describe the bytes it hands back still has to check its own output: see
+ * `html-to-md.ts`, where a diagram inside a table cell is flattened to text and never arrives.
  */
-export async function replaceInlineSvgWithPng(html: string): Promise<string> {
+export async function replaceInlineSvgWithPng(html: string): Promise<{ html: string; svgCount: number }> {
   const doc = new DOMParser().parseFromString(html, 'text/html');
-  const svgs = Array.from(doc.querySelectorAll('svg'));
-  if (svgs.length === 0) return html;
+  // A nested `<svg>` is already inside the parent's own markup, so it paints in the parent's
+  // raster; rasterizing it a second time would only be wasted work on a node about to be detached.
+  const svgs = Array.from(doc.querySelectorAll('svg')).filter(node => !node.parentElement?.closest('svg'));
+  if (svgs.length === 0) return { html, svgCount: 0 };
 
+  let replaced = 0;
   for (const node of svgs) {
-    // A nested `<svg>` is already inside the parent's own markup, so it paints in the parent's
-    // raster; rasterizing it a second time would only be wasted work on a node about to be detached.
-    if (node.parentElement?.closest('svg')) continue;
     const markup = new XMLSerializer().serializeToString(node);
     let dataUrl: string;
     try {
@@ -84,10 +91,11 @@ export async function replaceInlineSvgWithPng(html: string): Promise<string> {
     // describable in Word and in the markdown source instead of leaving an image with no text at all.
     imgEl.setAttribute('alt', (node.querySelector('title')?.textContent ?? '').replace(/\s+/g, ' ').trim());
     node.replaceWith(imgEl);
+    replaced++;
   }
 
   // `documentElement.outerHTML` drops the doctype DOMParser kept on the Document, and the altChunk
   // Word opens is sensitive to how the document is declared.
   const doctype = /^\s*(<!doctype[^>]*>)/i.exec(html)?.[1] ?? '';
-  return doctype + doc.documentElement.outerHTML;
+  return { html: doctype + doc.documentElement.outerHTML, svgCount: replaced };
 }

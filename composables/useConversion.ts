@@ -348,6 +348,10 @@ export function useConversion() {
           // is how a converter declares that; scanning the returned filename is only the fallback for
           // converters that have not declared it.
           let outExt: string = target;
+          // An intermediate step can be the one that flattens the source's vector artwork — a
+          // `md→html→docx` chain rasterizes inside the `html→docx` step, never the `md→html` one — so
+          // the fact has to be carried up from whichever step reported it.
+          let svgRasterized = false;
           for (let stepIndex = 0; stepIndex < steps.length; stepIndex++) {
             if (signal.aborted) break;
             const step = steps[stepIndex];
@@ -362,6 +366,7 @@ export function useConversion() {
               const stepResult = await step.converter.convert(currentBlob, ctx);
               currentBlob = stepResult.blob;
               outExt = stepResult.containerExt ?? extensionOf(stepResult.filename) ?? outExt;
+              svgRasterized ||= stepResult.svgRasterized === true;
             } catch (stepError) {
               stepFailedAt = stepIndex + 1;
               throw stepError;
@@ -376,6 +381,7 @@ export function useConversion() {
             // Which step decided the outcome is a fact about the route, not about the source format:
             // the same GIF comes out animated through `gif→html` and flattened through `gif→png`.
             lostFrames: steps.some(step => step.converter.flattensInput),
+            svgRasterized,
           });
           converted.push({ name: file.name, size: file.size, format });
         } catch (e) {

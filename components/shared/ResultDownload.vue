@@ -88,6 +88,13 @@ const hasPdfResult = computed(() => props.results.some(r => detectFormatFromFile
  */
 const lostFrames = computed(() => props.results.some(r => r.lostFrames));
 
+/**
+ * Whether a document loses its vector artwork is a fact about that document, not about the route —
+ * an HTML→DOCX batch with no `<svg>` in it keeps everything — so only the converter can report it.
+ * The orchestrator carries that up from whichever step did the rasterizing.
+ */
+const svgRasterized = computed(() => props.results.some(r => r.svgRasterized));
+
 async function copyResult(result: ConvertResult): Promise<void> {
   if (!isTextResult(result)) {
     ElMessage.warning(t('result.copyUnavailable'));
@@ -178,6 +185,12 @@ function openPreview(result: ConvertResult): void {
           class="result-note"
         >
           {{ t('result.gifFirstFrame') }}
+        </p>
+        <p
+          v-if="svgRasterized"
+          class="result-note"
+        >
+          {{ t('result.svgRasterized') }}
         </p>
         <p
           v-if="hasPdfResult"

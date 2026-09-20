@@ -32,8 +32,9 @@ const htmlToDocxConverter: Converter = {
     // diagram, and `asBlob` then produced a valid blank `.docx` for a batch that reported success.
     // Remote references still have to be stripped AFTER, because Word — not us — renders this markup
     // on the user's machine.
+    const { html: withPngDiagrams, svgCount } = await replaceInlineSvgWithPng(htmlString);
     const sanitized = stripRemoteResources(
-      DOMPurify.sanitize(await replaceInlineSvgWithPng(htmlString), {
+      DOMPurify.sanitize(withPngDiagrams, {
         WHOLE_DOCUMENT: true,
         USE_PROFILES: { html: true },
         ADD_TAGS: ['link', 'style', 'meta'],
@@ -52,7 +53,7 @@ const htmlToDocxConverter: Converter = {
       throw new Error('errors.docxGen', { cause: error });
     }
 
-    return { blob, filename: 'converted.docx' };
+    return { blob, filename: 'converted.docx', svgRasterized: svgCount > 0 };
   },
 };
 
