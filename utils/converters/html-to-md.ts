@@ -1,6 +1,7 @@
 import { FileFormat } from '~/utils/core/types';
 import type { Converter, ConvertResult } from '~/utils/core/types';
 import { decodeTextBlobLenient } from '~/utils/core/text-decode';
+import { replaceInlineSvgWithPng } from '~/utils/core/svg-embed';
 
 /**
  * Serialize a `<table>` as a GFM pipe table.
@@ -30,7 +31,10 @@ const htmlToMdConverter: Converter = {
 
   async convert(input: Blob): Promise<ConvertResult> {
     const { default: TurndownService } = await import('turndown');
-    const html = await decodeTextBlobLenient(input);
+    // Turndown has no rule for an inline `<svg>`: the whole subtree collapsed to its `<text>` nodes,
+    // so SVG→Markdown used to hand back a file with the diagram missing. Rasterizing first turns it
+    // into an `<img>`, which the rule below already keeps as `![alt](src)`.
+    const html = await replaceInlineSvgWithPng(await decodeTextBlobLenient(input));
     const doc = new DOMParser().parseFromString(html, 'text/html');
     const bodyHtml = doc.body?.innerHTML ?? html;
 

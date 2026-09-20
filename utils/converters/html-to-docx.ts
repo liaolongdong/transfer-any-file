@@ -2,6 +2,7 @@ import { FileFormat } from '~/utils/core/types';
 import type { Converter, ConvertResult } from '~/utils/core/types';
 import { decodeTextBlobLenient } from '~/utils/core/text-decode';
 import { stripRemoteResources } from '~/utils/core/html-sanitize';
+import { replaceInlineSvgWithPng } from '~/utils/core/svg-embed';
 
 const htmlToDocxConverter: Converter = {
   from: FileFormat.HTML,
@@ -25,8 +26,14 @@ const htmlToDocxConverter: Converter = {
     // so nothing is fetched on this path, but the helper's other callers parse them as http(s).
     // Tightening it would change `html-raster` and both previews, so it stays a recorded gap
     // (see the plan's Task 1.1 backlog note) rather than being fixed as a side effect here.
+    //
+    // Inline SVG has to be rasterized BEFORE this sanitize: the `html` profile contains no svg tag at
+    // all, so the profile that exists to remove executable markup was also deleting the user's
+    // diagram, and `asBlob` then produced a valid blank `.docx` for a batch that reported success.
+    // Remote references still have to be stripped AFTER, because Word — not us — renders this markup
+    // on the user's machine.
     const sanitized = stripRemoteResources(
-      DOMPurify.sanitize(htmlString, {
+      DOMPurify.sanitize(await replaceInlineSvgWithPng(htmlString), {
         WHOLE_DOCUMENT: true,
         USE_PROFILES: { html: true },
         ADD_TAGS: ['link', 'style', 'meta'],
