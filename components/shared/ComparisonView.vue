@@ -326,7 +326,10 @@ function handleResultEdit(value: string): void {
     if (!props.result) return;
     const newBlob = new Blob([value], { type: props.result.blob.type });
     lastEmittedBlob = newBlob;
-    emit('update:result', { blob: newBlob, filename: props.result.filename });
+    // Carry the whole result, not just what the editor can see: `lostFrames` and `svgRasterized` are
+    // facts about how the bytes were made, and the receiver replaces the entry wholesale, so listing
+    // only two fields here silently deletes the rest of them — including the disclosures' triggers.
+    emit('update:result', { ...props.result, blob: newBlob });
   }, 300);
 }
 
