@@ -6,13 +6,11 @@ export default {
 
   // App / brand
   appName: 'Transfer Any File',
-  appTagline: '本地文件格式转换工具',
 
   // Options / workbench
   options: {
     title: '转换工作台',
     subtitle: '批量转换、预览与编辑，全部在本地完成',
-    history: '转换历史',
     preferences: '偏好设置',
   },
 
@@ -45,27 +43,14 @@ export default {
 
   // Preview
   preview: {
-    fileTitle: '文件预览',
-    resultTitle: '结果预览',
     reading: '读取中...',
-    truncated: '(内容已截断)',
-    readFileFail: '无法读取文件内容',
-    readResultFail: '无法读取结果内容',
     resultPlaceholder: '结果内容',
     renderedTab: '预览',
     sourceTab: '源码',
-    copy: '复制',
     copied: '已复制到剪贴板',
-    fileName: '文件名',
-    size: '大小',
-    format: '格式',
     docxHint: '文件大小: {size}，请下载后用 Word 打开查看。',
     xlsxHint: '文件大小: {size}，请下载后用 Excel 打开查看。',
-    fileSize: '文件大小: {size}',
-    openPreview: '预览',
-    dialogTitle: '文件预览',
     download: '下载',
-    docxPlaceholder: '[DOCX] {filename}\n文件大小: {size}\n请下载后用 Word 打开。',
     renderFailed: '预览渲染失败，请下载后查看',
     zoomIn: '放大',
     zoomOut: '缩小',
@@ -83,8 +68,6 @@ export default {
     copy: '复制',
     copied: '已复制到剪贴板',
     noPreview: '当前格式不支持预览',
-    collapse: '收起',
-    expand: '展开',
     sourceOnly: '仅显示原文件',
     splitView: '并排视图',
     resultOnly: '仅显示结果',
@@ -95,6 +78,7 @@ export default {
     selectTarget: '请选择目标格式',
     noMatch: '没有匹配的目标格式',
     noTarget: '当前格式没有可用的转换目标',
+    noRecognizedSource: '这批文件里没有可识别的格式，请换用支持的类型',
     mixedSource: '{count} 种格式',
     categoryDocument: '文档',
     categoryImage: '图片',
@@ -174,7 +158,6 @@ export default {
     doneNone: '转换失败',
     cancelledPartial: '转换已取消，已完成 {done} / {total} 个文件',
     cancelledNone: '转换已取消，未转换任何文件',
-    failed: '失败',
     download: '下载文件',
     downloadZip: '打包下载 ZIP ({count})',
     preview: '预览',
@@ -188,8 +171,6 @@ export default {
     failureAtStep: '失败步骤',
     failureCause: '底层错误',
     failureStepOf: '第 {current} / {total} 步',
-    failureNoPath: '未找到可用的转换路径',
-    failurePathArrow: ' → ',
     copyDiagnostic: '复制诊断信息',
     diagnosticCopied: '诊断信息已复制',
     diagnosticCopyFail: '复制失败，请手动选择文本',
@@ -203,8 +184,11 @@ export default {
     reuseUnavailable: '当前文件无法转换为该格式',
     reusePending: '已记住目标格式，上传匹配文件后自动应用',
     clear: '清空历史',
-    clearConfirm: '确定要清空所有转换历史吗？此操作不可撤销。',
+    clearConfirm: '确定要清空所有转换历史吗？清空后 5 秒内可以撤销。',
     delete: '删除',
+    undo: '撤销',
+    removed: '已删除 {count} 条历史记录',
+    restored: '已恢复 {count} 条历史记录',
     trend: '大小趋势',
     searchPlaceholder: '按文件名搜索',
     filterAll: '全部',
@@ -227,7 +211,6 @@ export default {
 
   // Preferences
   prefs: {
-    title: '偏好设置',
     theme: '主题色',
     language: '界面语言',
     mode: '显示模式',
@@ -254,7 +237,6 @@ export default {
     notificationBodyAllOk: '{count} 个文件已成功转换',
     notificationBodyPartial: '{ok} 个成功，{fail} 个失败',
     notificationBodyAllFail: '全部 {count} 个文件转换失败',
-    notificationClickHint: '点击查看',
     themeNames: {
       blue: '经典蓝',
       green: '森林绿',
@@ -299,12 +281,6 @@ export default {
     copy: '复制',
     download: '下载',
     import: '导入',
-    export: '导出',
-    clear: '清空',
-    collapse: '收起',
-    expand: '展开',
-    cancel: '取消',
-    close: '关闭',
     // Toggle buttons (aria-pressed)
     theme: '主题色：{name}',
     language: '界面语言：{name}',
@@ -313,22 +289,19 @@ export default {
     sourceOnly: '仅显示原文件',
     splitView: '并排视图',
     resultOnly: '仅显示结果',
+    splitDivider: '调整原文件与结果的分栏宽度',
     // Live region announcements
     converting: '正在转换第 {current} 个，共 {total} 个',
-    convertStarted: '开始转换 {count} 个文件',
     convertCompleted: '转换完成：成功 {ok} 个，失败 {fail} 个',
     convertAllOk: '全部 {count} 个文件转换成功',
     convertAllFail: '全部 {count} 个文件转换失败',
     convertCancelled: '转换已取消',
     convertCancelledPartial: '转换已取消：已完成 {done} / {total} 个文件',
-    fileAdded: '已添加文件：{name}',
-    fileRemoved: '已移除文件',
+    filesLoaded: '已载入 {count} 个文件',
     filesCleared: '已清空文件列表',
-    targetChanged: '目标格式已切换为 {name}',
-    historyDeleted: '已删除历史记录',
-    historyCleared: '已清空历史记录',
-    historyExported: '已导出 {count} 条历史',
-    historyImported: '已导入 {count} 条历史',
+    // Accessible names for controls with no visible label (el-select, etc.)
+    targetFormat: '目标格式',
+    historyFormatFilter: '按格式筛选历史记录',
   },
 
   // Footer
