@@ -565,7 +565,11 @@ zero network requests`) and the Chinese equivalent never appeared in a search re
   `lostFrames` and this round's `svgRasterized` all disappeared from a file that had not changed in those
   respects. `lostFrames` never showed it because a GIF's results are not an editable text format; Markdown
   is, so the SVG line reached this path on its first day. The editor now emits `{ ...props.result, blob }` —
-  it replaces the one field it owns.
+  it replaces the one field it owns. That fix has an assertion of its own now, and the suite total goes
+  258 → 259 with the outward copy following: `Result Edit Keeps The Disclosures` first confirms the note really
+  is on the `svg→md` card, presses space once in the editor to trip the debounced emit, then requires the note
+  to still be there. Putting the old `{ blob, filename }` back does turn it red — and it is not only the SVG
+  line that goes: the editor was wiping every note on the result card.
 
 ## [1.0.0] - 2026-09-07
 
