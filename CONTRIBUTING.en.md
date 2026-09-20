@@ -16,7 +16,7 @@ Contributions are welcome — format requests and bug reports included. This pro
 2. **Make the change, keeping the guarantees intact**
 
    ```bash
-   pnpm lint:all              # typecheck + eslint + stylelint — must pass
+   pnpm lint:all              # typecheck + eslint + stylelint + format check — must pass
    pnpm verify:offline:source # first-party source makes no network call; wxt.config.ts still declares `storage` only
    pnpm verify:meta           # package.json / public/_locales/en / wxt.config.ts / .github/repo-metadata.json agree
    pnpm test:e2e              # build + Playwright over fixtures/ — must pass
@@ -36,7 +36,9 @@ pnpm package          # zip for distribution
 pnpm typecheck        # vue-tsc
 pnpm lint             # eslint
 pnpm lint:style       # stylelint (assets/**/*.css and .vue)
-pnpm lint:all         # typecheck + eslint + stylelint
+pnpm format           # prettier --write over the repository
+pnpm format:check     # prettier --check over the repository (no writes)
+pnpm lint:all         # typecheck + eslint + stylelint + format:check
 pnpm verify:meta      # package.json / wxt.config.ts / public/_locales/en / .github/repo-metadata.json stay in sync
 pnpm verify:offline   # source-level checks plus the built-manifest assertion (needs pnpm build first; fails outright when .output/chrome-mv3 is missing)
 pnpm verify:offline:source # source level only: no network call in first-party source, wxt.config.ts declares `storage` only (no build needed)
@@ -73,7 +75,7 @@ Multi-step routes through your new converter are discovered automatically by the
 
 - [WXT](https://wxt.dev/) + Vue 3 + TypeScript + Element Plus (Manifest V3). Element Plus is pulled in per component through `unplugin-vue-components` + `ElementPlusResolver`; imperative APIs such as `ElMessage` are auto-imported by the resolver.
 - Converters: [marked](https://github.com/markedjs/marked), [turndown](https://github.com/mixmark-io/turndown), [mammoth](https://github.com/mwilliamson/mammoth.js), [html-docx-js-typescript](https://github.com/caiyexiang/html-docx-js-typescript), [jsPDF](https://github.com/parallax/jsPDF) + [html-to-image](https://github.com/bubkoo/html-to-image), [pdf.js](https://mozilla.github.io/pdf.js/), [SheetJS](https://sheetjs.com/), [fflate](https://github.com/101arrowz/fflate), [DOMPurify](https://github.com/cure53/DOMPurify)
-- Heavy dependencies are dynamically imported per converter, so the first paint stays small (whole bundle: 3.74 MB); heavy child components are lazy-loaded with `defineAsyncComponent` in `App.vue`
+- Heavy dependencies are dynamically imported per converter, so the first paint stays small (whole bundle: 3.76 MB); the ZIP engine fflate takes the same route — all five call sites go through `loadFflate()` in `utils/core/zip.ts`, and since `initConverters()` registers every converter statically, a top-level `import 'fflate'` would drag it back onto the first screen; heavy child components are lazy-loaded with `defineAsyncComponent` in `App.vue`
 
 ## Project structure
 
@@ -117,13 +119,16 @@ SECURITY.md            # disclosure channel and the offline attack-surface claim
 
 ## Accessibility and contrast assertions
 
-The end-to-end suite (`pnpm test:e2e`) asserts three contrast pairs across all 6 themes × light/dark, 12 combinations:
+The end-to-end suite (`pnpm test:e2e`) asserts four contrast pairs across all 6 themes × light/dark, 12 combinations:
 
 - topbar brand text against the topbar at 4.5:1 or better (WCAG 2.1 AA for text)
 - the focus ring against a card surface at 3:1 or better (AA for user-interface components)
 - the primary button's label in its **rest, hover and pressed** states at 4.5:1 or better — read off the enabled button with a file and a target staged, because the text rule exempts disabled controls
+- informational text (drop-zone hint, paste hint, file list header, file sizes, footer) against its own backdrop at 4.5:1 or better — same rule, five strings read off the live page with a file staged, each theme switch followed by a 400 ms wait, because the tokens carry a 0.18 s transition and a sample taken mid-transition returns an interpolated colour
 
-It separately asserts that the first Tab lands on the skip link and that the link shows a visible ring. Measured worst value on the live page (2026-09-14): 4.70:1, rose in light mode; the dark themes land at 7.03:1 and up.
+It separately asserts that the first Tab lands on the skip link and that the link shows a visible ring. Measured worst value on the live page (2026-09-14): 4.70:1, rose in light mode; the dark themes land at 7.03:1 and up. The informational-text group measured 4.95:1 at worst on 2026-09-20 (the drop-zone hint under light rose).
+
+**Which ink goes where**: `--fat-text-secondary` is the only colour informational text may take (4.95–5.44:1 light, 7.37–8.42:1 dark). `--fat-text-placeholder` (2.33–2.56:1 light) is reserved for the three cases 1.4.3 does not cover — real input placeholders, disabled controls, and decoration whose state is already carried by an ARIA attribute. Point informational text at the placeholder token and the fourth group above turns red.
 
 **Known limitation**: a control's fill also needs 3:1 against the surface behind it (WCAG 1.4.11). That holds in 10 of the 12 combinations but not under the forest-green and orange buttons in light mode (2.21 / 2.96:1 at their lightest state) — those two fills sit close to white, and deepening them to clear 3:1 would spend the label's margin. Change a theme token in `assets/theme/tokens.css` and these assertions catch the regression.
 

@@ -156,7 +156,7 @@
       · 143 combinations -> BFS closure over the same graph (utils/core/registry.ts)
       · 116 selectable   -> 143 minus the 27 pairs utils/core/conversion-policy.ts greys out
                             (24 image -> text/data + 3 PDF -> data)
-      · 3.74 MB          -> `pnpm build` total output size
+      · 3.76 MB          -> `pnpm build` total output size
     -->
     <script type="application/ld+json">
       {
@@ -230,7 +230,7 @@
               "Rebindable convert shortcut and optional desktop notification for background batches",
               "6 accent colours, light / dark / system appearance",
               "Chinese and English interface (follows the browser language until you pick one)",
-              "Keyboard-accessible UI, with topbar, button and focus-ring contrast measured per theme",
+              "Keyboard-accessible UI, with topbar, button, focus-ring and informational-text contrast measured per theme",
               "Only one permission: storage"
             ]
           },
@@ -3486,7 +3486,7 @@
               class="metric metric-size"
               data-onview="in"
             >
-              <b>3.74&nbsp;MB</b>
+              <b>3.76&nbsp;MB</b>
               <span class="label"><span lang="zh-CN">完整包体</span><span lang="en">whole bundle</span></span>
               <span
                 class="size-bar"
@@ -5117,16 +5117,17 @@
                   >跳转主内容链接、可见焦点环、<code>prefers-reduced-motion</code> 降级；转换进度与文件列表的增减通过
                   <code>role="status"</code>
                   区域播报，删除历史后 5 秒内还可以撤销。端到端套件在 6 主题 × 浅/深共 12
-                  种组合下逐项实测三组承担对比度契约的颜色：顶栏品牌文字对顶栏背景 ≥ 4.5:1，主按钮文字在常态 / 悬停 /
+                  种组合下逐项实测四组承担对比度契约的颜色：顶栏品牌文字对顶栏背景 ≥ 4.5:1，主按钮文字在常态 / 悬停 /
                   按下三种状态下均 ≥ 4.5:1（读数取自确实可点击的按钮，文本规则豁免禁用控件），焦点环对卡片背景 ≥
-                  3:1。</span
+                  3:1，拖放提示与文件大小这类正文信息文字对各自底色 ≥ 4.5:1。</span
                 >
                 <span lang="en"
                   >Skip link to the main content, visible focus rings and a
-                  <code>prefers-reduced-motion</code> fallback. The end-to-end suite measures the three colour pairs
-                  that carry the contrast contract — brand text on the topbar at 4.5:1 or better, the primary button's
-                  label in its rest, hover and pressed states at 4.5:1 or better (read off the enabled button, because
-                  the text rule exempts disabled controls), focus ring on a card at 3:1 or better — in all 12 theme ×
+                  <code>prefers-reduced-motion</code> fallback. The end-to-end suite measures the four colour pairs that
+                  carry the contrast contract — brand text on the topbar at 4.5:1 or better, the primary button's label
+                  in its rest, hover and pressed states at 4.5:1 or better (read off the enabled button, because the
+                  text rule exempts disabled controls), focus ring on a card at 3:1 or better, and informational text
+                  such as the drop hint and file sizes at 4.5:1 or better on their own backdrop — in all 12 theme ×
                   light/dark combinations.</span
                 >
               </p>
@@ -5298,12 +5299,12 @@
                 />
                 <figcaption>
                   <span lang="zh-CN"
-                    >深色外观：6 种主题色 × 浅 / 深 / 跟随系统，顶栏文字、主按钮文字与焦点环的对比度在全部 12
-                    种组合下逐项实测。</span
+                    >深色外观：6 种主题色 × 浅 / 深 / 跟随系统，顶栏文字、主按钮文字、焦点环与正文信息文字的对比度在全部
+                    12 种组合下逐项实测。</span
                   >
                   <span lang="en"
                     >Dark appearance: 6 accent colours × light / dark / system, with the topbar text, primary button
-                    label and focus-ring contrast measured in all 12 combinations.</span
+                    label, focus-ring and informational-text contrast measured in all 12 combinations.</span
                   >
                 </figcaption>
               </figure>
@@ -6545,13 +6546,14 @@ pnpm build</code><button
                 <span lang="zh-CN"
                   >WXT · Vue 3 · TypeScript · Element Plus ·
                   Vite。重型转换库（marked、turndown、mammoth、pdf.js、SheetJS、jsPDF、html-to-image、DOMPurify）按转换器动态引入，打包用的
-                  fflate 随工作台一起加载，首屏包体保持精简；Element Plus 按需引入，不整包导入。</span
+                  fflate 也一样在真正要用的那一刻才加载，首屏不背着它；Element Plus 按需引入，不整包导入。</span
                 >
                 <span lang="en"
                   >WXT · Vue 3 · TypeScript · Element Plus · Vite. Heavy conversion libraries (marked, turndown,
-                  mammoth, pdf.js, SheetJS, jsPDF, html-to-image, DOMPurify) are dynamically imported per converter so
-                  the first paint stays small, while the ZIP packer (fflate) ships with the workbench itself; Element
-                  Plus is tree-shaken rather than imported whole.</span
+                  mammoth, pdf.js, SheetJS, jsPDF, html-to-image, DOMPurify) are dynamically imported per converter, and
+                  the ZIP packer (fflate) loads the same way at the call site that needs it rather than with the
+                  workbench, so the first paint stays small; Element Plus is tree-shaken rather than imported
+                  whole.</span
                 >
               </p>
             </div>
@@ -6573,19 +6575,19 @@ pnpm build</code><button
               <p>
                 <span lang="zh-CN"
                   >一套 Playwright 端到端套件加载真正的构建产物，用仓库内的夹具跑完各类转换场景、批量与
-                  ZIP、取消与改键、预览与编辑、图片输出参数与转换预设、历史与偏好，共 241 项断言全部通过（1.0.0
+                  ZIP、取消与改键、预览与编辑、图片输出参数与转换预设、历史与偏好，共 242 项断言全部通过（1.0.0
                   之后的未发布构建，2026-09-20 实测）；另在 6 主题 × 浅/深共 12
-                  种组合下逐项校验三组对比度：顶栏文字、主按钮文字（常态 / 悬停 / 按下）与焦点环。CI 每次推送跑 lint +
-                  build + e2e。</span
+                  种组合下逐项校验四组对比度：顶栏文字、主按钮文字（常态 / 悬停 / 按下）、焦点环与正文信息文字。CI
+                  每次推送跑 lint + build + e2e。</span
                 >
                 <span lang="en"
                   >A Playwright end-to-end suite drives the actual build output over the repository fixtures — every
                   conversion scenario, batching and ZIP handling, cancellation and shortcut rebinding, preview and
-                  editing, image output parameters and conversion presets, history and preferences — with 241/241
-                  assertions passing (the unreleased build after 1.0.0, measured 2026-09-20). It also checks three
-                  contrast pairs — topbar text, the primary button's label in its rest, hover and pressed states, and
-                  the focus ring — in all 12 theme × light/dark combinations. CI runs lint, build and e2e on every
-                  push.</span
+                  editing, image output parameters and conversion presets, history and preferences — with 242/242
+                  assertions passing (the unreleased build after 1.0.0, measured 2026-09-20). It also checks four
+                  contrast pairs — topbar text, the primary button's label in its rest, hover and pressed states, the
+                  focus ring, and informational text such as the drop hint and file sizes — in all 12 theme × light/dark
+                  combinations. CI runs lint, build and e2e on every push.</span
                 >
               </p>
             </div>
@@ -6609,7 +6611,7 @@ pnpm build</code><button
             <span lang="zh-CN"
               ><strong>版本 1.0.0 · 本页最后更新 2026-09-20。</strong>文中全部数字从代码取证：14 种格式来自
               <code>FileFormat</code> 枚举，48 条路径与 143 个可达组合来自转换器注册表的邻接图，116 个可选组合是 143
-              减去 <code>utils/core/conversion-policy.ts</code> 置灰的 27 个，3.74 MB 来自
+              减去 <code>utils/core/conversion-policy.ts</code> 置灰的 27 个，3.76 MB 来自
               <code>pnpm build</code> 输出，权限与上限来自 manifest 与源码常量。截图与推广图由
               <code>pnpm assets:capture</code> 从构建产物生成。</span
             >
@@ -6617,7 +6619,7 @@ pnpm build</code><button
               ><strong>Version 1.0.0 · page last updated 2026-09-20.</strong> Every number on this page is taken from
               the code: 14 formats from the <code>FileFormat</code> enum, 48 routes and 143 reachable combinations from
               the converter registry's adjacency graph, and 116 selectable combinations — that is 143 minus the 27 pairs
-              <code>utils/core/conversion-policy.ts</code> greys out. 3.74 MB comes from <code>pnpm build</code> output,
+              <code>utils/core/conversion-policy.ts</code> greys out. 3.76 MB comes from <code>pnpm build</code> output,
               permissions and limits from the manifest and source constants. Screenshots are generated from the built
               bundle by <code>pnpm assets:capture</code>.</span
             >
@@ -7330,7 +7332,7 @@ pnpm build</code><button
         }
 
         // ---- Roll the metric band up, once, as it comes into view ----------
-        // Only bare integers are touched: "3.74 MB" is a measurement with a unit, not a tally, and
+        // Only bare integers are touched: "3.76 MB" is a measurement with a unit, not a tally, and
         // rolling it would advertise a precision the build does not have. The real value stays in the
         // HTML, so crawlers, no-JS readers and reduced-motion readers all see the answer immediately.
         var metricNums = Array.prototype.slice.call(document.querySelectorAll('.metric b')).filter(function (el) {
@@ -7457,7 +7459,7 @@ pnpm build</code><button
 
         // ---- One-pass scroll reveals declared in the markup -------------------
         // data-onview names the class an element gains the first time it is 35% in view:
-        // the size bar under "3.74 MB" (in) and the light sweep over the comparison column
+        // the size bar under "3.76 MB" (in) and the light sweep over the comparison column
         // (shine). Both classes only arm finite animations, so reduced-motion readers get
         // the end state directly and there is nothing to unsee.
         var onView = Array.prototype.slice.call(document.querySelectorAll('[data-onview]'));

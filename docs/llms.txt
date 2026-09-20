@@ -73,4 +73,4 @@ Sole author: Better ([github.com/liaolongdong](https://github.com/liaolongdong))
 
 ## Tech stack
 
-WXT · Vue 3 · TypeScript · Element Plus · Vite · Playwright (end-to-end). Heavy conversion libraries (marked, turndown, mammoth, pdf.js, SheetJS, jsPDF, html-to-image, DOMPurify) are dynamically imported per converter; the ZIP packer (fflate) ships with the workbench itself. The complete bundle is 3.74 MB.
+WXT · Vue 3 · TypeScript · Element Plus · Vite · Playwright (end-to-end). Heavy conversion libraries (marked, turndown, mammoth, pdf.js, SheetJS, jsPDF, html-to-image, DOMPurify) are dynamically imported per converter, and so is the ZIP packer (fflate) — loaded at the call site that needs it, not with the workbench. The complete bundle is 3.76 MB.

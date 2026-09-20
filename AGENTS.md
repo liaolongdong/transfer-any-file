@@ -20,7 +20,8 @@
 | 打包分发 zip       | `pnpm package`                                                                                                                                                         |
 | 类型检查           | `pnpm typecheck`（vue-tsc）                                                                                                                                            |
 | ESLint / Stylelint | `pnpm lint` / `pnpm lint:style`                                                                                                                                        |
-| 全量检查           | `pnpm lint:all`（typecheck + eslint + stylelint）                                                                                                                      |
+| 全量检查           | `pnpm lint:all`（typecheck + eslint + stylelint + format:check）                                                                                                       |
+| Prettier 格式      | `pnpm format:check` / `pnpm format`（`.prettierignore` 只排除构建生成物、`fixtures/` 与 `.qoder/`，其余源码一律受管）                                                  |
 | 元数据一致性       | `pnpm verify:meta`（`package.json` ↔ `wxt.config.ts` 的 `__MSG__` / `default_locale` ↔ `_locales/en` ↔ `.github/repo-metadata.json`）                                  |
 | 离线断言（源码层） | `pnpm verify:offline:source`（第一方源码无网络调用；`wxt.config.ts` 只声明 `storage`、无 host 权限）                                                                   |
 | 离线断言（产物层） | `pnpm verify:offline`（同上源码检查，再断言产物 `.output/chrome-mv3/manifest.json` 权限只有 `storage`、无 host/optional 权限；缺产物即失败，须先 `pnpm build`）        |
@@ -50,7 +51,7 @@
   - `utils/converters/index.ts`：`initConverters()` 幂等注册全部转换器（启动时调用一次）。
 - **`composables/`**：`useConversion`（批量转换编排：逐文件路径解析、错误隔离、`AbortController` 取消、fflate ZIP、写历史；`cancelled` 状态区分「跑完」与「被中断」）、`useFileDetect`（扩展名优先 + MIME 兜底）、`useHistory`（最近 50 条**元数据**，模块级共享）、`useI18n`（中/英，无存储值时按 `navigator.languages` 判定，模块级响应式）、`useTheme`（6 主题 × light/dark/system）、`useShortcuts`（`Ctrl/⌘+Enter` 改绑，持久化到 storage）、`useRecentTargets`（最近 6 个目标格式，模块级共享）、`useConfirmConvert`（大批次确认开关）、`useOutputOptions`（图片输出参数，持久化到 `fat:outputOptions`，读取时按 `output-options.ts` 的边界钳制）、`usePresets`（转换预设 ≤12，持久化到 `fat:presets`，读取时 `sanitizePresets` 净化）、`useNotification`（后台批次完成桌面通知；用**web `Notification` API**，非 `chrome.notifications`，因此 manifest 仍只需 `storage`）。
 - **`components/`**：`shared/`（FileUpload、FormatSelector、OutputOptions、PresetBar、ConversionProgress、ResultDownload、ComparisonView、PreviewDialog、PreferencesMenu、CollapsibleCard、FailureDiagnosticItem、HistoryTrendChart）+ `options/HistoryPanel`；`popup/` 为空占位（无 popup）。
-- **`utils/core/` 其它工具**：`conversion-policy.ts`（`getBlockedReason`：图上可达但语义无效的 from→to 组合，UI 置灰而非报错）、`output-options.ts`（图片输出参数的合法区间与 `optionsForStep`：只有终点编码能吃 `quality`/`targetSizeKB`）、`presets.ts`（预设的纯规则：上限、名称截断、`sanitizePresets`、自动描述）、`format-labels.ts`（`FORMAT_INFO` 元数据 + label/category）、`text-decode.ts`（UTF-8 → GB18030 → GBK 兜底）、`error-keys.ts`（`CONVERSION_ERROR_KEYS` + 分类）、`abort.ts`、`html-raster.ts`、`html-document.ts`、`image-utils.ts`（含 `encodeCanvas` / `releaseCanvas`）、`preview.ts`、`alt-chunk.ts`、`format.ts`（`formatSize` + `TEXT_FORMATS` 可编辑/可复制文本格式 + `isZipCompressible` 逐条目压缩策略）、`shortcut.ts`（纯快捷键解析/校验/匹配，无响应式与 storage）、`platform.ts`（`isApplePlatform` 单一事实来源）。
+- **`utils/core/` 其它工具**：`conversion-policy.ts`（`getBlockedReason`：图上可达但语义无效的 from→to 组合，UI 置灰而非报错）、`output-options.ts`（图片输出参数的合法区间与 `optionsForStep`：只有终点编码能吃 `quality`/`targetSizeKB`）、`presets.ts`（预设的纯规则：上限、名称截断、`sanitizePresets`、自动描述）、`format-labels.ts`（`FORMAT_INFO` 元数据 + label/category）、`text-decode.ts`（UTF-8 → GB18030 → GBK 兜底）、`error-keys.ts`（`CONVERSION_ERROR_KEYS` + 分类）、`abort.ts`、`html-raster.ts`、`html-document.ts`、`image-utils.ts`（含 `encodeCanvas` / `releaseCanvas`）、`preview.ts`、`alt-chunk.ts`、`format.ts`（`formatSize` + `TEXT_FORMATS` 可编辑/可复制文本格式 + `isZipCompressible` 逐条目压缩策略）、`shortcut.ts`（纯快捷键解析/校验/匹配，无响应式与 storage）、`platform.ts`（`isApplePlatform` 单一事实来源）、`zip.ts`（`loadFflate()`：fflate 的唯一入口，缓存一个动态 import，见「性能约定」）。
 - **`utils/storage.ts`**：唯一存储边界。`STORAGE_KEYS`（全部 `fat:` 前缀）+ `storageGet/Set`（try/catch 静默降级）+ `onStorageChange`（返回取消订阅）。仅用 `storage.local`，**无加密、无 session**。
 - **`assets/`**：`theme/tokens.css`（`--fat-*` 令牌，6 主题 + dark）、`styles/global.css`（`@import` tokens + 基础样式 + reduced-motion）、图标 SVG 母版（`icon.svg` 详细档：文档 + 环形转换徽章 / `icon-small.svg` 简化档：加粗双向箭头，为 16px 可读性而画）。
 - **`public/_locales/{zh_CN,en}/messages.json`**：manifest 级字符串，只有两条——`extensionName` 与
@@ -84,7 +85,7 @@
 
 ## 性能约定
 
-- 首屏精简：重型子组件用 `defineAsyncComponent`；重型转换库在转换器内部动态 `import()`。
+- 首屏精简：重型子组件用 `defineAsyncComponent`；重型转换库在转换器内部动态 `import()`。ZIP 引擎同理——**fflate 只能经 `utils/core/zip.ts` 的 `loadFflate()` 拿到**，因为转换器由 `initConverters()` 在启动时静态注册，任何模块顶层的 `import 'fflate'` 都会把它打回首屏 chunk（`import type { Zippable }` 是类型，编译期擦除，不算）。
 - 主题在 `main.ts` 挂载前应用，避免闪烁。
 - 保留 `wxt.config.ts` 中 jspdf 的 `html2canvas`/`canvg` stub 别名（除非启用 jspdf `.html()`）。
 

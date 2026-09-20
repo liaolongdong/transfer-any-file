@@ -16,7 +16,7 @@
 2. **改代码，同时保证那些承诺依然成立**
 
    ```bash
-   pnpm lint:all              # 类型检查 + eslint + stylelint —— 必须通过
+   pnpm lint:all              # 类型检查 + eslint + stylelint + 格式检查 —— 必须通过
    pnpm verify:offline:source # 第一方源码不发起网络请求；wxt.config.ts 仍只声明 storage
    pnpm verify:meta           # package.json / public/_locales/en / wxt.config.ts / .github/repo-metadata.json 一致
    pnpm test:e2e              # 构建 + Playwright 跑 fixtures/ —— 必须通过
@@ -36,7 +36,9 @@ pnpm package          # 打包 zip 用于分发
 pnpm typecheck        # vue-tsc 类型检查
 pnpm lint             # eslint
 pnpm lint:style       # stylelint（assets/**/*.css 与 .vue）
-pnpm lint:all         # typecheck + eslint + stylelint
+pnpm format           # Prettier --write 全仓库
+pnpm format:check     # Prettier --check 全仓库（不写盘）
+pnpm lint:all         # typecheck + eslint + stylelint + format:check
 pnpm verify:meta      # package.json / wxt.config.ts / public/_locales/en / .github/repo-metadata.json 保持一致
 pnpm verify:offline   # 源码层检查 + 产物 manifest 断言（须先 pnpm build；缺 .output/chrome-mv3 时直接失败，不再静默跳过）
 pnpm verify:offline:source # 只跑源码层：第一方源码无网络调用，wxt.config.ts 仅声明 storage 权限（无需先构建）
@@ -73,7 +75,7 @@ git tag v1.0.0 && git push --tags   # release.yml：产出商店包、校验包�
 
 - [WXT](https://wxt.dev/) + Vue 3 + TypeScript + Element Plus（Manifest V3），Element Plus 通过 `unplugin-vue-components` + `ElementPlusResolver` 按需引入，命令式 API 由 resolver 自动导入
 - 转换器：[marked](https://github.com/markedjs/marked)、[turndown](https://github.com/mixmark-io/turndown)、[mammoth](https://github.com/mwilliamson/mammoth.js)、[html-docx-js-typescript](https://github.com/caiyexiang/html-docx-js-typescript)、[jsPDF](https://github.com/parallax/jsPDF) + [html-to-image](https://github.com/bubkoo/html-to-image)、[pdf.js](https://mozilla.github.io/pdf.js/)、[SheetJS](https://sheetjs.com/)、[fflate](https://github.com/101arrowz/fflate)、[DOMPurify](https://github.com/cure53/DOMPurify)
-- 重型依赖按转换器动态 `import()`，首屏保持精简（完整产物 3.74 MB）；重型子组件在 `App.vue` 里用 `defineAsyncComponent` 懒加载
+- 重型依赖按转换器动态 `import()`，首屏保持精简（完整产物 3.76 MB）；ZIP 引擎 fflate 也走同一条路——五个调用点统一经 `utils/core/zip.ts` 的 `loadFflate()`，转换器由 `initConverters()` 静态注册，顶层 `import 'fflate'` 会把它拉回首屏；重型子组件在 `App.vue` 里用 `defineAsyncComponent` 懒加载
 
 ## 项目结构
 
@@ -117,13 +119,16 @@ SECURITY.md            # 漏洞披露渠道与离线攻击面说明（.en.md 为
 
 ## 无障碍与对比度断言
 
-端到端套件（`pnpm test:e2e`）在 6 种主题色 × 明暗共 12 组配置下逐项断言三组对比度：
+端到端套件（`pnpm test:e2e`）在 6 种主题色 × 明暗共 12 组配置下逐项断言四组对比度：
 
 - 顶栏品牌文字对顶栏背景 ≥ 4.5:1（WCAG 2.1 AA 文本类）
 - 焦点环对卡片背景 ≥ 3:1（AA 用户界面组件类）
 - 主按钮文字在**常态 / 悬停 / 按下**三种状态下均 ≥ 4.5:1——读数取自已放入文件、已选目标、确实可点击的那颗按钮（文本规则豁免禁用控件）
+- 正文信息文字（拖放提示、粘贴提示、文件列表标题、文件大小、页脚）对各自底色 ≥ 4.5:1——同样是放进文件之后的真实页面，五串文字逐个读回；每档主题切换后先等 400ms，因为令牌带 0.18s 过渡，在过渡中间采样拿到的是插值色
 
-另单独断言第一次 Tab 落在 skip link 上且该链接显示可见焦点环。2026-09-14 在真实页面实测的最低值为 4.70:1（浅色玫瑰红），深色六档均在 7.03:1 以上。
+另单独断言第一次 Tab 落在 skip link 上且该链接显示可见焦点环。2026-09-14 在真实页面实测的最低值为 4.70:1（浅色玫瑰红），深色六档均在 7.03:1 以上；信息文字那组 2026-09-20 实测最差 4.95:1（浅色玫瑰红的拖放提示）。
+
+**墨色分工**：`--fat-text-secondary` 是信息文字唯一可用的墨色（浅色 4.95–5.44:1，深色 7.37–8.42:1）；`--fat-text-placeholder`（浅色 2.33–2.56:1）只留给 1.4.3 管不着的三种情形——真正的输入占位符、禁用控件、状态已由 ARIA 属性承载的装饰。把信息文字改成后者，上面第四组断言会直接变红。
 
 **已知限制**：控件的填充色对它所在的背景还需 ≥ 3:1（WCAG 1.4.11），12 组里有 10 组满足，浅色的森林绿与活力橙主按钮不满足（最浅状态 2.21 / 2.96:1）——这两档填充本身就接近白色，再加深到 3:1 就要花掉文字那一侧的余量。改动 `assets/theme/tokens.css` 里的主题令牌时，上面这些断言会直接把回归拦下来。
 

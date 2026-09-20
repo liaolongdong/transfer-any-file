@@ -104,6 +104,17 @@ always name the same release.
   pixel what it was; because that element paints over statically positioned panel content, the mode buttons
   below it gained `position: relative` and stay clickable on top of it. Arrow-key adjustment already existed
   and was not reimplemented.
+- **Prettier went from "installed, never run" to a guard.** `pnpm format:check` is part of `lint:all`, and the
+  CI lint job already runs `lint:all`, so formatting is now a check a commit has to pass (`pnpm fix:all` ends
+  with `pnpm format` too). The first repository-wide `pnpm format`: 16 files changed in **nothing but**
+  formatting — each one verified by running Prettier over its HEAD version and comparing against the working
+  copy — while the remaining files were normalised alongside a real change. `.prettierignore` covers exactly
+  three kinds of thing: build output, `fixtures/` (the conversion inputs the e2e suite asserts on a byte and
+  size basis, so reformatting them rewrites the assertion), and `.qoder/` (specs and plans). One brittle
+  assertion surfaced by that sweep got fixed on the way: `scripts/check-store-listing.mjs` looked for
+  `__MSG_extensionName__` in `wxt.config.ts` through a double-quoted literal, which Prettier's object-key
+  quoting turned into a permanent false. It now matches regardless of quote style — what it guards is "does the
+  manifest reference these two keys", not "how those keys happen to be formatted".
 
 ### Changed
 
@@ -225,6 +236,15 @@ zero network requests`) and the Chinese equivalent never appeared in a search re
   `docs/llms.txt`, both promo drafts, and the product page's two JSON-LD `license` nodes plus its four visible
   mentions. Nothing in the shipped extension reads a licence string, so behaviour, storage and permissions are
   untouched.
+- **fflate moved off the first screen.** ZIP is only needed for four things: bundling several results into one
+  download, multi-sheet XLSX → CSV, multi-page PDF → images, and unpacking an archive the user drops in. But
+  `import { Zip } from 'fflate'` sat at the top of `composables/useConversion.ts`, and `App.vue` calls
+  `initConverters()` on startup, which registers every converter statically — either route alone pulled fflate
+  into the first-screen chunk. There is now one door: `loadFflate()` in `utils/core/zip.ts`, which `import()`s
+  on first call and reuses the same module instance afterwards; the five call sites each `await` it right before
+  they need it. Measured first-screen JS for the workbench: 440,395 B → 421,532 B (−18,863 B, −4.3%).
+  **The cost is stated plainly**: the total package grew from 3.74 MB to 3.76 MB, because splitting it into an
+  async chunk carries its own overhead — paid so that the first screen does not load it.
 
 ### Fixed
 
@@ -403,6 +423,18 @@ zero network requests`) and the Chinese equivalent never appeared in a search re
   reaches 2.54:1 on the light-green fill — 1.69:1 at worst on the dark-mode pastels. It now takes
   `--fat-on-btn-solid`, the same convention the primary button uses: the theme declares which ink belongs on its
   own fill.
+- **Text you are meant to read was sitting at 2.33–2.56:1.** The drop-zone hint, file sizes, path arrows, status
+  lines and the footer all took `--fat-text-placeholder`. WCAG 1.4.3 exempts real input placeholders, disabled
+  controls and decoration whose state is already carried by an ARIA attribute — those three stay exactly where
+  they are. What is written above is body text, so it is not exempt. 14 sites moved to `--fat-text-secondary`,
+  and that token only reached 4.33:1 on the tinted light surfaces of four of the six themes (rose's `#fff1f2` is
+  the weakest backdrop in the palette — the neutral surfaces passed), so it was darkened from `#64748b` to
+  `#5b6b80` first (4.95–5.44:1 light, 7.37–8.42:1 dark) and only then referenced. Swapping the reference without
+  fixing the colour would have shipped a "fix" that still failed AA. The suite gained a fourth contrast group:
+  those five strings are asserted at ≥ 4.5:1 across all 6 themes × light/dark, worst reading this run 4.95:1
+  (`.drop-text` under light rose). Each sample now waits 400 ms for the token transition to settle — reading
+  mid-transition returns an interpolated colour, which is a plausible-looking wrong number (the first version of
+  this guard sampled a backdrop of `rgb(187,187,193)`, a colour that exists nowhere in the palette).
 
 ## [1.0.0] - 2026-09-07
 
