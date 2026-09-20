@@ -100,7 +100,7 @@ pnpm install && pnpm build
 
 商店需要的东西已经准备好了：名称与描述文案、1280×800 截图、权限逐条说明、隐私政策、数据披露答复，都写在仓库的 `CHROMEWEBSTORE.md` 和 `docs/privacy.html` 里。上架还差一个开发者账号和一次提交——如果你想推动这件事，去仓库开个 issue 就行。
 
-技术栈：**WXT + Vue 3 + TypeScript + Element Plus**，Manifest V3，权限只有 `storage`，MIT 协议。代码里的验证方式也一并交代：Playwright 驱动构建产物跑 244 条断言，夹具（`fixtures/`）随仓库走。
+技术栈：**WXT + Vue 3 + TypeScript + Element Plus**，Manifest V3，权限只有 `storage`，MIT 协议。代码里的验证方式也一并交代：Playwright 驱动构建产物跑 246 条断言，夹具（`fixtures/`）随仓库走。
 
 ## 六、谁不该用它
 

@@ -30,6 +30,14 @@ export interface ConvertResult {
    * remains only as the fallback for converters that do not declare it.
    */
   containerExt?: string;
+  /**
+   * Set by the orchestrator, never by a converter: this file's route ran a step that declared
+   * `Converter.flattensInput`, so an animated source came out as a single frame.
+   *
+   * The UI cannot recover this from the result — output names are rebuilt from the source basename
+   * plus the new extension, so nothing on a `sample_png_….png` says it started life as a GIF.
+   */
+  lostFrames?: boolean;
 }
 
 /**
@@ -127,6 +135,16 @@ export interface Converter {
    * to registration order — declared, not accidental.
    */
   edgePreference?: number;
+  /**
+   * True when this edge decodes its input down to one frame, so an animated source loses its
+   * animation.
+   *
+   * Declared per edge, never inferred from a format table, because both halves of the claim have to
+   * hold: the edge must actually re-encode through a bitmap, and its own `from` must be a format
+   * that can carry animation. `gif→png` qualifies; `gif→html` embeds the original bytes and the
+   * animation survives; `png→jpg` flattens nothing that could move.
+   */
+  flattensInput?: boolean;
   convert(input: Blob, ctx?: ConvertContext): Promise<ConvertResult>;
 }
 

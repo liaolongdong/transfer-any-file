@@ -156,6 +156,8 @@ const en: typeof zh = {
     preview: 'Preview',
     copy: 'Copy',
     copyUnavailable: 'Result is not a text format and cannot be copied',
+    gifFirstFrame:
+      'A GIF converted to an image or a PDF keeps only its first frame — the animation is not written into the result. Keep the original GIF if you need the animation.',
     pdfNoTextLayer:
       'The produced PDF is a page image with no text layer. If you need the text on it, try selecting and copying it in a PDF viewer — some recognise the text themselves, and that step is not done by this extension.',
     // F19 — failure diagnostic panel

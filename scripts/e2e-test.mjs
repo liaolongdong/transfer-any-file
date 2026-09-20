@@ -699,6 +699,47 @@ async function run() {
   }
 
   // ═══════════════════════════════════════════
+  //  F-5a0 — a route that flattened the animation says so in the result card
+  // ═══════════════════════════════════════════
+
+  // Deliberately two halves. The first is the disclosure; the second is why the flag is declared on
+  // the edge rather than derived from the source format: `gif→html` embeds the original bytes, so the
+  // same GIF still animates there and a note on that route would be a false statement. Both halves
+  // first require a result row, because "no note rendered" is also what a failed conversion looks
+  // like — and an empty list would satisfy the negative half on its own.
+  if (section('GIF first-frame disclosure')) {
+    try {
+      await resetWorkbench(page);
+      const flattenedTo = await convertFile(page, 'sample.gif', 'PNG (.png)');
+      const flattened = await page.$$eval('.result-note', els => els.map(el => el.textContent.trim()));
+      if (!flattenedTo.resultName) {
+        fail('GIF→PNG disclosure', `no result row: alert "${flattenedTo.alertTitle}"`);
+      } else if (flattened.some(text => text.includes('第一帧'))) {
+        ok('GIF→PNG discloses that only the first frame survives');
+      } else {
+        fail('GIF→PNG disclosure', `notes rendered: ${JSON.stringify(flattened)}`);
+      }
+
+      await resetWorkbench(page);
+      const keptTo = await convertFile(page, 'sample.gif', 'HTML (.html)');
+      const kept = await page.$$eval('.result-note', els => els.map(el => el.textContent.trim()));
+      if (!keptTo.resultName) {
+        fail('GIF→HTML disclosure', `no result row: alert "${keptTo.alertTitle}"`);
+      } else if (kept.some(text => text.includes('第一帧'))) {
+        fail('GIF→HTML disclosure', `unexpected note: ${JSON.stringify(kept)}`);
+      } else {
+        ok('GIF→HTML stays silent — that route keeps the animation');
+      }
+      await page.screenshot({
+        path: shot(`${String(shotIdx++).padStart(2, '0')}-gif-html-keeps-animation.png`),
+        fullPage: true,
+      });
+    } catch (e) {
+      fail('GIF first-frame disclosure', e.message);
+    }
+  }
+
+  // ═══════════════════════════════════════════
   //  F-5a — HTML→PDF page slices must be PNG, not JPEG
   // ═══════════════════════════════════════════
 

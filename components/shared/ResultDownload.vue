@@ -80,6 +80,14 @@ function isTextResult(result: ConvertResult): boolean {
  */
 const hasPdfResult = computed(() => props.results.some(r => detectFormatFromFilename(r.filename) === FileFormat.PDF));
 
+/**
+ * Which route a file took is invisible from the result: the name is rebuilt from the source basename
+ * plus the new extension. The orchestrator therefore marks the files whose chain decoded an animated
+ * source onto a canvas, and this discloses it — a GIF that went to HTML kept moving, one that went to
+ * PNG did not.
+ */
+const lostFrames = computed(() => props.results.some(r => r.lostFrames));
+
 async function copyResult(result: ConvertResult): Promise<void> {
   if (!isTextResult(result)) {
     ElMessage.warning(t('result.copyUnavailable'));
@@ -165,6 +173,12 @@ function openPreview(result: ConvertResult): void {
         >
           <FailureDiagnosticItem :failure="failure" />
         </template>
+        <p
+          v-if="lostFrames"
+          class="result-note"
+        >
+          {{ t('result.gifFirstFrame') }}
+        </p>
         <p
           v-if="hasPdfResult"
           class="result-note"

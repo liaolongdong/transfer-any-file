@@ -6,6 +6,9 @@ function createImageToPdfConverter(from: FileFormat): Converter {
   return {
     from,
     to: FileFormat.PDF,
+    // The `drawImage` below keeps a single frame, which for a GIF source is the whole animation.
+    // The other inputs of this module cannot carry animation, so only the GIF edge declares it.
+    flattensInput: from === FileFormat.GIF,
     async convert(input: Blob): Promise<ConvertResult> {
       const { default: jsPDF } = await import('jspdf');
       const objectUrl = URL.createObjectURL(input);

@@ -370,7 +370,13 @@ export function useConversion() {
           if (signal.aborted) break;
 
           const base = file.name.replace(/\.[^.]+$/, '');
-          results.push({ blob: currentBlob, filename: uniqueName(base, outExt) });
+          results.push({
+            blob: currentBlob,
+            filename: uniqueName(base, outExt),
+            // Which step decided the outcome is a fact about the route, not about the source format:
+            // the same GIF comes out animated through `gif→html` and flattened through `gif→png`.
+            lostFrames: steps.some(step => step.converter.flattensInput),
+          });
           converted.push({ name: file.name, size: file.size, format });
         } catch (e) {
           // A cancel surfacing from inside a long step is not a failure of that file: the user

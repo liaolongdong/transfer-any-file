@@ -12,6 +12,10 @@ function createImageConverter(from: FileFormat, to: FileFormat, mimeType: string
   return {
     from,
     to,
+    // The canvas draw keeps one frame, so for a GIF source that is the whole animation. Declared
+    // only where the *edge's own* input can be animated: `png→jpg` flattens nothing, and
+    // `image-to-html` never decodes — it embeds the original bytes, animation intact.
+    flattensInput: from === FileFormat.GIF,
     async convert(input: Blob, ctx?: ConvertContext): Promise<ConvertResult> {
       // Object URLs avoid the base64 memory overhead of data URLs
       const objectUrl = URL.createObjectURL(input);

@@ -165,6 +165,23 @@ always name the same release.
   new guard exists for, so the two paste blocks are now measured the way `verify:listing` measures them and added as
   facts 21 and 22, with both publishing guides brought into the comparison; the four places that quote those lengths
   are checked from now on.
+- **The result card now admits when it flattened an animation.** When a batch contains a file whose route decoded a
+  GIF down to a single frame, the card carries a line: a GIF converted to an image or a PDF keeps only its first
+  frame, the animation is not in the result, and the original file is where the animation still lives. The README's
+  format table and the product page FAQ had always said "GIF renders its first frame" while the product stayed
+  silent — the user held a still image and nothing acknowledged what had been dropped. This is the second entry
+  against "lossy semantics are never disclosed in the UI", and the trigger is declared on the _edge_ rather than on
+  the source format: `Converter.flattensInput` is set only by `gif→png / jpg / webp` and `gif→pdf`, the routes that
+  really do pass through a canvas decode, whereas `gif→html` copies the original bytes into an `<img>` and the
+  animation survives intact — that route has to stay quiet. The orchestrator carries the fact out with the result
+  (`ConvertResult.lostFrames`), because an output name is rebuilt as "source basename plus new extension" and
+  `sample_png_….png` does not say it ever was a GIF. Two new assertions, the second of which checks the silence:
+  GIF→PNG must show the line, GIF→HTML must not — keying the note off `source === GIF` would pass the first and fail
+  the second. Suite total: 244 → 246, and the same number in the product page and both promo drafts moved with it.
+  Still uncovered: SVG flattening (whether `svg→md` and `svg→docx` really keep the vector is unmeasured, and a
+  sentence nobody measured does not get written), animated WebP input (`webp→png` takes its first frame too, and
+  that edge declares nothing), and turning an HTML page that embeds an animated GIF into an image or a PDF — that
+  route really does end up with one frame, but neither its trigger nor its wording fits on this line.
 
 ### Changed
 

@@ -163,6 +163,7 @@ export default {
     preview: '预览',
     copy: '复制',
     copyUnavailable: '当前结果为非文本格式，无法复制',
+    gifFirstFrame: 'GIF 动图转成图片或 PDF 时只保留第一帧，动画不会写进结果文件；需要动画请继续使用原来的 GIF 文件。',
     pdfNoTextLayer:
       '转出的 PDF 是逐页位图，不含文字层；需要图中的文字时，可在 PDF 查看器里试试选中复制——部分查看器会自行识别，这一步不由本扩展完成。',
     // F19 — failure diagnostic panel
