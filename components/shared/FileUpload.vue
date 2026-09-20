@@ -509,7 +509,7 @@ defineExpose({
 }
 
 .paste-hint {
-  color: var(--fat-text-placeholder);
+  color: var(--fat-text-secondary);
   margin: var(--fat-space-xs) 0 0;
   font-size: 12px;
 }
@@ -589,7 +589,7 @@ defineExpose({
 
 .file-meta {
   font-size: 11px;
-  color: var(--fat-text-placeholder);
+  color: var(--fat-text-secondary);
   display: flex;
   align-items: center;
 }

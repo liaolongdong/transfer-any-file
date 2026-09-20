@@ -146,6 +146,43 @@ async function buttonStateColors(page) {
   return { label: rest.label, rest: rest.fill, hover: hover.fill, active: active.fill };
 }
 
+/**
+ * The colour an informational string actually paints, and the surface it is read against.
+ *
+ * The backdrop is resolved by walking up to the first opaque ancestor background rather than
+ * trusting a token name, because these strings sit on `--fat-primary-bg` (the drop zone once a
+ * file is staged), `--fat-surface-2` and `--fat-bg-hover`, and the first two are re-tinted per
+ * theme — so the worst case in the palette (rose #fff1f2) is invisible to a blue-theme screenshot.
+ * Selectors that are not rendered come back in `missing` so the caller can refuse a thin sample
+ * instead of passing on zero measurements.
+ */
+async function infoTextSamples(page, selectors) {
+  return page.evaluate(sels => {
+    const opaque = value => {
+      const m = /^rgba?\(\s*(\d+)[,\s]+(\d+)[,\s]+(\d+)(?:[,\s/]+([\d.]+))?\)/.exec(value);
+      return m && (m[4] === undefined || +m[4] > 0.99) ? value : '';
+    };
+    const found = [];
+    const missing = [];
+    for (const sel of sels) {
+      const el = document.querySelector(sel);
+      if (!el) {
+        missing.push(sel);
+        continue;
+      }
+      const cs = getComputedStyle(el);
+      if (cs.display === 'none' || cs.visibility === 'hidden' || +cs.opacity < 0.99) {
+        missing.push(sel);
+        continue;
+      }
+      let bg = '';
+      for (let node = el; node && !bg; node = node.parentElement) bg = opaque(getComputedStyle(node).backgroundColor);
+      found.push({ sel, color: cs.color, bg });
+    }
+    return { found, missing };
+  }, selectors);
+}
+
 function startServer() {
   return new Promise((resolve, reject) => {
     const mimeTypes = {
@@ -2041,6 +2078,87 @@ async function run() {
     await resetWorkbench(page);
   } catch (e) {
     fail('Primary button contrast', e.message);
+  }
+
+  // ═══════════════════════════════════════════
+  //  INFORMATION TEXT CONTRAST
+  // ═══════════════════════════════════════════
+
+  if (section('Information Text Contrast')) {
+    try {
+      // WCAG 1.4.3 asks 4.5:1 of every string a user is meant to read, and these five used to
+      // sit on --fat-text-placeholder (2.33–2.56:1). Each is sampled with a file staged because
+      // that is when the drop zone takes --fat-primary-bg — in the rose theme #fff1f2, the
+      // weakest backdrop in the palette and the one a blue-theme screenshot would never show.
+      // Not covered here: --fat-text-placeholder itself, which stays on input placeholders,
+      // disabled controls and decoration whose state is carried by an ARIA attribute, all three
+      // exempt from 1.4.3.
+      const INFO_TEXT = ['.drop-text', '.paste-hint', '.file-list-header', '.file-meta', '.footer'];
+      const fi2 = await page.$('input[type="file"]');
+      if (!fi2) throw new Error('file input not found');
+      await fi2.setInputFiles(path.join(FIXTURE_PATH, 'sample.txt'));
+      // Wait for the list to render rather than sleeping: the previous section ends on
+      // resetWorkbench, whose clear can land after a fixed timeout and take `.file-meta` away
+      // mid-loop.
+      await page.waitForSelector('.file-item .file-meta', { timeout: 5000 });
+
+      const appliedTheme2 = await page.evaluate(() => document.documentElement.dataset.theme ?? '');
+      const appliedMode2 = await page.evaluate(() => document.documentElement.dataset.mode ?? '');
+      let worst = Number.POSITIVE_INFINITY;
+      let worstLabel = '';
+      // One `ok` for the whole group rather than twelve like the button gate: the 60 samples are
+      // one assertion ("every string you read clears 4.5:1"), and a partial pass would be read as
+      // "some themes are fine" when the standard has no such exemption. The failures still print
+      // per sample, and this flag keeps the group line from reporting success next to them.
+      let groupFailed = false;
+      for (const mode of ['light', 'dark']) {
+        for (const theme of themeValues) {
+          await page.evaluate(
+            ([m, t]) => {
+              document.documentElement.dataset.mode = m;
+              document.documentElement.dataset.theme = t;
+            },
+            [mode, theme],
+          );
+          // Same 180ms reason as `buttonStateColors`: these surfaces transition, so sampling
+          // immediately reads a colour between the old theme's and the new one's — an earlier
+          // draft of this gate "failed" at 1.17:1 on a mid-flight blue-to-dark backdrop.
+          await page.waitForTimeout(400);
+          const { found, missing } = await infoTextSamples(page, INFO_TEXT);
+          if (missing.length) {
+            groupFailed = true;
+            fail(`[${theme} ${mode}] information text`, `not sampled: ${missing.join(', ')}`);
+            continue;
+          }
+          for (const s of found) {
+            const ratio = contrast(s.color, s.bg);
+            const name = `[${theme} ${mode}] ${s.sel}`;
+            if (!(ratio >= 4.5)) {
+              groupFailed = true;
+              fail(name, `${ratio.toFixed(2)}:1 — ${s.color} on ${s.bg}`);
+            } else if (ratio < worst) {
+              worst = ratio;
+              worstLabel = `${s.sel} (${theme})`;
+            }
+          }
+        }
+      }
+      if (!groupFailed && worstLabel) {
+        ok(`information text ≥ 4.5:1 in 6 themes × 2 modes (worst ${worst.toFixed(2)}:1, ${worstLabel})`);
+      }
+      await page.evaluate(
+        ([m, t]) => {
+          if (m) document.documentElement.dataset.mode = m;
+          else delete document.documentElement.dataset.mode;
+          if (t) document.documentElement.dataset.theme = t;
+          else delete document.documentElement.dataset.theme;
+        },
+        [appliedMode2, appliedTheme2],
+      );
+      await resetWorkbench(page);
+    } catch (e) {
+      fail('Information text contrast', e.message);
+    }
   }
 
   // ═══════════════════════════════════════════

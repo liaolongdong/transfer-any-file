@@ -30,8 +30,7 @@ const reasonText = computed(() => {
 const pathSegments = computed(() => {
   if (!hasPath.value) return [];
   return props.failure.path.map((format, idx) => {
-    const isFailedStep =
-      hasStep.value && props.failure.failedStep === idx;
+    const isFailedStep = hasStep.value && props.failure.failedStep === idx;
     return {
       format,
       label: getFormatLabel(format),
@@ -122,7 +121,8 @@ function toggle(): void {
       <span
         class="failure-name"
         :title="failure.fileName"
-      >{{ failure.fileName }}</span>
+        >{{ failure.fileName }}</span
+      >
       <span class="failure-reason">{{ reasonText }}</span>
       <el-button
         v-if="hasDetails"
@@ -164,7 +164,8 @@ function toggle(): void {
                 'is-target': seg.isTarget,
                 'is-failed': seg.isFailedStep,
               }"
-            >{{ seg.label }}</span>
+              >{{ seg.label }}</span
+            >
             <el-icon
               v-if="idx < pathSegments.length - 1"
               :size="12"
@@ -324,7 +325,7 @@ function toggle(): void {
 }
 
 .path-arrow {
-  color: var(--fat-text-placeholder);
+  color: var(--fat-text-secondary);
   flex-shrink: 0;
 }
 

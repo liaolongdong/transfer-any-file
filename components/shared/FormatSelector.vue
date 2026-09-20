@@ -127,7 +127,7 @@ const noTargetTitle = computed(() => (hasSource.value ? t('format.noTarget') : t
       </div>
       <el-icon
         :size="14"
-        color="var(--fat-text-placeholder)"
+        color="var(--fat-text-secondary)"
       >
         <Right />
       </el-icon>

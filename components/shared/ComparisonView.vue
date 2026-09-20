@@ -930,7 +930,7 @@ function toggleEdit(): void {
 
 .docx-size {
   font-size: 12px;
-  color: var(--fat-text-placeholder);
+  color: var(--fat-text-secondary);
   margin: 0 0 var(--fat-space-md);
 }
 
@@ -970,7 +970,7 @@ function toggleEdit(): void {
   align-items: center;
   justify-content: center;
   min-height: 200px;
-  color: var(--fat-text-placeholder);
+  color: var(--fat-text-secondary);
   font-size: 13px;
 }
 

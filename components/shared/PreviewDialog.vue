@@ -158,7 +158,8 @@ function download(): void {
           <span
             :id="titleId"
             class="filename"
-          >{{ filename }}</span>
+            >{{ filename }}</span
+          >
           <ElTag
             size="small"
             type="primary"
@@ -353,7 +354,7 @@ function download(): void {
   align-items: center;
   justify-content: center;
   min-height: 240px;
-  color: var(--fat-text-placeholder, #909399);
+  color: var(--fat-text-secondary);
   font-size: 13px;
 }
 
@@ -390,6 +391,6 @@ function download(): void {
 
 .file-size {
   font-size: 12px;
-  color: var(--fat-text-placeholder, #909399);
+  color: var(--fat-text-secondary);
 }
 </style>

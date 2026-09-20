@@ -326,7 +326,7 @@ async function handleImportChange(e: Event): Promise<void> {
             <span class="fmt-badge">{{ getFormatLabel(record.sourceFormat) }}</span>
             <el-icon
               :size="12"
-              color="var(--fat-text-placeholder)"
+              color="var(--fat-text-secondary)"
             >
               <Right />
             </el-icon>
@@ -376,7 +376,7 @@ async function handleImportChange(e: Event): Promise<void> {
       class="hidden-file-input"
       :aria-label="t('a11y.import')"
       @change="handleImportChange"
-    >
+    />
   </div>
 </template>
 
@@ -418,7 +418,7 @@ async function handleImportChange(e: Event): Promise<void> {
 .history-empty {
   padding: var(--fat-space-xl) 0;
   text-align: center;
-  color: var(--fat-text-placeholder);
+  color: var(--fat-text-secondary);
   font-size: 13px;
 }
 

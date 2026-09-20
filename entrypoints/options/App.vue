@@ -745,7 +745,7 @@ onUnmounted(() => {
   text-align: center;
   padding: var(--fat-space-lg);
   font-size: 12px;
-  color: var(--fat-text-placeholder);
+  color: var(--fat-text-secondary);
 }
 
 .card-enter-active,

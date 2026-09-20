@@ -196,7 +196,7 @@ async function handleRemove(preset: ConversionPreset): Promise<void> {
   padding: 4px 6px 4px 2px;
   border: none;
   background: none;
-  color: var(--fat-text-placeholder);
+  color: var(--fat-text-secondary);
   cursor: pointer;
 }
 
@@ -235,7 +235,7 @@ async function handleRemove(preset: ConversionPreset): Promise<void> {
 
 .preset-limit {
   font-size: 12px;
-  color: var(--fat-text-placeholder);
+  color: var(--fat-text-secondary);
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -48,10 +48,18 @@
   --fat-surface-line: #e2e8f0;
   --fat-surface-hover: #f1f5f9;
 
-  /* Text colors */
+  /* Text colors.
+     --fat-text-secondary is the ink for informational text (hints, sizes, status lines), so it
+     has to clear WCAG 1.4.3's 4.5:1 on every light backdrop it is painted on — including the
+     tinted ones (--fat-surface-2 #f1f5f9, and rose --fat-surface / --fat-primary-bg #fff1f2).
+     Slate-500 #64748b reached only 4.33:1 there, which is why this sits one step darker; it now
+     measures 4.95–5.44:1 across the light surfaces and 7.37–8.42:1 in dark.
+     --fat-text-placeholder (2.33–2.56:1 light, 2.88–3.36:1 dark) is reserved for the cases
+     1.4.3 does not cover: real input placeholders, disabled controls, and decoration whose state
+     is already carried by an ARIA attribute. */
   --fat-text-primary: #0f172a;
   --fat-text-regular: #1e293b;
-  --fat-text-secondary: #64748b;
+  --fat-text-secondary: #5b6b80;
   --fat-text-placeholder: #94a3b8;
   --fat-text-disabled: #cbd5e1;
 

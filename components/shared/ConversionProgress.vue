@@ -77,7 +77,7 @@ const { t } = useI18n();
   margin: 0;
   max-width: 100%;
   font-size: 12px;
-  color: var(--fat-text-placeholder);
+  color: var(--fat-text-secondary);
   font-family: var(--fat-font-mono);
   overflow: hidden;
   text-overflow: ellipsis;
