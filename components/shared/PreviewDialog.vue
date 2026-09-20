@@ -74,26 +74,23 @@ watch([() => props.visible, () => props.blob], async ([vis, blob], _prev, onClea
     } else {
       textContent.value = raw;
     }
-  } else if (isMarkdown.value) {
-    textContent.value = await blob.text();
-    if (cancelled) return;
-    const purifyModule = await import('dompurify');
-    const DOMPurify = purifyModule.default;
-    const htmlBody = DOMPurify.sanitize(await marked(textContent.value), { USE_PROFILES: { html: true } });
-    if (cancelled) return;
-    renderedHtml.value = stripRemoteResources(
-      `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>${DOCUMENT_CSS}</style></head><body>${htmlBody}</body></html>`,
-    );
-  } else if (isHtml.value) {
-    textContent.value = await blob.text();
-    if (cancelled) return;
-    const purifyModule = await import('dompurify');
-    const DOMPurify = purifyModule.default;
-    const htmlBody = DOMPurify.sanitize(textContent.value, { USE_PROFILES: { html: true } });
-    if (cancelled) return;
-    renderedHtml.value = stripRemoteResources(
-      `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>${DOCUMENT_CSS}</style></head><body>${htmlBody}</body></html>`,
-    );
+  } else if (isMarkdown.value || isHtml.value) {
+    try {
+      textContent.value = await blob.text();
+      if (cancelled) return;
+      const purifyModule = await import('dompurify');
+      const DOMPurify = purifyModule.default;
+      const source = isMarkdown.value ? await marked(textContent.value) : textContent.value;
+      const htmlBody = DOMPurify.sanitize(source, { USE_PROFILES: { html: true } });
+      if (cancelled) return;
+      renderedHtml.value = stripRemoteResources(
+        `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>${DOCUMENT_CSS}</style></head><body>${htmlBody}</body></html>`,
+      );
+    } catch {
+      // Same shape as the docx/xlsx branches: a markdown or HTML file the parser chokes on
+      // has to end in the error state, not in a watcher rejection and a permanent spinner.
+      if (!cancelled) renderError.value = true;
+    }
   } else if (isImage.value) {
     imageUrl.value = URL.createObjectURL(blob);
     scale.value = 1;
@@ -152,10 +149,16 @@ function download(): void {
     @update:model-value="emit('update:visible', $event)"
     @close="close"
   >
-    <template #header>
+    <template #header="{ titleId }">
       <div class="preview-header">
         <div class="preview-title">
-          <span class="filename">{{ filename }}</span>
+          <!-- EP leaves `aria-labelledby` pointing at this id whenever no `title` prop is
+               passed, which is the case here — a custom #header that ignores titleId
+               renders a dialog with no accessible name. -->
+          <span
+            :id="titleId"
+            class="filename"
+          >{{ filename }}</span>
           <ElTag
             size="small"
             type="primary"
@@ -240,7 +243,7 @@ function download(): void {
         :title="filename"
       ></iframe>
       <div
-        v-else-if="(isDocx || isXlsx) && renderError"
+        v-else-if="renderError"
         class="render-error"
       >
         {{ t('preview.renderFailed') }}
@@ -248,6 +251,8 @@ function download(): void {
       <div
         v-else-if="isRenderedDoc"
         class="render-loading"
+        role="status"
+        :aria-label="t('preview.reading')"
       >
         <ElIcon class="is-loading"><Loading /></ElIcon>
       </div>
