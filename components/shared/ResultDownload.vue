@@ -204,6 +204,11 @@ function openPreview(result: ConvertResult): void {
   align-items: center;
   gap: var(--fat-space-sm);
   font-size: 12px;
+
+  /* Without this the filename inherits the alert's semantic hue — `is-light` paints
+     --el-color-success as text on its own 10 % tint, which measures 2.04–2.80:1.
+     The type and the icon already carry the state; the text only has to be readable. */
+  color: var(--fat-text-primary);
 }
 
 .result-name {

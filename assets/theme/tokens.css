@@ -267,7 +267,54 @@
   --el-text-color-disabled: var(--fat-text-disabled);
   --el-border-color: var(--fat-border);
   --el-border-color-light: var(--fat-border-light);
+  --el-border-color-lighter: var(--fat-border);
+  --el-border-color-extra-light: var(--fat-border);
   --el-fill-color-blank: var(--fat-bg-card);
+
+  /* Element Plus ships its dark palette behind an `html.dark` class this project never
+     sets, so every token not mapped here keeps its light value on a dark surface —
+     which is how dropdown text ended up at 1.77:1 and alert bands at 15:1 against the card. */
+  --el-bg-color-overlay: var(--fat-bg-card);
+  --el-fill-color-extra-light: color-mix(in srgb, #fff 2%, var(--fat-bg-card));
+  --el-fill-color-lighter: color-mix(in srgb, #fff 4%, var(--fat-bg-card));
+  --el-fill-color-light: var(--fat-bg-hover);
+  --el-fill-color: color-mix(in srgb, #fff 10%, var(--fat-bg-card));
+  --el-fill-color-dark: color-mix(in srgb, #fff 14%, var(--fat-bg-card));
+  --el-fill-color-darker: color-mix(in srgb, #fff 18%, var(--fat-bg-card));
+
+  /* Same recipe as --el-color-primary-light-* above: the base hue stays, only the tints
+     it is read against turn dark, which puts `is-light` alerts and plain buttons at
+     4.59–6.31:1 instead of the light palette's 2.04–2.80:1. */
+  --el-color-success-light-3: color-mix(in srgb, var(--el-color-success) 70%, #1e1e2e);
+  --el-color-success-light-5: color-mix(in srgb, var(--el-color-success) 50%, #1e1e2e);
+  --el-color-success-light-7: color-mix(in srgb, var(--el-color-success) 30%, #1e1e2e);
+  --el-color-success-light-8: color-mix(in srgb, var(--el-color-success) 20%, #1e1e2e);
+  --el-color-success-light-9: color-mix(in srgb, var(--el-color-success) 10%, #1e1e2e);
+  --el-color-success-dark-2: color-mix(in srgb, var(--el-color-success) 80%, black);
+  --el-color-warning-light-3: color-mix(in srgb, var(--el-color-warning) 70%, #1e1e2e);
+  --el-color-warning-light-5: color-mix(in srgb, var(--el-color-warning) 50%, #1e1e2e);
+  --el-color-warning-light-7: color-mix(in srgb, var(--el-color-warning) 30%, #1e1e2e);
+  --el-color-warning-light-8: color-mix(in srgb, var(--el-color-warning) 20%, #1e1e2e);
+  --el-color-warning-light-9: color-mix(in srgb, var(--el-color-warning) 10%, #1e1e2e);
+  --el-color-warning-dark-2: color-mix(in srgb, var(--el-color-warning) 80%, black);
+  --el-color-danger-light-3: color-mix(in srgb, var(--el-color-danger) 70%, #1e1e2e);
+  --el-color-danger-light-5: color-mix(in srgb, var(--el-color-danger) 50%, #1e1e2e);
+  --el-color-danger-light-7: color-mix(in srgb, var(--el-color-danger) 30%, #1e1e2e);
+  --el-color-danger-light-8: color-mix(in srgb, var(--el-color-danger) 20%, #1e1e2e);
+  --el-color-danger-light-9: color-mix(in srgb, var(--el-color-danger) 10%, #1e1e2e);
+  --el-color-danger-dark-2: color-mix(in srgb, var(--el-color-danger) 80%, black);
+  --el-color-error-light-3: color-mix(in srgb, var(--el-color-error) 70%, #1e1e2e);
+  --el-color-error-light-5: color-mix(in srgb, var(--el-color-error) 50%, #1e1e2e);
+  --el-color-error-light-7: color-mix(in srgb, var(--el-color-error) 30%, #1e1e2e);
+  --el-color-error-light-8: color-mix(in srgb, var(--el-color-error) 20%, #1e1e2e);
+  --el-color-error-light-9: color-mix(in srgb, var(--el-color-error) 10%, #1e1e2e);
+  --el-color-error-dark-2: color-mix(in srgb, var(--el-color-error) 80%, black);
+  --el-color-info-light-3: color-mix(in srgb, var(--el-color-info) 70%, #1e1e2e);
+  --el-color-info-light-5: color-mix(in srgb, var(--el-color-info) 50%, #1e1e2e);
+  --el-color-info-light-7: color-mix(in srgb, var(--el-color-info) 30%, #1e1e2e);
+  --el-color-info-light-8: color-mix(in srgb, var(--el-color-info) 20%, #1e1e2e);
+  --el-color-info-light-9: color-mix(in srgb, var(--el-color-info) 10%, #1e1e2e);
+  --el-color-info-dark-2: color-mix(in srgb, var(--el-color-info) 80%, black);
 }
 
 :root[data-mode='dark'][data-theme='blue'] {
