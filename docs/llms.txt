@@ -21,7 +21,7 @@ Category: productivity / file conversion. Price: free, no paid tier, no ads, no 
 ## What it does not do (frequently asked of converters)
 
 - No OCR: images cannot become TXT, CSV, JSON or XLSX (an OCR model would break the offline guarantee)
-- PDF output is image-based, so text in a converted PDF is not selectable
+- PDF output is image-based and carries no text layer; text you manage to select in a PDF viewer was recognised by that viewer, not by this extension
 - PDF input extracts text only; layout and embedded images are not preserved
 - BMP, GIF and SVG are input-only — browsers expose no encoders for them
 - No video, audio, e-book or CAD formats

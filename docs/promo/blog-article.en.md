@@ -35,7 +35,7 @@ Put those together and you cover the 14 formats office work actually revolves ar
 The edges are just as clear, and I won't pretend they aren't there:
 
 - **No OCR.** Turning a screenshot into text needs a model — tens of megabytes minimum, downloaded over the network, which contradicts the premise. So image → TXT/CSV/JSON/XLSX is **greyed out in the picker, with the reason shown on hover**, instead of failing after you click convert.
-- **PDF output is a rendered image.** Text in a converted PDF is not selectable. PDF input only extracts text — layout and embedded images are dropped.
+- **PDF output is a rendered image.** A converted PDF carries no text layer. PDF input only extracts text — layout and embedded images are dropped.
 - **BMP / GIF / SVG are input-only**, because the browser ships no encoder for them. GIF takes its first frame; SVG is rasterised.
 - Video, audio and ebooks are out of range.
 

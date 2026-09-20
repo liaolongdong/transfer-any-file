@@ -109,7 +109,7 @@
 - **Element Plus 按需**：禁止整包导入；`ElMessage` 等由 resolver 自动导入，无需手动 import；样式用 CSS（非 SCSS）。
 - **storage key 必须带 `fat:` 前缀**并集中在 `STORAGE_KEYS`；`storageGet/Set` 已 try/catch，历史/偏好为 best-effort，失败不得卡住转换 UI。
 - **模块级共享状态**：`useHistory`/`useI18n`/`useTheme` 用模块级 `ref`/`reactive` + `initialized` 守卫做跨组件单例；新增此类状态须保持幂等初始化与 `onStorageChange` 清理。
-- **转换语义边界**（改动前须确认）：PDF 输出为图片（文字不可选）；PDF 输入仅提取文本；多 sheet XLSX→CSV 输出 ZIP；多页 PDF→图片输出 ZIP；BMP/GIF/SVG 仅支持作为输入（浏览器无法编码），GIF 取首帧、SVG 栅格化。
+- **转换语义边界**（改动前须确认）：PDF 输出为图片（不含文字层，文字不是真实字符）；PDF 输入仅提取文本；多 sheet XLSX→CSV 输出 ZIP；多页 PDF→图片输出 ZIP；BMP/GIF/SVG 仅支持作为输入（浏览器无法编码），GIF 取首帧、SVG 栅格化。
 - **图标分两档母版，按尺寸取用**：`assets/icon.svg`（文档 + 环形转换徽章）用于 ≥48px；`assets/icon-small.svg`（加粗双向箭头）用于 <48px。**<48px 的位置必须取简化档**（`public/icon/16|32.png`、`docs/assets/icon-mark.png`）——详细档文档线在 128 网格上只有 5px，缩到 26px 就糊成白斑。两档图形不同，改图标时先确认改的是哪一档。
 - **文档素材不得入包**：`docs/` 与 `CHROMEWEBSTORE.md` 是仓库文档，而 `public/` 会被 WXT 原样打包——截图/推广图只能放 `docs/assets/`。UI 变更后必须重跑 `pnpm build && pnpm assets:capture`，否则商店截图与实际界面漂移。
 - **`_locales/` 是 `public/` 里唯一该待着的源码**：位置换了（例如被挪去 `assets/`）Chrome 就读不到，`name` 会以字面量 `__MSG_extensionName__` 出现在扩展管理页。两个 locale 的 key 集必须一致、值必须与 `CHROMEWEBSTORE.md` 的四个名称/简介粘贴块逐字相同、`default_locale` 必须是 `zh_CN`——这三条分别由 `pnpm verify:listing` 与 `pnpm verify:meta` 守着，改一处不改另一处就是 CI 红。它改的是**商店页与 Chrome 自己的字符串**，不是界面语言（那是 `fat:locale` + `useI18n`），别把两件事混成一个改动。

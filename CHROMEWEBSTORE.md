@@ -319,7 +319,7 @@ PRIVACY
 • No analytics, no tracking, no sign-in, no advertising, no paid tier
 
 PLEASE KNOW BEFORE INSTALLING
-• A produced PDF is rendered page by page as an image, so text in it is not selectable
+• A produced PDF is rendered page by page as an image, so it carries no text layer
 • Reading a PDF in extracts its text; the original layout and embedded images are not preserved
 • Images cannot be turned into text or spreadsheets — that needs OCR, which is not bundled
 • Three of the image formats are input-only, because no browser can encode them; an animated source contributes its first frame, and a vector source is rasterised
@@ -395,7 +395,7 @@ Version 1.0.0 — first store submission.
 • 无统计埋点、无追踪、无登录、无广告、无付费版本
 
 安装前请了解
-• 转出的 PDF 是逐页渲染成的图片，因此其中的文字不可选中
+• 转出的 PDF 是逐页渲染成的图片，因此其中不含文字层
 • 读入 PDF 只提取文本，原有版式与内嵌图片不会保留
 • 图片无法转换为文本或表格——那需要 OCR，本扩展未内置
 • 有三种图片格式只能作为输入、不能作为输出，因为浏览器未提供它们的编码器；动图源文件取首帧，矢量源文件先展平

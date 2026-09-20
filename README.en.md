@@ -132,7 +132,7 @@ _Reachable in the graph but meaningless, so greyed out with the reason instead o
 
 Image → TXT / CSV / JSON / Excel (that needs OCR, which this offline extension does not bundle), PDF → CSV / JSON / Excel (tabular structure cannot be recovered reliably).
 
-> Notes: PDF output is rendered as images (text is not selectable). PDF input extracts text only (layout and images are not preserved). PDF → image renders each page, and a multi-page document downloads as a ZIP of per-page images in the chosen format (PNG / JPEG / WebP). BMP, GIF and SVG are input-only — browsers cannot encode them. Multi-sheet XLSX → CSV downloads a ZIP with one CSV per worksheet. How the three groups above count up: the 48 registered routes make 143 source→target combinations reachable through BFS, 27 of them are blocked as semantically invalid (24 image → TXT / CSV / JSON / XLSX, 3 PDF → CSV / JSON / XLSX), so the target picker offers 116.
+> Notes: PDF output is rendered as images (there is no text layer — the "text" is pixels). PDF input extracts text only (layout and images are not preserved). PDF → image renders each page, and a multi-page document downloads as a ZIP of per-page images in the chosen format (PNG / JPEG / WebP). BMP, GIF and SVG are input-only — browsers cannot encode them. Multi-sheet XLSX → CSV downloads a ZIP with one CSV per worksheet. How the three groups above count up: the 48 registered routes make 143 source→target combinations reachable through BFS, 27 of them are blocked as semantically invalid (24 image → TXT / CSV / JSON / XLSX, 3 PDF → CSV / JSON / XLSX), so the target picker offers 116.
 
 ## 🆚 How it compares
 
@@ -237,7 +237,7 @@ There is no store listing yet; `CHROMEWEBSTORE.md` holds the publish-ready listi
 No. The converters are JavaScript bundled into the extension, and the manifest requests only `storage`. There is no server to upload to and no first-party code that calls a request API; with no host permission and no content script, the request paths left unused inside those libraries cannot read a response either.
 
 **Can it convert PDF to editable Word or Excel?**
-Not losslessly. PDF input extracts text, and PDF output is rendered page-by-page as images, so converted PDFs are not text-selectable. Word and Excel go through HTML as the hub format.
+Not losslessly. PDF input extracts text, and PDF output is rendered page-by-page as images, so converted PDFs carry no text layer. Word and Excel go through HTML as the hub format.
 
 **Why can't I turn a screenshot into a text file?**
 That requires OCR, and no OCR engine is bundled — it would add tens of megabytes and a model download, which the offline guarantee rules out. Image → TXT/CSV is greyed out with that reason instead of failing later.

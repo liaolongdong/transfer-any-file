@@ -245,6 +245,15 @@ zero network requests`) and the Chinese equivalent never appeared in a search re
   they need it. Measured first-screen JS for the workbench: 440,395 B → 421,532 B (−18,863 B, −4.3%).
   **The cost is stated plainly**: the total package grew from 3.74 MB to 3.76 MB, because splitting it into an
   async chunk carries its own overhead — paid so that the first screen does not load it.
+- **"Its text is not selectable" rewritten as "it carries no text layer".** The old sentence made an assertion
+  about what a user can do, and it does not hold: the file has no text layer, yet some PDF viewers recognise the
+  text on the page themselves and users can still select and copy it. What our PDFs contain has never changed —
+  all that changed is whether the sentence describes the file or the person. Synced across 17 mentions in 9 files:
+  the conversion-semantics list in `AGENTS.md`, two mentions per README (limitation note and FAQ) in each language,
+  the Chinese and English store paste blocks in `CHROMEWEBSTORE.md`, three zh/en pairs on the product page (the
+  FAQ answer in JSON-LD, the same answer rendered visibly, and the limitation card), the limits list in
+  `docs/llms.txt`, and both promo drafts plus the Weibo copy. The old sentence stays in the 1.0.0 release notes:
+  that section records what was said then, not what is promised now.
 
 ### Fixed
 

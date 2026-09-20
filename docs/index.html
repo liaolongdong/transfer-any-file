@@ -323,7 +323,7 @@
                 "name": "Can it convert a PDF into an editable Word document?",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "Not losslessly. PDF input extracts text only, dropping layout and embedded images; conversely PDF output is rendered page by page as images, so its text is not selectable. Word and Excel convert through HTML as the hub format. If you need layout-faithful PDF conversion, reach for a dedicated desktop tool or an online service."
+                  "text": "Not losslessly. PDF input extracts text only, dropping layout and embedded images; conversely PDF output is rendered page by page as images, so it carries no text layer. Word and Excel convert through HTML as the hub format. If you need layout-faithful PDF conversion, reach for a dedicated desktop tool or an online service."
                 }
               },
               {
@@ -331,7 +331,7 @@
                 "name": "能把 PDF 转成可编辑的 Word 吗？",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "不能无损。PDF 输入只提取文本，排版与内嵌图片不保留；反过来，PDF 输出是逐页渲染的图片，文字不可选定。Word 与 Excel 都以 HTML 作为中心格式中转。如果你需要保留排版的 PDF 互转，请选用专业桌面工具或在线服务。"
+                  "text": "不能无损。PDF 输入只提取文本，排版与内嵌图片不保留；反过来，PDF 输出是逐页渲染的图片，不含文字层。Word 与 Excel 都以 HTML 作为中心格式中转。如果你需要保留排版的 PDF 互转，请选用专业桌面工具或在线服务。"
                 }
               },
               {
@@ -4320,10 +4320,10 @@
               </svg>
               <p>
                 <b><span lang="zh-CN">PDF 输出是图片。</span><span lang="en">PDF output is image-based.</span></b>
-                <span lang="zh-CN">转出的 PDF 逐页渲染为图片，文字不可选定、不可搜索。</span>
+                <span lang="zh-CN">转出的 PDF 逐页渲染为图片，不含文字层，也就无从搜索或提取文字。</span>
                 <span lang="en"
-                  >Converted PDFs are rendered page by page as images, so their text is neither selectable nor
-                  searchable.</span
+                  >Converted PDFs are rendered page by page as images, so they carry no text layer — nothing to search
+                  or extract.</span
                 >
               </p>
             </div>
@@ -6107,14 +6107,14 @@ pnpm build</code><button
               <div class="faq-a">
                 <span lang="zh-CN"
                   >不能无损。PDF 输入只提取文本，排版与内嵌图片不保留；反过来，PDF
-                  输出是逐页渲染的图片，文字不可选定。Word 与 Excel 都以 HTML 作为中心格式中转。如果你需要保留排版的 PDF
+                  输出是逐页渲染的图片，不含文字层。Word 与 Excel 都以 HTML 作为中心格式中转。如果你需要保留排版的 PDF
                   互转，请选用专业桌面工具或在线服务。</span
                 >
                 <span lang="en"
                   >Not losslessly. PDF input extracts text only, dropping layout and embedded images; conversely PDF
-                  output is rendered page by page as images, so its text is not selectable. Word and Excel convert
-                  through HTML as the hub format. If you need layout-faithful PDF conversion, reach for a dedicated
-                  desktop tool or an online service.</span
+                  output is rendered page by page as images, so it carries no text layer. Word and Excel convert through
+                  HTML as the hub format. If you need layout-faithful PDF conversion, reach for a dedicated desktop tool
+                  or an online service.</span
                 >
               </div>
             </details>
