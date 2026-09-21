@@ -3259,6 +3259,40 @@ async function run() {
   console.log('╚══════════════════════════════════════════════╝');
   if (skippedSections > 0) console.log(`  ! ${skippedSections} sections skipped by E2E_ONLY — not a full suite run`);
 
+  /**
+   * The assertion total the outward documents quote, recorded here rather than derived from source:
+   * it is a property of the tests, and only a full run says how many assertions there are. With the
+   * record in git, `verify:numbers` can hold the sentences that quote it to the same standard as the
+   * format count and the thresholds — which is what the hand sweep across `docs/index.html` and both
+   * promo articles used to be, every time coverage moved.
+   *
+   * A subset run counted some of the suite and a failing run counted something nobody should cite, so
+   * neither may write. In CI a difference is itself the failure: it means the record and the prose were
+   * committed to different numbers.
+   */
+  const assertionRecord = path.resolve(__dirname, '__baseline__/e2e-assertions.json');
+  const recorded = fs.existsSync(assertionRecord)
+    ? JSON.parse(fs.readFileSync(assertionRecord, 'utf8')).assertions
+    : null;
+  let assertionRecordStale = false;
+  if (failed === 0 && skippedSections === 0 && recorded !== total) {
+    if (process.env.CI === 'true') {
+      assertionRecordStale = true;
+      console.error(
+        `  ! the committed record says ${recorded} assertions but this suite ran ${total}. Update` +
+          ' scripts/__baseline__/e2e-assertions.json\n' +
+          '    and the same number quoted in docs/index.html and both promo articles.',
+      );
+    } else {
+      fs.writeFileSync(assertionRecord, `${JSON.stringify({ assertions: total }, null, 2)}\n`);
+      console.log(`  recorded ${total} assertions to scripts/__baseline__/e2e-assertions.json`);
+      console.log(
+        `  ! the prose was held to ${recorded} — run \`pnpm verify:numbers\` and sync the documents` +
+          ' that quote the total.',
+      );
+    }
+  }
+
   console.log(`\nScreenshots: ${SCREENSHOT_DIR}/`);
   fs.readdirSync(SCREENSHOT_DIR)
     .filter(f => f.endsWith('.png'))
@@ -3269,7 +3303,7 @@ async function run() {
   await browser.close();
   server.close();
 
-  process.exit(failed > 0 ? 1 : 0);
+  process.exit(failed > 0 || assertionRecordStale ? 1 : 0);
 }
 
 run().catch(err => {

@@ -8,7 +8,8 @@
  * numbers to their sources, and drift already shipped twice (a store description whose character
  * count moved under an unrelated edit, and a name/limit pair quoted as 33/75 when the real split
  * was 20/75). Every value below is derived from source or from the path baseline, then matched
- * against the sentences that quote it.
+ * against the sentences that quote it. The one exception is the suite's assertion total, which only
+ * running the tests can answer — so `scripts/e2e-test.mjs` records it and the prose is held to that.
  *
  * Two kinds of pattern, because the documents have two kinds of sentence:
  *
@@ -169,6 +170,26 @@ function storeDescriptionChars(marker) {
 
 const descEn = storeDescriptionChars('**详细介绍（Detailed Description）**');
 const descZh = storeDescriptionChars('**中文详细介绍（Chinese (China) detailed description）**');
+
+/**
+ * The suite's assertion total, read off the record `scripts/e2e-test.mjs` writes at the end of a full
+ * green run. This is the one fact the source cannot answer: how many assertions ran is a property of
+ * the tests, and only running them says so. Four outward sentences quote it (the product page in both
+ * languages and both promo articles), and every round of coverage used to re-take that number by hand
+ * — six commits on this branch are named for exactly that sweep. A generated artifact is worse: it
+ * carries whatever number was true when it was rendered, which is how the WeChat HTML on disk today
+ * still announces 244.
+ */
+function readAssertionTotal() {
+  const filePath = 'scripts/__baseline__/e2e-assertions.json';
+  const raw = JSON.parse(read(filePath));
+  if (!Number.isInteger(raw.assertions) || raw.assertions <= 0) {
+    console.error(`prose numbers: ${filePath} has no usable \`assertions\` count.`);
+    console.error('Run the full suite (`pnpm test:e2e`) to re-record it; do not edit the number by hand.');
+    process.exit(1);
+  }
+  return raw.assertions;
+}
 
 /** Every constant the prose can quote; a constant that moved shape fails the run. */
 const constants = {};
@@ -376,6 +397,17 @@ const FACTS = [
     value: readThemeCount() * 2,
     what: 'theme × light/dark combinations the contrast sweep asserts',
     patterns: [/(\d+)\s*组配置/, /(\d+)\s*种组合/, /\((\d+)\s+combinations?\)/, /,\s*(\d+)\s+combinations?\b/],
+  },
+  {
+    key: 'assertions',
+    value: readAssertionTotal(),
+    what: 'assertions the e2e suite ran, recorded by its last full green run',
+    patterns: [
+      /共\s*(\d+)\s*项断言/,
+      /跑\s*(\d+)\s*条断言/,
+      /with (\d+)\/\d+\s+assertions/,
+      /through\s+(\d+)\s+assertions/,
+    ],
   },
   {
     key: 'descEn',
@@ -639,5 +671,5 @@ if (problems.length > 0) {
 }
 
 console.log(
-  `prose numbers OK: ${FACTS.length} facts derived from source, matched across ${documents.length} documents.`,
+  `prose numbers OK: ${FACTS.length} facts derived from source and the recorded suite run, matched across ${documents.length} documents.`,
 );

@@ -126,6 +126,11 @@
     "README.en.md": 4,
     "README.md": 2
   },
+  "assertions": {
+    "docs/index.html": 2,
+    "docs/promo/blog-article.en.md": 1,
+    "docs/promo/wechat-article.md": 1
+  },
   "descEn": {
     ".github/CWS_PUBLISHING_GUIDE.en.md": 1,
     ".github/CWS_PUBLISHING_GUIDE.md": 1,
