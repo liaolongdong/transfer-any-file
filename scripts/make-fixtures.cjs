@@ -9,6 +9,58 @@ const { zipSync, strToU8 } = require('fflate');
 const TINY_PNG =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
 
+/**
+ * A two-frame GIF89a (1×1 per frame, red then blue) — the smallest file that genuinely animates.
+ *
+ * Hand-encoded because nothing in the dependency tree writes an animation, and the suite needs the
+ * positive case for the "only the first frame survives" disclosure: `sample.gif` is a single-frame
+ * 1×1, so a note that fired merely because the source was a GIF passed on a file with nothing to
+ * lose. A frame of one pixel keeps its LZW stream at `clear · literal · end` in the initial 3-bit
+ * code size; a wider frame would grow the dictionary mid-stream and the encoder would have to agree
+ * with the decoder about exactly when the code width changes, which is the part of this format not
+ * worth reimplementing here.
+ */
+function buildAnimatedGif() {
+  const bytes = [];
+  const push = (...b) => bytes.push(...b);
+  const le16 = value => [value & 0xff, (value >> 8) & 0xff];
+
+  push(...Buffer.from('GIF89a', 'ascii'));
+  push(...le16(1), ...le16(1)); // logical screen descriptor: 1×1, every frame covers it
+  push(0x80, 0x00, 0x00); // a 2-entry global color table follows, no background index, no aspect ratio
+  push(0xff, 0x00, 0x00, 0x00, 0x00, 0xff); // index 0 red, index 1 blue
+
+  // Application extension `NETSCAPE2.0` with a loop count of 0 = forever, which is what an animated
+  // sticker carries. Without it the file still animates, just once.
+  push(0x21, 0xff, 0x0b, ...Buffer.from('NETSCAPE2.0', 'ascii'), 0x03, 0x01, ...le16(0), 0x00);
+
+  for (const index of [0, 1]) {
+    // Graphic control extension: disposal 1 (leave this frame), 10 × 10 ms delay, no transparency.
+    push(0x21, 0xf9, 0x04, 0x04, ...le16(10), 0x00, 0x00);
+    push(0x2c, ...le16(0), ...le16(0), ...le16(1), ...le16(1), 0x00); // image descriptor, no local table
+    push(0x02); // LZW minimum code size
+
+    const codes = [4, index, 5]; // clear, the single pixel, end of information
+    const packed = [];
+    let buffer = 0;
+    let bits = 0;
+    for (const code of codes) {
+      buffer |= code << bits;
+      bits += 3;
+      while (bits >= 8) {
+        packed.push(buffer & 0xff);
+        buffer >>>= 8;
+        bits -= 8;
+      }
+    }
+    if (bits > 0) packed.push(buffer & 0xff);
+    push(packed.length, ...packed, 0x00); // one sub-block, then the block terminator
+  }
+
+  push(0x3b); // trailer
+  return Buffer.from(bytes);
+}
+
 async function main() {
   const outDir = path.join(__dirname, '..', 'fixtures');
   fs.mkdirSync(outDir, { recursive: true });
@@ -73,9 +125,12 @@ async function main() {
   );
   XLSX.writeFile(single, path.join(outDir, 'single-sheet.xlsx'));
 
-  // 1x1 GIF (well-known minimal valid GIF89a)
+  // 1x1 GIF (well-known minimal valid GIF89a) — single frame on purpose: it is the negative case for
+  // the "only the first frame survives" disclosure, which must stay quiet about an animation that
+  // never existed. `sample-animated.gif` below is its positive counterpart.
   const GIF_B64 = 'R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==';
   fs.writeFileSync(path.join(outDir, 'sample.gif'), Buffer.from(GIF_B64, 'base64'));
+  fs.writeFileSync(path.join(outDir, 'sample-animated.gif'), buildAnimatedGif());
 
   // SVG fixture lives in the repo as text; keep it in sync here for clarity
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="240" height="140" viewBox="0 0 240 140">
@@ -191,7 +246,14 @@ body{background:url('http://127.0.0.1:9876/canary/css-bg.png')}</style>
   console.log('fixtures written to', outDir);
 }
 
-main().catch(err => {
-  console.error(err);
-  process.exit(1);
-});
+module.exports = { buildAnimatedGif };
+
+// Importable on purpose: one fixture can then be written without touching the others, since
+// regenerating the whole set re-stamps the PDF and XLSX files whose exact bytes the e2e assertions
+// count on (size in the result card, checksums in the download path).
+if (require.main === module) {
+  main().catch(err => {
+    console.error(err);
+    process.exit(1);
+  });
+}

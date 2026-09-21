@@ -31,11 +31,14 @@ export interface ConvertResult {
    */
   containerExt?: string;
   /**
-   * Set by the orchestrator, never by a converter: this file's route ran a step that declared
-   * `Converter.flattensInput`, so an animated source came out as a single frame.
+   * Set by the converters that decode an animated source onto a canvas (`gif→png / jpg / webp`,
+   * `gif→pdf`) after counting the frames in the bytes, and hoisted across the chain by the
+   * orchestrator so the step that really dropped frames is the one that reports it.
    *
    * The UI cannot recover this from the result — output names are rebuilt from the source basename
-   * plus the new extension, so nothing on a `sample_png_….png` says it started life as a GIF.
+   * plus the new extension, so nothing on a `sample_png_….png` says it started life as a GIF. It
+   * cannot recover it from the route either: `gif→png` only loses an animation when the GIF has one,
+   * and a single-frame GIF loses nothing, which is why this used to be a static per-edge flag.
    */
   lostFrames?: boolean;
   /**
@@ -43,7 +46,7 @@ export interface ConvertResult {
    * `html→md`), and hoisted across the chain by the orchestrator so a `md→html→docx` route reports it
    * from the step that actually did the work.
    *
-   * Unlike `lostFrames` this cannot be a property of the edge: whether a document loses vector
+   * Measured off the content for the same reason as `lostFrames`: whether a document loses vector
    * artwork depends on whether it contains an `<svg>` at all, which only the converter can see.
    */
   svgRasterized?: boolean;
@@ -144,16 +147,6 @@ export interface Converter {
    * to registration order — declared, not accidental.
    */
   edgePreference?: number;
-  /**
-   * True when this edge decodes its input down to one frame, so an animated source loses its
-   * animation.
-   *
-   * Declared per edge, never inferred from a format table, because both halves of the claim have to
-   * hold: the edge must actually re-encode through a bitmap, and its own `from` must be a format
-   * that can carry animation. `gif→png` qualifies; `gif→html` embeds the original bytes and the
-   * animation survives; `png→jpg` flattens nothing that could move.
-   */
-  flattensInput?: boolean;
   convert(input: Blob, ctx?: ConvertContext): Promise<ConvertResult>;
 }
 

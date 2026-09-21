@@ -721,26 +721,39 @@ async function run() {
   //  F-5a0 — a route that flattened the animation says so in the result card
   // ═══════════════════════════════════════════
 
-  // Deliberately two halves. The first is the disclosure; the second is why the flag is declared on
-  // the edge rather than derived from the source format: `gif→html` embeds the original bytes, so the
-  // same GIF still animates there and a note on that route would be a false statement. Both halves
-  // first require a result row, because "no note rendered" is also what a failed conversion looks
-  // like — and an empty list would satisfy the negative half on its own.
+  // Deliberately three halves, because the note has two independent conditions to respect. The route
+  // has to be one that re-encodes through a bitmap: `gif→html` embeds the original bytes, so the same
+  // GIF still animates there and a note on that route would be a false statement. And the file has to
+  // have had a second frame to lose — that half is measured off the bytes by
+  // `utils/core/animated-image.ts`, and it is what `sample.gif`, the well-known single-frame 1×1,
+  // checks here. All three first require a result row, because "no note rendered" is also what a
+  // failed conversion looks like — and an empty list would satisfy either negative on its own.
   if (section('GIF first-frame disclosure')) {
     try {
       await resetWorkbench(page);
-      const flattenedTo = await convertFile(page, 'sample.gif', 'PNG (.png)');
+      const flattenedTo = await convertFile(page, 'sample-animated.gif', 'PNG (.png)');
       const flattened = await page.$$eval('.result-note', els => els.map(el => el.textContent.trim()));
       if (!flattenedTo.resultName) {
-        fail('GIF→PNG disclosure', `no result row: alert "${flattenedTo.alertTitle}"`);
+        fail('animated GIF→PNG disclosure', `no result row: alert "${flattenedTo.alertTitle}"`);
       } else if (flattened.some(text => text.includes('第一帧'))) {
-        ok('GIF→PNG discloses that only the first frame survives');
+        ok('animated GIF→PNG discloses that only the first frame survives');
       } else {
-        fail('GIF→PNG disclosure', `notes rendered: ${JSON.stringify(flattened)}`);
+        fail('animated GIF→PNG disclosure', `notes rendered: ${JSON.stringify(flattened)}`);
       }
 
       await resetWorkbench(page);
-      const keptTo = await convertFile(page, 'sample.gif', 'HTML (.html)');
+      const stillTo = await convertFile(page, 'sample.gif', 'PNG (.png)');
+      const still = await page.$$eval('.result-note', els => els.map(el => el.textContent.trim()));
+      if (!stillTo.resultName) {
+        fail('single-frame GIF→PNG disclosure', `no result row: alert "${stillTo.alertTitle}"`);
+      } else if (still.some(text => text.includes('第一帧'))) {
+        fail('single-frame GIF→PNG disclosure', `unexpected note: ${JSON.stringify(still)}`);
+      } else {
+        ok('a one-frame GIF gets no loss note — there was no frame to lose');
+      }
+
+      await resetWorkbench(page);
+      const keptTo = await convertFile(page, 'sample-animated.gif', 'HTML (.html)');
       const kept = await page.$$eval('.result-note', els => els.map(el => el.textContent.trim()));
       if (!keptTo.resultName) {
         fail('GIF→HTML disclosure', `no result row: alert "${keptTo.alertTitle}"`);
