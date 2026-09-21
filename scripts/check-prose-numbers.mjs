@@ -484,8 +484,9 @@ const DOCS = [
   // drifts the same way; it lives in `.github/` because `docs/` is the public site source.
   '.github/CWS_PUBLISHING_GUIDE.md',
   '.github/CWS_PUBLISHING_GUIDE.en.md',
-  { file: 'CHANGELOG.md', only: /^## \[Unreleased\][\s\S]*?(?=^## \[)/m, floor: false },
-  { file: 'CHANGELOG.en.md', only: /^## \[Unreleased\][\s\S]*?(?=^## \[)/m, floor: false },
+  // The main file spells its heading 「未发布」; matching only the English word excluded it silently.
+  { file: 'CHANGELOG.md', only: /^## \[(?:未发布|Unreleased)\][\s\S]*?(?=^## \[)/m, floor: false },
+  { file: 'CHANGELOG.en.md', only: /^## \[(?:未发布|Unreleased)\][\s\S]*?(?=^## \[)/m, floor: false },
 ];
 
 function docText(entry) {

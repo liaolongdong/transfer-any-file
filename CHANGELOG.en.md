@@ -140,7 +140,8 @@ always name the same release.
   in the Unreleased section are still compared, they just do not enter the baseline. The guard runs in the CI lint
   job, on the same side as `verify:paths`: purely static, before the build.
 - **The suite now reports its own assertion total, so the four sentences that quote it need no keeper.**
-  "259 assertions" is the only outward number that requires _running the suite_: the product page quotes it in both
+  The assertion total quoted in prose is the only outward number that requires _running the suite_: the product page
+  quotes it in both
   languages and so does each promo article, and every added assertion meant finding all four by hand — six commits on
   this branch carry that sweep in their title. `scripts/e2e-test.mjs` now writes the count into
   `scripts/__baseline__/e2e-assertions.json` as it finishes, and `verify:numbers` reads that record, which puts the
@@ -150,8 +151,9 @@ always name the same release.
   were committed as different numbers; locally the new value is written and the run says to go sync the prose. A
   sentence reworded out of every pattern is still caught by the quote baseline, which now carries a cell for each of
   those four quotes. Verified in three directions: setting the record to 258 reports 4 problems, setting the product
-  page to 260 reports 1, and writing 「共 259 处断言」 instead of 「共 259 项断言」 shows up as the cell the baseline
-  diff lost. Out of reach remains the gitignored WeChat HTML, still printing 244 until the next `pnpm promo:wechat`.
+  page to 260 reports 1, and swapping the classifier in 「共 … 项断言」 from 「项」 to 「处」 shows up as the cell the
+  baseline diff lost. Out of reach remains the gitignored WeChat HTML, still printing 244 until the next
+  `pnpm promo:wechat`.
 - **The "no text layer" fact about our PDFs is now sayable inside the product.** When a batch contains a PDF
   result, the result card carries one extra line: the produced PDF is a page image with no text layer, and if you
   need the text on it you can try selecting and copying in a PDF viewer — a step that viewer performs, not this
@@ -219,6 +221,14 @@ always name the same release.
   its first frame too) and turning an HTML page
   that embeds an animated GIF into an image or a PDF — that wording is GIF-specific, so widening it needs a new
   sentence, not a new trigger.
+- **`pnpm verify:remote-code`** — asserts that the build output contains no code fetched from the network: no
+  `http(s)://….js` literals, no `importScripts(`, no `<script src="http…">`, no shape that assembles an `import()`
+  into a string and hands it to a Worker, no `eval(`, plus a manifest CSP that admits no remote script source. Like
+  the offline guard it has two layers: `--source-only` reads first-party source and can run on a clean checkout
+  before any build, while the default pass reads `.output/chrome-mv3` and fails outright when the artifact is
+  missing. Wired into both CI jobs and into the release workflow **before** packaging. The reason it exists is the
+  Fixed entry below: these shapes live only in minified third-party output, and neither "our source makes no
+  requests" nor "the manifest asks for `storage` only" can see them structurally.
 
 ### Changed
 
@@ -585,6 +595,42 @@ zero network requests`) and the Chinese equivalent never appeared in a search re
   is on the `svg→md` card, presses space once in the editor to trip the debounced emit, then requires the note
   to still be there. Putting the old `{ blob, filename }` back does turn it red — and it is not only the SVG
   line that goes: the editor was wiping every note on the result card.
+- **A GIF with no animation was told it had lost one.** The first-frame note added last round hung off the
+  _edge_: `Converter.flattensInput` was true for every `gif→png / jpg / webp / pdf` route, so converting a
+  one-frame GIF to PNG printed a sentence that was not true of that file — there was no frame to lose.
+  Whether an animation exists is a property of these bytes, not of this route, exactly like whether a
+  document contains an `<svg>`, so the converter has to look. `utils/core/animated-image.ts` walks the GIF
+  block structure (logical screen descriptor, global and local colour tables, `0x21` extensions, `0x2c`
+  image descriptors, sub-block chains) and answers true at the second image descriptor, reading at most
+  4 MB; anything it cannot parse, or that is not a GIF, answers false — silence is preferred over a wrong
+  claim. `flattensInput` is gone with it: `image-convert.ts` and `image-to-pdf.ts` now measure inside
+  `convert()` and hand the orchestrator a `ConvertResult.lostFrames`, combined per step with `||=`. The copy
+  is unchanged character for character — it still talks about GIFs and first frames, it just only says so
+  when a frame was actually lost. The scope is GIF alone: animated WebP (`VP8X`'s ANIM flag) and APNG
+  (`acTL`) lose their frames on these same routes, but the repository has no fixture of either kind that is
+  both offline-creatable and decodable, and a judgement that has never been exercised does not go in front
+  of users — which is recorded in the scope note of `animated-image.ts`. Three assertions now: animated
+  GIF → PNG requires the note, `sample.gif` (one frame) → PNG requires its absence, GIF → HTML requires
+  silence (that route embeds the original bytes, animation intact). The positive one alone would not have
+  caught this change — reverting the test to "any GIF" keeps it green — what went red was the new cell
+  (measured: with the static judgement restored, that one of 235 assertions in the filtered run fails and
+  nothing else does). Suite total 259 → 260.
+- **The package we uploaded carried two pieces of remotely hosted code, which is why 1.0.0 was rejected a third
+  time (2026-09-21, violation type: policy).** Both lived inside minified third-party output, and this project
+  reaches neither: jsPDF 4.2.1's `output('pdfobjectnewwindow')` branch assigns
+  `https://cdnjs.cloudflare.com/ajax/libs/pdfobject/2.1.1/pdfobject.min.js` to the `src` of a `<script>` it creates
+  on the fly (the whole repository only ever calls `output('blob')`), and pdf.js's `_createCDNWrapper` builds the
+  text `await import("<url>")` into a Blob and starts a Worker from it — a path taken only when `workerSrc` is
+  cross-origin, whereas ours is a same-origin `.mjs` asset shipped in the package. The store's judgement does not
+  care about reachability: the path existing is the violation, so the only fix is for the strings to leave the
+  package; guarding the call site at runtime would change nothing. `stripRemotelyHostedCode()` in `wxt.config.ts`
+  deletes both blocks at build time, and the new `pnpm verify:remote-code` guard asserts the artifact really is
+  clean — source layer and bundle layer both green on the rebuilt 3.76 MB package. **No user-visible behaviour
+  changes**: the scenarios that reach the two patched loaders still pass on the built artifact — TXT/CSV/XLSX → PDF
+  produce their documents through the stripped jsPDF, and PDF → PNG / WEBP plus the two-page PDF → JPEG ZIP still
+  decode through its packaged worker. A full `pnpm test:e2e` sweep is still owed on an otherwise idle machine: the
+  runs so far collided with a second suite on this host, which rebuilt `.output/chrome-mv3` underneath the first one
+  halfway through, and a suite whose artifact moves mid-run answers nothing.
 
 ## [1.0.0] - 2026-09-07
 
