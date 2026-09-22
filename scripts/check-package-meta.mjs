@@ -53,9 +53,33 @@ const MESSAGE_KEYS = { name: '__MSG_extensionName__', description: '__MSG_extens
  * @throws {Error} When no string literal is present for that field.
  */
 function readManifestField(source, field) {
-  const match = new RegExp(`${field}:\\s*(?:\\r?\\n\\s*)?(['"])((?:\\\\.|(?!\\1)[^\\\\])*)\\1`).exec(source);
+  const block = readManifestBlock(source);
+  const match = new RegExp(`${field}:\\s*(?:\\r?\\n\\s*)?(['"])((?:\\\\.|(?!\\1)[^\\\\])*)\\1`).exec(block);
   if (!match) throw new Error(`no \`${field}\` string literal found in wxt.config.ts`);
   return match[2].replace(/\\(["'\\])/g, '$1');
+}
+
+/**
+ * Cut the `manifest: { ... }` object out of `wxt.config.ts`.
+ *
+ * Field reads must be scoped to this block: the rest of the config has `name:` keys of its own
+ * (every Vite plugin declares one), and a whole-file match would silently read whichever happens to
+ * come first instead of the extension name — which is precisely how a correct config fails this check.
+ * Braces inside comments are counted, so an unbalanced comment brace throws rather than misreading.
+ *
+ * @param {string} source Raw contents of `wxt.config.ts`.
+ * @returns {string} The `manifest` block, from its key to its closing brace.
+ * @throws {Error} When the block is absent or unbalanced.
+ */
+function readManifestBlock(source) {
+  const key = source.search(/manifest:\s*{/);
+  if (key === -1) throw new Error('no `manifest: { ... }` block found in wxt.config.ts');
+  let depth = 0;
+  for (let i = source.indexOf('{', key); i < source.length; i += 1) {
+    if (source[i] === '{') depth += 1;
+    else if (source[i] === '}' && --depth === 0) return source.slice(key, i + 1);
+  }
+  throw new Error('unbalanced `manifest` block in wxt.config.ts');
 }
 
 /**

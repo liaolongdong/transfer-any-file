@@ -32,6 +32,9 @@ jobs:
       # 每一份文档都在重复的那句隐私承诺：第一方源码里没有网络调用、manifest 源只要 storage。
       # 这里只跑源码层——本 job 在干净检出上先于任何 build，产物层断言在 build job 里执行。
       - run: pnpm verify:offline:source
+      # 远程托管代码：源码层先筛掉我们自己写进去的那类形状（同样只有这一步能在无产物时跑）。
+      - name: Verify no remotely hosted code (source)
+        run: pnpm verify:remote-code:source
       # 转换路径快照：等长路由由哪条 register() 先注册决定，注册顺序一变就必须显式更新基线。
       # 纯静态解析源码，不需要产物，所以和上面的源码层守卫放在同一个 job。
       - name: Verify conversion paths
@@ -59,6 +62,10 @@ jobs:
       # 会加上源码配置里从未出现的权限，只有这一步能发现——缺 .output 时脚本直接失败，不再静默跳过。
       - name: Verify offline (built manifest)
         run: pnpm verify:offline
+      # 源码层筛不掉的是第三方依赖：jsPDF 的 cdnjs script 注入与 pdf.js 那份「把 import 拼成文本再
+      # 交给 Worker」的包装器，只在压缩产物里。构建期插件删掉它们，这一步是「确实删掉了」的唯一断言。
+      - name: Verify no remotely hosted code (built bundle)
+        run: pnpm verify:remote-code
 
   e2e:
     name: E2E Tests

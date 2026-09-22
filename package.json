@@ -37,6 +37,8 @@
     "verify:meta": "node scripts/check-package-meta.mjs",
     "verify:offline": "node scripts/check-offline.mjs",
     "verify:offline:source": "node scripts/check-offline.mjs --source-only",
+    "verify:remote-code": "node scripts/check-remote-code.mjs",
+    "verify:remote-code:source": "node scripts/check-remote-code.mjs --source-only",
     "verify:listing": "node scripts/check-store-listing.mjs",
     "verify:paths": "node scripts/check-path-snapshot.mjs",
     "verify:numbers": "node scripts/check-prose-numbers.mjs",

@@ -86,6 +86,11 @@ jobs:
       - name: Verify offline (built manifest)
         run: pnpm verify:offline
 
+      # 上传之前拦下「远程托管代码」：这是本扩展 2026-09-21 被拒的那一条，判定来自压缩产物里第三方
+      # 保留的死代码路径，源码层的离线检查结构上看不见它。宁可这里红，也不要把包递到商店手上。
+      - name: Verify no remotely hosted code (built bundle)
+        run: pnpm verify:remote-code
+
       - name: Package
         id: package
         run: |

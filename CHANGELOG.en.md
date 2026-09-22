@@ -626,11 +626,10 @@ zero network requests`) and the Chinese equivalent never appeared in a search re
   package; guarding the call site at runtime would change nothing. `stripRemotelyHostedCode()` in `wxt.config.ts`
   deletes both blocks at build time, and the new `pnpm verify:remote-code` guard asserts the artifact really is
   clean — source layer and bundle layer both green on the rebuilt 3.76 MB package. **No user-visible behaviour
-  changes**: the scenarios that reach the two patched loaders still pass on the built artifact — TXT/CSV/XLSX → PDF
-  produce their documents through the stripped jsPDF, and PDF → PNG / WEBP plus the two-page PDF → JPEG ZIP still
-  decode through its packaged worker. A full `pnpm test:e2e` sweep is still owed on an otherwise idle machine: the
-  runs so far collided with a second suite on this host, which rebuilt `.output/chrome-mv3` underneath the first one
-  halfway through, and a suite whose artifact moves mid-run answers nothing.
+  changes**: a full `pnpm test:e2e` run passes 260/260 on a build of the same tree with nothing else competing for
+  the artifact, and the scenarios that reach the two patched loaders are in it — MD/HTML/TXT/CSV/XLSX/SVG → PDF
+  produce their documents through the stripped jsPDF, and PDF → PNG / WEBP plus the two-page PDF → ZIP still decode
+  through its packaged worker.
 
 ## [1.0.0] - 2026-09-07
 

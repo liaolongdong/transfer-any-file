@@ -438,10 +438,9 @@ manifest 的版本号，因此 `vX.Y.Z` 标签、构建产物与商店包始终�
   商店的判定不看可达性：这类路径存在就是违规，所以修法只能是让字符串从包里消失，运行期加判断没有意义。
   `wxt.config.ts` 里的 `stripRemotelyHostedCode()` 在构建期把两段整块删掉，新守卫 `pnpm verify:remote-code`
   断言产物里确实不再存在这些形状——源码层与产物层在当前 3.76 MB 的包上都是绿的。**用户可见行为零变化**：
-  走到这两处被改依赖的场景在构建产物上照旧通过——TXT/CSV/XLSX → PDF 仍由被裁剪过的 jsPDF 出文档，
-  PDF → PNG / WEBP 与两页 PDF → JPEG ZIP 仍由包内那份 worker 解码。整套 `pnpm test:e2e` 的全绿记录还欠着，
-  要等一台没有并发的机器：这几次跑都撞上同机的第二套套件跑到一半重新构建了 `.output/chrome-mv3`，
-  而产物在测试脚下换掉的运行说明不了任何事。
+  全量 `pnpm test:e2e` 在与被测产物同一份构建的干净运行里 260/260 通过，其中走到这两处被改依赖的场景照旧——
+  MD/HTML/TXT/CSV/XLSX/SVG → PDF 仍由被裁剪过的 jsPDF 出文档，PDF → PNG / WEBP 与两页 PDF → ZIP 仍由包内
+  那份 worker 解码。
 
 ## [1.0.0] - 2026-09-07
 
