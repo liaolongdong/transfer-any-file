@@ -868,6 +868,174 @@ async function run() {
   }
 
   // ═══════════════════════════════════════════
+  //  F-10 — the layout-settle pause is owed only by documents that can still move; the pages that
+  //  skip it must still come out whole
+  // ═══════════════════════════════════════════
+
+  if (section('Layout Settle Completeness')) {
+    // A solid red block is the last box on the page, so *where its pixels land* is the claim: the
+    // picture is the page at one magnification, and the band closing it is neither short nor overlapped.
+    // Every check is a fraction rather than a pixel count on purpose — the rasterizer picks its
+    // `pixelRatio` from the document's height, and these two shapes deliberately land in different
+    // regimes, so an absolute figure would have to re-derive that ladder and would quietly follow a
+    // change to it. `body{margin:0}` is load-bearing for the same reason: the default 8 px under the
+    // marker is what made the first draft of this section fail by 13 rows on a page it rendered whole.
+    // What this does NOT claim: it cannot see the pause itself, and the 7-shape probe over the built
+    // artifact showed these pages coming out byte-identical either way. It pins the thing the pause is
+    // for — that a page on either side of the decision still reaches the bottom row with its content
+    // unoverlapped — so a settle that is skipped one document too early shows up here, not in a
+    // user's screenshot.
+    const RENDER_WIDTH = 800;
+    const MARKER_H = 160;
+    const marker = `<div style="width:100%;height:${MARKER_H}px;background:#f00"></div>`;
+    const prose = n =>
+      Array.from(
+        { length: n },
+        (_, i) => `<h3>Section ${i}</h3><p>${'The quick brown fox jumps over the lazy dog. '.repeat(4)}</p>`,
+      ).join('');
+    const wrapPage = body =>
+      `<!doctype html><html><head><meta charset="utf-8"><title>Settle</title><style>body{margin:0}</style></head><body>${body}</body></html>`;
+    // No `width`/`height` attributes on purpose: the intrinsic size is what reflows everything below
+    // it, and an `<img>` is the condition the settle is now keyed on. `data:` survives both the
+    // sanitizer and the subresource strip, so it is a real decode inside an offline package.
+    const blueImg = `<img src="data:image/svg+xml;base64,${Buffer.from(
+      '<svg xmlns="http://www.w3.org/2000/svg" width="300" height="180"><rect width="300" height="180" fill="#00f"/></svg>',
+    ).toString('base64')}">`;
+
+    /** The page's CSS height at the rasterizer's own render width, measured independently of it. */
+    const cssHeight = html =>
+      page.evaluate(
+        async ({ src, width }) => {
+          const frame = document.createElement('iframe');
+          frame.setAttribute('sandbox', 'allow-same-origin');
+          frame.style.cssText = `position:fixed;left:-9999px;top:0;width:${width}px;height:100px;border:none`;
+          document.body.appendChild(frame);
+          await new Promise(resolve => {
+            frame.onload = resolve;
+            frame.srcdoc = src;
+          });
+          const doc = frame.contentDocument;
+          const height = Math.max(doc.documentElement.scrollHeight, doc.body ? doc.body.scrollHeight : 0);
+          frame.remove();
+          return height;
+        },
+        { src: html, width: RENDER_WIDTH },
+      );
+
+    /** Convert through the workbench's own upload → target → convert path, then measure the PNG. */
+    async function rasterizeAndMeasure(html) {
+      await resetWorkbench(page);
+      const fi = await page.$('input[type="file"]');
+      if (!fi) throw new Error('file input not found');
+      await fi.setInputFiles({ name: 'settle-page.html', mimeType: 'text/html', buffer: Buffer.from(html) });
+      await page.waitForTimeout(1000);
+      await pickTarget(page, 'PNG (.png)');
+      await (await page.$('.convert-btn')).click();
+      await page.waitForFunction(
+        () => {
+          const alert = document.querySelector('.el-alert__title');
+          return alert && alert.textContent.length > 0;
+        },
+        { timeout: 30000 },
+      );
+      await page.waitForTimeout(300);
+
+      const png = Buffer.from(await downloadBatchArtifact(page), 'latin1');
+      if (png.slice(1, 4).toString('ascii') !== 'PNG') {
+        throw new Error(`expected a PNG artifact, got ${png.slice(0, 8).toString('hex')}`);
+      }
+      const width = png.readUInt32BE(16);
+      const height = png.readUInt32BE(20);
+      const pixels = await page.evaluate(async b64 => {
+        const img = document.createElement('img');
+        img.src = `data:image/png;base64,${b64}`;
+        await img.decode();
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+        const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        let red = 0;
+        let blue = 0;
+        let top = -1;
+        let bottom = -1;
+        for (let i = 0; i < data.length; i += 4) {
+          const [r, g, b] = [data[i], data[i + 1], data[i + 2]];
+          if (r > 180 && g < 80 && b < 80) {
+            const row = (i / 4 / canvas.width) | 0;
+            if (top < 0) top = row;
+            bottom = row;
+            red++;
+          } else if (b > 180 && r < 80 && g < 80) {
+            blue++;
+          }
+        }
+        return { red, blue, top, bottom };
+      }, png.toString('base64'));
+      return { width, height, ...pixels };
+    }
+
+    /**
+     * The red block's own geometry, read as fractions: it starts where `MARKER_H` of a `pageHeight`
+     * page starts, is as tall as its share of that page, and ends on the last row. Together those say
+     * the picture is the whole page with nothing overlapping the box that closes it.
+     */
+    const markerWhole = (shot, pageHeight) =>
+      shot.top >= 0 &&
+      shot.bottom >= shot.height - 4 &&
+      (shot.bottom - shot.top + 1) / shot.height >= (MARKER_H / pageHeight) * 0.9 &&
+      Math.abs(shot.top / shot.height - (pageHeight - MARKER_H) / pageHeight) < 0.02;
+
+    /** Uniform scale: the picture is the page at one magnification, so no rows went missing. */
+    const uniformScale = (shot, pageHeight) => Math.abs(shot.width / RENDER_WIDTH - shot.height / pageHeight) < 0.02;
+
+    const plainPage = wrapPage(`${prose(30)}${marker}`);
+    const plainHeight = await cssHeight(plainPage);
+    const plainShot = await rasterizeAndMeasure(plainPage);
+    if (uniformScale(plainShot, plainHeight)) {
+      ok(
+        `A page that skips the settle is rasterized whole (${plainShot.width}×${plainShot.height} px of a ${plainHeight} CSS px page)`,
+      );
+    } else {
+      fail(
+        'Skip-settle clipping',
+        `${plainShot.width}×${plainShot.height} px for ${plainHeight} CSS px — width and height disagree on the scale`,
+      );
+    }
+    if (markerWhole(plainShot, plainHeight)) {
+      ok('The last box on a skip-settle page is whole and sits on the bottom row');
+    } else {
+      fail(
+        'Skip-settle bottom content',
+        `red rows ${plainShot.top}–${plainShot.bottom} of ${plainShot.height}, page ${plainHeight} CSS px`,
+      );
+    }
+
+    // The side that is still owed the pause: the images have to have decoded *into* the picture, not
+    // merely been listed by the document, which is what the blue count separates from a red-only pass.
+    const imagePage = wrapPage(`${prose(10)}${blueImg}${prose(10)}${blueImg}${prose(10)}${blueImg}${marker}`);
+    const imageHeight = await cssHeight(imagePage);
+    const imageShot = await rasterizeAndMeasure(imagePage);
+    const expectedBlue = ((3 * 300 * 180) / (RENDER_WIDTH * imageHeight)) * imageShot.width * imageShot.height;
+    if (imageShot.blue > expectedBlue * 0.35) {
+      ok(
+        `Images on the settled page paint at their intrinsic size (${imageShot.blue} blue px of ${Math.round(expectedBlue)} expected)`,
+      );
+    } else {
+      fail('Settled-page images', `only ${imageShot.blue} blue px, expected near ${Math.round(expectedBlue)}`);
+    }
+    if (markerWhole(imageShot, imageHeight)) {
+      ok('Content below an image is not left overlapping it');
+    } else {
+      fail(
+        'Settled-page bottom content',
+        `red rows ${imageShot.top}–${imageShot.bottom} of ${imageShot.height}, page ${imageHeight} CSS px`,
+      );
+    }
+  }
+
+  // ═══════════════════════════════════════════
   //  MULTI-SHEET XLSX → CSV (ZIP bundle)
   // ═══════════════════════════════════════════
 

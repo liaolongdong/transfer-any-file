@@ -11,8 +11,30 @@ const LOAD_TIMEOUT_MS = 10_000;
 /** Budget for each image inside the document to either load or fail */
 const ASSET_TIMEOUT_MS = 5_000;
 
-/** Pause after the assets settle, giving the layout one last reflow */
+/** Pause after the assets settle, giving the layout one last reflow — only where one can still land */
 const LAYOUT_SETTLE_MS = 100;
+
+/** A declaration that can still be moving the page at capture time: `animation…:` or `transition…:`. */
+const MOTION_DECL_RE = /[{;]\s*(?:animation|transition)[-a-z]*\s*:/i;
+
+/**
+ * Whether this document is owed the {@link LAYOUT_SETTLE_MS} pause.
+ *
+ * The sleep covers layout that lands *after* the asset wait returns: an image whose decoded size
+ * reflows its neighbours, or a `@font-face` swapping metrics. Both are readable without touching
+ * geometry — `doc.images.length` and `doc.fonts.size` force no layout — and remote references are
+ * already stripped by this point, so a src-less `<img>` still counted there is the conservative
+ * direction: it keeps a document waiting that no longer needs it, never the reverse. A CSS animation
+ * or transition is the third case, and it is kept waiting on purpose: capturing a page mid-motion is
+ * a worse picture.
+ *
+ * For everything else the pause buys nothing, and that was measured against the built artifact
+ * rather than reasoned: seven document shapes (plain, long, inline image, sized image, animation,
+ * transition, `@font-face`) rendered byte-identical PNGs with a 100 ms pause and with none.
+ */
+function needsLayoutSettle(doc: Document, html: string): boolean {
+  return doc.images.length > 0 || doc.fonts.size > 0 || MOTION_DECL_RE.test(html);
+}
 
 /**
  * Wait until the images and fonts inside the document have settled.
@@ -20,7 +42,7 @@ const LAYOUT_SETTLE_MS = 100;
  * Every failure mode here resolves rather than rejects: an image that 404s or a font API the
  * browser does not expose should produce a partially-rendered picture, not kill the conversion.
  */
-async function waitForAssets(doc: Document, signal?: AbortSignal): Promise<void> {
+async function waitForAssets(doc: Document, html: string, signal?: AbortSignal): Promise<void> {
   const images = Array.from(doc.images);
 
   await Promise.all(
@@ -49,7 +71,9 @@ async function waitForAssets(doc: Document, signal?: AbortSignal): Promise<void>
   }
 
   throwIfAborted(signal);
-  await new Promise(resolve => setTimeout(resolve, LAYOUT_SETTLE_MS));
+  // A wall-clock pause, deliberately: this runs in the workbench tab, and `requestAnimationFrame`
+  // stops firing there the moment the user switches away, which would stall the conversion.
+  if (needsLayoutSettle(doc, html)) await new Promise(resolve => setTimeout(resolve, LAYOUT_SETTLE_MS));
 }
 
 /**
@@ -109,7 +133,7 @@ export async function renderHtmlToCanvas(html: string, signal?: AbortSignal): Pr
     const doc = iframe.contentDocument;
     if (!doc || !doc.documentElement) throw new Error('errors.renderFailed');
 
-    await waitForAssets(doc, signal);
+    await waitForAssets(doc, sanitizedHtml, signal);
 
     // Expand the iframe to the full content height before capturing
     const fullHeight = Math.max(doc.documentElement.scrollHeight, doc.body?.scrollHeight ?? 0, 1);

@@ -417,6 +417,28 @@ zero network requests`) and the Chinese equivalent never appeared in a search re
   idempotent (`strip(strip(x)) === strip(x)`), so one call site fewer cannot leak and one call site more
   cannot distort. Cross-format calls still throw. A repeat open now measures 0 ms. The package goes
   3,758,543 → 3,758,831 B (+288 B, still 3.76 MB).
+- **The 100 ms pause before a document is rasterized is now paid only by documents that can still move.**
+  `utils/core/html-raster.ts` used to sleep 100 ms unconditionally after the page's images and fonts had
+  settled, to cover layout that lands _after_ that: an image whose decoded size reflows its neighbours, a
+  `@font-face` swapping in real metrics. The pause sits on the **HTML→PNG and HTML→PDF** routes, and every
+  multi-step chain (md / txt / csv / xlsx / docx / svg / json / pdf → an image or a PDF) runs through them —
+  so each file paid 100 ms, while almost nothing it renders had anything left in motion. The wait is now
+  decided per document: `doc.images.length > 0`, `doc.fonts.size > 0`, or an `animation…:` / `transition…:`
+  declaration still present in the HTML; only with none of the three is it skipped. **The predicate errs
+  conservative, not eager**: an image that pointed at the network keeps its element after the strip removes
+  its `src`, so that document is still waited on, and `json-to-html` ships a `transition: transform .15s` of
+  its own, so that route keeps paying. **What is saved needs no measurement — it is the constant, 100 ms per
+  file. What needed measuring is whether skipping it loses anything, and that was measured on the built
+  artifact**: seven document shapes (plain, long, inline image, sized image, `animation`, `transition`,
+  `@font-face`) produced **byte-identical** PNGs with the pause and without it. The pause itself stays
+  wall-clock rather than frame-aligned on purpose: it runs in the workbench tab, where `requestAnimationFrame`
+  stops firing the moment the user switches away, which would stall the conversion outright. A new e2e
+  section, `Layout Settle Completeness` (+4 assertions, suite total 260 → 264), pins both sides: on the
+  skipped side the picture must be the page at one magnification (nothing cut from the tail) and the closing
+  red block must be whole and sit on the last row; on the waited side the `data:` images must have painted
+  at their intrinsic size (a blue pixel count) with nothing left overlapping that block. **What the
+  assertion cannot see is the pause itself** — those pages come out the same either way — so what it holds is
+  the reason the pause was ever there. The package goes 3,758,831 → 3,758,963 B (+132 B, still 3.76 MB).
 
 ### Fixed
 
