@@ -418,6 +418,23 @@ zero network requests`) and the Chinese equivalent never appeared in a search re
   idempotent (`strip(strip(x)) === strip(x)`), so one call site fewer cannot leak and one call site more
   cannot distort. Cross-format calls still throw. A repeat open now measures 0 ms. The package goes
   3,758,543 → 3,758,831 B (+288 B, still 3.76 MB).
+  This round gives it a second ceiling. The count bounds how many previews are remembered, not how big each one
+  is: the map holds a resolved `Promise<string>`, which keeps its string, and a DOCX preview inlines every
+  embedded picture as base64 (`docx-to-html.ts` hands mammoth an `imgElement` reader), so those eight slots cap
+  the cost at eight copies of whatever the largest document renders to. Base64 is a third larger than the bytes
+  it encodes, so a document that fills the 100 MB upload limit costs ≈140 million characters per copy — no
+  footprint a count of eight holds. The new ceiling is 4,000,000 UTF-16 code units per renderer (two bytes each
+  at the worst, CJK prose; one for the base64 that dominates an image-heavy rendering), and there are two
+  renderers, so the page-wide steady state is twice that. It bounds the steady state and not the peak: the
+  tally is written when a rendering resolves while the ceiling is read when a request starts, so a burst of
+  concurrent misses stays bounded by the count alone. An entry over budget is still stored — the same reasoning
+  that moved the count eviction _before_ the store applies here, and refusing it would answer the expensive
+  case with a recomputation every time — and what it buys instead is the reset that follows it: the next open of
+  a different file replaces the map, so whatever was cached alongside it, and the big rendering itself on a
+  second look, is computed again. Without the ceiling, that one document sets the footprint of every preview
+  remembered after it. The fixtures sit three orders of magnitude below 4M, so this is not observable from the
+  UI and gains no assertion (the suite stays at 267). The package goes
+  3,758,958 → 3,759,005 B (+47 B, still 3.76 MB).
 - **The 100 ms pause before a document is rasterized is now paid only by documents that can still move.**
   `utils/core/html-raster.ts` used to sleep 100 ms unconditionally after the page's images and fonts had
   settled, to cover layout that lands _after_ that: an image whose decoded size reflows its neighbours, a
