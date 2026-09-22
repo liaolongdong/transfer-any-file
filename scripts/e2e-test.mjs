@@ -1080,6 +1080,60 @@ async function run() {
       } else {
         fail('PDF page-count drift', `${pagesFirst} then ${pagesSecond} pages for a ${plainHeight} CSS px page`);
       }
+
+      // The predicate is a string test, so its shape coverage is checkable without a browser. The geometry
+      // assertions around it catch a document that was skipped too early only when the skip costs pixels; a
+      // shape that quietly stops matching the predicate is invisible to them, which makes this table the
+      // guard on the predicate itself. Both patterns are read out of the source rather than copied here, so
+      // the guard cannot drift away from what ships: a copied pattern narrows along with it, and if a
+      // literal is renamed or wrapped across lines `settlePatterns.length` says so instead of testing nothing.
+      // What the table pins is the patterns, not what the sanitizer hands them: a shape DOMPurify stops
+      // keeping would leave its row green and cost 100 ms of waiting for nothing — the side this predicate
+      // errs on, and the reason the gap is acceptable here rather than needing a browser round-trip per row.
+      const rasterSource = fs.readFileSync(path.resolve(__dirname, '../utils/core/html-raster.ts'), 'utf8');
+      const settlePatterns = [
+        ...rasterSource.matchAll(/^const (?:MOTION_RE|UNWAITED_ASSET_RE) = \/(.*)\/([a-z]*);$/gm),
+      ].map(match => new RegExp(match[1], match[2]));
+      const SETTLE_TABLE = [
+        [true, 'a stylesheet animation', '<style>.a{animation:spin 2s}</style>'],
+        [true, 'an inline style whose first declaration is a transition', '<div style="transition:all 2s">x</div>'],
+        [true, 'a vendor-prefixed animation', '<div style="-webkit-animation:spin 2s">x</div>'],
+        [true, 'a SMIL transform', '<svg><animateTransform attributeName="transform"/></svg>'],
+        [true, 'a marquee', '<marquee>scrolling text</marquee>'],
+        [true, 'an SVG image, which doc.images does not count', '<svg><image href="data:image/png;base64,AA"/></svg>'],
+        [true, 'a video, whose box arrives with its metadata', '<video src="data:video/mp4;base64,AA"></video>'],
+        [false, 'plain prose', '<h3>Section</h3><p>The quick brown fox.</p>'],
+        [false, 'a heading that only spells motion words in text', '<p>transition animation marquee video</p>'],
+        [
+          false,
+          'a bare @keyframes no animation: refers to',
+          '<style>@keyframes spin{to{transform:rotate(1turn)}}</style>',
+        ],
+        [false, 'an HTML img — the asset wait already counts it', '<img src="data:image/png;base64,AA">'],
+        [
+          false,
+          'an audio element: fixed box, nothing moves when it loads',
+          '<audio src="data:audio/wav;base64,AA"></audio>',
+        ],
+      ];
+      if (settlePatterns.length !== 2) {
+        fail(
+          'Settle pattern shape table',
+          `read ${settlePatterns.length} of the two pattern literals from utils/core/html-raster.ts`,
+        );
+      } else {
+        // The two patterns only: the full predicate also ORs in `doc.images` and `doc.fonts`, which need a
+        // rendered document. The two rows that say `false` do so because the DOM half already covers them.
+        const patternSaysWait = html => settlePatterns.some(re => re.test(html));
+        const misses = SETTLE_TABLE.filter(([want, , html]) => patternSaysWait(html) !== want).map(
+          ([want, name]) => `${name} (${want ? 'pattern should match' : 'pattern should not match'})`,
+        );
+        if (misses.length === 0) {
+          ok(`The settle patterns match exactly the ${SETTLE_TABLE.length} shapes the table pins`);
+        } else {
+          fail('Settle pattern shape table', `wrong side of the pattern: ${misses.join('; ')}`);
+        }
+      }
     } catch (e) {
       fail('Layout Settle Completeness', e.message);
     }

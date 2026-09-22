@@ -15,12 +15,27 @@ const ASSET_TIMEOUT_MS = 5_000;
 const LAYOUT_SETTLE_MS = 100;
 
 /**
- * Anything in a stylesheet, an inline `style`, or a SMIL tag that can still be moving the page at capture
- * time: an `animation…:` / `transition…:` declaration — vendor-prefixed or not, and including the first
- * one inside `style="…"`, which no `{` or `;` precedes — or an `<animate…>` element. Deliberately wide:
+ * Anything in a stylesheet, an inline `style`, or a tag that can still be moving the page at capture time:
+ * an `animation…:` / `transition…:` declaration — vendor-prefixed or not, and including the first one inside
+ * `style="…"`, which no `{` or `;` precedes — an `<animate…>` element, or a `<marquee…>`. Deliberately wide:
  * a missed shape costs a picture caught mid-motion, an extra one costs 100 ms.
  */
-const MOTION_RE = /[{;"']\s*(?:-[a-z]+-)?(?:animation|transition)[-a-z]*\s*:|<animate/i;
+const MOTION_RE = /[{;"']\s*(?:-[a-z]+-)?(?:animation|transition)[-a-z]*\s*:|<animate|<marquee/i;
+
+/**
+ * A subresource the asset wait above never waits for, so its paint or its box can still change after that
+ * wait returns: `doc.images` is HTMLImageElement-only, which leaves an SVG `<image>` out of it, and a
+ * `<video>` whose src survived the strip (`data:`, `blob:`, a relative path) takes its box from metadata
+ * arriving on its own schedule. Two absences are deliberate. `<audio>` keeps a fixed control box, so nothing
+ * on the page moves when it loads. And a legacy HTML `<image>` is not waiting on here because the parser
+ * turns it into an `<img>` before the sanitizer serializes the document, which `doc.images` already counts.
+ * A `<video>` whose remote src *was* stripped matches too — it sits at the default 300×150 and gains nothing
+ * — which is the direction this predicate is meant to err: a false match costs a tenth of a second, a missed
+ * one costs a picture of a page still laying itself out. A literal tag name sitting inside an attribute value
+ * (`title="a <video>"`) matches for the same reason — HTML serialization escapes text nodes but not `<` in an
+ * attribute — which is an exposure {@link MOTION_RE} has always had, via `alt="transition: all"`.
+ */
+const UNWAITED_ASSET_RE = /<(?:image|video)/i;
 
 /**
  * Whether this document is owed the {@link LAYOUT_SETTLE_MS} pause.
@@ -30,12 +45,16 @@ const MOTION_RE = /[{;"']\s*(?:-[a-z]+-)?(?:animation|transition)[-a-z]*\s*:|<an
  * geometry — `doc.images.length` and `doc.fonts.size` force no layout — and remote references are
  * already stripped by this point, so a src-less `<img>` still counted there errs on the side of
  * waiting: a document that no longer needs the pause keeps it, and one that does is never dropped.
- * Motion is the third case — CSS `animation` / `transition` and SMIL alike — and it is kept waiting on
- * purpose: capturing a page mid-motion is a worse picture.
+ * The font count is read optionally because the wait above already treats a missing FontFaceSet as
+ * survivable; a predicate that assumed it exists would turn that tolerance into a thrown conversion.
+ * Motion is the third case — CSS `animation` / `transition`, SMIL, `marquee` — and a subresource the
+ * wait does not cover is the fourth; both wait on purpose, since a page captured mid-motion or
+ * mid-paint is a worse picture and the alternative costs one tenth of a second.
  *
- * The checked string is the **sanitized** HTML, so {@link MOTION_RE} only has to cover shapes that
- * survive sanitisation — and in the shipped DOMPurify configuration they do: `style` attributes and
- * `<style>` blocks are kept, and the SMIL alternatives it matches are exactly `animateTransform` /
+ * The checked string is the **sanitized** HTML, so {@link MOTION_RE} and {@link UNWAITED_ASSET_RE} only
+ * have to cover shapes that survive sanitisation — and in the shipped DOMPurify configuration they do:
+ * `style` attributes and `<style>` blocks are kept, and `marquee`, `video` and the SVG `image` are all
+ * on its allow-list; the SMIL alternatives {@link MOTION_RE} matches are exactly `animateTransform` /
  * `animateMotion` / `animateColor`, the three on its SVG allow-list (a plain `<animate>` is stripped, so
  * that branch of the alternation is a superset rather than a claim). The shapes a bare `[{;]` anchor
  * would have missed are exactly the ones a hand-written document tends to carry: the first declaration
@@ -46,7 +65,7 @@ const MOTION_RE = /[{;"']\s*(?:-[a-z]+-)?(?:animation|transition)[-a-z]*\s*:|<an
  * transition, `@font-face`) rendered byte-identical PNGs with a 100 ms pause and with none.
  */
 function needsLayoutSettle(doc: Document, html: string): boolean {
-  return doc.images.length > 0 || doc.fonts.size > 0 || MOTION_RE.test(html);
+  return doc.images.length > 0 || (doc.fonts?.size ?? 0) > 0 || MOTION_RE.test(html) || UNWAITED_ASSET_RE.test(html);
 }
 
 /**

@@ -448,13 +448,31 @@ zero network requests`) and the Chinese equivalent never appeared in a search re
   assertion cannot see is the pause itself** — those pages come out the same either way — so what it holds is
   the reason the pause was ever there. The package goes 3,758,831 → 3,759,003 B (+172 B, still 3.76 MB).
 
-### Fixed
   **The determinism of the artifact** then gets two more pins: the same page rasterized twice has to give the
   same PNG width and height, and the same page sent to PDF twice has to give the same page count (+2 assertions,
   suite total 264 → 266). Neither had ever been asserted — they were only ever run incidentally — and ±1 px and
   ±1 page are exactly the drift a skipped pause is likeliest to leave. Both pixel scans (the red/blue counts and
   the red block's top and bottom rows) moved into a shared `scanPaintedPixels()`, now used by the inline-SVG
   assertion on `md → png` as well. The test script never enters the package, so its bytes are unchanged.
+  This round widens the predicate three more ways, and the widening runs one direction only: it can make a
+  document wait 100 ms longer, never stop one that used to be waited on. The first two are shapes the last
+  round acknowledged without listing. `<marquee>` is the one tag on the HTML allow-list that carries its own
+  motion and writes no `animation:` / `transition:` declaration, so the old pattern called it still. SVG's
+  `<image>` and `<video>` are the shapes no upper wait covers but that reflow a second time — `doc.images` is
+  an `HTMLCollectionOf<HTMLImageElement>` and structurally cannot count an SVG `<image>`, and a `<video>`
+  settles its box only when its own metadata arrives. `UNWAITED_ASSET_RE = /<(?:image|video)/i` takes exactly
+  those two: `<audio>` is left out on purpose, since its box is fixed and nothing moves when it loads, and a
+  legacy HTML `<image>` never reaches the predicate because the parser turns it into an `<img>` before the
+  document is serialized, which `doc.images` already counts. The third is `doc.fonts?.size ?? 0` — the wait
+  above already treats a missing FontFaceSet as survivable, and a predicate that assumed it exists would turn
+  that tolerance into a conversion that throws. The e2e section gains a 12-row shape table (7 wait, 5 skip)
+  that **does not copy the predicate**: both regex literals are read out of `utils/core/html-raster.ts` and
+  rebuilt, because a pattern copied into the test narrows along with it — exactly the drift the table exists
+  to catch. It pins every decision taken here, the negative rows included: a bare `@keyframes`, the word
+  "animation" in prose, an HTML `<img>` (the asset wait already counts it) and `<audio>` (+1 assertion, suite
+  total 266 → 267). The package goes 3,758,908 → 3,758,958 B (+50 B, still 3.76 MB).
+
+### Fixed
 
 - **A cancelled batch no longer reported as a completed one.** Cancelling mid-batch left the
   "conversion finished" alert over the partial results, and cancelling before the first file
