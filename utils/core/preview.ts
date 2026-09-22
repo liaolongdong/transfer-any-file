@@ -32,27 +32,68 @@ ${body}
 </html>`;
 }
 
+/**
+ * Preview conversions are pure functions of a blob's bytes, and both preview surfaces hand over the
+ * same `File` object — so reopening a preview used to run mammoth over the document again for nothing.
+ *
+ * One cache per renderer, keyed on the blob: a shared map would let the DOCX rendering answer an XLSX
+ * request for the same object. The map stays `WeakMap`-only and evicts by being replaced wholesale — a
+ * queue of keys would hold strong references to uploaded files (and through them their bytes) long after
+ * the batch was cleared, which is exactly the memory this layer must not pin. `entries` is therefore an
+ * upper bound, and overshooting costs one recomputation. A rejection is never kept: it is not a fact
+ * about the bytes, and pinning one would leave that file for ever without a preview.
+ */
+const PREVIEW_CACHE_LIMIT = 8;
+
+function createPreviewCache() {
+  let cache = new WeakMap<Blob, Promise<string>>();
+  let entries = 0;
+  return function cachedPreview(blob: Blob, make: () => Promise<string>): Promise<string> {
+    const seen = cache.get(blob);
+    if (seen) return seen;
+
+    const pending = make();
+    cache.set(blob, pending);
+    if (++entries > PREVIEW_CACHE_LIMIT) {
+      cache = new WeakMap();
+      entries = 1;
+    }
+    pending.catch(() => {
+      cache.delete(blob);
+      entries = Math.max(0, entries - 1);
+    });
+    return pending;
+  };
+}
+
+const cachedDocxPreview = createPreviewCache();
+const cachedXlsxPreview = createPreviewCache();
+
 /** Render a DOCX blob as a standalone HTML document (for iframe srcdoc) */
 export async function docxToPreviewHtml(blob: Blob): Promise<string> {
-  const { default: docxToHtmlConverter } = await import('~/utils/converters/docx-to-html');
-  const result = await docxToHtmlConverter.convert(blob);
-  return result.blob.text();
+  return cachedDocxPreview(blob, async () => {
+    const { default: docxToHtmlConverter } = await import('~/utils/converters/docx-to-html');
+    const result = await docxToHtmlConverter.convert(blob);
+    return result.blob.text();
+  });
 }
 
 /** Render every sheet of an XLSX/CSV workbook as HTML tables */
 export async function xlsxToPreviewHtml(blob: Blob): Promise<string> {
-  const [XLSX, buffer] = await Promise.all([import('xlsx'), blob.arrayBuffer()]);
-  const workbook: WorkBook = XLSX.read(buffer, { type: 'array' });
-  if (workbook.SheetNames.length === 0) {
-    return wrapDocument('<p>No sheets found.</p>');
-  }
+  return cachedXlsxPreview(blob, async () => {
+    const [XLSX, buffer] = await Promise.all([import('xlsx'), blob.arrayBuffer()]);
+    const workbook: WorkBook = XLSX.read(buffer, { type: 'array' });
+    if (workbook.SheetNames.length === 0) {
+      return wrapDocument('<p>No sheets found.</p>');
+    }
 
-  const parts: string[] = [];
-  for (const name of workbook.SheetNames) {
-    const sheet = workbook.Sheets[name];
-    if (!sheet) continue;
-    parts.push(`<h2>${escapeHtml(name)}</h2>`);
-    parts.push(XLSX.utils.sheet_to_html(sheet, { editable: false }));
-  }
-  return wrapDocument(parts.join('\n'));
+    const parts: string[] = [];
+    for (const name of workbook.SheetNames) {
+      const sheet = workbook.Sheets[name];
+      if (!sheet) continue;
+      parts.push(`<h2>${escapeHtml(name)}</h2>`);
+      parts.push(XLSX.utils.sheet_to_html(sheet, { editable: false }));
+    }
+    return wrapDocument(parts.join('\n'));
+  });
 }

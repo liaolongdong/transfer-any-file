@@ -392,6 +392,22 @@ zero network requests`) and the Chinese equivalent never appeared in a search re
   through the suffix (≈82 µs per allocation), and the template asks twice per row (the Preview button's `v-if` and
   `isTextResult` for the Copy button), so a 200-row re-render drops from ≈33 ms of pure allocation to well under
   0.1 ms — on a path that runs again every time conversion progress repaints.
+- **A document is no longer converted twice for its own preview.** The DOCX and XLSX previews are real
+  conversions of the whole document into HTML (mammoth / `XLSX.read`), and the preview dialog and the
+  comparison view are handed the **same `File` object** — so previewing a file and then opening the
+  comparison view ran that conversion twice, and closing and reopening the preview ran it a third time.
+  `utils/core/preview.ts` now memoises each renderer on its own blob-identity `WeakMap`, replaced wholesale
+  once it holds about 8 entries. **Two implementation details were settled by measurement rather than
+  written first**: evicting through a queue of keys would hold strong references to the uploaded files
+  themselves, pinning them after the batch is cleared, so the cap is cleared by swapping the map; and one
+  shared map let the same Blob be answered by the _other_ renderer's output (observed: feeding an XLSX file
+  to the DOCX path returned a table instead of failing), so there is now one map per renderer and a
+  cross-format call fails exactly as it used to. What disappears is real work — a full re-conversion of a
+  176 KB DOCX costs 33 ms against 0.1 ms for a hit, a 17 KB XLSX 13.1 ms against 0 ms, the 5 KB DOCX fixture
+  8.5 ms against 0 ms. Small documents are below one frame; large ones are where it shows. The premise the
+  cache rests on was measured rather than assumed: for the same bytes the cached string and a freshly
+  converted one are **byte-identical**. A failed conversion is never cached, so one transient failure cannot
+  leave a file for ever without a preview. The package goes 3,758,543 → 3,758,801 B (+258 B, still 3.76 MB).
 
 ### Fixed
 
