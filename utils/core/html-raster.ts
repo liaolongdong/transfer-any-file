@@ -14,8 +14,13 @@ const ASSET_TIMEOUT_MS = 5_000;
 /** Pause after the assets settle, giving the layout one last reflow — only where one can still land */
 const LAYOUT_SETTLE_MS = 100;
 
-/** A declaration that can still be moving the page at capture time: `animation…:` or `transition…:`. */
-const MOTION_DECL_RE = /[{;]\s*(?:animation|transition)[-a-z]*\s*:/i;
+/**
+ * Anything in a stylesheet, an inline `style`, or a SMIL tag that can still be moving the page at capture
+ * time: an `animation…:` / `transition…:` declaration — vendor-prefixed or not, and including the first
+ * one inside `style="…"`, which no `{` or `;` precedes — or an `<animate…>` element. Deliberately wide:
+ * a missed shape costs a picture caught mid-motion, an extra one costs 100 ms.
+ */
+const MOTION_RE = /[{;"']\s*(?:-[a-z]+-)?(?:animation|transition)[-a-z]*\s*:|<animate/i;
 
 /**
  * Whether this document is owed the {@link LAYOUT_SETTLE_MS} pause.
@@ -23,17 +28,25 @@ const MOTION_DECL_RE = /[{;]\s*(?:animation|transition)[-a-z]*\s*:/i;
  * The sleep covers layout that lands *after* the asset wait returns: an image whose decoded size
  * reflows its neighbours, or a `@font-face` swapping metrics. Both are readable without touching
  * geometry — `doc.images.length` and `doc.fonts.size` force no layout — and remote references are
- * already stripped by this point, so a src-less `<img>` still counted there is the conservative
- * direction: it keeps a document waiting that no longer needs it, never the reverse. A CSS animation
- * or transition is the third case, and it is kept waiting on purpose: capturing a page mid-motion is
- * a worse picture.
+ * already stripped by this point, so a src-less `<img>` still counted there errs on the side of
+ * waiting: a document that no longer needs the pause keeps it, and one that does is never dropped.
+ * Motion is the third case — CSS `animation` / `transition` and SMIL alike — and it is kept waiting on
+ * purpose: capturing a page mid-motion is a worse picture.
+ *
+ * The checked string is the **sanitized** HTML, so {@link MOTION_RE} only has to cover shapes that
+ * survive sanitisation — and in the shipped DOMPurify configuration they do: `style` attributes and
+ * `<style>` blocks are kept, and the SMIL alternatives it matches are exactly `animateTransform` /
+ * `animateMotion` / `animateColor`, the three on its SVG allow-list (a plain `<animate>` is stripped, so
+ * that branch of the alternation is a superset rather than a claim). The shapes a bare `[{;]` anchor
+ * would have missed are exactly the ones a hand-written document tends to carry: the first declaration
+ * of an inline `style`, a vendor-prefixed property, a SMIL transform.
  *
  * For everything else the pause buys nothing, and that was measured against the built artifact
  * rather than reasoned: seven document shapes (plain, long, inline image, sized image, animation,
  * transition, `@font-face`) rendered byte-identical PNGs with a 100 ms pause and with none.
  */
 function needsLayoutSettle(doc: Document, html: string): boolean {
-  return doc.images.length > 0 || doc.fonts.size > 0 || MOTION_DECL_RE.test(html);
+  return doc.images.length > 0 || doc.fonts.size > 0 || MOTION_RE.test(html);
 }
 
 /**

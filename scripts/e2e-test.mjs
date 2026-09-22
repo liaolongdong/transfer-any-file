@@ -884,7 +884,13 @@ async function run() {
     // artifact showed these pages coming out byte-identical either way. It pins the thing the pause is
     // for — that a page on either side of the decision still reaches the bottom row with its content
     // unoverlapped — so a settle that is skipped one document too early shows up here, not in a
-    // user's screenshot.
+    // user's screenshot. Where the pieces are, stated plainly: the motion shapes the predicate learned to
+    // catch since this section was written (an inline `style` whose first declaration is a transition, a
+    // vendor prefix, a SMIL tag) all join the *waiting* side, so nothing here newly routes a document
+    // through the skip; what these four assertions guard is the skip side, which is where a predicate
+    // trimmed one document too far would do its damage. The other route through the same predicate,
+    // HTML→PDF, sits on the waiting side in the section above because its fixture carries `<img>`s — one
+    // function, its two branches covered between the two sections.
     const RENDER_WIDTH = 800;
     const MARKER_H = 160;
     const marker = `<div style="width:100%;height:${MARKER_H}px;background:#f00"></div>`;
@@ -1008,7 +1014,7 @@ async function run() {
     } else {
       fail(
         'Skip-settle bottom content',
-        `red rows ${plainShot.top}–${plainShot.bottom} of ${plainShot.height}, page ${plainHeight} CSS px`,
+        `red rows ${plainShot.top}–${plainShot.bottom} of ${plainShot.height} (${plainShot.red} red px), page ${plainHeight} CSS px`,
       );
     }
 
@@ -1030,7 +1036,7 @@ async function run() {
     } else {
       fail(
         'Settled-page bottom content',
-        `red rows ${imageShot.top}–${imageShot.bottom} of ${imageShot.height}, page ${imageHeight} CSS px`,
+        `red rows ${imageShot.top}–${imageShot.bottom} of ${imageShot.height} (${imageShot.red} red px), page ${imageHeight} CSS px`,
       );
     }
   }

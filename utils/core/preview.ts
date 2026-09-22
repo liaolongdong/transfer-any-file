@@ -39,16 +39,19 @@ ${body}
  *
  * The value stored is what a caller renders, and `cachedPreview` applies the subresource strip to it: the
  * strip is pure too, and leaving it at the call sites meant a cache hit still re-parsed and re-serialised
- * the whole document. That is not free — 0.22 ms warm for the 2.9 KB DOCX fixture and ≈0.1 ms per KB
- * beyond it (6.04 ms at 61 KB, 22.4 ms at 228 KB), which is more than a hit is otherwise worth. Stripping
- * is idempotent, so a caller that wraps the result again is safe but wasteful.
+ * the whole document. That is not free — 0.22 ms warm for the 2.9 KB of HTML the DOCX fixture renders
+ * to, and ≈0.1 ms per KB beyond that (6.04 ms at 61 KB, 22.4 ms at 228 KB), which is more than a hit is
+ * otherwise worth. Stripping is idempotent, so a caller that wraps the result again is safe but wasteful.
  *
  * One cache per renderer, keyed on the blob: a shared map would let the DOCX rendering answer an XLSX
  * request for the same object. The map stays `WeakMap`-only and evicts by being replaced wholesale — a
  * queue of keys would hold strong references to uploaded files (and through them their bytes) long after
- * the batch was cleared, which is exactly the memory this layer must not pin. `entries` is therefore an
- * upper bound, and overshooting costs one recomputation. A rejection is never kept: it is not a fact
- * about the bytes, and pinning one would leave that file for ever without a preview.
+ * the batch was cleared, which is exactly the memory this layer must not pin. So `entries` has to count
+ * the live map exactly, which means evicting *before* storing: dropping the map afterwards would throw
+ * away the very request that overflowed, leaving a full cache that answers the next open with a
+ * recomputation. A rejection is likewise undone only in the map it was written to, since that map may
+ * already have been replaced; it is never kept, because a failure is not a fact about the bytes and
+ * pinning one would leave that file for ever without a preview.
  */
 const PREVIEW_CACHE_LIMIT = 8;
 
@@ -59,15 +62,18 @@ function createPreviewCache() {
     const seen = cache.get(blob);
     if (seen) return seen;
 
-    const pending = make().then(stripRemoteResources);
-    cache.set(blob, pending);
-    if (++entries > PREVIEW_CACHE_LIMIT) {
+    if (entries >= PREVIEW_CACHE_LIMIT) {
       cache = new WeakMap();
-      entries = 1;
+      entries = 0;
     }
+    const target = cache;
+    const pending = make().then(stripRemoteResources);
+    target.set(blob, pending);
+    entries++;
+
     pending.catch(() => {
-      cache.delete(blob);
-      entries = Math.max(0, entries - 1);
+      target.delete(blob);
+      if (target === cache) entries = Math.max(0, entries - 1);
     });
     return pending;
   };

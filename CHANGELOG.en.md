@@ -423,13 +423,20 @@ zero network requests`) and the Chinese equivalent never appeared in a search re
   `@font-face` swapping in real metrics. The pause sits on the **HTML→PNG and HTML→PDF** routes, and every
   multi-step chain (md / txt / csv / xlsx / docx / svg / json / pdf → an image or a PDF) runs through them —
   so each file paid 100 ms, while almost nothing it renders had anything left in motion. The wait is now
-  decided per document: `doc.images.length > 0`, `doc.fonts.size > 0`, or an `animation…:` / `transition…:`
-  declaration still present in the HTML; only with none of the three is it skipped. **The predicate errs
-  conservative, not eager**: an image that pointed at the network keeps its element after the strip removes
-  its `src`, so that document is still waited on, and `json-to-html` ships a `transition: transform .15s` of
-  its own, so that route keeps paying. **What is saved needs no measurement — it is the constant, 100 ms per
-  file. What needed measuring is whether skipping it loses anything, and that was measured on the built
-  artifact**: seven document shapes (plain, long, inline image, sized image, `animation`, `transition`,
+  decided per document: `doc.images.length > 0`, `doc.fonts.size > 0`, or a declaration in the HTML that
+  can still move it — `animation…:` / `transition…:`, prefixed or not, including the _first_ one inside an
+  inline `style`, and a SMIL `<animate…>` element; only with none of the three is it skipped. **The
+  predicate errs conservative, not eager**: an image that pointed at the network keeps its element after
+  the strip removes its `src`, so that document is still waited on, and among the converters that emit HTML
+  only `json-to-html` writes a motion declaration into its template (a `transition` shorthand; motion in any
+  other output can only have come from the user's own document), so that route keeps paying. Read the other
+  way, a pattern anchored on `{` or `;` alone misread three common hand-written shapes as "nothing moves":
+  the first declaration inside `style="…"`, a `-webkit-` / `-moz-` prefix, and a SMIL tag — and the price of
+  that mistake is a picture caught mid-motion, so all three now count as moving. Ten shapes were run through
+  both patterns to settle it, including the reverse case: a bare `@keyframes` that no `animation:` refers to
+  still counts as still. **What is saved needs no measurement — it is the constant, 100 ms per file. What
+  needed measuring is whether skipping it loses anything, and that was measured on the built artifact**:
+  seven document shapes (plain, long, inline image, sized image, `animation`, `transition`,
   `@font-face`) produced **byte-identical** PNGs with the pause and without it. The pause itself stays
   wall-clock rather than frame-aligned on purpose: it runs in the workbench tab, where `requestAnimationFrame`
   stops firing the moment the user switches away, which would stall the conversion outright. A new e2e
@@ -438,7 +445,7 @@ zero network requests`) and the Chinese equivalent never appeared in a search re
   red block must be whole and sit on the last row; on the waited side the `data:` images must have painted
   at their intrinsic size (a blue pixel count) with nothing left overlapping that block. **What the
   assertion cannot see is the pause itself** — those pages come out the same either way — so what it holds is
-  the reason the pause was ever there. The package goes 3,758,831 → 3,758,963 B (+132 B, still 3.76 MB).
+  the reason the pause was ever there. The package goes 3,758,831 → 3,759,003 B (+172 B, still 3.76 MB).
 
 ### Fixed
 
