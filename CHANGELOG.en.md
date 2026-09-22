@@ -384,9 +384,10 @@ zero network requests`) and the Chinese equivalent never appeared in a search re
 - **The result list stopped fabricating `File` objects just to read a suffix.** Each row decides whether the
   Preview and Copy buttons appear based on the format, and the format is recognised from the result filename's
   extension. The old shape wrapped the name in `new File([], name)` and handed it to `detectFormat` to get that
-  extension back. `composables/useFileDetect.ts` now exposes the name-only half as a module-level pure function,
-  `formatFromFilename(name)`, and `components/shared/ResultDownload.vue` calls it directly instead of inventing a
-  file. The equivalence is provable rather than tested: `new File([], name).type` is always `''`, and `MIME_MAP`
+  extension back. That layer is pure logic, so it moved out of `composables/useFileDetect.ts` into
+  `utils/core/file-detect.ts` together with `EXTENSION_MAP`/`MIME_MAP`, and the composable left forwarding to it was
+  deleted; the name-only half is now the module-level pure function `formatFromFilename(name)`, which
+  `components/shared/ResultDownload.vue` calls directly instead of inventing a file. The equivalence is provable rather than tested: `new File([], name).type` is always `''`, and `MIME_MAP`
   has no `''` key, so the old route only ever used the extension branch. Measured in real Chrome — the same engine
   the extension runs on: detecting across 200 rows one at a time costs 16.35 ms through `new File()` and 0.04 ms
   through the suffix (≈82 µs per allocation), and the template asks twice per row (the Preview button's `v-if` and

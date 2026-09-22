@@ -68,7 +68,7 @@ Everything else follows from that: user files, clipboard content, ZIP entries an
 1. Create `utils/converters/<from>-to-<to>.ts` implementing `Converter` (`from`, `to`, `convert(blob)`); import heavy libraries dynamically inside `convert()`.
 2. If the conversion is long, needs to know which file it came from, or produces an image, take the optional second argument `ctx` — `{ signal, source, options }`. Honour `signal` at your cancellable points (a batch that is being cancelled keeps its finished results), and route any canvas encoding through `encodeCanvas(canvas, mime, options)` so the user's output parameters apply. Return `containerExt` when the bytes are a different container from the nominal target (a multi-sheet or multi-page result is a ZIP).
 3. Register it in `utils/converters/index.ts`.
-4. Only if it introduces a new format: extend `FileFormat` (`utils/core/types.ts`), `FORMAT_INFO` (`utils/core/format-labels.ts`), the extension/MIME maps (`composables/useFileDetect.ts`), and the zh/en dictionaries.
+4. Only if it introduces a new format: extend `FileFormat` (`utils/core/types.ts`), `FORMAT_INFO` (`utils/core/format-labels.ts`), the extension/MIME maps (`utils/core/file-detect.ts`), and the zh/en dictionaries.
 5. Add a fixture under `fixtures/` and a scenario in `scripts/e2e-test.mjs`.
 
 Multi-step routes through your new converter are discovered automatically by the registry's BFS — no wiring needed.
@@ -86,9 +86,9 @@ entrypoints/
   background.ts        # opens the workbench on icon click
   options/             # the conversion workbench (Vue app)
 components/            # shared UI (upload, format selector, preview, results, history)
-composables/           # useConversion / useFileDetect / useHistory / useI18n / useTheme
+composables/           # useConversion / useHistory / useI18n / useTheme
 utils/
-  core/                # converter registry (BFS pathfinding), types, format metadata
+  core/                # converter registry (BFS pathfinding), types, format metadata, format detection
   converters/          # one module per conversion pair
   i18n/                # zh / en dictionaries
 assets/                # icon SVG masters, global styles, theme tokens

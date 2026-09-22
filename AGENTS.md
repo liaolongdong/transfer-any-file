@@ -53,9 +53,9 @@
   - `utils/core/registry.ts`：`ConverterRegistry` 单例，维护 from→to 邻接表，用 **BFS** 求最短多步路径（`findConversionPath`）与全部可达目标（`getAllSupportedTargets`）；`resolvePath()` 是转换时解析路径的**唯一入口**，`conversion-policy` 在此强制（不再只由下拉框查询）。
   - `utils/converters/*.ts`：每个转换对一个模块，实现 `Converter`（`from`/`to`/`convert(blob, ctx?)`，`ctx` 携带 `signal`/`source`/`options`），重型依赖内部动态 `import()`；产出图片一律走 `utils/core/image-utils.ts` 的 `encodeCanvas()`，返回非名义容器（ZIP）时声明 `containerExt`。
   - `utils/converters/index.ts`：`initConverters()` 幂等注册全部转换器（启动时调用一次）。
-- **`composables/`**：`useConversion`（批量转换编排：逐文件路径解析、错误隔离、`AbortController` 取消、fflate ZIP、写历史；`cancelled` 状态区分「跑完」与「被中断」）、`useFileDetect`（扩展名优先 + MIME 兜底）、`useHistory`（最近 50 条**元数据**，模块级共享）、`useI18n`（中/英，无存储值时按 `navigator.languages` 判定，模块级响应式）、`useTheme`（6 主题 × light/dark/system）、`useShortcuts`（`Ctrl/⌘+Enter` 改绑，持久化到 storage）、`useRecentTargets`（最近 6 个目标格式，模块级共享）、`useConfirmConvert`（大批次确认开关）、`useOutputOptions`（图片输出参数，持久化到 `fat:outputOptions`，读取时按 `output-options.ts` 的边界钳制）、`usePresets`（转换预设 ≤12，持久化到 `fat:presets`，读取时 `sanitizePresets` 净化）、`useNotification`（后台批次完成桌面通知；用**web `Notification` API**，非 `chrome.notifications`，因此 manifest 仍只需 `storage`）。
+- **`composables/`**：`useConversion`（批量转换编排：逐文件路径解析、错误隔离、`AbortController` 取消、fflate ZIP、写历史；`cancelled` 状态区分「跑完」与「被中断」）、`useHistory`（最近 50 条**元数据**，模块级共享）、`useI18n`（中/英，无存储值时按 `navigator.languages` 判定，模块级响应式）、`useTheme`（6 主题 × light/dark/system）、`useShortcuts`（`Ctrl/⌘+Enter` 改绑，持久化到 storage）、`useRecentTargets`（最近 6 个目标格式，模块级共享）、`useConfirmConvert`（大批次确认开关）、`useOutputOptions`（图片输出参数，持久化到 `fat:outputOptions`，读取时按 `output-options.ts` 的边界钳制）、`usePresets`（转换预设 ≤12，持久化到 `fat:presets`，读取时 `sanitizePresets` 净化）、`useNotification`（后台批次完成桌面通知；用**web `Notification` API**，非 `chrome.notifications`，因此 manifest 仍只需 `storage`）。
 - **`components/`**：`shared/`（FileUpload、FormatSelector、OutputOptions、PresetBar、ConversionProgress、ResultDownload、ComparisonView、PreviewDialog、PreferencesMenu、CollapsibleCard、FailureDiagnosticItem、HistoryTrendChart）+ `options/HistoryPanel`；`popup/` 为空占位（无 popup）。
-- **`utils/core/` 其它工具**：`conversion-policy.ts`（`getBlockedReason`：图上可达但语义无效的 from→to 组合，UI 置灰而非报错）、`animated-image.ts`（`hasMultipleFrames`：走查 GIF 的块结构，数到第二个 image descriptor 就返回 true，丢帧披露因此只在真丢帧时才写）、`output-options.ts`（图片输出参数的合法区间与 `optionsForStep`：只有终点编码能吃 `quality`/`targetSizeKB`）、`presets.ts`（预设的纯规则：上限、名称截断、`sanitizePresets`、自动描述）、`format-labels.ts`（`FORMAT_INFO` 元数据 + label/category）、`text-decode.ts`（UTF-8 → GB18030 → GBK 兜底）、`error-keys.ts`（`CONVERSION_ERROR_KEYS` + 分类）、`abort.ts`、`html-raster.ts`、`html-document.ts`、`image-utils.ts`（含 `encodeCanvas` / `releaseCanvas`）、`preview.ts`、`alt-chunk.ts`、`format.ts`（`formatSize` + `TEXT_FORMATS` 可编辑/可复制文本格式 + `isZipCompressible` 逐条目压缩策略）、`shortcut.ts`（纯快捷键解析/校验/匹配，无响应式与 storage）、`platform.ts`（`isApplePlatform` 单一事实来源）、`zip.ts`（`loadFflate()`：fflate 的唯一入口，缓存一个动态 import，见「性能约定」）。
+- **`utils/core/` 其它工具**：`file-detect.ts`（`EXTENSION_MAP`/`MIME_MAP` 两张识别表 + `detectFormat`（扩展名优先、MIME 兜底）与 `formatFromFilename`（只看后缀）——全是纯逻辑，所以不放 `composables/`）、`conversion-policy.ts`（`getBlockedReason`：图上可达但语义无效的 from→to 组合，UI 置灰而非报错）、`animated-image.ts`（`hasMultipleFrames`：走查 GIF 的块结构，数到第二个 image descriptor 就返回 true，丢帧披露因此只在真丢帧时才写）、`output-options.ts`（图片输出参数的合法区间与 `optionsForStep`：只有终点编码能吃 `quality`/`targetSizeKB`）、`presets.ts`（预设的纯规则：上限、名称截断、`sanitizePresets`、自动描述）、`format-labels.ts`（`FORMAT_INFO` 元数据 + label/category）、`text-decode.ts`（UTF-8 → GB18030 → GBK 兜底）、`error-keys.ts`（`CONVERSION_ERROR_KEYS` + 分类）、`abort.ts`、`html-raster.ts`、`html-document.ts`、`image-utils.ts`（含 `encodeCanvas` / `releaseCanvas`）、`preview.ts`、`alt-chunk.ts`、`format.ts`（`formatSize` + `TEXT_FORMATS` 可编辑/可复制文本格式 + `isZipCompressible` 逐条目压缩策略）、`shortcut.ts`（纯快捷键解析/校验/匹配，无响应式与 storage）、`platform.ts`（`isApplePlatform` 单一事实来源）、`zip.ts`（`loadFflate()`：fflate 的唯一入口，缓存一个动态 import，见「性能约定」）。
 - **`utils/storage.ts`**：唯一存储边界。`STORAGE_KEYS`（全部 `fat:` 前缀）+ `storageGet/Set`（try/catch 静默降级）+ `onStorageChange`（返回取消订阅）。仅用 `storage.local`，**无加密、无 session**。
 - **`assets/`**：`theme/tokens.css`（`--fat-*` 令牌，6 主题 + dark）、`styles/global.css`（`@import` tokens + 基础样式 + reduced-motion）、图标 SVG 母版（`icon.svg` 详细档：文档 + 环形转换徽章 / `icon-small.svg` 简化档：加粗双向箭头，为 16px 可读性而画）。
 - **`public/_locales/{zh_CN,en}/messages.json`**：manifest 级字符串，只有两条——`extensionName` 与
@@ -68,14 +68,14 @@
 
 ## 核心数据流
 
-上传/粘贴文件 → `useFileDetect` 识别格式 → `availableTargets` 取所有源格式可达目标的**交集**（混合格式批次只提供对全部文件有效的目标），并剔除当前源格式本身与 `conversion-policy` 屏蔽的语义无效组合（被屏蔽者以「置灰 + 说明原因」呈现，不是不显示）→ 选目标（预设卡片一次注入「目标 + 输出参数」）→ `convert()`：对每个文件独立 `resolvePath` 逐步执行多步链（policy 在此兜底），目标为图片时整批读一次 `outputOptions`，`AbortController` 支持取消，**逐文件错误隔离**（单个失败不阻断批次）→ 结果下载（单文件或 ZIP）→ 成功批次写入历史（仅元数据，best-effort）。
+上传/粘贴文件 → `utils/core/file-detect.ts` 的 `detectFormat` 识别格式 → `availableTargets` 取所有源格式可达目标的**交集**（混合格式批次只提供对全部文件有效的目标），并剔除当前源格式本身与 `conversion-policy` 屏蔽的语义无效组合（被屏蔽者以「置灰 + 说明原因」呈现，不是不显示）→ 选目标（预设卡片一次注入「目标 + 输出参数」）→ `convert()`：对每个文件独立 `resolvePath` 逐步执行多步链（policy 在此兜底），目标为图片时整批读一次 `outputOptions`，`AbortController` 支持取消，**逐文件错误隔离**（单个失败不阻断批次）→ 结果下载（单文件或 ZIP）→ 成功批次写入历史（仅元数据，best-effort）。
 
 ## 新增转换器
 
 1. 新建 `utils/converters/<from>-to-<to>.ts` 实现 `Converter`（`from`/`to`/`convert(blob, ctx?)`），重型依赖动态 `import()`。
 2. 耗时转换、需要源文件身份或产出图片时接收 `ctx`：在可中断处响应 `ctx.signal`，图片编码统一走 `encodeCanvas()`，返回 ZIP 等非名义容器时声明 `containerExt`。
 3. 在 `utils/converters/index.ts` 的 `initConverters()` 注册。
-4. 引入新格式时：扩展 `utils/core/types.ts` 的 `FileFormat`、`utils/core/format-labels.ts` 的 `FORMAT_INFO`、`composables/useFileDetect.ts` 的 `EXTENSION_MAP`/`MIME_MAP`，并补中英文案。
+4. 引入新格式时：扩展 `utils/core/types.ts` 的 `FileFormat`、`utils/core/format-labels.ts` 的 `FORMAT_INFO`、`utils/core/file-detect.ts` 的 `EXTENSION_MAP`/`MIME_MAP`，并补中英文案。
 
 > 经过新格式的多步路径由 BFS 自动发现，无需手写链路。
 

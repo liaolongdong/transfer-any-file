@@ -6,8 +6,8 @@ import type { ConvertContext, ConvertResult } from '~/utils/core/types';
 import { converterRegistry } from '~/utils/core/registry';
 import { getBlockedReason } from '~/utils/core/conversion-policy';
 import { isImageOutputFormat, optionsForStep } from '~/utils/core/output-options';
+import { detectFormat } from '~/utils/core/file-detect';
 import { useOutputOptions } from '~/composables/useOutputOptions';
-import { useFileDetect } from '~/composables/useFileDetect';
 import { useHistory } from '~/composables/useHistory';
 import { useRecentTargets } from '~/composables/useRecentTargets';
 import { useNotification } from '~/composables/useNotification';
@@ -87,7 +87,6 @@ function nameStamp(date: Date): string {
 }
 
 export function useConversion() {
-  const { detectFormat } = useFileDetect();
   const { addRecord } = useHistory();
   const { recordTarget } = useRecentTargets();
   const { t } = useI18n();

@@ -266,8 +266,9 @@ manifest 的版本号，因此 `vX.Y.Z` 标签、构建产物与商店包始终�
   预览断言读的仍是同一个 `srcdoc`（该 iframe 带 `sandbox=""`，父页面读不到它的文档，所以断言看属性而非实时 DOM）。
 - **结果列表不再为了读后缀而造 `File`。** 每一行要按格式决定「预览」「复制」两个按钮是否出现，而格式是从结果
   文件名的后缀认出来的。旧写法是 `new File([], name)` 包一层再交给 `detectFormat`，只为拿回那个扩展名。
-  `composables/useFileDetect.ts` 因此把「只看文件名」这一半抽成模块级纯函数 `formatFromFilename(name)`，
-  `components/shared/ResultDownload.vue` 直接用它，不再假造文件对象。等价性是可证的而不是测出来的：
+  这一层是纯逻辑，于是连同 `EXTENSION_MAP`/`MIME_MAP` 一起从 `composables/useFileDetect.ts` 迁到
+  `utils/core/file-detect.ts`，只剩转发的 composable 随之删除；「只看文件名」那一半抽成模块级纯函数
+  `formatFromFilename(name)`，`components/shared/ResultDownload.vue` 直接用它，不再假造文件对象。等价性是可证的而不是测出来的：
   `new File([], name).type` 恒为 `''`，而 `MIME_MAP` 没有 `''` 这个键，所以旧路径本来就只走扩展名那一半。
   实测（真 Chrome，与扩展运行时同一引擎）：200 行各探测一次，造 `File` 要 16.35 ms，读后缀 0.04 ms
   （单次分配 ≈82 µs）；模板每行调用两处（预览按钮的 `v-if` 与复制按钮的 `isTextResult`），于是 200 行的

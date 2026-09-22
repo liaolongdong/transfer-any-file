@@ -68,7 +68,7 @@ git tag v1.0.0 && git push --tags   # release.yml：产出商店包、校验包�
 1. 新建 `utils/converters/<from>-to-<to>.ts`，实现 `Converter`（`from`、`to`、`convert(blob)`）；重型库在 `convert()` 内部动态 `import()`。
 2. 若转换耗时较长、需要知道来源文件，或产出图片，就接收可选的第二个参数 `ctx` —— `{ signal, source, options }`。在可中断处响应 `signal`（取消中的批次要保留已完成的结果）；所有 canvas 编码都走 `encodeCanvas(canvas, mime, options)`，用户的输出参数才会生效；返回的字节与名义目标不是同一个容器时（多 sheet / 多页结果是 ZIP），用 `containerExt` 声明。
 3. 在 `utils/converters/index.ts` 中注册。
-4. 仅当引入了新格式时：扩展 `FileFormat`（`utils/core/types.ts`）、`FORMAT_INFO`（`utils/core/format-labels.ts`）、扩展名/MIME 映射（`composables/useFileDetect.ts`），并补齐中英文案。
+4. 仅当引入了新格式时：扩展 `FileFormat`（`utils/core/types.ts`）、`FORMAT_INFO`（`utils/core/format-labels.ts`）、扩展名/MIME 映射（`utils/core/file-detect.ts`），并补齐中英文案。
 5. 在 `fixtures/` 下加一个夹具，并在 `scripts/e2e-test.mjs` 里加一个场景。
 
 经过新格式的多步路径由注册表的 BFS 自动发现，不需要手写链路。
@@ -86,9 +86,9 @@ entrypoints/
   background.ts        # 点击图标打开工作台
   options/             # 转换工作台（Vue 应用）
 components/            # 共享 UI（上传、格式选择、预览、结果、历史）
-composables/           # useConversion / useFileDetect / useHistory / useI18n / useTheme
+composables/           # useConversion / useHistory / useI18n / useTheme
 utils/
-  core/                # 转换器注册表（BFS 寻路）、类型、格式元数据
+  core/                # 转换器注册表（BFS 寻路）、类型、格式元数据、格式识别
   converters/          # 每个转换对一个模块
   i18n/                # 中 / 英文词典
 assets/                # 图标 SVG 母版、全局样式、主题令牌

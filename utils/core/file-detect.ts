@@ -44,7 +44,7 @@ export const SUPPORTED_EXTENSIONS: string[] = Object.keys(EXTENSION_MAP);
 /** Own-property lookups only: the keys these maps are asked about come from user-controlled
  *  names and MIME strings, and `MIME_MAP['__proto__']` would otherwise resolve through the
  *  prototype chain and hand back a bogus format. */
-function extOf(map: Record<string, FileFormat>, key: string): FileFormat | undefined {
+function lookup(map: Record<string, FileFormat>, key: string): FileFormat | undefined {
   return Object.hasOwn(map, key) ? map[key] : undefined;
 }
 
@@ -57,21 +57,14 @@ export function formatFromFilename(name: string): FileFormat | null {
   const lower = name.toLowerCase();
   const dotIndex = lower.lastIndexOf('.');
   if (dotIndex === -1) return null;
-  return extOf(EXTENSION_MAP, lower.slice(dotIndex)) ?? null;
+  return lookup(EXTENSION_MAP, lower.slice(dotIndex)) ?? null;
 }
 
-export function useFileDetect() {
-  /** Detect FileFormat from File object (extension first, MIME fallback) */
-  function detectFormat(file: File): FileFormat | null {
-    const byExt = formatFromFilename(file.name);
-    if (byExt) {
-      return byExt;
-    }
-
-    // Fallback to MIME type
-    const byMime = extOf(MIME_MAP, file.type.toLowerCase());
-    return byMime ?? null;
-  }
-
-  return { detectFormat };
+/**
+ * Detect a `File`'s format: extension first, MIME type as the fallback.
+ *
+ * Pure and stateless, which is why it sits in `utils/core/` rather than behind a composable.
+ */
+export function detectFormat(file: File): FileFormat | null {
+  return formatFromFilename(file.name) ?? lookup(MIME_MAP, file.type.toLowerCase()) ?? null;
 }

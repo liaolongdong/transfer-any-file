@@ -7,7 +7,7 @@ import { getFormatLabel, getFormatCategory } from '~/utils/core/format-labels';
 import { formatSize } from '~/utils/core/format';
 import { loadFflate } from '~/utils/core/zip';
 import { isMac } from '~/utils/core/platform';
-import { useFileDetect, SUPPORTED_EXTENSIONS } from '~/composables/useFileDetect';
+import { detectFormat, SUPPORTED_EXTENSIONS } from '~/utils/core/file-detect';
 import { useI18n } from '~/composables/useI18n';
 
 // Heavy component — only loaded when the user actually opens a source preview,
@@ -27,7 +27,6 @@ const emit = defineEmits<{
   (e: 'update:files', files: File[]): void;
 }>();
 
-const { detectFormat } = useFileDetect();
 const { t } = useI18n();
 
 const fileInput = ref<HTMLInputElement | null>(null);

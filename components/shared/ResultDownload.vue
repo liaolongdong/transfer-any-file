@@ -4,7 +4,7 @@ import { Download, View, CopyDocument } from '@element-plus/icons-vue';
 import type { ConvertResult } from '~/utils/core/types';
 import type { ConversionFailure } from '~/composables/useConversion';
 import { useI18n } from '~/composables/useI18n';
-import { formatFromFilename } from '~/composables/useFileDetect';
+import { formatFromFilename } from '~/utils/core/file-detect';
 import { formatSize, TEXT_FORMATS } from '~/utils/core/format';
 import { FileFormat } from '~/utils/core/types';
 import PreviewDialog from '~/components/shared/PreviewDialog.vue';
