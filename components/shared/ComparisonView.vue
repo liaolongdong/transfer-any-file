@@ -93,13 +93,13 @@ watch(
       sourcePdfUrl.value = URL.createObjectURL(file);
     } else if (format === FileFormat.DOCX) {
       try {
-        sourceDocHtml.value = stripRemoteResources(await docxToPreviewHtml(file));
+        sourceDocHtml.value = await docxToPreviewHtml(file);
       } catch {
         /* preview is best-effort */
       }
     } else if (format === FileFormat.XLSX) {
       try {
-        sourceDocHtml.value = stripRemoteResources(await xlsxToPreviewHtml(file));
+        sourceDocHtml.value = await xlsxToPreviewHtml(file);
       } catch {
         /* preview is best-effort */
       }
@@ -136,13 +136,13 @@ watch(
       resultPdfUrl.value = URL.createObjectURL(result.blob);
     } else if (format === FileFormat.DOCX) {
       try {
-        resultDocHtml.value = stripRemoteResources(await docxToPreviewHtml(result.blob));
+        resultDocHtml.value = await docxToPreviewHtml(result.blob);
       } catch {
         /* preview is best-effort */
       }
     } else if (format === FileFormat.XLSX) {
       try {
-        resultDocHtml.value = stripRemoteResources(await xlsxToPreviewHtml(result.blob));
+        resultDocHtml.value = await xlsxToPreviewHtml(result.blob);
       } catch {
         /* preview is best-effort */
       }

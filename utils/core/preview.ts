@@ -1,5 +1,6 @@
 import type { WorkBook } from 'xlsx';
 import { escapeHtml } from '~/utils/core/html-document';
+import { stripRemoteResources } from '~/utils/core/html-sanitize';
 
 const PREVIEW_CSS = `
   body {
@@ -36,6 +37,12 @@ ${body}
  * Preview conversions are pure functions of a blob's bytes, and both preview surfaces hand over the
  * same `File` object — so reopening a preview used to run mammoth over the document again for nothing.
  *
+ * The value stored is what a caller renders, and `cachedPreview` applies the subresource strip to it: the
+ * strip is pure too, and leaving it at the call sites meant a cache hit still re-parsed and re-serialised
+ * the whole document. That is not free — 0.22 ms warm for the 2.9 KB DOCX fixture and ≈0.1 ms per KB
+ * beyond it (6.04 ms at 61 KB, 22.4 ms at 228 KB), which is more than a hit is otherwise worth. Stripping
+ * is idempotent, so a caller that wraps the result again is safe but wasteful.
+ *
  * One cache per renderer, keyed on the blob: a shared map would let the DOCX rendering answer an XLSX
  * request for the same object. The map stays `WeakMap`-only and evicts by being replaced wholesale — a
  * queue of keys would hold strong references to uploaded files (and through them their bytes) long after
@@ -52,7 +59,7 @@ function createPreviewCache() {
     const seen = cache.get(blob);
     if (seen) return seen;
 
-    const pending = make();
+    const pending = make().then(stripRemoteResources);
     cache.set(blob, pending);
     if (++entries > PREVIEW_CACHE_LIMIT) {
       cache = new WeakMap();
@@ -69,7 +76,7 @@ function createPreviewCache() {
 const cachedDocxPreview = createPreviewCache();
 const cachedXlsxPreview = createPreviewCache();
 
-/** Render a DOCX blob as a standalone HTML document (for iframe srcdoc) */
+/** Render a DOCX blob as a standalone HTML document, ready for an iframe `srcdoc` */
 export async function docxToPreviewHtml(blob: Blob): Promise<string> {
   return cachedDocxPreview(blob, async () => {
     const { default: docxToHtmlConverter } = await import('~/utils/converters/docx-to-html');
@@ -78,7 +85,7 @@ export async function docxToPreviewHtml(blob: Blob): Promise<string> {
   });
 }
 
-/** Render every sheet of an XLSX/CSV workbook as HTML tables */
+/** Render every sheet of an XLSX/CSV workbook as HTML tables, ready for an iframe `srcdoc` */
 export async function xlsxToPreviewHtml(blob: Blob): Promise<string> {
   return cachedXlsxPreview(blob, async () => {
     const [XLSX, buffer] = await Promise.all([import('xlsx'), blob.arrayBuffer()]);

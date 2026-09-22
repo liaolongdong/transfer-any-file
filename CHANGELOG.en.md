@@ -403,11 +403,20 @@ zero network requests`) and the Chinese equivalent never appeared in a search re
   shared map let the same Blob be answered by the _other_ renderer's output (observed: feeding an XLSX file
   to the DOCX path returned a table instead of failing), so there is now one map per renderer and a
   cross-format call fails exactly as it used to. What disappears is real work — a full re-conversion of a
-  176 KB DOCX costs 33 ms against 0.1 ms for a hit, a 17 KB XLSX 13.1 ms against 0 ms, the 5 KB DOCX fixture
+  176 KB DOCX costs 33 ms against 0 ms for a hit, a 17 KB XLSX 13.1 ms against 0 ms, the 5 KB DOCX fixture
   8.5 ms against 0 ms. Small documents are below one frame; large ones are where it shows. The premise the
   cache rests on was measured rather than assumed: for the same bytes the cached string and a freshly
   converted one are **byte-identical**. A failed conversion is never cached, so one transient failure cannot
-  leave a file for ever without a preview. The package goes 3,758,543 → 3,758,801 B (+258 B, still 3.76 MB).
+  leave a file for ever without a preview. What the cache now stores is specifically the **renderable**
+  document — the subresource strip (`stripRemoteResources`) moved inside it too, because it is pure as well:
+  left at the six call sites it meant every cache hit still re-parsed and re-serialised the whole document,
+  at ≈0.1 ms per KB (measured in real Chrome: 0.24 ms at 2.3 KB, 1.96 ms at 15 KB, 6.04 ms at 61 KB, 22.4 ms
+  at 228 KB) — more than the hit itself was worth. Stripping one level deeper does not weaken it, and that is
+  checked against the **built artifact** rather than argued: in real Chrome the value the bundled function
+  returns is byte-identical to applying the strip once to the raw conversion output, and the strip is itself
+  idempotent (`strip(strip(x)) === strip(x)`), so one call site fewer cannot leak and one call site more
+  cannot distort. Cross-format calls still throw. A repeat open now measures 0 ms. The package goes
+  3,758,543 → 3,758,831 B (+288 B, still 3.76 MB).
 
 ### Fixed
 

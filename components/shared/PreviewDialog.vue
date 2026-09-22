@@ -105,7 +105,7 @@ watch([() => props.visible, () => props.blob], async ([vis, blob], _prev, onClea
     try {
       const html = await docxToPreviewHtml(blob);
       if (cancelled) return;
-      renderedHtml.value = stripRemoteResources(html);
+      renderedHtml.value = html;
     } catch {
       if (!cancelled) renderError.value = true;
     }
@@ -113,7 +113,7 @@ watch([() => props.visible, () => props.blob], async ([vis, blob], _prev, onClea
     try {
       const html = await xlsxToPreviewHtml(blob);
       if (cancelled) return;
-      renderedHtml.value = stripRemoteResources(html);
+      renderedHtml.value = html;
     } catch {
       if (!cancelled) renderError.value = true;
     }
