@@ -41,23 +41,31 @@ const MIME_MAP: Record<string, FileFormat> = {
 /** All supported file extensions, e.g. for <input accept> filtering */
 export const SUPPORTED_EXTENSIONS: string[] = Object.keys(EXTENSION_MAP);
 
+/** Own-property lookups only: the keys these maps are asked about come from user-controlled
+ *  names and MIME strings, and `MIME_MAP['__proto__']` would otherwise resolve through the
+ *  prototype chain and hand back a bogus format. */
+function extOf(map: Record<string, FileFormat>, key: string): FileFormat | undefined {
+  return Object.hasOwn(map, key) ? map[key] : undefined;
+}
+
+/**
+ * Extension-only detection, for callers that hold a name rather than a `File` — a result
+ * row's filename is rebuilt from the source basename plus the new extension, so wrapping it
+ * in `new File([], name)` just to read the suffix costs an allocation per row per render.
+ */
+export function formatFromFilename(name: string): FileFormat | null {
+  const lower = name.toLowerCase();
+  const dotIndex = lower.lastIndexOf('.');
+  if (dotIndex === -1) return null;
+  return extOf(EXTENSION_MAP, lower.slice(dotIndex)) ?? null;
+}
+
 export function useFileDetect() {
   /** Detect FileFormat from File object (extension first, MIME fallback) */
   function detectFormat(file: File): FileFormat | null {
-    // Own-property lookups only: `file.type` and the name suffix are user-controlled,
-    // and `MIME_MAP['__proto__']` would otherwise resolve through the prototype chain
-    // and hand back a bogus format.
-    const extOf = (map: Record<string, FileFormat>, key: string): FileFormat | undefined =>
-      Object.hasOwn(map, key) ? map[key] : undefined;
-
-    // Try extension first
-    const name = file.name.toLowerCase();
-    const dotIndex = name.lastIndexOf('.');
-    if (dotIndex !== -1) {
-      const byExt = extOf(EXTENSION_MAP, name.slice(dotIndex));
-      if (byExt) {
-        return byExt;
-      }
+    const byExt = formatFromFilename(file.name);
+    if (byExt) {
+      return byExt;
     }
 
     // Fallback to MIME type

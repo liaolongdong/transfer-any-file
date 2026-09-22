@@ -255,6 +255,23 @@ manifest 的版本号，因此 `vX.Y.Z` 标签、构建产物与商店包始终�
   （限制说明与 FAQ）、`CHROMEWEBSTORE.md` 的中英商店粘贴块、`docs/index.html` 的三组中英对照（JSON-LD 问答、
   可见 FAQ 问答、限制卡片）、`docs/llms.txt` 的限制清单，以及两篇推广稿与微博文案。1.0.0 发布说明里的旧句子
   原样保留：那段记录的是当时的措辞，不是现在的承诺。
+- **Markdown 解析器挪出首屏。** `components/shared/PreviewDialog.vue` 顶层写着 `import { marked } from 'marked'`，
+  而这个对话框是 `FileUpload.vue` 用 `defineAsyncComponent` 挂的——异步组件被 `v-show` 常驻挂载时，它的 chunk
+  在启动那一刻就已经解析完，所以「懒加载」只省下了组件自身，没省下它 import 的那 41 KB。现在 `marked` 只在
+  真正要渲染 Markdown 预览的那个分支里 `await import()`，与同一个函数里既有的 `await import('dompurify')`
+  是同一种写法。按 Chrome **实际取回的资源**计量（不是静态 import 闭包，两者在有 `v-show` 的异步组件上会分叉）：
+  工作台首屏 JS 从 489,929 B / 24 个文件降到 448,476 B / 23 个文件（−41,453 B，−8.5%；`marked` 那条 chunk
+  本身 41,468 B），3 次独立采样读数一致。整包 3,758,883 → 3,758,543 B，仍是 3.76 MB——它只是从首屏搬进按需
+  chunk，一字节都没有少。**界面行为差异为零**：预览的输入输出、净化步骤、失败兜底都不变，e2e 里那条 Markdown
+  预览断言读的仍是同一个 `srcdoc`（该 iframe 带 `sandbox=""`，父页面读不到它的文档，所以断言看属性而非实时 DOM）。
+- **结果列表不再为了读后缀而造 `File`。** 每一行要按格式决定「预览」「复制」两个按钮是否出现，而格式是从结果
+  文件名的后缀认出来的。旧写法是 `new File([], name)` 包一层再交给 `detectFormat`，只为拿回那个扩展名。
+  `composables/useFileDetect.ts` 因此把「只看文件名」这一半抽成模块级纯函数 `formatFromFilename(name)`，
+  `components/shared/ResultDownload.vue` 直接用它，不再假造文件对象。等价性是可证的而不是测出来的：
+  `new File([], name).type` 恒为 `''`，而 `MIME_MAP` 没有 `''` 这个键，所以旧路径本来就只走扩展名那一半。
+  实测（真 Chrome，与扩展运行时同一引擎）：200 行各探测一次，造 `File` 要 16.35 ms，读后缀 0.04 ms
+  （单次分配 ≈82 µs）；模板每行调用两处（预览按钮的 `v-if` 与复制按钮的 `isTextResult`），于是 200 行的
+  一次重渲染从 ≈33 ms 的纯分配降到不足 0.1 ms——而这条路径在转换进度每次刷新时都要跑一遍。
 
 ### 修复
 

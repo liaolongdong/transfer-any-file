@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch, onUnmounted } from 'vue';
 import { ZoomIn, ZoomOut, Download, Loading } from '@element-plus/icons-vue';
-import { marked } from 'marked';
 import { FileFormat } from '~/utils/core/types';
 import { getFormatLabel } from '~/utils/core/format-labels';
 import { formatSize } from '~/utils/core/format';
@@ -80,7 +79,13 @@ watch([() => props.visible, () => props.blob], async ([vis, blob], _prev, onClea
       if (cancelled) return;
       const purifyModule = await import('dompurify');
       const DOMPurify = purifyModule.default;
-      const source = isMarkdown.value ? await marked(textContent.value) : textContent.value;
+      let source = textContent.value;
+      if (isMarkdown.value) {
+        // The dialog mounts with the file list, so a static import here would put 41 KB of
+        // `marked` on every boot; only the markdown tab needs the parser.
+        const { marked } = await import('marked');
+        source = await marked(textContent.value);
+      }
       const htmlBody = DOMPurify.sanitize(source, { USE_PROFILES: { html: true } });
       if (cancelled) return;
       renderedHtml.value = stripRemoteResources(

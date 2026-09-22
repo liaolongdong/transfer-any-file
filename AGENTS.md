@@ -93,7 +93,7 @@
 
 ## 性能约定
 
-- 首屏精简：重型子组件用 `defineAsyncComponent`；重型转换库在转换器内部动态 `import()`。ZIP 引擎同理——**fflate 只能经 `utils/core/zip.ts` 的 `loadFflate()` 拿到**，因为转换器由 `initConverters()` 在启动时静态注册，任何模块顶层的 `import 'fflate'` 都会把它打回首屏 chunk（`import type { Zippable }` 是类型，编译期擦除，不算）。
+- 首屏精简：重型子组件用 `defineAsyncComponent`；重型转换库在转换器内部动态 `import()`。ZIP 引擎同理——**fflate 只能经 `utils/core/zip.ts` 的 `loadFflate()` 拿到**，因为转换器由 `initConverters()` 在启动时静态注册，任何模块顶层的 `import 'fflate'` 都会把它打回首屏 chunk（`import type { Zippable }` 是类型，编译期擦除，不算）。**`defineAsyncComponent` 不等于它的 import 也懒**：被 `v-show` 常驻挂载的异步组件在启动那一刻就解析完了自己的 chunk，顶层 `import` 的第三方库照样进首屏——这类依赖要在用到的那个分支里 `await import()`，与 `dompurify` 同一种写法（`PreviewDialog.vue` 里的 `marked` 曾因此白占首屏）。
 - 主题在 `main.ts` 挂载前应用，避免闪烁。
 - 保留 `wxt.config.ts` 中 jspdf 的 `html2canvas`/`canvg` stub 别名（除非启用 jspdf `.html()`）。
 

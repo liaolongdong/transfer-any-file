@@ -368,6 +368,30 @@ zero network requests`) and the Chinese equivalent never appeared in a search re
   FAQ answer in JSON-LD, the same answer rendered visibly, and the limitation card), the limits list in
   `docs/llms.txt`, and both promo drafts plus the Weibo copy. The old sentence stays in the 1.0.0 release notes:
   that section records what was said then, not what is promised now.
+- **The Markdown parser moved off the first screen.** `components/shared/PreviewDialog.vue` carried
+  `import { marked } from 'marked'` at module scope, and that dialog is mounted by `FileUpload.vue` through
+  `defineAsyncComponent` — an async component kept mounted under `v-show` resolves its chunk at boot, so the
+  laziness bought the dialog itself and none of the 41 KB it imports. `marked` is now `await import()`ed inside
+  the one branch that renders a Markdown preview, the same shape as the `await import('dompurify')` already in
+  that function. Measured by what Chrome actually fetches (not the static import closure — the two diverge once
+  a `v-show`ed async component is involved): first-screen JS for the workbench went from 489,929 B across 24
+  requests to 448,476 B across 23 (−41,453 B, −8.5%; the `marked` chunk on its own is 41,468 B), identical
+  across three independent samples. The package as a whole is 3,758,883 → 3,758,543 B, still 3.76 MB — nothing
+  was removed, it only changed rooms from boot to on-demand. **No difference in what the UI does**: the preview's
+  inputs, outputs, sanitisation step and failure fallback are untouched, and the e2e Markdown preview assertion
+  still reads the same `srcdoc` (that iframe carries `sandbox=""`, so the parent document cannot read it — the
+  assertion looks at the attribute, not at a live DOM).
+- **The result list stopped fabricating `File` objects just to read a suffix.** Each row decides whether the
+  Preview and Copy buttons appear based on the format, and the format is recognised from the result filename's
+  extension. The old shape wrapped the name in `new File([], name)` and handed it to `detectFormat` to get that
+  extension back. `composables/useFileDetect.ts` now exposes the name-only half as a module-level pure function,
+  `formatFromFilename(name)`, and `components/shared/ResultDownload.vue` calls it directly instead of inventing a
+  file. The equivalence is provable rather than tested: `new File([], name).type` is always `''`, and `MIME_MAP`
+  has no `''` key, so the old route only ever used the extension branch. Measured in real Chrome — the same engine
+  the extension runs on: detecting across 200 rows one at a time costs 16.35 ms through `new File()` and 0.04 ms
+  through the suffix (≈82 µs per allocation), and the template asks twice per row (the Preview button's `v-if` and
+  `isTextResult` for the Copy button), so a 200-row re-render drops from ≈33 ms of pure allocation to well under
+  0.1 ms — on a path that runs again every time conversion progress repaints.
 
 ### Fixed
 
