@@ -260,15 +260,19 @@ function mockChromeStorage(seed = {}) {
 })();`;
 }
 
-/** Upload a fixture file and convert to the given target format. Returns result info. */
-async function convertFile(page, fixtureFile, targetText) {
+/**
+ * Upload a fixture file — or an in-memory `{ name, mimeType, buffer }`, for a document shaped by
+ * the test itself rather than by `fixtures/` — and convert to the given target format.
+ */
+async function convertFile(page, fixture, targetText) {
   const fi = await page.$('input[type="file"]');
   if (!fi) throw new Error('file input not found');
-  await fi.setInputFiles(path.join(FIXTURE_PATH, fixtureFile));
+  const label = typeof fixture === 'string' ? fixture : fixture.name;
+  await fi.setInputFiles(typeof fixture === 'string' ? path.join(FIXTURE_PATH, fixture) : fixture);
   await page.waitForTimeout(1000);
 
   const formatTag = await page.$eval('.file-item .el-tag--primary', el => el.textContent).catch(() => null);
-  if (!formatTag) throw new Error(`format not detected for ${fixtureFile}`);
+  if (!formatTag) throw new Error(`format not detected for ${label}`);
 
   const sel = await page.$('.action-row .el-select');
   if (!sel) throw new Error('format select not found');
@@ -513,6 +517,49 @@ function sizeToBytes(text) {
   if (!match) return -1;
   const units = { b: 1, kb: 1024, mb: 1024 ** 2, gb: 1024 ** 3 };
   return Math.round(parseFloat(match[1]) * units[match[2].toLowerCase()]);
+}
+
+/**
+ * Decode a PNG inside the page and report what actually painted: how many pixels match each of the
+ * two fixture colours, and the first and last row of the red band (`top` / `bottom`, `-1` and `-1`
+ * when nothing red is on the page).
+ *
+ * Both paint assertions in this suite need exactly this scan — the inline-SVG rasterization check
+ * counts red, the layout-settle check adds blue and the red band's rows — and the thresholds are
+ * the fixtures' own `#f00` / `#00f` with slack for whatever the rasterizer antialiases, so they
+ * belong in one place. It runs in the page because decoding needs a real canvas, and Node here has
+ * no PNG decoder.
+ */
+async function scanPaintedPixels(page, pngBase64) {
+  return page.evaluate(async b64 => {
+    const img = document.createElement('img');
+    img.src = `data:image/png;base64,${b64}`;
+    await img.decode();
+    const canvas = document.createElement('canvas');
+    canvas.width = img.naturalWidth;
+    canvas.height = img.naturalHeight;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0);
+    const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    let red = 0;
+    let blue = 0;
+    let top = -1;
+    let bottom = -1;
+    for (let i = 0; i < data.length; i += 4) {
+      const r = data[i];
+      const g = data[i + 1];
+      const b = data[i + 2];
+      if (r > 180 && g < 80 && b < 80) {
+        const row = (i / 4 / canvas.width) | 0;
+        if (top < 0) top = row;
+        bottom = row;
+        red++;
+      } else if (b > 180 && r < 80 && g < 80) {
+        blue++;
+      }
+    }
+    return { red, blue, top, bottom };
+  }, pngBase64);
 }
 
 async function run() {
@@ -873,171 +920,168 @@ async function run() {
   // ═══════════════════════════════════════════
 
   if (section('Layout Settle Completeness')) {
-    // A solid red block is the last box on the page, so *where its pixels land* is the claim: the
-    // picture is the page at one magnification, and the band closing it is neither short nor overlapped.
-    // Every check is a fraction rather than a pixel count on purpose — the rasterizer picks its
-    // `pixelRatio` from the document's height, and these two shapes deliberately land in different
-    // regimes, so an absolute figure would have to re-derive that ladder and would quietly follow a
-    // change to it. `body{margin:0}` is load-bearing for the same reason: the default 8 px under the
-    // marker is what made the first draft of this section fail by 13 rows on a page it rendered whole.
-    // What this does NOT claim: it cannot see the pause itself, and the 7-shape probe over the built
-    // artifact showed these pages coming out byte-identical either way. It pins the thing the pause is
-    // for — that a page on either side of the decision still reaches the bottom row with its content
-    // unoverlapped — so a settle that is skipped one document too early shows up here, not in a
-    // user's screenshot. Where the pieces are, stated plainly: the motion shapes the predicate learned to
-    // catch since this section was written (an inline `style` whose first declaration is a transition, a
-    // vendor prefix, a SMIL tag) all join the *waiting* side, so nothing here newly routes a document
-    // through the skip; what these four assertions guard is the skip side, which is where a predicate
-    // trimmed one document too far would do its damage. The other route through the same predicate,
-    // HTML→PDF, sits on the waiting side in the section above because its fixture carries `<img>`s — one
-    // function, its two branches covered between the two sections.
-    const RENDER_WIDTH = 800;
-    const MARKER_H = 160;
-    const marker = `<div style="width:100%;height:${MARKER_H}px;background:#f00"></div>`;
-    const prose = n =>
-      Array.from(
-        { length: n },
-        (_, i) => `<h3>Section ${i}</h3><p>${'The quick brown fox jumps over the lazy dog. '.repeat(4)}</p>`,
-      ).join('');
-    const wrapPage = body =>
-      `<!doctype html><html><head><meta charset="utf-8"><title>Settle</title><style>body{margin:0}</style></head><body>${body}</body></html>`;
-    // No `width`/`height` attributes on purpose: the intrinsic size is what reflows everything below
-    // it, and an `<img>` is the condition the settle is now keyed on. `data:` survives both the
-    // sanitizer and the subresource strip, so it is a real decode inside an offline package.
-    const blueImg = `<img src="data:image/svg+xml;base64,${Buffer.from(
-      '<svg xmlns="http://www.w3.org/2000/svg" width="300" height="180"><rect width="300" height="180" fill="#00f"/></svg>',
-    ).toString('base64')}">`;
+    try {
+      // A solid red block is the last box on the page, so *where its pixels land* is the claim: the
+      // picture is the page at one magnification, and the band closing it is neither short nor overlapped.
+      // Every geometric check is a fraction rather than a pixel count on purpose — the rasterizer picks
+      // its `pixelRatio` from the document's height, and these two shapes deliberately land in different
+      // regimes, so an absolute figure would have to re-derive that ladder and would quietly follow a
+      // change to it. `body{margin:0}` is load-bearing for the same reason: the default 8 px under the
+      // marker is what made the first draft of this section fail by 13 rows on a page it rendered whole.
+      // What this cannot see is the pause itself. What it pins is the thing the pause is for — that a
+      // page on either side of the decision still reaches the bottom row with its content unoverlapped —
+      // and, in the last two assertions, that running the same page again moves nothing: the ±1 px and
+      // 5-pages-become-6 drift once recorded against `LAYOUT_SETTLE_MS` is exactly what a settle skipped
+      // one document too early would turn into. No byte threshold here, on purpose: bytes would have to
+      // agree with the very timing jitter this section is only allowed to catch at the geometry level.
+      // The motion shapes the predicate learned to catch since this section was first written (an inline
+      // `style` whose first declaration is a transition, a vendor prefix, a SMIL tag) all join the
+      // *waiting* side, so nothing there newly routes a document through the skip; what these assertions
+      // guard is the skip side, where a predicate trimmed one document too far would do its damage.
+      const RENDER_WIDTH = 800;
+      const MARKER_H = 160;
+      const marker = `<div style="width:100%;height:${MARKER_H}px;background:#f00"></div>`;
+      const prose = n =>
+        Array.from(
+          { length: n },
+          (_, i) => `<h3>Section ${i}</h3><p>${'The quick brown fox jumps over the lazy dog. '.repeat(4)}</p>`,
+        ).join('');
+      const wrapPage = body =>
+        `<!doctype html><html><head><meta charset="utf-8"><title>Settle</title><style>body{margin:0}</style></head><body>${body}</body></html>`;
+      // No `width`/`height` attributes on purpose: the intrinsic size is what reflows everything below
+      // it, and an `<img>` is the condition the settle is now keyed on. `data:` survives both the
+      // sanitizer and the subresource strip, so it is a real decode inside an offline package.
+      const blueImg = `<img src="data:image/svg+xml;base64,${Buffer.from(
+        '<svg xmlns="http://www.w3.org/2000/svg" width="300" height="180"><rect width="300" height="180" fill="#00f"/></svg>',
+      ).toString('base64')}">`;
 
-    /** The page's CSS height at the rasterizer's own render width, measured independently of it. */
-    const cssHeight = html =>
-      page.evaluate(
-        async ({ src, width }) => {
-          const frame = document.createElement('iframe');
-          frame.setAttribute('sandbox', 'allow-same-origin');
-          frame.style.cssText = `position:fixed;left:-9999px;top:0;width:${width}px;height:100px;border:none`;
-          document.body.appendChild(frame);
-          await new Promise(resolve => {
-            frame.onload = resolve;
-            frame.srcdoc = src;
-          });
-          const doc = frame.contentDocument;
-          const height = Math.max(doc.documentElement.scrollHeight, doc.body ? doc.body.scrollHeight : 0);
-          frame.remove();
-          return height;
-        },
-        { src: html, width: RENDER_WIDTH },
-      );
+      /** The page's CSS height at the rasterizer's own render width, measured independently of it. */
+      const cssHeight = html =>
+        page.evaluate(
+          async ({ src, width }) => {
+            const frame = document.createElement('iframe');
+            frame.setAttribute('sandbox', 'allow-same-origin');
+            frame.style.cssText = `position:fixed;left:-9999px;top:0;width:${width}px;height:100px;border:none`;
+            document.body.appendChild(frame);
+            await new Promise(resolve => {
+              frame.onload = resolve;
+              frame.srcdoc = src;
+            });
+            const doc = frame.contentDocument;
+            const height = Math.max(doc.documentElement.scrollHeight, doc.body ? doc.body.scrollHeight : 0);
+            frame.remove();
+            return height;
+          },
+          { src: html, width: RENDER_WIDTH },
+        );
 
-    /** Convert through the workbench's own upload → target → convert path, then measure the PNG. */
-    async function rasterizeAndMeasure(html) {
-      await resetWorkbench(page);
-      const fi = await page.$('input[type="file"]');
-      if (!fi) throw new Error('file input not found');
-      await fi.setInputFiles({ name: 'settle-page.html', mimeType: 'text/html', buffer: Buffer.from(html) });
-      await page.waitForTimeout(1000);
-      await pickTarget(page, 'PNG (.png)');
-      await (await page.$('.convert-btn')).click();
-      await page.waitForFunction(
-        () => {
-          const alert = document.querySelector('.el-alert__title');
-          return alert && alert.textContent.length > 0;
-        },
-        { timeout: 30000 },
-      );
-      await page.waitForTimeout(300);
-
-      const png = Buffer.from(await downloadBatchArtifact(page), 'latin1');
-      if (png.slice(1, 4).toString('ascii') !== 'PNG') {
-        throw new Error(`expected a PNG artifact, got ${png.slice(0, 8).toString('hex')}`);
+      /** Hand one in-memory page through the workbench's own upload → target → convert path. */
+      async function convertPage(html, targetText) {
+        await resetWorkbench(page);
+        const inMemory = { name: 'settle-page.html', mimeType: 'text/html', buffer: Buffer.from(html) };
+        const { resultName } = await convertFile(page, inMemory, targetText);
+        if (!resultName) throw new Error(`${targetText} produced no result row for the settle page`);
+        return downloadBatchArtifact(page);
       }
-      const width = png.readUInt32BE(16);
-      const height = png.readUInt32BE(20);
-      const pixels = await page.evaluate(async b64 => {
-        const img = document.createElement('img');
-        img.src = `data:image/png;base64,${b64}`;
-        await img.decode();
-        const canvas = document.createElement('canvas');
-        canvas.width = img.naturalWidth;
-        canvas.height = img.naturalHeight;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0);
-        const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        let red = 0;
-        let blue = 0;
-        let top = -1;
-        let bottom = -1;
-        for (let i = 0; i < data.length; i += 4) {
-          const [r, g, b] = [data[i], data[i + 1], data[i + 2]];
-          if (r > 180 && g < 80 && b < 80) {
-            const row = (i / 4 / canvas.width) | 0;
-            if (top < 0) top = row;
-            bottom = row;
-            red++;
-          } else if (b > 180 && r < 80 && g < 80) {
-            blue++;
-          }
+
+      /** The PNG the workbench wrote: dimensions off its own header, plus what actually painted. */
+      async function measurePng(html) {
+        const png = Buffer.from(await convertPage(html, 'PNG (.png)'), 'latin1');
+        if (png.slice(1, 4).toString('ascii') !== 'PNG') {
+          throw new Error(`expected a PNG artifact, got ${png.slice(0, 8).toString('hex')}`);
         }
-        return { red, blue, top, bottom };
-      }, png.toString('base64'));
-      return { width, height, ...pixels };
-    }
+        const painted = await scanPaintedPixels(page, png.toString('base64'));
+        return { width: png.readUInt32BE(16), height: png.readUInt32BE(20), ...painted };
+      }
 
-    /**
-     * The red block's own geometry, read as fractions: it starts where `MARKER_H` of a `pageHeight`
-     * page starts, is as tall as its share of that page, and ends on the last row. Together those say
-     * the picture is the whole page with nothing overlapping the box that closes it.
-     */
-    const markerWhole = (shot, pageHeight) =>
-      shot.top >= 0 &&
-      shot.bottom >= shot.height - 4 &&
-      (shot.bottom - shot.top + 1) / shot.height >= (MARKER_H / pageHeight) * 0.9 &&
-      Math.abs(shot.top / shot.height - (pageHeight - MARKER_H) / pageHeight) < 0.02;
+      /** How many pages the workbench's PDF for this page carries. */
+      async function measurePdfPages(html) {
+        const pdf = await convertPage(html, 'PDF (.pdf)');
+        if (pdf.slice(0, 5) !== '%PDF-') throw new Error(`expected a PDF artifact, got ${pdf.slice(0, 8)}`);
+        return readPdfSliceFilters(pdf).pages;
+      }
 
-    /** Uniform scale: the picture is the page at one magnification, so no rows went missing. */
-    const uniformScale = (shot, pageHeight) => Math.abs(shot.width / RENDER_WIDTH - shot.height / pageHeight) < 0.02;
+      /**
+       * The red block's own geometry, read as fractions: it starts where `MARKER_H` of a `pageHeight`
+       * page starts, is as tall as its share of that page, and ends on the last row. Together those say
+       * the picture is the whole page with nothing overlapping the box that closes it.
+       */
+      const markerWhole = (shot, pageHeight) =>
+        shot.top >= 0 &&
+        shot.bottom >= shot.height - 4 &&
+        (shot.bottom - shot.top + 1) / shot.height >= (MARKER_H / pageHeight) * 0.9 &&
+        Math.abs(shot.top / shot.height - (pageHeight - MARKER_H) / pageHeight) < 0.02;
 
-    const plainPage = wrapPage(`${prose(30)}${marker}`);
-    const plainHeight = await cssHeight(plainPage);
-    const plainShot = await rasterizeAndMeasure(plainPage);
-    if (uniformScale(plainShot, plainHeight)) {
-      ok(
-        `A page that skips the settle is rasterized whole (${plainShot.width}×${plainShot.height} px of a ${plainHeight} CSS px page)`,
-      );
-    } else {
-      fail(
-        'Skip-settle clipping',
-        `${plainShot.width}×${plainShot.height} px for ${plainHeight} CSS px — width and height disagree on the scale`,
-      );
-    }
-    if (markerWhole(plainShot, plainHeight)) {
-      ok('The last box on a skip-settle page is whole and sits on the bottom row');
-    } else {
-      fail(
-        'Skip-settle bottom content',
-        `red rows ${plainShot.top}–${plainShot.bottom} of ${plainShot.height} (${plainShot.red} red px), page ${plainHeight} CSS px`,
-      );
-    }
+      /** Uniform scale: the picture is the page at one magnification, so no rows went missing. */
+      const uniformScale = (shot, pageHeight) => Math.abs(shot.width / RENDER_WIDTH - shot.height / pageHeight) < 0.02;
 
-    // The side that is still owed the pause: the images have to have decoded *into* the picture, not
-    // merely been listed by the document, which is what the blue count separates from a red-only pass.
-    const imagePage = wrapPage(`${prose(10)}${blueImg}${prose(10)}${blueImg}${prose(10)}${blueImg}${marker}`);
-    const imageHeight = await cssHeight(imagePage);
-    const imageShot = await rasterizeAndMeasure(imagePage);
-    const expectedBlue = ((3 * 300 * 180) / (RENDER_WIDTH * imageHeight)) * imageShot.width * imageShot.height;
-    if (imageShot.blue > expectedBlue * 0.35) {
-      ok(
-        `Images on the settled page paint at their intrinsic size (${imageShot.blue} blue px of ${Math.round(expectedBlue)} expected)`,
-      );
-    } else {
-      fail('Settled-page images', `only ${imageShot.blue} blue px, expected near ${Math.round(expectedBlue)}`);
-    }
-    if (markerWhole(imageShot, imageHeight)) {
-      ok('Content below an image is not left overlapping it');
-    } else {
-      fail(
-        'Settled-page bottom content',
-        `red rows ${imageShot.top}–${imageShot.bottom} of ${imageShot.height} (${imageShot.red} red px), page ${imageHeight} CSS px`,
-      );
+      const plainPage = wrapPage(`${prose(30)}${marker}`);
+      const plainHeight = await cssHeight(plainPage);
+      const plainShot = await measurePng(plainPage);
+      if (uniformScale(plainShot, plainHeight)) {
+        ok(
+          `A page that skips the settle is rasterized whole (${plainShot.width}×${plainShot.height} px of a ${plainHeight} CSS px page)`,
+        );
+      } else {
+        fail(
+          'Skip-settle clipping',
+          `${plainShot.width}×${plainShot.height} px for ${plainHeight} CSS px — width and height disagree on the scale`,
+        );
+      }
+      if (markerWhole(plainShot, plainHeight)) {
+        ok('The last box on a skip-settle page is whole and sits on the bottom row');
+      } else {
+        fail(
+          'Skip-settle bottom content',
+          `red rows ${plainShot.top}–${plainShot.bottom} of ${plainShot.height} (${plainShot.red} red px), page ${plainHeight} CSS px`,
+        );
+      }
+
+      // The side that is still owed the pause: the images have to have decoded *into* the picture, not
+      // merely been listed by the document, which is what the blue count separates from a red-only pass.
+      const imagePage = wrapPage(`${prose(10)}${blueImg}${prose(10)}${blueImg}${prose(10)}${blueImg}${marker}`);
+      const imageHeight = await cssHeight(imagePage);
+      const imageShot = await measurePng(imagePage);
+      const expectedBlue = ((3 * 300 * 180) / (RENDER_WIDTH * imageHeight)) * imageShot.width * imageShot.height;
+      if (imageShot.blue > expectedBlue * 0.35) {
+        ok(
+          `Images on the settled page paint at their intrinsic size (${imageShot.blue} blue px of ${Math.round(expectedBlue)} expected)`,
+        );
+      } else {
+        fail('Settled-page images', `only ${imageShot.blue} blue px, expected near ${Math.round(expectedBlue)}`);
+      }
+      if (markerWhole(imageShot, imageHeight)) {
+        ok('Content below an image is not left overlapping it');
+      } else {
+        fail(
+          'Settled-page bottom content',
+          `red rows ${imageShot.top}–${imageShot.bottom} of ${imageShot.height} (${imageShot.red} red px), page ${imageHeight} CSS px`,
+        );
+      }
+
+      // Repeat runs, which is where the race this constant used to paper over would show: the same page
+      // in has to give the same geometry out, on the PNG route and on the PDF route, and the PDF has to
+      // be genuinely multi-page or "the count never changed" would be satisfied by one page forever.
+      const plainShotAgain = await measurePng(plainPage);
+      if (plainShotAgain.width === plainShot.width && plainShotAgain.height === plainShot.height) {
+        ok(
+          `A skip-settle page rasterizes to the same PNG on a repeat run (${plainShotAgain.width}×${plainShotAgain.height} px)`,
+        );
+      } else {
+        fail(
+          'Skip-settle raster drift',
+          `${plainShot.width}×${plainShot.height} then ${plainShotAgain.width}×${plainShotAgain.height} for one page`,
+        );
+      }
+      const pagesFirst = await measurePdfPages(plainPage);
+      const pagesSecond = await measurePdfPages(plainPage);
+      if (pagesFirst === pagesSecond && pagesFirst >= 2) {
+        ok(`The same page reaches PDF with one stable page count on repeat runs (${pagesFirst} pages)`);
+      } else {
+        fail('PDF page-count drift', `${pagesFirst} then ${pagesSecond} pages for a ${plainHeight} CSS px page`);
+      }
+    } catch (e) {
+      fail('Layout Settle Completeness', e.message);
     }
   }
 
@@ -1318,22 +1362,7 @@ async function run() {
       const raster = await convertFile(page, 'sample-svg-diagram.md', 'PNG (.png)');
       if (!raster.resultName) throw new Error(`md→png produced no artifact: ${raster.alertTitle}`);
       const pngB64 = Buffer.from(await downloadBatchArtifact(page), 'latin1').toString('base64');
-      const redPixels = await page.evaluate(async dataUrl => {
-        const img = document.createElement('img');
-        img.src = dataUrl;
-        await img.decode();
-        const canvas = document.createElement('canvas');
-        canvas.width = img.naturalWidth;
-        canvas.height = img.naturalHeight;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0);
-        const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        let red = 0;
-        for (let i = 0; i < data.length; i += 4) {
-          if (data[i] > 180 && data[i + 1] < 80 && data[i + 2] < 80) red++;
-        }
-        return red;
-      }, `data:image/png;base64,${pngB64}`);
+      const { red: redPixels } = await scanPaintedPixels(page, pngB64);
       if (redPixels > 200) {
         ok(`Inline <svg> still paints at the rasterized boundary (${redPixels} red pixels)`);
       } else {

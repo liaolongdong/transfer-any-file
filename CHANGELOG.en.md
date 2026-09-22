@@ -449,6 +449,12 @@ zero network requests`) and the Chinese equivalent never appeared in a search re
   the reason the pause was ever there. The package goes 3,758,831 → 3,759,003 B (+172 B, still 3.76 MB).
 
 ### Fixed
+  **The determinism of the artifact** then gets two more pins: the same page rasterized twice has to give the
+  same PNG width and height, and the same page sent to PDF twice has to give the same page count (+2 assertions,
+  suite total 264 → 266). Neither had ever been asserted — they were only ever run incidentally — and ±1 px and
+  ±1 page are exactly the drift a skipped pause is likeliest to leave. Both pixel scans (the red/blue counts and
+  the red block's top and bottom rows) moved into a shared `scanPaintedPixels()`, now used by the inline-SVG
+  assertion on `md → png` as well. The test script never enters the package, so its bytes are unchanged.
 
 - **A cancelled batch no longer reported as a completed one.** Cancelling mid-batch left the
   "conversion finished" alert over the partial results, and cancelling before the first file
