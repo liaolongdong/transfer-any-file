@@ -2343,6 +2343,27 @@ async function run() {
       ok(`Preset reproduces the saved conversion (${restored.resultSize})`);
     else fail('Preset reproducibility', `${capped.resultSize} → ${restored.resultSize}`);
 
+    // The other half of the preset contract. A non-image target stores no output parameters
+    // (PresetBar's own capture rule), so applying such a preset must leave the live image
+    // parameters alone — handing the stored `{}` to setOptions reads as "apply an empty set",
+    // and that call replaces the whole set.
+    await pickTarget(page, 'HTML (.html)');
+    await page.fill('.preset-name input', 'E2E HTML');
+    await page.locator('.preset-create .el-button').click();
+    await page.waitForTimeout(400);
+    await pickTarget(page, 'PNG (.png)');
+    await page.locator('.preset-chip').filter({ hasText: 'E2E HTML' }).locator('.preset-apply').click();
+    await page.waitForTimeout(400);
+    if ((await targetText()) === 'HTML (.html)') ok('Applying a non-image preset switches the target');
+    else fail('Preset apply (non-image)', `target reads "${await targetText()}"`);
+    await pickTarget(page, 'PNG (.png)');
+    const afterForeign = (await page.locator('.output-options').innerText()).replace(/\s+/g, ' ');
+    if (afterForeign.includes('800 px')) ok('A non-image preset leaves the live image parameters alone');
+    else fail('Preset option scope', `the panel came back reading "${afterForeign}"`);
+    // `addPreset` prepends, so the chip below expects to be first again only once this one is gone.
+    await page.locator('.preset-chip').filter({ hasText: 'E2E HTML' }).locator('.preset-remove').click();
+    await page.waitForTimeout(400);
+
     // No files yet: the choice has to survive until the next upload, because setFiles clears the
     // target on every batch.
     await page.$eval('.clear-files-btn', el => el.click());
@@ -2789,6 +2810,12 @@ async function run() {
       // Click cancel
       const cancelBtn = await page.$('.el-message-box__btns .el-button:first-child');
       if (cancelBtn) {
+        // Element Plus puts the cancel button first, so this is the one that abandons the clear.
+        // It used to read "Close", which is what an informational dialog signs off with — not what
+        // a destructive confirmation offers.
+        const cancelLabel = ((await cancelBtn.textContent()) || '').trim();
+        if (cancelLabel === '取消' || cancelLabel === 'Cancel') ok(`Clearing history offers a cancel (${cancelLabel})`);
+        else fail('Clear-history cancel label', `the button read "${cancelLabel}"`);
         await cancelBtn.click();
         await page.waitForTimeout(300);
         const itemsAfterCancel = await page.$$('.history-item');
@@ -2936,6 +2963,16 @@ async function run() {
     await page.waitForTimeout(300);
 
     const cb = await page.$('.convert-btn');
+    // Armed before the click rather than polled after it: the batch card is on screen for the
+    // length of the batch, which on a fast machine is a few hundred milliseconds — a waiter armed
+    // in advance sees it either way, so this assertion does not depend on how quick the run is.
+    // Its result is consumed below, after the cancel race: awaiting it here would spend part of the
+    // 2 s window that decides which branch that pre-existing block takes, and the block's assertion
+    // count differs per branch, so the suite total would end up depending on this line.
+    const batchCard = page
+      .waitForSelector('.batch-progress .current-file', { timeout: 8000 })
+      .then(async el => ((await el?.textContent()) || '').trim())
+      .catch(() => '');
     await cb.click();
 
     // Try to find and click cancel button quickly
@@ -2972,6 +3009,9 @@ async function run() {
       if (!isLoading) ok('Conversion completed before cancel could be tested (fast machine)');
       else fail('Cancel button', 'not visible and conversion still in progress');
     }
+    const batchFile = await batchCard;
+    if (/sample\.\w+/.test(batchFile)) ok(`Batch progress names the file in flight (${batchFile})`);
+    else fail('Batch current file', `the batch card read "${batchFile}"`);
     await page.screenshot({ path: shot(`${String(shotIdx++).padStart(2, '0')}-cancel-test.png`), fullPage: true });
   } catch (e) {
     fail('Conversion cancel', e.message);

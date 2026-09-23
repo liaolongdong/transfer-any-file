@@ -241,7 +241,7 @@ export function useConversion() {
           t('convert.confirmTitle'),
           {
             confirmButtonText: t('convert.confirmOk'),
-            cancelButtonText: t('convert.confirmCancel'),
+            cancelButtonText: t('common.cancel'),
             type: 'info',
           },
         );

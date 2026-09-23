@@ -11,10 +11,12 @@ import { useRecentTargets } from '~/composables/useRecentTargets';
 import { useOutputOptions } from '~/composables/useOutputOptions';
 import { useShortcuts } from '~/composables/useShortcuts';
 import { converterRegistry } from '~/utils/core/registry';
+import { isImageOutputFormat } from '~/utils/core/output-options';
 import { FileFormat } from '~/utils/core/types';
 import type { ConversionPreset, ConvertResult, ImageOutputOptions } from '~/utils/core/types';
 import FileUpload from '~/components/shared/FileUpload.vue';
 import ConversionProgress from '~/components/shared/ConversionProgress.vue';
+import CurrentFileHint from '~/components/shared/CurrentFileHint.vue';
 import CollapsibleCard from '~/components/shared/CollapsibleCard.vue';
 import PreferencesMenu from '~/components/shared/PreferencesMenu.vue';
 import PresetBar from '~/components/shared/PresetBar.vue';
@@ -86,9 +88,11 @@ const pathCount = registeredPairs.length;
  *
  * Both entry points that preselect a target — reusing a history record and applying a preset — can
  * fire before any file is uploaded, and `setFiles` clears the target on every upload, so the choice
- * has to survive in here until the files land. `options` is `null` for a history record, which
- * remembers a format only and must leave the live output parameters alone; a preset always carries
- * an object, and an empty one means "these are the defaults for this workflow".
+ * has to survive in here until the files land. `options` is `null` wherever the entry point carried
+ * no output parameters at all — a history record remembers a format only, and a preset whose target
+ * is not an image never captured any (the same rule `PresetBar` applies when it stores) — and `null`
+ * means "leave the live parameters alone". An image preset always carries an object, and an empty
+ * one is that preset speaking: "these are the defaults for this workflow".
  */
 interface PendingApplication {
   target: FileFormat;
@@ -111,7 +115,7 @@ const batchProgressPercent = computed(() => {
   if (totalCount.value === 0) return 0;
   return Math.round((completedCount.value / totalCount.value) * 100);
 });
-/** Name of the file currently being processed, for the F6 single-file progress hint. */
+/** Name of the file currently being processed, shown on whichever progress host is on screen. */
 const currentFileName = computed(() => {
   if (!isConverting.value) return null;
   const idx = currentIndex.value;
@@ -268,7 +272,11 @@ function handleReuse(payload: { sourceFormat: FileFormat; targetFormat: FileForm
 function handleApplyPreset(preset: ConversionPreset): void {
   const pending: PendingApplication = {
     target: preset.target,
-    options: { ...preset.options },
+    // The predicate `PresetBar` stores with: a non-image preset captured no parameters, and
+    // `setOptions` replaces the whole set, so applying its stored `{}` wiped the maxEdge/quality
+    // the user was working with. Parameters a hand-edited store attaches to a non-image target are
+    // ignored here for the same reason the capture rule never writes them.
+    options: isImageOutputFormat(preset.target) ? { ...preset.options } : null,
     unavailableKey: 'preset.unavailable',
   };
   if (hasFiles.value) {
@@ -478,6 +486,10 @@ onUnmounted(() => {
                   :percentage="batchProgressPercent"
                   :stroke-width="6"
                   :format="progressFormat"
+                />
+                <CurrentFileHint
+                  v-if="currentFileName"
+                  :name="currentFileName"
                 />
               </div>
             </div>

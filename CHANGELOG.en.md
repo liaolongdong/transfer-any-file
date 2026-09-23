@@ -750,6 +750,42 @@ zero network requests`) and the Chinese equivalent never appeared in a search re
   the artifact, and the scenarios that reach the two patched loaders are in it — MD/HTML/TXT/CSV/XLSX/SVG → PDF
   produce their documents through the stripped jsPDF, and PDF → PNG / WEBP plus the two-page PDF → ZIP still decode
   through its packaged worker.
+- **Applying a non-image preset cleared the live image output parameters.** A preset only captures output
+  parameters when its target is an image (`PresetBar`'s own capture rule), so the stored HTML preset carries
+  an empty `options`; applying it handed that object straight to `setOptions`, whose semantics are a
+  **whole-set replace** — so "run this workflow" also erased whatever `maxEdge` / `quality` the user was in
+  the middle of adjusting, silently. `PendingApplication.options` is now an object only when the target really
+  is an image output format (the same `isImageOutputFormat` predicate the capture side uses) and `null`
+  otherwise, which means "leave the live parameters alone". An image preset still carries an object, and an
+  empty one is still that preset speaking: "these are the defaults for this workflow". Clearing has not lost
+  its entry point — the panel's own reset button is it, it is just pressed by the user now.
+  Two assertions added: applying an HTML preset really does switch the target, and switching the target back
+  to PNG reads the same `800 px` that was there before the apply. The temporary chip is deleted afterwards —
+  `addPreset` prepends, and leaving it would push the next section's "first chip" assertions off by one.
+- **A destructive confirmation labelled its second button "Close".** The clear-history and import-history
+  dialogs both took their cancel label from `common.close`: that is how an informational dialog signs off,
+  not an option meaning "I am not doing that" — and the first one deletes up to 50 history records.
+  The dictionary gains `common.cancel` (取消 / Cancel), now used by three places: those two, plus the
+  large-batch confirmation's own `convert.confirmCancel` (the same word for the same job, which is no reason
+  to keep two keys). Not one line of interface text changes — `convert.confirmCancel` already rendered as
+  取消, the migration only merges the duplicate. One assertion added: the first button of the clear-history
+  dialog really reads as cancel.
+- **A multi-file batch would not say which file it is on.** The "Processing: xxx" hint has existed for a
+  while, but it lives in `ConversionProgress`, which is only mounted when the batch is **not** a batch —
+  more than one file switches the UI to the batch card, and that one carried nothing but a percentage bar.
+  In other words the scenario that needs the hint most — the long batch — was exactly the one without it.
+  The batch card now reuses the same hint; the line and its ellipsis styling are extracted into
+  `components/shared/CurrentFileHint.vue` so both hosts share one copy instead of a second six-line CSS
+  block. One assertion added: the waiter is armed before the click (the batch card is only on screen for the
+  length of the batch, a few hundred milliseconds on a fast machine) and requires the text to name one of the
+  fixtures in the batch. It proves a name appears, not that the line changes on every file — that one would
+  have to gamble on timing inside the window, which is the kind of assertion this baseline cannot remember.
+  The batch line is deliberately outside any live region: it changes once per file, and reading those
+  names out loud one after another is noise to a screen reader. The single-file card's container already
+  is a `role="status"` region, so that one still announces.
+  The suite goes 267 → 271 assertions, the package 3,759,005 → 3,759,222 B (+217 B, still 3.76 MB) and the
+  first screen 425,623 → 425,840 B — the same 20 chunks, one request more was not added and neither was an
+  `await`.
 
 ## [1.0.0] - 2026-09-07
 

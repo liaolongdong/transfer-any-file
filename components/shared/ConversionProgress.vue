@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useI18n } from '~/composables/useI18n';
+import CurrentFileHint from '~/components/shared/CurrentFileHint.vue';
 
 defineProps<{
   isConverting: boolean;
@@ -36,13 +37,10 @@ const { t } = useI18n();
         </svg>
       </el-icon>
       <p>{{ t('convert.inProgress') }}</p>
-      <p
+      <CurrentFileHint
         v-if="currentFileName"
-        class="current-file"
-        :title="currentFileName"
-      >
-        {{ t('convert.currentFile', { name: currentFileName }) }}
-      </p>
+        :name="currentFileName"
+      />
     </div>
     <el-alert
       v-if="error"
@@ -71,16 +69,5 @@ const { t } = useI18n();
 
 .loading-state .is-loading {
   animation: fat-spin 1s linear infinite;
-}
-
-.current-file {
-  margin: 0;
-  max-width: 100%;
-  font-size: 12px;
-  color: var(--fat-text-secondary);
-  font-family: var(--fat-font-mono);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 </style>

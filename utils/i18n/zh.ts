@@ -2,6 +2,7 @@ export default {
   // Common
   common: {
     close: '关闭',
+    cancel: '取消',
   },
 
   // App / brand
@@ -145,7 +146,6 @@ export default {
     confirmSummaryMultiStep:
       '即将转换 {count} 个文件（共 {size}）至 {target} 格式。\n部分文件需要多步转换，可能耗时较久。',
     confirmOk: '继续转换',
-    confirmCancel: '取消',
     confirmDontAsk: '下次不再询问',
     confirmCancelled: '已取消本次转换',
   },

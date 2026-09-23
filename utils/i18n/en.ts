@@ -3,6 +3,7 @@ import type zh from '~/utils/i18n/zh';
 const en: typeof zh = {
   common: {
     close: 'Close',
+    cancel: 'Cancel',
   },
 
   appName: 'Transfer Any File',
@@ -139,7 +140,6 @@ const en: typeof zh = {
     confirmSummaryMultiStep:
       'About to convert {count} files ({size}) to {target} format.\nSome files need multiple steps and may take longer.',
     confirmOk: 'Continue',
-    confirmCancel: 'Cancel',
     confirmDontAsk: "Don't ask again",
     confirmCancelled: 'Conversion cancelled',
   },

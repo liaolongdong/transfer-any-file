@@ -132,7 +132,7 @@ async function handleClear(): Promise<void> {
   try {
     await ElMessageBox.confirm(t('history.clearConfirm'), t('history.clear'), {
       confirmButtonText: t('history.clear'),
-      cancelButtonText: t('common.close'),
+      cancelButtonText: t('common.cancel'),
       type: 'warning',
     });
     const snapshot = [...records.value];
@@ -184,7 +184,7 @@ async function handleImportChange(e: Event): Promise<void> {
   try {
     await ElMessageBox.confirm(t('history.importConfirm'), t('history.import'), {
       confirmButtonText: t('history.import'),
-      cancelButtonText: t('common.close'),
+      cancelButtonText: t('common.cancel'),
       type: 'info',
     });
   } catch {
