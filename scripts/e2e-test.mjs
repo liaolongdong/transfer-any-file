@@ -236,6 +236,7 @@ function mockChromeStorage(seed = {}) {
   // now falls back to navigator.language when nothing is stored — an en-US CI browser would
   // otherwise flip the whole workbench to English and fail the suite.
   const storage = ${initial};
+  window.__storageCalls = [];
   window.chrome = window.chrome || {};
   window.chrome.runtime = window.chrome.runtime || { id: 'test' };
   window.chrome.storage = {
@@ -243,6 +244,7 @@ function mockChromeStorage(seed = {}) {
       get: (keys, cb) => {
         const result = {};
         const keyList = typeof keys === 'string' ? [keys] : (Array.isArray(keys) ? keys : Object.keys(keys));
+        window.__storageCalls.push(keyList);
         for (const k of keyList) { if (storage[k] !== undefined) result[k] = storage[k]; }
         if (typeof cb === 'function') cb(result);
         return Promise.resolve(result);
@@ -616,6 +618,62 @@ async function run() {
   const titleOnLoad = await page.title();
   if (titleOnLoad === 'Transfer Any File · 转换工作台') ok(`Tab title localized on first paint (${titleOnLoad})`);
   else fail('Document title on load', `"${titleOnLoad}"`);
+
+  // ═══════════════════════════════════════════
+  //  STARTUP REQUEST BUDGET
+  // ═══════════════════════════════════════════
+  //
+  // The workbench is what the toolbar icon opens, so everything fetched before the first contentful
+  // paint is time spent staring at an empty tab. `defineAsyncComponent` on its own does not keep a
+  // lazy component's chunks out of that window — it defers the component, not the import — so
+  // `PreviewDialog`, mounted under a plain `v-model:visible`, resolved during the first render and
+  // brought its injected stylesheet with it, which is render-blocking. Each half below has to prove
+  // its own subject exists: "no dialog request before paint" is equally true of a dialog that is
+  // never fetched at all, and a stub that lost its record of calls is not "the calls were batched".
+  section('Startup Request Budget');
+  const boot = await page.evaluate(() => {
+    const paint = performance.getEntriesByType('paint').find(e => e.name === 'first-contentful-paint');
+    const fcp = paint ? paint.startTime : -1;
+    const dialog = performance.getEntriesByType('resource').filter(e => /PreviewDialog|chunks\/preview-/.test(e.name));
+    return {
+      fcp,
+      dialogTotal: dialog.length,
+      dialogBeforePaint: dialog.filter(e => e.startTime <= fcp).map(e => e.name.replace(/^https?:\/\/[^/]+/, '')),
+      storageCalls: Array.isArray(window.__storageCalls) ? window.__storageCalls : null,
+    };
+  });
+  if (boot.fcp > 0 && boot.dialogTotal > 0 && boot.dialogBeforePaint.length === 0) {
+    ok(`Preview dialog is fetched after first paint (${boot.dialogTotal} files, fcp ${Math.round(boot.fcp)} ms)`);
+  } else {
+    fail(
+      'Preview dialog off the first-paint path',
+      `fcp=${Math.round(boot.fcp)} dialogFiles=${boot.dialogTotal} beforePaint=${JSON.stringify(boot.dialogBeforePaint)}`,
+    );
+  }
+  // One `storage.local.get` is one round trip to the browser process, and three of them used to sit
+  // on the await that gates the mount: theme, colour mode, language. They now share one call, which
+  // is what this pins — the shape, not the total. A round-trip budget is the weaker form of the same
+  // claim: this page reads persisted state ten times today and thirteen before the batch, so any
+  // ceiling tight enough to catch that is one new preference away from failing for the wrong reason.
+  const bootKeys = boot.storageCalls?.find(
+    keys => keys.includes('fat:theme') && keys.includes('fat:colorMode') && keys.includes('fat:locale'),
+  );
+  if (bootKeys) {
+    ok(`Boot state resolved in one round trip (${boot.storageCalls.length} reads in total)`);
+  } else {
+    fail(
+      'Boot state resolved in one round trip',
+      `no call carried all three keys: ${JSON.stringify(boot.storageCalls)}`,
+    );
+  }
+  // `seedLocale` hands `useI18n` the language `main.ts` just read, so `initLocale` has no reason to
+  // fetch that key a second time — this is the read the seed exists to remove, named on its own.
+  const localeReads = boot.storageCalls?.filter(keys => keys.includes('fat:locale')).length ?? -1;
+  if (localeReads === 1) {
+    ok('The locale key is read once during boot');
+  } else {
+    fail('The locale key is read once during boot', `${localeReads} reads of fat:locale`);
+  }
 
   // ═══════════════════════════════════════════
   //  DETECTED LANGUAGE MUST REACH THE FIRST FRAME

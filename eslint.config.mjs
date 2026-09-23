@@ -103,6 +103,8 @@ export default [
         clearTimeout: 'readonly',
         URL: 'readonly',
         document: 'readonly',
+        performance: 'readonly',
+        window: 'readonly',
         getComputedStyle: 'readonly',
         HTMLElement: 'readonly',
       },

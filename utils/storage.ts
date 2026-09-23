@@ -27,6 +27,29 @@ export async function storageGet<T>(key: string, fallback: T): Promise<T> {
   }
 }
 
+/**
+ * Read several keys in one round trip, falling back per key.
+ *
+ * One `storageGet` is one `storage.local.get`, and the workbench used to pay three of them on the
+ * path that gates the first paint. A key that is simply absent yields its fallback; a key holding a
+ * falsy value (`false`, `0`, `''`) yields that value, same as `storageGet`. If the whole call fails
+ * there is no per-key result to fall back on, so every key does.
+ */
+export async function storageGetMany<Fallbacks extends Record<string, unknown>>(
+  fallbacks: Fallbacks,
+): Promise<Fallbacks> {
+  try {
+    const result = await browser.storage.local.get(Object.keys(fallbacks));
+    const out: Record<string, unknown> = {};
+    for (const [key, fallback] of Object.entries(fallbacks)) {
+      out[key] = result[key] === undefined ? fallback : result[key];
+    }
+    return out as Fallbacks;
+  } catch {
+    return { ...fallbacks };
+  }
+}
+
 /** Write a value to local storage */
 export async function storageSet<T>(key: string, value: T): Promise<void> {
   try {

@@ -296,6 +296,46 @@ const previewBlob = ref<Blob | null>(null);
 const previewFormat = ref<FileFormat>(FileFormat.TXT);
 const previewFilename = ref('');
 
+/**
+ * Whether the preview dialog exists yet.
+ *
+ * `defineAsyncComponent` defers the component, not its chunks: mounted under a plain
+ * `v-model:visible` it resolved during this component's first render, so four requests — three
+ * scripts and the stylesheet the dialog injects, which makes them render-blocking — landed inside
+ * the workbench's first-paint window even though an empty workbench has nothing to preview. This
+ * flag is what makes the comment above the import true. The first preview click arms it, so no
+ * click can be the reason a dialog did not open — the dialog fills itself from an `immediate`
+ * watcher precisely so that being created by that same click still renders it; otherwise the
+ * first contentful paint does, which is the only moment that is actually late enough — an idle
+ * callback proved to fire inside that same window.
+ */
+const previewMounted = ref(false);
+let paintObserver: PerformanceObserver | null = null;
+
+onMounted(() => {
+  try {
+    paintObserver = new PerformanceObserver(entries => {
+      // `first-paint` is not good enough: on this page it can land while `#app` is still empty, and
+      // arming then puts the four requests back inside the window they were meant to leave.
+      if (!entries.getEntries().some(entry => entry.name === 'first-contentful-paint')) return;
+      previewMounted.value = true;
+      paintObserver?.disconnect();
+      paintObserver = null;
+    });
+    // `buffered` is what makes this correct in the remount case: the paint has usually already
+    // happened by now, and the entry still arrives. A tab that never paints never warms the dialog
+    // up, which costs nothing — nothing is being looked at.
+    paintObserver.observe({ type: 'paint', buffered: true });
+  } catch {
+    // A warm-up that cannot arm must not take the upload card down with it. Left false, the gate
+    // simply keeps every dialog request out of the boot until a click arms it.
+    paintObserver?.disconnect();
+    paintObserver = null;
+  }
+});
+
+onUnmounted(() => paintObserver?.disconnect());
+
 function previewFile(index: number): void {
   const file = selectedFiles.value[index];
   const format = detectedFormats.value[index];
@@ -303,6 +343,7 @@ function previewFile(index: number): void {
     ElMessage.warning(t('upload.previewUnsupported'));
     return;
   }
+  previewMounted.value = true;
   previewBlob.value = file;
   previewFormat.value = format;
   previewFilename.value = file.name;
@@ -460,6 +501,7 @@ defineExpose({
     </TransitionGroup>
 
     <PreviewDialog
+      v-if="previewMounted"
       v-model:visible="previewVisible"
       :blob="previewBlob"
       :format="previewFormat"

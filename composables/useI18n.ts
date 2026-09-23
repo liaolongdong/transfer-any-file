@@ -16,6 +16,7 @@ const state = reactive<{ locale: Locale; ready: boolean }>({
 });
 
 let initialized = false;
+let seeded = false;
 let unsubscribe: (() => void) | null = null;
 
 function resolveKey(dict: Messages, path: string): string {
@@ -73,16 +74,24 @@ export function resolveLocale(stored: unknown): Locale {
  * exact failure `detectLocale` exists to prevent. `main.ts` already awaits the same resolution
  * for `<html lang>` and the tab title; seeding from that one value keeps the markup, the title
  * and the rendered strings in agreement instead of letting only two of the three be early.
+ *
+ * Seeding also marks the state as resolved, so `initLocale` skips the round trip that would
+ * otherwise re-read the key it just read.
  */
 export function seedLocale(locale: Locale): void {
   state.locale = locale;
+  seeded = true;
 }
 
 async function initLocale(): Promise<void> {
   if (initialized) return;
   initialized = true;
-  state.locale = resolveLocale(await storageGet<unknown>(STORAGE_KEYS.locale, null));
-  applyDocumentLocale(state.locale);
+  // Without a seed this is the boot path for the language; with one, `state.locale` already holds
+  // what this key would return, so the read and the document update it drove are both redundant.
+  if (!seeded) {
+    state.locale = resolveLocale(await storageGet<unknown>(STORAGE_KEYS.locale, null));
+    applyDocumentLocale(state.locale);
+  }
   state.ready = true;
   unsubscribe = onStorageChange<Locale>(STORAGE_KEYS.locale, value => {
     if (value !== 'zh' && value !== 'en') return;

@@ -43,82 +43,89 @@ const isDocx = computed(() => props.format === FileFormat.DOCX);
 const isXlsx = computed(() => props.format === FileFormat.XLSX);
 const isRenderedDoc = computed(() => isHtml.value || isMarkdown.value || isDocx.value || isXlsx.value);
 
-watch([() => props.visible, () => props.blob], async ([vis, blob], _prev, onCleanup) => {
-  if (!vis || !blob) return;
-  if (imageUrl.value) URL.revokeObjectURL(imageUrl.value);
-  if (pdfUrl.value) URL.revokeObjectURL(pdfUrl.value);
-  imageUrl.value = '';
-  pdfUrl.value = '';
-  textContent.value = '';
-  renderedHtml.value = '';
-  renderError.value = false;
-  htmlView.value = 'rendered';
+watch(
+  [() => props.visible, () => props.blob],
+  async ([vis, blob], _prev, onCleanup) => {
+    if (!vis || !blob) return;
+    if (imageUrl.value) URL.revokeObjectURL(imageUrl.value);
+    if (pdfUrl.value) URL.revokeObjectURL(pdfUrl.value);
+    imageUrl.value = '';
+    pdfUrl.value = '';
+    textContent.value = '';
+    renderedHtml.value = '';
+    renderError.value = false;
+    htmlView.value = 'rendered';
 
-  // Drop the result of this watch run if a newer run starts or the component
-  // is torn down before the async pipeline finishes.
-  let cancelled = false;
-  onCleanup(() => {
-    cancelled = true;
-  });
+    // Drop the result of this watch run if a newer run starts or the component
+    // is torn down before the async pipeline finishes.
+    let cancelled = false;
+    onCleanup(() => {
+      cancelled = true;
+    });
 
-  if (isText.value) {
-    const raw = await blob.text();
-    if (cancelled) return;
-    if (props.format === FileFormat.JSON) {
-      try {
-        textContent.value = JSON.stringify(JSON.parse(raw), null, 2);
-      } catch {
+    if (isText.value) {
+      const raw = await blob.text();
+      if (cancelled) return;
+      if (props.format === FileFormat.JSON) {
+        try {
+          textContent.value = JSON.stringify(JSON.parse(raw), null, 2);
+        } catch {
+          textContent.value = raw;
+        }
+      } else {
         textContent.value = raw;
       }
-    } else {
-      textContent.value = raw;
-    }
-  } else if (isMarkdown.value || isHtml.value) {
-    try {
-      textContent.value = await blob.text();
-      if (cancelled) return;
-      const purifyModule = await import('dompurify');
-      const DOMPurify = purifyModule.default;
-      let source = textContent.value;
-      if (isMarkdown.value) {
-        // The dialog mounts with the file list, so a static import here would put 41 KB of
-        // `marked` on every boot; only the markdown tab needs the parser.
-        const { marked } = await import('marked');
-        source = await marked(textContent.value);
+    } else if (isMarkdown.value || isHtml.value) {
+      try {
+        textContent.value = await blob.text();
+        if (cancelled) return;
+        const purifyModule = await import('dompurify');
+        const DOMPurify = purifyModule.default;
+        let source = textContent.value;
+        if (isMarkdown.value) {
+          // The dialog mounts with the file list, so a static import here would put 41 KB of
+          // `marked` on every boot; only the markdown tab needs the parser.
+          const { marked } = await import('marked');
+          source = await marked(textContent.value);
+        }
+        const htmlBody = DOMPurify.sanitize(source, { USE_PROFILES: { html: true } });
+        if (cancelled) return;
+        renderedHtml.value = stripRemoteResources(
+          `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>${DOCUMENT_CSS}</style></head><body>${htmlBody}</body></html>`,
+        );
+      } catch {
+        // Same shape as the docx/xlsx branches: a markdown or HTML file the parser chokes on
+        // has to end in the error state, not in a watcher rejection and a permanent spinner.
+        if (!cancelled) renderError.value = true;
       }
-      const htmlBody = DOMPurify.sanitize(source, { USE_PROFILES: { html: true } });
-      if (cancelled) return;
-      renderedHtml.value = stripRemoteResources(
-        `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>${DOCUMENT_CSS}</style></head><body>${htmlBody}</body></html>`,
-      );
-    } catch {
-      // Same shape as the docx/xlsx branches: a markdown or HTML file the parser chokes on
-      // has to end in the error state, not in a watcher rejection and a permanent spinner.
-      if (!cancelled) renderError.value = true;
+    } else if (isImage.value) {
+      imageUrl.value = URL.createObjectURL(blob);
+      scale.value = 1;
+    } else if (isPdf.value) {
+      pdfUrl.value = URL.createObjectURL(blob);
+    } else if (isDocx.value) {
+      try {
+        const html = await docxToPreviewHtml(blob);
+        if (cancelled) return;
+        renderedHtml.value = html;
+      } catch {
+        if (!cancelled) renderError.value = true;
+      }
+    } else if (isXlsx.value) {
+      try {
+        const html = await xlsxToPreviewHtml(blob);
+        if (cancelled) return;
+        renderedHtml.value = html;
+      } catch {
+        if (!cancelled) renderError.value = true;
+      }
     }
-  } else if (isImage.value) {
-    imageUrl.value = URL.createObjectURL(blob);
-    scale.value = 1;
-  } else if (isPdf.value) {
-    pdfUrl.value = URL.createObjectURL(blob);
-  } else if (isDocx.value) {
-    try {
-      const html = await docxToPreviewHtml(blob);
-      if (cancelled) return;
-      renderedHtml.value = html;
-    } catch {
-      if (!cancelled) renderError.value = true;
-    }
-  } else if (isXlsx.value) {
-    try {
-      const html = await xlsxToPreviewHtml(blob);
-      if (cancelled) return;
-      renderedHtml.value = html;
-    } catch {
-      if (!cancelled) renderError.value = true;
-    }
-  }
-});
+  },
+  { immediate: true },
+);
+// `immediate` is what lets the dialog be created already open: FileUpload mounts this component on
+// the same click that sets `visible`, and without the initial run a watcher would see no change to
+// react to and the body would stay empty. The run on a closed mount returns at the guard above.
 
 onUnmounted(() => {
   if (imageUrl.value) URL.revokeObjectURL(imageUrl.value);

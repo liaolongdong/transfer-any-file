@@ -489,6 +489,57 @@ zero network requests`) and the Chinese equivalent never appeared in a search re
   "animation" in prose, an HTML `<img>` (the asset wait already counts it) and `<audio>` (+1 assertion, suite
   total 266 → 267). The package goes 3,758,908 → 3,758,958 B (+50 B, still 3.76 MB).
 
+- **The workbench no longer pays for a preview dialog nobody opened, or for reading one key twice.** Neither
+  entry changes what the interface does; both change what happens before it mounts. **One: the top-level await
+  that gates the mount carried three `storage.local.get` round trips** — theme, colour mode, language — and
+  each `storageGet` is one trip to the browser process, so all three sat on the path into the first frame.
+  `utils/storage.ts` gains `storageGetMany()`, which reads the three keys in one call and keeps `storageGet`'s
+  per-key fallback semantics exactly (an absent key yields its fallback; a key holding `false` / `0` / `''`
+  yields that falsy value, not the fallback); a failed call falls back for every key. `useI18n` gains a
+  `seeded` flag: `main.ts` already hands the resolved language to `seedLocale()`, so `initLocale` re-reading
+  the same key was pure repetition, and it now only reads when nothing seeded it — the un-seeded path that
+  non-workbench entries take stays whole. Measured: 13 → 10 `storage.local.get` calls. **Two: `PreviewDialog`
+  was a `defineAsyncComponent`, but mounted under a plain `v-model:visible`** — and what that defers is the
+  component, never its chunks, so the first render of its host resolved all four of its requests (three
+  scripts plus the stylesheet the dialog injects, and stylesheets are render-blocking) inside the
+  first-contentful-paint window, on a workbench that has nothing to preview. A `previewMounted` flag now gates
+  it through `v-if`. When to arm that gate was measured, not reasoned: `requestIdleCallback({ timeout: 2000 })`
+  still landed before FCP (the pre-paint request count did not move — 32), and `first-paint` is worse, since on
+  this page it can fire while `#app` is still empty (88 ms against an FCP of 164 ms), which puts the four
+  requests straight back into the window they were meant to leave. The moment that is actually late enough is
+  the first contentful paint itself, taken through `PerformanceObserver({ type: 'paint', buffered: true })` —
+  `buffered` is what makes the remount case correct, since by then the paint is long over and the entry still
+  arrives — and a tab that never paints never warms the dialog up, which costs nothing because nobody is
+  looking at it. The registration sits inside a `try`: a warm-up that fails to arm is fine, one that throws
+  out of `onMounted` and takes the upload card with it is not. `previewFile()` sets the flag as its first
+  statement, and once open the gate stays open, leaving the close animation and every piece of
+  component-internal state untouched. **That click-side fallback was itself the defect, caught in review,
+  reproduced in real Chrome and then fixed**: the dialog fills itself from a non-`immediate` watcher in
+  `PreviewDialog`, and the click sets the flag and `visible = true` in the same flush, so the component was
+  created already open and the watcher saw no change to react to — a text preview left an empty `<pre>` and
+  a document preview an iframe with an empty `srcdoc`. Stubbing the paint gate (an `PerformanceObserver`
+  that does nothing) walks that path deterministically instead of racing the real FCP: before the fix the
+  `<pre>` was empty, after it all three fixtures — txt, md, docx — render content on the cold path
+  (`srcdoc` of 2,719 and 2,928 characters).
+  **The gains are paired, not two independent timings**: both arms were rebuilt separately and run interleaved
+  for 13 rounds on one machine (Spotlight's index was holding CPU in the same window, so absolute values are
+  not comparable and only the paired deltas are read) — FCP 364 → 316 ms (HEAD slower in 11/13), DCL
+  222 → 199, Vue mounted 337 → 269, last pre-paint response 210 → 86 ms (13/13). The structural side agrees:
+  32 → 28 requests before paint, 564,640 → 543,150 B. **The cost**: declared first screen
+  425,840 → 426,289 B (+449 B, still 20 chunks), whole package 3,759,222 → 3,759,689 B (+467 B, still
+  3.76 MB). The regression lives in the repository rather than a scratch harness: the e2e suite gains a
+  `Startup Request Budget` section (+3 assertions, suite total 271 → 274): no dialog request before paint — and
+  it requires those four files to be present at the same time, because the sentence is equally true of a
+  dialog that is never fetched at all — the three boot keys coming out of **one** `get`, and `fat:locale`
+  read exactly once for the whole boot. Deliberately no "at most N round trips" budget: ten reads today
+  against thirteen last round, so any ceiling tight enough to catch this regression has no headroom, and the
+  next persisted preference would trip it for the right reason. **Deliberately not touched**: `css-*.js` (78,683 B — the `el-select` / `el-tag` set) is still in
+  the preload graph only because `HistoryPanel.vue` sits mounted under `CollapsibleCard`'s `v-show`
+  statically, and moving it would make the filter toolbar appear one tick late, which is an observable
+  interaction change; the two i18n dictionaries and both Element Plus locale tables are in the first-screen
+  closure too, but splitting them would put the language seed above at risk. Both stay, per the rule that a
+  change touching behaviour, interaction or the performance baseline is proposed before it is made.
+
 ### Fixed
 
 - **A cancelled batch no longer reported as a completed one.** Cancelling mid-batch left the
