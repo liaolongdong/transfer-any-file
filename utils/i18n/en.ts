@@ -149,6 +149,7 @@ const en: typeof zh = {
     confirmOk: 'Continue',
     confirmDontAsk: "Don't ask again",
     confirmCancelled: 'Conversion cancelled',
+    targetDropped: 'Some files in the updated list cannot reach the current target — target and results were reset',
   },
 
   result: {

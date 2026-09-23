@@ -157,6 +157,8 @@ export default {
     confirmOk: '继续转换',
     confirmDontAsk: '下次不再询问',
     confirmCancelled: '已取消本次转换',
+    // 增删文件后当前目标不再可达时才触发：混批只提供对所有文件有效的目标，留着等于让人点一次必失败
+    targetDropped: '调整后的文件里有无法转换为当前目标的，已重置目标与结果',
   },
 
   // Result / download

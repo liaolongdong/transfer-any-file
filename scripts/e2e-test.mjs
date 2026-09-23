@@ -1994,6 +1994,142 @@ async function run() {
   }
 
   // ═══════════════════════════════════════════
+  //  FILE-SET EDITS KEEP UNRELATED RESULTS (F7)
+  // ═══════════════════════════════════════════
+
+  section('File Set Edits Keep Unrelated Results');
+  try {
+    const resultNames = () => page.$$eval('.result-item .result-name', els => els.map(e => e.textContent.trim()));
+    const rowCount = async sel => (await page.$$(sel)).length;
+    const clearFiles = async () => {
+      const btn = await page.$('.clear-files-btn');
+      if (!btn) return;
+      await btn.click();
+      await page.waitForTimeout(500);
+    };
+    const appendFixture = async fixture => {
+      const addBtn = await page.$('.add-files-btn');
+      if (!addBtn) throw new Error('add-files button not found');
+      await addBtn.click();
+      await page.waitForTimeout(300);
+      const fi = await page.$('input[type="file"]');
+      if (!fi) throw new Error('file input not found');
+      await fi.setInputFiles(path.join(FIXTURE_PATH, fixture));
+      await page.waitForTimeout(1000);
+    };
+    const removeRow = async index => {
+      const btns = await page.$$('.file-item .el-button--danger');
+      if (!btns[index]) throw new Error(`no remove button at row ${index}`);
+      await btns[index].click();
+      await page.waitForTimeout(600);
+    };
+    /**
+     * Convert the batch that is already loaded, and wait for *this* batch's headline.
+     *
+     * `convertFile` waits for any non-empty `.el-alert__title`, which is safe for it because a fresh
+     * upload used to wipe the results panel. Under F7 the panel can still be showing the previous
+     * batch's headline the moment this one starts, so the wait is pinned to the headline *changing*
+     * — otherwise the first read races the alert that is already on screen.
+     */
+    const alertTitle = () => page.$eval('.el-alert__title', el => el.textContent.trim()).catch(() => '');
+    const convertBatch = async () => {
+      const before = await alertTitle();
+      await page.click('.convert-btn');
+      await page.waitForFunction(
+        previous => {
+          const el = document.querySelector('.el-alert__title');
+          const text = el ? el.textContent.trim() : '';
+          return text.length > 0 && text !== previous;
+        },
+        before,
+        { timeout: 30000 },
+      );
+      await page.waitForTimeout(300);
+    };
+
+    // Three fixtures whose bases differ, because every assertion below identifies a result by its
+    // name — two files called `sample.*` would come out as `sample_<stamp>` and `sample_<stamp>_2`,
+    // and "the right row survived" would stop being checkable.
+    const fi = await page.$('input[type="file"]');
+    if (!fi) throw new Error('file input not found');
+    await fi.setInputFiles([path.join(FIXTURE_PATH, 'sample.md'), path.join(FIXTURE_PATH, 'sample-svg-diagram.md')]);
+    await page.waitForTimeout(1000);
+    await pickTarget(page, 'HTML (.html)');
+    await convertBatch();
+    const two = await resultNames();
+    if (two.length !== 2) throw new Error(`expected a 2-result batch to start from, got [${two}]`);
+
+    await appendFixture('single-sheet.xlsx');
+    if ((await resultNames()).join('|') === two.join('|'))
+      ok('Appending a compatible file keeps the results already on screen');
+    else fail('Append keeps results', `before=[${two}] after=[${await resultNames()}]`);
+    if (!(await page.$eval('.convert-btn', el => el.disabled)))
+      ok('Appending a compatible file keeps the target they were made under');
+    else fail('Append keeps target', 'convert button disabled after the append, so no target is selected');
+
+    await convertBatch();
+    const three = await resultNames();
+    if (three.length === 3) ok('The appended file joins the next batch instead of replacing it');
+    else fail('Appended file converts', `expected 3 results, got [${three}]`);
+
+    // `undo()` hands back a snapshot taken over the list as it was, so an edit to that list has to
+    // retire the snapshot. Asserted from its visible half, and asserted *after* a second batch —
+    // otherwise the button would never have been there and "it is gone" would prove nothing.
+    if ((await rowCount('.undo-btn')) === 1) ok('A second batch offers 撤销 over the previous one');
+    else fail('Undo before edit', `expected 1 undo button, found ${await rowCount('.undo-btn')}`);
+
+    await removeRow(0);
+    const afterRemove = await resultNames();
+    if (afterRemove.join('|') === three.slice(1).join('|'))
+      ok('Removing a file drops exactly its own result and keeps the rest');
+    else fail('Remove drops its own result', `before=[${three}] after=[${afterRemove}]`);
+    if ((await rowCount('.undo-btn')) === 0) ok('Removing a file retires a 撤销 that would restore the removed row');
+    else fail('Undo after edit', '撤销 still offered after the file list it describes changed');
+
+    // The other half of the rule: what is *not* kept is a target the new batch cannot reach, because
+    // a mixed batch only offers targets valid for every file in it. Image → CSV is policy-blocked, so
+    // appending a GIF to an XLSX → CSV batch has to cost the batch — out loud.
+    await clearFiles();
+    await fi.setInputFiles(path.join(FIXTURE_PATH, 'sample-typed.xlsx'));
+    await page.waitForTimeout(1000);
+    await pickTarget(page, 'CSV (.csv)');
+    await convertBatch();
+    await appendFixture('sample.gif');
+    const warned = await page
+      .waitForFunction(
+        () =>
+          [...document.querySelectorAll('.el-message')].some(m => (m.textContent || '').includes('无法转换为当前目标')),
+        { timeout: 5000 },
+      )
+      .then(() => true)
+      .catch(() => false);
+    if (warned) ok('A target the updated list cannot reach is refused out loud');
+    else fail('Incompatible target notice', 'no 无法转换为当前目标 message after appending a GIF to a CSV batch');
+    if ((await rowCount('.result-item')) === 0) ok('A target the updated list cannot reach clears the batch');
+    else fail('Incompatible target cleanup', `${await rowCount('.result-item')} result(s) left for a dead target`);
+
+    // Pinned deliberately: retargeting is still a full reset. Those results belong to a target the
+    // user has just walked away from, and keeping them would put PNG and HTML rows in one list.
+    await clearFiles();
+    await fi.setInputFiles(path.join(FIXTURE_PATH, 'sample.md'));
+    await page.waitForTimeout(1000);
+    await pickTarget(page, 'HTML (.html)');
+    await convertBatch();
+    await pickTarget(page, 'PDF (.pdf)');
+    if ((await rowCount('.result-item')) === 0)
+      ok('Switching the target still clears the results made for the old one');
+    else fail('Retarget clears results', 'results survived a change of target');
+
+    await page.screenshot({
+      path: shot(`${String(shotIdx++).padStart(2, '0')}-file-set-edit.png`),
+      fullPage: true,
+    });
+    await clearFiles();
+  } catch (e) {
+    fail('File set edits keep unrelated results', e.message);
+  }
+
+  // ═══════════════════════════════════════════
   //  FILE LIST STATUS ANNOUNCEMENT (WCAG 4.1.3)
   // ═══════════════════════════════════════════
 

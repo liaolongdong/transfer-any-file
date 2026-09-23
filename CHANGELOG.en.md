@@ -258,6 +258,19 @@ always name the same release.
 
 ### Changed
 
+- **Adding or removing files no longer throws away results that had nothing to do with the edit.**
+  Appending a file to a batch, or clicking the delete button on one row, used to wipe the whole screen of
+  results along with the chosen target — so recovering one wrong file cost every other file a re-run.
+  A wipe now happens on exactly one condition: the edited list contains a file that can no longer reach the
+  current target. That wipe also says why, because a mixed batch offers no target that is invalid for some of
+  its files, and that rule should not be something the user has to infer. Making the distinction required a
+  fact the code did not have: a result row carries only an output name rebuilt from the source basename, never
+  the source itself, so `useConversion` now keeps an ownership table index-aligned with `batchResults` and
+  pairs rows by `File` object identity — two files with the same name really can be in one batch, and pairing
+  by name would delete the wrong row. Switching the target is still a full reset, deliberately: those rows are
+  products of the target just abandoned, and keeping them would mix PNG and PDF rows into one list. The undo
+  snapshot is retired by any change to the file list, exactly as before — otherwise it would restore a
+  workspace that no longer exists.
 - **Transition durations moved into design tokens, and reduced motion clears delays too.** The 11 scattered
   `0.15s` / `0.18s` / `0.2s` / `0.25s` values settle on `--fat-duration-fast|base|slow`; under
   `prefers-reduced-motion` the stagger delays are zeroed along with the durations, and four `0.2s` uses become

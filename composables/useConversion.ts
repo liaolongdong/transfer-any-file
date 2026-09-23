@@ -170,8 +170,19 @@ export function useConversion() {
     completedCount: number;
     currentIndex: number;
     target: FileFormat;
+    owners: File[];
   }
   const previousBatch: Ref<BatchSnapshot | null> = ref(null);
+
+  /**
+   * The source `File` behind each entry of `batchResults`, index-aligned.
+   *
+   * `ConvertResult` deliberately carries no source identity — its `filename` is rebuilt from the
+   * source basename plus the new extension — so once a file leaves the batch nothing is left to say
+   * which result was its. Without this array the only honest response to an edit of the file list
+   * is to throw every result away; with it, just the orphaned rows go.
+   */
+  let resultOwners: File[] = [];
 
   let abortController: AbortController | null = null;
   // Re-entrancy lock covering the pre-conversion confirm dialog: `isConverting` only turns true
@@ -213,15 +224,17 @@ export function useConversion() {
 
   /**
    * Drop everything that describes *a run* — results, failures, progress, undo — leaving the
-   * selected files and the conversion flag alone.
+   * selected files and the conversion flag alone. `keepTarget` is for the one caller that is
+   * clearing the run but not the choice it ran under, i.e. `setFiles` on a batch that has nothing
+   * on screen yet.
    *
    * `setFiles`, `clearResults` and `reset` all need exactly this, and each of them used to spell it
    * out field by field. Centralising it is what guarantees the per-step progress counters are
    * cleared on every one of those paths too: a stale `stepTotal` would keep drawing a "step 2 / 3"
    * line over a workspace that has no batch in it.
    */
-  function clearBatchState(): void {
-    targetFormat.value = null;
+  function clearBatchState(keepTarget = false): void {
+    if (!keepTarget) targetFormat.value = null;
     batchResults.value = [];
     batchFailures.value = [];
     error.value = null;
@@ -231,17 +244,76 @@ export function useConversion() {
     currentStep.value = 0;
     stepTotal.value = 0;
     previousBatch.value = null;
+    resultOwners = [];
   }
 
+  /**
+   * Adopt a new file list, keeping whatever on screen still describes a file that is there.
+   *
+   * Removing one row out of a ten-file batch used to cost the other nine their results, and adding
+   * one reset the target the user had just picked. Both are only required when the batch itself
+   * stops supporting what is on screen, so that is the single condition that still wipes it:
+   * `availableTargets` is the intersection over the new list, and a target that fell out of it
+   * would either fail per file or produce the placeholder `conversion-policy` greys out.
+   */
   function setFiles(files: File[]): void {
+    const previousFiles = sourceFiles.value;
     sourceFiles.value = files;
     sourceFormats.value = files.map(f => detectFormat(f));
-    clearBatchState();
+    const target = targetFormat.value;
+    if (!target) {
+      clearBatchState();
+      return;
+    }
+    if (!availableTargets.value.includes(target)) {
+      clearBatchState();
+      ElMessage.warning(t('convert.targetDropped'));
+      return;
+    }
+    if (batchResults.value.length === 0 && batchFailures.value.length === 0) {
+      clearBatchState(true);
+      return;
+    }
+
+    // Identity, not name: two files in one batch can be called `report.md`, and `uniqueName` only
+    // makes the *output* names distinct, so matching rows by name can drop the wrong one.
+    const newIndexByFile = new Map(files.map((file, index) => [file, index] as const));
+    const keptResults: ConvertResult[] = [];
+    const keptOwners: File[] = [];
+    batchResults.value.forEach((result, index) => {
+      const owner = resultOwners[index];
+      if (owner !== undefined && newIndexByFile.has(owner)) {
+        keptResults.push(result);
+        keptOwners.push(owner);
+      }
+    });
+    const keptFailures = batchFailures.value.flatMap(failure => {
+      // A row that never got a `fileIndex` says nothing about which file it came from, so it cannot
+      // be shown to be stale. `retryFailedFiles` already skips it and 重新转换 drops it.
+      if (failure.fileIndex === undefined) return [failure];
+      const index = newIndexByFile.get(previousFiles[failure.fileIndex]);
+      return index === undefined ? [] : [{ ...failure, fileIndex: index }];
+    });
+
+    batchResults.value = keptResults;
+    resultOwners = keptOwners;
+    batchFailures.value = keptFailures;
+    // What is left is a finished batch over the surviving files, so the counters follow it. The
+    // progress bar itself is gated on `isConverting`, so only the rows and the retry set matter.
+    completedCount.value = keptResults.length + keptFailures.length;
+    currentIndex.value = -1;
+    currentStep.value = 0;
+    stepTotal.value = 0;
+    error.value = null;
+    // Same reason as before: the snapshot is a batch over the list as it was, and restoring it
+    // would put back the results of files the user has just removed.
+    previousBatch.value = null;
   }
 
   function setTargetFormat(format: FileFormat): void {
     targetFormat.value = format;
     batchResults.value = [];
+    resultOwners = [];
     batchFailures.value = [];
     error.value = null;
     cancelled.value = false;
@@ -342,6 +414,7 @@ export function useConversion() {
         completedCount: completedCount.value,
         currentIndex: currentIndex.value,
         target: targetFormat.value,
+        owners: [...resultOwners],
       };
     } else {
       previousBatch.value = null;
@@ -366,6 +439,7 @@ export function useConversion() {
     abortController = controller;
 
     const results: ConvertResult[] = [];
+    const owners: File[] = [];
     const failures: ConversionFailure[] = [];
     // History accounting follows what actually converted: a failed file must not inflate the
     // stored fileCount / fileNames / source size of an otherwise successful batch.
@@ -476,6 +550,7 @@ export function useConversion() {
             lostFrames,
             svgRasterized,
           });
+          owners.push(file);
           converted.push({ name: file.name, size: file.size, format });
         } catch (e) {
           // A cancel surfacing from inside a long step is not a failure of that file: the user
@@ -499,7 +574,10 @@ export function useConversion() {
       // B2: assign once after the loop so Vue only fires one reactive update. Skipped when the
       // workspace was reset mid-batch — `reset()` already cleared it, and writing the abandoned
       // batch's results back would resurrect a results panel for files that are gone.
-      if (workspaceEpoch === epochAtConfirm) batchResults.value = results;
+      if (workspaceEpoch === epochAtConfirm) {
+        batchResults.value = results;
+        resultOwners = owners;
+      }
 
       // Record successful conversions in history (metadata only, no blob); a storage failure
       // must never leave the UI stuck in "converting". The accounting runs over `converted`, not
@@ -665,6 +743,7 @@ export function useConversion() {
     if (indexes.length === 0) return { ran: false, recovered: 0, stillFailing: 0 };
 
     const heldResults = [...batchResults.value];
+    const heldOwners = [...resultOwners];
     const heldFailures = [...batchFailures.value];
     const heldFiles = [...sourceFiles.value];
     const heldFormats = [...sourceFormats.value];
@@ -676,6 +755,7 @@ export function useConversion() {
       completedCount: completedCount.value,
       currentIndex: currentIndex.value,
       target,
+      owners: [...heldOwners],
     };
     const epochAtRetry = workspaceEpoch;
 
@@ -700,6 +780,7 @@ export function useConversion() {
           sourceFiles.value = heldFiles;
           sourceFormats.value = heldFormats;
           batchResults.value = heldResults;
+          resultOwners = heldOwners;
           batchFailures.value = heldFailures;
           cancelled.value = heldCancelled;
         }
@@ -711,6 +792,7 @@ export function useConversion() {
       sourceFiles.value = heldFiles;
       sourceFormats.value = heldFormats;
       batchResults.value = [...heldResults, ...batchResults.value];
+      resultOwners = [...heldOwners, ...resultOwners];
       // `convert()` numbered the failures it just produced against the subset it was handed, and by
       // now the workspace is back to the full list — so those numbers point at the wrong files. A
       // second retry without this would re-run an already-successful file and leave the still-broken
@@ -763,6 +845,7 @@ export function useConversion() {
     const snap = previousBatch.value;
     if (!snap) return false;
     batchResults.value = snap.results;
+    resultOwners = snap.owners;
     batchFailures.value = snap.failures;
     completedCount.value = snap.completedCount;
     currentIndex.value = snap.currentIndex;

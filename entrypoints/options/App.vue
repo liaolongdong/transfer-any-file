@@ -93,8 +93,8 @@ const pathCount = registeredPairs.length;
  * with it.
  *
  * Both entry points that preselect a target — reusing a history record and applying a preset — can
- * fire before any file is uploaded, and `setFiles` clears the target on every upload, so the choice
- * has to survive in here until the files land. `options` is `null` wherever the entry point carried
+ * fire before any file is uploaded, when there is no batch yet to judge the target against, so the
+ * choice has to survive in here until the files land. `options` is `null` wherever the entry point carried
  * no output parameters at all — a history record remembers a format only, and a preset whose target
  * is not an image never captured any (the same rule `PresetBar` applies when it stores) — and `null`
  * means "leave the live parameters alone". An image preset always carries an object, and an empty
