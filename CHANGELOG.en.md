@@ -11,6 +11,19 @@ always name the same release.
 
 ### Added
 
+- **Multi-step routes show which step you are on.** Alongside the existing "Converting, please wait..." the
+  progress area reports "Step 2 of 3" and names the file in flight — in both the batch bar and the single-file
+  progress card. A three-step chain such as `md → html → png` used to show an unchanging line from step one to
+  step three; single-step routes stay gated on `steps > 1`, so they render exactly as before.
+- **ZIP packaging gives feedback.** Download-all stays in its loading state while the archive is written; that
+  second or two used to give no sign at all, which is exactly how a double click happens.
+- **Retry only the failures.** The files that failed in a batch can be re-run on their own; the ones that
+  already converted are left alone.
+- **A batch that finishes off-screen says so.** When the page is not in the foreground, the tab title gains a
+  "[Done] " prefix and loses it again as soon as you come back. No OS permission is involved, and it does not
+  depend on the desktop-notification toggle, which ships off. The restore only fires while the title is still
+  the string this feature wrote, so a language switch that rewrites the title is never undone by it.
+
 - **Image output parameters.** When the target is PNG, JPEG or WebP, the workbench gains an output
   tuning row: longest edge (800–4096 px; the accepted domain is 16–8192 px) is always offered,
   quality (40–90%) and target size (20–2000 KB; accepted 1 KB–50 MB) appear for JPEG and WebP only
@@ -231,6 +244,11 @@ always name the same release.
   requests" nor "the manifest asks for `storage` only" can see them structurally.
 
 ### Changed
+
+- **Transition durations moved into design tokens, and reduced motion clears delays too.** The 11 scattered
+  `0.15s` / `0.18s` / `0.2s` / `0.25s` values settle on `--fat-duration-fast|base|slow`; under
+  `prefers-reduced-motion` the stagger delays are zeroed along with the durations, and four `0.2s` uses become
+  `0.18s`.
 
 - **The tab title follows the UI language.** `<title>` was permanently `Transfer Any File` and switching
   to English left it alone — yet the tab title is the only string of this page that the browser chrome

@@ -161,9 +161,10 @@ Summarised from the typical behaviour of each class of tool rather than one spec
 ### 📦 Batch and scale
 
 - **Mixed-format batches** — drop 40 files of different types; each resolves its own route to the shared target, and only formats reachable from _every_ selected file are offered
-- **Per-file error isolation** — one broken file never blocks the batch; failures are listed with their reason, and each one expands to show the diagnostic (the conversion path and the step that failed) and copies out as plain text, ready to paste into an issue
+- **Per-file error isolation** — one broken file never blocks the batch; failures are listed with their reason, and each one expands to show the diagnostic (the conversion path and the step that failed) and copies out as plain text, ready to paste into an issue. The failed files alone can be re-run
+- **Step-level progress** — a multi-step route shows "Step 2 of 3" and names the file in flight, on the batch bar and in the single-file progress card alike; a three-step chain used to read identically at step one and at step three
 - **Drop anywhere on the page** — the upload zone is not the only target; releasing files anywhere adds them to the batch. While a conversion is running the drop is ignored and the cursor shows "not allowed"
-- **ZIP download with per-entry compression** — text results (TXT / CSV / JSON / HTML / Markdown) are deflated and come out roughly 10× smaller, while already-compressed targets (PNG / JPEG / PDF / XLSX / DOCX) are stored as-is so no CPU is spent for no gain
+- **ZIP download with per-entry compression** — text results (TXT / CSV / JSON / HTML / Markdown) are deflated and come out roughly 10× smaller, while already-compressed targets (PNG / JPEG / PDF / XLSX / DOCX) are stored as-is so no CPU is spent for no gain. Download-all stays in its loading state while the archive is written
 - **Archive intake** — drop a `.zip` and its supported files are extracted into the batch automatically
 - **Multi-sheet and multi-page aware** — XLSX → CSV exports every worksheet; PDF → image exports every page
 - **Size guards at the boundary** — warns above 20 MB, rejects above 100 MB per file, caps a batch at 200 files
@@ -182,6 +183,7 @@ Summarised from the typical behaviour of each class of tool rather than one spec
 - **Confirm before big batches** — a summary dialog once a batch exceeds 5 files or 20 MB (fixed thresholds), switchable off in Preferences or from the dialog's own **Don't ask again** box
 - **Custom shortcuts** — <kbd>Ctrl/⌘</kbd> + <kbd>Enter</kbd> starts a conversion and is rebindable; reserved browser combos (<kbd>Ctrl+T/W/N/L</kbd>, <kbd>Tab</kbd>, <kbd>Esc</kbd>, …) are rejected
 - **Completion notifications** — optional desktop notification when a batch finishes while the tab is in the background, built on the web `Notification` API so no extra permission is needed
+- **A signal for a tab you switched away from** — when the page is not in the foreground as a batch ends, the tab title gains a "[Done] " prefix that clears when you come back; no permission, and no dependence on the toggle above, which ships off
 - **Cancellation** — a long batch can be stopped mid-run; finished files are kept, and the result panel says the batch was cancelled rather than showing it as a failure
 - **Image output parameters** — when the target is PNG / JPEG / WebP, cap the longest edge, pick an encoder quality, set a best-effort file-size ceiling, and choose the render density a PDF source is rasterized at. Every one is opt-in: with nothing set the encoders run exactly as they did before. On a multi-step route the geometric settings apply at every step while quality and size apply only to the file you download — chasing a size ceiling through an intermediate encode would just throw away detail the last step would have needed
 
