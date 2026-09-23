@@ -241,3 +241,46 @@ M2 的加载态只覆盖过了单条目早返回之后那一段。
 **过程中撞到的环境事实**：第一次全量是 275/276，唯一失败是 `History Import Size Cap` 的
 `ENOSPC: no space left on device`——那要写一个 16 MB 的临时文件，当时数据卷只剩 48 MiB。
 不是回归，空闲后重跑即 276/276。
+
+---
+
+## 12. 追加收口：F11 窄窗口，以及顺着它挖出的 iframe 拖拽（`5b843f7`）
+
+**为什么这一项不需要新授权**：§10 把 F11 放在"等授权"那一栏，理由是它改可观察行为。实际按缺陷处理
+了——因为要改的那批宽度是**实测已经坏掉**的（按钮被裁、内容横向溢出），而没坏的宽度上几何逐项不变。
+判据全部来自十档视口实测，不是断点直觉。
+
+**取证**（构建产物 + `getBoundingClientRect`，视口高 900）：并排布局从 700 px 起，结果栏页头的
+「编辑 / 复制」被 `.panel { overflow: hidden }` 裁掉 9 px，440 px 差 139 px；两栏各分到
+338 / 327 / 297 / 247 px。721 px 一切正常（两栏各 338 px、按钮全在屏内）。所以断点取 **720**
+而不是沿用 `App.vue` 已有的 640——取 640 会把一段已经坏掉的宽度留在中间。结果卡片另有一条：
+~460 px 以下下载按钮顶出标签页右缘（裁掉而非可滚），根因是 `.el-alert__content` 作为 flex item
+的默认 `min-width: auto` 给整张卡片设了下限。
+
+**顺带挖出的宽窗口缺陷，不是本轮引入**：1280 px 下横向拖 60 px，分栏比一动不动停在 50。我先按
+"探针 artifact"处理了一次（怀疑首屏输入未就绪、又怀疑分隔条落在视口外），两次证伪之后才拿到真证据：
+`document` 上的捕获监听器在 `pointerdown` 之后**一条 `pointermove` 都收不到**，而路径上的
+`elementFromPoint` 从 `div.panel-divider` 变成 `iframe.html-frame`——预览是沙箱 iframe，指针按下后
+进入它的区域，Chrome 就把这次手势余下的事件交给那个文档，`pointerup` 同样丢，于是
+`user-select: none` 与 `col-resize` 光标一直挂在页面上。820 px 之所以"看着正常"纯属几何巧合：
+拖拽线 y=536 走在 iframe 顶边 y=547 之上，整条路径落在 `div.panel-header` 上。
+
+**改法与边界**：≤720 px 两栏上下堆叠，分隔条转横向（≥24 px 命中区沿短轴撑开），拖拽轴、
+`aria-orientation`、↑/↓ 键一起换向，断点由 `matchMedia` 监听所以不重载也能跨过。↑/↓ 只在堆叠态
+**且**焦点落在 separator 上时接管——宽窗口里它仍是页面滚动键。遮罩是 `position: absolute` 盖在面板行
+内而不是 `fixed` 铺满视口：最坏情况的滞留范围只有这两栏；另有 `document` 上的 `pointerup` 幂等收尾。
+
+**验证**：`lint:all` 与六道守卫全 exit 0；e2e 全量 **276/276**，断言总数未动（不增删断言，所以对外
+散文这格不用改），并且那一跑所用的产物与提交内容**逐字节同一**（manifest `7a714669…`）；窄窗口十档
+复跑 `off=0`、按钮在屏、两个拖拽轴各自生效；遮罩实测为拖动期间存在且 `elementFromPoint` 落在它上面、
+松手即消失。整包 3,763,908 → 3,765,545 B（+1,637 B）。
+
+**一条环境事实值得记下**：CSS 注释不进产物**字节**，但进产物的**内容哈希**——把注释改写一次，
+`assets/ComparisonView-*.css` 与引用它的两个 chunk 全部改名，而整包大小一字不差。所以"只改注释"
+仍然要重新构建、重新取证，不能拿"注释会被压掉"当跳过验证的理由。
+
+**留下的对外债务**：3,765,545 B 跨过取整边界，"3.76 MB" 应为 "3.77 MB"。本轮只改自己名下干净的 4 处
+（`CONTRIBUTING.md` / `.en.md` 对、`docs/promo/wechat-article.md`、`docs/promo/blog-article.en.md`）；
+并发会话正在改或尚未跟踪的 6 份载体（`docs/index.html` ×3 处正文与 2 处注释、`docs/llms.txt`、
+`docs/blog/index.html`、`.github/visibility-checklist.md`、`docs/promo/community-posts*.md`）
+留给其作者一并带走——`verify:numbers` 不守体积，所以这条只能靠人记。
