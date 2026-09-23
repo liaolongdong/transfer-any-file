@@ -137,6 +137,9 @@ export default {
     inProgress: '正在转换中，请稍候...',
     currentFile: '正在处理: {name}',
     stepProgress: '步骤 {current} / {total}',
+    // 批次结束而标签页不在前台时的标题标记（~/utils/core/tab-attention），前缀位置保证不被截掉。
+    // 纯文本而非符号图形：界面文案全站没有 emoji，离线包也不带头像字体，装了反倒在别的系统上渲染成方框
+    tabDone: '[完成] {title}',
     reconvert: '重新转换',
     undo: '撤销',
     undone: '已撤销最近一次结果',

@@ -17,13 +17,19 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* A blanket stop rather than a per-component opt-out, so motion added later cannot slip past it.
+   Durations collapse instead of the properties being removed, which keeps every element at the
+   state it was animating *to*. The delays are zeroed alongside them because a stagger would
+   otherwise survive as pure waiting time — the README promises full degradation, not most of it. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
   }
 }
 
@@ -255,16 +261,5 @@ body {
 @keyframes fat-spin {
   to {
     transform: rotate(360deg);
-  }
-}
-
-/* Pulse animation for skeleton */
-@keyframes fat-pulse {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.4;
   }
 }

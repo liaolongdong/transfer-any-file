@@ -16,6 +16,7 @@ import { useI18n } from '~/composables/useI18n';
 import { formatSize, isZipCompressible } from '~/utils/core/format';
 import { getFormatLabel } from '~/utils/core/format-labels';
 import { loadFflate } from '~/utils/core/zip';
+import { clearAttention, markBatchComplete } from '~/utils/core/tab-attention';
 
 // F15 — pre-conversion confirmation thresholds. Any of these triggers the dialog.
 const CONFIRM_FILE_COUNT = 5;
@@ -261,6 +262,11 @@ export function useConversion() {
       return false;
     }
     if (isConverting.value || convertLocked) return false;
+
+    // A new run supersedes an unread completion, so its tab marker must not survive into this one.
+    // In practice the user had to come back to press the button, which clears it on its own; this
+    // is the belt-and-braces side of that.
+    clearAttention();
 
     // F15 — pre-conversion confirmation. The user opts in once via the
     // PreferencesMenu toggle (stored as fat:confirmConvert, default true); the value is
@@ -541,6 +547,10 @@ export function useConversion() {
           // No onClick handler: useNotification already calls window.focus() before
           // invoking it, so passing one would focus the window twice.
           notify(title, body);
+          // The other half of the same signal. The desktop notification is opt-in and self-suppresses
+          // while this tab is focused, so a batch that finished after the user switched tabs used to
+          // produce nothing at all for the default configuration.
+          markBatchComplete(t('convert.tabDone', { title: document.title }));
         }
       }
     }

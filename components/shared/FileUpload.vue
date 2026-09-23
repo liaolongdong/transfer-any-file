@@ -638,7 +638,7 @@ defineExpose({
 
 .file-list-enter-active,
 .file-list-leave-active {
-  transition: all 0.2s ease;
+  transition: all var(--fat-duration-base) var(--fat-ease-standard);
 }
 
 .file-list-enter-from {
@@ -652,6 +652,6 @@ defineExpose({
 }
 
 .file-list-move {
-  transition: transform 0.2s ease;
+  transition: transform var(--fat-duration-base) var(--fat-ease-standard);
 }
 </style>

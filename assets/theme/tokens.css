@@ -92,9 +92,18 @@
   --fat-shadow-lg: 0 4px 12px rgb(15 23 42 / 8%);
   --fat-shadow-primary: 0 2px 8px rgb(var(--fat-primary-rgb) / 22%);
 
-  /* Transitions - flat design: fast, clean (150-200ms) */
-  --fat-transition: all 0.18s ease;
-  --fat-transition-fast: all 0.15s ease;
+  /* Transitions - flat design: fast, clean (150-200ms).
+     The three durations are the whole vocabulary, so "make the workbench snappier" is one edit
+     here rather than a hunt for magic numbers. `slow` exists only for card enter/leave, which
+     changes layout size and can therefore carry a few more milliseconds than a colour shift. */
+  --fat-duration-fast: 0.15s;
+  --fat-duration-base: 0.18s;
+  --fat-duration-slow: 0.25s;
+  --fat-ease-standard: ease;
+
+  /* The two shorthands most surfaces want, kept so a component does not have to name a property. */
+  --fat-transition: all var(--fat-duration-base) var(--fat-ease-standard);
+  --fat-transition-fast: all var(--fat-duration-fast) var(--fat-ease-standard);
 
   /* Typography */
   --fat-font-family: -apple-system, blinkmacsystemfont, 'Segoe UI', roboto, 'Helvetica Neue', sans-serif;

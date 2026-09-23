@@ -696,7 +696,7 @@ onUnmounted(() => {
   text-decoration: none;
   font-weight: 600;
   transform: translateY(-200%);
-  transition: transform 0.15s ease;
+  transition: transform var(--fat-duration-fast) var(--fat-ease-standard);
 }
 
 /* Double ring. The chip can land on the coloured topbar OR on the page, and no single
@@ -834,7 +834,7 @@ onUnmounted(() => {
 
 .card-enter-active,
 .card-leave-active {
-  transition: all 0.25s ease;
+  transition: all var(--fat-duration-slow) var(--fat-ease-standard);
 }
 
 .card-enter-from {
@@ -877,7 +877,7 @@ onUnmounted(() => {
 
 .fade-enter-active,
 .fade-leave-active {
-  transition: opacity 0.15s ease;
+  transition: opacity var(--fat-duration-fast) var(--fat-ease-standard);
 }
 
 .fade-enter-from,

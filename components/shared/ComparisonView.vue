@@ -734,7 +734,7 @@ function toggleEdit(): void {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  transition: flex-basis 0.2s ease;
+  transition: flex-basis var(--fat-duration-base) var(--fat-ease-standard);
 }
 
 .comparison-panels.is-dragging .panel {
@@ -757,7 +757,7 @@ function toggleEdit(): void {
   position: relative;
   user-select: none;
   touch-action: none;
-  transition: background 0.15s ease;
+  transition: background var(--fat-duration-fast) var(--fat-ease-standard);
 }
 
 .panel-divider:hover,
@@ -792,7 +792,7 @@ function toggleEdit(): void {
   height: 3px;
   border-radius: 50%;
   background: var(--fat-text-placeholder);
-  transition: background 0.15s ease;
+  transition: background var(--fat-duration-fast) var(--fat-ease-standard);
 }
 
 .panel-divider:hover .grip-dot,

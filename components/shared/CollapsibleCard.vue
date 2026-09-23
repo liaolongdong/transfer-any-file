@@ -156,7 +156,7 @@ watch(isOpen, value => {
 
 .chevron {
   color: var(--fat-text-placeholder);
-  transition: transform 0.2s ease;
+  transition: transform var(--fat-duration-base) var(--fat-ease-standard);
 }
 
 .chevron.open {

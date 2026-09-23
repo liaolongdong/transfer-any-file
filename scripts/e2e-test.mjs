@@ -3608,6 +3608,56 @@ async function run() {
     fail('Skip link & focus ring', e.message);
   }
 
+  section('Tab Marker for a Batch That Finishes Off-screen');
+  try {
+    // F6. The desktop notification is opt-in *and* suppresses itself while this tab is focused, so
+    // for the default configuration the tab-title marker is the only signal a user gets after
+    // switching away mid-batch. Two halves worth pinning: the marker must appear when the page was
+    // not being looked at, and it must not survive the user coming back.
+    await resetWorkbench(page);
+    const titleBefore = await page.title();
+
+    // "The user is not looking" is supplied to the page rather than staged by opening a second tab.
+    // Two measured facts about this harness say why (probe, 2026-09-23): `bringToFront()` on a second
+    // tab leaves *both* tabs at `visibilityState: visible` and `hasFocus() === true`, so the staged
+    // version of the precondition never happens; and were it to happen, every Playwright wait after
+    // it would starve, because those polls run on requestAnimationFrame and a backgrounded tab
+    // produces no frames. So the test hands the page the one value the product reads, and the batch,
+    // the title write and the clearing listeners all stay real.
+    await page.evaluate(() => {
+      Object.defineProperty(document, 'hasFocus', { value: () => false, configurable: true });
+    });
+
+    const fi = await page.$('input[type="file"]');
+    if (!fi) throw new Error('file input not found');
+    // CSV → Text is a two-step chain (csv → html → txt) made of string work, so it finishes in well
+    // under the wait below without ever blocking the main thread on a rasterisation.
+    await fi.setInputFiles(path.join(FIXTURE_PATH, 'sample.csv'));
+    await page.waitForTimeout(1000);
+    await pickTarget(page, 'Text (.txt)');
+    await (await page.$('.convert-btn')).click();
+    await page.waitForSelector('.result-download .el-alert__title', { timeout: 45000 });
+
+    const marked = await page.title();
+    if (marked !== titleBefore && marked.endsWith(titleBefore))
+      ok(`Unread completion reaches the tab title ("${marked}")`);
+    else fail('Tab completion marker', `title is "${marked}", expected the original "${titleBefore}" prefixed`);
+
+    // Coming back is what clears the marker. The listener is the product's own; only the event is
+    // dispatched from the test, because a real tab switch cannot be staged here (see above).
+    await page.evaluate(() => window.dispatchEvent(new window.Event('focus')));
+    await page.waitForTimeout(300);
+    const restored = await page.title();
+    if (restored === titleBefore) ok('Marker clears when the user comes back');
+    else fail('Tab marker cleanup', `title still reads "${restored}"`);
+
+    // Put the browser's own focus model back so no later section inherits a stubbed one.
+    await page.evaluate(() => delete document.hasFocus);
+    await resetWorkbench(page);
+  } catch (e) {
+    fail('Tab completion marker', e.message);
+  }
+
   // ═══════════════════════════════════════════
   //  SUMMARY
   // ═══════════════════════════════════════════

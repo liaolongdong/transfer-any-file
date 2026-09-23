@@ -382,7 +382,7 @@ function download(): void {
 .preview-image {
   max-width: 100%;
   transform-origin: top center;
-  transition: transform 0.2s ease;
+  transition: transform var(--fat-duration-base) var(--fat-ease-standard);
   border-radius: var(--fat-radius-md, 8px);
   box-shadow: 0 2px 12px rgb(0 0 0 / 10%);
 }

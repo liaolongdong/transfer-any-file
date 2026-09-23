@@ -131,6 +131,9 @@ const en: typeof zh = {
     inProgress: 'Converting, please wait...',
     currentFile: 'Processing: {name}',
     stepProgress: 'Step {current} of {total}',
+    // The tab-title half of the completion cue: no OS permission, visible from the tab strip.
+    // Plain text, not a glyph — no UI string in the app carries an emoji and the bundle ships no icon font.
+    tabDone: '[Done] {title}',
     reconvert: 'Convert Again',
     undo: 'Undo',
     undone: 'Last result undone',

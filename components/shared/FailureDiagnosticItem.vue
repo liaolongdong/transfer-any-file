@@ -251,7 +251,7 @@ function toggle(): void {
 }
 
 .failure-chevron {
-  transition: transform 0.18s ease;
+  transition: transform var(--fat-duration-base) var(--fat-ease-standard);
 }
 
 .failure-item.expanded .failure-chevron {
