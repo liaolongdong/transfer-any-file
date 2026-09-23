@@ -376,6 +376,23 @@ async function downloadBatchArtifact(page) {
 }
 
 /**
+ * Member names of the ZIP the workbench is offering, read out of the real download.
+ *
+ * `downloadBatchArtifact` refuses a bundle on purpose — its callers want file *contents* — while the
+ * page-selection assertions are about *which* pages were written and under what name, which is only
+ * observable in the directory.
+ */
+async function zipEntryNames(page) {
+  const [download] = await Promise.all([
+    page.waitForEvent('download', { timeout: 15000 }),
+    (await page.$('.result-download .download-actions .el-button')).click(),
+  ]);
+  const buf = fs.readFileSync(await download.path());
+  const { unzipSync } = await import('fflate');
+  return Object.keys(unzipSync(new Uint8Array(buf)));
+}
+
+/**
  * The first 24 bytes of a PNG — signature, IHDR length, "IHDR", width, height — base64-encoded, i.e.
  * the opening of that PNG's own byte stream.
  *
@@ -1284,6 +1301,81 @@ async function run() {
     }
   } catch (e) {
     fail('Multi-page PDF→JPEG ZIP', e.message);
+  }
+
+  // ═══════════════════════════════════════════
+  //  PDF PAGE RANGE SELECTION (narrowing the source)
+  // ═══════════════════════════════════════════
+
+  section('PDF Page Range Selection');
+  try {
+    const labels = async () => {
+      if ((await page.$$('.output-options')).length === 0) return [];
+      return page.$$eval('.output-options .output-label', els => els.map(e => e.textContent.trim()));
+    };
+    const setRange = spec => page.fill('.output-options .el-input input', spec);
+    const failureReason = () => page.$eval('.failure-item .failure-reason', el => el.textContent).catch(() => '');
+
+    await resetWorkbench(page);
+    const rangeFileInput = await page.$('input[type="file"]');
+    if (!rangeFileInput) throw new Error('file input not found');
+    await rangeFileInput.setInputFiles(path.join(FIXTURE_PATH, 'sample-2page.pdf'));
+    await page.waitForTimeout(1000);
+    await pickTarget(page, 'PNG (.png)');
+
+    if ((await labels()).includes('页码范围')) ok('PDF source with an image target offers 页码范围');
+    else fail('页码范围 field', `labels: [${(await labels()).join(', ')}]`);
+
+    // The naming convention an excerpt relies on, pinned before anything is narrowed: a ZIP entry
+    // numbered by its position in the output would silently renumber "page 2" into "page-1".
+    const whole = await convertFile(page, 'sample-2page.pdf', 'PNG (.png)');
+    const wholeEntries = whole.resultName.endsWith('.zip') ? await zipEntryNames(page) : [];
+    if (wholeEntries.join(',') === 'page-1.png,page-2.png') ok('Whole document exports page-1 / page-2');
+    else fail('Whole-document ZIP entries', `alert="${whole.alertTitle}" entries=[${wholeEntries.join(', ')}]`);
+
+    const secondOnly = await (async () => {
+      await setRange('2');
+      return convertFile(page, 'sample-2page.pdf', 'PNG (.png)');
+    })();
+    if (secondOnly.resultName.endsWith('.png')) ok('页码范围 2 narrows a two-page PDF to one PNG');
+    else fail('页码范围 2', `alert="${secondOnly.alertTitle}" name="${secondOnly.resultName}"`);
+
+    await setRange('9');
+    const outOfRange = await convertFile(page, 'sample-2page.pdf', 'PNG (.png)');
+    const reason = (await failureReason()).trim();
+    if (reason.includes('没有匹配到任何页面')) ok('An unsatisfiable 页码范围 names the range, not the encoder');
+    else fail('页码范围 9', `alert="${outOfRange.alertTitle}" reason="${reason}"`);
+
+    // The safety property of the whole feature: the field lives inside a panel that only exists for
+    // an image target, so retargeting has to hide it *and* disarm it. A range still held in memory
+    // but no longer on screen must make no difference at all — the assertion below reads the HTML
+    // for the page-break marker `pdf-to-html` writes between pages, which a one-page excerpt would
+    // be missing.
+    await setRange('2');
+    await pickTarget(page, 'HTML (.html)');
+    if ((await page.$$('.output-options')).length === 0 && (await labels()).length === 0)
+      ok('页码范围 hides together with the output panel');
+    else fail('页码范围 visibility', `panel still rendered with labels [${(await labels()).join(', ')}]`);
+
+    const htmlRun = await convertFile(page, 'sample-2page.pdf', 'HTML (.html)');
+    if (!htmlRun.resultName) throw new Error(`pdf→html produced no artifact: ${htmlRun.alertTitle}`);
+    const htmlText = await downloadBatchArtifact(page);
+    const breaks = htmlText.split('page-break-after').length - 1;
+    if (breaks === 1) ok('A 页码范围 the panel hides does not narrow an HTML export');
+    else fail('Invisible 页码范围', `expected 1 page break between 2 pages, found ${breaks}`);
+
+    // Clearing has to land back on "everything", and this is also the cleanup that keeps the rest of
+    // the suite converting whole documents: the selection is session state, so nothing else resets it.
+    // The target goes back to an image first — with HTML selected there is no panel to type into,
+    // which is the same gate the previous two assertions just checked.
+    await pickTarget(page, 'PNG (.png)');
+    await setRange('');
+    const cleared = await convertFile(page, 'sample-2page.pdf', 'PNG (.png)');
+    const clearedEntries = cleared.resultName.endsWith('.zip') ? await zipEntryNames(page) : [];
+    if (clearedEntries.length === 2) ok('Clearing 页码范围 restores the whole document');
+    else fail('Clearing 页码范围', `alert="${cleared.alertTitle}" entries=[${clearedEntries.join(', ')}]`);
+  } catch (e) {
+    fail('PDF page range selection', e.message);
   }
 
   // ═══════════════════════════════════════════
@@ -3050,9 +3142,12 @@ async function run() {
     // loaded machine and an idle one. The answer differs by what happened, never the count.
     // Nothing here is sampled while the batch is still running: "did the cancel leave a trace" is a
     // claim about the settled screen, and reading it early sees an absent result card. The wait is
-    // bounded, because a batch that never settles is itself a failure this section is here to catch.
+    // bounded, because a batch that never settles is itself a failure this section is here to catch —
+    // and the bound is the 30 s every other section gives this same element (`convertFile`), not a
+    // shorter one. Three fixtures through `html→pdf` are seconds of rasterization each, so a tighter
+    // ceiling turns a loaded machine into a report that the result card never appeared.
     const resultCard = await page
-      .waitForSelector('.result-download .el-alert__title', { timeout: 15000 })
+      .waitForSelector('.result-download .el-alert__title', { timeout: 30000 })
       .catch(() => null);
     const convertedCount = (await page.$$('.result-item')).length;
     const cancelAlert = resultCard ? ((await resultCard.textContent()) || '').trim() : '';

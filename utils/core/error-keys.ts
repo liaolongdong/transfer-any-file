@@ -22,6 +22,9 @@ export const CONVERSION_ERROR_KEYS = new Set([
   // pdf.js rejected the document itself; rendering failures keep travelling as imageEncode/render
   // keys, and mislabelling a corrupt PDF as "browser cannot encode" sends users to the wrong fix.
   'errors.pdfParse',
+  // A page range the user typed matched no page of this document. Distinct from `pdfParse` (the file
+  // is fine) and from `imageEncode` (nothing failed to render), because the fix is in the field.
+  'errors.pdfPageRange',
   'errors.xlsxEmpty',
   'errors.csvDecode',
   'errors.imageDecode',

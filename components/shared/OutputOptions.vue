@@ -9,6 +9,8 @@ import {
   DEFAULT_PDF_DPI,
 } from '~/utils/core/output-options';
 import { useOutputOptions } from '~/composables/useOutputOptions';
+import { usePdfPages } from '~/composables/usePdfPages';
+import { MAX_PAGE_RANGE_SPEC } from '~/utils/core/pdf-pages';
 import { useI18n } from '~/composables/useI18n';
 
 const props = withDefaults(
@@ -45,12 +47,19 @@ interface Field {
 }
 
 const { options, setOption, resetOptions } = useOutputOptions();
+const { pageRange, setPageRange } = usePdfPages();
 const { t } = useI18n();
 
 /** The panel exists only while the target is an image — nothing else has these levers. */
 const visible = computed(() => isImageOutputFormat(props.targetFormat));
 const lossy = computed(() => isLossyImageFormat(props.targetFormat));
-/** DPI only affects PDF rasterization, so it is hidden for a batch that cannot reach it. */
+/**
+ * DPI is hidden for a batch that cannot reach it — and so is "which pages", the one control here
+ * that is not an output parameter but a statement about how much of the source to read. It borrows
+ * the panel's slot only while the converter that honors it can run: `useConversion` gates on these
+ * same two conditions (image target, PDF source), which is what keeps a value left in the field
+ * from narrowing a batch whose control was never on screen.
+ */
 const hasPdfSource = computed(() => props.sourceFormats.includes(FileFormat.PDF));
 
 function numbered(values: number[], format: (value: number) => string, offLabel: string, current?: number): Choice[] {
@@ -130,6 +139,11 @@ const showReset = computed(() => hasOutputOptions(options.value));
 async function handleFieldChange(key: OptionKey, raw: unknown): Promise<void> {
   await setOption(key, typeof raw === 'number' && Number.isFinite(raw) ? raw : undefined);
 }
+
+/** `el-input` also emits this on its clear control, where the payload is the empty string. */
+function handleRangeInput(raw: unknown): void {
+  setPageRange(typeof raw === 'string' ? raw : '');
+}
 </script>
 
 <template>
@@ -163,6 +177,22 @@ async function handleFieldChange(key: OptionKey, raw: unknown): Promise<void> {
           :value="choice.value"
         />
       </el-select>
+    </label>
+    <label
+      v-if="hasPdfSource"
+      class="output-field"
+    >
+      <span class="output-label">{{ t('output.pageRange') }}</span>
+      <el-input
+        class="output-input"
+        size="small"
+        :model-value="pageRange"
+        :disabled="disabled"
+        :maxlength="MAX_PAGE_RANGE_SPEC"
+        :placeholder="t('output.pageRangePlaceholder')"
+        clearable
+        @update:model-value="handleRangeInput"
+      />
     </label>
     <el-button
       v-if="showReset"
@@ -210,6 +240,12 @@ async function handleFieldChange(key: OptionKey, raw: unknown): Promise<void> {
 
 .output-select {
   width: 96px;
+}
+
+/* The page spec is short but a full 64-character one must not stretch the row. */
+.output-input {
+  flex: none;
+  width: 132px;
 }
 
 .output-reset {

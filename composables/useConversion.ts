@@ -8,6 +8,7 @@ import { getBlockedReason } from '~/utils/core/conversion-policy';
 import { isImageOutputFormat, optionsForStep } from '~/utils/core/output-options';
 import { detectFormat } from '~/utils/core/file-detect';
 import { useOutputOptions } from '~/composables/useOutputOptions';
+import { usePdfPages } from '~/composables/usePdfPages';
 import { useHistory } from '~/composables/useHistory';
 import { useRecentTargets } from '~/composables/useRecentTargets';
 import { useNotification } from '~/composables/useNotification';
@@ -116,6 +117,7 @@ export function useConversion() {
   const { notify } = useNotification();
   const { isEnabled: confirmConvertEnabled, setEnabled: setConfirmConvertEnabled } = useConfirmConvert();
   const { options: outputOptions } = useOutputOptions();
+  const { pageRange, pageRangeSelected } = usePdfPages();
 
   const sourceFiles: Ref<File[]> = ref([]);
   const sourceFormats: Ref<(FileFormat | null)[]> = ref([]);
@@ -374,6 +376,11 @@ export function useConversion() {
     // Gated on the *batch* target — MD→PDF and XLSX→…→PNG→PDF rasterize along the way, and a
     // leftover 800px cap must not quietly degrade an output the user never asked to shrink.
     const batchOptions = isImageOutputFormat(target) ? { ...outputOptions.value } : undefined;
+    // The page selection is gated the same way, and for the same reason: the field that writes it is
+    // not on screen once the target stops being an image, and a batch the user cannot see they
+    // narrowed is the failure mode with no undo. This is only the *batch* half of the rule — whether
+    // this particular file is the PDF is checked per file where `ctx` is built below.
+    const batchPageRange = isImageOutputFormat(target) && pageRangeSelected.value ? pageRange.value : undefined;
 
     // Keep output names unique with timestamp; suffix only when a name is already taken
     const usedNames = new Set<string>();
@@ -443,6 +450,11 @@ export function useConversion() {
               signal,
               source: file,
               options: optionsForStep(batchOptions, stepIndex === steps.length - 1),
+              // The other half of the visibility rule. `format` is what the user uploaded, while
+              // `step` is what this converter receives, and those differ for `md→html→pdf→png`: the
+              // PDF in that chain was generated from their markdown a moment ago, and applying a
+              // leftover `2` to it would drop pages of a document the field never referred to.
+              pageRange: format === FileFormat.PDF ? batchPageRange : undefined,
             };
             try {
               const stepResult = await step.converter.convert(currentBlob, ctx);

@@ -72,7 +72,7 @@ curl -Is https://liaolongdong.github.io/transfer-any-file/privacy.html | head -1
 | ----------------------------- | ----------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
 | 名称 Extension Name           | `Transfer Any File — Offline File Format Converter` (49/75)                                                 | `文件格式任意转换助手 — 离线转换无上传` (20/75)                                                                                        |
 | 简介 Short description        | `Convert between 14 common document, spreadsheet and image file formats right in your browser...` (127/132) | `在本机浏览器内互转 14 种常见的文档、表格与图片格式。支持混合批量、多步链路、预览编辑与 ZIP 打包，全程离线，不上传、无账号。` (66/132) |
-| 详描 Full description         | [英文详细介绍](#英文详细介绍) (8,030 字符)                                                                  | [中文详细介绍](#中文详细介绍) (2,877 字符)                                                                                             |
+| 详描 Full description         | [英文详细介绍](#英文详细介绍) (8,315 字符)                                                                  | [中文详细介绍](#中文详细介绍) (2,959 字符)                                                                                             |
 | 类别 Category                 | `Productivity`                                                                                              | `Productivity`                                                                                                                         |
 | 主要语言 Primary Language     | -                                                                                                           | `Chinese (China)`                                                                                                                      |
 | 附加语言 Additional Languages | `English (United States)`                                                                                   | -                                                                                                                                      |
@@ -86,7 +86,7 @@ Transfer Any File — Offline File Format Converter
 Convert between 14 common document, spreadsheet and image file formats right in your browser — offline, in batches, no uploads.
 ```
 
-**Chinese (China) —— 默认语言标签页，先贴这一套。** 三个字段（名称 20/75、简介 66/132、详描 2,877 字符）在
+**Chinese (China) —— 默认语言标签页，先贴这一套。** 三个字段（名称 20/75、简介 66/132、详描 2,959 字符）在
 [商店文案](#商店文案)里；名称与简介同时活在 `public/_locales/zh_CN/messages.json`，`pnpm verify:listing` 逐字比对两边。
 那个标签页要等**带 `_locales/zh_CN/` 的包上传之后**才出现——先传包再填表，手上那份旧草稿看不到它是正常的。
 
@@ -265,7 +265,7 @@ Convert between 14 common document, spreadsheet and image file formats right in 
 扩展真正具备的能力（混格式批量、多步链路、预览与编辑、ZIP 下载），而不是文件扩展名。依旧不写 PDF 转 Word、PDF 转 Excel，
 因为这个扩展做不到无损的 PDF 转换。
 
-**详细介绍（Detailed Description）** [必填] —— 纯文本，本仓库自设上限 16,000 字符（英文块实测 8,030；下面的中文块实测 2,877）
+**详细介绍（Detailed Description）** [必填] —— 纯文本，本仓库自设上限 16,000 字符（英文块实测 8,315；下面的中文块实测 2,959）
 
 _Google 没有为这个字段公布长度_——75 与 132 是写在文档里的，16,000 不是。把它当成本仓库自己的守卫
 （`pnpm verify:listing`），按后台计数器设定，提交时以那个计数器为准，不要把 16,000 背给审核员。
@@ -302,6 +302,7 @@ BUILT FOR REAL WORKLOADS
 • Preview and edit: view the source and the result side by side, and correct a text result before downloading it
 • Recent targets: the formats you convert to most often are grouped at the top of the target picker
 • Image output parameters: an image target exposes a longest edge (800–4096 px), and a compressed image target additionally takes encoder quality (40–90%) and a target file size (20 KB–2 MB); a source that is rendered page by page takes a render density of 96–300 DPI — every knob starts untouched
+• PDF page selection: converting a PDF to images can be limited to the pages you name (1-3, 5) instead of the whole document; that choice belongs to the batch in front of you and is never stored, so it cannot silently truncate the next PDF
 • Conversion presets: save a target format together with its parameters as a named shortcut (up to 12) and restore the whole setup in one click; a preset works for any batch that can reach that format
 • Archive intake: drop a .zip and the supported files inside join the batch automatically
 • Spreadsheet-friendly encoding: text is read as UTF-8 with a GB18030 then GBK fallback, and written with a byte-order mark so the result opens in a spreadsheet application without garbled characters
@@ -314,7 +315,7 @@ HOW TO USE
 1. Click the toolbar icon — the workbench opens in a new tab
 2. Drop files on the upload area, click to choose them, or paste from the clipboard
 3. Pick the target format. Only formats that every selected file can reach are offered; the rest are greyed out with a reason
-4. Converting to an image? The output panel appears whenever the target is an image: longest edge, plus quality and a target file size when the target is a compressed one
+4. Converting to an image? The output panel appears whenever the target is an image: longest edge, plus quality and a target file size when the target is a compressed one, and a page range when the batch holds a PDF
 5. Press Convert, then download a single file or the whole batch as one ZIP
 6. Repeat the same setup often? Save the format and its parameters as a named preset and restore both in one click
 
@@ -378,6 +379,7 @@ Version 1.0.0 — first store submission.
 • 预览与编辑：源文件与结果左右对照显示，文本类结果可在下载前就地修改
 • 最近使用：你常转的目标格式会以下拉顶部的「最近使用」分组呈现
 • 图片输出参数：目标为图片时可设最长边（800–4096 px）；目标为压缩图片格式时还可设质量（40–90%）与目标体积（20 KB–2 MB）；逐页渲染的源文件另可按「清晰度」选 96–300 DPI；不设置即保持默认
+• PDF 选页：把 PDF 转成图片时可以只点名要渲染的页（如 1-3, 5），不必整份出图；这个选择只属于眼前这一批、不落存储，所以不会悄悄截断下一份 PDF
 • 转换预设：把目标格式连同输出参数存成一个命名快捷方式（最多 12 个），下次一键套用；预设不绑定源格式，凡能转到该格式的批次都能直接用
 • 压缩包解包：拖入一个 .zip，其中受支持的文件自动加入批次
 • 表格友好的编码：文本按 UTF-8 读取，失败时依次回退 GB18030 与 GBK，写出时带字节序标记，用表格软件打开不乱码
@@ -951,6 +953,10 @@ PDF → ZIP 解码）。跑这一步的纪律：**`.output/chrome-mv3` 在被测
 
 > 这些是关于**本文件**的修订记录，不是产品发布说明（产品在 `CHANGELOG.md`）。数字全部由 `pnpm verify:listing` 实测。
 
+- **2026-09-24（PDF 选页进 listing）** —— 两份详细介绍各加一条 bullet，位置同为「图片输出参数 / Image output parameters」之后；
+  「使用方法 / HOW TO USE」第 4 步各补同一从句——那个字段确实就长在那块面板里，而 listing 从没提过它。
+  **副作用**：两个粘贴块变长，速查表、字段标签与上架手册（中英两份）里被引用的四处字符数按 `pnpm verify:listing` 重测为
+  英文 8,315 / 中文 2,959。名称、简介、单一目的与隐私披露逐字节未动：页码范围不落存储，所以 `storage` 权限那段说明照旧成立。
 - **2026-09-22（第三次拒审 · 远程托管代码）** —— [拒审记录](#拒审记录与政策口径)新增 2026-09-21 一节，
   并据此改了四处操作性内容：开工前置命令从五项变六项（加 `pnpm verify:remote-code`，它读产物所以必须排在
   `pnpm build` 之后）、顶部当前状态改记「被拒三次」并说明第三次的轴不是文案、版本历史那行补 09-21、

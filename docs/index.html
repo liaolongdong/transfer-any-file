@@ -4904,13 +4904,16 @@
                 <span lang="zh-CN"
                   >目标是 PNG / JPEG / WebP 时，面板给出真正的编码器旋钮：质量 40–90%、最长边 800–4096 px、目标体积 20
                   KB–2 MB（质量与目标体积仅 JPEG / WebP），源里有 PDF 时还能选 96–300
-                  DPI。目标体积靠质量阶梯反复编码逼近。每一项默认「不动」，一键恢复默认，参数本身持久化到本机。</span
+                  DPI。目标体积靠质量阶梯反复编码逼近。每一项默认「不动」，一键恢复默认，参数本身持久化到本机。同一行的「页码范围」是另一回事：它只栅格化你点名的那几页（如
+                  1-3, 5），说的是这份文件的哪几页，因此不出本机、也不进预设。</span
                 >
                 <span lang="en"
                   >A PNG / JPEG / WebP target exposes the real encoder knobs: quality 40–90% and a target size of 20
                   KB–2 MB for JPEG and WebP, longest edge 800–4096 px for all three, plus 96–300 DPI when a PDF is in
                   the batch. The size ceiling is met by walking a quality ladder. Every knob starts untouched, one
-                  control restores the defaults, and the settings persist on your machine.</span
+                  control restores the defaults, and the settings persist on your machine. The Pages field beside them
+                  is a different kind of thing: it rasterizes only the pages you name (1-3, 5), and because it states
+                  which pages this file means it is never stored and never part of a preset.</span
                 >
               </p>
             </article>
@@ -6631,19 +6634,19 @@ pnpm build</code><button
               <p>
                 <span lang="zh-CN"
                   >一套 Playwright 端到端套件加载真正的构建产物，用仓库内的夹具跑完各类转换场景、批量与
-                  ZIP、取消与改键、预览与编辑、图片输出参数与转换预设、历史与偏好，共 276 项断言全部通过（1.0.0
-                  之后的未发布构建，2026-09-23 实测）；另在 6 主题 × 浅/深共 12
+                  ZIP、取消与改键、预览与编辑、图片输出参数与转换预设、PDF 选页、历史与偏好，共 283
+                  项断言全部通过（1.0.0 之后的未发布构建，2026-09-24 实测）；另在 6 主题 × 浅/深共 12
                   种组合下逐项校验四组对比度：顶栏文字、主按钮文字（常态 / 悬停 / 按下）、焦点环与正文信息文字。CI
                   每次推送跑 lint + build + e2e。</span
                 >
                 <span lang="en"
                   >A Playwright end-to-end suite drives the actual build output over the repository fixtures — every
                   conversion scenario, batching and ZIP handling, cancellation and shortcut rebinding, preview and
-                  editing, image output parameters and conversion presets, history and preferences — with 276/276
-                  assertions passing (the unreleased build after 1.0.0, measured 2026-09-23). It also checks four
-                  contrast pairs — topbar text, the primary button's label in its rest, hover and pressed states, the
-                  focus ring, and informational text such as the drop hint and file sizes — in all 12 theme × light/dark
-                  combinations. CI runs lint, build and e2e on every push.</span
+                  editing, image output parameters and conversion presets, PDF page selection, history and preferences —
+                  with 283/283 assertions passing (the unreleased build after 1.0.0, measured 2026-09-24). It also
+                  checks four contrast pairs — topbar text, the primary button's label in its rest, hover and pressed
+                  states, the focus ring, and informational text such as the drop hint and file sizes — in all 12 theme
+                  × light/dark combinations. CI runs lint, build and e2e on every push.</span
                 >
               </p>
             </div>

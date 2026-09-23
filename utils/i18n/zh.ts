@@ -109,6 +109,10 @@ export default {
     pixels: '{value} px',
     kilobytes: '{value} KB',
     reset: '恢复默认',
+    // 这一项不是输出参数，而是「源文件读多少」，所以面板顶部那句提示覆盖不到它——
+    // 「留空 = 全部页」这条默认规则只能写进占位符本身。
+    pageRange: '页码范围',
+    pageRangePlaceholder: '如 1-3, 5；留空为全部页',
   },
 
   // Conversion presets
@@ -270,6 +274,8 @@ export default {
     docxGen: 'DOCX 生成失败',
     docxEmpty: 'DOCX 文档内容为空，无法转换',
     pdfParse: 'PDF 解析失败，文件可能已损坏',
+    // 文件本身没问题，是用户填的那串页码在这份文档里一页都没命中——所以指向输入框，而不是文件。
+    pdfPageRange: '页码范围在本文件中没有匹配到任何页面，请检查它是否超出文档页数',
     xlsxEmpty: 'XLSX 文件中没有工作表',
     csvDecode: 'CSV 解码失败，请检查文件编码',
     imageDecode: '图片解码失败，文件可能已损坏',

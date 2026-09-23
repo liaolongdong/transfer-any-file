@@ -130,6 +130,16 @@ export interface ConvertContext {
    * a PDF→JPG batch applies `dpi` at the PDF→PNG step and `quality` at the PNG→JPG one.
    */
   options?: ImageOutputOptions;
+  /**
+   * Which pages of a PDF source to read, as the user typed them (`"1-3, 5"`); absent means every
+   * page.
+   *
+   * A raw spec rather than a resolved list, because only the converter has the page count to clamp
+   * against. It sits beside {@link options} instead of inside it on purpose: that object is what a
+   * preset remembers about an *output*, and a preset that quietly converted only pages 1–3 of the
+   * next, unrelated document would be throwing the user's pages away.
+   */
+  pageRange?: string;
 }
 
 // A single converter plugin interface

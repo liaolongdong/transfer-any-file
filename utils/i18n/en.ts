@@ -103,6 +103,8 @@ const en: typeof zh = {
     pixels: '{value} px',
     kilobytes: '{value} KB',
     reset: 'Reset',
+    pageRange: 'Pages',
+    pageRangePlaceholder: 'e.g. 1-3, 5; empty for all pages',
   },
 
   // Conversion presets
@@ -262,6 +264,7 @@ const en: typeof zh = {
     docxGen: 'Failed to generate DOCX',
     docxEmpty: 'The DOCX file contains no convertible content',
     pdfParse: 'Failed to parse PDF; the file may be corrupted',
+    pdfPageRange: 'The page range matches no page in this document; check it against the page count',
     xlsxEmpty: 'The XLSX file contains no worksheets',
     csvDecode: 'Failed to decode CSV; please check the file encoding',
     imageDecode: 'Failed to decode image; the file may be corrupted',

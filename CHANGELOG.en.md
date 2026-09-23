@@ -35,6 +35,19 @@ always name the same release.
   ceiling chased rather than guaranteed: the smallest reachable result is returned instead of an error.
   Parameters persist under `fat:outputOptions`, apply to image targets only, and a parameter set left
   over from an earlier image batch cannot degrade a later document conversion.
+- **A PDF can convert only the pages you name.** When the batch holds a PDF and the target is an image, the
+  tuning row gains a Pages field: a spec such as `1-3, 5` rasterizes exactly those pages, `-`, `–` and `~`
+  all count as the range dash, `,`, `，`, `、`, `;` and `；` all separate, and an empty field is still the whole
+  document. The parsing rules are a pure function (`utils/core/pdf-pages.ts`) while the page numbers are
+  clamped by the converter against `numPages` — it is the only party that knows how many pages this document
+  has. Three choices are deliberate: **it belongs neither to `fat:outputOptions` nor to a preset**, because
+  that state describes what an _output_ should look like while a page range describes which pages _this file_
+  has in mind, and persisting it would silently truncate the next, unrelated PDF; a range that matches no page
+  **fails** the file (`errors.pdfPageRange`) instead of handing back every page as though nothing had been set,
+  since that silent version of the mistake is the one this project cannot walk back; and ZIP entries **keep
+  their original page numbers**, so pages 2 and 4 give `page-2.png` and `page-4.png`, while no range still
+  gives `page-1.png … page-N.png`. The field acts on the PDF→image route alone: every other route out of a PDF
+  (`PDF → DOCX` and friends) still reads the whole document's text.
 - **Conversion presets.** The current target plus its output parameters save as a named card (up to
   12, names clamped to 40 characters, untitled saves describe themselves) above the format picker. A
   preset is bound to a target, not to a source format — "PNG → 200 KB WebP" applies whether the next
