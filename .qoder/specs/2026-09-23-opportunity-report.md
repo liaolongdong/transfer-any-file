@@ -375,3 +375,65 @@ ROADMAP / good-first-issue 标签文档）。做完是前三项落地、第四�
 **仍等用户的一步**：Dependabot 要在 Settings → Code and automation → Dependabots 里开启，
 配置文件本身不会自己生效；`good first issue` 标签也需要后台创建才有筛选页。这两条与 G1（topics）、
 G2（tag 与 Release）同属"外部写操作由所有者执行"那一栏。
+
+---
+
+## 15. 追加收口：F7 文件列表编辑，以及"读了调用点的守卫"不等于"读了被调函数"（`fcc96c0`）
+
+**先把这条报告里的一处错账翻掉**：§4 的 F7 行与 §8 都写着"删一个文件清掉整批结果已经修好了，
+`App.vue:232` 那个调用点带守卫，`removeFile` 不走 `setFiles`"。这句是错的，而且错得很典型——
+那个守卫是 `if (isConverting.value) return`，管的是"批次在跑的时候冻结文件来源"，跟结果保留无关；
+而删一行走的是 `FileUpload` 发新列表 → `handleFilesUpdate` → `files.length > 0` 那一支 → **同一个
+`setFiles`**。所以 09-19 那一条从来没被修过，本轮才是。教训：判断"某个操作会不会丢状态"，
+要读被调函数怎么写状态，调用点前面挂了什么守卫不构成答案。
+
+**分类的做法是枚举写点，不是猜哪些"看起来该清"**。把 `batchResults` / `targetFormat` /
+`previousBatch` 的每一处赋值列出来，只问一句：这个操作之后，屏幕上那一屏还在描述真实存在的文件吗？
+答案是"是"的只有 `setFiles`——它以前无条件 `clearBatchState()`，于是十文件的批次删掉一行，
+其余九个转好的连同刚选的目标一起没。剩下四处（`setTargetFormat` / `clearResults` / `reset` /
+以及新列表里出现够不到当前目标的文件）清得有理，其中交集失效那一处不但要清，还得**出声**：
+混批只提供对全部文件都有效的目标，这个理由不该让用户自己推，所以补了 `convert.targetDropped`
+一条提示（中英各一份，key 集不变）。
+
+**归属表是这张改动里唯一有代价的决定**，值得记下来为什么长成这样。`ConvertResult` 里没有源文件身份
+——它的 `filename` 是按源 basename 重拼出来的输出名，同批两个 `report.md` 只在时间戳上分得开，
+所以按名字配对会删错行。往 `ConvertResult` 里加一个 source 字段是更"正统"的做法，但那会同时惊动
+下载命名与历史写入两条链路；一张与 `batchResults` 同下标的 `resultOwners: File[]` 是最小侵入，
+而且 `File` 对象引用在 `applyFiles` / `expandArchives` 的透传里是稳定的，够当身份用。
+代价是它立了一条"两处必须同改"的约定，而这类约定**编译器不管、ESLint 也不管**：
+自审时抓到的第一个漏网就是 `setTargetFormat`——它逐字段清屏时清了 `batchResults` 却没清
+`resultOwners`，两张表长度就此错开。今天没有任何读取路径会看见这个错位（换目标已经把失败项清空，
+重试在索引集为空时就 `return`），但它正是那种"下一次有人新增一处读取才炸"的坑，所以补了一行。
+
+**一条新的可观察副作用，是接受而不是修**：结果现在能活过一次文件编辑，于是出现了一个此前到不了的状态
+——删掉一行之后，`role="status"` 那块会把完成播报**改个数字重读一遍**（`statusAnnouncement` 由
+`batchResults` / `batchFailures` 派生，且在 `liveRegionText` 里优先级高于列表播报）。
+把优先级反过来更糟：`listAnnouncement` 没有"消费后清空"，一条上次的"已选择 3 个文件"会一直吞掉
+批次完成的播报。而"完成 3 个 → 完成 2 个"本身就是这次删除的准确反馈，所以留着。
+套件里紧接其后的 `File List Status Announced to Assistive Tech` 三条仍绿（那一节结束时 `clearFiles()`
+已经把结果清空）。
+
+**为什么这一轮跑了两遍完整套件**：第一遍（`/tmp/f7idx`、292/292、EXIT=0、3,768,828 B）跑完之后
+评审才补上 `setTargetFormat` 那一行，于是被测的树不再等于要提交的树。做法是按 §13 的办法重来一遍：
+重新 `checkout-index` 到 `/tmp/f7idx2`、软链 `node_modules`、`wxt build`、完整套件
+（`E2E_PORT=9904`，另一棵树的 runner 早已退出、9876 也没去抢），**292/292、EXIT=0**，
+整包 **3,768,833 B**——比第一遍多 5 B，正是那一行 JS 进产物字节（与「JS 注释进字节、CSS 注释只进哈希」
+同一条口径）。最后一道 `diff <(git show :file) /tmp/f7idx2/file` 证明"跑的那棵树"与"提交的那棵树"
+逐字节一致。同一棵导出树上 `lint:all` 与 numbers / meta / offline 两层 / remote-code 两层 / paths /
+listing 全部 exit 0；**`pages:check` 跑不了**，因为它依赖的 `scripts/render-site-pages.mjs`、
+`scripts/conversion-pages/`、`docs/convert/` 至今未纳入版本管理（并发会话的在途 SEO 层），
+导出树上根本没有那个脚本——提交里如实在 commit message 写了"未验证"，而不是跳过不提。
+
+**暂存这步的机械细节**（共享工作树，`docs/index.html` 里 11 个 hunk 只有 2 个是我的）：
+按 marker 过滤 `git diff HEAD -U3` 生成子 patch 再 `git apply --cached`；marker 选得足够长
+（`历史与偏好，共 292` / `with 292/292 assertions passing`）才不会撞上别人的行。
+两个数都是三位数，改动等宽，prettier 不会因此重排那两行——这一点值得记，因为在 dirty 文件里
+`prettier --write` 会顺手重写别人的行。
+
+**留下的对外债务**：断言总数 283→292 同步进三处**已跟踪**载体（`docs/index.html` 中英各一句、
+`docs/promo/wechat-article.md`、`docs/promo/blog-article.en.md`），`verify:numbers` 在同一棵导出树上
+确认 23 个事实跨 15 份文档一致。四份**未跟踪**载体（`docs/blog/index.html`、
+`docs/promo/community-posts*.md`、`.github/visibility-checklist.md`）工作区里仍写着 283，
+归属并发会话——他们下一次绿灯跑会把基线改写并带走那一格散文，但如果他们在 292 的基线上提交，
+这四份必须一起改，否则 `verify:numbers` 红在他们的 CI 上。
+
