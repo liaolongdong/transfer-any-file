@@ -235,6 +235,14 @@ function openPreview(result: ConvertResult): void {
   gap: var(--fat-space-xs);
 }
 
+/* The alert's content box is a flex item, and its default `min-width: auto` let the file row set a
+   floor the whole card had to obey — from ~460px down the download buttons hung past the right edge
+   of the tab, clipped rather than scrollable. `0` hands shrinking to `.result-name`, which already
+   ellipsizes, and changes nothing while there is room. */
+.result-download :deep(.el-alert__content) {
+  min-width: 0;
+}
+
 .result-item {
   display: flex;
   align-items: center;

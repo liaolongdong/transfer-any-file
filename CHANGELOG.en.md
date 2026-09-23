@@ -560,6 +560,24 @@ zero network requests`) and the Chinese equivalent never appeared in a search re
 
 ### Fixed
 
+- **The comparison view no longer squeezes two unreadable columns into a narrow window.** Split-screen
+  browsing and half-width windows left each pane around 300 px: 编辑 / Edit and 复制 / Copy in the result
+  header were clipped away by `.panel { overflow: hidden }` (missing by 9 px at 700 px, by 139 px at
+  440 px) and both panes scrolled sideways. Below 720 px the pair now stacks vertically, the divider
+  turns horizontal, and the drag axis, `aria-orientation` and the ↑/↓ keys follow the change — the
+  breakpoint is tracked live without reloading the tab (`matchMedia`, removed on unmount). In that same
+  width band a long file name pushed the download buttons past the right edge of the tab:
+  `.el-alert__content` is a flex item, and its default `min-width: auto` set a floor for the whole
+  card; with `0` the name ellipsizes instead.
+- **Dragging the divider across a preview no longer lets go.** A preview is a sandboxed `<iframe>`, and
+  once a pressed pointer enters it Chrome routes the rest of the gesture to that document: the divider
+  stopped tracking and the `pointerup` never arrived either, leaving `user-select: none` and a
+  `col-resize` cursor on the page. While a drag is live a transparent sheet now covers the panel row, so
+  the whole gesture stays in this document (pointer capture still retargets it to the separator), with a
+  `pointerup` listener on `document` as the backstop that guarantees the sheet comes off. Measured at
+  1280 px: before, a 60 px horizontal drag left the split at 50; now it reads 55% for that container
+  width. Both changes add 1,637 B to the package (3,763,908 → 3,765,545), which crosses the rounding
+  boundary the outward prose quotes — 3.76 MB becomes 3.77 MB.
 - **A cancelled batch no longer reported as a completed one.** Cancelling mid-batch left the
   "conversion finished" alert over the partial results, and cancelling before the first file
   finished left the screen empty, as though the button had done nothing. A stopped batch now reads

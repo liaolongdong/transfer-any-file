@@ -172,6 +172,7 @@ Summarised from the typical behaviour of each class of tool rather than one spec
 ### 👀 Preview and edit
 
 - **Split view** — source and result side by side with a draggable divider, plus Source-only / Result-only modes and sync scrolling; <kbd>1</kbd> / <kbd>2</kbd> / <kbd>3</kbd> switch between the three modes and <kbd>←</kbd> / <kbd>→</kbd> nudge the divider by 5%
+- **Narrow windows stack the pair** — at ≤720 px (browser split-screen, for instance) the panes stack top over bottom, the divider becomes horizontal, and both the drag axis and <kbd>↑</kbd> / <kbd>↓</kbd> follow; crossing the breakpoint needs no reload
 - **Inline editing** — text results (Markdown / HTML / TXT / CSV / JSON) can be corrected before you download them
 - **Copy to clipboard** — text results copy out with one click, so a conversion does not have to round-trip through a download
 - **Paste to convert** — <kbd>⌘V</kbd> / <kbd>Ctrl+V</kbd> drops in a clipboard image or text snippet
