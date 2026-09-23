@@ -284,3 +284,60 @@ M2 的加载态只覆盖过了单条目早返回之后那一段。
 并发会话正在改或尚未跟踪的 6 份载体（`docs/index.html` ×3 处正文与 2 处注释、`docs/llms.txt`、
 `docs/blog/index.html`、`.github/visibility-checklist.md`、`docs/promo/community-posts*.md`）
 留给其作者一并带走——`verify:numbers` 不守体积，所以这条只能靠人记。
+
+---
+
+## 13. 追加收口：F3 PDF 选页，以及"这笔提交到底测的是哪棵树"（`8176a67`）
+
+**这一项的授权来自哪里**：§10 把「PDF 页码范围」记在 Wave E 功能菜单里，等的是"要不要做"这句话，
+而批次 3 的执行授权已经覆盖了它（同批的 F11 见 §12，那条反而是先按缺陷处理才不需要授权）。
+真正需要停下确认的是**默认值与存储结构**，两条都没动：字段留空等于整份照旧，且刻意不落 storage。
+
+**拆开来看缺的不是渲染能力，是三个边界**：谁持有页码选择、谁能判定它合法、非法时怎么办。
+第二条决定了分层方式——判定必须等 `numPages`，而 `numPages` 只有转换器知道，所以
+`clampPageRangeSpec` 只管长度与空白、`parsePageRange` 才对着文档展开，这不是洁癖是可分性。
+`parsePageRange` 的三种返回必须互不相同，其中"选了但一页都不匹配"这一支最容易糊过去：
+把它当"没选"处理就交付了用户没要的文件、还绝口不提他设的范围，而这条项目里已经吃过一次
+（§7 那批有损语义的判据是"丢东西必须说"）。所以它在渲染**之前**抛错，且在 `loadingTask.destroy()`
+之后——从 `try` 里面抛会被那个 catch 重新贴成 `imageEncode`，报错文案就答非所问了。
+
+**两个刻意的"不做"**：不持久化（页码范围是关于"这一份文件"的陈述，存进 storage 就会在下次无关
+批次里静默截断别人的文档）；不进 `ImageOutputOptions`（预设卡片快照的就是那个对象，"PNG 1280px"
+的卡片不该把选页带进另一份文档）。顺带一条同类判断：`md→html→pdf→png` 这条链里那个 PDF 是刚从
+用户的 markdown 生成的，字段从来不是对它说话，所以按"这一步的源文件是不是用户上传的那个 PDF"
+来发，而不是按整批。ZIP 里的文件名取**文档页号**而不是数组下标，重编号等于把摘录悄悄改名。
+
+**这笔提交测的是哪棵树**——共享工作树里这个问题不再是修辞：被测产物里同时躺着并发会话的
+theme seed、`collapsedState` 去重和 `pages:render` 那批。所以本轮把**索引**单独
+`git checkout-index` 到临时目录、软链 `node_modules`、在那儿重新 `wxt build` 并跑完整套件，
+那一跑的对象与 `8176a67` 的内容一字不差：`BUILD_EXIT=0`、manifest `5338dba3345f`、
+整包 3,767,977 B（工作树那份是 3,767,972，差 5 B，所以体积只能引用独立构建的数）、
+**e2e 283/283、EXIT=0**。同一份导出上再跑 numbers / meta / listing / paths / offline:source /
+remote-code:source / prettier，七条全 exit 0——这就是"这笔提交不依赖在途改动"的证法，
+比"在工作树跑绿"强，因为它顺带排除了别人未提交的断言。
+
+**过程中的两条，都值得留下来**：
+
+1. **整文件 `git add` 在共享工作树里不是"只加我的"**。`git add scripts/e2e-test.mjs` 把对方那个
+   boot 存储小节一起扫进了索引，而 `git diff --cached` 数出来 5 个 hunk、我只认得 3 个——其中一个
+   是纯注释改写，任何关键词审计都抓不到。更误导的是暂存**之后**再跑 `git diff`（不带 `--cached`）
+   比的是索引→工作树，对方继续在改时它只剩那一小块新编辑，读起来像"这文件已经全是我的了"。
+   修法：`git restore --staged`（安全，不碰工作树）→ 按 hunk 序号过滤 `git diff HEAD` →
+   `git apply --cached` → 再对**每一个** staged 文件跑一次「staged blob 里有没有 HEAD 没有的对方字符串」。
+2. **负载会把证据伪装成回归**。这一轮三次全量跑废在机器上：load1 冲到 251、swap 用了 6 GB/7 GB，
+   Playwright 的浏览器在 suite 中途直接死掉，于是它之后的每个小节都报 `Target page, context or
+   browser has been closed`，最先超时的总是 `HTML→PDF page slices are PNG` 那个 30 s 等待。
+   没有去抬那个超时——那是遮蔽而不是修，而且同一份产物在空闲时是 283/283。真正的处置是等
+   （下一轮再看是否给这一节换成条件等待）。另外端口 9876 被对方的 runner 占着时会
+   `EADDRINUSE` 直接失败，那是**别人的进程，不能 kill**，所以排队跑而不是抢跑。
+
+**并发会话把套件推到了 284 并且当前有一条红灯**（`fat:collapsedState×2`，正是他们那个去重要修的
+东西）。`8176a67` 记的 283 是"这笔提交的树"的总数，不是工作区的——他们下一次绿灯跑会把基线写成
+284 并带走那一格散文。
+
+**留下的对外债务**：断言总数 276→283 已同步进 `docs/index.html`（中英各一句）、
+`docs/promo/wechat-article.md`、`docs/promo/blog-article.en.md` 与基线文件；那四份**未被跟踪**的载体
+（`docs/blog/index.html`、`docs/promo/community-posts*.md`、`.github/visibility-checklist.md`）
+工作区里已改成 283，但归属并发会话，他们提交时必须一起带走，否则他们的 CI 会在
+`verify:numbers` 上红。listing 两份详描实测 8,315 / 2,959 字符（原 8,030 / 2,877），
+上架手册中英两份的引用数同步；名称、简介、权限、隐私披露逐字节未动。
