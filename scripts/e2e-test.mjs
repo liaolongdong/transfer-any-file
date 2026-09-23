@@ -3021,52 +3021,74 @@ async function run() {
     await page.waitForTimeout(300);
 
     const cb = await page.$('.convert-btn');
-    // Armed before the click rather than polled after it: the batch card is on screen for the
-    // length of the batch, which on a fast machine is a few hundred milliseconds — a waiter armed
-    // in advance sees it either way, so this assertion does not depend on how quick the run is.
-    // Its result is consumed below, after the cancel race: awaiting it here would spend part of the
-    // 2 s window that decides which branch that pre-existing block takes, and the block's assertion
-    // count differs per branch, so the suite total would end up depending on this line.
+    // Both waiters are armed before the click and consumed after it. A waiter armed in advance sees
+    // the batch card and the cancel affordance however briefly they are on screen, so neither how
+    // fast nor how loaded this machine is decides which checks this section runs. Clicking from
+    // inside the waiter is what lets the cancel reach the batch at all: three tiny fixtures convert
+    // in about the time a Node round trip takes, so on a quiet machine the click still lands after
+    // the last file, and on a loaded one it truncates the batch — both are handled below.
     const batchCard = page
       .waitForSelector('.batch-progress .current-file', { timeout: 8000 })
       .then(async el => ((await el?.textContent()) || '').trim())
       .catch(() => '');
-    await cb.click();
-
-    // Try to find and click cancel button quickly
-    try {
-      const cancelBtn = await page.waitForSelector('.cancel-btn', { timeout: 2000 });
-      if (cancelBtn) {
-        ok('Cancel button visible during conversion');
-        await cancelBtn.click();
-        await page.waitForTimeout(1000);
-        ok('Cancel button clicked');
-
-        // Cancelling has to be visible afterwards: a truncated batch used to render exactly
-        // like a complete one, and a cancel before the first file left the screen empty.
-        const convertedCount = (await page.$$('.result-item')).length;
-        const cancelAlert = await page
-          .$eval('.result-download .el-alert__title', el => el.textContent.trim())
-          .catch(() => '');
-        if (convertedCount < 3) {
-          if (cancelAlert.includes('已取消'))
-            ok(`Cancelled batch reported as cancelled (${convertedCount}/3 converted)`);
-          else fail('Cancelled batch', `truncated at ${convertedCount}/3 but the header read "${cancelAlert}"`);
-          const announced = await page.$eval('.sr-only[role="status"]', el => el.textContent.trim()).catch(() => '');
-          if (announced.includes('已取消')) ok('Cancellation announced to assistive tech');
-          else fail('Cancellation announcement', `live region read "${announced}"`);
-        } else if (cancelAlert.includes('转换完成')) {
-          ok('Batch finished before the cancel landed (fast machine); completion reported');
-        } else {
-          fail('Cancel outcome', `all 3 files converted but the header read "${cancelAlert}"`);
+    const affordance = page
+      .waitForSelector('.cancel-btn', { timeout: 8000 })
+      .then(async el => {
+        try {
+          await el.click({ timeout: 500 });
+          return { clicked: true, visible: true };
+        } catch {
+          return { clicked: false, visible: true };
         }
-      }
-    } catch {
-      // Conversion may have completed before cancel button appeared
-      const isLoading = await page.$eval('.convert-btn', el => el.classList.contains('is-loading')).catch(() => false);
-      if (!isLoading) ok('Conversion completed before cancel could be tested (fast machine)');
-      else fail('Cancel button', 'not visible and conversion still in progress');
+      })
+      .catch(() => ({ clicked: false, visible: false }));
+    await cb.click();
+    const cancel = await affordance;
+
+    // Every path below answers the same five questions, so the suite total this section
+    // contributes — the number `verify:numbers` holds the outward documents to — is the same on a
+    // loaded machine and an idle one. The answer differs by what happened, never the count.
+    // Nothing here is sampled while the batch is still running: "did the cancel leave a trace" is a
+    // claim about the settled screen, and reading it early sees an absent result card. The wait is
+    // bounded, because a batch that never settles is itself a failure this section is here to catch.
+    const resultCard = await page
+      .waitForSelector('.result-download .el-alert__title', { timeout: 15000 })
+      .catch(() => null);
+    const convertedCount = (await page.$$('.result-item')).length;
+    const cancelAlert = resultCard ? ((await resultCard.textContent()) || '').trim() : '';
+    const announced = await page.$eval('.sr-only[role="status"]', el => el.textContent.trim()).catch(() => '');
+
+    // 1. Was stopping the batch reachable? A batch that finished first is a legitimate answer, but
+    //    only if it really finished — anything else means the affordance was never usable.
+    if (cancel.clicked) ok('Cancel button visible during conversion');
+    else if (convertedCount === 3) ok('Batch finished before the cancel affordance could be clicked (fast machine)');
+    else if (cancel.visible) fail('Cancel button', 'came up but the click did not land while files were still pending');
+    else fail('Cancel button', `never offered while only ${convertedCount}/3 files had converted`);
+    // 2. Cancelling has to be visible afterwards: a truncated batch used to render exactly
+    //    like a complete one, and a cancel before the first file left the screen empty.
+    const truncated = convertedCount < 3;
+    if (truncated) {
+      if (cancelAlert.includes('已取消')) ok(`Cancelled batch reported as cancelled (${convertedCount}/3 converted)`);
+      else fail('Cancelled batch', `truncated at ${convertedCount}/3 but the header read "${cancelAlert}"`);
+    } else if (cancelAlert.includes('转换完成')) ok('Batch finished before the cancel landed; completion reported');
+    else fail('Cancel outcome', `all 3 files converted but the header read "${cancelAlert}"`);
+    // 3. The same distinction, in the text a screen reader gets. `App.vue` phrases a clean batch as
+    //    "全部 N 个文件转换成功" and a mixed one as "转换完成：成功 … 失败 …", so completion has two
+    //    wordings while a cancelled batch always says 已取消 — never 完成, whichever way it went.
+    const said = truncated ? ['已取消'] : ['转换成功', '转换完成'];
+    const heard = said.find(s => announced.includes(s));
+    if (heard) ok(`Batch outcome announced to assistive tech (${heard})`);
+    else {
+      fail(
+        'Announcement',
+        `live region read "${announced}" while the batch ${truncated ? 'was cancelled' : 'finished'}`,
+      );
     }
+    // 4. And it has to land somewhere: `App.vue` counts a cancelled batch as done even when nothing
+    //    converted, so the progress card gives way to results instead of leaving an empty screen.
+    if (resultCard) ok('Settled batch hands the screen to the result card');
+    else fail('No result card', `the batch ended with ${convertedCount}/3 items and no header`);
+    // 5. Batch progress names the file in flight.
     const batchFile = await batchCard;
     if (/sample\.\w+/.test(batchFile)) ok(`Batch progress names the file in flight (${batchFile})`);
     else fail('Batch current file', `the batch card read "${batchFile}"`);
