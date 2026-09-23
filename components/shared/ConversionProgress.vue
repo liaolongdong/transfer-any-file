@@ -1,12 +1,17 @@
 <script setup lang="ts">
 import { useI18n } from '~/composables/useI18n';
 import CurrentFileHint from '~/components/shared/CurrentFileHint.vue';
+import StepProgressHint from '~/components/shared/StepProgressHint.vue';
 
 defineProps<{
   isConverting: boolean;
   error: string | null;
   /** Name of the file currently being processed (batch progress hint). */
   currentFileName?: string | null;
+  /** 1-indexed position inside the current file's conversion chain; 0 when unknown. */
+  currentStep?: number;
+  /** Steps in the resolved chain; ≤ 1 hides the line, so single-step routes look unchanged. */
+  stepTotal?: number;
 }>();
 
 const { t } = useI18n();
@@ -40,6 +45,11 @@ const { t } = useI18n();
       <CurrentFileHint
         v-if="currentFileName"
         :name="currentFileName"
+      />
+      <StepProgressHint
+        v-if="(stepTotal ?? 0) > 1"
+        :current="currentStep ?? 0"
+        :total="stepTotal ?? 0"
       />
     </div>
     <el-alert

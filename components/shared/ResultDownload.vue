@@ -18,8 +18,10 @@ const props = withDefaults(
     cancelled?: boolean;
     /** Files the batch planned to process; only meaningful together with `cancelled`. */
     totalCount?: number;
+    /** True while the ZIP is being assembled — blocking CPU work that otherwise looks like a dead button. */
+    packaging?: boolean;
   }>(),
-  { cancelled: false, totalCount: 0 },
+  { cancelled: false, totalCount: 0, packaging: false },
 );
 
 const emit = defineEmits<{
@@ -201,6 +203,8 @@ function openPreview(result: ConvertResult): void {
       <el-button
         type="primary"
         :icon="Download"
+        :loading="packaging"
+        :disabled="packaging"
         style="width: 100%"
         @click="handleDownload"
       >

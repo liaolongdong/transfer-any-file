@@ -44,6 +44,28 @@ export interface ConversionFailure {
    * reachable in the expanded diagnostic instead of discarding it.
    */
   detail?: string;
+  /**
+   * Index of the failed file inside the batch it came from, or `undefined` when the chain never
+   * got far enough to be attributed.
+   *
+   * Only `retryFailedFiles` reads it, and it needs an index rather than a name: two files in one
+   * batch can legitimately be called `report.md`, and matching by name would re-run the wrong one
+   * (or re-run the right one twice) and show the user a duplicate of a file that already worked.
+   */
+  fileIndex?: number;
+}
+
+/**
+ * What a retry pass ended up doing, so the caller can tell "the user changed their mind at the
+ * confirmation dialog" apart from "the retried files failed again".
+ *
+ * `ran` is false whenever the retry never started or was abandoned because the workspace was reset
+ * underneath it; in that case the counts are meaningless and must not be announced.
+ */
+export interface RetryOutcome {
+  ran: boolean;
+  recovered: number;
+  stillFailing: number;
 }
 
 /**
@@ -104,6 +126,26 @@ export function useConversion() {
   const batchFailures: Ref<ConversionFailure[]> = ref([]);
   const currentIndex: Ref<number> = ref(-1);
   const completedCount: Ref<number> = ref(0);
+  /**
+   * Position inside the current file's conversion chain (1-indexed), and how many steps that chain
+   * has. Both are 0 whenever there is nothing to attribute — before the path resolves, after the
+   * file returns, and always for a single-file idle workspace.
+   *
+   * The step loop already keeps these numbers to record `failedStep` in the diagnostics panel; they
+   * were simply never published. Surfacing them is what lets a multi-step route (MD→PDF is
+   * `md→html` then `html→pdf`) show movement inside a file instead of a spinner that cannot change
+   * until the whole chain returns — the only progress a single-file batch ever had.
+   */
+  const currentStep: Ref<number> = ref(0);
+  const stepTotal: Ref<number> = ref(0);
+  /**
+   * True while "download all" is assembling a ZIP. Packing is synchronous CPU work per entry
+   * (fflate deflates ~7 MB in about a second), so without this the button looks dead and the
+   * click that "did nothing" gets pressed again.
+   */
+  const isPackaging: Ref<boolean> = ref(false);
+  /** True while `retryFailedFiles` is re-running the failed subset. */
+  const isRetrying: Ref<boolean> = ref(false);
   /**
    * True when the last batch ended because the user cancelled it.
    *
@@ -166,9 +208,16 @@ export function useConversion() {
     return targets.filter(t => !formats.includes(t) && !formats.some(f => getBlockedReason(f, t) !== null));
   });
 
-  function setFiles(files: File[]): void {
-    sourceFiles.value = files;
-    sourceFormats.value = files.map(f => detectFormat(f));
+  /**
+   * Drop everything that describes *a run* — results, failures, progress, undo — leaving the
+   * selected files and the conversion flag alone.
+   *
+   * `setFiles`, `clearResults` and `reset` all need exactly this, and each of them used to spell it
+   * out field by field. Centralising it is what guarantees the per-step progress counters are
+   * cleared on every one of those paths too: a stale `stepTotal` would keep drawing a "step 2 / 3"
+   * line over a workspace that has no batch in it.
+   */
+  function clearBatchState(): void {
     targetFormat.value = null;
     batchResults.value = [];
     batchFailures.value = [];
@@ -176,7 +225,15 @@ export function useConversion() {
     cancelled.value = false;
     completedCount.value = 0;
     currentIndex.value = -1;
+    currentStep.value = 0;
+    stepTotal.value = 0;
     previousBatch.value = null;
+  }
+
+  function setFiles(files: File[]): void {
+    sourceFiles.value = files;
+    sourceFormats.value = files.map(f => detectFormat(f));
+    clearBatchState();
   }
 
   function setTargetFormat(format: FileFormat): void {
@@ -185,16 +242,25 @@ export function useConversion() {
     batchFailures.value = [];
     error.value = null;
     cancelled.value = false;
+    currentStep.value = 0;
+    stepTotal.value = 0;
     previousBatch.value = null;
   }
 
-  async function convert(): Promise<void> {
+  /**
+   * Run one batch over `sourceFiles` toward `targetFormat`.
+   *
+   * Resolves to whether the batch actually ran: `false` covers "nothing selected", "already
+   * running" and "the user backed out of the confirmation dialog", which `retryFailedFiles` needs
+   * to tell apart from a batch that ran and failed.
+   */
+  async function convert(): Promise<boolean> {
     const target = targetFormat.value;
     if (sourceFiles.value.length === 0 || !target) {
       error.value = 'errors.noFileOrTarget';
-      return;
+      return false;
     }
-    if (isConverting.value || convertLocked) return;
+    if (isConverting.value || convertLocked) return false;
 
     // F15 — pre-conversion confirmation. The user opts in once via the
     // PreferencesMenu toggle (stored as fat:confirmConvert, default true); the value is
@@ -249,13 +315,13 @@ export function useConversion() {
       } catch {
         convertLocked = false;
         ElMessage.info(t('convert.confirmCancelled'));
-        return;
+        return false;
       }
       convertLocked = false;
       // Everything awaited above happened while the dialog had the screen. If the workspace was
       // reset or re-targeted in that window, the summary the user confirmed no longer describes
       // this batch — drop it instead of converting under a stale target.
-      if (workspaceEpoch !== epochAtConfirm || targetFormat.value !== target) return;
+      if (workspaceEpoch !== epochAtConfirm || targetFormat.value !== target) return false;
     }
 
     // Capture the current batch as the undo target before this run overwrites it.
@@ -328,6 +394,10 @@ export function useConversion() {
         // path and which step blew up. Stays []/undefined when the chain never ran.
         let stepPath: FileFormat[] = [];
         let stepFailedAt: number | undefined;
+        // Cleared before the path resolves so a file with no route never inherits the previous
+        // file's step line, and stays at 0 / 0 — the value the progress hints hide themselves on.
+        currentStep.value = 0;
+        stepTotal.value = 0;
         try {
           if (!format) throw new Error('errors.unknownFormat');
 
@@ -340,6 +410,7 @@ export function useConversion() {
           // path[0] is the source, path[path.length-1] is the target, path.length-1 is the
           // number of steps — handy for F19's diagnostic panel.
           stepPath = [format, ...steps.map(s => s.to)];
+          stepTotal.value = steps.length;
 
           let currentBlob: Blob = file;
           // The last step decides the real container: a multi-sheet XLSX→CSV and a multi-page
@@ -358,6 +429,7 @@ export function useConversion() {
           let svgRasterized = false;
           for (let stepIndex = 0; stepIndex < steps.length; stepIndex++) {
             if (signal.aborted) break;
+            currentStep.value = stepIndex + 1;
             const step = steps[stepIndex];
             // Built per step because only the final encode may honour `quality` and `targetSizeKB`;
             // the signal and the source identity stay the same across the whole chain.
@@ -399,6 +471,7 @@ export function useConversion() {
             path: stepPath,
             failedStep: stepFailedAt,
             detail: causeDetailOf(e),
+            fileIndex: i,
           };
           failures.push(failure);
           batchFailures.value.push(failure);
@@ -451,6 +524,8 @@ export function useConversion() {
         cancelled.value = wasCancelled;
         isConverting.value = false;
         currentIndex.value = -1;
+        currentStep.value = 0;
+        stepTotal.value = 0;
         // Desktop notification on natural completion (skip when user cancelled or batch was empty).
         // The composable internally no-ops if permission is missing or the tab is already focused.
         if (!wasCancelled && (results.length > 0 || failures.length > 0)) {
@@ -469,6 +544,7 @@ export function useConversion() {
         }
       }
     }
+    return true;
   }
 
   function cancelConversion(): void {
@@ -501,6 +577,10 @@ export function useConversion() {
       downloadResult(0);
       return;
     }
+    // Only the multi-entry path can block long enough to need telling the user about; a single
+    // result goes straight to `saveAs` above, and flashing a spinner for one synchronous call
+    // would only teach the eye to ignore it.
+    isPackaging.value = true;
     try {
       const { Zip, ZipDeflate, ZipPassThrough } = await loadFflate();
       const chunks: BlobPart[] = [];
@@ -531,6 +611,102 @@ export function useConversion() {
       saveAs(new Blob(chunks, { type: 'application/zip' }), `converted-${nameStamp(new Date())}.zip`);
     } catch {
       error.value = 'errors.zipFail';
+    } finally {
+      isPackaging.value = false;
+    }
+  }
+
+  /**
+   * Re-run only the files that failed in the last batch, keeping the results that succeeded.
+   *
+   * Until now the only way to act on "完成 3 个，失败 2 个" was 重新转换, which wipes the good
+   * results and converts all five again — so a 200-file batch that lost one file cost the whole
+   * batch to recover one file. This swaps in the failed subset, hands it to the ordinary
+   * `convert()` (so the confirmation gate, cancellation, per-file error isolation, policy checks and
+   * history accounting all behave exactly as they do for a normal run), then puts the files back and
+   * prepends the results that were already on screen.
+   *
+   * Two deliberate consequences of reusing `convert()` rather than writing a second loop: the batch
+   * record written to history describes the retried files only, and a re-run that fails again
+   * replaces its own earlier diagnostic row instead of stacking a second copy of the same file.
+   */
+  async function retryFailedFiles(): Promise<RetryOutcome> {
+    const target = targetFormat.value;
+    if (isConverting.value || convertLocked || target === null) return { ran: false, recovered: 0, stillFailing: 0 };
+    const indexes = [
+      ...new Set(
+        batchFailures.value
+          .map(f => f.fileIndex)
+          .filter((i): i is number => i !== undefined && i >= 0 && i < sourceFiles.value.length),
+      ),
+    ].sort((a, b) => a - b);
+    if (indexes.length === 0) return { ran: false, recovered: 0, stillFailing: 0 };
+
+    const heldResults = [...batchResults.value];
+    const heldFailures = [...batchFailures.value];
+    const heldFiles = [...sourceFiles.value];
+    const heldFormats = [...sourceFormats.value];
+    // Undo across the retry: `convert()` snapshots whatever is on screen before it clears it, and
+    // the workspace is empty by then, so it would drop the snapshot and leave 撤销 dead.
+    const snapshot: BatchSnapshot = {
+      results: [...heldResults],
+      failures: [...heldFailures],
+      completedCount: completedCount.value,
+      currentIndex: currentIndex.value,
+      target,
+    };
+    const epochAtRetry = workspaceEpoch;
+
+    isRetrying.value = true;
+    sourceFiles.value = indexes.map(i => heldFiles[i]);
+    sourceFormats.value = indexes.map(i => heldFormats[i]);
+    batchResults.value = [];
+    batchFailures.value = [];
+    // Kept separately from the snapshot because `convert()` only reaches its own `cancelled` write
+    // after the confirmation dialog: if the batch never runs, nothing else puts this back, and a
+    // panel that read "转换已取消" would quietly relabel itself as a normal finished batch.
+    const heldCancelled = cancelled.value;
+    cancelled.value = false;
+    try {
+      const ran = await convert();
+      // Backing out of the retry's own confirmation dialog must cost nothing: without putting this
+      // back, saying "not yet" to the dialog would have replaced a panel of finished results with a
+      // selection of only the files that failed. Skipped once the epoch moved, because `reset()` in
+      // that window already cleared the workspace on purpose and restoring it would undo the user.
+      if (!ran) {
+        if (workspaceEpoch === epochAtRetry) {
+          sourceFiles.value = heldFiles;
+          sourceFormats.value = heldFormats;
+          batchResults.value = heldResults;
+          batchFailures.value = heldFailures;
+          cancelled.value = heldCancelled;
+        }
+        return { ran: false, recovered: 0, stillFailing: 0 };
+      }
+      // `reset()` mid-retry already cleared the workspace and bumped the epoch; putting these files
+      // back would resurrect a workspace the user deliberately threw away.
+      if (workspaceEpoch !== epochAtRetry) return { ran: false, recovered: 0, stillFailing: 0 };
+      sourceFiles.value = heldFiles;
+      sourceFormats.value = heldFormats;
+      batchResults.value = [...heldResults, ...batchResults.value];
+      // `convert()` numbered the failures it just produced against the subset it was handed, and by
+      // now the workspace is back to the full list — so those numbers point at the wrong files. A
+      // second retry without this would re-run an already-successful file and leave the still-broken
+      // one on screen. Translating here keeps `fileIndex` meaning exactly one thing: a position in
+      // `sourceFiles`, which is what every reader of it assumes.
+      batchFailures.value = batchFailures.value.map(failure =>
+        failure.fileIndex === undefined || failure.fileIndex >= indexes.length
+          ? failure
+          : { ...failure, fileIndex: indexes[failure.fileIndex] },
+      );
+      previousBatch.value = snapshot;
+      return {
+        ran: true,
+        recovered: batchResults.value.length - heldResults.length,
+        stillFailing: batchFailures.value.length,
+      };
+    } finally {
+      isRetrying.value = false;
     }
   }
 
@@ -542,14 +718,7 @@ export function useConversion() {
 
   /** Clear results/target but keep the selected files, e.g. "convert again" */
   function clearResults(): void {
-    targetFormat.value = null;
-    batchResults.value = [];
-    batchFailures.value = [];
-    error.value = null;
-    cancelled.value = false;
-    completedCount.value = 0;
-    currentIndex.value = -1;
-    previousBatch.value = null;
+    clearBatchState();
   }
 
   function reset(): void {
@@ -560,15 +729,8 @@ export function useConversion() {
     workspaceEpoch++;
     sourceFiles.value = [];
     sourceFormats.value = [];
-    targetFormat.value = null;
     isConverting.value = false;
-    batchResults.value = [];
-    batchFailures.value = [];
-    error.value = null;
-    cancelled.value = false;
-    completedCount.value = 0;
-    currentIndex.value = -1;
-    previousBatch.value = null;
+    clearBatchState();
   }
 
   /** Restore the previously converted batch. Returns true on success, false if
@@ -582,6 +744,8 @@ export function useConversion() {
     batchFailures.value = snap.failures;
     completedCount.value = snap.completedCount;
     currentIndex.value = snap.currentIndex;
+    currentStep.value = 0;
+    stepTotal.value = 0;
     targetFormat.value = snap.target;
     error.value = null;
     // The restored snapshot is a batch that ran to completion; leaving `cancelled` set would
@@ -608,6 +772,10 @@ export function useConversion() {
     batchFailures,
     currentIndex,
     completedCount,
+    currentStep,
+    stepTotal,
+    isPackaging,
+    isRetrying,
     totalCount,
     setFiles,
     setTargetFormat,
@@ -615,6 +783,7 @@ export function useConversion() {
     cancelConversion,
     downloadResult,
     downloadAllZip,
+    retryFailedFiles,
     updateResult,
     clearResults,
     reset,

@@ -17,6 +17,7 @@ import type { ConversionPreset, ConvertResult, ImageOutputOptions } from '~/util
 import FileUpload from '~/components/shared/FileUpload.vue';
 import ConversionProgress from '~/components/shared/ConversionProgress.vue';
 import CurrentFileHint from '~/components/shared/CurrentFileHint.vue';
+import StepProgressHint from '~/components/shared/StepProgressHint.vue';
 import CollapsibleCard from '~/components/shared/CollapsibleCard.vue';
 import PreferencesMenu from '~/components/shared/PreferencesMenu.vue';
 import PresetBar from '~/components/shared/PresetBar.vue';
@@ -60,12 +61,17 @@ const {
   completedCount,
   totalCount,
   currentIndex,
+  currentStep,
+  stepTotal,
+  isPackaging,
+  isRetrying,
   setFiles,
   setTargetFormat,
   convert,
   cancelConversion,
   downloadResult,
   downloadAllZip,
+  retryFailedFiles,
   updateResult,
   clearResults,
   reset,
@@ -122,6 +128,14 @@ const currentFileName = computed(() => {
   if (idx < 0 || idx >= sourceFiles.value.length) return null;
   return sourceFiles.value[idx]?.name ?? null;
 });
+/**
+ * Whether the running file sits on a multi-step chain.
+ *
+ * Gated on `> 1` so a single-step route renders exactly what it rendered before — the extra line is
+ * only worth its space when the per-file counter above it cannot move, which is precisely the case
+ * `MD→PDF` and the rest of the multi-step routes used to leave as a static spinner.
+ */
+const showStepProgress = computed(() => isConverting.value && stepTotal.value > 1);
 // At least one recognizable file is enough; unknown ones fail per-file
 const canConvert = computed(
   () => !isConverting.value && uniqueSourceFormats.value.length > 0 && targetFormat.value !== null,
@@ -161,9 +175,11 @@ watch(isConverting, running => {
 
 const convertButtonText = computed(() => {
   if (isConverting.value) {
-    return cancelRequested.value
-      ? t('convert.cancelling')
-      : t('convert.converting', { done: completedCount.value, total: totalCount.value });
+    if (cancelRequested.value) return t('convert.cancelling');
+    // A retry counts against the failed subset, not the original batch, and says so — otherwise
+    // "(1/1)" over a five-file workspace reads like the other four vanished.
+    const counts = { done: completedCount.value, total: totalCount.value };
+    return isRetrying.value ? t('convert.retrying', counts) : t('convert.converting', counts);
   }
   if (sourceFiles.value.length > 1) return t('convert.startMulti', { count: sourceFiles.value.length });
   return t('convert.start');
@@ -293,6 +309,22 @@ function handleUndo(): void {
   } else {
     ElMessage.info(t('convert.undoUnavailable'));
   }
+}
+
+/**
+ * Re-run only the files that failed, then say what came back.
+ *
+ * The results panel updates itself, but it sits below the fold on a tall batch and does not scroll
+ * into view — so a retry that recovered one file out of two hundred could easily finish unseen. The
+ * summary is also the only place the *retry* outcome reads as its own event: the panel's headline
+ * counts the merged batch, which cannot show "the one you just retried worked".
+ */
+async function handleRetryFailed(): Promise<void> {
+  const outcome = await retryFailedFiles();
+  if (!outcome.ran) return;
+  const message = t('result.retrySummary', { ok: outcome.recovered, fail: outcome.stillFailing });
+  if (outcome.recovered > 0) ElMessage.success(message);
+  else ElMessage.warning(message);
 }
 
 function handleGlobalKeydown(event: KeyboardEvent): void {
@@ -491,6 +523,11 @@ onUnmounted(() => {
                   v-if="currentFileName"
                   :name="currentFileName"
                 />
+                <StepProgressHint
+                  v-if="showStepProgress"
+                  :current="currentStep"
+                  :total="stepTotal"
+                />
               </div>
             </div>
           </Transition>
@@ -520,6 +557,8 @@ onUnmounted(() => {
                 :is-converting="isConverting"
                 :error="displayError"
                 :current-file-name="currentFileName"
+                :current-step="currentStep"
+                :step-total="stepTotal"
               />
             </div>
           </Transition>
@@ -538,6 +577,7 @@ onUnmounted(() => {
                 :failures="batchFailures"
                 :cancelled="cancelled"
                 :total-count="totalCount"
+                :packaging="isPackaging"
                 @download="downloadResult"
                 @download-all="downloadAllZip"
               />
@@ -549,6 +589,26 @@ onUnmounted(() => {
                   @click="clearResults"
                 >
                   {{ t('convert.reconvert') }}
+                </el-button>
+                <!--
+                  The alternative until now was 重新转换, which drops the results that worked and
+                  converts every file again — so recovering one file out of a large batch cost the
+                  whole batch. Placed between the two actions it sits alongside rather than in front
+                  of them: 重新转换 keeps the left slot and 撤销 the right one, so a batch with no
+                  failures lays this row out exactly as it did before.
+                  No `:disabled` guard on purpose — this whole card is unmounted while `isConverting`,
+                  so a retry is already in flight whenever the button cannot be seen, and
+                  `retryFailedFiles()` refuses a second call regardless.
+                -->
+                <el-button
+                  v-if="hasFailures"
+                  text
+                  type="primary"
+                  :icon="RefreshRight"
+                  class="retry-btn"
+                  @click="handleRetryFailed"
+                >
+                  {{ t('result.retryFailed', { count: batchFailures.length }) }}
                 </el-button>
                 <el-button
                   v-if="hasUndo"
@@ -741,7 +801,12 @@ onUnmounted(() => {
   margin-top: var(--fat-space-sm);
 }
 
+/* Three slots when a batch lost a file, two when it did not; `flex: 1` on all of them keeps 重新转换
+   and 撤销 in the same place either way. Element Plus buttons are `white-space: nowrap`, so the labels
+   set the row's minimum width and the short Chinese strings leave room to spare at the ≤640px
+   breakpoint — no wrap rule needed, and none of the existing buttons moved. */
 .result-actions .reset-btn,
+.result-actions .retry-btn,
 .result-actions .undo-btn {
   flex: 1;
   margin-top: 0;
@@ -749,6 +814,13 @@ onUnmounted(() => {
 
 .batch-progress {
   padding: var(--fat-space-sm) 0 0;
+}
+
+/* The new step line carries its own offset instead of the container switching to a gap layout, so
+   the bar and the file name above it keep exactly the spacing they had before. Matches the
+   `--fat-space-xs` rhythm the file name itself uses inside the other progress host. */
+.batch-progress .step-progress {
+  margin-top: var(--fat-space-xs);
 }
 
 .footer {
