@@ -437,3 +437,62 @@ listing 全部 exit 0；**`pages:check` 跑不了**，因为它依赖的 `script
 归属并发会话——他们下一次绿灯跑会把基线改写并带走那一格散文，但如果他们在 292 的基线上提交，
 这四份必须一起改，否则 `verify:numbers` 红在他们的 CI 上。
 
+
+## 16. 追加收口：F4 文件夹拖入，以及「写下的预算从来没生效过」（`a1ec3d8` + `4b8abe2`）
+
+**这一轮真正的产出不是 F4，是那条被 F4 的验证跑逼出来的缺陷。** 拖文件夹本身是干净的新增输入通道，
+一次成型；但它带来的那一节把完整套件跑了起来，于是连续两轮在同样两节上失败：
+`HTML→PDF page slices are PNG` 与 `Layout Settle Completeness`，都报 `Timeout 30000ms exceeded`。
+
+**对不上的是两个数，不是一条日志。** 报错说等满 30 s，而我加诊断跑出来的真实等待是 0.4–20.7 s
+（最慢的是夹具 JSON→PDF 的 20.7 s）——既然最慢一次离 30 s 还有近 10 s 的余量，那"超时"就不该发生；
+反过来说，如果它发生了，说明**等的那一处用的根本不是我以为的那个预算**。往这个方向查，
+`page.waitForFunction(pageFunction, arg, options)` 的签名是第二格为页面函数入参：全仓四份脚本里
+15 处写成 `waitForFunction(fn, { timeout: N })`，那个对象被当成入参吞掉，等待退回 Playwright 的
+30 s 默认值。所以 `convertInlineHtmlToPdf` 注释里"给这份多页文档 60 s"这句话，从写下那天起就没有
+生效过；90 s 那两处同理。`waitForSelector` / `waitForEvent` 的 options 确实坐在第二位，不受影响，
+逐处确认过没有哪个调用原本就在正确传第二位置参数——有一处确实在传（`waitForFunction(fn, before, {timeout})`），
+脚本差点给它也补一个 `undefined`，那一行会把 `before` 挤成第三个参数、反而把 30 s 变成真预算。
+
+**两处失败就此分开，且修法不同**：补上 `undefined` 之后，`HTML→PDF page slices are PNG` 立刻绿
+（它的 60 s 本来就是对的，只是没生效）；`Layout Settle` 仍然红。第二处不是"参数写错"，是**预算与同文件
+另一条链路自相矛盾**：那一节把一份刻意数千 CSS px 高的文档转成 PDF（实测出 4 页），走的是 `convertFile`
+为夹具定的 30 s，而它转的东西不是夹具。于是给 `convertFile` 加一个默认 30000 的 `timeout` 形参，
+只让 `measurePdfPages` 传 60000——与 `convertInlineHtmlToPdf` 同一条口径，其余调用点一个都没放松。
+判据写进注释（夹具上限 20.7 s 实测、这台机器负载 40+），下次再有人想放宽得先拿新的数出来。
+这条不是"调大超时掩盖环境问题"：两处都把**代码里已经写着的意图**接回去，区别只在意图一处写在参数位上、
+一处写在同文件的另一条链路里。
+
+**`E2E_ONLY` 不是隔离器，这轮又用它错过一次。** 想靠过滤跑把失败归因到某一节，结果过滤跑自己造出新的
+假失败（`SVG→PDF` / `GIF→PDF` 报 `option not available`）：只有体被 `if (section(...))` 包住的小节会
+真的跳过，公共的转换场景循环照跑，而它复用的那个 `page` 停在上一节留下的状态里。结论是**归因只能靠完整
+跑 + 顺序 + "谁改了哪个文件"**，过滤跑只能用来快速看一节的输出，不能用来判定绿灯或红灯；顺带它也不写
+断言基线（`skippedSections > 0` 就不写），这条守卫是对的。
+
+**两个提交共享同一棵导出树，这个拆法怎么自证。** `test(e2e)`（4 份脚本）先落，`feat(upload)`（源码 +
+文档 + 那一节）后落，两者都对着 `/tmp/f4idx2` 那棵树取绿灯：它是 HEAD 的 `checkout-index` 导出 +
+只属于我的 hunk（`e2e-test.mjs` 里那两个属于并发会话的 hunk 按 old-start 行号过滤掉），暂存后 15 份文件
+与导出树逐文件 md5 全等。**F4 那一节只新增、用自己的 page、不共享状态**，所以"含 F4 的树 302/302 绿"
+同时就是"harness 修复单独看也绿"——其余 292 条断言在同一棵树上通过即前一条提交的验证，这一点写在两条
+commit message 里，而不是再烧一遍完整套件。另外记一笔可复现：HEAD-only 对照树整包 **3,768,833 B**，
+与 §15 记的数逐字节相同。
+
+**按 old-start 行号过滤 hunk，第一次提交后就会失配。** `e2e-test.mjs` 的 F4 hunk 在旧 HEAD 上是
+`@@ -2129,6`，`test(e2e)` 提交落地后同一个 hunk 变成 `@@ -2148,6`——因为过滤依据的是**新 diff 相对新
+HEAD** 的行号。第一次按 `2129` 取，取出来是空 patch，`git apply --cached` 只回一句 `Files differ`。
+所以：同一个文件拆进两次提交时，第二次的 keep 集合必须在第一次落地之后重新取一次，
+并且始终 `git apply --check` 在前、逐文件 md5 比对在后。
+
+**素材这一栏是"跑了 ≠ 该提交"**。`upload.drop` 那句界面文案改了（拖拽文件或文件夹…），按规则该重拍
+商店与 README 素材；重拍后 24 张全部变化，其中 `dark-mode` / `presets` 这类明显与这句文案无关的也在变。
+于是做对照：**同一棵 HEAD-only 树重拍，24 张与仓库里已提交的 24 张逐张不同**——说明这套素材自首拍
+（09-18 `67e5b8b`）起就已相对 HEAD 漂移。此刻把重拍结果提交进这条 feature，等于把别人一个月的界面改动
+算成我的。所以 `assets:capture` 跑了、结论写进 commit message、产物一张不进；它属于发版那次统一重拍。
+
+**验证与欠账**：`302/302`（292 + 新增一节 10 条）、整包 3,770,842 B（HEAD 3,768,833 B），导出树上
+`lint:all` 与 numbers / meta / offline 两层 / remote-code 两层 / paths / listing 全部 exit 0；
+`verify:numbers` 不需要 `--update`（三处载体只是数值变化，句子条数没动，基线里那一格计数不变）。
+断言总数 292→302 同步进三处**已跟踪**载体；四份**未跟踪**载体仍写着 283，归属并发会话，同一笔欠账
+和 `pages:check` 跑不了（渲染脚本与 `docs/convert/` 未纳入版本管理）一起留在他们那边。
+`verify-extension.mjs` 本机跑不了（缺 Playwright 自带 chromium，脚本第 24 行就失败，改到的两处在其后）。
+未推送 87 笔。
