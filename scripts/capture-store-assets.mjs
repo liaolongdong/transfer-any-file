@@ -215,6 +215,7 @@ async function runConversion(page) {
       const alert = document.querySelector('.el-alert__title');
       return Boolean(alert && alert.textContent && alert.textContent.length > 0);
     },
+    undefined,
     { timeout: 60000 },
   );
   await page.waitForTimeout(600);

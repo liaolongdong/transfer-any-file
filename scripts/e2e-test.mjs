@@ -265,8 +265,18 @@ function mockChromeStorage(seed = {}) {
 /**
  * Upload a fixture file — or an in-memory `{ name, mimeType, buffer }`, for a document shaped by
  * the test itself rather than by `fixtures/` — and convert to the given target format.
+ *
+ * `timeout` budgets the wait for the result banner, and the default is sized by `fixtures/`: the
+ * slowest of those measured 20.7 s on a loaded machine, so 30 s is a real bound and not a formality.
+ * A caller whose document is deliberately bigger than any fixture overrides it, because the cost of a
+ * conversion here scales with the pages the document produces, not with its bytes.
+ *
+ * Note on every `waitForFunction` call in this file: the signature is
+ * `(pageFunction, arg, options)`, so a bare `{ timeout }` in the second slot is read as the page
+ * function's argument and the wait runs on Playwright's 30 s default. The explicit `undefined` in
+ * that position is what keeps the budgets written next to them real.
  */
-async function convertFile(page, fixture, targetText) {
+async function convertFile(page, fixture, targetText, timeout = 30000) {
   const fi = await page.$('input[type="file"]');
   if (!fi) throw new Error('file input not found');
   const label = typeof fixture === 'string' ? fixture : fixture.name;
@@ -295,7 +305,8 @@ async function convertFile(page, fixture, targetText) {
       const alert = document.querySelector('.el-alert__title');
       return alert && alert.textContent.length > 0;
     },
-    { timeout: 30000 },
+    undefined,
+    { timeout },
   );
   await page.waitForTimeout(500);
 
@@ -433,6 +444,7 @@ async function convertInlineHtmlToPdf(page, name, html) {
       const alert = document.querySelector('.el-alert__title');
       return alert && alert.textContent.length > 0;
     },
+    undefined,
     { timeout: 60000 },
   );
   await page.waitForTimeout(500);
@@ -1051,10 +1063,10 @@ async function run() {
         );
 
       /** Hand one in-memory page through the workbench's own upload → target → convert path. */
-      async function convertPage(html, targetText) {
+      async function convertPage(html, targetText, timeout) {
         await resetWorkbench(page);
         const inMemory = { name: 'settle-page.html', mimeType: 'text/html', buffer: Buffer.from(html) };
-        const { resultName } = await convertFile(page, inMemory, targetText);
+        const { resultName } = await convertFile(page, inMemory, targetText, timeout);
         if (!resultName) throw new Error(`${targetText} produced no result row for the settle page`);
         return downloadBatchArtifact(page);
       }
@@ -1071,7 +1083,10 @@ async function run() {
 
       /** How many pages the workbench's PDF for this page carries. */
       async function measurePdfPages(html) {
-        const pdf = await convertPage(html, 'PDF (.pdf)');
+        // The default budget fits a fixture, and the fixtures' own ceiling is 20.7 s (JSON→PDF). This
+        // document is a few thousand CSS px tall, so its PDF comes out multi-page and is sliced page by
+        // page — the same shape `convertInlineHtmlToPdf` documents with its 60 s.
+        const pdf = await convertPage(html, 'PDF (.pdf)', 60000);
         if (pdf.slice(0, 5) !== '%PDF-') throw new Error(`expected a PDF artifact, got ${pdf.slice(0, 8)}`);
         return readPdfSliceFilters(pdf).pages;
       }
@@ -1260,6 +1275,7 @@ async function run() {
         const alert = document.querySelector('.el-alert__title');
         return alert && alert.textContent.length > 0;
       },
+      undefined,
       { timeout: 30000 },
     );
     const resultCount = await page.$$eval('.result-item', els => els.length);
@@ -1408,6 +1424,7 @@ async function run() {
         const alert = document.querySelector('.el-alert__title');
         return alert && alert.textContent.length > 0;
       },
+      undefined,
       { timeout: 30000 },
     );
     // Give any in-flight subresource request time to reach the server before judging.
@@ -1461,6 +1478,7 @@ async function run() {
           const alert = document.querySelector('.el-alert__title');
           return alert && alert.textContent.length > 0;
         },
+        undefined,
         { timeout: 30000 },
       );
       await page.waitForTimeout(500);
@@ -2099,6 +2117,7 @@ async function run() {
       .waitForFunction(
         () =>
           [...document.querySelectorAll('.el-message')].some(m => (m.textContent || '').includes('无法转换为当前目标')),
+        undefined,
         { timeout: 5000 },
       )
       .then(() => true)
@@ -2262,6 +2281,7 @@ async function run() {
         const alert = document.querySelector('.el-alert__title');
         return alert && alert.textContent.length > 0;
       },
+      undefined,
       { timeout: 30000 },
     );
     const alertTitle = await page.$eval('.el-alert__title', el => el.textContent).catch(() => '');
@@ -3377,6 +3397,7 @@ async function run() {
     await page.click('.el-message-box__btns .el-button:first-child');
     await page.waitForFunction(
       () => [...document.querySelectorAll('.el-message')].some(m => (m.textContent || '').includes('已取消')),
+      undefined,
       { timeout: 5000 },
     );
     ok('Cancelling the dialog aborts the conversion');
@@ -3391,6 +3412,7 @@ async function run() {
         const alert = document.querySelector('.el-alert__title');
         return alert && alert.textContent.includes('完成');
       },
+      undefined,
       { timeout: 90000 },
     );
     ok('Accepting the dialog runs the batch');
@@ -3420,6 +3442,7 @@ async function run() {
         const btn = document.querySelector('.convert-btn');
         return !!btn && !btn.classList.contains('is-loading');
       },
+      undefined,
       { timeout: 90000 },
     );
 
@@ -3463,7 +3486,7 @@ async function run() {
     // for files that are no longer selected while the file list shows the new ones.
     const fi2 = await page.$('input[type="file"]');
     await fi2.setInputFiles(path.join(FIXTURE_PATH, 'sample.txt'));
-    await page.waitForFunction(() => !document.querySelector('.undo-btn'), { timeout: 5000 });
+    await page.waitForFunction(() => !document.querySelector('.undo-btn'), undefined, { timeout: 5000 });
     ok('Undo invalidated after the file set changed');
 
     // Now exercise the restore itself.
@@ -3475,10 +3498,11 @@ async function run() {
     await (await page.$('.undo-btn')).click();
     await page.waitForFunction(
       () => [...document.querySelectorAll('.el-message')].some(m => (m.textContent || '').includes('已撤销')),
+      undefined,
       { timeout: 5000 },
     );
     ok('Undo restored the previous batch and reported success');
-    await page.waitForFunction(() => !document.querySelector('.undo-btn'), { timeout: 5000 });
+    await page.waitForFunction(() => !document.querySelector('.undo-btn'), undefined, { timeout: 5000 });
     ok('Undo is one-shot — the snapshot is consumed');
     await page.screenshot({ path: shot(`${String(shotIdx++).padStart(2, '0')}-undo-done.png`), fullPage: true });
   } catch (e) {
@@ -3588,6 +3612,7 @@ async function run() {
         const el = document.querySelector('.el-alert__title');
         return !!el && (el.textContent || '').includes('完成');
       },
+      undefined,
       { timeout: 60000 },
     );
     await page.waitForTimeout(800);

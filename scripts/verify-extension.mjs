@@ -81,6 +81,7 @@ await page.waitForFunction(
     const alert = document.querySelector('.el-alert__title');
     return alert && alert.textContent.length > 0;
   },
+  undefined,
   { timeout: 30000 },
 );
 await page.waitForTimeout(1500);
@@ -107,6 +108,7 @@ await page.waitForFunction(
     const alert = document.querySelector('.el-alert__title');
     return alert && alert.textContent.length > 0;
   },
+  undefined,
   { timeout: 30000 },
 );
 await page.waitForTimeout(1500);
