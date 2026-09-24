@@ -601,6 +601,49 @@ zero network requests`) and the Chinese equivalent never appeared in a search re
   closure too, but splitting them would put the language seed above at risk. Both stay, per the rule that a
   change touching behaviour, interaction or the performance baseline is proposed before it is made.
 
+- **The one key still read twice during boot is gone, and it uncovered a serialization that never worked.**
+  Continuing the "same key read twice" thread, the boot window measures 10 reads → 9, and opening the
+  preferences popover for the first time costs two reads less. **One:**
+  `useTheme`'s `initTheme` re-read `fat:theme` / `fat:colorMode` after `main.ts` had already read them and
+  written them onto `<html>`, only to put the same values into its own reactive state; `main.ts` now hands
+  the two validated values back through `seedTheme()` — the same shape as `seedLocale` — and `initTheme`
+  reads only when nothing was seeded, so the unseeded path stays complete. **This was never part of the boot
+  path:** `PreferencesMenu` lives inside a `:persistent="false"` popover, so `useTheme()` runs on the user's
+  first open rather than at startup. What the seed saves there is those two reads _and_ the frame before they
+  land, when the theme picker rendered at `DEFAULT_THEME` — a user who stored `rose` saw `blue` in the
+  freshly opened panel until the read resolved. **Two:** the two
+  `CollapsibleCard`s (`presets` and `history`) mount in one frame and each read the shared
+  `fat:collapsedState`; they now share one read, and the cache covers the read alone and is dropped the
+  moment it settles, so a card mounting in a later batch still sees what is stored now — a card joining
+  while the read is in flight sees that read's snapshot. Harmless today, since the merge only ever spans
+  cards mounting in one frame, but stated here so nobody reads it as a stronger promise.
+  **The defect dug up alongside is worth more than those two.** The first version of the merged read was
+  inert, because of `<script setup>`: every line written there runs inside `setup()`, i.e. **once per
+  component instance**, and the built bundle shows the queue declared inside `setup(e){ … }`. Which means the
+  cross-card serialization promised on 2026-09-20 never existed — each card was only serialized against
+  itself, so two cards updating that one map still interleaved read-modify-write and the later writer
+  overwrote the earlier card's key with its own stale map. The queue and the in-flight read now live in
+  `utils/core/collapsed-state.ts`, one copy per page. Every other top-level `let` in a `<script setup>` in
+  this repository was checked one by one and is genuinely per-instance (debounce timers, `isMounted`,
+  `paintObserver`); this was the only case of the kind.
+  **Two things the review added.** Every link in that queue read-modify-writes the whole map, so what comes
+  back from storage is now put through `toCollapsedStateMap()` first: anything that is not a plain object,
+  any array, and any value that is not a boolean is dropped. A stored `null` or string used to make the
+  assignment inside the link throw, and one rejected link stalls the persistence of every card behind it —
+  which is precisely what the comment on that queue promised could not happen. The coercion also returns a
+  copy, so the two cards no longer hold the same object. The other addition: restoring on mount no longer
+  writes back the value it just read. Nothing on disk changes, but each card whose stored value differs
+  from its default used to pay an extra read and write just after the first paint — and that write was the
+  unstated assumption keeping the new assertion below green.
+  **Regression:** the third assertion in `Startup Request Budget` becomes "no key is read twice during boot"
+  in place of "`fat:locale` is read exactly once" — the reason for refusing a total round-trip budget stands,
+  but a per-key judgement has headroom, and it caught the inert implementation on its first run. A new
+  `Collapsed State Writes Serialize` section clicks both card headers within one tick and requires both keys
+  to survive in the map; on that page `get` is wrapped to behave like Chrome's — the value is the store as of
+  dispatch, delivered a task later — and the 30 ms is measured rather than styled: at 0 ms the section stays
+  green with the chaining deleted, at 30 ms it loses `presets`. No change to the interface, interaction or
+  stored data.
+
 ### Fixed
 
 - **The comparison view no longer squeezes two unreadable columns into a narrow window.** Split-screen

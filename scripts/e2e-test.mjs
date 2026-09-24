@@ -681,9 +681,10 @@ async function run() {
   }
   // One `storage.local.get` is one round trip to the browser process, and three of them used to sit
   // on the await that gates the mount: theme, colour mode, language. They now share one call, which
-  // is what this pins — the shape, not the total. A round-trip budget is the weaker form of the same
-  // claim: this page reads persisted state ten times today and thirteen before the batch, so any
-  // ceiling tight enough to catch that is one new preference away from failing for the wrong reason.
+  // is what this pins — the shape, not the total. A round-trip ceiling is the weaker form of the same
+  // claim: the number of keys this page reads grows with every new preference, so a ceiling tight
+  // enough to catch a duplicate is one preference away from failing for the wrong reason. The
+  // per-key form of that check is the assertion right below it.
   const bootKeys = boot.storageCalls?.find(
     keys => keys.includes('fat:theme') && keys.includes('fat:colorMode') && keys.includes('fat:locale'),
   );
@@ -695,13 +696,79 @@ async function run() {
       `no call carried all three keys: ${JSON.stringify(boot.storageCalls)}`,
     );
   }
-  // `seedLocale` hands `useI18n` the language `main.ts` just read, so `initLocale` has no reason to
-  // fetch that key a second time — this is the read the seed exists to remove, named on its own.
-  const localeReads = boot.storageCalls?.filter(keys => keys.includes('fat:locale')).length ?? -1;
-  if (localeReads === 1) {
-    ok('The locale key is read once during boot');
+  // What the seeds actually remove is a re-read, so the general form of it is what gets pinned: a key
+  // fetched twice before any interaction means some module re-read state the entry already resolved.
+  // One such key was live until now — two cards mounting in one flush each paid for
+  // `fat:collapsedState`. `useTheme` re-read theme and colour mode the same way after `main.ts` had
+  // applied them, but that pair never entered this window: `PreferencesMenu` lives in a popover with
+  // `persistent=false`, so its `useTheme()` runs on the first open, not at boot. An empty record is not
+  // "no duplicates", it is a stub that stopped recording, so it fails.
+  const calls = boot.storageCalls;
+  const readCounts = new Map();
+  for (const keys of calls ?? []) {
+    for (const key of keys) readCounts.set(key, (readCounts.get(key) ?? 0) + 1);
+  }
+  const twiceRead = [...readCounts].filter(([, count]) => count > 1).map(([key, count]) => `${key}×${count}`);
+  if (Array.isArray(calls) && calls.length > 0 && twiceRead.length === 0) {
+    ok(`No storage key is read twice during boot (${readCounts.size} keys over ${calls.length} reads)`);
   } else {
-    fail('The locale key is read once during boot', `${localeReads} reads of fat:locale`);
+    fail(
+      'No storage key is read twice during boot',
+      Array.isArray(calls) ? `calls=${calls.length} duplicates=${JSON.stringify(twiceRead)}` : 'no call recorded',
+    );
+  }
+
+  // ═══════════════════════════════════════════
+  //  EVERY CARD'S COLLAPSE STATE SURVIVES THE OTHER'S
+  // ═══════════════════════════════════════════
+  //
+  // Every card read-modify-writes one shared `fat:collapsedState` map, so two persisting at the same
+  // time interleave and the later write silently drops the earlier card's key. The queue meant to
+  // prevent that was declared inside `<script setup>`, which runs once per instance — it serialized
+  // one card against itself and nothing else, and no test could tell because a single card was always
+  // enough to pass. Toggling two headers in one task is what makes the difference observable: both
+  // debounce callbacks fire in the same timer pass.
+  //
+  // That only reaches the race if `get` answers the way Chrome does. The shared mock resolves it in a
+  // microtask, so an unchained write chain finishes inside its own timer callback before the next
+  // card's callback runs — measured: with the mock as it is, deleting the chaining still left both keys
+  // in the map, so the assertion below would have been decoration. Real Chrome answers from another
+  // process: the value is the store as of dispatch, delivered a task later. The wrapper gives that one
+  // property to this page alone, and 30 ms is where it becomes a test rather than a style choice — at
+  // 0 ms the un-chained version passes, at 30 ms it loses `presets` and keeps only `history`, which is
+  // the exact shape of the bug. The 900 ms wait below budgets two such round trips plus the debounce.
+  section('Collapsed State Writes Serialize');
+  const cardPage = await browser.newPage();
+  await cardPage.setViewportSize({ width: 1280, height: 900 });
+  await cardPage.addInitScript(mockChromeStorage());
+  await cardPage.addInitScript(`(() => {
+  const local = window.chrome.storage.local;
+  const rawGet = local.get.bind(local);
+  local.get = keys => {
+    const dispatched = rawGet(keys);
+    return new Promise(resolve => setTimeout(() => resolve(dispatched), 30));
+  };
+})();`);
+  await cardPage.goto(`http://localhost:${PORT}/options.html`);
+  await cardPage.waitForTimeout(1200);
+  const collapsed = await cardPage.evaluate(async () => {
+    const heads = Array.from(document.querySelectorAll('.collapsible-head'));
+    if (heads.length < 2) return { headCount: heads.length, map: null };
+    heads[0].click();
+    heads[1].click();
+    await new Promise(resolve => setTimeout(resolve, 900));
+    const stored = await window.chrome.storage.local.get('fat:collapsedState');
+    return { headCount: heads.length, map: stored['fat:collapsedState'] ?? null };
+  });
+  await cardPage.close();
+  const writtenIds = collapsed.map ? Object.keys(collapsed.map) : [];
+  if (writtenIds.length >= 2) {
+    ok(`Both cards persist after one interleaved write pass (${JSON.stringify(collapsed.map)})`);
+  } else {
+    fail(
+      'Both cards persist after one interleaved write pass',
+      `heads=${collapsed.headCount} map=${JSON.stringify(collapsed.map)}`,
+    );
   }
 
   // ═══════════════════════════════════════════

@@ -15,9 +15,9 @@ export const AVAILABLE_THEMES: { value: ThemeName; color: string }[] = [
 
 /**
  * Defaults and whitelists are exported so `entrypoints/options/main.ts` can validate
- * persisted values with the exact same rules before the app mounts. A divergent
- * fallback there would make `initTheme` re-apply a different theme after mount,
- * which is visible as a flash.
+ * persisted values with the exact same rules before the app mounts. It seeds the result back
+ * through `seedTheme`, so a divergent rule here would not be corrected by a later read — the
+ * two paths have to agree by construction.
  */
 export const DEFAULT_THEME: ThemeName = 'blue';
 export const DEFAULT_MODE: ColorMode = 'system';
@@ -30,6 +30,7 @@ const state = reactive<{ theme: ThemeName; mode: ColorMode }>({
 });
 
 let initialized = false;
+let seeded = false;
 const darkMq = typeof window !== 'undefined' ? window.matchMedia('(prefers-color-scheme: dark)') : null;
 let darkModeListener: ((event: MediaQueryListEvent) => void) | null = null;
 const storageUnsubs: Array<() => void> = [];
@@ -56,20 +57,38 @@ export function applyMode(mode: ColorMode): void {
   }
 }
 
+/**
+ * Put the already-resolved theme and colour mode into the shared state.
+ *
+ * `main.ts` reads both keys pre-mount anyway — a theme that corrects itself after the first frame is a
+ * visible flash — so this module already holds the answer twice over. Without the seed, `initTheme`
+ * fetches the same pair again and `state.theme` sits at `DEFAULT_THEME` until that resolves: the
+ * preferences popover is `persistent=false`, so the first open paints the picker on the wrong theme and
+ * flips it a round trip later. Seeding marks the state as resolved so the read is skipped, and both paths
+ * apply the same whitelists because the caller validates before it calls.
+ */
+export function seedTheme(theme: ThemeName, mode: ColorMode): void {
+  state.theme = theme;
+  state.mode = mode;
+  seeded = true;
+}
+
 async function initTheme(): Promise<void> {
   if (initialized) return;
   initialized = true;
 
-  const [storedTheme, storedMode] = await Promise.all([
-    storageGet<ThemeName>(STORAGE_KEYS.theme, DEFAULT_THEME),
-    storageGet<ColorMode>(STORAGE_KEYS.colorMode, DEFAULT_MODE),
-  ]);
+  if (!seeded) {
+    const [storedTheme, storedMode] = await Promise.all([
+      storageGet<ThemeName>(STORAGE_KEYS.theme, DEFAULT_THEME),
+      storageGet<ColorMode>(STORAGE_KEYS.colorMode, DEFAULT_MODE),
+    ]);
 
-  state.theme = VALID_THEMES.has(storedTheme) ? storedTheme : DEFAULT_THEME;
-  state.mode = VALID_MODES.has(storedMode) ? storedMode : DEFAULT_MODE;
+    state.theme = VALID_THEMES.has(storedTheme) ? storedTheme : DEFAULT_THEME;
+    state.mode = VALID_MODES.has(storedMode) ? storedMode : DEFAULT_MODE;
 
-  applyTheme(state.theme);
-  applyMode(state.mode);
+    applyTheme(state.theme);
+    applyMode(state.mode);
+  }
 
   darkModeListener = () => {
     if (state.mode === 'system') applyMode('system');
@@ -103,6 +122,7 @@ if (import.meta.hot) {
     for (const off of storageUnsubs) off();
     storageUnsubs.length = 0;
     initialized = false;
+    seeded = false;
   });
 }
 

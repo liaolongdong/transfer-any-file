@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch } from 'vue';
 import { ArrowDown } from '@element-plus/icons-vue';
-import { STORAGE_KEYS, storageGet, storageSet } from '~/utils/storage';
+import { queueCollapsedWrite, readCollapsedState } from '~/utils/core/collapsed-state';
 
 const props = withDefaults(
   defineProps<{
@@ -22,22 +22,6 @@ let persistDebounce: ReturnType<typeof setTimeout> | undefined;
 let isMounted = false;
 let userInteracted = false;
 
-/**
- * Tail of the write queue for the shared collapsedState map. Every card read-modify-writes
- * that one key, so two unchained writes interleave and the later one silently drops the
- * earlier card's state. storageGet/storageSet swallow their own failures, so a chain link
- * can never reject and stall the queue behind it.
- */
-let persistQueue: Promise<void> = Promise.resolve();
-
-function queuePersist(cardId: string, value: boolean): void {
-  persistQueue = persistQueue.then(async () => {
-    const map = await storageGet<Record<string, boolean>>(STORAGE_KEYS.collapsedState, {});
-    map[cardId] = value;
-    await storageSet(STORAGE_KEYS.collapsedState, map);
-  });
-}
-
 function toggle(): void {
   userInteracted = true;
   isOpen.value = !isOpen.value;
@@ -46,7 +30,7 @@ function toggle(): void {
 onMounted(async () => {
   isMounted = true;
   if (!props.cardId) return;
-  const map = await storageGet<Record<string, boolean>>(STORAGE_KEYS.collapsedState, {});
+  const map = await readCollapsedState();
   // A click that lands while the read is in flight wins over the value it returns,
   // otherwise restoring late both reverts the panel and persists the stale state back.
   if (userInteracted) return;
@@ -64,13 +48,16 @@ onUnmounted(() => {
 });
 
 watch(isOpen, value => {
-  if (!props.cardId) return;
+  // Only a click has something to persist. The restore in `onMounted` fires this watcher too whenever
+  // the stored value differs from `defaultOpen`, and writing back what was just read costs a read and
+  // a write just after the first paint, for no change on disk.
+  if (!props.cardId || !userInteracted) return;
   clearTimeout(persistDebounce);
   persistDebounce = setTimeout(() => {
     persistDebounce = undefined;
     // The component may have unmounted between the debounce and the callback
     if (!isMounted) return;
-    queuePersist(props.cardId, value);
+    queueCollapsedWrite(props.cardId, value);
   }, 200);
 });
 </script>
