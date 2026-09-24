@@ -20,8 +20,19 @@ body {
 /* A blanket stop rather than a per-component opt-out, so motion added later cannot slip past it.
    Durations collapse instead of the properties being removed, which keeps every element at the
    state it was animating *to*. The delays are zeroed alongside them because a stagger would
-   otherwise survive as pure waiting time — the README promises full degradation, not most of it. */
+   otherwise survive as pure waiting time — the README promises full degradation, not most of it.
+   The token collapse written alongside it is not redundant: two rules below write
+   `transition: var(--fat-transition) !important` on a class selector, and a class outranks `*`
+   even when both are important, so the blanket declaration cannot reach those elements. Measured
+   on the built workbench under `prefers-reduced-motion: reduce`: the primary buttons, the circular
+   header button and the input wrapper kept a 0.18s transition until the tokens were collapsed. */
 @media (prefers-reduced-motion: reduce) {
+  :root {
+    --fat-duration-fast: 0.01ms;
+    --fat-duration-base: 0.01ms;
+    --fat-duration-slow: 0.01ms;
+  }
+
   *,
   *::before,
   *::after {
@@ -129,9 +140,11 @@ body {
 /* F10 — global keyboard focus ring. `:focus-visible` only fires for keyboard
    navigation, so mouse clicks stay clean.
    This one rule covers every focusable element. The `!important` rules below exist only
-   because Element Plus draws its own border and would otherwise win; components that
-   declare a scoped `:focus-visible` (drop-zone, collapsible-head) outrank this rule by
-   specificity and keep their own ring geometry.
+   because Element Plus draws its own border and would otherwise win; a component that wants
+   different ring geometry writes its own `:focus-visible` outline (collapsible-head does),
+   which outranks this rule by specificity. A component that merely declares `outline: none`
+   in a scoped `:focus-visible` block does not get an indicator at all, and that is a bug
+   rather than a style choice — see the note on `.drop-zone` in FileUpload.vue.
    `tabindex="-1"` targets are excluded: they only ever receive focus programmatically
    (the skip link's #main-content), and ringing the entire content area is noise.
    The rule deliberately does not set `border-radius` — a focus indicator should follow

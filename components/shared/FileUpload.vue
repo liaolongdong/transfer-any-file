@@ -559,11 +559,18 @@ defineExpose({
   background: var(--fat-surface-2);
 }
 
+/* The border/background shift is the *hover* affordance, and it doubled as the focus affordance
+   only while the zone was empty: `.drop-zone.has-file` below has the same specificity and comes
+   later, so with files loaded it overrode both declarations back to their already-applied values.
+   Measured on the built page with real Tab focus, in blue/light, green/light, green/dark and
+   slate/dark: the focused zone computed the same border, background and outline as the unfocused
+   one, because the `outline: none` that used to sit here cancelled the global `:focus-visible`
+   ring. That left the common state — anything loaded — with no focus indicator, which WCAG 2.4.7
+   does not allow. Only the ring is added back; the hover colors are untouched. */
 .drop-zone:hover,
 .drop-zone:focus-visible {
   border-color: var(--fat-primary);
   background: var(--fat-primary-bg);
-  outline: none;
 }
 
 .drop-zone.dragging {
