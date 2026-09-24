@@ -1,5 +1,5 @@
 import { FileFormat } from '~/utils/core/types';
-import type { Converter, ConvertResult } from '~/utils/core/types';
+import type { Converter, ConvertResult, ConvertContext } from '~/utils/core/types';
 import { wrapHtmlDocument } from '~/utils/core/html-document';
 import { decodeTextBlobLenient } from '~/utils/core/text-decode';
 
@@ -12,7 +12,7 @@ const svgToHtmlConverter: Converter = {
   from: FileFormat.SVG,
   to: FileFormat.HTML,
 
-  async convert(input: Blob): Promise<ConvertResult> {
+  async convert(input: Blob, ctx?: ConvertContext): Promise<ConvertResult> {
     const { default: DOMPurify } = await import('dompurify');
     const svgText = await decodeTextBlobLenient(input);
     // svgFilters profile keeps gradients/filters while dropping scripts and
@@ -22,7 +22,7 @@ const svgToHtmlConverter: Converter = {
     });
     if (!cleanSvg.trim()) throw new Error('errors.imageDecode');
 
-    const blob = wrapHtmlDocument(cleanSvg, { title: 'SVG Document', extraCss: IMAGE_DOC_CSS });
+    const blob = wrapHtmlDocument(cleanSvg, { sourceName: ctx?.source?.name, extraCss: IMAGE_DOC_CSS });
     return { blob, filename: 'converted.html' };
   },
 };

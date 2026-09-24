@@ -1,5 +1,5 @@
 import { FileFormat } from '~/utils/core/types';
-import type { Converter, ConvertResult } from '~/utils/core/types';
+import type { Converter, ConvertResult, ConvertContext } from '~/utils/core/types';
 import { wrapHtmlDocument } from '~/utils/core/html-document';
 import { decodeTextBlob, decodeTextBlobLenient } from '~/utils/core/text-decode';
 
@@ -7,10 +7,10 @@ const txtToHtmlConverter: Converter = {
   from: FileFormat.TXT,
   to: FileFormat.HTML,
 
-  async convert(input: Blob): Promise<ConvertResult> {
+  async convert(input: Blob, ctx?: ConvertContext): Promise<ConvertResult> {
     const text = await decodeTextBlob(input, 'errors.unknown');
     const escaped = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
-    const blob = wrapHtmlDocument(`<pre>${escaped}</pre>`);
+    const blob = wrapHtmlDocument(`<pre>${escaped}</pre>`, { sourceName: ctx?.source?.name });
     return { blob, filename: 'converted.html' };
   },
 };

@@ -1,5 +1,5 @@
 import { FileFormat } from '~/utils/core/types';
-import type { Converter, ConvertResult } from '~/utils/core/types';
+import type { Converter, ConvertResult, ConvertContext } from '~/utils/core/types';
 import { wrapHtmlDocument, escapeHtml } from '~/utils/core/html-document';
 import { decodeTextBlob, decodeTextBlobLenient } from '~/utils/core/text-decode';
 
@@ -69,7 +69,7 @@ const jsonToHtmlConverter: Converter = {
   from: FileFormat.JSON,
   to: FileFormat.HTML,
 
-  async convert(input: Blob): Promise<ConvertResult> {
+  async convert(input: Blob, ctx?: ConvertContext): Promise<ConvertResult> {
     const text = await decodeTextBlob(input, 'errors.unknown');
 
     let parsed: unknown;
@@ -80,7 +80,7 @@ const jsonToHtmlConverter: Converter = {
     }
 
     const body = `<div class="json-viewer">${renderJsonValue(parsed)}</div>`;
-    const blob = wrapHtmlDocument(body, { title: 'JSON Document', extraCss: JSON_VIEWER_CSS });
+    const blob = wrapHtmlDocument(body, { sourceName: ctx?.source?.name, extraCss: JSON_VIEWER_CSS });
     return { blob, filename: 'converted.html' };
   },
 };

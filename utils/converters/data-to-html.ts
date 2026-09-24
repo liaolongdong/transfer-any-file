@@ -1,5 +1,5 @@
 import { FileFormat } from '~/utils/core/types';
-import type { Converter, ConvertResult } from '~/utils/core/types';
+import type { Converter, ConvertResult, ConvertContext } from '~/utils/core/types';
 import { decodeTextBlob } from '~/utils/core/text-decode';
 import { wrapHtmlDocument, escapeHtml } from '~/utils/core/html-document';
 import { normalizeDateCells, XLSX_TEXT_DATE_FORMAT } from '~/utils/core/csv-guard';
@@ -50,10 +50,12 @@ const csvToHtmlConverter: Converter = {
   from: FileFormat.CSV,
   to: FileFormat.HTML,
 
-  async convert(input: Blob): Promise<ConvertResult> {
+  async convert(input: Blob, ctx?: ConvertContext): Promise<ConvertResult> {
     const [XLSX, text] = await Promise.all([import('xlsx'), decodeTextBlob(input, 'errors.csvDecode')]);
     const workbook = XLSX.read(text, { type: 'string', raw: true });
-    const blob = wrapHtmlDocument(await workbookToHtmlBody(XLSX, workbook));
+    const blob = wrapHtmlDocument(await workbookToHtmlBody(XLSX, workbook), {
+      sourceName: ctx?.source?.name,
+    });
     return { blob, filename: 'converted.html' };
   },
 };
@@ -62,12 +64,14 @@ const xlsxToHtmlConverter: Converter = {
   from: FileFormat.XLSX,
   to: FileFormat.HTML,
 
-  async convert(input: Blob): Promise<ConvertResult> {
+  async convert(input: Blob, ctx?: ConvertContext): Promise<ConvertResult> {
     const [XLSX, buffer] = await Promise.all([import('xlsx'), input.arrayBuffer()]);
     // Read options shared with xlsx→csv and xlsx→json: `cellDates` flags the date cells and `dateNF`
     // decides how they are rendered, and both only take effect while parsing.
     const workbook = XLSX.read(buffer, { type: 'array', cellDates: true, dateNF: XLSX_TEXT_DATE_FORMAT });
-    const blob = wrapHtmlDocument(await workbookToHtmlBody(XLSX, workbook));
+    const blob = wrapHtmlDocument(await workbookToHtmlBody(XLSX, workbook), {
+      sourceName: ctx?.source?.name,
+    });
     return { blob, filename: 'converted.html' };
   },
 };

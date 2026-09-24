@@ -2,7 +2,7 @@ import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { FileFormat } from '~/utils/core/types';
 import type { Converter, ConvertContext, ConvertResult } from '~/utils/core/types';
 import { throwIfAborted } from '~/utils/core/abort';
-import { escapeHtml, escapeAttr } from '~/utils/core/html-document';
+import { escapeHtml, escapeAttr, documentTitle } from '~/utils/core/html-document';
 
 interface LinkRect {
   x1: number;
@@ -160,12 +160,16 @@ const pdfToHtmlConverter: Converter = {
       await loadingTask.destroy();
     }
 
+    // No `lang` on the root: the extracted text is in whatever language the document is, and
+    // `lang="en"` was a claim screen readers act on. Title = the user's own file name, same as
+    // `wrapHtmlDocument` (this route builds its own shell because of the per-page layout below).
+    const title = escapeHtml(documentTitle(ctx?.source?.name));
     const htmlDoc = `<!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Converted Document</title>
+  <title>${title}</title>
   <style>
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;

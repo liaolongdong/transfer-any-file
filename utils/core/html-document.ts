@@ -68,22 +68,41 @@ export const DOCUMENT_CSS = `
 `;
 
 export interface WrapHtmlOptions {
-  title?: string;
+  /** `ctx.source.name` — the file the user picked, used as the document's title. */
+  sourceName?: string;
   /** CSS appended after DOCUMENT_CSS inside the same <style> tag */
   extraCss?: string;
 }
 
+/**
+ * The `<title>` of a converted document: the user's own file name, extension dropped.
+ *
+ * It used to be an English literal this extension authored (`Converted Document`, `Image Document`,
+ * …) — the one string in the artifact written in a language the user never chose, and the one part
+ * of the output bytes we were free to pick. A basename is language-neutral *and* says more:
+ * `合同.docx` → `合同.html` opens with the tab reading 合同. `converted` is the fallback, the same
+ * neutral token converters already hand back as `filename`.
+ */
+export function documentTitle(sourceName?: string): string {
+  const base = sourceName?.replace(/\.[^.]*$/, '').trim();
+  return base || 'converted';
+}
+
 export function wrapHtmlDocument(body: string, options: WrapHtmlOptions = {}): Blob {
-  const { title = 'Converted Document', extraCss = '' } = options;
-  // Escaped even though every caller today passes a literal: `<title>` is RCDATA, so the first `<`
-  // in it closes the element and whatever follows is parsed as markup in the document the user then
-  // opens — in a browser tab, with no sandbox between it and the page.
+  const { sourceName, extraCss = '' } = options;
+  // `<title>` is RCDATA, so the first `<` in it closes the element and whatever follows is parsed as
+  // markup in the document the user then opens — in a browser tab, with no sandbox between it and the
+  // page. Load-bearing now that the value is a file name this extension did not author.
+  // The root element declares no `lang` on purpose: the content's language is the user's, which this
+  // extension cannot know, and `lang="en"` was an affirmative claim screen readers act on (pronouncing
+  // a Chinese document with English rules) rather than a neutral default. Same reasoning as
+  // `utils/core/preview.ts`.
   const html = `<!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${escapeHtml(title)}</title>
+  <title>${escapeHtml(documentTitle(sourceName))}</title>
   <style>${DOCUMENT_CSS}${extraCss}</style>
 </head>
 <body>
