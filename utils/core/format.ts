@@ -17,15 +17,24 @@ export const TEXT_FORMATS = new Set<FileFormat>([
   FileFormat.JSON,
 ]);
 
-/** Extensions whose bytes deflate actually shrinks: everything this extension emits is
- *  either one of these, or an already-compressed container (PNG / JPEG / WebP / PDF /
- *  XLSX / DOCX). Measured with fflate on 7 MB of CSV alongside 6 MB of incompressible
- *  data: storing every entry gave a 13.28 MB archive in 56 ms, deflating every entry gave
- *  7.04 MB in 1169 ms — the whole win comes from the text entry (~10x smaller).
- *  The containers are not literally inert to deflate: 12 canvas-encoded A4 PNG pages, the
- *  shape a multi-page PDF→PNG export emits, came out 4.3% smaller on a text page and 2.9%
- *  on a chart page. But that cost 287 ms and 319 ms per page against ~15 ms to store them,
- *  so a few percent is not what a 100-page export should wait for — images stay out. */
+/** Extensions whose bytes deflate actually shrinks. Measured with fflate on 7 MB of CSV
+ *  alongside 6 MB of incompressible data: storing every entry gave a 13.28 MB archive in
+ *  56 ms, deflating every entry gave 7.04 MB in 1169 ms — the whole win comes from the
+ *  text entry (~10x smaller).
+ *
+ *  Images were left out on the belief that deflate has nothing to take there. It has:
+ *  level 6 over the 12 pages of a multi-page PDF export came out 39.3 % smaller for
+ *  `→ PNG` and 58.6 % for `→ JPEG`, costing 118 ms and 60 ms for those 12 pages together
+ *  (node's zlib reproduces both figures to within half a point). The gain tracks the
+ *  page, not the container — a high-entropy page gave 3.7 % (PNG) and −0.0 % (JPEG), and
+ *  that is the shape the previous record measured and then generalised to every image.
+ *  `webp` is unmeasured. Document pages are mostly uniform, so on the exports that grow
+ *  to 100 pages this set is costing the user roughly 40 % of the download.
+ *
+ *  `png` / `jpg` are still absent, because moving them is one change with three carriers:
+ *  this set is the single switch deciding which entries `useConversion` hands to
+ *  `ZipDeflate`, and two outward sentences describe the current answer (README's
+ *  "already-compressed targets are stored as-is", CHANGELOG's per-entry bullet). */
 const ZIP_COMPRESSIBLE_EXT = new Set(['txt', 'csv', 'json', 'html', 'htm', 'md', 'svg', 'xml']);
 
 /** Decide the ZIP method per entry rather than globally, so a mixed batch pays only for
