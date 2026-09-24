@@ -7,6 +7,28 @@ import { loadFflate } from '~/utils/core/zip';
  * packaging to recover the original HTML (including embedded images).
  */
 
+/**
+ * Ceiling for the MHT part this module reads, checked against the size the archive's own central
+ * directory declares for it.
+ *
+ * `unzipSync` allocates the fully inflated bytes of every entry it is asked to keep, so without a
+ * gate a document that pairs a 1 KB MHT with a padded entry of zeros is expanded in its entirety
+ * before a single character is parsed. Skipping entries that are not the MHT is what removes most of
+ * that exposure; this number covers the MHT itself. Measured on fflate 0.8: with the filter in place
+ * a 41 MB decoy entry is never inflated (the archive reads back as one key), while the unfiltered
+ * call allocates all 41,943,095 bytes of it.
+ *
+ * The check is declared-size based, which is the same trade `readArchive` in `FileUpload.vue` makes:
+ * it fires before any inflate happens, which is the only moment refusing is cheap, and a header is
+ * free to lie about the number. It is a budget, not a proof.
+ */
+const MAX_MHT_BYTES = 200 * 1024 * 1024;
+
+/** The one entry shape this module consumes. */
+function isMhtEntry(name: string): boolean {
+  return name.toLowerCase().endsWith('.mht');
+}
+
 interface MhtPart {
   contentType: string;
   encoding: string;
@@ -91,12 +113,14 @@ export async function extractAltChunkHtml(docxBytes: Uint8Array): Promise<string
   const { unzipSync, strFromU8 } = await loadFflate();
   let entries: Record<string, Uint8Array>;
   try {
-    entries = unzipSync(docxBytes);
+    entries = unzipSync(docxBytes, {
+      filter: file => isMhtEntry(file.name) && file.originalSize <= MAX_MHT_BYTES,
+    });
   } catch {
     return null;
   }
 
-  const mhtKey = Object.keys(entries).find(k => k.endsWith('.mht'));
+  const mhtKey = Object.keys(entries).find(k => isMhtEntry(k));
   if (!mhtKey) return null;
 
   const parts = parseMht(strFromU8(entries[mhtKey]));

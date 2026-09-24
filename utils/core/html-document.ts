@@ -75,12 +75,15 @@ export interface WrapHtmlOptions {
 
 export function wrapHtmlDocument(body: string, options: WrapHtmlOptions = {}): Blob {
   const { title = 'Converted Document', extraCss = '' } = options;
+  // Escaped even though every caller today passes a literal: `<title>` is RCDATA, so the first `<`
+  // in it closes the element and whatever follows is parsed as markup in the document the user then
+  // opens — in a browser tab, with no sandbox between it and the page.
   const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${title}</title>
+  <title>${escapeHtml(title)}</title>
   <style>${DOCUMENT_CSS}${extraCss}</style>
 </head>
 <body>

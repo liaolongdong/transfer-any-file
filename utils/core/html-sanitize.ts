@@ -23,6 +23,13 @@ const SUBRESOURCE_ATTRS: Record<string, string[]> = {
   object: ['data'],
   input: ['src'],
   image: ['href', 'xlink:href'],
+  // SVG's other "this element draws an external resource" cases. `stripElement` looks the tag up as
+  // `tagName.toLowerCase()`, so `feImage` is reached by the lowercase key however the parser cased
+  // it. Both survive a profile sanitize: `feImage` is in DOMPurify's `svgFilters` tag set and
+  // `href` in its `svg` attribute set, while `use` is on its disallowed list and therefore only
+  // reaches this pass through the paths that sanitize nothing at all — a user's own `.html` file.
+  feimage: ['href', 'xlink:href'],
+  use: ['href', 'xlink:href'],
 };
 
 /** Schemes the browser resolves locally; nothing here can reach the network. */

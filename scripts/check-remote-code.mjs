@@ -51,8 +51,10 @@ const CODE_EXTENSIONS = ['.js', '.mjs', '.cjs', '.vue', '.ts', '.mts', '.html'];
 const FORBIDDEN = [
   {
     id: 'remote-code-url',
-    pattern: /https?:\/\/[^\s"'`)]+\.m?js(?:[?#][^\s"'`)])?/,
-    why: 'a URL literal naming a JavaScript file, i.e. code hosted somewhere other than this package',
+    // `wasm` belongs here as much as `js` does: streamed into `WebAssembly`, a remote binary is
+    // hosted code with the same status, and it is the one shape a text scan can still name.
+    pattern: /https?:\/\/[^\s"'`)]+\.(?:m?js|wasm)(?:[?#][^\s"'`)])?/,
+    why: 'a URL literal naming a JavaScript or WebAssembly file, i.e. code hosted somewhere other than this package',
   },
   {
     id: 'external-script-src',
@@ -73,7 +75,12 @@ const FORBIDDEN = [
   },
   {
     id: 'string-built-import',
-    pattern: /await import\(\s*["'`]?\s*\$\{/,
+    // Not anchored on `await`, which the first version of this rule required because that is what
+    // pdf.js's wrapper happens to write: what makes a specifier dangerous is that it is assembled as
+    // text, not whether the call is awaited, returned or chained, and a bundler is free to rewrite
+    // the prefix. Every static specifier in this project opens with a quote and carries no `${`,
+    // so dropping the anchor stays quiet on a good build.
+    pattern: /\bimport\s*\(\s*["'`]?\s*\$\{/,
     why: 'an import() whose specifier is assembled as text, which is how remote code reaches the parser',
   },
   {
@@ -106,21 +113,35 @@ function collectCodeFiles(dir) {
 /**
  * Report every forbidden shape found in a file set.
  *
+ * Matched against the whole file rather than line by line, because a shape can be split across
+ * lines — `import(` at the end of one and the interpolated specifier at the start of the next is the
+ * same remote code, and source files (unlike the minified bundle) are full of such breaks. The line
+ * number is recovered from the match offset so the report still points somewhere a person can open.
+ *
  * @param {string[]} files Absolute paths to scan.
  * @param {string} label Human name for the set, used in the output line.
- * @returns {string[]} Failure descriptions, one per matched line.
+ * @returns {string[]} Failure descriptions, one per (file, rule) with at least one match.
  */
 function scan(files, label) {
   const hits = [];
   for (const file of files) {
-    const lines = fs.readFileSync(file, 'utf8').split(/\r?\n/);
-    lines.forEach((line, index) => {
-      for (const rule of FORBIDDEN) {
-        if (rule.pattern.test(line)) {
-          hits.push(`${path.relative(ROOT, file)}:${String(index + 1)} [${rule.id}] ${rule.why}`);
-        }
+    const text = fs.readFileSync(file, 'utf8');
+    for (const rule of FORBIDDEN) {
+      const flags = rule.pattern.flags.includes('g') ? rule.pattern.flags : `${rule.pattern.flags}g`;
+      const re = new RegExp(rule.pattern.source, flags);
+      const lines = [];
+      let match;
+      while ((match = re.exec(text)) !== null) {
+        lines.push(String(text.slice(0, match.index).split('\n').length));
+        // A zero-length match would spin forever; none of the rules can produce one, this is the seatbelt.
+        if (match.index === re.lastIndex) re.lastIndex++;
+        if (lines.length >= 3) break;
       }
-    });
+      if (lines.length > 0) {
+        const more = lines.length === 3 ? ' (and possibly further matches)' : '';
+        hits.push(`${path.relative(ROOT, file)}:${lines.join(',')} [${rule.id}] ${rule.why}${more}`);
+      }
+    }
   }
   if (hits.length === 0) console.log(`OK  ${label}: ${String(files.length)} files, no remotely hosted code shape`);
   return hits;
