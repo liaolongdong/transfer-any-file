@@ -4,6 +4,7 @@ import { ZoomIn, ZoomOut, Download, Loading } from '@element-plus/icons-vue';
 import { FileFormat } from '~/utils/core/types';
 import { getFormatLabel } from '~/utils/core/format-labels';
 import { formatSize } from '~/utils/core/format';
+import { asErrorKey } from '~/utils/core/error-keys';
 import { docxToPreviewHtml, xlsxToPreviewHtml } from '~/utils/core/preview';
 import { DOCUMENT_CSS } from '~/utils/core/html-document';
 import { stripRemoteResources } from '~/utils/core/html-sanitize';
@@ -28,7 +29,10 @@ const imageUrl = ref('');
 const pdfUrl = ref('');
 const renderedHtml = ref('');
 const htmlView = ref<'rendered' | 'source'>('rendered');
-const renderError = ref(false);
+/** Holds the key to translate once the body is in its error state: a converter's own
+ *  `errors.*` key when the failure carries one (so an empty workbook says so, in both languages),
+ *  and `preview.renderFailed` for everything else — a library message has no translation to show. */
+const renderError = ref<string | null>(null);
 
 const isText = computed(() => [FileFormat.TXT, FileFormat.CSV, FileFormat.JSON].includes(props.format));
 const isMarkdown = computed(() => props.format === FileFormat.MD);
@@ -53,7 +57,7 @@ watch(
     pdfUrl.value = '';
     textContent.value = '';
     renderedHtml.value = '';
-    renderError.value = false;
+    renderError.value = null;
     htmlView.value = 'rendered';
 
     // Drop the result of this watch run if a newer run starts or the component
@@ -96,7 +100,7 @@ watch(
       } catch {
         // Same shape as the docx/xlsx branches: a markdown or HTML file the parser chokes on
         // has to end in the error state, not in a watcher rejection and a permanent spinner.
-        if (!cancelled) renderError.value = true;
+        if (!cancelled) renderError.value = 'preview.renderFailed';
       }
     } else if (isImage.value) {
       imageUrl.value = URL.createObjectURL(blob);
@@ -108,16 +112,16 @@ watch(
         const html = await docxToPreviewHtml(blob);
         if (cancelled) return;
         renderedHtml.value = html;
-      } catch {
-        if (!cancelled) renderError.value = true;
+      } catch (error) {
+        if (!cancelled) renderError.value = asErrorKey(error) ?? 'preview.renderFailed';
       }
     } else if (isXlsx.value) {
       try {
         const html = await xlsxToPreviewHtml(blob);
         if (cancelled) return;
         renderedHtml.value = html;
-      } catch {
-        if (!cancelled) renderError.value = true;
+      } catch (error) {
+        if (!cancelled) renderError.value = asErrorKey(error) ?? 'preview.renderFailed';
       }
     }
   },
@@ -259,7 +263,7 @@ function download(): void {
         v-else-if="renderError"
         class="render-error"
       >
-        {{ t('preview.renderFailed') }}
+        {{ t(renderError ?? 'preview.renderFailed') }}
       </div>
       <div
         v-else-if="isRenderedDoc"

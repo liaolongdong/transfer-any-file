@@ -21,8 +21,14 @@ const PREVIEW_CSS = `
 `;
 
 function wrapDocument(body: string): string {
+  // No `lang` on purpose. The hardcoded `lang="en"` that used to sit here was measured on the built
+  // page announcing a Chinese worksheet (`sample.xlsx`: 姓名 / 部门 / 张三) as English, and `<html
+  // lang>` is exactly what a screen reader picks its pronunciation from. Left undeclared, the frame
+  // falls back to its container's language per HTML's inherited-language rule, and the workbench's
+  // own `<html lang>` is kept in step with the UI locale by `useI18n` — the same choice
+  // `PreviewDialog.vue` already makes for its markdown/HTML shell.
   return `<!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
   <meta charset="UTF-8">
   <style>${PREVIEW_CSS}</style>
@@ -131,7 +137,12 @@ export async function xlsxToPreviewHtml(blob: Blob): Promise<string> {
     const [XLSX, buffer] = await Promise.all([import('xlsx'), blob.arrayBuffer()]);
     const workbook: WorkBook = XLSX.read(buffer, { type: 'array' });
     if (workbook.SheetNames.length === 0) {
-      return wrapDocument('<p>No sheets found.</p>');
+      // Thrown rather than rendered as a note inside the preview document, which is what used to
+      // happen — and that note was a hardcoded English literal, so no dictionary key could be
+      // checked against it and a Chinese UI showed "No sheets found.". `errors.xlsxEmpty` is the key
+      // the three XLSX converters already throw for this state, the dialog translates it, and the
+      // preview cache drops a rejected blob instead of caching the failure.
+      throw new Error('errors.xlsxEmpty');
     }
 
     const parts: string[] = [];
