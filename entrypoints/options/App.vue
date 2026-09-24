@@ -379,9 +379,10 @@ function handleWorkspaceDrop(event: DragEvent): void {
   dragCounter = 0;
   isWorkspaceDragging.value = false;
   if (isConverting.value) return;
-  const files = Array.from(event.dataTransfer?.files ?? []);
-  if (files.length === 0) return;
-  fileUploadRef.value?.addFiles(files);
+  // The drop zone's own handler has already seen this event if the drop landed on it; the guard
+  // inside `intakeDrop` is what makes the second visit a no-op. Folders are read through the
+  // `DataTransfer`, so the object itself — not a file list — is what has to travel.
+  void fileUploadRef.value?.intakeDrop(event.dataTransfer);
 }
 
 onMounted(() => {

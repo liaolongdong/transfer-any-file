@@ -107,6 +107,8 @@ export default [
         window: 'readonly',
         getComputedStyle: 'readonly',
         HTMLElement: 'readonly',
+        File: 'readonly',
+        Event: 'readonly',
       },
     },
   },

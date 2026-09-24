@@ -8,6 +8,7 @@ import { formatSize } from '~/utils/core/format';
 import { loadFflate } from '~/utils/core/zip';
 import { isMac } from '~/utils/core/platform';
 import { detectFormat, SUPPORTED_EXTENSIONS } from '~/utils/core/file-detect';
+import { collectDropped, snapshotDrop } from '~/utils/core/folder-drop';
 import { useI18n } from '~/composables/useI18n';
 
 // Heavy component — only loaded when the user actually opens a source preview,
@@ -120,13 +121,49 @@ function clearAll(): void {
   emit('update:files', []);
 }
 
+/** The `DataTransfer` already consumed by {@link intakeDrop}, see the deduplication note there. */
+let takenDrop: DataTransfer | null = null;
+
+/**
+ * Take everything a drop offers through the one intake pipeline.
+ *
+ * **Must be entered synchronously from the `drop` handler**: the folder entries `snapshotDrop`
+ * reads are revoked as soon as the handler returns, so they are captured here, before the first
+ * await, and the walk continues afterwards.
+ *
+ * One physical drop reaches this function twice — the drop zone's own handler runs first and the
+ * event then bubbles to the page-wide overlay in `entrypoints/options/App.vue`. For loose files
+ * that was invisible (both calls ended in the same list), but a folder is a directory walk with
+ * messages of its own, so the `DataTransfer` already taken this dispatch is refused. Those objects
+ * are created per drag and never reused, and a `File` is a disk handle rather than file contents, so
+ * holding the last one costs nothing.
+ */
+async function intakeDrop(dataTransfer: DataTransfer | null): Promise<void> {
+  if (props.disabled || !dataTransfer || dataTransfer === takenDrop) return;
+  takenDrop = dataTransfer;
+  const items = snapshotDrop(dataTransfer);
+  if (items.length === 0) return;
+
+  const collected = await collectDropped(items, MAX_BATCH_FILES);
+  // A truncated walk always says which limit it hit: `{max}` is interpolated by the batch-cap
+  // message and simply ignored by the depth/scan one. `folderEmpty` is kept for the case where the
+  // folder really did hold nothing convertible — claiming that after refusing entries for a limit
+  // would name the wrong reason.
+  if (collected.truncated) {
+    const key = collected.truncated === 'cap' ? 'upload.batchCap' : 'upload.folderTruncated';
+    ElMessage.warning(t(key, { max: MAX_BATCH_FILES }));
+  }
+  if (collected.files.length === 0) {
+    if (!collected.truncated) ElMessage.warning(t('upload.folderEmpty'));
+    return;
+  }
+  if (collected.fromFolders > 0) ElMessage.success(t('upload.folderImported', { count: collected.fromFolders }));
+  selectFiles(collected.files);
+}
+
 function handleDrop(event: DragEvent): void {
   isDragging.value = false;
-  if (props.disabled) return;
-  const files = Array.from(event.dataTransfer?.files ?? []);
-  if (files.length > 0) {
-    selectFiles(files);
-  }
+  void intakeDrop(event.dataTransfer);
 }
 
 function handleDragOver(): void {
@@ -363,13 +400,10 @@ function getFormatLabelSafe(format: FileFormat | null): string {
   return getFormatLabel(format);
 }
 
-/** Public entry point: let parents hand us files from a global drop without
- *  bypassing the archive-expand / size-validate / batch-cap pipeline. */
+/** Public entry point: let the parent hand us a whole drop — the folder walk, the archive-expand,
+ *  size-validate and batch-cap pipeline and the duplicate-drop guard all live behind this call. */
 defineExpose({
-  addFiles(files: File[]): void {
-    if (props.disabled) return;
-    selectFiles(files);
-  },
+  intakeDrop,
 });
 </script>
 

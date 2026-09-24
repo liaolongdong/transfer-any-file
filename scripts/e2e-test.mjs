@@ -2149,6 +2149,187 @@ async function run() {
   }
 
   // ═══════════════════════════════════════════
+  //  DROPPED FOLDER EXPANDS INTO ITS FILES (F4)
+  // ═══════════════════════════════════════════
+  //
+  // A folder cannot be driven in from outside the page: a synthetic `DataTransfer` refuses a
+  // directory, and the file chooser takes files only. So the tree is stood in for by objects that
+  // answer the same three calls Chrome's entries do — `createReader`, `readEntries`, `file` — and
+  // `readEntries` hands back two at a time, because one batch per directory is exactly how a
+  // 300-file folder silently becomes 100. The fakes vouch for nothing about Chrome's own plumbing;
+  // what they exercise is this repository's walk, filters, limits and messages. Its own page, so the
+  // file list it leaves behind cannot move a later section.
+  if (section('Dropped Folder Imports Its Files')) {
+    const folderPage = await browser.newPage();
+    try {
+      await folderPage.setViewportSize({ width: 1280, height: 900 });
+      await folderPage.addInitScript(mockChromeStorage());
+      await folderPage.goto(`http://localhost:${PORT}/options.html`);
+      await folderPage.waitForTimeout(1200);
+
+      await folderPage.evaluate(() => {
+        const state = { readerCalls: 0, documentDrops: 0 };
+        // Counts the page-level overlay seeing the same drop, which is what the guard inside
+        // `intakeDrop` exists for — `readerCalls` only proves the guard worked if this is 1.
+        document.addEventListener('drop', () => {
+          state.documentDrops += 1;
+        });
+        const leaf = spec => ({
+          name: spec.n,
+          isDirectory: false,
+          file: done => done(new File([spec.t ?? 'hello world'], spec.n, { type: 'text/plain' })),
+        });
+        const branch = spec => {
+          const children = (spec.c ?? []).map(c => (c.d ? branch(c) : leaf(c)));
+          return {
+            name: spec.d,
+            isDirectory: true,
+            createReader: () => {
+              state.readerCalls += 1;
+              let at = 0;
+              return {
+                readEntries: done =>
+                  setTimeout(() => {
+                    const batch = children.slice(at, at + 2);
+                    at += batch.length;
+                    done(batch);
+                  }, 0),
+              };
+            },
+          };
+        };
+        /**
+         * Dispatch one drop on the zone and report what the page ended up with.
+         *
+         * `spec` is the folder tree, `loose` the names dropped beside it. Waits for the previous
+         * run's toasts to clear first, so `notices` belongs to this drop alone.
+         */
+        window.__dropOnZone = async (spec, loose = []) => {
+          const messages = () =>
+            Array.from(document.querySelectorAll('.el-message')).map(m => (m.textContent || '').trim());
+          const gone = Date.now() + 6000;
+          while (messages().length > 0 && Date.now() < gone) await new Promise(r => setTimeout(r, 100));
+          state.readerCalls = 0;
+          state.documentDrops = 0;
+          const items = loose.map(n => ({
+            kind: 'file',
+            webkitGetAsEntry: () => ({ name: n, isDirectory: false }),
+            getAsFile: () => new File(['hello world'], n, { type: 'text/plain' }),
+          }));
+          if (spec) items.push({ kind: 'file', webkitGetAsEntry: () => branch(spec), getAsFile: () => null });
+          const dataTransfer = { types: ['Files'], files: [], items };
+          const event = new Event('drop', { bubbles: true, cancelable: true });
+          Object.defineProperty(event, 'dataTransfer', { value: dataTransfer });
+          document.querySelector('.drop-zone').dispatchEvent(event);
+          await new Promise(r => setTimeout(r, 1500));
+          return {
+            readerCalls: state.readerCalls,
+            documentDrops: state.documentDrops,
+            names: Array.from(document.querySelectorAll('.file-item .file-name')).map(e => e.textContent.trim()),
+            notices: messages(),
+          };
+        };
+        window.__clearFiles = () => document.querySelector('.clear-files-btn')?.click();
+      });
+
+      const clearRows = async () => {
+        await folderPage.evaluate(() => window.__clearFiles());
+        await folderPage.waitForTimeout(400);
+      };
+
+      const tree = await folderPage.evaluate(() =>
+        window.__dropOnZone({
+          d: 'dropped',
+          c: [
+            { n: 'a.md' },
+            { n: '.hidden.md' },
+            { n: 'notes.txt' },
+            { d: 'sub', c: [{ n: 'tool.exe' }, { n: 'b.csv' }, { d: 'nested', c: [{ n: 'c.json' }] }] },
+            { d: '__MACOSX', c: [{ n: 'junk.txt' }] },
+          ],
+        }),
+      );
+      const want = ['a.md', 'notes.txt', 'b.csv', 'c.json'];
+      if (JSON.stringify(tree.names) === JSON.stringify(want))
+        ok(`Nested folder flattened to its ${want.length} importable files`);
+      else fail('Folder walk', `expected ${JSON.stringify(want)}, got ${JSON.stringify(tree.names)}`);
+      // 3 = the directories that hold something importable. Six would mean the drop was taken twice,
+      // once by the zone and again by the overlay that sees it bubble to `document`.
+      if (tree.documentDrops === 1 && tree.readerCalls === 3) ok('One drop walks the tree once, overlay included');
+      else fail('Single walk', `documentDrops=${tree.documentDrops} readerCalls=${tree.readerCalls}`);
+      if (tree.notices.length === 1 && tree.notices[0].includes('从文件夹导入 4 个文件'))
+        ok('The import is announced with the count that came out of the folder');
+      else fail('Folder import notice', JSON.stringify(tree.notices));
+
+      // A folder of nothing usable must not cost the user the batch already loaded.
+      await clearRows();
+      const seedInput = await folderPage.$('input[type="file"]');
+      await seedInput.setInputFiles(path.join(FIXTURE_PATH, 'sample.md'));
+      await folderPage.waitForTimeout(1000);
+      const unusable = await folderPage.evaluate(() =>
+        window.__dropOnZone({ d: 'bin', c: [{ n: 'tool.exe' }, { n: '.DS_Store' }] }),
+      );
+      if (JSON.stringify(unusable.names) === JSON.stringify(['sample.md']))
+        ok('A folder with no convertible file leaves the current selection alone');
+      else fail('Folder refused', `selection became ${JSON.stringify(unusable.names)}`);
+      if (unusable.notices.some(n => n.includes('没有可转换的文件')))
+        ok('and says the folder held nothing convertible');
+      else fail('Empty folder notice', JSON.stringify(unusable.notices));
+
+      // Below the depth limit the walk gives up, and it has to say *that* rather than claim the
+      // folder was empty — the two failures need different answers from the user.
+      await clearRows();
+      const deep = await folderPage.evaluate(
+        leaf => {
+          // 15 nested directories: past the depth of 12 the walk is bounded at.
+          let tree = { d: 'l14', c: [leaf] };
+          for (let level = 13; level >= 0; level -= 1) tree = { d: `l${level}`, c: [tree] };
+          return window.__dropOnZone(tree);
+        },
+        { n: 'deep.txt' },
+      );
+      if (deep.notices.some(n => n.includes('层级过深')))
+        ok('A tree below the depth limit is refused with the limit named');
+      else fail('Depth refusal', JSON.stringify(deep.notices));
+      if (!deep.notices.some(n => n.includes('没有可转换的文件'))) ok('and not reported as an empty folder');
+      else fail('Depth refusal reason', JSON.stringify(deep.notices));
+
+      // The channel everything now travels through: a loose-file drop, no folder in it.
+      await clearRows();
+      const loose = await folderPage.evaluate(() => window.__dropOnZone(null, ['x.md', 'y.txt']));
+      if (JSON.stringify(loose.names) === JSON.stringify(['x.md', 'y.txt']))
+        ok('A plain file drop still imports through the same handler');
+      else fail('Loose drop', `got ${JSON.stringify(loose.names)}`);
+      if (loose.readerCalls === 0) ok('A drop with no folder in it reads no directory');
+      else fail('No folder read', `${loose.readerCalls} reader created for a folder-less drop`);
+
+      // A `.zip` inside the folder is not just another file: it goes on to the same expander a
+      // directly-dropped archive meets. The bytes here are not an archive, so what proves the
+      // hand-off is the reader's own complaint about it — and the batch it leaves behind is empty.
+      await clearRows();
+      const innerArchive = await folderPage.evaluate(() =>
+        window.__dropOnZone({ d: 'stuff', c: [{ n: 'inner.zip' }] }),
+      );
+      if (innerArchive.names.length === 0 && innerArchive.notices.some(n => n.includes('无法读取压缩包')))
+        ok('A .zip inside the folder reaches the archive expander');
+      else
+        fail(
+          'Folder archive hand-off',
+          `names=${JSON.stringify(innerArchive.names)} notices=${JSON.stringify(innerArchive.notices)}`,
+        );
+
+      await folderPage.screenshot({
+        path: shot(`${String(shotIdx++).padStart(2, '0')}-folder-drop.png`),
+        fullPage: true,
+      });
+    } catch (e) {
+      fail('Dropped folder imports its files', e.message);
+    } finally {
+      await folderPage.close();
+    }
+  }
+
+  // ═══════════════════════════════════════════
   //  FILE LIST STATUS ANNOUNCEMENT (WCAG 4.1.3)
   // ═══════════════════════════════════════════
 

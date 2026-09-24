@@ -166,6 +166,7 @@ Summarised from the typical behaviour of each class of tool rather than one spec
 - **Drop anywhere on the page** — the upload zone is not the only target; releasing files anywhere adds them to the batch. While a conversion is running the drop is ignored and the cursor shows "not allowed"
 - **ZIP download with per-entry compression** — text results (TXT / CSV / JSON / HTML / Markdown) are deflated and come out roughly 10× smaller, while already-compressed targets (PNG / JPEG / PDF / XLSX / DOCX) are stored as-is so no CPU is spent for no gain. Download-all stays in its loading state while the archive is written
 - **Archive intake** — drop a `.zip` and its supported files are extracted into the batch automatically
+- **Folder intake** — drop a folder and its convertible files are collected recursively, hidden entries and unsupported formats skipped; the batch cap, the size guards and the `.zip` expansion behave exactly as they do for files dropped one by one
 - **Multi-sheet and multi-page aware** — XLSX → CSV exports every worksheet; PDF → image exports every page, or only the pages you name
 - **PDF page range** — when the batch holds a PDF and the target is an image, the parameters panel gains a **Pages** field: `1-3, 5` rasterizes just those pages (it accepts `-`, `–` and `~` as the range dash, and `,` `，` `、` `;` `；` as separators; empty means the whole document). It states which pages _this file_ has in mind rather than what the output should look like, so it is **never written to storage and never part of a preset** — a remembered range would quietly truncate the next, unrelated PDF. A range that matches no page fails the file outright instead of handing back every page as if nothing had been set, and ZIP entries keep their original page numbers, so converting pages 2 and 4 gives you `page-2.png` and `page-4.png`
 - **Size guards at the boundary** — warns above 20 MB, rejects above 100 MB per file, caps a batch at 200 files
@@ -229,7 +230,7 @@ There is no store listing yet; `CHROMEWEBSTORE.md` holds the publish-ready listi
 ### Usage
 
 1. Click the extension icon — the conversion workbench opens in a new tab
-2. Drop files anywhere on the page (no need to hit the upload zone), click to select, or paste from the clipboard
+2. Drop files — or a whole folder — anywhere on the page (no need to hit the upload zone), click to select, or paste from the clipboard
 3. Pick a target format — only formats reachable from _all_ selected files are offered, and a multi-step conversion shows the path it will take (e.g. `MD → HTML → PDF`)
 4. Converting to an image? Set the **output parameters** that appeared under the picker — longest edge, quality, a size ceiling, PDF render density, and a page range when the batch holds a PDF — or leave every one alone for the encoder's own defaults
 5. Click **Convert**, then download a single file or the whole batch as a ZIP

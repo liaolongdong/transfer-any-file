@@ -17,7 +17,7 @@ export default {
 
   // Upload
   upload: {
-    drop: '拖拽文件到此处，或点击选择文件',
+    drop: '拖拽文件或文件夹到此处，或点击选择文件',
     replace: '点击或拖拽以替换文件',
     pasteHint: '也可以直接 {key} 粘贴图片或文本',
     selectedCount: '已选择 {count} 个文件',
@@ -29,6 +29,9 @@ export default {
     zipNoFiles: '"{name}" 中没有可转换的文件',
     zipBudget: '"{name}" 解压体积或文件数超出上限，部分文件未导入',
     zipReadFail: '无法读取压缩包 "{name}"，文件可能已损坏',
+    folderImported: '从文件夹导入 {count} 个文件',
+    folderEmpty: '拖入的文件夹里没有可转换的文件',
+    folderTruncated: '文件夹层级过深或条目过多，部分文件未导入',
     addMore: '追加文件',
     clearAll: '清空',
     batchCap: '一次最多处理 {max} 个文件，超出部分已忽略',

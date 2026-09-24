@@ -11,6 +11,23 @@ always name the same release.
 
 ### Added
 
+- **Dropping a folder imports what is inside it.** A folder used to be a no-op, and the only workaround
+  was to zip it up first — which already worked, because archives are expanded. Folders are now walked
+  breadth-first, keeping only the formats the recognizer knows plus `.zip`s, skipping dotfiles and
+  `__MACOSX`, and stopping at the batch cap. Three things are not obvious: `readEntries()` hands back one
+  chunk per call, so **a directory is read until a call comes back empty** — reading a single chunk is
+  exactly how a large folder silently loses most of its files; entry objects are revoked the moment the
+  drop handler returns, so every entry has to be snapshotted synchronously and the asynchronous walk
+  carries that snapshot; and both the depth and the number of entries read are bounded
+  (`utils/core/folder-drop.ts`), because a dropped tree is untrusted input — one symlink back to an
+  ancestor is an infinite descent. The three notices do not stand in for each other: how many files came
+  in, that the folder really held nothing convertible, and the limit that stopped the walk. A previously
+  invisible duplicate is fixed on the way: the drop bubbles from the upload zone up to the page-wide
+  overlay, so one physical drop was read twice — invisible for loose files, which produced the same list
+  either way, but a folder would be walked twice and announce itself twice. A new e2e section drives the
+  whole chain with entry objects built inside the page (Playwright cannot inject a real folder), so what
+  it pins is this repository's walk, filters, budgets and wording — not Chrome's own entry
+  implementation.
 - **Multi-step routes show which step you are on.** Alongside the existing "Converting, please wait..." the
   progress area reports "Step 2 of 3" and names the file in flight — in both the batch bar and the single-file
   progress card. A three-step chain such as `md → html → png` used to show an unchanging line from step one to

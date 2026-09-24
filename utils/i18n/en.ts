@@ -15,7 +15,7 @@ const en: typeof zh = {
   },
 
   upload: {
-    drop: 'Drop files here, or click to select',
+    drop: 'Drop files or a folder here, or click to select',
     replace: 'Click or drag to replace files',
     pasteHint: 'You can also paste an image or text with {key}',
     selectedCount: '{count} file(s) selected',
@@ -27,6 +27,9 @@ const en: typeof zh = {
     zipNoFiles: 'No convertible files found in "{name}"',
     zipBudget: 'Some files in "{name}" exceeded the decompression limit and were skipped',
     zipReadFail: 'Could not read archive "{name}"; it may be corrupted',
+    folderImported: 'Imported {count} file(s) from the dropped folder',
+    folderEmpty: 'The dropped folder holds no convertible files',
+    folderTruncated: 'The folder is nested too deeply or holds too many entries; some files were skipped',
     addMore: 'Add files',
     clearAll: 'Clear',
     batchCap: 'Up to {max} files per batch; extra files were ignored',
