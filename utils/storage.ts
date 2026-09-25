@@ -10,6 +10,7 @@ export const STORAGE_KEYS = {
   collapsedState: 'fat:collapsedState',
   recentTargets: 'fat:recentTargets',
   outputOptions: 'fat:outputOptions',
+  nameTemplate: 'fat:nameTemplate',
   presets: 'fat:presets',
   notifyOnComplete: 'fat:notifyOnComplete',
   confirmConvert: 'fat:confirmConvert',

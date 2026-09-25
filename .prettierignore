@@ -14,3 +14,10 @@ fixtures/
 
 # Agent-facing specs and plans: prose documents that gain nothing from a reflow diff.
 .qoder/
+
+# Generated site pages and the sitemap that lists them. `pnpm pages:render` rewrites them from
+# scripts/conversion-pages/pairs.mjs, so a hand format would be overwritten on the next run;
+# `pnpm pages:check` compares the committed bytes to what the data source produces, which is a stronger
+# guard than formatting coverage here.
+docs/convert/
+docs/sitemap.xml

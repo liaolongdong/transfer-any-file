@@ -10,6 +10,23 @@ Category: productivity / file conversion. Price: free, no paid tier, no ads, no 
 - [Product page](https://liaolongdong.github.io/transfer-any-file/): Formats, how a conversion is routed, features, comparison with online converters, install steps, FAQ, technical details, contact
 - [Privacy policy](https://liaolongdong.github.io/transfer-any-file/privacy.html): Bilingual (EN / 简体中文) — no data collection, no transmission, on-device storage only
 
+## Route-by-route detail
+
+Every page below states, for one source→target pair, what the route actually executes, which structures survive, which are dropped and why, and the limits that apply. Each is bilingual with the same Chinese / English switch as the product page.
+
+- [All conversion pages](https://liaolongdong.github.io/transfer-any-file/convert/): index of the routes people ask about, with the full format matrix
+- [Markdown → Word](https://liaolongdong.github.io/transfer-any-file/convert/markdown-to-word.html): two steps through HTML, and the result is real Word paragraphs rather than a screenshot; data-URI images travel, relative paths stay relative, remote images are stripped before packing
+- [Word → Markdown](https://liaolongdong.github.io/transfer-any-file/convert/word-to-markdown.html): mammoth reads the semantic structure; embedded images arrive as data URIs, layout-only features stay behind
+- [Word → PDF](https://liaolongdong.github.io/transfer-any-file/convert/word-to-pdf.html): Word → HTML → PDF, rasterized page by page onto A4 — no text layer, and the pagination is not Word's own
+- [Markdown → PDF](https://liaolongdong.github.io/transfer-any-file/convert/markdown-to-pdf.html): marked → HTML → A4 page slices; identical on every machine, and nothing in the file selects or searches
+- [PDF → TXT](https://liaolongdong.github.io/transfer-any-file/convert/pdf-to-text.html): pdf.js extracts the text layer in reading order and link annotations are protocol-filtered; a scanned PDF has no text layer, and there is no OCR
+- [Excel → CSV](https://liaolongdong.github.io/transfer-any-file/convert/excel-to-csv.html): cell values rather than display text, ISO-shaped dates, a UTF-8 BOM, formula injection escaped, one CSV per sheet inside a ZIP
+- [CSV → Excel](https://liaolongdong.github.io/transfer-any-file/convert/csv-to-excel.html): a field becomes a numeric cell only when it round-trips exactly, so `00123` and a 20-digit account are not silently rewritten
+- [JSON → CSV](https://liaolongdong.github.io/transfer-any-file/convert/json-to-csv.html): the header is the union of every object's keys; nested values go into the cell as JSON text rather than being flattened away
+- [PNG → WebP](https://liaolongdong.github.io/transfer-any-file/convert/png-to-webp.html): alpha kept; quality and a target file size are honoured by stepping quality first, then the longest edge
+- [SVG → PNG](https://liaolongdong.github.io/transfer-any-file/convert/svg-to-png.html): re-rendered as vectors at the target size, with scripts, event attributes and remote references removed before rasterization
+- [Why offline conversion, and where it stops](https://liaolongdong.github.io/transfer-any-file/blog/): the long-form piece — what a browser can convert without a server, and which jobs genuinely need a desktop tool
+
 ## What it converts
 
 - Documents: Markdown, HTML, Word (.docx), PDF, TXT — in any direction, through HTML as the hub format

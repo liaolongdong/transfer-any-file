@@ -1,9 +1,15 @@
 {
   "formats": {
     "CHROMEWEBSTORE.md": 3,
-    "docs/index.html": 29,
+    "docs/blog/index.html": 19,
+    "docs/convert/index.html": 14,
+    "docs/convert/word-to-markdown.html": 1,
+    "docs/convert/word-to-pdf.html": 2,
+    "docs/index.html": 31,
     "docs/llms.txt": 1,
     "docs/promo/blog-article.en.md": 4,
+    "docs/promo/community-posts.en.md": 6,
+    "docs/promo/community-posts.md": 8,
     "docs/promo/wechat-article.md": 4,
     "docs/promo/weibo-posts.md": 4,
     "README.en.md": 3,
@@ -13,71 +19,111 @@
     "CHROMEWEBSTORE.md": 1
   },
   "imageWritable": {
-    "CHROMEWEBSTORE.md": 1
+    "CHROMEWEBSTORE.md": 1,
+    "docs/blog/index.html": 1
   },
   "writable": {
     "AGENTS.md": 1,
+    "docs/blog/index.html": 1,
+    "docs/convert/index.html": 2,
     "docs/index.html": 7,
     "docs/llms.txt": 1
   },
   "pairwise": {
+    "docs/blog/index.html": 2,
     "docs/promo/blog-article.en.md": 2
   },
   "routes": {
     "AGENTS.md": 1,
     "CHROMEWEBSTORE.md": 3,
     "CONTRIBUTING.md": 1,
+    "docs/blog/index.html": 13,
+    "docs/convert/index.html": 8,
     "docs/index.html": 13,
     "docs/llms.txt": 2,
     "docs/promo/blog-article.en.md": 1,
+    "docs/promo/community-posts.en.md": 1,
+    "docs/promo/community-posts.md": 2,
     "docs/promo/wechat-article.md": 1,
     "docs/promo/weibo-posts.md": 2,
     "README.md": 3
   },
   "reachable": {
+    "docs/blog/index.html": 4,
+    "docs/convert/index.html": 4,
     "docs/index.html": 22,
     "docs/llms.txt": 3,
+    "docs/promo/community-posts.en.md": 3,
+    "docs/promo/community-posts.md": 2,
     "README.en.md": 2,
     "README.md": 1
   },
   "selectable": {
+    "docs/blog/index.html": 5,
+    "docs/convert/index.html": 14,
     "docs/index.html": 18,
     "docs/llms.txt": 1,
+    "docs/promo/community-posts.en.md": 1,
+    "docs/promo/community-posts.md": 2,
     "docs/promo/wechat-article.md": 1,
     "README.en.md": 1,
     "README.md": 2
   },
   "blocked": {
     "AGENTS.md": 1,
+    "docs/blog/index.html": 4,
     "docs/index.html": 9,
+    "docs/promo/community-posts.en.md": 1,
+    "docs/promo/community-posts.md": 2,
     "README.en.md": 1,
     "README.md": 2
   },
   "imageBlocked": {
     "AGENTS.md": 1,
+    "docs/blog/index.html": 2,
     "docs/index.html": 2,
     "docs/llms.txt": 1,
+    "docs/promo/community-posts.en.md": 1,
+    "docs/promo/community-posts.md": 1,
     "README.md": 1
   },
   "pdfBlocked": {
     "AGENTS.md": 1,
+    "docs/blog/index.html": 2,
     "docs/index.html": 2,
     "docs/llms.txt": 1,
+    "docs/promo/community-posts.en.md": 1,
+    "docs/promo/community-posts.md": 1,
     "README.md": 1
   },
   "batchFiles": {
     "CHROMEWEBSTORE.md": 4,
     "CONTRIBUTING.en.md": 1,
     "CONTRIBUTING.md": 1,
+    "docs/convert/csv-to-excel.html": 2,
+    "docs/convert/excel-to-csv.html": 1,
+    "docs/convert/json-to-csv.html": 1,
+    "docs/convert/markdown-to-pdf.html": 2,
+    "docs/convert/markdown-to-word.html": 2,
+    "docs/convert/svg-to-png.html": 2,
+    "docs/convert/word-to-markdown.html": 3,
+    "docs/convert/word-to-pdf.html": 2,
     "docs/index.html": 11,
     "docs/llms.txt": 2,
+    "docs/promo/community-posts.en.md": 1,
+    "docs/promo/community-posts.md": 3,
     "README.en.md": 3,
     "README.md": 4
   },
   "rejectSize": {
     "CHROMEWEBSTORE.md": 4,
+    "docs/convert/excel-to-csv.html": 1,
+    "docs/convert/markdown-to-word.html": 1,
+    "docs/convert/pdf-to-text.html": 1,
     "docs/index.html": 5,
     "docs/llms.txt": 2,
+    "docs/promo/community-posts.en.md": 1,
+    "docs/promo/community-posts.md": 1,
     "README.en.md": 5,
     "README.md": 1
   },
@@ -91,6 +137,8 @@
   "confirmFiles": {
     "CHROMEWEBSTORE.md": 3,
     "docs/index.html": 4,
+    "docs/promo/community-posts.en.md": 2,
+    "docs/promo/community-posts.md": 1,
     "README.en.md": 3,
     "README.md": 2
   },
@@ -101,6 +149,7 @@
   },
   "historyRecords": {
     "AGENTS.md": 1,
+    "docs/blog/index.html": 1,
     "README.md": 1
   },
   "recentTargets": {
@@ -112,7 +161,9 @@
     "CHROMEWEBSTORE.md": 5,
     "CONTRIBUTING.en.md": 1,
     "CONTRIBUTING.md": 1,
+    "docs/blog/index.html": 1,
     "docs/index.html": 7,
+    "docs/promo/community-posts.md": 2,
     "docs/promo/wechat-article.md": 1,
     "README.en.md": 3,
     "README.md": 4
@@ -121,14 +172,19 @@
     "CHROMEWEBSTORE.md": 2,
     "CONTRIBUTING.en.md": 3,
     "CONTRIBUTING.md": 1,
+    "docs/blog/index.html": 1,
     "docs/index.html": 4,
+    "docs/promo/community-posts.md": 2,
     "docs/promo/wechat-article.md": 1,
     "README.en.md": 4,
     "README.md": 2
   },
   "assertions": {
+    "docs/blog/index.html": 2,
     "docs/index.html": 2,
     "docs/promo/blog-article.en.md": 1,
+    "docs/promo/community-posts.en.md": 1,
+    "docs/promo/community-posts.md": 2,
     "docs/promo/wechat-article.md": 1
   },
   "descEn": {

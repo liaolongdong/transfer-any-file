@@ -5,14 +5,24 @@
 > [`workflows/repo-meta.yml`](workflows/repo-meta.yml) 推送到 GitHub 上；本文件只解释每个值**为什么**这么写，
 > 以及怎么落地。商店侧的文案与披露申报不在这里，见 [`CHROMEWEBSTORE.md`](../CHROMEWEBSTORE.md)。
 
-## 当前状态：一个字段都还没落地
+## 当前落地状态：只剩 topics 没落地
 
-2026-09-15 用 `GET /repos/liaolongdong/transfer-any-file` 复核过：仓库存在（默认分支 `main`，license `ISC`
-——API 反映的是**已推送**的 `LICENSE`，工作区那份已改成 MIT，所以 LICENSE 提交一落地这里就会读作 `MIT`），
-但仍然报告 `description: null`、`homepage: null`、`topics: []`。
+2026-09-22 用 `GET /repos/liaolongdong/transfer-any-file` 逐字段复核（这一节在 2026-09-15 写的是「一个字段都没落地」，
+其中两项后来已经落地，照旧读它会把人带错路）：
 
-原因很具体：本机没装 `gh`，而工作流从未拿到过 `REPO_METADATA_TOKEN`。**不是**「配好了但没生效」。
-下面[两条能走通的路径](#两条能走通的路径)任选一条即可，纯手工的路子是仓库的 **Settings → General → About** 区块。
+| 字段          | 线上值                                                                 | 状态                                                                       |
+| ------------- | ---------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| `description` | `Offline file format converter for Chrome: 14 formats — … No uploads.` | ✅ 与 `repo-metadata.json` 逐字一致                                        |
+| `homepage`    | `https://liaolongdong.github.io/transfer-any-file/`                    | ✅ 与 Pages 站点一致                                                       |
+| `license`     | `MIT`                                                                  | ✅ `LICENSE` 落地后自动跟随，不再是当初读到的 `ISC`                        |
+| `has_pages`   | `true`                                                                 | ✅ 站点在发                                                                |
+| **`topics`**  | **`[]`**                                                               | ❌ **仍未落地**——20 个名字只存在于 `repo-metadata.json`，GitHub 搜索拿不到 |
+| 社交预览图    | —                                                                      | ❓ 无 API，读不到；只能在 Settings → General → Social preview 目视确认     |
+
+所以剩下的事只有一件：**把 topics 发出去**。卡住的原因和当初一样具体——本机没装 `gh`，而工作流从未拿到过
+`REPO_METADATA_TOKEN`，于是 `repo-meta.yml` 从来没跑成功过。**不是**「配好了但没生效」。
+下面[两条能走通的路径](#两条能走通的路径)任选一条即可，纯手工的路子是仓库的 **Settings → General → About** 区块
+（在 Topics 里逐个输入、每个按回车/空格确认，20 个都在页面上出现之后再 **Save changes**）。
 
 ## 仓库名
 
@@ -112,5 +122,6 @@ curl -sS https://api.github.com/repos/liaolongdong/transfer-any-file | grep -E '
 ## 相关文档
 
 - [`CHROMEWEBSTORE.md`](../CHROMEWEBSTORE.md) —— Chrome 应用商店文案、权限与隐私申报、拒审口径
+- [`visibility-checklist.md`](visibility-checklist.md) —— 收下改动之后那一半：Pages 上线、GitHub 曝光、搜索收录、商店与社区分发
 - [`CONTRIBUTING.md`](../CONTRIBUTING.md) —— 贡献流程与全部编码规则
 - [`AGENTS.md`](../AGENTS.md) —— 架构、命令与常见陷阱

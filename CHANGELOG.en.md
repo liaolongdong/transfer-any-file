@@ -11,6 +11,25 @@ always name the same release.
 
 ### Added
 
+- **You can write the names your results come back with.** Preferences gained an **Output file names**
+  field, and its built-in pattern `{name}_{date}_{time}` renders exactly the string that used to be hard
+  coded in the orchestration layer (`report_20260914_153012.pdf`), so anyone who never touches the field
+  gets bytes identical to yesterday's. Five placeholders: `{name}` is the source name without its
+  extension, `{date}` is `20260914`, `{time}` is `153012`, `{index}` counts position in this batch from 1,
+  `{target}` is the output format. Three things that are not obvious from the field itself: **the
+  extension is never the template's to decide** — the last step of the route owns it (if `containerExt`
+  says `.zip`, it is `.zip`), because the preview's "editable text" test, the format badge on the result
+  card and the per-entry ZIP compression strategy all read it back off the trailing dot, so letting a
+  pattern set it would only create three places that can lie; **`{name}` is substituted last**, so a file
+  genuinely named `{date}.md` cannot inject a token into anybody's name; **the field is untrusted input,
+  like storage** — `/`, `\`, `:`, `*`, `?`, `"`, `<`, `>`, `|` and control characters are stripped on the way
+  in, again on every substituted value, and once more over the rendered whole, which closes both
+  "hand-edited store" and "ZIP entry authored on Windows with backslashes" at the same place. A
+  placeholder you mis-typed (`{tile}`) stays literal in the name and is named out loud under the field —
+  silently dropping it would rename the file to `report-` and never mention it. Clearing the field
+  restores the default, so nobody has to retype it exactly. The `_2` collision suffix is unchanged, and
+  under a pattern with no `{date}` in it that suffix is the only defence left, which is why the suite now
+  pins a colliding pair (`notes.csv` + `notes.json`) and asserts both results arrive.
 - **Dropping a folder imports what is inside it.** A folder used to be a no-op, and the only workaround
   was to zip it up first — which already worked, because archives are expanded. Folders are now walked
   breadth-first, keeping only the formats the recognizer knows plus `.zip`s, skipping dotfiles and
@@ -272,9 +291,29 @@ always name the same release.
   missing. Wired into both CI jobs and into the release workflow **before** packaging. The reason it exists is the
   Fixed entry below: these shapes live only in minified third-party output, and neither "our source makes no
   requests" nor "the manifest asks for `storage` only" can see them structurally.
+- **The site gained a route-per-page layer, and it is generated.** `docs/convert/` is now one index plus ten
+  pairing pages (Markdown→Word, Word→Markdown, Excel⇄CSV, JSON→CSV, PDF→text, Markdown→PDF, Word→PDF,
+  PNG→WebP, SVG→PNG), and `docs/blog/` turns the long post that used to sit in `docs/promo/` into a published
+  page. `scripts/conversion-pages/pairs.mjs` is the single source of that copy; `scripts/render-site-pages.mjs`
+  renders it and rewrites `docs/sitemap.xml` on the way (14 URLs now) — a sentence changes in the data source,
+  `pnpm pages:render` rebuilds, `pnpm pages:check` compares committed bytes. What each route keeps and what it
+  drops is taken from the path baseline and the converter implementations rather than written as marketing, and
+  both languages still ship inside one document with CSS switching on `lang`, so a crawler that runs no
+  JavaScript reads the same facts. The product page carries three more long-tail FAQs — what happens to images
+  on Markdown→Word, whether Word→Markdown leaves data URIs behind, and whether Excel→CSV yields values or
+  displayed text — with the JSON-LD `Question` entries kept 1:1 with the visible ones (22 questions ×
+  2 languages). Both kinds of generated file are now outside Prettier's reach, since a hand edit would be
+  overwritten by the next render; the guard instead is `pages:check`, wired into CI's lint job, and
+  `verify:numbers` derives its facts over these pages too.
 
 ### Changed
 
+- **The archive you download is named by the same rule as everything else.** It used to be
+  `converted-<date_time>.zip`; with the built-in pattern it is now `converted_<date_time>.zip`, a
+  one-character drift from hyphen to underscore. The old spelling was not kept as a special case:
+  "the ZIP gets its own naming rule" is exactly the exception this feature removes, and what changes is one
+  name in your downloads folder — not the storage format, and not the entry names inside the archive,
+  which stay whatever each result was called.
 - **Adding or removing files no longer throws away results that had nothing to do with the edit.**
   Appending a file to a batch, or clicking the delete button on one row, used to wipe the whole screen of
   results along with the chosen target — so recovering one wrong file cost every other file a re-run.

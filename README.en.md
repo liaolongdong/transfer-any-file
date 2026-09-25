@@ -31,7 +31,7 @@ A Chrome extension (Manifest V3) that does every conversion inside a tab on your
 [![CWS users](https://img.shields.io/chrome-web-store/users/ITEM_ID?label=Users&logo=googlechrome&logoColor=white&color=4285F4)](https://chrome.google.com/webstore/detail/ITEM_ID)
 [![CWS rating](https://img.shields.io/chrome-web-store/rating/ITEM_ID?label=Rating&color=4285F4)](https://chrome.google.com/webstore/detail/ITEM_ID) -->
 
-[Core advantages](#-core-advantages) · [In action](#-in-action) · [How it works](#-how-it-works) · [Supported formats](#-supported-conversions) · [How it compares](#-how-it-compares) · [Feature overview](#-feature-overview) · [Privacy](#-privacy) · [Installation and usage](#-installation-and-usage) · [FAQ](#-faq) · [Contributing](#-contributing) · [Contact](#-contact) · [Product page](https://liaolongdong.github.io/transfer-any-file/)
+[Core advantages](#-core-advantages) · [In action](#-in-action) · [How it works](#-how-it-works) · [Supported formats](#-supported-conversions) · [How it compares](#-how-it-compares) · [Feature overview](#-feature-overview) · [Privacy](#-privacy) · [Installation and usage](#-installation-and-usage) · [FAQ](#-faq) · [Contributing](#-contributing) · [Contact](#-contact) · [Product page](https://liaolongdong.github.io/transfer-any-file/) · [Conversions](https://liaolongdong.github.io/transfer-any-file/convert/) · [Blog](https://liaolongdong.github.io/transfer-any-file/blog/)
 
 </div>
 
@@ -134,6 +134,8 @@ Image → TXT / CSV / JSON / Excel (that needs OCR, which this offline extension
 
 > Notes: PDF output is rendered as images (there is no text layer — the "text" is pixels). PDF input extracts text only (layout and images are not preserved). PDF → image renders each page, and a multi-page document downloads as a ZIP of per-page images in the chosen format (PNG / JPEG / WebP). BMP, GIF and SVG are input-only — browsers cannot encode them, and a GIF converted to an image or a PDF keeps only its first frame, which the result card says too once the source really has more than one. An inline SVG in Markdown, or an SVG converted to Word or Markdown, is rasterized into an embedded PNG — the drawing survives, but it is a bitmap, not a vector, and the result card says so too. Multi-sheet XLSX → CSV downloads a ZIP with one CSV per worksheet. How the three groups above count up: the 48 registered routes make 143 source→target combinations reachable through BFS, 27 of them are blocked as semantically invalid (24 image → TXT / CSV / JSON / XLSX, 3 PDF → CSV / JSON / XLSX), so the target picker offers 116.
 
+**Per-route trade-offs, one page each.** Every route has its own page saying how many steps it actually runs, which structures survive, which are dropped and why: [Markdown to Word](https://liaolongdong.github.io/transfer-any-file/convert/markdown-to-word.html) · [Word to Markdown](https://liaolongdong.github.io/transfer-any-file/convert/word-to-markdown.html) · [Word to PDF](https://liaolongdong.github.io/transfer-any-file/convert/word-to-pdf.html) · [Markdown to PDF](https://liaolongdong.github.io/transfer-any-file/convert/markdown-to-pdf.html) · [PDF to plain text](https://liaolongdong.github.io/transfer-any-file/convert/pdf-to-text.html) · [Excel to CSV](https://liaolongdong.github.io/transfer-any-file/convert/excel-to-csv.html) · [CSV to Excel](https://liaolongdong.github.io/transfer-any-file/convert/csv-to-excel.html) · [JSON to CSV](https://liaolongdong.github.io/transfer-any-file/convert/json-to-csv.html) · [PNG to WebP](https://liaolongdong.github.io/transfer-any-file/convert/png-to-webp.html) · [SVG to PNG](https://liaolongdong.github.io/transfer-any-file/convert/svg-to-png.html). There is also a [conversion index](https://liaolongdong.github.io/transfer-any-file/convert/) carrying the full format matrix, and the long-form post [I turned file format conversion into a Chrome extension that never goes online](https://liaolongdong.github.io/transfer-any-file/blog/).
+
 ## 🆚 How it compares
 
 Ordered by what should actually decide your choice: the first eight rows are where this extension beats online converters outright (against a CLI it is a split), the last three are where it plainly hands the ground to them or to a command-line tool.
@@ -190,6 +192,7 @@ Summarised from the typical behaviour of each class of tool rather than one spec
 - **Cancellation** — a long batch can be stopped mid-run; finished files are kept, and the result panel says the batch was cancelled rather than showing it as a failure
 - **Adding or removing files keeps unrelated results** — appending a file, or deleting one row, only affects that file's own result: everything already converted for the other files stays on screen, target included. The batch is only wiped when the edited list contains a file that cannot reach the current target — a mixed batch offers no target that is invalid for some of its files — and that wipe says so out loud. Switching the target is still a full reset: those rows are products of the target you just left
 - **Image output parameters** — when the target is PNG / JPEG / WebP, cap the longest edge, pick an encoder quality, set a best-effort file-size ceiling, and choose the render density a PDF source is rasterized at. Every one is opt-in: with nothing set the encoders run exactly as they did before. On a multi-step route the geometric settings apply at every step while quality and size apply only to the file you download — chasing a size ceiling through an intermediate encode would just throw away detail the last step would have needed
+- **Output file name template** — a result is called `original_20260914_153012.pdf` by default: date plus time to the second, so two batches on the same day cannot overwrite each other. Preferences takes a pattern of your own built from `{name}` (the source name without its extension), `{date}`, `{time}`, `{index}` (position in this batch, from 1) and `{target}` (the output format), with a live example under the field. A placeholder you mis-typed — `{tile}` — stays literal in the name and gets pointed out on the spot, instead of the file quietly losing a piece; `/`, `\`, `:`, `*`, `?`, `"`, `<`, `>`, `|` and control characters are stripped, so no pattern can produce a path; a rendered name longer than 120 characters is cut at 120 (filesystems count bytes, and a CJK name spends three of them per character, so 120 stays inside the limit for any script). The extension is never the template's to decide: it stays whatever the artifact actually is (the last step of a multi-step route, `.zip` for the archive). Clearing the field restores the default
 
 ### 🕘 History and personalization
 
@@ -235,7 +238,7 @@ There is no store listing yet; `CHROMEWEBSTORE.md` holds the publish-ready listi
 4. Converting to an image? Set the **output parameters** that appeared under the picker — longest edge, quality, a size ceiling, PDF render density, and a page range when the batch holds a PDF — or leave every one alone for the encoder's own defaults
 5. Click **Convert**, then download a single file or the whole batch as a ZIP
 6. Do this often? Save the format plus its parameters as a **preset** in the preset card and one click restores the whole recipe next time
-7. Open **Preferences** (top right) to switch theme / language / dark mode, toggle completion notifications and the large-batch confirmation, or rebind the convert shortcut
+7. Open **Preferences** (top right) to switch theme / language / dark mode, toggle completion notifications and the large-batch confirmation, set the pattern result files are named by, or rebind the convert shortcut
 
 ## ❓ FAQ
 
@@ -265,6 +268,9 @@ Yes. The project is MIT-licensed, with no account, no paid tier, no advertising 
 
 **Which browsers does it run in?**
 The build produces a Chrome Manifest V3 package, which also loads in Edge, Brave and other Chromium browsers. There is no Firefox build in this repository.
+
+**Can I drop the timestamp from the downloaded names?**
+Yes. The **Output file names** field in Preferences ships as `{name}_{date}_{time}`; write `{name}` instead and you get `report.pdf`. The cost is that two files in one batch can now want the same name — the later one automatically takes a `_2` or `_3` suffix, and that backstop holds whether or not the pattern contains `{date}`. Only downloads made afterwards change: history records source file names, so renaming outputs never leaves an old record unsearchable.
 
 **Where is the conversion history kept, and how do I clear it?**
 In `chrome.storage.local` on your own machine, holding file names, formats and sizes only — never file contents. The history panel can delete a single record, clear everything, and export or import the list as JSON. A mistake is recoverable: after either delete action the toast offers **Undo** for 5 seconds. Removing the extension removes that local storage with it, because there is no copy anywhere else.

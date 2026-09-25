@@ -43,6 +43,8 @@
     "verify:paths": "node scripts/check-path-snapshot.mjs",
     "verify:numbers": "node scripts/check-prose-numbers.mjs",
     "assets:capture": "node scripts/capture-store-assets.mjs",
+    "pages:render": "node scripts/render-site-pages.mjs",
+    "pages:check": "node scripts/render-site-pages.mjs --check",
     "promo:wechat": "node scripts/render-wechat-html.mjs docs/promo/wechat-article.md"
   },
   "keywords": [

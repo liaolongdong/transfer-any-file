@@ -39,6 +39,11 @@ jobs:
       # 纯静态解析源码，不需要产物，所以和上面的源码层守卫放在同一个 job。
       - name: Verify conversion paths
         run: pnpm verify:paths
+      # 站点里那批「由数据源生成」的页面（docs/convert/* 与 docs/sitemap.xml）必须等于
+      # scripts/conversion-pages/pairs.mjs 现在能渲染出来的那一份。它们不受 Prettier 管，
+      # 也没有别的检查会读，所以这里是唯一的守卫；放在散文数字之前，让失败信息先指向生成物。
+      - name: Verify generated site pages
+        run: pnpm pages:check
       # 对外散文里的数字必须等于代码里的那一个：格式数、路径数、闭包与屏蔽数、各类阈值，
       # 全部从源码与路径基线现推。跑的是同一条静态路线，因此也放在 build 之前。
       - name: Verify prose numbers

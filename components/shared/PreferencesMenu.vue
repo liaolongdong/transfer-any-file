@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onBeforeUnmount } from 'vue';
+import { ref, computed, watch, onBeforeUnmount } from 'vue';
 import { Check } from '@element-plus/icons-vue';
 import { useTheme } from '~/composables/useTheme';
 import type { ThemeName, ColorMode } from '~/composables/useTheme';
@@ -7,8 +7,15 @@ import { useI18n, availableLocales } from '~/composables/useI18n';
 import type { Locale } from '~/composables/useI18n';
 import { useNotification } from '~/composables/useNotification';
 import { useConfirmConvert } from '~/composables/useConfirmConvert';
+import { useNameTemplate } from '~/composables/useNameTemplate';
 import { useShortcuts } from '~/composables/useShortcuts';
 import { eventToBinding, validateBinding } from '~/utils/core/shortcut';
+import {
+  DEFAULT_NAME_TEMPLATE,
+  applyNameTemplate,
+  sanitizeNameTemplate,
+  unknownTokens,
+} from '~/utils/core/name-template';
 import type { ShortcutAction } from '~/utils/core/shortcut';
 
 const { theme, colorMode, setTheme, setColorMode, themes } = useTheme();
@@ -124,6 +131,44 @@ async function handleConfirmToggle(value: string | number | boolean): Promise<vo
   await setConfirmEnabled(value === true);
 }
 
+/* F5 — output file names. `draft` is what is being typed; the singleton only sees a commit, so a
+   half-written pattern can never name a file. */
+const { template: savedNameTemplate, setTemplate: setNameTemplate } = useNameTemplate();
+const nameTemplateDraft = ref(savedNameTemplate.value);
+
+// Storage answers a few milliseconds after this component mounts. If the popover was opened inside
+// that window the draft would still show the default, and committing it would discard a pattern the
+// user had saved — so a draft nobody has touched follows the stored value when it arrives.
+watch(savedNameTemplate, value => {
+  if (nameTemplateDraft.value === DEFAULT_NAME_TEMPLATE) nameTemplateDraft.value = value;
+});
+
+/** What a download would be called with the pattern being typed, extension included. */
+const nameTemplateExample = computed<string>(
+  () =>
+    `${applyNameTemplate(sanitizeNameTemplate(nameTemplateDraft.value), {
+      source: 'report.md',
+      index: 1,
+      target: 'pdf',
+      date: new Date(),
+    })}.pdf`,
+);
+
+/** Braced placeholders the pattern uses but this build does not know — kept literal, so say so. */
+const nameTemplateUnknown = computed<string>(() =>
+  // Joined here rather than in the mustache: a literal `}}` inside `{{ … }}` closes the
+  // interpolation, and every token here is spelled with braces.
+  unknownTokens(sanitizeNameTemplate(nameTemplateDraft.value))
+    .map(token => `{${token}}`)
+    .join(' '),
+);
+
+async function commitNameTemplate(): Promise<void> {
+  await setNameTemplate(nameTemplateDraft.value);
+  // Re-read what was stored: the sanitizer may have trimmed characters the field still shows.
+  nameTemplateDraft.value = savedNameTemplate.value;
+}
+
 /** Small status hint shown beneath the toggle. Empty string means "no hint", so the
  *  template can guard with `v-if` without a non-null assertion.
  *  `Notification` support never changes at runtime, so reading it inside a computed is
@@ -235,6 +280,28 @@ const notifyStatusKey = computed<string>(() => {
           @update:model-value="handleConfirmToggle"
         />
       </div>
+    </div>
+
+    <div class="pref-section">
+      <span class="pref-label">{{ t('prefs.nameTemplate') }}</span>
+      <el-input
+        v-model="nameTemplateDraft"
+        class="name-input"
+        size="small"
+        :placeholder="DEFAULT_NAME_TEMPLATE"
+        :aria-label="t('prefs.nameTemplate')"
+        @change="commitNameTemplate"
+      />
+      <span class="name-hint">
+        {{ t('prefs.nameTemplateHint') }}
+        <code>{{ nameTemplateExample }}</code>
+      </span>
+      <span
+        v-if="nameTemplateUnknown"
+        class="name-warning"
+      >
+        {{ t('prefs.nameTemplateUnknown', { tokens: nameTemplateUnknown }) }}
+      </span>
     </div>
 
     <div class="pref-section">
@@ -423,6 +490,31 @@ const notifyStatusKey = computed<string>(() => {
 .notify-status {
   font-size: 12px;
   color: var(--fat-text-secondary);
+  line-height: 1.4;
+}
+
+.name-input {
+  width: 100%;
+}
+
+.name-hint {
+  font-size: 12px;
+  color: var(--fat-text-secondary);
+  line-height: 1.4;
+}
+
+.name-hint code {
+  font-family: var(--fat-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 11px;
+  color: var(--fat-text-primary);
+  word-break: break-all;
+}
+
+/* The same red `FailureDiagnosticItem` uses for a line the user has to act on — an unknown
+   placeholder is kept literal rather than dropped, so the pattern needs to say so out loud. */
+.name-warning {
+  font-size: 12px;
+  color: var(--el-color-danger);
   line-height: 1.4;
 }
 

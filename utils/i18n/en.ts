@@ -231,6 +231,9 @@ const en: typeof zh = {
     modeSystem: 'System',
     notifyOnComplete: 'Show desktop notification when conversion finishes',
     confirmConvert: 'Ask before large-batch conversions',
+    nameTemplate: 'Output file names',
+    nameTemplateHint: 'Tokens: {name} {date} {time} {index} {target}. Blank restores the default. Example:',
+    nameTemplateUnknown: 'Unrecognized placeholder {tokens}, kept as plain text',
     shortcutsTitle: 'Keyboard Shortcuts',
     shortcutAction: {
       convert: 'Start conversion',

@@ -8,6 +8,8 @@ import { getBlockedReason } from '~/utils/core/conversion-policy';
 import { isImageOutputFormat, optionsForStep } from '~/utils/core/output-options';
 import { detectFormat } from '~/utils/core/file-detect';
 import { useOutputOptions } from '~/composables/useOutputOptions';
+import { useNameTemplate } from '~/composables/useNameTemplate';
+import { applyNameTemplate } from '~/utils/core/name-template';
 import { usePdfPages } from '~/composables/usePdfPages';
 import { useHistory } from '~/composables/useHistory';
 import { useRecentTargets } from '~/composables/useRecentTargets';
@@ -93,22 +95,14 @@ function causeDetailOf(error: unknown): string | undefined {
 }
 
 /**
- * Second-precision local timestamp (`20260914_153012`) used to keep download names unique.
+ * Source name the archive is named from, as `{name}` resolves it.
  *
- * Shared by the per-file names and the ZIP name: a date-only stamp is not enough, because two
- * batches on the same day would overwrite each other in the OS downloads folder.
+ * The archive is the deliverable a user renaming a download looks at first, so it follows the same
+ * pattern as the files inside it rather than keeping its own hard-coded spelling. `{index}` stays 1
+ * — there is one archive per click — and its `{target}` is the literal `zip`, because `FileFormat`
+ * has no ZIP member and the archive's container is not one of the convertible formats.
  */
-function nameStamp(date: Date): string {
-  return [
-    date.getFullYear(),
-    String(date.getMonth() + 1).padStart(2, '0'),
-    String(date.getDate()).padStart(2, '0'),
-    '_',
-    String(date.getHours()).padStart(2, '0'),
-    String(date.getMinutes()).padStart(2, '0'),
-    String(date.getSeconds()).padStart(2, '0'),
-  ].join('');
-}
+const ARCHIVE_SOURCE = 'converted';
 
 export function useConversion() {
   const { addRecord } = useHistory();
@@ -117,6 +111,7 @@ export function useConversion() {
   const { notify } = useNotification();
   const { isEnabled: confirmConvertEnabled, setEnabled: setConfirmConvertEnabled } = useConfirmConvert();
   const { options: outputOptions } = useOutputOptions();
+  const { currentTemplate } = useNameTemplate();
   const { pageRange, pageRangeSelected } = usePdfPages();
 
   const sourceFiles: Ref<File[]> = ref([]);
@@ -456,14 +451,22 @@ export function useConversion() {
     // this particular file is the PDF is checked per file where `ctx` is built below.
     const batchPageRange = isImageOutputFormat(target) && pageRangeSelected.value ? pageRange.value : undefined;
 
-    // Keep output names unique with timestamp; suffix only when a name is already taken
+    // Snapshot with the rest of the batch: a pattern changed mid-run must not name the first half
+    // of a delivery one way and the second half another.
+    const batchNameTemplate = await currentTemplate();
+    // Typed here rather than read inside `uniqueName`: the closure below cannot see that the guard
+    // at the top of `convert()` already ruled out a null target.
+    const batchTarget: string = target;
+
+    // Render the name, then suffix only when that name is already taken in this batch — two files
+    // can legitimately be called `report.md`, and one of them has to arrive as `report_…_2.md`.
     const usedNames = new Set<string>();
-    function uniqueName(base: string, ext: string): string {
-      const timestamp = nameStamp(new Date());
-      let name = `${base}_${timestamp}.${ext}`;
+    function uniqueName(source: string, ext: string, index: number): string {
+      const base = applyNameTemplate(batchNameTemplate, { source, index, target: batchTarget, date: new Date() });
+      let name = `${base}.${ext}`;
       let n = 2;
       while (usedNames.has(name)) {
-        name = `${base}_${timestamp}_${n}.${ext}`;
+        name = `${base}_${n}.${ext}`;
         n++;
       }
       usedNames.add(name);
@@ -543,10 +546,9 @@ export function useConversion() {
           }
           if (signal.aborted) break;
 
-          const base = file.name.replace(/\.[^.]+$/, '');
           results.push({
             blob: currentBlob,
-            filename: uniqueName(base, outExt),
+            filename: uniqueName(file.name, outExt, i + 1),
             lostFrames,
             svgRasterized,
           });
@@ -708,7 +710,14 @@ export function useConversion() {
           }
         })();
       });
-      saveAs(new Blob(chunks, { type: 'application/zip' }), `converted-${nameStamp(new Date())}.zip`);
+      const archiveTemplate = await currentTemplate();
+      const archiveName = `${applyNameTemplate(archiveTemplate, {
+        source: ARCHIVE_SOURCE,
+        index: 1,
+        target: 'zip',
+        date: new Date(),
+      })}.zip`;
+      saveAs(new Blob(chunks, { type: 'application/zip' }), archiveName);
     } catch {
       error.value = 'errors.zipFail';
     } finally {

@@ -72,7 +72,7 @@ curl -Is https://liaolongdong.github.io/transfer-any-file/privacy.html | head -1
 | ----------------------------- | ----------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
 | 名称 Extension Name           | `Transfer Any File — Offline File Format Converter` (49/75)                                                 | `文件格式任意转换助手 — 离线转换无上传` (20/75)                                                                                        |
 | 简介 Short description        | `Convert between 14 common document, spreadsheet and image file formats right in your browser...` (127/132) | `在本机浏览器内互转 14 种常见的文档、表格与图片格式。支持混合批量、多步链路、预览编辑与 ZIP 打包，全程离线，不上传、无账号。` (66/132) |
-| 详描 Full description         | [英文详细介绍](#英文详细介绍) (8,315 字符)                                                                  | [中文详细介绍](#中文详细介绍) (2,959 字符)                                                                                             |
+| 详描 Full description         | [英文详细介绍](#英文详细介绍) (8,581 字符)                                                                  | [中文详细介绍](#中文详细介绍) (3,039 字符)                                                                                             |
 | 类别 Category                 | `Productivity`                                                                                              | `Productivity`                                                                                                                         |
 | 主要语言 Primary Language     | -                                                                                                           | `Chinese (China)`                                                                                                                      |
 | 附加语言 Additional Languages | `English (United States)`                                                                                   | -                                                                                                                                      |
@@ -86,7 +86,7 @@ Transfer Any File — Offline File Format Converter
 Convert between 14 common document, spreadsheet and image file formats right in your browser — offline, in batches, no uploads.
 ```
 
-**Chinese (China) —— 默认语言标签页，先贴这一套。** 三个字段（名称 20/75、简介 66/132、详描 2,959 字符）在
+**Chinese (China) —— 默认语言标签页，先贴这一套。** 三个字段（名称 20/75、简介 66/132、详描 3,039 字符）在
 [商店文案](#商店文案)里；名称与简介同时活在 `public/_locales/zh_CN/messages.json`，`pnpm verify:listing` 逐字比对两边。
 那个标签页要等**带 `_locales/zh_CN/` 的包上传之后**才出现——先传包再填表，手上那份旧草稿看不到它是正常的。
 
@@ -116,7 +116,7 @@ Converts user-selected documents, spreadsheets and images between common file fo
 ```
 
 ```
-storage: persists the user's own conversion history (file names, formats and sizes — never file contents), interface preferences (theme, colour mode, language, notification and confirmation switches, custom shortcut), image output options (longest edge, quality, target size, PDF render density) and conversion presets (the preset name the user types, together with the target format and output options it records) via chrome.storage.local. Nothing leaves the device: the extension declares no host permissions and its own code issues no network request. No narrower permission can do this.
+storage: persists the user's own conversion history (file names, formats and sizes — never file contents), interface preferences (theme, colour mode, language, notification and confirmation switches, custom shortcut, output file name pattern), image output options (longest edge, quality, target size, PDF render density) and conversion presets (the preset name the user types, together with the target format and output options it records) via chrome.storage.local. Nothing leaves the device: the extension declares no host permissions and its own code issues no network request. No narrower permission can do this.
 ```
 
 ```
@@ -265,7 +265,7 @@ Convert between 14 common document, spreadsheet and image file formats right in 
 扩展真正具备的能力（混格式批量、多步链路、预览与编辑、ZIP 下载），而不是文件扩展名。依旧不写 PDF 转 Word、PDF 转 Excel，
 因为这个扩展做不到无损的 PDF 转换。
 
-**详细介绍（Detailed Description）** [必填] —— 纯文本，本仓库自设上限 16,000 字符（英文块实测 8,315；下面的中文块实测 2,959）
+**详细介绍（Detailed Description）** [必填] —— 纯文本，本仓库自设上限 16,000 字符（英文块实测 8,581；下面的中文块实测 3,039）
 
 _Google 没有为这个字段公布长度_——75 与 132 是写在文档里的，16,000 不是。把它当成本仓库自己的守卫
 （`pnpm verify:listing`），按后台计数器设定，提交时以那个计数器为准，不要把 16,000 背给审核员。
@@ -304,6 +304,7 @@ BUILT FOR REAL WORKLOADS
 • Image output parameters: an image target exposes a longest edge (800–4096 px), and a compressed image target additionally takes encoder quality (40–90%) and a target file size (20 KB–2 MB); a source that is rendered page by page takes a render density of 96–300 DPI — every knob starts untouched
 • PDF page selection: converting a PDF to images can be limited to the pages you name (1-3, 5) instead of the whole document; that choice belongs to the batch in front of you and is never stored, so it cannot silently truncate the next PDF
 • Conversion presets: save a target format together with its parameters as a named shortcut (up to 12) and restore the whole setup in one click; a preset works for any batch that can reach that format
+• Output names you can write: a result is named after its source file plus the date and time to the second by default, and Preferences takes a pattern of your own; the extension always comes from the real output, so a customised name never claims a format it is not
 • Archive intake: drop a .zip and the supported files inside join the batch automatically
 • Spreadsheet-friendly encoding: text is read as UTF-8 with a GB18030 then GBK fallback, and written with a byte-order mark so the result opens in a spreadsheet application without garbled characters
 • Conversion history: the last 50 runs (file names, formats and sizes only), searchable by file name, filterable, reusable in one click, exportable and importable as JSON
@@ -381,6 +382,7 @@ Version 1.0.0 — first store submission.
 • 图片输出参数：目标为图片时可设最长边（800–4096 px）；目标为压缩图片格式时还可设质量（40–90%）与目标体积（20 KB–2 MB）；逐页渲染的源文件另可按「清晰度」选 96–300 DPI；不设置即保持默认
 • PDF 选页：把 PDF 转成图片时可以只点名要渲染的页（如 1-3, 5），不必整份出图；这个选择只属于眼前这一批、不落存储，所以不会悄悄截断下一份 PDF
 • 转换预设：把目标格式连同输出参数存成一个命名快捷方式（最多 12 个），下次一键套用；预设不绑定源格式，凡能转到该格式的批次都能直接用
+• 输出文件名：结果默认叫「源文件名 + 精确到秒的日期与时间」，偏好设置里这一串写法可以自定义；扩展名始终取自真实产物，自定义过的名字因此不会与实际格式不符
 • 压缩包解包：拖入一个 .zip，其中受支持的文件自动加入批次
 • 表格友好的编码：文本按 UTF-8 读取，失败时依次回退 GB18030 与 GBK，写出时带字节序标记，用表格软件打开不乱码
 • 转换历史：保留最近 50 次转换的元数据（仅文件名、格式与体积），支持按文件名搜索、筛选、一键「复用此格式」，以及 JSON 导出与导入
@@ -543,9 +545,9 @@ caption 条是叠上去的，不是裁出来的：界面保持完整的 1280×80
 
 ### 权限说明
 
-| 权限      | 类型        | 说明（中文摘要；要贴进后台的英文原句见[提交速查 → Tab 3](#tab-3--privacy-practices隐私实践)）                                                                                                                                                                                                                                                              |
-| --------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `storage` | permissions | 通过 `chrome.storage.local` 跨会话保存用户自己的转换历史（文件名、格式、体积——绝不含文件内容）、界面偏好（主题色、显示模式、语言、通知与确认开关、自定义快捷键）、图片输出参数（最长边、质量、目标体积、PDF 渲染清晰度）与转换预设（用户自己输入的预设名称，连同它记录的目标格式与输出参数）。什么都不传输：扩展不声明 host 权限，自身代码不发起网络请求。 |
+| 权限      | 类型        | 说明（中文摘要；要贴进后台的英文原句见[提交速查 → Tab 3](#tab-3--privacy-practices隐私实践)）                                                                                                                                                                                                                                                                              |
+| --------- | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `storage` | permissions | 通过 `chrome.storage.local` 跨会话保存用户自己的转换历史（文件名、格式、体积——绝不含文件内容）、界面偏好（主题色、显示模式、语言、通知与确认开关、自定义快捷键、输出文件名写法）、图片输出参数（最长边、质量、目标体积、PDF 渲染清晰度）与转换预设（用户自己输入的预设名称，连同它记录的目标格式与输出参数）。什么都不传输：扩展不声明 host 权限，自身代码不发起网络请求。 |
 
 没有 `host_permissions`、没有 content script、没有 `tabs`、没有 `<all_urls>`、没有远程代码。工具栏图标走
 `chrome.action.onClicked` → `chrome.runtime.openOptionsPage()`；工作台是扩展页面，因此从不申请访问任何网站。
@@ -953,6 +955,10 @@ PDF → ZIP 解码）。跑这一步的纪律：**`.output/chrome-mv3` 在被测
 
 > 这些是关于**本文件**的修订记录，不是产品发布说明（产品在 `CHANGELOG.md`）。数字全部由 `pnpm verify:listing` 实测。
 
+- **2026-09-24（输出文件名进 listing）** —— 两份详细介绍的「面向真实工作负载 / BUILT FOR REAL WORKLOADS」各加一条
+  bullet，位置同为「转换预设 / Conversion presets」之后。**副作用**：两个粘贴块变长，速查表、字段标签与上架手册
+  （中英两份）里被引用的四处字符数按 `pnpm verify:listing` 重测为英文 8,581 / 中文 3,039。名称、简介、单一目的与
+  隐私披露逐字节未动：这一栏改的就是扩展自己存储里的一个偏好，`storage` 权限那段说明照旧成立。
 - **2026-09-24（PDF 选页进 listing）** —— 两份详细介绍各加一条 bullet，位置同为「图片输出参数 / Image output parameters」之后；
   「使用方法 / HOW TO USE」第 4 步各补同一从句——那个字段确实就长在那块面板里，而 listing 从没提过它。
   **副作用**：两个粘贴块变长，速查表、字段标签与上架手册（中英两份）里被引用的四处字符数按 `pnpm verify:listing` 重测为

@@ -1,0 +1,1067 @@
+<!doctype html>
+<!-- Hand-written, and bilingual the same way the product page is: every sentence ships in both
+     languages and CSS shows the one the document element selects, so a crawler that runs no JavaScript
+     still reads the whole article. The Chinese spine is `docs/promo/wechat-article.md`, the English
+     spine is
+     `docs/promo/blog-article.en.md`; those two stay the channel drafts (WeChat moves links to the
+     footer, dev.to wants Markdown), this page is the published version. Every number here is a fact of
+     the code and `pnpm verify:numbers` checks it against `FileFormat`, the route baseline and
+     `conversion-policy.ts` — so reword freely, but keep the shapes the guard recognises. -->
+<html
+  lang="zh-CN"
+  id="top"
+>
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1"
+    />
+    <script>
+      window.__FAT_META__ = {
+        'zh-CN': {
+          t: '我把「文件格式转换」做成了一个不联网的 Chrome 扩展',
+          d: '14 种格式、48 条注册路径、0 个网络请求。为什么敏感文件不该往云端传、浏览器为什么其实已经够用，以及把它做成本地工具会撞上哪些真实的工程取舍。',
+        },
+        en: {
+          t: 'I turned file format conversion into a Chrome extension that never goes online',
+          d: '14 formats, 48 direct routes, 0 network requests. Why sensitive files should not be uploaded, what a browser already ships, and the engineering trade-offs a local converter hits.',
+        },
+      };
+    </script>
+    <script>
+      (function () {
+        var KEY = 'fat-docs-lang';
+        var lang = null;
+        try {
+          var q = new URLSearchParams(location.search).get('lang');
+          if (q === 'zh' || q === 'zh-CN') lang = 'zh-CN';
+          else if (q === 'en') lang = 'en';
+          else {
+            var saved = localStorage.getItem(KEY);
+            if (saved === 'zh' || saved === 'zh-CN') lang = 'zh-CN';
+            else if (saved === 'en') lang = 'en';
+          }
+        } catch (e) {
+          /* private mode: fall through to browser detection */
+        }
+        if (!lang) lang = (navigator.language || 'zh-CN').toLowerCase().indexOf('zh') === 0 ? 'zh-CN' : 'en';
+        document.documentElement.setAttribute('lang', lang);
+        var copy = window.__FAT_META__[lang] || window.__FAT_META__.en;
+        if (copy) {
+          document.title = copy.t;
+          [
+            ['meta[name="description"]', copy.d],
+            ['meta[property="og:title"]', copy.t],
+            ['meta[property="og:description"]', copy.d],
+            ['meta[name="twitter:title"]', copy.t],
+            ['meta[name="twitter:description"]', copy.d],
+          ].forEach(function (pair) {
+            var el = document.querySelector(pair[0]);
+            if (el) el.setAttribute('content', pair[1]);
+          });
+        }
+      })();
+    </script>
+    <title>
+      我把「文件格式转换」做成了一个不联网的 Chrome 扩展 | I turned file format conversion into a Chrome extension that
+      never goes online
+    </title>
+    <meta
+      name="description"
+      content="14 种格式、48 条注册路径、0 个网络请求。为什么敏感文件不该往云端传、浏览器为什么其实已经够用，以及把它做成本地工具会撞上哪些真实的工程取舍。 | 14 formats, 48 direct routes, 0 network requests. Why sensitive files should not be uploaded, what a browser already ships, and the engineering trade-offs a local converter hits."
+    />
+    <meta
+      name="author"
+      content="Better"
+    />
+    <meta
+      name="robots"
+      content="index, follow, max-image-preview:large, max-snippet:-1"
+    />
+    <link
+      rel="canonical"
+      href="https://liaolongdong.github.io/transfer-any-file/blog/"
+    />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="64x64"
+      href="../assets/icon-mark.png"
+    />
+    <link
+      rel="stylesheet"
+      href="../assets/content.css"
+    />
+    <meta
+      property="og:type"
+      content="article"
+    />
+    <meta
+      property="og:site_name"
+      content="Transfer Any File"
+    />
+    <meta
+      property="og:locale"
+      content="zh_CN"
+    />
+    <meta
+      property="og:locale:alternate"
+      content="en_US"
+    />
+    <meta
+      property="og:url"
+      content="https://liaolongdong.github.io/transfer-any-file/blog/"
+    />
+    <meta
+      property="og:title"
+      content="我把「文件格式转换」做成了一个不联网的 Chrome 扩展 | I turned file format conversion into a Chrome extension that never goes online"
+    />
+    <meta
+      property="og:description"
+      content="14 种格式、48 条注册路径、0 个网络请求：为什么敏感文件不该往云端传，浏览器为什么已经够用，以及本地化会撞上的工程取舍。 | 14 formats, 48 direct routes, 0 network requests — and the trade-offs a local converter actually hits."
+    />
+    <meta
+      property="og:image"
+      content="https://liaolongdong.github.io/transfer-any-file/assets/store/github-social-preview.png"
+    />
+    <meta
+      property="og:article:published_time"
+      content="2026-09-22"
+    />
+    <meta
+      property="og:article:modified_time"
+      content="2026-09-22"
+    />
+    <meta
+      name="twitter:card"
+      content="summary_large_image"
+    />
+    <meta
+      name="twitter:title"
+      content="Transfer Any File — an offline file format converter, and how it works"
+    />
+    <meta
+      name="twitter:description"
+      content="14 formats, 48 direct routes, 0 network requests. The design notes: graph routing, per-entry ZIP, sanitising untrusted input, measurable contrast."
+    />
+    <meta
+      name="twitter:image"
+      content="https://liaolongdong.github.io/transfer-any-file/assets/store/github-social-preview.png"
+    />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "BlogPosting",
+            "@id": "https://liaolongdong.github.io/transfer-any-file/blog/#article",
+            "headline": "我把「文件格式转换」做成了一个不联网的 Chrome 扩展 | I turned file format conversion into a Chrome extension that never goes online",
+            "inLanguage": ["zh-CN", "en"],
+            "datePublished": "2026-09-22",
+            "dateModified": "2026-09-22",
+            "author": { "@type": "Person", "name": "Better", "url": "https://github.com/liaolongdong" },
+            "publisher": {
+              "@type": "Organization",
+              "name": "Transfer Any File",
+              "url": "https://liaolongdong.github.io/transfer-any-file/"
+            },
+            "image": "https://liaolongdong.github.io/transfer-any-file/assets/store/github-social-preview.png",
+            "url": "https://liaolongdong.github.io/transfer-any-file/blog/",
+            "mainEntityOfPage": "https://liaolongdong.github.io/transfer-any-file/blog/",
+            "keywords": "offline file conversion, Chrome extension, no upload, Markdown to PDF, Excel to CSV, data privacy",
+            "description": "工程手记：为什么敏感文件不该上传到在线转换器、浏览器已经具备哪些编解码能力、把转换对建模成图之后剩下的取舍。",
+            "isPartOf": { "@id": "https://liaolongdong.github.io/transfer-any-file/#website" }
+          },
+          {
+            "@type": "BreadcrumbList",
+            "itemListElement": [
+              {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "Transfer Any File",
+                "item": "https://liaolongdong.github.io/transfer-any-file/"
+              },
+              {
+                "@type": "ListItem",
+                "position": 2,
+                "name": "Blog",
+                "item": "https://liaolongdong.github.io/transfer-any-file/blog/"
+              }
+            ]
+          }
+        ]
+      }
+    </script>
+  </head>
+  <body>
+    <header class="site-head">
+      <div class="wrap">
+        <a
+          class="brand"
+          href="../"
+        >
+          <img
+            src="../assets/icon-mark.png"
+            width="26"
+            height="26"
+            alt=""
+          />
+          <span>Transfer Any File</span>
+        </a>
+        <nav
+          class="site-nav"
+          aria-label="Site"
+        >
+          <a href="../"><span lang="zh-CN">产品说明</span><span lang="en">Product</span></a>
+          <a href="../convert/"><span lang="zh-CN">转换一览</span><span lang="en">Conversions</span></a>
+          <a href="../blog/"><span lang="zh-CN">博客</span><span lang="en">Blog</span></a>
+          <a
+            href="https://github.com/liaolongdong/transfer-any-file"
+            rel="noopener"
+            target="_blank"
+            >GitHub</a
+          >
+        </nav>
+      </div>
+    </header>
+    <main class="page">
+      <div class="wrap">
+        <nav
+          class="crumbs"
+          aria-label="Breadcrumb"
+        >
+          <a href="../"><span lang="zh-CN">产品说明</span><span lang="en">Product</span></a>
+          <span aria-hidden="true">/</span>
+          <span><span lang="zh-CN">博客</span><span lang="en">Blog</span></span>
+        </nav>
+        <article>
+          <p class="eyebrow">
+            <span lang="zh-CN">工程手记 · 离线优先</span><span lang="en">Engineering notes · local-first</span>
+          </p>
+          <h1>
+            <span lang="zh-CN">我把「文件格式转换」做成了一个不联网的 Chrome 扩展</span>
+            <span lang="en">I turned file format conversion into a Chrome extension that never goes online</span>
+          </h1>
+          <p class="byline">
+            <span lang="zh-CN">首发 <time datetime="2026-09-22">2026-09-22</time> · 约 14 分钟 · 作者 Better</span>
+            <span lang="en"
+              >Published <time datetime="2026-09-22">2026-09-22</time> · about 14 minutes · by Better</span
+            >
+          </p>
+          <blockquote>
+            <p>
+              <span lang="zh-CN"
+                >14 种格式、48 条注册路径、0
+                个网络请求。这篇文章讲清楚三件事：为什么在线转换器不适合处理你的敏感文件、浏览器为什么其实已经够用、以及把转换做成本地工具会撞上哪些真实的工程取舍。</span
+              >
+              <span lang="en"
+                >14 formats, 48 direct routes, 0 network requests. Three things this post tries to make clear: why
+                online converters are the wrong tool for sensitive files, why the browser is already a converter, and
+                which engineering trade-offs you actually hit when you move the work local.</span
+              >
+            </p>
+          </blockquote>
+          <ul class="stats">
+            <li>
+              <b><span lang="zh-CN">14 种格式</span><span lang="en">14 formats</span></b>
+              <span lang="zh-CN">Markdown / HTML / Word / PDF / TXT / CSV / Excel / JSON 与 6 种图片</span>
+              <span lang="en">Markdown, HTML, Word, PDF, TXT, CSV, Excel, JSON and 6 image formats</span>
+            </li>
+            <li>
+              <b><span lang="zh-CN">48 条注册路径</span><span lang="en">48 direct routes</span></b>
+              <span lang="zh-CN">每个转换器只声明一条边，多步链路由图上 BFS 现算</span>
+              <span lang="en">Each converter declares one edge; multi-hop chains are computed from the graph</span>
+            </li>
+            <li>
+              <b><span lang="zh-CN">116 个可选组合</span><span lang="en">116 selectable pairs</span></b>
+              <span lang="zh-CN">图上可达 143 个组合，另外 27 个语义无效、界面置灰并说明原因</span>
+              <span lang="en"
+                >143 combinations are reachable, 116 of them selectable — the other 27 are greyed out with a
+                reason</span
+              >
+            </li>
+            <li>
+              <b><span lang="zh-CN">1 项权限</span><span lang="en">1 permission</span></b>
+              <span lang="zh-CN">manifest 只要 storage，无 host 权限、无遥测、无账号</span>
+              <span lang="en">storage only — no host permissions, no telemetry, no account</span>
+            </li>
+          </ul>
+          <nav
+            class="toc"
+            aria-label="Contents"
+          >
+            <ol>
+              <li>
+                <a href="#why"
+                  ><span lang="zh-CN">「免费在线转换」免费的是什么</span
+                  ><span lang="en">What "free online conversion" is free of</span></a
+                >
+              </li>
+              <li>
+                <a href="#browser"
+                  ><span lang="zh-CN">浏览器早就是一个转换器</span
+                  ><span lang="en">Your browser was already a converter</span></a
+                >
+              </li>
+              <li>
+                <a href="#graph"
+                  ><span lang="zh-CN">真正的杠杆：把转换对当成一张图</span
+                  ><span lang="en">The real leverage: treat conversion pairs as a graph</span></a
+                >
+              </li>
+              <li>
+                <a href="#batch"
+                  ><span lang="zh-CN">批量场景才见真章</span><span lang="en">Batch is where it earns its keep</span></a
+                >
+              </li>
+              <li>
+                <a href="#install"
+                  ><span lang="zh-CN">它现在在哪、怎么装</span
+                  ><span lang="en">Where it is and how to install it</span></a
+                >
+              </li>
+              <li>
+                <a href="#not-for"><span lang="zh-CN">谁不该用它</span><span lang="en">Who shouldn't use it</span></a>
+              </li>
+            </ol>
+          </nav>
+
+          <section id="why">
+            <h2>
+              <span lang="zh-CN">一、「免费在线转换」免费的是什么</span
+              ><span lang="en">1. What "free online conversion" is free of</span>
+            </h2>
+            <p>
+              <span lang="zh-CN">把合同拖进任何一个「免费在线转换」网站，发生的事情大致是：</span>
+              <span lang="en">Drag a contract into any "free online converter" and roughly this happens:</span>
+            </p>
+            <ol>
+              <li>
+                <span lang="zh-CN">文件通过你的网络上行到对方服务器；</span>
+                <span lang="en">your file uploads over your network to someone else's server;</span>
+              </li>
+              <li>
+                <span lang="zh-CN">服务器用 LibreOffice / FFmpeg / 商业 SDK 跑一次转换；</span>
+                <span lang="en">that server runs the conversion with LibreOffice, FFmpeg or a commercial SDK;</span>
+              </li>
+              <li>
+                <span lang="zh-CN">结果回传给你，服务器留一份副本；</span>
+                <span lang="en">the result comes back to you, and the server keeps a copy;</span>
+              </li>
+              <li>
+                <span lang="zh-CN">页面告诉你「文件将在 24 小时内删除」。</span>
+                <span lang="en">the page tells you "files are deleted within 24 hours".</span>
+              </li>
+            </ol>
+            <p>
+              <span lang="zh-CN"
+                >第 4
+                步是承诺，不是机制。你无法验证它，也无法验证文件在那台服务器上的这段时间里还发生了什么——训练语料、格式统计、或者更糟。对企业来说这已经不是隐私问题而是合规问题：把含员工薪资的表格交给一个不知境的第三方，在多数数据保护框架下就已经构成「向第三方提供数据」。</span
+              >
+              <span lang="en"
+                >Step 4 is a promise, not a mechanism. You cannot verify it, and you cannot verify what else happened
+                while your file sat there — training corpora, format statistics, or something worse. For a company this
+                stopped being a privacy question and became a compliance one: handing a payroll spreadsheet to an
+                unknowable third party already counts as "providing data to a third party" under most data protection
+                frameworks.</span
+              >
+            </p>
+            <p>
+              <span lang="zh-CN"
+                >还有一层成本没人写在首页上：为了转换一个 3 MB 的文件，你先上传 3 MB、排队、再下载 3
+                MB。就我本地做过的那些事而言，网络往返占了绝大部分时间。</span
+              >
+              <span lang="en"
+                >There is another cost nobody puts on the homepage. To convert one 3 MB file you upload 3 MB, queue, and
+                download 3 MB. For the work I have moved local, the network round trip was the majority of the
+                time.</span
+              >
+            </p>
+            <p>
+              <span lang="zh-CN"
+                >所以我做了 Transfer Any File，前提只有一条：<b>转换这件事，本来就不需要离开你的电脑。</b></span
+              >
+              <span lang="en"
+                >So I built Transfer Any File on one premise:
+                <b>converting a file has no reason to leave your machine.</b></span
+              >
+            </p>
+          </section>
+
+          <section id="browser">
+            <h2>
+              <span lang="zh-CN">二、浏览器早就是一个转换器，只是没人用它转文件</span
+              ><span lang="en">2. Your browser was already a converter — nobody used it for that</span>
+            </h2>
+            <p>
+              <span lang="zh-CN"
+                >这不是取巧的说法。今天一个 Chromium 内核的浏览器里，已经躺着相当完整的编解码能力：</span
+              >
+              <span lang="en"
+                >This is not a clever framing. A Chromium browser today ships a genuinely complete codec stack:</span
+              >
+            </p>
+            <ul>
+              <li>
+                <span lang="zh-CN">图片：PNG / JPEG / WebP 原生编码，BMP / GIF / SVG 原生解码；</span>
+                <span lang="en">Images: PNG, JPEG and WebP encode natively; BMP, GIF and SVG decode natively.</span>
+              </li>
+              <li>
+                <span lang="zh-CN">DOM 与富文本：浏览器本身就是 HTML 引擎，解析和序列化都是内建的；</span>
+                <span lang="en"
+                  >DOM and rich text: the browser <i>is</i> an HTML engine — parsing and serialising are built in.</span
+                >
+              </li>
+              <li>
+                <span lang="zh-CN"
+                  >一堆成熟的纯前端库：<code>marked</code>（Markdown → HTML）、<code>turndown</code>（HTML →
+                  Markdown）、<code>mammoth</code>（.docx → HTML）、<code>pdf.js</code>（PDF →
+                  文本/图像）、<code>SheetJS</code>（.xlsx ⇄ CSV/JSON）、<code>jsPDF</code> 与
+                  <code>html-to-image</code>（HTML →
+                  PDF/PNG）、<code>fflate</code>（ZIP）、<code>DOMPurify</code>（净化），再加上两个方向需要的
+                  <code>file-saver</code> 和 <code>html-docx-js-typescript</code>。</span
+                >
+                <span lang="en"
+                  >A set of mature browser-only libraries: <code>marked</code> (Markdown → HTML),
+                  <code>turndown</code> (HTML → Markdown), <code>mammoth</code> (.docx → HTML), <code>pdf.js</code> (PDF
+                  → text/images), <code>SheetJS</code> (.xlsx ⇄ CSV/JSON), <code>jsPDF</code> and
+                  <code>html-to-image</code> (HTML → PDF/PNG), <code>fflate</code> (ZIP) and
+                  <code>DOMPurify</code> (sanitising), plus <code>file-saver</code> and
+                  <code>html-docx-js-typescript</code> for the two directions that need them.</span
+                >
+              </li>
+            </ul>
+            <p>
+              <span lang="zh-CN"
+                >把这些拼起来，就覆盖了日常工作真正绕不开的那 14 种格式：Markdown、HTML、Word
+                (.docx)、PDF、TXT、CSV、Excel (.xlsx)、JSON、PNG、JPEG、WebP、BMP、GIF、SVG。</span
+              >
+              <span lang="en"
+                >Put those together and you cover the 14 formats office work actually revolves around: Markdown, HTML,
+                Word (.docx), PDF, TXT, CSV, Excel (.xlsx), JSON, PNG, JPEG, WebP, BMP, GIF, SVG.</span
+              >
+            </p>
+            <p>
+              <span lang="zh-CN">边界同样清楚，而且我不会假装它不存在：</span>
+              <span lang="en">The edges are just as clear, and I will not pretend they are not there:</span>
+            </p>
+            <ul class="limits">
+              <li>
+                <span lang="zh-CN"
+                  ><b>没有 OCR。</b>把截图变成文字需要一个模型，几十 MB
+                  起步、还要联网下载——这直接违背「离线」这个前提。所以图片 → TXT/CSV/JSON/XLSX
+                  在界面上是<b>置灰、并在悬停时写明原因</b>，而不是等你点了转换才报错。</span
+                >
+                <span lang="en"
+                  ><b>No OCR.</b> Turning a screenshot into text needs a model — tens of megabytes minimum, downloaded
+                  over the network, which contradicts the premise. So image → TXT/CSV/JSON/XLSX is
+                  <b>greyed out in the picker, with the reason shown on hover</b>, instead of failing after you click
+                  convert.</span
+                >
+              </li>
+              <li>
+                <span lang="zh-CN"
+                  ><b>PDF 输出是渲染出来的图片</b>，转换得到的 PDF 不含文字层；PDF
+                  输入只提取文本，版式和内嵌图片不保留。</span
+                >
+                <span lang="en"
+                  ><b>PDF output is a rendered image.</b> A converted PDF carries no text layer, and PDF input only
+                  extracts text — layout and embedded images are dropped.</span
+                >
+              </li>
+              <li>
+                <span lang="zh-CN"
+                  ><b>BMP / GIF / SVG 只能作为输入</b>，因为浏览器压根没提供编码器。GIF 取首帧，SVG 走栅格化。</span
+                >
+                <span lang="en"
+                  ><b>BMP, GIF and SVG are input-only</b>, because the browser ships no encoder for them. GIF takes its
+                  first frame; SVG is rasterised.</span
+                >
+              </li>
+              <li>
+                <span lang="zh-CN">视频、音频、电子书不在射程内。</span>
+                <span lang="en">Video, audio and ebooks are out of range.</span>
+              </li>
+            </ul>
+            <p>
+              <span lang="zh-CN"
+                >一个诚实的工具，应该先把它不能干什么讲清楚。<a href="../convert/"
+                  >每个配对的「不做什么」都单独写在页面上</a
+                >。</span
+              >
+              <span lang="en"
+                >An honest tool tells you what it cannot do first —
+                <a href="../convert/">each pair has its own page spelling out what it does not do</a>.</span
+              >
+            </p>
+          </section>
+
+          <section id="graph">
+            <h2>
+              <span lang="zh-CN">三、真正的杠杆：把转换对当成一张图</span
+              ><span lang="en">3. The real leverage: treat conversion pairs as a graph</span>
+            </h2>
+            <p>
+              <span lang="zh-CN"
+                >如果只做「格式 A → 格式 B」，你得为每一对组合手写代码：14 种格式两两之间是 91
+                对，写到天荒地老，而且新增一种格式要跟所有已有格式重新配对。</span
+              >
+              <span lang="en"
+                >If you implement "format A → format B" directly, you write code for every pair: with 14 formats that's
+                91 combinations, forever, and adding a format means pairing it against all 13 existing ones.</span
+              >
+            </p>
+            <p>
+              <span lang="zh-CN"
+                >换个建模方式，问题就反过来了：<b>每个转换器只声明自己的一条边</b>（<code>from</code>、<code>to</code>、<code
+                  >convert(blob, ctx)</code
+                >），注册进一张有向图；需要 A → Z 时，在图上做一次 BFS 求最短路径，然后逐段执行。</span
+              >
+              <span lang="en"
+                >Change the modelling and the problem inverts.
+                <b>Each converter declares exactly one edge</b> (<code>from</code>, <code>to</code>,
+                <code>convert(blob, ctx)</code>) and registers into a directed graph. When you need A → Z, run a BFS for
+                the shortest path and execute it hop by hop.</span
+              >
+            </p>
+            <pre><code>Markdown ──► HTML ──► PDF
+Word     ──► HTML ──► Markdown
+JSON     ──► HTML ──► XLSX
+SVG      ──► HTML ──► PNG</code></pre>
+            <p>
+              <span lang="zh-CN"
+                >结果有两个。第一，<b>多步链路是「求出来的」，不是写出来的</b>——用户点一次「Markdown 转
+                PDF」，实际跑了两段，中间产物不落盘。第二，<b>新增一个转换器只有 20 行</b
+                >，而所有经过它的路径立刻自动可用。当前这张图有 48 条注册路径，工作台页脚那行「14 formats supported, 48+
+                conversion paths」是从图里现算出来的，不是抄来的文案。</span
+              >
+              <span lang="en"
+                >Two consequences. First, <b>multi-hop chains are computed, not written</b> — the reader clicks
+                "Markdown to PDF" once and two converters run, with no intermediate file on disk. Second,
+                <b>a new converter is about 20 lines</b>, and every route through it becomes available immediately. The
+                graph currently holds 48 registered direct routes, and the footer line in the workbench ("14 formats
+                supported, 48+ conversion paths") is computed from the graph at runtime, not pasted from copy.</span
+              >
+            </p>
+            <p>
+              <span lang="zh-CN"
+                >「支持多少个转换」只有一个诚实的答案：<b>图上可达 143 个组合，界面实际提供 116 个</b>。另外 27
+                个由一层策略（<code>utils/core/conversion-policy.ts</code>）置灰——它们在图上是通的，语义上却没有意义：24
+                个图片 → 文本/数据（栅格图里没有文字层，除非接 OCR），3 个 PDF → 表格结构（PDF
+                不带表格）。这些边不能直接删掉，因为同一条边换个源格式就成立了（HTML → JSON
+                面对真实表格完全可用），所以只能按「源 + 目标」的组合屏蔽，并把原因显示在界面上。</span
+              >
+              <span lang="en"
+                >"How many conversions do you support" has exactly one honest answer:
+                <b>143 combinations are reachable, 116 of them selectable</b>. The other 27 are greyed out by a policy
+                layer (<code>utils/core/conversion-policy.ts</code>) — structurally reachable but semantically empty: 24
+                image→text/data (a raster image has no text layer without OCR) and 3 PDF→data (a PDF carries no table
+                structure). I cannot just delete those edges, because the same edge is perfectly valid for a different
+                source (HTML → JSON works fine on a real table), so the invalid pairs are filtered per source-and-target
+                combination, with the reason surfaced in the UI.</span
+              >
+            </p>
+            <p>
+              <span lang="zh-CN"
+                >14 种格式里有 11 种可写（它们才会出现在注册路径的某一步的目标上）；图片这边可写 3
+                种，就是浏览器提供编码器的 PNG / JPEG / WebP。每条经过新格式的多步链路不需要有人手写登记——<a
+                  href="../convert/"
+                  >转换一览</a
+                >那组页面由脚本从同一份路径基线生成，页面里画的链路就是
+                <code>resolvePath()</code> 真正会走的那一条，链路对不上时生成脚本直接失败。</span
+              >
+              <span lang="en"
+                >11 of the 14 formats are writable — a format counts as writable when it appears as the target of some
+                registered step — and the writable image formats are 3: PNG, JPEG and WebP, the three browsers can
+                encode. No one hand-registers the multi-hop routes through a new format:
+                <a href="../convert/">the conversion index</a> is generated from the same route baseline the code is
+                checked against, so the chain drawn on a page is the one <code>resolvePath()</code> actually walks, and
+                the generator fails when the two disagree.</span
+              >
+            </p>
+          </section>
+
+          <section id="batch">
+            <h2>
+              <span lang="zh-CN">四、批量场景才见真章：几个踩过的坑</span
+              ><span lang="en">4. Batch is where it earns its keep</span>
+            </h2>
+            <p>
+              <span lang="zh-CN"
+                >单个文件转换，在线工具也做得不错。真正逼出差异的是「我手上这 40 个文件格式还不一样」。</span
+              >
+              <span lang="en"
+                >For a single file, online tools are fine. What forces the difference is "I have 40 files in 4 different
+                formats".</span
+              >
+            </p>
+            <p>
+              <b><span lang="zh-CN">混合源格式批次。</span><span lang="en">Mixed-source batches.</span></b>
+              <span lang="zh-CN"
+                >拖进来的可能是 .md、.csv、.xlsx
+                各若干。下拉框照样列出全部格式，但<b>只有对批次里每一个文件都可达的目标保持可选</b>，其余置灰——否则用户选了一个只有一部分文件能转的目标，剩下那半会整批失败。</span
+              >
+              <span lang="en"
+                >The drop may contain .md, .csv and .xlsx together. The dropdown still lists every format, but
+                <b>only targets reachable from every file in the batch stay selectable</b> — the rest are disabled.
+                Otherwise the reader picks a target half the batch cannot reach and half of it fails.</span
+              >
+            </p>
+            <p>
+              <b><span lang="zh-CN">逐文件错误隔离。</span><span lang="en">Per-file error isolation.</span></b>
+              <span lang="zh-CN"
+                >一个损坏的 .docx
+                不能毁掉整批。每个文件独立求路径、独立执行、独立记录失败原因；每条失败可以展开看诊断（完整的转换路径，以及卡在第几步），一键复制成纯文本贴进
+                issue。批次还能中途取消，已完成的结果保留。</span
+              >
+              <span lang="en"
+                >One corrupt .docx must not destroy the batch. Each file resolves its own path, executes independently
+                and records its own failure reason; each failure expands into a diagnostic — the full conversion path
+                and which step it died on — that copies out as plain text ready to paste into an issue. Batches are
+                cancellable mid-flight and completed results are kept.</span
+              >
+            </p>
+            <p>
+              <b
+                ><span lang="zh-CN">ZIP 压缩要按条目选择。</span
+                ><span lang="en">Pick the ZIP method per entry.</span></b
+              >
+              <span lang="zh-CN"
+                >直觉做法有两种：全部 stored（快，但文本结果体积白占）或全部 deflate（省空间，但对 PNG / PDF / XLSX
+                这些已经是压缩容器的产物纯粹烧 CPU）。实测答案是<b>按条目决定</b>：文本类（TXT / CSV / JSON / HTML /
+                Markdown / SVG / XML）走 deflate，能小一个数量级；已经压过的直接 stored。用 fflate 跑 7 MB CSV 配 6 MB
+                不可压缩数据：全部 stored 得到 13.28 MB / 56 ms，全部 deflate 得到 7.04 MB / 1169
+                ms。按条目选择拿到和全量 deflate 基本相同的体积（比全 stored 小约 47%），却不在压不动的条目上空烧
+                CPU。</span
+              >
+              <span lang="en"
+                >There are two intuitive answers: store everything (fast, but text results waste space) or deflate
+                everything (compact, but pure CPU burn on PNG, PDF and XLSX, which are already compressed containers).
+                The measured answer is <b>decide per entry</b>: text formats (TXT, CSV, JSON, HTML, Markdown, SVG, XML)
+                deflate and come out roughly an order of magnitude smaller; anything already compressed is stored.
+                Running it through fflate on 7 MB of CSV alongside 6 MB of incompressible data: all-stored gave a 13.28
+                MB archive in 56 ms, all-deflate gave 7.04 MB in 1169 ms. Per-entry gets essentially the same size as
+                all-deflate — about 47% below all-stored — without spending CPU on the entries that cannot shrink.</span
+              >
+            </p>
+            <p>
+              <b
+                ><span lang="zh-CN">中文 CSV 是编码问题，不是语言问题。</span
+                ><span lang="en">Chinese CSV is an encoding problem, not a language problem.</span></b
+              >
+              <span lang="zh-CN"
+                >读取时先试 UTF-8，失败依次回退 GB18030 与 GBK；写出时带 UTF-8 BOM。跳过这一步，Excel
+                打开就是乱码，中文用户第一分钟就会流失。</span
+              >
+              <span lang="en"
+                >Read: try UTF-8, then GB18030, then GBK. Write: prepend a UTF-8 BOM. Skip that and Excel opens the file
+                as mojibake, and Chinese-speaking users churn inside the first minute.</span
+              >
+            </p>
+            <p>
+              <b
+                ><span lang="zh-CN">表格转换按「值」而不是「显示文本」。</span
+                ><span lang="en">Spreadsheet conversions move values, not display text.</span></b
+              >
+              <span lang="zh-CN"
+                >.xlsx 里的一个日期，显示成
+                2026-09-22，底层是个序列号；单元格是文本还是数字，取决于回写后是否还能读成同一个值。所以 xlsx ⇄ csv /
+                json 走的是值保真：能安全还原成原值的才当数字，长数字ID、前导零、超过 Excel 15
+                位有效精度的那些保持文本，看起来像
+                <code>=</code> 开头的公式会被转义——不然换一个软件打开就变成注入。</span
+              >
+              <span lang="en"
+                >A date in .xlsx displays as 2026-09-22 but stores a serial number, and whether a cell is text or a
+                number depends on whether it reads back as the same value. So xlsx ⇄ CSV/JSON serialises from stored
+                values: only what round-trips to the same value counts as a number, long IDs, leading zeros and anything
+                past Excel's 15 significant digits stay text, and something that only looks like a
+                <code>=</code> formula gets escaped — otherwise the next application to open the file turns it into an
+                injection.</span
+              >
+            </p>
+            <p>
+              <b
+                ><span lang="zh-CN">不可信输入必须净化。</span><span lang="en">Untrusted input gets sanitised.</span></b
+              >
+              <span lang="zh-CN"
+                >用户上传的 HTML / SVG / Markdown 全都是攻击面。任何由用户文件生成的 HTML、SVG、Markdown 在渲染前都要过
+                DOMPurify，预览跑在 <code>sandbox</code> 的 iframe 里，SVG
+                里会动的内容（脚本、外链、事件属性）先剥掉，全程禁止 <code>v-html</code>、<code>eval</code>、<code
+                  >new Function</code
+                >。</span
+              >
+              <span lang="en"
+                >Uploaded HTML, SVG and Markdown are all attack surface. Every HTML, SVG or Markdown document generated
+                from a user file passes through DOMPurify before it is rendered, previews run in a
+                <code>sandbox</code>ed iframe, active SVG content (scripts, external references, event attributes) is
+                stripped first, and there is no <code>v-html</code>, no <code>eval</code>, no
+                <code>new Function</code> anywhere in the runtime path.</span
+              >
+            </p>
+            <p>
+              <b
+                ><span lang="zh-CN">首屏不该背着 pdf.js。</span
+                ><span lang="en">The first screen should not carry pdf.js.</span></b
+              >
+              <span lang="zh-CN"
+                >所有重型依赖在转换器内部动态 <code>import()</code>，重型子组件用
+                <code>defineAsyncComponent</code> 懒加载，连打包用的 fflate 也是到真正要用的那一刻才加载。整个扩展产物
+                3.76 MB，但打开工作台时不会去拉 1.26 MB 的 <code>pdf.worker</code>。</span
+              >
+              <span lang="en"
+                >Every heavy dependency is dynamically <code>import()</code>ed inside its converter, heavy child
+                components are lazy-loaded with <code>defineAsyncComponent</code>, and even the ZIP packer (fflate) is
+                loaded at the call site that needs it rather than up front. The whole extension builds to 3.76 MB, but
+                opening the workbench never pulls the 1.26 MB <code>pdf.worker</code>.</span
+              >
+            </p>
+            <p>
+              <b><span lang="zh-CN">让重复动作变便宜。</span><span lang="en">Make repeated actions cheap.</span></b>
+              <span lang="zh-CN"
+                >有一批细节只有天天用才会察觉：最近用过的 6
+                个目标格式会以下拉顶部的「最近使用」分组呈现，并且只对当前批次仍然可选的那些出现；拖放不限于那块虚线框，整个页面都能接住文件（转换进行中投放被忽略，光标显示为禁止）；剪贴板里的内容直接
+                <code>⌘V</code> /
+                <code>Ctrl+V</code> 就能转；上一轮结果可以撤销；大批量确认框自带「下次不再询问」勾选；开始转换的
+                <code>Ctrl/⌘ + Enter</code> 可以改绑；分隔条位置和历史卡片的折叠状态跨会话保留；最近 50
+                条记录只存元数据，不存文件内容；长批次在后台标签页跑完时，可以选择发一条桌面通知。</span
+              >
+              <span lang="en"
+                >A set of details you only notice after daily use: your 6 most recent target formats appear as a
+                <i>Recently used</i> group at the top of the picker, and only while they are still selectable for the
+                current batch; dropping files works anywhere on the page, not just inside the dashed zone (a drop during
+                a running conversion is ignored, with a forbidden cursor); clipboard contents convert with
+                <code>⌘V</code> / <code>Ctrl+V</code>; the previous batch can be undone; the large-batch confirmation
+                carries its own <i>Don't ask again</i> box; the <code>Ctrl/⌘ + Enter</code> convert shortcut is
+                rebindable; the split-divider position and the history card's collapsed state persist across sessions;
+                the last 50 history records store metadata only, never file contents; and a long batch finishing in a
+                background tab can optionally raise a desktop notification.</span
+              >
+            </p>
+            <p>
+              <b
+                ><span lang="zh-CN">「转成 WebP」只是半个需求。</span
+                ><span lang="en">"Convert to WebP" is only half the request.</span></b
+              >
+              <span lang="zh-CN"
+                >目标是图片时，工作台多出一行输出参数：最长边 800–4096 px，目标为 JPEG / WebP 时还有质量 40–90%
+                与一个目标体积 20 KB–2
+                MB——编码器先把质量往下走，走不动了才减像素，所以体积是<b>追到的上限，不是承诺</b>（边长控件后面还压着一道
+                8192 px 的硬上限）。四条能产出图片的链路（图片 → 图片、SVG → 图片、HTML → 图片、PDF →
+                图片）走的是同一个编码出口，因此「质量
+                70%」不会在四条路上变成四种意思。如果这件事每周都要做一次，目标连同参数可以存成一张命名预设卡片（最多 12
+                张）一键恢复；而且预设绑的是<b>目标</b>不是源格式——「PNG → 200 KB WebP」这一张，下次拖进来的不管是
+                Markdown、PDF 还是 PNG 都能用。</span
+              >
+              <span lang="en"
+                >When the target is an image, the workbench gains an output row: a longest edge of 800–4096 px, and for
+                a JPEG or WebP target also quality 40–90% and a target file size of 20 KB–2 MB, which the encoder chases
+                by walking the quality ladder before it throws pixels away — a ceiling it tries for, not one it promises
+                (an 8192 px hard cap sits behind that edge control). Every route that can produce an image (image→image,
+                SVG→image, HTML→image, PDF→image) goes through the same encoder call, so "quality 70%" cannot mean four
+                different things. If the job recurs, the target plus its parameters save as a named preset card (up to
+                12 of them), restored in one click, and the preset is bound to the <b>target</b> rather than to a source
+                format: "PNG → 200 KB WebP" works whether the next drop is Markdown, PDF or PNG.</span
+              >
+            </p>
+            <figure>
+              <img
+                src="../assets/screenshots/preview-edit.png"
+                width="1280"
+                height="800"
+                loading="lazy"
+                alt="左侧 Markdown 源码、右侧渲染后的 HTML，顶部是 Rendered / Source / Edit / Copy 切换"
+              />
+              <figcaption>
+                <span lang="zh-CN">预览不是只读的：Rendered / Source / Edit / Copy 四个视图共用同一份内容。</span>
+                <span lang="en"
+                  >The preview is not read-only: Rendered / Source / Edit / Copy all share one copy of the
+                  content.</span
+                >
+              </figcaption>
+            </figure>
+            <p>
+              <b
+                ><span lang="zh-CN">无障碍是一个可测的数字，不是善意。</span
+                ><span lang="en">Accessibility is a measurable number, not a goodwill gesture.</span></b
+              >
+              <span lang="zh-CN"
+                >四组颜色从真实页面上读回来，在 6 种主题 × 明暗共 12 组配置下逐主题断言：顶栏品牌文字对顶栏底色 ≥
+                4.5:1，主按钮文字在静止 / 悬停 / 按下三种状态下对按钮底色 ≥ 4.5:1（这两项是 WCAG 2.1 AA
+                对文本的要求），焦点环对卡片底色 ≥ 3:1（AA
+                对界面组件的要求），拖放提示、文件大小、页脚这些给人读的句子对各自底色 ≥ 4.5:1；测试还单独断言第一次 Tab
+                落在 skip link
+                上、并且它显示可见的焦点环——不是「看着还行」。主按钮这一条最值回票价：先把它写成测量时，12 组里有 7
+                组不达标，最差
+                3.45:1，而且失败点全在悬停或按下的中间色阶上，静止态反而是过的——修法是让这两档色阶从文字颜色的反方向推导，不再跟着主题的明度阶梯走。今天最差的一组是
+                4.70:1。还有一个缺口公开写着而不是藏起来：控件填充色对所在卡片底色 ≥ 3:1（WCAG 1.4.11）在 12 组里成立 10
+                组，浅色的森林绿与活力橙不成立，因为那两档填充本身就接近白色。</span
+              >
+              <span lang="en"
+                >Four contrast pairs are read back off the live page in 6 accent themes × light and dark, 12
+                configurations, and asserted per theme: topbar brand text against the topbar at 4.5:1 or better, the
+                primary button's label in its rest, hover <b>and</b> pressed states at 4.5:1 or better, the focus ring
+                against a card at 3:1 or better (WCAG 2.1 AA for text and for user-interface components respectively),
+                and informational text — the drop hint, file sizes, the footer — against its own backdrop at 4.5:1 or
+                better. The suite separately asserts that the first Tab lands on the skip link and that it shows a
+                visible ring. Not "looks fine". The button gate is the one that earned its keep: written as a
+                measurement first, it reported the label failing 4.5:1 in 7 of the 12 configurations — 3.45:1 at worst,
+                always in a hover or active shade rather than at rest — and the fix was to derive those two shades from
+                where the label sits instead of from the theme's lightness ladder. The worst case today is 4.70:1. One
+                gap stays documented rather than hidden: 3:1 between a control's fill and the card behind it (WCAG
+                1.4.11) holds in 10 of the 12 but not under the light forest-green and orange buttons, whose fills sit
+                close to white.</span
+              >
+            </p>
+            <p>
+              <b
+                ><span lang="zh-CN">「离线」这个说法要划清可证的边界。</span
+                ><span lang="en">"Offline" is a claim with a precise scope.</span></b
+              >
+              <span lang="zh-CN"
+                >CI 里 <code>pnpm verify:offline</code> 断言的是：第一方源码不含任何网络调用，manifest 只要
+                <code>storage</code>、没有 <code>host_permissions</code>。它<b>不断言</b>打包产物里搜不到
+                <code>fetch</code> 字符串——jsPDF 和 pdf.js
+                的未调用路径里确实带着。这些路径不会被第一方代码走到；即使走到了，在没有 host 权限、也没有 content
+                script
+                的情况下，扩展读不到响应、也碰不到任何网站的数据。另一条主张「包里不留远程托管的代码」是<b>单独</b>一层：<code
+                  >verify:remote-code</code
+                >
+                读的是构建产物本身，因为商店按产物内容判定，跟那段代码可不可达无关。两道守卫都跑过，「0
+                个网络请求」才站得住。</span
+              >
+              <span lang="en"
+                >What CI asserts (<code>pnpm verify:offline</code>) is that first-party source contains no network call
+                and that the manifest asks for <code>storage</code> alone with no <code>host_permissions</code>. It does
+                <b>not</b> assert that the string <code>fetch</code> is absent from the bundle — jsPDF and pdf.js carry
+                unused code paths that call it. Those paths are never entered, and even if one were, with no host
+                permission and no content script the extension cannot read a response or reach any website's data. "No
+                remotely hosted code" is a <b>separate</b> assertion, and it reads the built artifact, because the store
+                judges the package by its contents regardless of whether a path is reachable. Both guards passing is
+                what makes "0 network requests" defensible — and it is the version worth writing down.</span
+              >
+            </p>
+          </section>
+
+          <section id="install">
+            <h2>
+              <span lang="zh-CN">五、它现在在哪、怎么装</span
+              ><span lang="en">5. Where it is and how to install it</span>
+            </h2>
+            <p>
+              <span lang="zh-CN"><b>还没上 Chrome 应用商店</b>，直说。目前只有一条路：源码加载，四步。</span>
+              <span lang="en"
+                ><b>It is not on the Chrome Web Store yet.</b> Stated plainly. Right now the only route is loading it
+                from source, in four steps.</span
+              >
+            </p>
+            <pre><code># 环境：Node.js ≥ 20.12、pnpm
+git clone https://github.com/liaolongdong/transfer-any-file
+cd transfer-any-file
+pnpm install &amp;&amp; pnpm build</code></pre>
+            <p>
+              <span lang="zh-CN"
+                >然后 <code>chrome://extensions</code> → 打开右上角「开发者模式」→「加载已解压的扩展程序」→ 选
+                <code>.output/chrome-mv3</code> → 点工具栏图标，工作台在新标签页打开。</span
+              >
+              <span lang="en"
+                >Then <code>chrome://extensions</code> → enable "Developer mode" (top right) → "Load unpacked" → select
+                <code>.output/chrome-mv3</code> → click the toolbar icon, and the workbench opens in a new tab.</span
+              >
+            </p>
+            <p>
+              <span lang="zh-CN"
+                >商店需要的东西已经准备好了：名称与描述文案、1280×800
+                截图、权限逐条说明、隐私政策、数据披露答复，都写在仓库的 <code>CHROMEWEBSTORE.md</code> 和<a
+                  href="../privacy.html"
+                  >这份隐私政策</a
+                >里。上架还差一个开发者账号和一次提交——如果你想推动这件事，<a
+                  href="https://github.com/liaolongdong/transfer-any-file/issues"
+                  >去仓库开个 issue</a
+                >。</span
+              >
+              <span lang="en"
+                >Everything the store needs is already prepared: name and description copy, 1280×800 screenshots, a
+                line-by-line justification for each permission, the privacy policy and the data-disclosure answers — all
+                in <code>CHROMEWEBSTORE.md</code> and <a href="../privacy.html">this privacy policy</a>. What is missing
+                is a developer account and one submission. If you want to push that forward,
+                <a href="https://github.com/liaolongdong/transfer-any-file/issues">open an issue on the repo</a>.</span
+              >
+            </p>
+            <p>
+              <span lang="zh-CN"
+                >技术栈：<b>WXT + Vue 3 + TypeScript + Element Plus</b>，Manifest V3，权限只有 <code>storage</code>，MIT
+                协议。验证方式也是交付的一部分：Playwright 驱动构建产物跑 283
+                条断言，转换用的夹具（<code>fixtures/</code>）随仓库走，谁都能本地重跑。</span
+              >
+              <span lang="en"
+                >Tech stack: <b>WXT + Vue 3 + TypeScript + Element Plus</b>, Manifest V3, <code>storage</code> as the
+                only permission, MIT licence. How it is verified is part of the deliverable too: Playwright drives the
+                built artifact through 283 assertions, and the fixtures it converts live in <code>fixtures/</code> next
+                to the code, so anyone can re-run them.</span
+              >
+            </p>
+          </section>
+
+          <section id="not-for">
+            <h2><span lang="zh-CN">六、谁不该用它</span><span lang="en">6. Who shouldn't use it</span></h2>
+            <ul class="limits">
+              <li>
+                <span lang="zh-CN">要转视频、音频、EPUB、CAD：找专业在线服务，别为难浏览器。</span>
+                <span lang="en"
+                  >Video, audio, EPUB and CAD: use a proper service. Do not ask a browser to do this.</span
+                >
+              </li>
+              <li>
+                <span lang="zh-CN">要把扫描件 / 截图变成可编辑文字：那是 OCR，这里没有。</span>
+                <span lang="en"
+                  >Scanned pages or screenshots that need to become editable text: that is OCR, and it is not
+                  here.</span
+                >
+              </li>
+              <li>
+                <span lang="zh-CN">要把 PDF 转成排版完好的 Word：这里只能给你文本，版式会丢。</span>
+                <span lang="en">PDF → Word with the layout intact: you will get the text and lose the layout.</span>
+              </li>
+              <li>
+                <span lang="zh-CN">公司设备禁止加载未上架扩展、也没有开发者模式权限：这条路对你不成立。</span>
+                <span lang="en"
+                  >A company machine that blocks unpacked extensions and grants no Developer mode: this install path is
+                  closed to you.</span
+                >
+              </li>
+            </ul>
+            <p>
+              <span lang="zh-CN"
+                >但如果你手上是<b>合同、薪资表、病例、未公开稿件、客户数据</b>，只是想在 Markdown / Word / PDF / Excel /
+                CSV / JSON / HTML / 图片之间倒一下格式——那它不该有任何理由离开你的电脑。</span
+              >
+              <span lang="en"
+                >But if what you are holding is
+                <b>a contract, a payroll sheet, medical records, an unpublished manuscript, client data</b>, and you
+                just need to move format between Markdown / Word / PDF / Excel / CSV / JSON / HTML / images — there is
+                no reason for it to leave your machine.</span
+              >
+            </p>
+          </section>
+
+          <section class="cta">
+            <p>
+              <span lang="zh-CN"
+                >如果你手上那个具体的配对想知道边界在哪，直接去那一页：<b>会保留什么、不做什么、实操提示、常见问题</b>都按配对写好了。</span
+              >
+              <span lang="en"
+                >If you want the limits for one specific pair, go straight to its page:
+                <b>what carries over, what it does not do, working notes and questions</b>, written per
+                conversion.</span
+              >
+            </p>
+            <p class="cta-links">
+              <a
+                class="btn"
+                href="../convert/"
+                ><span lang="zh-CN">转换一览（10 个配对）</span
+                ><span lang="en">Browse the conversions (10 pairs)</span></a
+              >
+              <a
+                class="btn ghost"
+                href="../#install"
+                ><span lang="zh-CN">安装步骤</span><span lang="en">Install steps</span></a
+              >
+            </p>
+          </section>
+
+          <section class="related">
+            <h2><span lang="zh-CN">文中提到的转换配对</span><span lang="en">Conversions mentioned above</span></h2>
+            <ul class="related-list">
+              <li>
+                <a href="../convert/markdown-to-word.html"
+                  ><span lang="zh-CN">Markdown → Word（.md → .docx）</span
+                  ><span lang="en">Markdown → Word (.md → .docx)</span></a
+                >
+              </li>
+              <li>
+                <a href="../convert/word-to-markdown.html"
+                  ><span lang="zh-CN">Word → Markdown（.docx → .md）</span
+                  ><span lang="en">Word → Markdown (.docx → .md)</span></a
+                >
+              </li>
+              <li>
+                <a href="../convert/markdown-to-pdf.html"
+                  ><span lang="zh-CN">Markdown → PDF（两跳，产物是图像）</span
+                  ><span lang="en">Markdown → PDF (two hops, an image-only artifact)</span></a
+                >
+              </li>
+              <li>
+                <a href="../convert/excel-to-csv.html"
+                  ><span lang="zh-CN">Excel → CSV（多 sheet 出 ZIP）</span
+                  ><span lang="en">Excel → CSV (multiple sheets become a ZIP)</span></a
+                >
+              </li>
+              <li>
+                <a href="../convert/json-to-csv.html"
+                  ><span lang="zh-CN">JSON → CSV / Excel</span><span lang="en">JSON → CSV / Excel</span></a
+                >
+              </li>
+              <li>
+                <a href="../convert/pdf-to-text.html"
+                  ><span lang="zh-CN">PDF → 文本（只提取文字层）</span
+                  ><span lang="en">PDF → text (text extraction only)</span></a
+                >
+              </li>
+              <li>
+                <a href="../convert/png-to-webp.html"
+                  ><span lang="zh-CN">PNG → WebP（质量与目标体积）</span
+                  ><span lang="en">PNG → WebP (quality and target size)</span></a
+                >
+              </li>
+              <li>
+                <a href="../convert/svg-to-png.html"
+                  ><span lang="zh-CN">SVG → PNG（先净化再栅格化）</span
+                  ><span lang="en">SVG → PNG (sanitised, then rasterised)</span></a
+                >
+              </li>
+            </ul>
+            <p class="fine">
+              <span lang="zh-CN"
+                >完整清单见<a href="../convert/">转换一览</a>；<a href="../">产品说明</a>与<a href="../privacy.html"
+                  >隐私政策</a
+                >在这个站点上，源码在
+                <a href="https://github.com/liaolongdong/transfer-any-file">GitHub</a>（MIT）。</span
+              >
+              <span lang="en"
+                >The full set is on the <a href="../convert/">conversion index</a>; the
+                <a href="../">product page</a> and the <a href="../privacy.html">privacy policy</a> are on this site,
+                and the source is on <a href="https://github.com/liaolongdong/transfer-any-file">GitHub</a> (MIT).</span
+              >
+            </p>
+          </section>
+        </article>
+      </div>
+    </main>
+    <footer class="site-foot">
+      <div class="wrap">
+        <p>
+          <span lang="zh-CN"
+            >Transfer Any File —— 完全离线的 Chrome 文件格式转换扩展。文件不出本机，无遥测，只申请 storage 权限。</span
+          >
+          <span lang="en"
+            >Transfer Any File — an offline Chrome file format converter. Files never leave the machine, no telemetry,
+            and the storage permission is all it asks for.</span
+          >
+        </p>
+        <p class="fine">
+          <a href="../"><span lang="zh-CN">产品说明</span><span lang="en">Product page</span></a>
+          <a href="../convert/"><span lang="zh-CN">转换一览</span><span lang="en">All conversions</span></a>
+          <a href="../privacy.html"><span lang="zh-CN">隐私政策</span><span lang="en">Privacy policy</span></a>
+          <a
+            href="https://github.com/liaolongdong/transfer-any-file"
+            rel="noopener"
+            target="_blank"
+            ><span lang="zh-CN">源码 (MIT)</span><span lang="en">Source (MIT)</span></a
+          >
+        </p>
+      </div>
+    </footer>
+  </body>
+</html>

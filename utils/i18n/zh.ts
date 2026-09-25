@@ -241,6 +241,9 @@ export default {
     modeSystem: '跟随系统',
     notifyOnComplete: '转换完成后发送桌面通知',
     confirmConvert: '大批量转换前显示确认对话框',
+    nameTemplate: '输出文件名',
+    nameTemplateHint: '占位符 {name} {date} {time} {index} {target}，留空恢复默认。示例：',
+    nameTemplateUnknown: '未识别的占位符 {tokens}，会按普通文字保留',
     shortcutsTitle: '快捷键',
     shortcutAction: {
       convert: '开始转换',

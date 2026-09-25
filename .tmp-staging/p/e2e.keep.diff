@@ -1,0 +1,166 @@
+diff --git a/scripts/e2e-test.mjs b/scripts/e2e-test.mjs
+index ea10efe..8d10ba2 100644
+--- a/scripts/e2e-test.mjs
++++ b/scripts/e2e-test.mjs
+@@ -264,7 +264,9 @@ function mockChromeStorage(seed = {}) {
+ 
+ /**
+  * Upload a fixture file — or an in-memory `{ name, mimeType, buffer }`, for a document shaped by
+- * the test itself rather than by `fixtures/` — and convert to the given target format.
++ * the test itself rather than by `fixtures/` — and convert to the given target format. An array of
++ * either goes in as one batch, which is how a test reaches a state no single file can produce (two
++ * sources that share a basename, say).
+  *
+  * `timeout` budgets the wait for the result banner, and the default is sized by `fixtures/`: the
+  * slowest of those measured 20.7 s on a loaded machine, so 30 s is a real bound and not a formality.
+@@ -279,8 +281,9 @@ function mockChromeStorage(seed = {}) {
+ async function convertFile(page, fixture, targetText, timeout = 30000) {
+   const fi = await page.$('input[type="file"]');
+   if (!fi) throw new Error('file input not found');
+-  const label = typeof fixture === 'string' ? fixture : fixture.name;
+-  await fi.setInputFiles(typeof fixture === 'string' ? path.join(FIXTURE_PATH, fixture) : fixture);
++  const entries = Array.isArray(fixture) ? fixture : [fixture];
++  const label = entries.map(entry => (typeof entry === 'string' ? entry : entry.name)).join(', ');
++  await fi.setInputFiles(entries.map(entry => (typeof entry === 'string' ? path.join(FIXTURE_PATH, entry) : entry)));
+   await page.waitForTimeout(1000);
+ 
+   const formatTag = await page.$eval('.file-item .el-tag--primary', el => el.textContent).catch(() => null);
+@@ -2396,6 +2399,138 @@ async function run() {
+     }
+   }
+ 
++  // ═══════════════════════════════════════════
++  //  OUTPUT FILE NAMES FOLLOW A TEMPLATE (F5)
++  // ═══════════════════════════════════════════
++  //
++  // Every download used to be named `<source>_<YYYYMMDD>_<HHMMSS>.<ext>` with no way to ask for
++  // something else — right for a downloads folder, wrong for a deliverable that goes into a repo or
++  // an email. The pattern is one field, so the suite walks what a user walks: what the built-in
++  // default still produces, what the field shows, what typing into it stores, and what the next
++  // batch comes out named. Its own page, because it converts the same fixture several times over.
++  if (section('Output File Names Follow The Template')) {
++    const namePage = await browser.newPage();
++    try {
++      await namePage.setViewportSize({ width: 1280, height: 900 });
++      await namePage.addInitScript(mockChromeStorage());
++      await namePage.goto(`http://localhost:${PORT}/options.html`);
++      await namePage.waitForTimeout(1200);
++
++      /** Every result name on screen, sorted so a batch of two is compared without ordering luck. */
++      const resultNames = () =>
++        namePage.$$eval('.result-item .result-name', els => els.map(el => el.textContent.trim()).sort());
++      const gear = await namePage.$('.topbar-inner .el-button');
++      if (!gear) throw new Error('settings button not found');
++      // The pattern field lives in the preferences popover, and the popover has to be closed before a
++      // conversion runs — the same click that opens it closes it, so these two are one handle apart.
++      const openPrefs = async () => {
++        await gear.click();
++        await namePage.waitForTimeout(500);
++      };
++      const closePrefs = async () => {
++        await gear.click();
++        await namePage.waitForTimeout(300);
++      };
++      /** Type a pattern into the preferences field and commit it, then report what was stored. */
++      const setPattern = async value => {
++        const field = await namePage.$('.name-input input');
++        if (!field) throw new Error('name pattern field not found');
++        await field.fill(value);
++        // Enter and blur both fire the native `change` the field commits on; whichever the component
++        // forwards is enough, and the value is identical either way.
++        await field.press('Enter');
++        await field.evaluate(el => el.blur());
++        await namePage.waitForTimeout(300);
++        return namePage.evaluate(() => window.chrome.storage.local.get('fat:nameTemplate'));
++      };
++      const DEFAULT_PATTERN = '{name}_{date}_{time}';
++
++      // The built-in pattern is the whole point of the default: an untouched installation must keep
++      // producing exactly the names it did before the setting existed.
++      const stamped = await convertFile(namePage, 'sample.md', 'HTML (.html)');
++      if (/^sample_\d{8}_\d{6}\.html$/.test(stamped.resultName))
++        ok(`Default names keep the timestamp (${stamped.resultName})`);
++      else fail('Default name', `got "${stamped.resultName}"`);
++
++      await openPrefs();
++      const fieldText = await namePage.$eval('.name-input input', el => el.value);
++      if (fieldText === DEFAULT_PATTERN) ok('The field opens on the built-in pattern');
++      else fail('Field default', `got "${fieldText}"`);
++
++      // The example line is the only place a user learns what a token means, so it has to be live.
++      const exampleText = await namePage.$eval('.name-hint code', el => el.textContent.trim());
++      if (/^report_\d{8}_\d{6}\.pdf$/.test(exampleText)) ok(`Example previews the pattern (${exampleText})`);
++      else fail('Example line', `got "${exampleText}"`);
++
++      const stored = await setPattern('{name}');
++      if (stored['fat:nameTemplate'] === '{name}') ok('A committed pattern is stored as typed');
++      else fail('Stored pattern', JSON.stringify(stored));
++      await closePrefs();
++
++      const bare = await convertFile(namePage, 'sample.md', 'HTML (.html)');
++      if (bare.resultName === 'sample.html') ok('A pattern of only {name} drops the timestamp');
++      else fail('{name} only', `got "${bare.resultName}"`);
++
++      // Two sources can share a basename — `notes.csv` and `notes.json` both say `notes`, and under
++      // `{name}` with no timestamp they collide on purpose, so the `_2` suffix has to carry it.
++      const twins = await convertFile(
++        namePage,
++        [
++          { name: 'notes.csv', mimeType: 'text/csv', buffer: Buffer.from('a,b\n1,2\n') },
++          { name: 'notes.json', mimeType: 'application/json', buffer: Buffer.from('{"a":1}') },
++        ],
++        'HTML (.html)',
++      );
++      const twinNames = await resultNames();
++      if (twinNames.length === 2 && twinNames[0] === 'notes.html' && twinNames[1] === 'notes_2.html')
++        ok('Two sources with one basename still both arrive');
++      else fail('Basename collision', `got ${JSON.stringify(twinNames)} for ${twins.alertTitle}`);
++
++      // The pattern is untrusted input like everything else that survives a hand-edited store: a
++      // separator would turn a download name into a path, and inside a ZIP entry into an extractor
++      // hazard. What is left has to keep the real extension last.
++      await openPrefs();
++      const traversal = await setPattern('../../{name}/x|y?');
++      if (traversal['fat:nameTemplate'] === '{name}xy')
++        ok('Separators and reserved characters are stripped before the pattern is stored');
++      else fail('Pattern sanitized on store', JSON.stringify(traversal));
++      await closePrefs();
++
++      const escaped = await convertFile(namePage, 'sample.md', 'HTML (.html)');
++      if (!escaped.resultName.includes('/') && escaped.resultName.endsWith('.html'))
++        ok(`No pattern can write a path (${escaped.resultName})`);
++      else fail('Path in output name', escaped.resultName);
++
++      // `{tile}` is a typo, not a token. Dropping it would silently rename the file to `report-`;
++      // keeping it literal is the diagnosable choice, and the field says so while the user types.
++      await openPrefs();
++      await setPattern('report-{tile}');
++      const warning = await namePage.$eval('.name-warning', el => el.textContent.trim()).catch(() => '');
++      if (warning.includes('{tile}')) ok('The field names the placeholder it does not know');
++      else fail('Unknown placeholder warning', `got "${warning}"`);
++      await closePrefs();
++
++      const literal = await convertFile(namePage, 'sample.md', 'HTML (.html)');
++      if (literal.resultName === 'report-{tile}.html') ok('An unknown placeholder is kept, not dropped');
++      else fail('Unknown placeholder', `got "${literal.resultName}"`);
++
++      // Blank is the way back: undoing must not require retyping the exact built-in pattern.
++      await openPrefs();
++      const cleared = await setPattern('');
++      if (cleared['fat:nameTemplate'] === DEFAULT_PATTERN) ok('Clearing the field restores the built-in pattern');
++      else fail('Reset to default', JSON.stringify(cleared));
++
++      await namePage.screenshot({
++        path: shot(`${String(shotIdx++).padStart(2, '0')}-name-template.png`),
++        fullPage: true,
++      });
++    } catch (e) {
++      fail('Output file names follow a template', e.message);
++    } finally {
++      await namePage.close();
++    }
++  }
++
+   // ═══════════════════════════════════════════
+   //  FILE LIST STATUS ANNOUNCEMENT (WCAG 4.1.3)
+   // ═══════════════════════════════════════════

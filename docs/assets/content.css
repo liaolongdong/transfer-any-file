@@ -1,0 +1,509 @@
+/**
+ * Stylesheet for the generated content pages (`docs/convert/`, `docs/blog/`).
+ *
+ * The product page keeps its CSS inline because it is one hand-written document; these pages are
+ * generated in a set, so they share this file instead of carrying a copy each. The custom properties
+ * mirror `docs/index.html` on purpose — same brand blue, same ink ramp, same motion ladder — so a
+ * reader moving between the product page and a conversion page stays in one visual language.
+ *
+ * Bilingual by CSS, not by JavaScript: every string ships in both languages in the HTML and only the
+ * one matching `<html lang>` is shown, so a crawler that runs no JavaScript still reads every fact
+ * (same rule the product page documents in its head).
+ */
+
+:root {
+  --brand: #2563eb;
+  --brand-dark: #1d4ed8;
+  --brand-soft: #eef4ff;
+  --brand-line: #d6e4ff;
+  --ink: #101828;
+  --ink-soft: #475467;
+  --ink-faint: #667085;
+  --paper: #fff;
+  --paper-alt: #f7f9fc;
+  --line: #e4e7ec;
+  --ok: #067647;
+  --warn: #b54708;
+  --radius: 16px;
+  --radius-sm: 10px;
+  --container: 900px;
+  --shadow-sm: 0 1px 2px rgb(16 24 40 / 6%);
+  --shadow-md: 0 4px 24px -12px rgb(16 24 40 / 18%);
+  --dur-fast: 0.16s;
+  --ease-out: cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  color: var(--ink);
+  background: var(--paper);
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', Roboto,
+    Helvetica, Arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.72;
+}
+
+.wrap {
+  max-width: var(--container);
+  padding: 0 20px;
+  margin: 0 auto;
+}
+
+/* One language visible, both present in the DOM. */
+html[lang='zh-CN'] [lang='en'] {
+  display: none;
+}
+
+html[lang='en'] [lang='zh-CN'] {
+  display: none;
+}
+
+a {
+  color: var(--brand);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+/* ---------------------------------------------------------------- header */
+
+.site-head {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  border-bottom: 1px solid var(--line);
+  background: rgb(255 255 255 / 88%);
+  backdrop-filter: saturate(1.6) blur(10px);
+}
+
+.site-head .wrap {
+  display: flex;
+  max-width: 1180px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-block: 12px;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--ink);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.brand img {
+  border-radius: 7px;
+}
+
+.site-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  font-size: 14px;
+}
+
+.site-nav a {
+  color: var(--ink-soft);
+  transition: color var(--dur-fast) var(--ease-out);
+}
+
+.site-nav a:hover {
+  color: var(--brand);
+  text-decoration: none;
+}
+
+/* ------------------------------------------------------------------ body */
+
+.page {
+  padding-block: 28px 72px;
+}
+
+.crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  color: var(--ink-faint);
+  font-size: 13px;
+}
+
+.crumbs a {
+  color: var(--ink-faint);
+}
+
+.crumbs a:hover {
+  color: var(--brand);
+}
+
+article {
+  margin-top: 18px;
+}
+
+.eyebrow {
+  margin: 0 0 10px;
+  color: var(--brand-dark);
+  font-size: 13px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+h1 {
+  margin: 0 0 14px;
+  font-size: clamp(28px, 5vw, 40px);
+  line-height: 1.22;
+  letter-spacing: -0.02em;
+}
+
+.lede {
+  margin: 0 0 26px;
+  color: var(--ink-soft);
+  font-size: 17px;
+}
+
+h2 {
+  margin: 34px 0 12px;
+  font-size: 21px;
+  letter-spacing: -0.01em;
+}
+
+h3 {
+  margin: 26px 0 10px;
+  font-size: 17px;
+}
+
+p {
+  margin: 0 0 14px;
+}
+
+ul {
+  padding-left: 22px;
+  margin: 0 0 16px;
+}
+
+li {
+  margin-bottom: 9px;
+}
+
+.limits li {
+  color: var(--ink-soft);
+}
+
+.fine {
+  color: var(--ink-faint);
+  font-size: 13px;
+}
+
+/* --------------------------------------------------------------- article */
+
+/* The byline sits under the h1: what this page is, when it was written, how long it takes. */
+.byline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  margin: 0 0 22px;
+  color: var(--ink-faint);
+  font-size: 13px;
+}
+
+.byline time {
+  color: var(--ink-soft);
+  font-weight: 600;
+}
+
+/* Section anchors need clearing the sticky header. */
+:target {
+  scroll-margin-top: 76px;
+}
+
+.toc {
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--paper-alt);
+  font-size: 14px;
+}
+
+.toc ol {
+  padding-left: 20px;
+  margin: 0;
+}
+
+.toc li {
+  margin-bottom: 5px;
+}
+
+blockquote {
+  padding: 2px 0 2px 18px;
+  margin: 0 0 18px;
+  border-left: 3px solid var(--brand-line);
+  color: var(--ink-soft);
+  font-size: 17px;
+}
+
+code {
+  padding: 2px 5px;
+  border-radius: 5px;
+  background: var(--paper-alt);
+  color: var(--brand-dark);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.9em;
+}
+
+pre {
+  overflow-x: auto;
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--paper-alt);
+  font-size: 13.5px;
+  line-height: 1.6;
+}
+
+pre code {
+  padding: 0;
+  background: none;
+  color: var(--ink);
+  font-size: inherit;
+}
+
+figure {
+  margin: 24px 0;
+}
+
+figure img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--paper-alt);
+}
+
+figcaption {
+  margin-top: 8px;
+  color: var(--ink-faint);
+  font-size: 13px;
+}
+
+/* The stat strip under the lede: four numbers, both languages, no JS needed. */
+.stats {
+  display: grid;
+  padding: 0;
+  gap: 10px;
+  margin: 0 0 26px;
+  list-style: none;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+
+.stats li {
+  padding: 12px 14px;
+  border: 1px solid var(--brand-line);
+  border-radius: var(--radius-sm);
+  margin: 0;
+  background: var(--brand-soft);
+}
+
+.stats b {
+  display: block;
+  color: var(--brand-dark);
+  font-size: 22px;
+  line-height: 1.3;
+}
+
+.stats span {
+  color: var(--ink-soft);
+  font-size: 13px;
+}
+
+/* ------------------------------------------------------------- route card */
+
+.route-card {
+  padding: 18px 20px;
+  border: 1px solid var(--brand-line);
+  border-radius: var(--radius);
+  background: var(--brand-soft);
+}
+
+.route-label {
+  margin: 0 0 8px;
+  color: var(--brand-dark);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.route-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin: 0;
+  font-weight: 600;
+}
+
+.chip {
+  padding: 5px 11px;
+  border: 1px solid var(--brand-line);
+  border-radius: 999px;
+  background: var(--paper);
+  font-size: 14px;
+}
+
+.arrow {
+  color: var(--brand-dark);
+  font-weight: 700;
+}
+
+.route-note {
+  margin: 10px 0 0;
+  color: var(--ink-soft);
+  font-size: 14px;
+}
+
+/* -------------------------------------------------------------------- faq */
+
+details {
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--paper-alt);
+}
+
+details + details {
+  margin-top: 10px;
+}
+
+summary {
+  cursor: pointer;
+  font-weight: 650;
+}
+
+details p {
+  margin: 10px 0 0;
+  color: var(--ink-soft);
+}
+
+/* ---------------------------------------------------------------- cta/foot */
+
+.cta {
+  margin-top: 40px;
+  padding: 22px 24px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--paper-alt);
+}
+
+.cta p:first-child {
+  margin-top: 0;
+}
+
+.cta-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
+.btn {
+  display: inline-flex;
+  padding: 10px 18px;
+  border: 1px solid var(--brand);
+  border-radius: 999px;
+  background: var(--brand);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 650;
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out);
+}
+
+.btn:hover {
+  border-color: var(--brand-dark);
+  background: var(--brand-dark);
+  text-decoration: none;
+}
+
+.btn.ghost {
+  border-color: var(--line);
+  background: transparent;
+  color: var(--ink);
+}
+
+.btn.ghost:hover {
+  border-color: var(--brand-line);
+  background: var(--brand-soft);
+  color: var(--brand-dark);
+}
+
+.related-list {
+  display: grid;
+  padding: 0;
+  gap: 8px 20px;
+  list-style: none;
+}
+
+.index-list {
+  padding: 0;
+  list-style: none;
+}
+
+.index-list li {
+  padding-bottom: 12px;
+  margin-bottom: 12px;
+  border-bottom: 1px dashed var(--line);
+}
+
+.index-list a {
+  display: block;
+  font-weight: 650;
+}
+
+.site-foot {
+  border-top: 1px solid var(--line);
+  background: var(--paper-alt);
+  padding-block: 26px 34px;
+}
+
+.site-foot p {
+  margin: 0 0 10px;
+  color: var(--ink-soft);
+  font-size: 14px;
+}
+
+.site-foot .fine {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  font-size: 13px;
+}
+
+.site-foot .fine a {
+  color: var(--ink-faint);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  * {
+    transition-duration: 0.01ms !important;
+  }
+}
