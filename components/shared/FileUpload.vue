@@ -195,7 +195,7 @@ const ZIP_TOTAL_BUDGET = 200 * 1024 * 1024; // 200MB
 async function readArchive(file: File): Promise<{ entries: Record<string, Uint8Array>; truncated: boolean }> {
   const buffer = new Uint8Array(await file.arrayBuffer());
   // The entry count comes from the archive's own footer and `unzip` walks it in one synchronous
-  // loop no filter can interrupt, so a lying header is checked here rather than discovered there.
+  // loop no filter can interrupt, so a claim that is not true is checked here rather than discovered there.
   if ((declaredEntryCount(buffer) ?? 0) > MAX_ZIP_ENTRIES) throw new Error('archive claims too many entries');
   const { unzip } = await loadFflate();
   let declaredTotal = 0;
@@ -214,8 +214,10 @@ async function readArchive(file: File): Promise<{ entries: Record<string, Uint8A
           // Charged against both declared fields, not just the uncompressed one: a *stored* entry is
           // copied out of the buffer at its compressed length (`slc` clamps to the archive, so a
           // large claim yields a large allocation without any inflate), and every entry is free to
-          // point at the same bytes. Reading only `originalSize` let an archive of a thousand 1-byte
-          // claims materialise the whole file once per entry.
+          // point at the same bytes. Measured on the real page with 400 entries each declaring
+          // `originalSize` 1 against one shared 2 MiB blob: charging `originalSize` let the batch run
+          // to the 200-entry cap, materialising 400 MiB out of a 2 MiB archive. Charging both fields
+          // stops it at 100 entries — the 200 MiB budget, reached by real bytes this time.
           const charge = Math.max(info.size, info.originalSize);
           if (charge > MAX_REJECT_SIZE || declaredTotal + charge > ZIP_TOTAL_BUDGET || kept >= MAX_BATCH_FILES) {
             truncated = true;
