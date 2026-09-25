@@ -70,11 +70,22 @@ const VALID_FORMATS = new Set<string>(Object.values(FileFormat));
  *  `normalizeRecord` is what decides whether any of it survives. */
 type LooseHistoryRecord = HistoryRecord & { [key: string]: unknown };
 
+/** Largest `time` the Date API can render: ECMAScript clamps to ±8,640,000,000,000 ms, and
+ *  `toISOString()` throws `RangeError` past it. That throw happens at render time —
+ *  `:datetime="isoTime(record.time)"` in `HistoryPanel` — so a single such record blanks the whole
+ *  panel rather than one row. `Number.isFinite` alone does not catch it: `1e18` is finite. */
+const MAX_TIME_MS = 8.64e15;
+
+/** Same ceiling the writers use (`MAX_BATCH_FILES` in `FileUpload.vue`), restated here because that
+ *  constant lives inside the SFC. An imported payload can claim any number of names per record, and
+ *  every one of them reaches the search index and the row tooltip. */
+const MAX_BATCH_NAMES = 200;
+
 function isHistoryRecord(o: unknown): o is LooseHistoryRecord {
   if (!o || typeof o !== 'object') return false;
   const r = o as Record<string, unknown>;
   if (typeof r.id !== 'string' || !r.id) return false;
-  if (typeof r.time !== 'number' || !Number.isFinite(r.time)) return false;
+  if (typeof r.time !== 'number' || !Number.isFinite(r.time) || Math.abs(r.time) > MAX_TIME_MS) return false;
   if (typeof r.fileName !== 'string' || !r.fileName) return false;
   if (typeof r.sourceFormat !== 'string' || !VALID_FORMATS.has(r.sourceFormat)) return false;
   if (typeof r.targetFormat !== 'string' || !VALID_FORMATS.has(r.targetFormat)) return false;
@@ -89,20 +100,23 @@ function isHistoryRecord(o: unknown): o is LooseHistoryRecord {
  *  silently dropping an otherwise-valid entry the user exported. Unknown keys are
  *  discarded too, so a hand-edited payload cannot smuggle extra data into storage. */
 function normalizeRecord(o: LooseHistoryRecord): HistoryRecord {
-  // Every field below is already narrowed by `isHistoryRecord`, which runs first.
+  // Every field below is already narrowed by `isHistoryRecord`, which runs first. The sizes are
+  // clamped to non-negative because they feed `formatSize`, whose domain is byte counts: a
+  // negative `resultSize` makes its `Math.log` return NaN, and the trend chart then renders
+  // `NaN undefined` — a wrong-looking label on a row that is otherwise fine.
   const base: HistoryRecord = {
     id: o.id,
     time: o.time,
     fileName: o.fileName,
     sourceFormat: o.sourceFormat,
     targetFormat: o.targetFormat,
-    fileSize: o.fileSize,
-    resultSize: o.resultSize,
-    fileCount: o.fileCount,
+    fileSize: Math.max(0, o.fileSize),
+    resultSize: Math.max(0, o.resultSize),
+    fileCount: Math.max(0, Math.floor(o.fileCount)),
   };
   const names: unknown = o.fileNames;
   if (Array.isArray(names) && names.length > 0 && names.every(n => typeof n === 'string' && n)) {
-    base.fileNames = names as string[];
+    base.fileNames = (names as string[]).slice(0, MAX_BATCH_NAMES);
   }
   return base;
 }

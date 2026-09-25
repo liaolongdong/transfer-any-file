@@ -1,10 +1,15 @@
 import { FileFormat } from '~/utils/core/types';
 
+/** Byte count to a one-decimal label. Domain is a non-negative size — negative input makes
+ *  `Math.log` return NaN, so callers reading numbers from storage clamp first (see
+ *  `normalizeRecord` in `~/composables/useHistory`). The table tops out at PB and the index is
+ *  clamped to it: an unclamped index reads past the end and renders `4.5 undefined`, which is what
+ *  a stored `fileSize` of 1e15 used to show in the history trend chart. */
 export function formatSize(bytes: number): string {
   if (bytes === 0) return '0 B';
   const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  const sizes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
+  const i = Math.min(Math.floor(Math.log(bytes) / Math.log(k)), sizes.length - 1);
   return `${(bytes / Math.pow(k, i)).toFixed(1)} ${sizes[i]}`;
 }
 
