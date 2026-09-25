@@ -108,14 +108,30 @@ function normalizeRecord(o: LooseHistoryRecord): HistoryRecord {
 }
 
 /** Names a record can be matched against: every file in the batch for records saved by
- *  current versions, otherwise just the display label. Reads through `unknown` because
- *  records restored straight from storage never pass through `normalizeRecord`. */
+ *  current versions, otherwise just the display label. The `unknown` read stays defensive
+ *  because a record can also arrive from a caller that never went through `toStorable`. */
 export function searchableFileNames(r: HistoryRecord): string[] {
   const names: unknown = r.fileNames;
   if (Array.isArray(names) && names.length > 0 && names.every(n => typeof n === 'string')) {
     return names as string[];
   }
   return [r.fileName];
+}
+
+/**
+ * Repair whatever came out of storage into the shape every consumer assumes.
+ *
+ * A stored record is untrusted input like an uploaded file is: `importData` has always run the
+ * `isHistoryRecord` / `normalizeRecord` pair, but the restore path took the array as it found it, so
+ * one record missing `time` throws inside the row template (`new Date(undefined).toISOString()`, via
+ * the `:datetime` binding in `HistoryPanel`) and blanks the whole panel on every re-render, and a
+ * `null` element throws one level earlier in the filter computed. The `MAX_RECORDS` cap belongs here
+ * too — it is what the writers apply, so reading without it renders every row a hand-edited value
+ * holds until the next write trims the list back.
+ */
+function toStorable(value: unknown): HistoryRecord[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter(isHistoryRecord).map(normalizeRecord).slice(0, MAX_RECORDS);
 }
 
 const records: Ref<HistoryRecord[]> = ref([]);
@@ -129,9 +145,9 @@ async function initHistory(): Promise<void> {
   const stored = await storageGet<HistoryRecord[]>(STORAGE_KEYS.history, []);
   // Set the guard AFTER the read so a transient storage failure lets the next caller retry.
   initialized = true;
-  records.value = Array.isArray(stored) ? stored : [];
+  records.value = toStorable(stored);
   unsubscribe = onStorageChange<HistoryRecord[]>(STORAGE_KEYS.history, value => {
-    records.value = Array.isArray(value) ? value : [];
+    records.value = toStorable(value);
   });
 }
 
@@ -161,12 +177,16 @@ export function useHistory() {
   }
 
   async function removeRecord(id: string): Promise<void> {
+    // Every mutator waits for the restore: writing from in-memory state before it has been read
+    // would persist a list that never contained the stored records.
+    await initPromise;
     const next = records.value.filter(r => r.id !== id);
     records.value = next;
     await storageSet(STORAGE_KEYS.history, next);
   }
 
   async function clear(): Promise<void> {
+    await initPromise;
     records.value = [];
     await storageSet(STORAGE_KEYS.history, []);
   }
@@ -201,6 +221,7 @@ export function useHistory() {
    *  Result is sorted by time desc and capped at MAX_RECORDS. Throws an Error whose
    *  message is a key from HISTORY_IMPORT_ERROR_KEYS when the payload is unusable. */
   async function importData(payload: unknown): Promise<{ merged: number; total: number }> {
+    await initPromise;
     if (!payload || typeof payload !== 'object') {
       throw new Error('history.importErrPayload');
     }

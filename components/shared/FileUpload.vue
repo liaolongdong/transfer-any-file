@@ -5,7 +5,7 @@ import { UploadFilled, Delete, Plus, Picture, Document, Grid, View } from '@elem
 import { FileFormat } from '~/utils/core/types';
 import { getFormatLabel, getFormatCategory } from '~/utils/core/format-labels';
 import { formatSize } from '~/utils/core/format';
-import { loadFflate } from '~/utils/core/zip';
+import { loadFflate, declaredEntryCount, MAX_ZIP_ENTRIES } from '~/utils/core/zip';
 import { isMac } from '~/utils/core/platform';
 import { detectFormat, SUPPORTED_EXTENSIONS } from '~/utils/core/file-detect';
 import { collectDropped, snapshotDrop } from '~/utils/core/folder-drop';
@@ -194,6 +194,9 @@ const ZIP_TOTAL_BUDGET = 200 * 1024 * 1024; // 200MB
  */
 async function readArchive(file: File): Promise<{ entries: Record<string, Uint8Array>; truncated: boolean }> {
   const buffer = new Uint8Array(await file.arrayBuffer());
+  // The entry count comes from the archive's own footer and `unzip` walks it in one synchronous
+  // loop no filter can interrupt, so a lying header is checked here rather than discovered there.
+  if ((declaredEntryCount(buffer) ?? 0) > MAX_ZIP_ENTRIES) throw new Error('archive claims too many entries');
   const { unzip } = await loadFflate();
   let declaredTotal = 0;
   let kept = 0;
@@ -208,15 +211,17 @@ async function readArchive(file: File): Promise<{ entries: Record<string, Uint8A
           const dot = base.lastIndexOf('.');
           const ext = dot === -1 ? '' : base.slice(dot).toLowerCase();
           if (!SUPPORTED_EXTENSIONS.includes(ext)) return false;
-          if (
-            info.originalSize > MAX_REJECT_SIZE ||
-            declaredTotal + info.originalSize > ZIP_TOTAL_BUDGET ||
-            kept >= MAX_BATCH_FILES
-          ) {
+          // Charged against both declared fields, not just the uncompressed one: a *stored* entry is
+          // copied out of the buffer at its compressed length (`slc` clamps to the archive, so a
+          // large claim yields a large allocation without any inflate), and every entry is free to
+          // point at the same bytes. Reading only `originalSize` let an archive of a thousand 1-byte
+          // claims materialise the whole file once per entry.
+          const charge = Math.max(info.size, info.originalSize);
+          if (charge > MAX_REJECT_SIZE || declaredTotal + charge > ZIP_TOTAL_BUDGET || kept >= MAX_BATCH_FILES) {
             truncated = true;
             return false;
           }
-          declaredTotal += info.originalSize;
+          declaredTotal += charge;
           kept++;
           return true;
         },

@@ -191,16 +191,29 @@ export function eventToBinding(event: KeyboardEvent): string | null {
   return parts.join('+');
 }
 
-/** Coerce arbitrary stored shape into a complete map. Drops invalid entries. */
+/**
+ * Coerce arbitrary stored shape into a complete map, dropping what cannot be honoured.
+ *
+ * This is the read path for a value the write path checked, and stored data is untrusted input:
+ * `setBinding` only canonicalises, so the reserved-combination gate lives in the preferences UI
+ * alone. Parsing here is what keeps a hand-edited `{"convert":"ctrl+r"}` from reaching the
+ * `preventDefault()` in `App.vue`'s global handler and eating the browser's reload whenever a batch
+ * is armed. An unparseable string would otherwise match nothing forever — the shortcut dies silently
+ * instead of falling back to the default, because `getBinding` only falls back on a *missing* key.
+ * Canonicalising the accepted value is free (`setBinding` stores that form anyway) and makes the
+ * stored map self-heal.
+ */
 export function normalizeMap(input: Partial<ShortcutMap> | undefined): Partial<ShortcutMap> {
   if (!input || typeof input !== 'object') return {};
   const out: Partial<ShortcutMap> = {};
   for (const action of Object.keys(DEFAULT_SHORTCUTS) as ShortcutAction[]) {
     const raw = (input as Record<string, unknown>)[action];
-    if (typeof raw === 'string') {
-      const cleaned = sanitize(raw);
-      if (cleaned) out[action] = cleaned;
-    }
+    if (typeof raw !== 'string') continue;
+    const cleaned = sanitize(raw);
+    if (!cleaned) continue;
+    const canonical = canonicalize(cleaned);
+    if (!canonical || validateBinding(cleaned)) continue;
+    out[action] = canonical;
   }
   return out;
 }
