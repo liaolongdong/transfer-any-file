@@ -2,6 +2,7 @@
 
 > 八轮评审（`20ce72a` → `20d0964`）收口时，剩下这些项没做。分三组：需要产品决策、需要新证据、被别人占住。
 > 每条都写清了落点与验证命令，动手前先看「阻塞」一栏。
+> **A2 已在轮次 9 修掉**（与本文件同笔提交），留在 A 组原位是为了保住「为什么当时没做」的记录。
 
 ## 状态快照（写这份清单的时刻）
 
@@ -20,12 +21,15 @@
 - **落点**：`utils/storage.ts`（**占住**）、`composables/useHistory.ts`、`scripts/e2e-test.mjs:3604` 的 `const CAP = 16 * 1024 * 1024`（**占住**，它镜像这个常量，改一处不改它就是假绿灯）、`README*` / `CHANGELOG*` / `docs/*` 里提到导入阈值的句子（**占住**）。
 - **验证**：`pnpm lint:all && pnpm test:e2e && pnpm verify:numbers`。
 
-### A2 Ctrl+`+` 绑不上，且它不是解析 bug 而是格式冲突
+### A2 Ctrl+`+` / Ctrl+`Space` 绑不上——轮次 9 已修，修的是键位域不是键名
 
-- **缺陷**：`utils/core/shortcut.ts` 用 `'+'` 同时当**分隔符**（`split('+')`:77、`join('+')`:122/191）和**键名**，所以 `+` 这个键无法往返。
-- **为什么没直接修**：任何修法都要改 `fat:shortcutMap` 的**序列化形状**，老用户存的绑定需要迁移或容错。属于规则 §11 的「改数据格式」。
-- **落点**：`utils/core/shortcut.ts`（干净，我方可改）、`composables/useShortcuts.ts`、可能的迁移分支 + 中英文案。
-- **验证**：`pnpm lint:all && pnpm test:e2e`（e2e 里有快捷键小节）。
+- **实测到的缺陷（比原先记的「绑不上」更严重）**：`utils/core/shortcut.ts` 用 `'+'` 同时当**分隔符**和**键名**。HEAD 上按 `Ctrl+Shift+=`（`event.key` 就是 `'+'`）经 `eventToBinding` 得到 `ctrl+shift++`，尾部的空 token 被 `parseBinding` 丢掉，于是**键位落到了 `shift` 上、修饰符只剩 `ctrl`**：这串过了 `validateBinding`（保留组合里没有名为 `shift` 的键）、带着「已保存」提示落进 `fat:shortcutMap`、界面渲染成 `Ctrl + Shift`，**却永远不会再触发**——`matchEvent` 要求 `shiftKey === false`，而 Shift 自己的 keydown 报的是 `true`。用户拿到的是一个只看起来活着的绑定，原来的默认可用快捷键没了。`Ctrl+Space` / `Alt+Space` / `Ctrl++` 则是另一种失败：`eventToBinding` 产出 `ctrl+` 这类尾部空串，`validateBinding` 直接判 `invalid`。
+- **修法**：`KEY_TOKENS` 把 `+` 与空格映射成 `plus` / `space` 词元，`keyToken()` 做双向归一（`eventToBinding` 产出、`matchEvent` 比较都走它）；`MODIFIER_NAMES` 让 `parseBinding` 拒绝任何「键位是修饰符名」的形状，`normalizeMap` 因此在读取侧把存量脏值退回默认，而不是 honour 它。
+- **为什么不涉及迁移**：`plus` / `space` 这两个词元在过去**任何**写入路径上都不可能产生（产生了就是 `invalid`），所以磁盘上不存在需要改写的合法值；被新规则判死的只有 `ctrl+shift` 这类本来就已经失灵的值。
+- **遗留（刻意没动）**：非 Mac 上 `formatBinding('ctrl+plus')` 渲染为 `Ctrl + +`——分隔符与键名视觉上撞在一起。改它要动 `pieces.join(' + ')` 这条所有绑定共用的渲染路径，为单个键不值当；Mac 侧走 `join(' ')` 显示 `⌃ +`，无此问题。
+- **这条修法拉宽了可绑定集合**：空格键过去因为序列化后尾部空串被丢，`ctrl+space` / `alt+space` / `cmd+space` 一律判 `invalid`，现在都能录进去。`RESERVED_COMBOS` 只按 `ctrl`/`meta` 匹配，没有覆盖 Alt+Space（Windows 的窗口系统菜单）这类 OS 级组合。要不要把空格族键加进保留名单是一个产品判断，不在本轮范围内——反对的话，一行 `RESERVED_LOWER.add('space')` 就能收回。
+- **落点**：`utils/core/shortcut.ts`（本轮已改）。`composables/useShortcuts.ts` 与 `PreferencesMenu.vue` 无需改动（前者只做 storage 包装，后者拿的是 `validateBinding` 的 reason key）。
+- **验证**：`pnpm lint:all && pnpm test:e2e`（e2e 的快捷键小节仍 303 条，本轮没增删断言）。
 
 ### A3 ZIP 图片条目该不该压——旧实测记录已被推翻，方向反了
 
@@ -55,11 +59,12 @@
 
 ## B. 需要补证据 / 补覆盖
 
-### B1 轮次 1–2 的修复仍无 e2e 覆盖
+### B1 轮次 1–2 与轮次 9 的修复仍无 e2e 覆盖
 
-- **缺什么**：CSV 类型推断改写数据（`20ce72a`）与远程代码判据补严（`3772903`）两类回归，现在只有守卫与人工验证兜着。
+- **缺什么**：CSV 类型推断改写数据（`20ce72a`）与远程代码判据补严（`3772903`）两类回归，现在只有守卫与人工验证兜着。**轮次 9 同此**：`+` / `Space` 两个键的捕获—持久化—再匹配（A2 那三种失败形状）目前只在 Node 侧纯函数探针（28 + 16 条）验过；e2e 的自定义快捷键小节只覆盖了 `⌘ ⇧ K` 这一种「字面能往返」的键。
+- **该加什么**：在真页面上录 `Ctrl++`，断言按钮渲染出 `+`、storage 里落的是 `ctrl+plus`、按原组合能真的触发转换；再手工把 `fat:shortcutMap` 写成 `{"convert":"ctrl+shift"}` 刷新，断言界面回落默认而不是显示 `Ctrl + Shift`。
 - **落点**：`scripts/e2e-test.mjs`（**占住**，对方 staged +186/−3）。
-- **注意**：加断言会改**断言总数**，而它是对外契约——要同步 `scripts/__baseline__/e2e-assertions.json` 与 30 份散文，跑 `pnpm verify:numbers`。只有增删断言才需要同步，改实现不需要。
+- **注意**：加断言会改**断言总数**，而它是对外契约——要同步 `scripts/__baseline__/e2e-assertions.json` 与 30 份散文，跑 `pnpm verify:numbers`。只有增删断言才需要同步，改实现不需要（轮次 9 就是 303/303 原样通过）。
 
 ### B2 这批改动在 CI 上的结果还没核过
 
