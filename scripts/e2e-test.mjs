@@ -1501,21 +1501,28 @@ async function run() {
     await page.waitForTimeout(1500);
 
     if (canaryHits.length === 0) {
-      ok('Remote img/link/@import/style-url/srcset/video references produced zero requests');
+      ok('Remote img/link/@import/style-url/srcset/video/background-attr references produced zero requests');
     } else {
       fail('Offline sentinel', `canary was fetched: ${[...new Set(canaryHits)].join(', ')}`);
     }
 
-    // The strip must be surgical: plain anchor links are content, not subresources.
+    // The strip must be surgical: plain anchor links are content, not subresources. The `background`
+    // attribute belongs to this check alongside `img src` because the two vectors take different
+    // branches of `stripElement` — the CSS forms in `<style>` and `style=` are rewritten by the URL
+    // walk, while the attribute is only reached by the per-element loop. The sentinel above notices
+    // a missed attribute solely because Chrome resolves it; this one reads the stripped markup.
     await (await page.$('.file-item button[title="预览"]')).click();
     await page.waitForSelector('.preview-dialog iframe.doc-frame', { timeout: 10000 });
     const srcdoc = await page.$eval('.preview-dialog iframe.doc-frame', el => el.getAttribute('srcdoc') || '');
-    if (srcdoc.includes(`/canary/anchor`) && !srcdoc.includes(`/canary/img.png`)) {
-      ok('Anchor href preserved while image references were stripped');
+    const anchorKept = srcdoc.includes(`/canary/anchor`);
+    const imgKept = srcdoc.includes(`/canary/img.png`);
+    const bodyBgKept = srcdoc.includes(`body-bg-attr.png`);
+    if (anchorKept && !imgKept && !bodyBgKept) {
+      ok('Anchor href preserved while image and background references were stripped');
     } else {
       fail(
         'Surgical strip check',
-        `anchor kept=${srcdoc.includes('/canary/anchor')}, image kept=${srcdoc.includes('/canary/img.png')}`,
+        `anchor kept=${anchorKept}, img src kept=${imgKept}, background attr kept=${bodyBgKept}`,
       );
     }
     await page.keyboard.press('Escape');
@@ -1569,19 +1576,24 @@ async function run() {
       }
 
       if (altChunkInPackage) {
-        // One marker per vector `stripRemoteResources` handles on this path, including the two that
-        // need separate fixture markup to be exercised at all: `<link href>` and the inline
-        // `style=` attribute. A vector missing from the fixture is a branch never executed.
+        // One marker per vector `stripRemoteResources` handles on this path, including the three that
+        // need separate fixture markup to be exercised at all: `<link href>`, the inline `style=`
+        // attribute, and the legacy `background` attribute (per-tag and cell-level). A vector
+        // missing from the fixture is a branch never executed.
         const wanted = [
           'canary/img.png',
           'canary/link.css',
           'canary/css-import',
           'canary/css-bg.png',
           'canary/inline.png',
+          'canary/body-bg.png',
+          'canary/td-bg.png',
         ];
         const survived = wanted.filter(m => docxText.includes(m));
         if (survived.length === 0) {
-          ok('Remote img / link / @import / style-element url / inline-style url stripped from the DOCX');
+          ok(
+            'Remote img / link / @import / style-element url / inline-style url / background attr stripped from the DOCX',
+          );
         } else {
           fail('DOCX egress strip', `survived: ${survived.join(', ')}`);
         }
@@ -2018,6 +2030,10 @@ async function run() {
 
   section('HTML→MD Table Roundtrip');
   try {
+    // Two text-extraction facts about one fixture, reported as one assertion because they are the same
+    // claim seen twice: markup that carries structure must keep it after the tags are gone.
+    const broken = [];
+
     await resetWorkbench(page);
     await convertFile(page, 'sample.html', 'Markdown (.md)');
 
@@ -2033,15 +2049,40 @@ async function run() {
     await page.waitForTimeout(300);
 
     const text = await page.$eval('.preview-dialog .text-preview', el => el.textContent).catch(() => '');
-    if (text.includes('| K | V |') && text.includes('| --- | --- |') && text.includes('| a | 1 |')) {
-      ok('HTML→MD keeps the sample table as a GFM pipe table');
-    } else {
-      fail('HTML→MD table roundtrip', `markdown lost the table: "${text.slice(0, 120)}"`);
+    if (!(text.includes('| K | V |') && text.includes('| --- | --- |') && text.includes('| a | 1 |'))) {
+      broken.push(`markdown lost the table: "${text.slice(0, 120)}"`);
     }
     await page.screenshot({ path: shot(`${String(shotIdx++).padStart(2, '0')}-html-to-md-table.png`), fullPage: true });
 
     await page.keyboard.press('Escape');
     await page.waitForTimeout(400);
+
+    // `<ol>` markers are painted by the renderer from an item's position, so they are not text nodes
+    // and the plain-text walk used to lose them — a numbered procedure arrived as an unordered list
+    // that looked whole because the newlines stayed. `<ul>` has to come through *without* a marker:
+    // the same function handles both branches, and a bullet invented here would be a character the
+    // source never had.
+    await resetWorkbench(page);
+    await convertFile(page, 'sample.html', 'Text (.txt)');
+    const txtBtn = await page.$('.result-item button[title="预览"]');
+    if (!txtBtn) throw new Error('text result preview button not found');
+    await txtBtn.click();
+    await page.waitForTimeout(800);
+    const plain = await page.$eval('.preview-dialog .text-preview', el => el.textContent).catch(() => '');
+    if (!/1\.\s*first/.test(plain) || !/2\.\s*second/.test(plain)) {
+      broken.push(`numbering lost: "${plain.slice(0, 160)}"`);
+    }
+    if (!/^one$/m.test(plain) || /^1\.\s*one$/m.test(plain)) {
+      broken.push(`bullet list changed: "${plain.slice(0, 160)}"`);
+    }
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(400);
+
+    if (broken.length === 0) {
+      ok('HTML→MD keeps the sample table and HTML→TXT keeps ordered-list numbering');
+    } else {
+      fail('HTML structure in text output', broken.join('; '));
+    }
   } catch (e) {
     fail('HTML→MD table roundtrip', e.message);
   }
