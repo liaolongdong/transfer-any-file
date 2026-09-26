@@ -16,6 +16,14 @@
      element — same mechanism as --fat-shadow-primary below. */
   --fat-focus-ring: var(--fat-primary);
 
+  /* How far that ring reaches outside an element's border box: `outline: 2px` +
+     `outline-offset: 2px`, as written by the `:focus-visible` rule in global.css. It is a
+     token rather than a number repeated at each clip site because it is the figure an
+     `overflow: hidden` ancestor silently eats — a control flush against a clip edge loses
+     the ring on that side, and a keyboard user sees a box with one flat edge. Anything that
+     clips permanently must reserve this much (see `overflow-clip-margin`). */
+  --fat-focus-ring-inset: 4px;
+
   /* Foreground for anything painted on a primary-coloured surface (the topbar brand,
      selected chips). White suits 4 of the 6 light primaries but only reaches 2.54:1 on
      green and 3.56:1 on orange, so those two themes flip to the dark ink (7.04 / 5.02).
@@ -92,18 +100,86 @@
   --fat-shadow-lg: 0 4px 12px rgb(15 23 42 / 8%);
   --fat-shadow-primary: 0 2px 8px rgb(var(--fat-primary-rgb) / 22%);
 
-  /* Transitions - flat design: fast, clean (150-200ms).
-     The three durations are the whole vocabulary, so "make the workbench snappier" is one edit
-     here rather than a hunt for magic numbers. `slow` exists only for card enter/leave, which
-     changes layout size and can therefore carry a few more milliseconds than a colour shift. */
+  /* ---- Motion: duration ladder ----
+     Flat design: fast, clean (150-250ms). The three durations were already the whole vocabulary
+     and every one of the 25 first-party transitions resolves through them, so "make the workbench
+     snappier" is still one edit here. What the ladder lacked was a rule for picking a rung, so the
+     discriminators are written against each value now — a colour shift and a card that changes the
+     layout's size are different gestures and should not be a coin flip.
+     `progress` and `spin` sit above the ladder on purpose: a bar that fills faster than the batch
+     actually runs reads as stutter, and a spinner below ~0.8s reads as a glitch rather than work. */
   --fat-duration-fast: 0.15s;
   --fat-duration-base: 0.18s;
   --fat-duration-slow: 0.25s;
-  --fat-ease-standard: ease;
+  --fat-duration-progress: 0.35s;
+  --fat-duration-spin: 0.9s;
 
-  /* The two shorthands most surfaces want, kept so a component does not have to name a property. */
-  --fat-transition: all var(--fat-duration-base) var(--fat-ease-standard);
-  --fat-transition-fast: all var(--fat-duration-fast) var(--fat-ease-standard);
+  /* ---- Motion: easing curves ----
+     Every transition used to end in the single keyword `ease`, which decelerates in both
+     directions — so an arrival and a departure looked like the same gesture, and that flatness is
+     what "cheap" actually registers as. Three curves now, named by the direction the movement carries:
+       standard  in-out, settles quickly, for a state that changes in place
+       enter     decelerate only, for something arriving
+       leave     accelerate only, for something departing (never ease-out a removal)
+     A fourth rung was drafted — an overshoot for releasing a press — and dropped before it shipped,
+     because nothing in this UI changes size or position on press: an overshoot curve on a colour
+     transition clamps and reads as nothing, and inventing the movement to hang the curve on is a
+     different conversation about how the primary button should feel.
+     `--fat-ease-standard` keeps its name, so the existing call sites pick up the new shape from
+     this line without any component edit. */
+  --fat-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --fat-ease-enter: cubic-bezier(0.05, 0.7, 0.1, 1);
+  --fat-ease-leave: cubic-bezier(0.3, 0, 0.8, 0.15);
+
+  /* ---- Motion: distance ----
+     The displacement amounts used to be literals scattered through six files (translateY(8px),
+     translateX(-12px), scale(1.08)). They are tokens now because the ceiling is the thing that
+     matters in a tool: a surface that travels more than about a card's worth of padding stops
+     reading as "moved" and starts reading as "fell over". Only the distances something actually
+     travels are listed here — a rung no rule uses is a number to keep in sync for no reason, and the
+     reduced-motion block at the top of `global.css` would be collapsing a value nothing reads. */
+  --fat-lift-sm: 4px;
+  --fat-lift-md: 8px;
+  --fat-slide-md: 12px;
+
+  /* The theme swatch in the preferences menu grows on hover. It gets its own token rather than a
+     shared lift scale because 1.08 is a different gesture: it is a reach for a target, on a control
+     the pointer is already inside, and 1.08 on a button would be a wobble. Named as a token, so the
+     reduced-motion block can take the size change away without taking the hover feedback with it. */
+  --fat-swatch-scale: 1.08;
+
+  /* Where an arriving element starts. Below 0.95 a small control looks like it is being thrown at
+     the screen; above 0.98 the motion is indistinguishable from a plain fade, which is the failure
+     mode the labels and chips this sizes had before. */
+  --fat-enter-scale: 0.96;
+
+  /* The two shorthands most surfaces want.
+     These used to say `all`, which silently tweened whatever else happened to change — including
+     layout properties, each of which costs a reflow per frame — and left "what moves?" to luck.
+     The list below is derived from the state rules that actually exist in this UI: background,
+     border-color, color, box-shadow, outline-color/-offset, opacity, transform. Nothing else
+     changes on hover, focus, press or selection anywhere in the components.
+     It has to be spelled out per property rather than as `transition: <prop-list> 0.18s ease`
+     through one more token: custom-property substitution happens before the shorthand is parsed,
+     so the commas would split into items that each carry a 0s duration and never animate. */
+  --fat-transition:
+    background-color var(--fat-duration-base) var(--fat-ease-standard),
+    border-color var(--fat-duration-base) var(--fat-ease-standard),
+    color var(--fat-duration-base) var(--fat-ease-standard),
+    box-shadow var(--fat-duration-base) var(--fat-ease-standard),
+    outline-color var(--fat-duration-base) var(--fat-ease-standard),
+    outline-offset var(--fat-duration-base) var(--fat-ease-standard),
+    opacity var(--fat-duration-base) var(--fat-ease-standard),
+    transform var(--fat-duration-base) var(--fat-ease-standard);
+  --fat-transition-fast:
+    background-color var(--fat-duration-fast) var(--fat-ease-standard),
+    border-color var(--fat-duration-fast) var(--fat-ease-standard),
+    color var(--fat-duration-fast) var(--fat-ease-standard),
+    box-shadow var(--fat-duration-fast) var(--fat-ease-standard),
+    outline-color var(--fat-duration-fast) var(--fat-ease-standard),
+    outline-offset var(--fat-duration-fast) var(--fat-ease-standard),
+    opacity var(--fat-duration-fast) var(--fat-ease-standard),
+    transform var(--fat-duration-fast) var(--fat-ease-standard);
 
   /* Typography */
   --fat-font-family: -apple-system, blinkmacsystemfont, 'Segoe UI', roboto, 'Helvetica Neue', sans-serif;
@@ -118,6 +194,39 @@
   --el-color-primary-light-9: color-mix(in srgb, var(--fat-primary) 10%, white);
   --el-color-primary-dark-2: color-mix(in srgb, var(--fat-primary) 80%, black);
   --el-border-radius-base: var(--fat-radius-md);
+
+  /* Map Element Plus's *motion* onto the same ladder.
+     Nothing here was overridden before, so the product ran two motion systems at once: ours at
+     0.15-0.25s on one curve, Element Plus at 0.2/0.3/0.4/0.6s on two beziers plus a `linear`.
+     Every dialog, dropdown, tooltip, select menu and toast therefore moved on a rhythm the
+     workbench itself never used, and the visible symptom was desynchronisation — a dropdown
+     fading out on `linear` while the button that closed it eased, or a preview dialog drifting in
+     over 0.3s after a 0.18s backdrop.
+     These are the same variable names Element Plus ships in its `base.css`, re-declared at the
+     same `:root`, so all of it is retargeted from here rather than per component. Three of the
+     shipped values are hardcoded in component CSS and cannot be reached this way
+     (`.el-progress-bar__inner`'s `width .6s`, `.el-message`'s `transform/top/bottom .4s`,
+     `.el-icon.is-loading`'s `2s`) — those are overridden by rule in `assets/styles/global.css`.
+     Defining them in terms of `--fat-duration-*` is also what makes the reduced-motion blanket
+     cover Element Plus for free: collapsing the ladder collapses these. */
+  --el-transition-duration: var(--fat-duration-slow);
+  --el-transition-duration-fast: var(--fat-duration-base);
+  --el-transition-function-ease-in-out-bezier: var(--fat-ease-standard);
+  --el-transition-function-fast-bezier: var(--fat-ease-enter);
+  --el-transition-all: all var(--el-transition-duration) var(--fat-ease-standard);
+  --el-transition-fade: opacity var(--el-transition-duration) var(--fat-ease-enter);
+  --el-transition-md-fade:
+    transform var(--el-transition-duration) var(--fat-ease-enter),
+    opacity var(--el-transition-duration) var(--fat-ease-enter);
+
+  /* The default transition for tooltip / popover / select dropdown was `opacity .2s linear`.
+     `linear` on a fade is the single most cost-free thing to fix in this UI: a constant-rate
+     opacity ramp reads as a machine ticking through levels, and a decelerating one reads as
+     something arriving. */
+  --el-transition-fade-linear: opacity var(--el-transition-duration-fast) var(--fat-ease-enter);
+  --el-transition-border: border-color var(--el-transition-duration-fast) var(--fat-ease-standard);
+  --el-transition-box-shadow: box-shadow var(--el-transition-duration-fast) var(--fat-ease-standard);
+  --el-transition-color: color var(--el-transition-duration-fast) var(--fat-ease-standard);
 }
 
 /* ---- Theme variants ---- */

@@ -147,74 +147,84 @@ function handleRangeInput(raw: unknown): void {
 </script>
 
 <template>
-  <div
-    v-if="visible"
-    class="output-options"
-  >
-    <el-tooltip
-      :content="t('output.hint')"
-      placement="top"
+  <Transition name="fat-expand">
+    <div
+      v-if="visible"
+      class="fat-expand output-expand"
     >
-      <span class="output-title">{{ t('output.title') }}</span>
-    </el-tooltip>
-    <label
-      v-for="field in fields"
-      :key="field.key"
-      class="output-field"
-    >
-      <span class="output-label">{{ field.label }}</span>
-      <el-select
-        :model-value="field.value"
-        size="small"
-        class="output-select"
-        :disabled="disabled"
-        @change="handleFieldChange(field.key, $event)"
-      >
-        <el-option
-          v-for="choice in field.choices"
-          :key="String(choice.value)"
-          :label="choice.label"
-          :value="choice.value"
-        />
-      </el-select>
-    </label>
-    <label
-      v-if="hasPdfSource"
-      class="output-field"
-    >
-      <span class="output-label">{{ t('output.pageRange') }}</span>
-      <el-input
-        class="output-input"
-        size="small"
-        :model-value="pageRange"
-        :disabled="disabled"
-        :maxlength="MAX_PAGE_RANGE_SPEC"
-        :placeholder="t('output.pageRangePlaceholder')"
-        clearable
-        @update:model-value="handleRangeInput"
-      />
-    </label>
-    <el-button
-      v-if="showReset"
-      link
-      type="primary"
-      size="small"
-      class="output-reset"
-      :disabled="disabled"
-      @click="resetOptions()"
-    >
-      {{ t('output.reset') }}
-    </el-button>
-  </div>
+      <div class="output-options">
+        <el-tooltip
+          :content="t('output.hint')"
+          placement="top"
+        >
+          <span class="output-title">{{ t('output.title') }}</span>
+        </el-tooltip>
+        <label
+          v-for="field in fields"
+          :key="field.key"
+          class="output-field"
+        >
+          <span class="output-label">{{ field.label }}</span>
+          <el-select
+            :model-value="field.value"
+            size="small"
+            class="output-select"
+            :disabled="disabled"
+            @change="handleFieldChange(field.key, $event)"
+          >
+            <el-option
+              v-for="choice in field.choices"
+              :key="String(choice.value)"
+              :label="choice.label"
+              :value="choice.value"
+            />
+          </el-select>
+        </label>
+        <label
+          v-if="hasPdfSource"
+          class="output-field"
+        >
+          <span class="output-label">{{ t('output.pageRange') }}</span>
+          <el-input
+            class="output-input"
+            size="small"
+            :model-value="pageRange"
+            :disabled="disabled"
+            :maxlength="MAX_PAGE_RANGE_SPEC"
+            :placeholder="t('output.pageRangePlaceholder')"
+            clearable
+            @update:model-value="handleRangeInput"
+          />
+        </label>
+        <el-button
+          v-if="showReset"
+          link
+          type="primary"
+          size="small"
+          class="output-reset"
+          :disabled="disabled"
+          @click="resetOptions()"
+        >
+          {{ t('output.reset') }}
+        </el-button>
+      </div>
+    </div>
+  </Transition>
 </template>
 
 <style scoped>
+/* Spacing sits on the expanding wrapper rather than on `.output-options` itself: `fat-expand`
+   clamps the row to zero, and a margin on the clipped item would survive the collapse as a gap.
+   See the note on `.fat-expand` in global.css. */
+.output-expand {
+  margin-top: 10px;
+}
+
 .output-options {
   display: flex;
   flex-wrap: wrap;
   gap: 8px 14px;
   align-items: center;
-  margin-top: 10px;
   padding-top: 10px;
   border-top: 1px solid var(--fat-border-light);
 }

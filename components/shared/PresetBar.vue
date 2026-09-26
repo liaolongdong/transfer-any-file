@@ -71,8 +71,10 @@ async function handleRemove(preset: ConversionPreset): Promise<void> {
 
 <template>
   <div class="preset-bar">
-    <div
+    <TransitionGroup
       v-if="presets.length"
+      tag="div"
+      name="preset"
       class="preset-chips"
     >
       <span
@@ -101,13 +103,15 @@ async function handleRemove(preset: ConversionPreset): Promise<void> {
           </el-icon>
         </button>
       </span>
-    </div>
-    <p
-      v-else
-      class="preset-empty"
-    >
-      {{ t('preset.empty') }}
-    </p>
+    </TransitionGroup>
+    <Transition name="fat-fade">
+      <p
+        v-if="!presets.length"
+        class="preset-empty"
+      >
+        {{ t('preset.empty') }}
+      </p>
+    </Transition>
 
     <div class="preset-create">
       <template v-if="hasRoom">
@@ -222,6 +226,17 @@ async function handleRemove(preset: ConversionPreset): Promise<void> {
   color: var(--fat-text-secondary);
 }
 
+/* Saving the first preset mounts the chip row while this hint is still fading out, and both are
+   items of the wrapping `.preset-bar` — with `min-width: 200px` on a 12px line of text, the bar
+   gains a row and everything below it shifts down for the length of the fade. Entering keeps the
+   fade (nothing else occupies the slot then); leaving is a cut, since the row replacing it already
+   carries the motion. Specificity is `.preset-empty` + the state class, so no `!important` is
+   needed over the shared `.fat-fade-leave-active`. */
+.preset-empty.fat-fade-leave-active {
+  display: none;
+  transition: none;
+}
+
 .preset-create {
   display: flex;
   align-items: center;
@@ -238,8 +253,40 @@ async function handleRemove(preset: ConversionPreset): Promise<void> {
   color: var(--fat-text-secondary);
 }
 
+/* `addPreset` prepends, so without this the new chip materialises at the left and everything else
+     teleports one slot to the right. `-move` is what turns that teleport into a slide, and the
+     enter is scale+fade from `--fat-enter-scale` rather than a horizontal push because the row
+     wraps: a chip landing on the second line has no left edge to arrive from. */
+.preset-enter-active {
+  transition:
+    opacity var(--fat-duration-base) var(--fat-ease-standard),
+    transform var(--fat-duration-base) var(--fat-ease-standard);
+}
+
+.preset-enter-from {
+  opacity: 0;
+  transform: scale(var(--fat-enter-scale));
+}
+
+/* A departing chip has nowhere honest to go, for the same reason the staged-file rows have
+   none: kept in flow it holds its slot for the whole duration and the survivors jump once at the
+   end; lifted out of flow it lands on the container's first line because the row wraps. So it goes
+   on the spot — `transition: none` here also cancels the `--fat-transition` the chip carries
+   itself, which <TransitionGroup> would otherwise wait out — and `-move` alone closes the gap. */
+.preset-leave-active {
+  transition: none;
+}
+
+.preset-move {
+  transition: transform var(--fat-duration-base) var(--fat-ease-standard);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .preset-chip {
+    transition: none;
+  }
+
+  .preset-move {
     transition: none;
   }
 }

@@ -25,12 +25,37 @@ body {
    `transition: var(--fat-transition) !important` on a class selector, and a class outranks `*`
    even when both are important, so the blanket declaration cannot reach those elements. Measured
    on the built workbench under `prefers-reduced-motion: reduce`: the primary buttons, the circular
-   header button and the input wrapper kept a 0.18s transition until the tokens were collapsed. */
+   header button and the input wrapper kept a 0.18s transition until the tokens were collapsed.
+   The distance and scale tokens are collapsed by the same mechanism, and they are the part that
+   was actually missing: collapsing a duration to 0.01ms does not remove a displacement, it only
+   removes the time spent crossing it — so `.card-enter-from`'s translateY still put a card on
+   screen 8px short for one frame, and a one-frame jump is exactly the artifact this media query
+   exists to prevent. Zeroing the distance makes the state change a plain cut, which is what
+   `prefers-reduced-motion` asks for; the opacity states remain and collapse to their end value.
+   Element Plus needs no duration entry here: its motion tokens are declared in terms of
+   `--fat-duration-*`, so collapsing the ladder collapses the dialogs, dropdowns and toasts with it.
+   Three values it hardcodes instead of using those tokens are retimed by rule at the bottom of this
+   file, and one of its enter-from states carries a transform the collapse cannot reach — also handled
+   at the bottom, in the same block as the dialog keyframes.
+   The iteration count is the line that actually stops the two loops here — the loading icon's `fat-spin`
+   and the shortcut recorder's `shortcut-pulse` — because a collapsed duration alone would leave each of
+   them cycling once every 0.01ms, which is a strobe, not a rest. Capped at one pass both simply stop, and
+   neither single pass leaves anything displaced: `fat-spin` ends at `rotate(360deg)`, so the icon is exactly
+   where its own rule puts it, and `shortcut-pulse` only breathes `opacity` between 1 and 0.65 and ends on 1.
+   The state each one marks is still marked: the loading row says so in text (`convert.inProgress`), and a
+   recording shortcut key keeps its accent border, its background and its italics. */
 @media (prefers-reduced-motion: reduce) {
   :root {
     --fat-duration-fast: 0.01ms;
     --fat-duration-base: 0.01ms;
     --fat-duration-slow: 0.01ms;
+    --fat-duration-progress: 0.01ms;
+    --fat-duration-spin: 0.01ms;
+    --fat-lift-sm: 0px;
+    --fat-lift-md: 0px;
+    --fat-slide-md: 0px;
+    --fat-swatch-scale: 1;
+    --fat-enter-scale: 1;
   }
 
   *,
@@ -274,5 +299,199 @@ body {
 @keyframes fat-spin {
   to {
     transform: rotate(360deg);
+  }
+}
+
+/* ---- Shared transition vocabulary ----
+   Applied by Vue's `<Transition>` / `<TransitionGroup>` through the `name` attribute — a component
+   writes `<Transition name="fat-expand">` and inherits the workbench's timing without restating a
+   duration. They live here rather than in each SFC's scoped block for two reasons: a scoped rule
+   cannot reach a class Vue adds to a *child* component's root element, and the point of the ladder
+   in tokens.css is that each gesture has exactly one answer project-wide. */
+
+/* Something that appears in flow and therefore has a height to grow into.
+   Usage: the transitioning element carries `.fat-expand` and holds exactly one child, which takes
+   the real styling — `0fr ↔ 1fr` is the only way to reach an unknown content height without
+   measuring it in JS, without a `max-height` guess that either clips the content or leaves the
+   block sitting still for the tail of the animation, and without a `height: auto` transition that
+   no engine interpolates. Keep the child's own margins at zero and put spacing on this element:
+   the row is clamped to 0, but an item's margin still pushes its (clipped) box down, so a
+   `margin-top` on the child would leave a gap where the closed block used to be. */
+.fat-expand {
+  display: grid;
+  grid-template-rows: 1fr;
+}
+
+/* `clip` rather than `hidden` for one reason: this clip is permanent — the child keeps it long
+   after the animation ends — and a clip that outlives its transition is a clip that eats the
+   keyboard focus ring, which is the only indicator an element flush to this box has. `overflow:
+   clip` accepts `overflow-clip-margin`, so the ring's own extent is added back to the clip rect
+   and both properties keep doing their jobs: the row still clamps to `0fr`, and a focused control
+   at the edge still draws all four sides. The cost is a 4px band of content that paints ahead of
+   the growing edge for the length of the animation, with opacity ramping over the same window.
+   The `hidden` above it is not dead code: `clip` reached Chrome 90 and the manifest declares no
+   minimum version, so on an older engine the second declaration is dropped at parse time and the
+   clip falls back to `hidden` rather than to the initial `visible` — which would stop the row from
+   clamping at all, and a block that cannot clamp cannot collapse. `overflow-clip-margin` (Chrome 95)
+   is inert on both, so those engines keep today's clipped ring without losing the transition. */
+.fat-expand > * {
+  overflow: hidden;
+  overflow: clip;
+  overflow-clip-margin: var(--fat-focus-ring-inset);
+  min-height: 0;
+}
+
+.fat-expand-enter-active {
+  transition:
+    grid-template-rows var(--fat-duration-slow) var(--fat-ease-enter),
+    opacity var(--fat-duration-base) var(--fat-ease-enter);
+}
+
+.fat-expand-leave-active {
+  transition:
+    grid-template-rows var(--fat-duration-slow) var(--fat-ease-leave),
+    opacity var(--fat-duration-fast) var(--fat-ease-leave);
+}
+
+/* Enter and leave share the `-from`/`-to` states here, which is what makes the pair read as one
+   gesture in both directions. Opacity is quicker than the row on the way out on purpose: a block
+   that is still collapsing while it fades is two things happening at once, and the fade is the
+   part that should finish first. */
+.fat-expand-enter-from,
+.fat-expand-leave-to {
+  grid-template-rows: 0fr;
+  opacity: 0;
+}
+
+/* A swap that keeps its box the same size — one string of helper text replacing another. No
+   displacement: there is nowhere for it to come from, and a translate on in-place text reads as a
+   typo rather than a transition. */
+.fat-fade-enter-active,
+.fat-fade-leave-active {
+  transition: opacity var(--fat-duration-base) var(--fat-ease-standard);
+}
+
+.fat-fade-enter-from,
+.fat-fade-leave-to {
+  opacity: 0;
+}
+
+/* ---- Element Plus motion that its own tokens cannot reach ----
+   tokens.css retargets `--el-transition-*`, which covers the dialogs, dropdowns, tooltips, selects
+   and alerts. Three shipped values name a duration literally instead of using those tokens, which is
+   why they alone are still on foreign timing once this UI is mounted.
+   (`.el-list-*` also ships a hardcoded `all 1s`; the blanket above reaches it, so it needs no duration
+   rule here — only the one displacement rule at the bottom of this file, where it is listed for the
+   completeness of the enumeration rather than for a surface this workbench renders.)
+   All three are `!important` for the same reason the two rules above are: the cascade order between
+   this file and Element Plus's per-component stylesheets is decided by the bundler, not here, and a
+   class selector marked important outranks the blanket rule at the top of this file — which is why
+   each one names a token, so the reduced-motion collapse reaches them anyway. */
+.el-progress-bar__inner {
+  /* `width .6s`, two and a half times the longest duration the workbench itself uses. It is kept
+     longer than the rest on purpose: a bar that fills in shorter steps than the batch reports them
+     looks like it is stalling. */
+  transition: width var(--fat-duration-progress) var(--fat-ease-standard) !important;
+}
+
+.el-message {
+  /* `transform .4s, top .4s, bottom .4s` alongside a tokenised opacity. The `top`/`bottom` pair is
+     what makes stacked messages slide apart instead of snapping, so it stays — only retimed. */
+  transition:
+    opacity var(--fat-duration-slow) var(--fat-ease-enter),
+    transform var(--fat-duration-slow) var(--fat-ease-enter),
+    top var(--fat-duration-slow) var(--fat-ease-standard),
+    bottom var(--fat-duration-slow) var(--fat-ease-standard) !important;
+}
+
+.el-icon.is-loading {
+  /* Ships at `2s`, while this project's own spinner in the progress card ran at 1s — the same
+     control spinning at two different rates depending on which dialog it was in. Both now name
+     `--fat-duration-spin`, so one edit sets the rate everywhere. */
+  animation-duration: var(--fat-duration-spin) !important;
+}
+
+/* Element Plus's overlay animations displace the panel by 20px, which its tokens cannot express and
+   the blanket cannot collapse: zeroing a duration leaves the offset in place for a frame.
+   This is not fixed by redefining those keyframe names in place. Two `@keyframes` with the same name resolve
+   by document order — last one wins — and an animation definition cannot carry `!important`, so the outcome
+   belongs to the bundler: today `global.css` is inlined after Element Plus's chunk links and a redefinition
+   here does win (read off the CSSOM of the built page, not assumed), but that is one chunk-splitting change
+   away from silently losing. So the reduce block brings its own displacement-free names and points the two
+   surfaces at them through `animation-name`, an ordinary declaration that can carry `!important` and is
+   therefore order-proof.
+   Two surfaces need it, because `ElMessageBox` does not share the dialog's transition name: `el-dialog`
+   animates `.el-overlay-dialog` on `dialog-fade-*`, while `ElMessageBox` — the confirmation behind clearing
+   history and the large-batch prompt — animates `.el-overlay-message-box` on `msgbox-fade-in` in both
+   directions, its leave case running the same keyframes with `reverse`. That `reverse` is left untouched, so
+   the enter pair below fades in and the leave pair fades out without either naming a direction twice. The
+   set of surfaces is enumerated from the shipped cascade, not from the documentation: these are the only
+   keyframes carrying a raw displacement anywhere in `.output/chrome-mv3`. */
+@media (prefers-reduced-motion: reduce) {
+  @keyframes fat-reduce-fade-in {
+    0% {
+      opacity: 0;
+    }
+
+    100% {
+      opacity: 1;
+    }
+  }
+
+  @keyframes fat-reduce-fade-out {
+    0% {
+      opacity: 1;
+    }
+
+    100% {
+      opacity: 0;
+    }
+  }
+
+  .dialog-fade-enter-active .el-overlay-dialog,
+  .fade-in-linear-enter-active .el-overlay-message-box {
+    animation-name: fat-reduce-fade-in !important;
+  }
+
+  .dialog-fade-leave-active .el-overlay-dialog {
+    animation-name: fat-reduce-fade-out !important;
+  }
+
+  .fade-in-linear-leave-active .el-overlay-message-box {
+    animation-name: fat-reduce-fade-in !important;
+  }
+
+  /* Element Plus's four `el-zoom-in-*` families open by collapsing the surface to zero along one axis —
+     the select and dropdown menus on `scaleY(0)`, `el-tag` on `scaleX(0)`, and the two placements this
+     workbench does not currently render alongside them. Collapsing the duration leaves the surface painted
+     flat for the one frame before the transition resolves — a flicker, which is the artifact this media
+     query exists to prevent. Naming the state transforms away makes the open a plain cut and leaves the
+     opacity half of the same transition to carry it. `!important`, and for the same bundler-order reason
+     as above.
+     All four families are listed rather than only the ones known to mount, because that set is closed on
+     Element Plus's side and open on ours: a component that starts rendering a tag or a bottom-placed
+     dropdown is not going to come looking for this rule. What is deliberately *not* here: the message,
+     drawer and notification offsets, which encode where the panel sits (`translate(-50%)` is centring, not
+     motion) as well as how it travels — zeroing those would misplace the surface instead of calming it —
+     and the radio dot's `scale(0)`, which is how an unchecked control looks. */
+  .el-zoom-in-top-enter-from,
+  .el-zoom-in-top-leave-active,
+  .el-zoom-in-center-enter-from,
+  .el-zoom-in-center-leave-active,
+  .el-zoom-in-bottom-enter-from,
+  .el-zoom-in-bottom-leave-active,
+  .el-zoom-in-left-enter-from,
+  .el-zoom-in-left-leave-active {
+    transform: none !important;
+  }
+
+  /* `.el-list-*`, the transition group inside `el-select`'s multiple mode, opens with
+     `translateY(-30px)` on a hardcoded `all 1s`. The workbench never renders that mode, so this is the
+     one entry above that is here for the shape of the rule rather than for a surface anyone can reach —
+     listed with the others so the enumeration stays complete against the shipped cascade, which is what
+     it was checked against. */
+  .el-list-enter-from,
+  .el-list-leave-to {
+    transform: none !important;
   }
 }

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, defineAsyncComponent } from 'vue';
+import { ref, computed, toRaw, onMounted, onUnmounted, defineAsyncComponent } from 'vue';
 import type { Component } from 'vue';
 import { UploadFilled, Delete, Plus, Picture, Document, Grid, View } from '@element-plus/icons-vue';
 import { FileFormat } from '~/utils/core/types';
@@ -42,6 +42,32 @@ const acceptExtensions = [...SUPPORTED_EXTENSIONS, '.zip'].join(',');
 const pasteKey = isMac ? '⌘V' : 'Ctrl+V';
 
 const dropText = computed(() => (selectedFiles.value.length === 0 ? t('upload.drop') : t('upload.replace')));
+
+/**
+ * Stable v-for key for the staged-file list.
+ *
+ * The key used to be `file.name + index`, which re-keys every row below a removal: deleting the
+ * first of five files unmounted four and mounted four again, and because the list is wrapped in a
+ * `<TransitionGroup>` that played as the whole tail flickering out and back in rather than as one
+ * row leaving. The `File` instance is the only identity this list has — `removeFile()` rebuilds the
+ * array but carries the same objects through `selectFiles()` — so the key is minted once per object.
+ *
+ * `toRaw()` guards the lookup: `selectedFiles` is a `ref` array, and Vue does not proxy a `File`
+ * (its `getTargetType` only reacts on Object/Array/collection tags), but if that ever changes the
+ * map would otherwise key on a fresh proxy per render and hand out a new id every frame.
+ */
+const rowKeys = new WeakMap<File, string>();
+let rowKeySeq = 0;
+
+function rowKey(file: File): string {
+  const target = toRaw(file);
+  let key = rowKeys.get(target);
+  if (key === undefined) {
+    key = `file-${++rowKeySeq}`;
+    rowKeys.set(target, key);
+  }
+  return key;
+}
 
 /** Map clipboard image MIME to a filename extension for correct detection */
 const PASTE_EXTENSIONS: Record<string, string> = {
@@ -449,97 +475,103 @@ defineExpose({
       @change="handleFileSelect"
     />
 
-    <TransitionGroup
-      v-if="selectedFiles.length > 0"
-      name="file-list"
-      tag="div"
-      class="file-list"
-    >
+    <Transition name="fat-expand">
       <div
-        key="header"
-        class="file-list-header"
+        v-if="selectedFiles.length > 0"
+        class="fat-expand file-list-expand"
       >
-        <span>{{ t('upload.selectedCount', { count: selectedFiles.length }) }}</span>
-        <span class="header-actions">
-          <el-button
-            v-if="multiple"
-            class="add-files-btn"
-            size="small"
-            text
-            type="primary"
-            :icon="Plus"
-            :disabled="disabled"
-            @click.stop="triggerFileInput(true)"
-          >
-            {{ t('upload.addMore') }}
-          </el-button>
-          <el-button
-            class="clear-files-btn"
-            size="small"
-            text
-            type="danger"
-            :icon="Delete"
-            :disabled="disabled"
-            @click.stop="clearAll"
-          >
-            {{ t('upload.clearAll') }}
-          </el-button>
-        </span>
-      </div>
-      <div
-        v-for="(file, index) in selectedFiles"
-        :key="file.name + index"
-        class="file-item"
-      >
-        <el-icon
-          class="file-icon"
-          :size="18"
-          color="var(--fat-text-secondary)"
+        <TransitionGroup
+          name="file-list"
+          tag="div"
+          class="file-list"
         >
-          <component :is="getFileIcon(detectedFormats[index])" />
-        </el-icon>
-        <div class="file-details">
-          <span class="file-name">{{ file.name }}</span>
-          <span class="file-meta">
-            {{ formatSize(file.size) }}
-            <el-tag
+          <div
+            key="header"
+            class="file-list-header"
+          >
+            <span>{{ t('upload.selectedCount', { count: selectedFiles.length }) }}</span>
+            <span class="header-actions">
+              <el-button
+                v-if="multiple"
+                class="add-files-btn"
+                size="small"
+                text
+                type="primary"
+                :icon="Plus"
+                :disabled="disabled"
+                @click.stop="triggerFileInput(true)"
+              >
+                {{ t('upload.addMore') }}
+              </el-button>
+              <el-button
+                class="clear-files-btn"
+                size="small"
+                text
+                type="danger"
+                :icon="Delete"
+                :disabled="disabled"
+                @click.stop="clearAll"
+              >
+                {{ t('upload.clearAll') }}
+              </el-button>
+            </span>
+          </div>
+          <div
+            v-for="(file, index) in selectedFiles"
+            :key="rowKey(file)"
+            class="file-item"
+          >
+            <el-icon
+              class="file-icon"
+              :size="18"
+              color="var(--fat-text-secondary)"
+            >
+              <component :is="getFileIcon(detectedFormats[index])" />
+            </el-icon>
+            <div class="file-details">
+              <span class="file-name">{{ file.name }}</span>
+              <span class="file-meta">
+                {{ formatSize(file.size) }}
+                <el-tag
+                  v-if="detectedFormats[index]"
+                  size="small"
+                  type="primary"
+                  style="margin-left: var(--fat-space-xs)"
+                >
+                  {{ getFormatLabelSafe(detectedFormats[index]) }}
+                </el-tag>
+                <el-tag
+                  v-else
+                  size="small"
+                  type="danger"
+                  style="margin-left: var(--fat-space-xs)"
+                >
+                  {{ t('upload.unknownFormat') }}
+                </el-tag>
+              </span>
+            </div>
+            <el-button
               v-if="detectedFormats[index]"
+              :icon="View"
               size="small"
+              text
               type="primary"
-              style="margin-left: var(--fat-space-xs)"
-            >
-              {{ getFormatLabelSafe(detectedFormats[index]) }}
-            </el-tag>
-            <el-tag
-              v-else
+              :title="t('upload.preview')"
+              :aria-label="t('a11y.preview')"
+              @click.stop="previewFile(index)"
+            />
+            <el-button
+              :icon="Delete"
               size="small"
+              text
               type="danger"
-              style="margin-left: var(--fat-space-xs)"
-            >
-              {{ t('upload.unknownFormat') }}
-            </el-tag>
-          </span>
-        </div>
-        <el-button
-          v-if="detectedFormats[index]"
-          :icon="View"
-          size="small"
-          text
-          type="primary"
-          :title="t('upload.preview')"
-          :aria-label="t('a11y.preview')"
-          @click.stop="previewFile(index)"
-        />
-        <el-button
-          :icon="Delete"
-          size="small"
-          text
-          type="danger"
-          :aria-label="t('a11y.remove')"
-          @click.stop="removeFile(index)"
-        />
+              :aria-label="t('a11y.remove')"
+              @click.stop="removeFile(index)"
+            />
+          </div>
+        </TransitionGroup>
       </div>
-    </TransitionGroup>
+    </Transition>
 
     <PreviewDialog
       v-if="previewMounted"
@@ -556,13 +588,21 @@ defineExpose({
   width: 100%;
 }
 
+/* The shared list names the eight properties that actually change on hover, focus, press or
+   selection anywhere in this UI, and `all` used to cover a ninth by accident: this zone is the only
+   surface whose *state* is also a change of size, and `.drop-zone.has-file` tightening the plate from
+   24px to 16px used to tween because `all` tweened whatever else happened to change. Appending the
+   one property keeps that movement; restoring `all` would put every future property back up for
+   grabs, and a layout property in the list costs a reflow per frame. */
 .drop-zone {
   border: 2px dashed var(--fat-border);
   border-radius: var(--fat-radius-md);
   padding: var(--fat-space-xl);
   text-align: center;
   cursor: pointer;
-  transition: var(--fat-transition);
+  transition:
+    padding var(--fat-duration-base) var(--fat-ease-standard),
+    var(--fat-transition);
   background: var(--fat-surface-2);
 }
 
@@ -615,8 +655,13 @@ defineExpose({
   pointer-events: none;
 }
 
-.file-list {
+/* The 8px gap lives on the expanding wrapper: `fat-expand` clamps its child's row to zero, and a
+   margin on that child would survive the collapse as a strip above an empty list. */
+.file-list-expand {
   margin-top: var(--fat-space-sm);
+}
+
+.file-list {
   border: 1px solid var(--fat-border);
   border-radius: var(--fat-radius-md);
   overflow: hidden;
@@ -684,19 +729,29 @@ defineExpose({
   align-items: center;
 }
 
-.file-list-enter-active,
-.file-list-leave-active {
-  transition: all var(--fat-duration-base) var(--fat-ease-standard);
+/* Rows animate in only. A departing row has nowhere honest to go: held in flow it doubles the
+   list's height against the batch that replaces it, and lifted out of flow it overlaps the rows
+   that took its place. Removing it on the spot while `-move` carries the gap closed reads as
+   "this file is gone" and cannot tear the layout — and it is the case that used to flicker,
+   because the index-bearing key remounted every row below the removed one. */
+.file-list-enter-active {
+  transition:
+    opacity var(--fat-duration-base) var(--fat-ease-enter),
+    transform var(--fat-duration-base) var(--fat-ease-enter);
 }
 
 .file-list-enter-from {
   opacity: 0;
-  transform: translateX(-12px);
+  transform: translateY(calc(var(--fat-slide-md) * -1));
 }
 
-.file-list-leave-to {
-  opacity: 0;
-  transform: translateX(12px);
+/* Declared so the comment above is literally true rather than merely intended. Without a leave
+   transition of its own, the row would still inherit `.file-item`'s `--fat-transition-fast`, and
+   <TransitionGroup> reads the *element's* computed duration before it unmounts — so a deleted row
+   would sit unchanged for one duration and the list would re-flow twice. A zeroed duration takes it
+   out on the spot, leaving `-move` as the only motion. */
+.file-list-leave-active {
+  transition: none;
 }
 
 .file-list-move {

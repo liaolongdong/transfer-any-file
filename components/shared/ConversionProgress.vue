@@ -77,7 +77,14 @@ const { t } = useI18n();
   font-size: 13px;
 }
 
+/* The one loop in the workbench, and the one place where collapsing the duration ladder is not
+   enough on its own: `infinite` survives a 0.01ms duration as a near-stroboscopic spin, so the
+   blanket's `animation-iteration-count: 1` is what actually stops it. Routing the period through
+   `--fat-duration-spin` instead of a literal is what makes the two spinners agree — Element Plus
+   hardcodes 2s for `.el-icon.is-loading` (ruled at the bottom of global.css), so a loading icon
+   inside a dialog used to turn at half the speed of the one on this card, two thirds of a second
+   apart on every revolution. */
 .loading-state .is-loading {
-  animation: fat-spin 1s linear infinite;
+  animation: fat-spin var(--fat-duration-spin) linear infinite;
 }
 </style>

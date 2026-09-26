@@ -406,8 +406,11 @@ const notifyStatusKey = computed<string>(() => {
   flex-shrink: 0;
 }
 
+/* The one size change in this menu, and it is a token rather than a literal so the reduced-motion
+   block can take the growth away without taking the hover feedback with it — the border and the
+   background still answer the pointer at `scale: 1`. */
 .theme-item:hover .swatch {
-  transform: scale(1.08);
+  transform: scale(var(--fat-swatch-scale));
 }
 
 .theme-item.active .swatch {

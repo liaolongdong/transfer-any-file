@@ -182,13 +182,19 @@ const noTargetTitle = computed(() => (hasSource.value ? t('format.noTarget') : t
         </el-select>
       </div>
     </div>
-    <div
-      v-if="conversionPathLabels.length > 0"
-      class="path-hint"
-    >
-      <span class="path-label">{{ t('format.conversionPath') }}</span>
-      <span class="path-steps"> {{ getFormatLabel(sourceFormats[0]) }} → {{ conversionPathLabels.join(' → ') }} </span>
-    </div>
+    <Transition name="fat-expand">
+      <div
+        v-if="conversionPathLabels.length > 0"
+        class="fat-expand path-hint-expand"
+      >
+        <div class="path-hint">
+          <span class="path-label">{{ t('format.conversionPath') }}</span>
+          <span class="path-steps">
+            {{ getFormatLabel(sourceFormats[0]) }} → {{ conversionPathLabels.join(' → ') }}
+          </span>
+        </div>
+      </div>
+    </Transition>
   </div>
   <div
     v-else
@@ -223,11 +229,17 @@ const noTargetTitle = computed(() => (hasSource.value ? t('format.noTarget') : t
   min-width: 0;
 }
 
+/* The gap belongs to the expanding wrapper, not to `.path-hint`: `fat-expand` clamps the row to
+   zero, but an item's own margin still displaces its clipped box, which would leave a 8px strip
+   where the closed hint sits. See the note on `.fat-expand` in global.css. */
+.path-hint-expand {
+  margin-top: var(--fat-space-sm);
+}
+
 .path-hint {
   display: flex;
   align-items: center;
   gap: var(--fat-space-xs);
-  margin-top: var(--fat-space-sm);
   padding: var(--fat-space-xs) var(--fat-space-sm);
   background: var(--fat-primary-bg);
   border: 1px solid var(--fat-primary-border);

@@ -494,42 +494,46 @@ onUnmounted(() => {
                 >
                   {{ convertButtonText }}
                 </el-button>
-                <el-button
-                  v-if="isConverting"
-                  :icon="CircleClose"
-                  type="danger"
-                  plain
-                  class="cancel-btn"
-                  :disabled="cancelRequested"
-                  @click="handleCancelConversion"
-                >
-                  {{ t('convert.cancel') }}
-                </el-button>
+                <Transition name="chip">
+                  <el-button
+                    v-if="isConverting"
+                    :icon="CircleClose"
+                    type="danger"
+                    plain
+                    class="cancel-btn"
+                    :disabled="cancelRequested"
+                    @click="handleCancelConversion"
+                  >
+                    {{ t('convert.cancel') }}
+                  </el-button>
+                </Transition>
               </div>
               <OutputOptions
                 :source-formats="uniqueSourceFormats"
                 :target-format="targetFormat"
                 :disabled="isConverting"
               />
-              <div
-                v-if="showBatchProgress"
-                class="batch-progress"
-              >
-                <el-progress
-                  :percentage="batchProgressPercent"
-                  :stroke-width="6"
-                  :format="progressFormat"
-                />
-                <CurrentFileHint
-                  v-if="currentFileName"
-                  :name="currentFileName"
-                />
-                <StepProgressHint
-                  v-if="showStepProgress"
-                  :current="currentStep"
-                  :total="stepTotal"
-                />
-              </div>
+              <Transition name="reveal">
+                <div
+                  v-if="showBatchProgress"
+                  class="batch-progress"
+                >
+                  <el-progress
+                    :percentage="batchProgressPercent"
+                    :stroke-width="6"
+                    :format="progressFormat"
+                  />
+                  <CurrentFileHint
+                    v-if="currentFileName"
+                    :name="currentFileName"
+                  />
+                  <StepProgressHint
+                    v-if="showStepProgress"
+                    :current="currentStep"
+                    :total="stepTotal"
+                  />
+                </div>
+              </Transition>
             </div>
           </Transition>
 
@@ -787,6 +791,29 @@ onUnmounted(() => {
   min-width: 140px;
 }
 
+/* The one moment this button has no signal for is the moment it becomes usable: `canConvert` flips
+   the instant a target is picked and the only thing that changes is a colour. A ring that collapses
+   into the button once says "this is now the thing to press" without leaving anything on screen —
+   deliberately a `from`-only keyframe, so it ends on the resting style rather than on a state it has
+   to hold.
+   Written as an animation on `:not([disabled])` because that is the condition, not a class we would
+   have to manage: a CSS animation starts when an element begins matching, so this fires on the
+   disabled→enabled edge and on nothing else. Element Plus puts the real `disabled` attribute on the
+   `<button>` for both `:disabled` and `:loading`, which covers the second case that matters — the
+   button becoming usable again when a batch ends. It cannot fire on mount, because the card it lives
+   in only exists once files are staged and no target is chosen by then.
+   No `all`, and no transform: the flat-design rule for `.el-button` is colour shift only, and a
+   lifting or shrinking primary button would contradict the note above that rule in global.css. */
+@keyframes fat-ready {
+  from {
+    box-shadow: 0 0 0 3px rgb(var(--fat-primary-rgb) / 32%);
+  }
+}
+
+.convert-btn:not([disabled]) {
+  animation: fat-ready var(--fat-duration-slow) var(--fat-ease-leave);
+}
+
 .cancel-btn {
   flex-shrink: 0;
 }
@@ -833,19 +860,98 @@ onUnmounted(() => {
   color: var(--fat-text-secondary);
 }
 
-.card-enter-active,
+/* Theme and light/dark switching rewrite every `--fat-*` colour in one frame. The interactive
+   surfaces already tween their colours, so a theme change visibly fell apart into two groups: the
+   buttons, chips and inputs slid over 0.18s while the page, the topbar, the cards and the footer
+   snapped instantly. These are the permanently-painted surfaces that carry the theme, and they were
+   the ones left out.
+   Three named properties rather than `--fat-transition`: that shorthand also carries `transform`,
+   and `.card` is the element the `card` transition below animates — a competing transform transition
+   here would be resolved by source order, which is not a thing to leave to chance. 0.25s is one rung
+   above the buttons because a whole-page recolour is one event, not a per-control reaction, and it
+   stays inside the settle window the contrast measurements in `scripts/e2e-test.mjs` wait out. */
+.workbench,
+.topbar,
+.card,
+.footer {
+  transition:
+    background-color var(--fat-duration-slow) var(--fat-ease-standard),
+    border-color var(--fat-duration-slow) var(--fat-ease-standard),
+    color var(--fat-duration-slow) var(--fat-ease-standard);
+}
+
+/* Enter and leave used to share one shorthand — `all`, one duration, one easing — so a card leaving
+   decelerated like a card arriving. A departure should accelerate: the eye is already tracking where
+   the new content will be, and an ease-out removal reads as the card hesitating. The split also buys
+   back time — with `mode="out-in"` the three cards in this column hand off sequentially, so total
+   swap cost is leave + enter, and fast + slow is a fifth less dead air than the two slow rungs it
+   replaced were.
+   `all` named nothing it needed to: this transition only ever carries opacity and transform, and
+   `all` on a card also tweened the border and background that `--fat-ease-*` cannot express. */
+.card-enter-active {
+  transition:
+    opacity var(--fat-duration-slow) var(--fat-ease-enter),
+    transform var(--fat-duration-slow) var(--fat-ease-enter);
+}
+
 .card-leave-active {
-  transition: all var(--fat-duration-slow) var(--fat-ease-standard);
+  transition:
+    opacity var(--fat-duration-fast) var(--fat-ease-leave),
+    transform var(--fat-duration-fast) var(--fat-ease-leave);
 }
 
 .card-enter-from {
   opacity: 0;
-  transform: translateY(8px);
+  transform: translateY(var(--fat-lift-md));
 }
 
 .card-leave-to {
   opacity: 0;
-  transform: translateY(-8px);
+  transform: translateY(calc(var(--fat-lift-md) * -1));
+}
+
+/* Small surfaces that appear inside an already-mounted card — the cancel button is the one here.
+   They used to pop in at zero duration and shove their row apart. Scale rather than translate,
+   because a control arriving inside a flex row has nowhere honest to slide from, and the arrival
+   takes the entry's own vocabulary: `--fat-ease-enter` and `--fat-enter-scale`, the same pair
+   `PresetBar.vue` sizes its chips with. */
+.chip-enter-active {
+  transition:
+    opacity var(--fat-duration-base) var(--fat-ease-enter),
+    transform var(--fat-duration-base) var(--fat-ease-enter);
+}
+
+.chip-leave-active {
+  transition:
+    opacity var(--fat-duration-fast) var(--fat-ease-leave),
+    transform var(--fat-duration-fast) var(--fat-ease-leave);
+}
+
+.chip-enter-from,
+.chip-leave-to {
+  opacity: 0;
+  transform: scale(var(--fat-enter-scale));
+}
+
+/* A block that reveals below its trigger: the batch-progress region and the multi-step path hint.
+   The displacement is upward and small so the block reads as unfolding from the control that
+   caused it rather than falling into place. */
+.reveal-enter-active {
+  transition:
+    opacity var(--fat-duration-slow) var(--fat-ease-enter),
+    transform var(--fat-duration-slow) var(--fat-ease-enter);
+}
+
+.reveal-leave-active {
+  transition:
+    opacity var(--fat-duration-fast) var(--fat-ease-leave),
+    transform var(--fat-duration-fast) var(--fat-ease-leave);
+}
+
+.reveal-enter-from,
+.reveal-leave-to {
+  opacity: 0;
+  transform: translateY(calc(var(--fat-lift-sm) * -1));
 }
 
 /* Workspace-wide drag-and-drop hint. The wrapper is pointer-events: none so
@@ -862,6 +968,18 @@ onUnmounted(() => {
   pointer-events: none;
 }
 
+/* The plate settles into place while the veil behind it fades. It needs no class management: the
+   element mounts with the overlay, and a mount is when a CSS animation starts. Both distances come
+   from tokens rather than literals, because the reduce block collapses a duration to 0.01ms without
+   removing a displacement — a hard-coded 0.96 here would put the plate on screen two frames' worth
+   of scale short, which is the one-frame artifact that block exists to prevent. */
+@keyframes fat-place {
+  from {
+    opacity: 0;
+    transform: scale(var(--fat-enter-scale)) translateY(var(--fat-lift-sm));
+  }
+}
+
 .drop-overlay-inner {
   display: flex;
   flex-direction: column;
@@ -874,6 +992,7 @@ onUnmounted(() => {
   color: var(--fat-primary);
   font-size: 18px;
   font-weight: 600;
+  animation: fat-place var(--fat-duration-slow) var(--fat-ease-enter);
 }
 
 .fade-enter-active,

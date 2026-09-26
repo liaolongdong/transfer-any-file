@@ -77,7 +77,7 @@ git tag v1.0.0 && git push --tags   # release.yml：产出商店包、校验包�
 
 - [WXT](https://wxt.dev/) + Vue 3 + TypeScript + Element Plus（Manifest V3），Element Plus 通过 `unplugin-vue-components` + `ElementPlusResolver` 按需引入，命令式 API 由 resolver 自动导入
 - 转换器：[marked](https://github.com/markedjs/marked)、[turndown](https://github.com/mixmark-io/turndown)、[mammoth](https://github.com/mwilliamson/mammoth.js)、[html-docx-js-typescript](https://github.com/caiyexiang/html-docx-js-typescript)、[jsPDF](https://github.com/parallax/jsPDF) + [html-to-image](https://github.com/bubkoo/html-to-image)、[pdf.js](https://mozilla.github.io/pdf.js/)、[SheetJS](https://sheetjs.com/)、[fflate](https://github.com/101arrowz/fflate)、[DOMPurify](https://github.com/cure53/DOMPurify)
-- 重型依赖按转换器动态 `import()`，首屏保持精简（完整产物 3.77 MB）；ZIP 引擎 fflate 也走同一条路——五个调用点统一经 `utils/core/zip.ts` 的 `loadFflate()`，转换器由 `initConverters()` 静态注册，顶层 `import 'fflate'` 会把它拉回首屏；重型子组件在 `App.vue` 里用 `defineAsyncComponent` 懒加载
+- 重型依赖按转换器动态 `import()`，首屏保持精简（完整产物 3.78 MB）；ZIP 引擎 fflate 也走同一条路——五个调用点统一经 `utils/core/zip.ts` 的 `loadFflate()`，转换器由 `initConverters()` 静态注册，顶层 `import 'fflate'` 会把它拉回首屏；重型子组件在 `App.vue` 里用 `defineAsyncComponent` 懒加载
 
 ## 项目结构
 
@@ -113,6 +113,7 @@ SECURITY.md            # 漏洞披露渠道与离线攻击面说明（.en.md 为
 
 - **别名与组件写法**：本地模块用 `~/` 引入，不是 `@/`；SFC 一律 `<script setup lang="ts">`（技术栈与依赖清单见上一节）。
 - **样式**：scoped CSS，使用 `assets/theme/tokens.css` 里的 `--fat-*` 设计令牌；不硬编码颜色。
+- **动效**：时长、缓动、位移与缩放一律取 `assets/theme/tokens.css` 的动效令牌（`--fat-duration-*`、`--fat-ease-*`、`--fat-lift-*` / `--fat-slide-md` / `--fat-enter-scale` / `--fat-swatch-scale`），不写 `0.18s` / `ease` / `translateY(8px)` 这类字面量。理由不是整齐，是**可达性**：`prefers-reduced-motion` 那一档压的是令牌值，写成字面量的规则它够不着——时长归零后仍会留一帧位移，而「一帧的跳动」正是那段媒体查询要防的东西。唯一不必进阶梯的是**循环的节拍**：blanket 是按选择器命中的，`animation-duration` 与 `animation-iteration-count: 1` 一起写，任何循环——令牌化的也好、字面量也好——都会在一次之内停下来，所以今天那处 `shortcut-pulse`（`PreferencesMenu.vue`，录制中的快捷键标记，1.4s、只动 opacity）留得下来；需要令牌的始终是 blanket 消不掉的东西，也就是位移与缩放。曲线按方向选：到场用 `enter`、离场用 `leave`（离场不要 ease-out）、原地改状态用 `standard`。Element Plus 不走我们令牌、自己硬编码时长的三处由 `assets/styles/global.css` 末尾按名点掉，再遇到一处要在同一处补；它的入场姿态（弹窗与确认框的 `@keyframes`、选择框 `el-zoom-in-top`）写在组件 CSS 而非 `--el-*` 里，只能重写、不能压时长。所有动效手写 CSS + Vue 原生 `<Transition>` / `<TransitionGroup>`：本项目完全离线，不引入动画库。
 - **国际化**：每一处用户可见文案都要同时存在于 `utils/i18n/zh.ts`（源）与 `en.ts`；组件里不写字面量。
 - **日志**：`entrypoints/`、`components/`、`composables/`、`utils/` 中不得出现 `console`——错误通过 UI 反馈给用户。`scripts/` 下的脚本除外。
 - **文档**：面向用户的改动要同时更新 `README.md`（中文）**和** `README.en.md`（英文）；商店文案在 `CHROMEWEBSTORE.md`；产品说明页是 `docs/index.html`。值得发布的改动要在 `CHANGELOG.md`（中文）与 `CHANGELOG.en.md`（英文）**各**记一条，版本号等于 `package.json#version`（发布 tag 也必须与之一致）。仓库的 GitHub About 描述改在 `.github/repo-metadata.json` 里，**不要**只在页面上手改，这样它才受版本管理并被 `pnpm verify:meta` 校验；每个值为什么这么写、本机没装 `gh` 时怎么一次性落地，见 `.github/repo-metadata.md`。安全漏洞走 `SECURITY.md`，不是 issue。仓库根的双语文档一律成对：中文是主文件，英文版用 `.en.md` 后缀（`CONTRIBUTING.md` / `CONTRIBUTING.en.md`、`SECURITY.md` / `SECURITY.en.md`、`CHANGELOG.md` / `CHANGELOG.en.md`），H1 下第一行是互指的语言切换行，改一边必须同步另一边。UI 变更后跑 `pnpm assets:capture` 重新生成截图，避免素材与实际界面漂移。
