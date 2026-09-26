@@ -98,17 +98,28 @@ const htmlToJsonConverter: Converter = {
       const parseTable = (table: Element): Record<string, string>[] => {
         const result: Record<string, string>[] = [];
         const headers: string[] = [];
-        const headerRow = table.querySelector('tr');
-        if (headerRow) {
-          headerRow.querySelectorAll('th, td').forEach(cell => {
+        // A table's own rows only. `querySelectorAll('tr')` descends, so a document holding a table
+        // inside a cell had its inner rows emitted as outer data rows — measured to fabricate
+        // `{"a":"x","b":"y"}` entries out of a nested table's markup. `:scope > …` covers both the
+        // authored form and the one the parser rewrites `<tr>` children into (it inserts a `tbody`).
+        const ownRows = (root: Element): Element[] =>
+          Array.from(
+            root.querySelectorAll(':scope > tr, :scope > tbody > tr, :scope > thead > tr, :scope > tfoot > tr'),
+          );
+        // Same reasoning for cells, and `th` belongs in the list: a row of `<th>苹果</th><td>3</td>`
+        // read with `td` alone shifted every value one column left and dropped the row label.
+        const ownCells = (row: Element): Element[] => Array.from(row.querySelectorAll(':scope > th, :scope > td'));
+
+        const rows = ownRows(table);
+        const first = rows[0];
+        if (first) {
+          ownCells(first).forEach(cell => {
             headers.push(cell.textContent?.trim() ?? '');
           });
         }
-        const rows = table.querySelectorAll('tr');
         for (let i = 1; i < rows.length; i++) {
           const obj: Record<string, string> = {};
-          const cells = rows[i].querySelectorAll('td');
-          cells.forEach((cell, j) => {
+          ownCells(rows[i]).forEach((cell, j) => {
             if (j < headers.length) {
               obj[headers[j]] = cell.textContent?.trim() ?? '';
             }

@@ -12,9 +12,19 @@ interface LinkRect {
   url: string;
 }
 
+/**
+ * Locate the link annotation covering a text item's origin.
+ *
+ * `annotation.rect` arrives already normalized: pdf.js runs every annotation rect through
+ * `Util.normalizeRect`, which swaps the y pair when needed, so `rect[1] <= rect[3]` holds for any
+ * input PDF regardless of how its `/Rect` was written. Both coordinates are PDF user space with the
+ * y axis pointing up, the same space `textContent` items report their baseline in. The comparison
+ * below was the other way round, which made the test unsatisfiable for every non-degenerate
+ * annotation and silently dropped every hyperlink on this route.
+ */
 function findLinkForPosition(x: number, y: number, links: LinkRect[]): string | null {
   for (const link of links) {
-    if (x >= link.x1 && x <= link.x2 && y >= link.y2 && y <= link.y1) {
+    if (x >= link.x1 && x <= link.x2 && y >= link.y1 && y <= link.y2) {
       return link.url;
     }
   }
