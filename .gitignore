@@ -12,6 +12,13 @@ _site/
 .test-files
 .test-screenshots
 .tmp-e2e-profile
+# Partial-staging scratch (`git apply --cached` patches plus the 33-line helper that builds them).
+# A per-machine work area like the three above: the 18 `.diff` files are byte snapshots of one
+# worktree at one moment. They reached `main` in `b441af2`, and the helper broke `pnpm lint` there —
+# `process` and `console` are not globals under this ESLint config — which took `lint:all` and CI's
+# lint job down with it. Note `.test-screenshots` is gitignored yet still linted: ESLint walks the
+# filesystem, not git, so a probe left there fails the gate just the same.
+.tmp-staging
 # Generated paste-ready drafts (images inlined as data URIs, ~MBs each); the .md sources are tracked.
 docs/promo/*.html
 .DS_Store

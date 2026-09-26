@@ -20,7 +20,13 @@ export default [
       'dist/**',
       '.output/**',
       '.wxt/**',
+      // The scratch areas `.gitignore` already excludes. ESLint walks the filesystem rather than
+      // git's index, so "untracked" is not the same as "not linted": a temporary probe left in
+      // `.test-screenshots/`, or the partial-staging patches under `.tmp-staging/`, fails
+      // `pnpm lint` — and therefore `lint:all` and CI — exactly as committed source would.
       '.test-files/**',
+      '.test-screenshots/**',
+      '.tmp-staging/**',
       '*.js',
       'auto-imports.d.ts',
       'components.d.ts',

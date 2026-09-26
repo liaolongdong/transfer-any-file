@@ -40,18 +40,7 @@ const ANONYMOUS_BASE = 'converted';
  * path-traversal hazard on extraction), `:` `*` `?` `"` `<` `>` `|` (reserved on Windows) and 0x7f.
  * Controls below 0x20 are rejected separately by range.
  */
-const ILLEGAL_CODE_POINTS: ReadonlySet<number> = new Set([
-  0x5c,
-  0x2f,
-  0x3a,
-  0x2a,
-  0x3f,
-  0x22,
-  0x3c,
-  0x3e,
-  0x7c,
-  0x7f,
-]);
+const ILLEGAL_CODE_POINTS: ReadonlySet<number> = new Set([0x5c, 0x2f, 0x3a, 0x2a, 0x3f, 0x22, 0x3c, 0x3e, 0x7c, 0x7f]);
 
 /** A `{token}` is recognised only in this table; anything else in braces stays literal text. */
 export type NameToken = 'name' | 'date' | 'time' | 'index' | 'target';
