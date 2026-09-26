@@ -16,10 +16,18 @@ import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const EXT = path.resolve(__dirname, '../.output/chrome-mv3');
 const FIXTURE = path.resolve(__dirname, '../fixtures');
+const SHOTS = path.resolve(__dirname, '../.test-screenshots');
 const PROFILE = fs.mkdtempSync(path.join(os.tmpdir(), 'fat-verify-'));
+
+// Playwright creates the parent directory of a screenshot path, but every other script in this repo
+// that writes shots makes the directory itself first — and this one has to survive a clean checkout
+// where `.test-screenshots/` (gitignored) does not exist yet.
+fs.mkdirSync(SHOTS, { recursive: true });
 
 const consoleErrors = [];
 const requests = [];
+/** What the run asserts, printed at the end so a red line names the claim it broke. */
+const failures = [];
 
 const context = await chromium.launchPersistentContext(PROFILE, {
   headless: false,
@@ -59,14 +67,29 @@ page.on('pageerror', err => consoleErrors.push('pageerror: ' + err.message));
 
 await page.goto('chrome://extensions');
 await page.waitForTimeout(2000);
-await page.screenshot({ path: path.join(__dirname, '../.test-screenshots/61-ext-debug.png') });
+await page.screenshot({ path: path.join(SHOTS, '61-ext-debug.png') });
 
 await page.goto(`chrome-extension://${extId}/options.html`);
 await page.waitForSelector('.drop-zone', { timeout: 15000 });
 await page.waitForTimeout(1000);
 
+// Everything the workbench pulled before the user touched a file. The claim this guards is the one
+// `AGENTS.md → 性能约定` makes: heavy converters arrive at their call site, not in the first screen.
+// It used to be printed and never asserted, so a regression here left the script green.
 const heavyInitial = [...requests].filter(u => /xlsx|jspdf|pdf-|lib-|marked|turndown|jszip/.test(u));
 console.log('Heavy chunks loaded at startup:', heavyInitial.length ? heavyInitial : 'NONE');
+if (heavyInitial.length) {
+  failures.push(`${heavyInitial.length} heavy chunk(s) loaded before any file was picked: ${heavyInitial.join(', ')}`);
+}
+
+// Nothing may leave the machine. The offline guards read source and manifest; this is the only check
+// that watches what the running extension actually asks the network stack for. Snapshot at startup,
+// asserted at the end — the conversions below are where a dependency would reach out.
+const isLocal = url => /^(chrome-extension:|chrome:|devtools:|data:|blob:|about:|view-source:|file:)/.test(url);
+console.log(
+  'Requests outside the extension/chrome schemes at startup:',
+  requests.filter(u => !isLocal(u)).length ? requests.filter(u => !isLocal(u)) : 'NONE',
+);
 
 // MD -> HTML conversion (triggers marked + dompurify lazy chunks)
 const fi = await page.$('input[type="file"]');
@@ -114,14 +137,32 @@ await page.waitForFunction(
 await page.waitForTimeout(1500);
 console.log('PDF->HTML conversion completed');
 
-const pdfLoaded = requests.filter(u => /pdf-BOIs|pdf\.worker/.test(u));
+// Match on the chunk's name prefix, not its content hash: `pdf-BOIs` was a one-build fact, and a hash
+// change turns this log into a silent "nothing loaded".
+const pdfLoaded = requests.filter(u => /pdf-|pdf\.worker/.test(u));
 console.log(
   'pdfjs chunks/worker fetched:',
   pdfLoaded.map(u => u.split('/').pop()),
 );
+if (!pdfLoaded.length) {
+  failures.push('PDF->HTML reported success without fetching a pdfjs chunk — the lazy import did not happen');
+}
 
-await page.screenshot({ path: path.join(__dirname, '../.test-screenshots/60-real-extension.png'), fullPage: true });
+await page.screenshot({ path: path.join(SHOTS, '60-real-extension.png'), fullPage: true });
+
+const external = requests.filter(u => !isLocal(u));
+console.log('Requests outside the extension/chrome schemes (whole run):', external.length ? external : 'NONE');
+if (external.length) {
+  failures.push(`${external.length} request(s) left the machine: ${external.join(', ')}`);
+}
 
 console.log('Console errors:', consoleErrors.length ? consoleErrors : 'NONE');
+if (consoleErrors.length) failures.push(`${consoleErrors.length} console error(s) on extension pages`);
 await context.close();
-process.exit(consoleErrors.length > 0 ? 1 : 0);
+
+if (failures.length) {
+  console.error(`\nverify-extension: ${failures.length} assertion(s) failed:`);
+  for (const failure of failures) console.error(`  - ${failure}`);
+  process.exit(1);
+}
+console.log('\nverify-extension: no console errors, no heavy chunk at startup, nothing left the machine.');

@@ -71,25 +71,20 @@ jobs:
       # 先跑便宜的守卫：它们正是商店文案与隐私政策里反复出现的那几条断言。
       # 离线检查此处只到源码层——产物层要用 .output/chrome-mv3，放在 Build 之后。
       # verify:numbers 也在这一层：发版时对外文档里那些数字必须和这次构建的代码对得上。
+      # verify:paths 是它的前提而不是重复项：numbers 里 48/143/116 那一组是从
+      # scripts/__baseline__/conversion-paths.json 读的，分子分母一起过期时 numbers 依旧绿，只有
+      # paths 会把基线和这次构建的转换器重放结果对上。少了这一条，30 份对外文档、GitHub Release
+      # 说明和商店提交可以带着同一个错误的链路数一起上线。
       - name: Verify metadata and offline guarantee (source)
         run: |
           pnpm verify:meta
           pnpm verify:offline:source
+          pnpm verify:paths
           pnpm verify:numbers
           pnpm verify:listing
 
       - name: Build
         run: pnpm build
-
-      # 打包/发布之前必须确认浏览器实际加载的那份 manifest 只持有 storage：
-      # 这是唯一能拦住 WXT 模块或 manifest transform 偷偷加权限的检查，而它只有产物存在时才跑得动。
-      - name: Verify offline (built manifest)
-        run: pnpm verify:offline
-
-      # 上传之前拦下「远程托管代码」：这是本扩展 2026-09-21 被拒的那一条，判定来自压缩产物里第三方
-      # 保留的死代码路径，源码层的离线检查结构上看不见它。宁可这里红，也不要把包递到商店手上。
-      - name: Verify no remotely hosted code (built bundle)
-        run: pnpm verify:remote-code
 
       - name: Package
         id: package
@@ -104,6 +99,21 @@ jobs:
           echo "zip=$zip" >> "$GITHUB_OUTPUT"
         env:
           VERSION: ${{ steps.version.outputs.version }}
+
+      # 这两道跑在 `pnpm package` 之后，不是之后「也行」：`wxt zip` 自带一次重建，
+      # 于是上面 Build 那一步的产物和真正要上传的 zip 是两次构建的产物。字节可复现时它们相同，
+      # 但守卫主张的是「商店拿到的那份包只有 storage 权限、包里没有远程取来的代码」，
+      # 那就必须扫最后这一次落盘的东西。
+      #
+      # 打包/发布之前必须确认浏览器实际加载的那份 manifest 只持有 storage：
+      # 这是唯一能拦住 WXT 模块或 manifest transform 偷偷加权限的检查，而它只有产物存在时才跑得动。
+      - name: Verify offline (built manifest)
+        run: pnpm verify:offline
+
+      # 上传之前拦下「远程托管代码」：这是本扩展 2026-09-21 被拒的那一条，判定来自压缩产物里第三方
+      # 保留的死代码路径，源码层的离线检查结构上看不见它。宁可这里红，也不要把包递到商店手上。
+      - name: Verify no remotely hosted code (built bundle)
+        run: pnpm verify:remote-code
 
       # zip 必须能作为「加载未打包的扩展」直接载入：manifest.json 位于压缩包根目录，
       # 且不许有仓库文档或测试夹具混进来（CHROMEWEBSTORE.md 的检查清单）。
@@ -129,6 +139,10 @@ jobs:
           # （链接定义与末尾注释不属于发布说明）。两份的区块标题同为 `## [X.Y.Z]`，awk 与语言无关。
           awk -v ver="$VERSION" 'index($0, "## [" ver "]") == 1 {keep = 1; next} keep && (/^## / || /^<!--/) {keep = 0} keep' CHANGELOG.md > release-notes.md
           if [ ! -s release-notes.md ]; then
+            # 不拦发布：漏一节 CHANGELOG 不该让已经打好的 tag 卡在半路。但也不能静默——
+            # 没有区块就意味着 GitHub Release 说明和商店的「新版说明」来自一个占位句，
+            # 而这条工作流之外没有人知道这一版没写。
+            echo "::warning title=这一版没有发布说明::CHANGELOG.md 里找不到 ## [$VERSION] 区块，GitHub Release 用的是占位文案"
             printf '完整发布说明见仓库内的 CHANGELOG.md（中文）与 CHANGELOG.en.md（英文）。\n' > release-notes.md
           fi
 

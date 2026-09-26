@@ -27,8 +27,19 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 /** Directories that ship into the bundle as first-party code. */
 const SOURCE_DIRS = ['entrypoints', 'components', 'composables', 'utils'];
 
-/** File extensions that can carry executable first-party code. */
-const SOURCE_EXTENSIONS = ['.ts', '.mts', '.vue'];
+/** File extensions that can carry executable first-party code.
+ *
+ * `.js` / `.mjs` are listed because a plain-JS module under `utils/` would otherwise be the one
+ * place a `fetch()` could hide from a guard whose entire claim is about source text.
+ */
+const SOURCE_EXTENSIONS = ['.ts', '.mts', '.js', '.mjs', '.vue'];
+
+/**
+ * Directories whose `.html` files are executable too: an entrypoint's HTML carries inline scripts
+ * that run before the bundle does (`entrypoints/options/index.html` applies the theme pre-paint), so
+ * the extension-less walk below would leave that surface unguarded.
+ */
+const HTML_SOURCE_DIRS = ['entrypoints'];
 
 /**
  * Network entry points, with the reason each one would break the guarantee.
@@ -44,33 +55,44 @@ const FORBIDDEN = [
 ];
 
 /**
- * Collect source files under a directory, recursively.
+ * Collect files under a directory, recursively.
+ *
+ * A directory the scan list names must exist: this claim is about *all* first-party code, and
+ * silently scanning one layer less used to print OK either way. `verify:offline` already refuses to
+ * run without its artifact for the same reason — a guard that quietly skipped is the bug it was
+ * written to catch.
  *
  * @param {string} dir Directory relative to the repository root.
- * @returns {string[]} Absolute file paths with an executable first-party extension.
+ * @param {string[]} extensions Suffixes to keep.
+ * @returns {string[]} Absolute file paths with one of those extensions.
  */
-function collectSourceFiles(dir) {
+function collectFiles(dir, extensions) {
   const absolute = path.join(ROOT, dir);
-  if (!fs.existsSync(absolute)) return [];
+  if (!fs.existsSync(absolute)) {
+    throw new Error(`source directory "${dir}" is missing — the scan list names it, so it cannot be skipped`);
+  }
   return fs.readdirSync(absolute, { withFileTypes: true }).flatMap(entry => {
     const target = path.join(absolute, entry.name);
-    if (entry.isDirectory()) return collectSourceFiles(path.relative(ROOT, target));
-    return SOURCE_EXTENSIONS.some(ext => entry.name.endsWith(ext)) ? [target] : [];
+    if (entry.isDirectory()) return collectFiles(path.relative(ROOT, target), extensions);
+    return extensions.some(ext => entry.name.endsWith(ext)) ? [target] : [];
   });
 }
 
+const scannedFiles = [
+  ...SOURCE_DIRS.flatMap(dir => collectFiles(dir, SOURCE_EXTENSIONS)),
+  ...HTML_SOURCE_DIRS.flatMap(dir => collectFiles(dir, ['.html'])),
+];
+
 const failures = [];
 
-for (const dir of SOURCE_DIRS) {
-  for (const file of collectSourceFiles(dir)) {
-    const lines = fs.readFileSync(file, 'utf8').split(/\r?\n/);
-    lines.forEach((line, index) => {
-      const hit = FORBIDDEN.find(({ pattern }) => pattern.test(line));
-      if (hit) {
-        failures.push(`${path.relative(ROOT, file)}:${String(index + 1)} — ${hit.pattern} (${hit.why})`);
-      }
-    });
-  }
+for (const file of scannedFiles) {
+  const lines = fs.readFileSync(file, 'utf8').split(/\r?\n/);
+  lines.forEach((line, index) => {
+    const hit = FORBIDDEN.find(({ pattern }) => pattern.test(line));
+    if (hit) {
+      failures.push(`${path.relative(ROOT, file)}:${String(index + 1)} — ${hit.pattern} (${hit.why})`);
+    }
+  });
 }
 
 // The manifest is the second half of the claim: `storage` alone, and no host_permissions. Both
@@ -125,5 +147,6 @@ if (failures.length > 0) {
 }
 
 console.log(
-  `Offline guarantee OK — no network call in ${SOURCE_DIRS.join(', ')}; manifest permissions: storage only, no host_permissions.`,
+  `Offline guarantee OK — no network call in ${scannedFiles.length} first-party files across ` +
+    `${SOURCE_DIRS.join(', ')} (+ entrypoint HTML); manifest permissions: storage only, no host_permissions.`,
 );

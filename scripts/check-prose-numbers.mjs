@@ -267,7 +267,12 @@ const FACTS = [
     what: 'registered direct edges in the converter graph',
     patterns: [
       /(\d+)\+?\s*条(?:直接|注册|直连|转换)?路[径由]/,
-      /(\d+)\s*(?:registered\s*)?direct (?:routes|edges)/,
+      // `direct` and `registered` are optional here because the English prose drops them: the
+      // README badge says "48+ routes", the feature table says "48 edges", the mermaid label says
+      // "48+ direct routes". Requiring the qualifier made the whole English side of this fact blind
+      // — three sentences that the Chinese equivalents are checked for, none of them read at all.
+      // The `+?` covers the badge's "at least" spelling, which the Chinese pattern already allowed.
+      /(\d+)\+?\s*(?:registered\s+)?(?:direct\s+)?(?:routes|edges)/,
       /路径数\s*(\d+)/,
     ],
   },
@@ -378,7 +383,14 @@ const FACTS = [
     key: 'historyRecords',
     value: constants.MAX_RECORDS,
     what: 'kept history records (useHistory)',
-    patterns: [/最近\s*(\d+)\s*条/, /last\s+(\d+)\s+(?:records|entries)/, /(\d+)\s*(?:records|entries)\s+of\s+history/],
+    patterns: [
+      /最近\s*(\d+)\s*条/,
+      // `conversions` is the noun the English README and the product page actually use for the
+      // history list ("the last 50 conversions"); without it the Chinese side of this claim was
+      // checked and the English side was not.
+      /last\s+(\d+)\s+(?:records|entries|conversions)/,
+      /(\d+)\s*(?:records|entries)\s+of\s+history/,
+    ],
   },
   {
     key: 'recentTargets',
@@ -497,6 +509,11 @@ const DOCS = [
   'CONTRIBUTING.en.md',
   'docs/llms.txt',
   'docs/index.html',
+  // The privacy policy is the one public page Chrome Web Store reads, and its social-preview
+  // description quotes the format count ("Convert 14 file formats without uploading a byte").
+  // Both languages sit in the same file with no switching, so a stale count there is both a broken
+  // claim and a store-disclosure mismatch.
+  'docs/privacy.html',
   // The published post and the generated pair pages quote the same closure numbers as the product
   // page does. `pnpm pages:check` compares their bytes against their data source, which catches a
   // source that moved without a rebuild — it says nothing about whether the source is *true*, so
@@ -519,13 +536,29 @@ const DOCS = [
   // size as it hands them to a human to act on. Those are exactly the sentences that age quietly.
   '.github/visibility-checklist.md',
   // The main file spells its heading 「未发布」; matching only the English word excluded it silently.
-  { file: 'CHANGELOG.md', only: /^## \[(?:未发布|Unreleased)\][\s\S]*?(?=^## \[)/m, floor: false },
-  { file: 'CHANGELOG.en.md', only: /^## \[(?:未发布|Unreleased)\][\s\S]*?(?=^## \[)/m, floor: false },
+  // The section ends at the next level-2 heading *or at end of file* — a release that moves the last
+  // version heading would otherwise read as "this changelog quotes nothing", which is how a floor
+  // entry disappears without a word.
+  { file: 'CHANGELOG.md', only: /^## \[(?:未发布|Unreleased)\][\s\S]*?(?=^## |(?![\s\S]))/m, floor: false },
+  { file: 'CHANGELOG.en.md', only: /^## \[(?:未发布|Unreleased)\][\s\S]*?(?=^## |(?![\s\S]))/m, floor: false },
 ];
 
 function docText(entry) {
-  const source = read(typeof entry === 'string' ? entry : entry.file);
-  if (typeof entry === 'object' && entry.only) return entry.only.exec(source)?.[0] ?? '';
+  const name = typeof entry === 'string' ? entry : entry.file;
+  const source = read(name);
+  if (typeof entry === 'object' && entry.only) {
+    const section = entry.only.exec(source);
+    // An `only` region that does not match must not degrade to "read nothing": the document stays in
+    // scope, its quotes fall to zero, and only a baseline taken while it still matched would notice.
+    if (!section) {
+      console.error(
+        `prose numbers: ${name} has no section matching ${entry.only} — the region this guard reads ` +
+          'is gone. Restore the heading or update the pattern; do not let it read as empty.',
+      );
+      process.exit(1);
+    }
+    return section[0];
+  }
   if (typeof entry === 'object' && entry.skipFrom) {
     const heading = entry.skipFrom.exec(source);
     return heading ? source.slice(0, heading.index) : source;

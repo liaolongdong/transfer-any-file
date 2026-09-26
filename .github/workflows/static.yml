@@ -61,6 +61,29 @@ jobs:
             exit 1
           fi
 
+          # sitemap 是搜索引擎唯一被允许来抓的那份清单，也是「站点根」这套 URL 约定的清单化；
+          # 里面每一条 <loc> 都必须在 staging 里真的有对应文件。这条检查只读 XML 和磁盘，
+          # 不装依赖、不构建，所以它是这份部署前置里唯一付得起的「断链」守卫 —— pages:check
+          # 与 verify:numbers 都在 ci.yml 的另一条 job 里，和这里没有 needs 关系。
+          if [ -f _site/sitemap.xml ]; then
+            bad=0
+            while IFS= read -r loc; do
+              rel="$(printf '%s' "$loc" | sed -e 's#^https\{0,1\}://[^/]*/transfer-any-file##')"
+              case "$rel" in
+                /) cand='_site/index.html' ;;
+                */) cand="_site${rel}index.html" ;;
+                *) cand="_site${rel}" ;;
+              esac
+              if [ ! -f "$cand" ]; then
+                echo "::error::sitemap 指向的页面不在站点里：$loc → ${cand#_site/}"
+                bad=1
+              fi
+            done < <(sed -n 's:.*<loc>\(.*\)</loc>.*:\1:p' _site/sitemap.xml)
+            if [ "$bad" -ne 0 ]; then
+              exit 1
+            fi
+          fi
+
       - name: Setup Pages
         uses: actions/configure-pages@v5
 

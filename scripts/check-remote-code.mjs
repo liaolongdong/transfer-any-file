@@ -57,6 +57,20 @@ const FORBIDDEN = [
     why: 'a URL literal naming a JavaScript or WebAssembly file, i.e. code hosted somewhere other than this package',
   },
   {
+    id: 'remote-dynamic-import',
+    // The rule above needs an extension in the URL, and an ESM CDN specifier has none:
+    // `import("https://esm.sh/pkg")` is hosted code by the store's definition just the same. This is
+    // also the shape a bundler emits when it decides to fetch a dependency at runtime, which is
+    // exactly what `stripRemotelyHostedCode()` in `wxt.config.ts` deletes in pdf.js.
+    pattern: /\bimport\s*\(\s*["'`]https?:/,
+    why: 'a module fetched from the network by dynamic import, extension or no extension',
+  },
+  {
+    id: 'remote-worker',
+    pattern: /new\s+(?:Shared)?Worker\s*\(\s*["'`]https?:/,
+    why: 'a worker script loaded over the network',
+  },
+  {
     id: 'external-script-src',
     // Anchored on the tag, not on `src`: `html-sanitize.ts` quotes `<img src="https://…">` in its
     // JSDoc to explain what it strips, and a loose `src=` rule reads that prose as a finding.
@@ -102,7 +116,9 @@ const FORBIDDEN = [
  * @returns {string[]} Absolute file paths.
  */
 function collectCodeFiles(dir) {
-  if (!fs.existsSync(dir)) return [];
+  if (!fs.existsSync(dir)) {
+    throw new Error(`scan directory "${path.relative(ROOT, dir)}" is missing — a skipped layer prints OK`);
+  }
   return fs.readdirSync(dir, { withFileTypes: true }).flatMap(entry => {
     const target = path.join(dir, entry.name);
     if (entry.isDirectory()) return collectCodeFiles(target);

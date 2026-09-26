@@ -2,11 +2,12 @@
   "formats": {
     "CHROMEWEBSTORE.md": 3,
     "docs/blog/index.html": 19,
-    "docs/convert/index.html": 14,
+    "docs/convert/index.html": 18,
     "docs/convert/word-to-markdown.html": 1,
     "docs/convert/word-to-pdf.html": 2,
     "docs/index.html": 31,
     "docs/llms.txt": 1,
+    "docs/privacy.html": 1,
     "docs/promo/blog-article.en.md": 4,
     "docs/promo/community-posts.en.md": 6,
     "docs/promo/community-posts.md": 8,
@@ -38,14 +39,15 @@
     "CHROMEWEBSTORE.md": 3,
     "CONTRIBUTING.md": 1,
     "docs/blog/index.html": 13,
-    "docs/convert/index.html": 8,
-    "docs/index.html": 13,
+    "docs/convert/index.html": 12,
+    "docs/index.html": 15,
     "docs/llms.txt": 2,
     "docs/promo/blog-article.en.md": 1,
     "docs/promo/community-posts.en.md": 1,
     "docs/promo/community-posts.md": 2,
     "docs/promo/wechat-article.md": 1,
     "docs/promo/weibo-posts.md": 2,
+    "README.en.md": 4,
     "README.md": 3
   },
   "reachable": {
@@ -60,7 +62,7 @@
   },
   "selectable": {
     "docs/blog/index.html": 5,
-    "docs/convert/index.html": 14,
+    "docs/convert/index.html": 22,
     "docs/index.html": 18,
     "docs/llms.txt": 1,
     "docs/promo/community-posts.en.md": 1,
@@ -150,6 +152,9 @@
   "historyRecords": {
     "AGENTS.md": 1,
     "docs/blog/index.html": 1,
+    "docs/index.html": 1,
+    "docs/privacy.html": 1,
+    "README.en.md": 1,
     "README.md": 1
   },
   "recentTargets": {
