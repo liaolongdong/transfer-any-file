@@ -367,6 +367,85 @@ always name the same release.
   `0.15s` / `0.18s` / `0.2s` / `0.25s` values settle on `--fat-duration-fast|base|slow`; under
   `prefers-reduced-motion` the stagger delays are zeroed along with the durations, and four `0.2s` uses become
   `0.18s`.
+- **Motion now has an easing vocabulary, and distance and scale are tokens.** With durations settled, two
+  kinds of value were still loose: every transition ended in the keyword `ease` — which decelerates in both
+  directions, so an arrival and a departure were the same gesture, and that flatness is precisely what
+  "cheap" registers as — while the displacements sat in three source files (`App.vue`, `FileUpload.vue`,
+  `PreferencesMenu.vue`) as `translateY(8px)` / `translateX(-12px)` / `scale(1.08)` literals. Easings are now
+  named by direction, three of them: `standard` for a state that
+  changes in place, `enter` decelerating only (for arriving), `leave` accelerating only (for departing — never
+  ease-out a removal). A fourth, an overshoot for releasing a press, was drafted and dropped before it shipped:
+  nothing in this interface changes size or position on press, so an overshoot landing on a colour transition
+  clamps and reads as nothing, and inventing an action just to hang a curve on it would be a different change.
+  Distances and scales each have tokens, and there too only the ones some rule actually reads.
+  `--fat-ease-standard` keeps its name, so existing call sites pick up the new shape without an edit. The
+  ceiling is the number that matters most here: a surface that travels more than a card's worth of padding
+  stops reading as "moved" and starts reading as "fell over".
+- **The reduced-motion setting now removes displacement, not just time.** Collapsing a duration to 0.01ms does
+  not remove a displacement, it only removes the time spent crossing it — so `.card-enter-from`'s translateY
+  still put a card on screen 8px short for one frame, and a one-frame jump is exactly what that media query
+  exists to prevent. `--fat-lift-sm`, `--fat-lift-md`, `--fat-slide-md`, `--fat-swatch-scale` and
+  `--fat-enter-scale` now collapse in the same place as the durations. Element Plus needs no per-rule entry: its
+  motion tokens are already declared in terms of `--fat-duration-*`, so collapsing the ladder collapses dialogs,
+  dropdowns and toasts with it. The three values it hardcodes instead of using those tokens (the progress bar's
+  `width .6s`, the message's `transform/top/bottom .4s`, the loading icon's `2s`) are struck by name at the bottom
+  of `global.css`, and the dialog's 20px entrance offset is answered by swapping its **animation name**: the reduce
+  block carries two plain cross-fade keyframes of its own and points `animation-name: … !important` at them. It does
+  not redefine Element Plus's keyframes under the same name, because `@keyframes` is settled by document order alone
+  and has no `!important` — a rewrite that wins today goes silently losing when the chunks are split differently,
+  and that order was read off the built page's CSSOM rather than assumed. The confirmation dialog (`ElMessageBox`,
+  the surface behind "clear history" and the large-batch prompt) shares the `dialog-fade` transition name but runs a
+  different keyframe set, `msgbox-fade-in`, with the same 20px — so it is mapped separately too. Those three names
+  were found by enumerating every `@keyframes` in the shipped bundle that carries a displacement, not by reading the
+  docs. The zoom and list poses are struck the same way, by family: all four directions of `el-zoom-in-*` —
+  `el-tag` uses `center` — and `el-list`'s `-30px`, all written in component CSS rather than in a token, so
+  collapsing the duration alone would leave them flat or mislocated for one frame. The
+  criterion behind all of this came out of a reduced-motion scan run in real Chrome, and that scan caught the last
+  displacement literal still loose in the workbench — the 8% the theme swatch grows on hover, now
+  `--fat-swatch-scale`, and the only hover scale in the interface.
+- **The workbench's state changes now have transitions.** The cancel button, the batch-progress block and the
+  multi-step path hint used to pop in at zero duration and shove their row apart: small controls arrive by
+  scaling (a control inside a flex row has nowhere honest to slide from), whole blocks grow along
+  `0fr ↔ 1fr` through the new `.fat-expand` helper, and the shared `.fat-fade` covers swaps that keep their
+  box the same size. The preset row became a `<TransitionGroup>` — `addPreset` prepends, so without `-move`
+  the new chip lands at the left and every other one teleports a slot. Leaving is a cut in both lists, on purpose:
+  `<TransitionGroup>` waits out the transition the element itself carries (the rows' `--fat-transition-fast`, the
+  chips' `--fat-transition`) before it unmounts them, so "delete a row" became one duration of a row sitting there
+  unchanged and then a second reflow; and a "no presets yet" hint that fades while still in flow shares that
+  wrapping bar with the chip row that just replaced it, pushing everything below it down for the length of the fade.
+  Entering and `-move` keep their motion, leaving loses it. CollapsibleCard's panel moved from
+  `v-show` to the same `0fr ↔ 1fr`: `v-show` flips `display` in one frame, so the arrow spent 0.18s rotating
+  over content that had already changed, the animation contradicting the layout change instead of explaining
+  it — and a height transition means `visibility` has to be managed too, because a subtree clipped by
+  `overflow` alone stays in the accessibility tree and in the tab order. That clip is permanent, and it also ate
+  the keyboard focus ring: `.collapsible-body` carries no top padding, so the first control in a panel sits flush
+  against the clip edge and 2px of its 4px ring (`outline: 2px` plus `outline-offset: 2px`) fell outside it — measured
+  on the preset-name input's top edge. So the clip is written `overflow: clip` rather than `hidden`, with
+  `overflow-clip-margin: var(--fat-focus-ring-inset)`: a new token holding exactly that 4px, declared next to the ring
+  it belongs to. `.fat-expand > *` is a permanent clip too and changed with it. The cost is bounded to the animation:
+  4px of content paints past the clip edge, and it is the same 4px already fading out with the opacity. Measuring this
+  turned up a trap in the measurement itself — `--fat-transition` transitions `outline-offset` as well, so reading the
+  computed value the instant focus lands returns its _starting_ `0px`, which reported the card header's `-2px` inset
+  ring (an inset ring cannot be clipped by an ancestor at all) as "2px clipped"; the sample has to wait for the
+  transition to settle. The conversion card, the result cards
+  and the footer gained background/border/color transitions, so a theme switch no longer splits into two
+  groups: buttons and chips slide over 0.18s while the page used to snap. These name their properties instead
+  of using the `--fat-transition` shorthand, because that shorthand carries `transform` as well and `.card` is
+  exactly the element the card entrance animates — two transform transitions settled by source order is not a
+  thing to leave to chance.
+- **The site layer shares one motion vocabulary across the product page and the 11 generated convert
+  pages.** The pairing pages link `docs/assets/content.css` rather than inlining it (so `pnpm pages:check`
+  byte comparison is unaffected), which makes every line there worth eleven pages — ten pairing pages and
+  their index: the route chain's chips slide in one after
+  another (the stagger is written per child on `transition-delay`, because this is a transition and not an
+  animation), the nav underline sweeps left to right (returning on an accelerating curve, and the whole block
+  sits inside `@media (hover: hover) and (pointer: fine)` so touchscreens keep no sticky hover artefact), a
+  scroll-progress rail at the top of the page, and the FAQ panel grows open. The product page adds the
+  cursor-following card glow and the same rail. Three deliberate calls: the rail is driven by a scroll
+  timeline, and a blanket `animation-duration: 0.01ms` cannot reach a progress timeline, so the reduce block
+  deletes it with `content: none` rather than shortening it; the glow's `::before` carries `z-index: -1`, so
+  the parent needs `isolation: isolate` or it drops behind the card's own background; both rails are
+  `pointer-events: none`, because 2px of fixed overlay would otherwise eat clicks on the sticky header.
 
 - **The tab title follows the UI language.** `<title>` was permanently `Transfer Any File` and switching
   to English left it alone — yet the tab title is the only string of this page that the browser chrome
@@ -720,6 +799,22 @@ zero network requests`) and the Chinese equivalent never appeared in a search re
   stored data.
 
 ### Fixed
+
+- **Sections a jump skipped over stayed transparent.** `.reveal` on the product page and the 11 generated
+  convert pages becomes visible when IntersectionObserver adds a class, and the observer only calls back for elements
+  that enter the viewport: opening `…#faq` directly, clicking an in-page anchor, or having the browser restore
+  a scroll position left every section above the target at `opacity: 0` — several paragraphs simply missing
+  from the top of the page, and scrolling back up did not bring them back. A callback entry whose rectangle is
+  already above the top edge is now marked shown on the spot and unobserved: no one watched it arrive, so it
+  is owed no movement.
+- **Removing the first file replayed the entrance animation on every row below it.** The file list was keyed
+  `file.name + index`, so deleting one row changed the key of every row beneath it, and `<TransitionGroup>`
+  remounted those as new nodes — removing a file looked like removing five. The only identity this list has is
+  the `File` object itself (`removeFile()` rebuilds the array but carries the same objects through), so the key
+  is now minted once per object and held in a `WeakMap`. The lookup goes through `toRaw()` first: Vue does not
+  proxy a `File` (`getTargetType` only reacts to Object / Array / collection tags), but if that ever changed,
+  without the guard the map would key on a fresh proxy each render and hand out a new id every frame —
+  trading this bug for a harder one to find.
 
 - **The comparison view no longer squeezes two unreadable columns into a narrow window.** Split-screen
   browsing and half-width windows left each pane around 300 px: 编辑 / Edit and 复制 / Copy in the result

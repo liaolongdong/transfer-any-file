@@ -204,7 +204,7 @@
       · 143 combinations -> BFS closure over the same graph (utils/core/registry.ts)
       · 116 selectable   -> 143 minus the 27 pairs utils/core/conversion-policy.ts greys out
                             (24 image -> text/data + 3 PDF -> data)
-      · 3.76 MB          -> `pnpm build` total output size
+      · 3.78 MB          -> `pnpm build` total output size
     -->
     <script type="application/ld+json">
       {
@@ -725,6 +725,9 @@
       /* ============ Tokens ============ */
       :root {
         --brand: #2563eb;
+        /* The same blue as a triplet, because `rgb(… / a)` cannot take a hex variable. Every
+           translucent brand colour below reads this instead of repeating the numbers. */
+        --brand-rgb: 37 99 235;
         --brand-dark: #1d4ed8;
         --brand-soft: #eef4ff;
         --brand-line: #d6e4ff;
@@ -1038,7 +1041,7 @@
       .btn-primary {
         background: var(--brand);
         color: #fff;
-        box-shadow: 0 8px 20px -10px rgb(37 99 235 / 70%);
+        box-shadow: 0 8px 20px -10px rgb(var(--brand-rgb) / 70%);
       }
 
       .btn-primary:hover {
@@ -2262,14 +2265,19 @@
         display: none;
       }
 
+      /* The chevron is the panel's own gesture, not a separate one: it takes the opening duration and the
+         curve the ladder reserves for leaving on the way back, so the two never read as two movements.
+         Before this it ran on a hard-coded 0.18s ease, which is why a fast flick of the arrow used to
+         finish while the answer was still growing. */
       details.faq-item > summary .chev {
         margin-left: auto;
         color: var(--ink-faint);
-        transition: transform 0.18s ease;
+        transition: transform var(--dur-fast) var(--ease-in);
       }
 
       details.faq-item[open] > summary .chev {
         transform: rotate(90deg);
+        transition: transform var(--dur-mid) var(--ease-out);
       }
 
       details.faq-item .faq-a {
@@ -2637,10 +2645,12 @@
           opacity: 1;
         }
 
-        /* Closing is the short end of the pair: a panel that collapses at opening speed feels like it
-           is waiting for you. */
+        /* Closing is the short end of the pair, and it takes the curve the ladder reserves for leaving:
+           a panel that collapses at opening speed, easing out as if it were arriving, feels like it is
+           waiting for you. */
         details.faq-item:not([open])::details-content {
           transition-duration: var(--dur-fast);
+          transition-timing-function: var(--ease-in);
         }
       }
 
@@ -2667,8 +2677,9 @@
         animation: plate-in var(--dur-mid) var(--ease-out);
       }
 
-      /* The arrow leans the way it will take you — the one hover state on this page that can carry
-         information rather than only decorate. */
+      /* The arrow leans the way it will take you. The lean is reinforcement, not the carrier: the glyph
+         already points, the accessible name already says where, and the hover state above already lights
+         colour and background — which is why the reduce block can drop this transform and lose nothing. */
       .scroll-rail button svg {
         transition: transform var(--dur-fast) var(--ease-out);
       }
@@ -2791,6 +2802,39 @@
         .card:hover .icon {
           transform: rotate(-6deg) scale(1.06);
         }
+
+        /* The one surface on this page the pointer lights rather than pulls. `--mx` and `--my` are written
+           by the script at the foot of the page as percentages of the card's own box, so the highlight sits
+           under the cursor and nowhere else; `isolation` is what lets the glow tuck under the text without
+           falling behind the card's own white background, and `opacity` is the only thing that animates — a
+           card at rest costs one composited layer and no layout at all. The blue is `--brand-rgb` at 9% —
+           the channel triple rather than `--brand`, because that one holds a hex literal and `/ 9%` needs
+           the components to themselves. Faint enough that the effect reads as lit from the page rather than
+           as a coloured box. */
+        .card {
+          position: relative;
+          isolation: isolate;
+        }
+
+        .card::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          z-index: -1;
+          border-radius: inherit;
+          background: radial-gradient(
+            240px circle at var(--mx, 50%) var(--my, 50%),
+            rgb(var(--brand-rgb) / 9%),
+            rgb(var(--brand-rgb) / 0%) 70%
+          );
+          opacity: 0;
+          pointer-events: none;
+          transition: opacity var(--dur-mid) var(--ease-out);
+        }
+
+        .card:hover::before {
+          opacity: 1;
+        }
       }
 
       /* The comparison table tells the reader to scan down the Transfer Any File column; once, as
@@ -2827,6 +2871,39 @@
         animation: shine 1.2s ease-in-out 0.25s forwards;
       }
 
+      /* How far into a page this long you have read is a question the scroll bar answers in browser-chrome
+         terms. A hairline across the top answers it in the page's own colours, and it is driven by the
+         scroll offset rather than by a timer, so it can never run ahead of the reader and needs no script —
+         the same rail the conversion pages carry, so the two pages are one system. Below the lightbox in
+         the stacking order on purpose: a reading position is not something you need while a screenshot is
+         filling the screen. */
+      @supports (animation-timeline: scroll()) {
+        body::after {
+          content: '';
+          position: fixed;
+          top: 0;
+          right: 0;
+          left: 0;
+          z-index: 60;
+          height: 2px;
+          background: linear-gradient(90deg, var(--brand-line), var(--brand));
+          transform: scaleX(0);
+          transform-origin: 0 50%;
+          pointer-events: none;
+          animation-name: read-progress;
+          animation-duration: auto;
+          animation-timing-function: linear;
+          animation-fill-mode: both;
+          animation-timeline: scroll(root block);
+        }
+
+        @keyframes read-progress {
+          to {
+            transform: scaleX(1);
+          }
+        }
+      }
+
       @media (prefers-reduced-motion: reduce) {
         html {
           scroll-behavior: auto;
@@ -2834,11 +2911,15 @@
 
         /* A blanket stop rather than a per-component opt-out, so motion added later cannot slip past
            it. Durations collapse instead of the properties being removed, which keeps every element
-           at the state it was animating *to*. */
+           at the state it was animating *to*, and the iteration count is capped so a loop added later
+           gets one pass rather than a 0.01ms strobe — none of today's loops depend on that cap, it is
+           the part of the claim that covers code not written yet. `::details-content` is the one
+           exception the selector list cannot include: see its own rule below. */
         *,
         *::before,
         *::after {
           animation-duration: 0.01ms !important;
+          animation-iteration-count: 1 !important;
           animation-delay: 0ms !important;
           transition-duration: 0.01ms !important;
           transition-delay: 0ms !important;
@@ -2854,14 +2935,45 @@
           transform: none;
         }
 
-        /* The blanket stop collapses finite entrances to their end frame, but an infinite loop at
-           0.01ms keeps sampling a different phase every frame — that is flicker, not stillness.
-           The three perpetual loops are therefore switched off by name; the caret stays visible,
-           it just stops blinking. */
+        /* The three perpetual loops go further than the cap above, which would already leave each of
+           them still: one 0.01ms pass is technically stillness, but the badge would spend that pass
+           travelling and the caret would spend it blinking once. Switching them off by name means the
+           element simply shows the state its own rule describes — the badge un-bobbed, the wire in its
+           settled colour, the caret visible and not blinking. */
         .js .float-badge,
         .js .flow-node::before,
         .js #installCode > code::after {
           animation: none;
+        }
+
+        /* A progress-driven animation has no duration to collapse — its clock is the scroll offset — so
+           the reading rail is removed rather than shortened. */
+        body::after {
+          content: none;
+        }
+
+        /* `::details-content` is not covered by the blanket above (it is neither `*` nor one of the two
+           marker pseudos), and its growth is the only motion on this page that moves layout. It gets a rule
+           of its own rather than a place in that selector list because an engine that cannot parse the
+           pseudo-element would then drop the entire blanket, silently and everywhere at once. */
+        details::details-content {
+          transition-duration: 0.01ms !important;
+          transition-delay: 0ms !important;
+        }
+
+        /* Hover carries motion in two places here — the section arrows lean 2px, a feature icon tips and
+           grows 6% — and collapsing a duration removes none of it, it only turns the move into a jump. So
+           the transforms go too. Neither is the only thing a hover says: the arrows also change colour and
+           background just above, and the card behind the icon still lights, because the glow animates
+           `opacity` alone and the cap above makes that an instant change. It reads at `--mx/--my` defaults
+           (the card's own centre) rather than under the cursor, since the script that writes those two is
+           gated on `!reduced` as well. The workbench settles the same question the same way, by collapsing
+           `--fat-swatch-scale` to 1, and these rules sit after both originals in document order — which is
+           what decides it now that no `!important` is involved. */
+        .rail-top:hover svg,
+        .rail-bottom:hover svg,
+        .card:hover .icon {
+          transform: none;
         }
       }
 
@@ -3637,7 +3749,7 @@
               class="metric metric-size"
               data-onview="in"
             >
-              <b>3.76&nbsp;MB</b>
+              <b>3.78&nbsp;MB</b>
               <span class="label"><span lang="zh-CN">完整包体</span><span lang="en">whole bundle</span></span>
               <span
                 class="size-bar"
@@ -7026,8 +7138,8 @@ pnpm build</code><button
               <p>
                 <span lang="zh-CN"
                   >一套 Playwright 端到端套件加载真正的构建产物，用仓库内的夹具跑完各类转换场景、批量与
-                  ZIP、取消与改键、预览与编辑、图片输出参数与转换预设、PDF 选页、输出文件名模板、历史与偏好，共
-                  313 项断言全部通过（1.0.0 之后的未发布构建，2026-09-24 实测）；另在 6 主题 × 浅/深共 12
+                  ZIP、取消与改键、预览与编辑、图片输出参数与转换预设、PDF 选页、输出文件名模板、历史与偏好，共 317
+                  项断言全部通过（1.0.0 之后的未发布构建，2026-09-24 实测）；另在 6 主题 × 浅/深共 12
                   种组合下逐项校验四组对比度：顶栏文字、主按钮文字（常态 / 悬停 / 按下）、焦点环与正文信息文字。CI
                   每次推送跑 lint + build + e2e。</span
                 >
@@ -7035,11 +7147,11 @@ pnpm build</code><button
                   >A Playwright end-to-end suite drives the actual build output over the repository fixtures — every
                   conversion scenario, batching and ZIP handling, cancellation and shortcut rebinding, preview and
                   editing, image output parameters and conversion presets, PDF page selection, output file-name
-                  patterns, history and preferences — with 313/313 assertions passing (the unreleased build after 1.0.0,
-                  measured 2026-09-24). It also
-                  checks four contrast pairs — topbar text, the primary button's label in its rest, hover and pressed
-                  states, the focus ring, and informational text such as the drop hint and file sizes — in all 12 theme
-                  × light/dark combinations. CI runs lint, build and e2e on every push.</span
+                  patterns, history and preferences — with 317/317 assertions passing (the unreleased build after 1.0.0,
+                  measured 2026-09-24). It also checks four contrast pairs — topbar text, the primary button's label in
+                  its rest, hover and pressed states, the focus ring, and informational text such as the drop hint and
+                  file sizes — in all 12 theme × light/dark combinations. CI runs lint, build and e2e on every
+                  push.</span
                 >
               </p>
             </div>
@@ -7063,7 +7175,7 @@ pnpm build</code><button
             <span lang="zh-CN"
               ><strong>版本 1.0.0 · 本页最后更新 2026-09-22。</strong>文中全部数字从代码取证：14 种格式来自
               <code>FileFormat</code> 枚举，48 条路径与 143 个可达组合来自转换器注册表的邻接图，116 个可选组合是 143
-              减去 <code>utils/core/conversion-policy.ts</code> 置灰的 27 个，3.76 MB 来自
+              减去 <code>utils/core/conversion-policy.ts</code> 置灰的 27 个，3.78 MB 来自
               <code>pnpm build</code> 输出，权限与上限来自 manifest 与源码常量。截图与推广图由
               <code>pnpm assets:capture</code> 从构建产物生成；配对详情页由
               <code>pnpm pages:render</code> 生成，这一批共 11 个页面，与 <code>docs/sitemap.xml</code> 同步。</span
@@ -7072,7 +7184,7 @@ pnpm build</code><button
               ><strong>Version 1.0.0 · page last updated 2026-09-22.</strong> Every number on this page is taken from
               the code: 14 formats from the <code>FileFormat</code> enum, 48 routes and 143 reachable combinations from
               the converter registry's adjacency graph, and 116 selectable combinations — that is 143 minus the 27 pairs
-              <code>utils/core/conversion-policy.ts</code> greys out. 3.76 MB comes from <code>pnpm build</code> output,
+              <code>utils/core/conversion-policy.ts</code> greys out. 3.78 MB comes from <code>pnpm build</code> output,
               permissions and limits from the manifest and source constants. Screenshots are generated from the built
               bundle by <code>pnpm assets:capture</code>, and the per-pair pages — 11 pages in this batch — come from
               <code>pnpm pages:render</code>, which writes the sitemap they are listed in.</span
@@ -7755,6 +7867,16 @@ pnpm build</code><button
                 if (entry.isIntersecting) {
                   entry.target.classList.add('in');
                   io.unobserve(entry.target);
+                  return;
+                }
+                // A jump — an in-page anchor, a deep link straight to #install, a restored scroll position —
+                // never lets the observer see the sections in between, and a section whose only report is
+                // "not intersecting" while it sits above the viewport would stay at opacity 0 until the
+                // reader scrolled back up. Anything already past the top edge is shown on the spot: no
+                // movement is owed for a section nobody watched arrive.
+                if (entry.boundingClientRect.top < 0) {
+                  entry.target.classList.add('in');
+                  io.unobserve(entry.target);
                 }
               });
             },
@@ -7766,7 +7888,7 @@ pnpm build</code><button
         }
 
         // ---- Roll the metric band up, once, as it comes into view ----------
-        // Only bare integers are touched: "3.76 MB" is a measurement with a unit, not a tally, and
+        // Only bare integers are touched: "3.78 MB" is a measurement with a unit, not a tally, and
         // rolling it would advertise a precision the build does not have. The real value stays in the
         // HTML, so crawlers, no-JS readers and reduced-motion readers all see the answer immediately.
         var metricNums = Array.prototype.slice.call(document.querySelectorAll('.metric b')).filter(function (el) {
@@ -7891,9 +8013,47 @@ pnpm build</code><button
           window.addEventListener('resize', measure);
         }
 
+        // ---- Cursor light over the cards ---------------------------------------
+        // The pointer's position is written into the hovered card as two percentages, which is all the
+        // stylesheet needs: the gradient is painted wherever those numbers say, so nothing moves and no
+        // class is toggled — the only thing that changes on hover is an `opacity` the CSS owns. One rAF is
+        // in flight at a time, and it reads the *latest* sample rather than the one that scheduled it.
+        // Storing the coordinates beside the card is what keeps the pair honest: one card crossing into
+        // the next inside a frame would otherwise apply the scheduling event's `clientX` against a
+        // different card's box, which puts the light somewhere other than under the pointer — and off the
+        // edge, where the percentages run past 100 and the highlight lands on a neighbour. Cost is one
+        // `getBoundingClientRect()` per frame while the pointer is inside a card; movement outside every
+        // card returns before that, and that is most of it. Reduced motion leaves both properties unset, so
+        // the CSS fallback keeps the light centred and the hover state is a card that brightens without
+        // anything tracking the cursor.
+        if (!reduced && window.matchMedia('(hover: hover) and (pointer: fine)').matches) {
+          var glowFrame = 0;
+          var glowCard = null;
+          var glowX = 0;
+          var glowY = 0;
+          document.addEventListener(
+            'pointermove',
+            function (e) {
+              var card = e.target.closest ? e.target.closest('.card') : null;
+              if (!card) return;
+              glowCard = card;
+              glowX = e.clientX;
+              glowY = e.clientY;
+              if (glowFrame) return;
+              glowFrame = requestAnimationFrame(function () {
+                glowFrame = 0;
+                var r = glowCard.getBoundingClientRect();
+                glowCard.style.setProperty('--mx', (((glowX - r.left) / r.width) * 100).toFixed(2) + '%');
+                glowCard.style.setProperty('--my', (((glowY - r.top) / r.height) * 100).toFixed(2) + '%');
+              });
+            },
+            { passive: true },
+          );
+        }
+
         // ---- One-pass scroll reveals declared in the markup -------------------
         // data-onview names the class an element gains the first time it is 35% in view:
-        // the size bar under "3.76 MB" (in) and the light sweep over the comparison column
+        // the size bar under "3.78 MB" (in) and the light sweep over the comparison column
         // (shine). Both classes only arm finite animations, so reduced-motion readers get
         // the end state directly and there is nothing to unsee.
         var onView = Array.prototype.slice.call(document.querySelectorAll('[data-onview]'));

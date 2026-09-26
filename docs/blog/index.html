@@ -707,12 +707,12 @@ SVG      ──► HTML ──► PNG</code></pre>
               <span lang="zh-CN"
                 >所有重型依赖在转换器内部动态 <code>import()</code>，重型子组件用
                 <code>defineAsyncComponent</code> 懒加载，连打包用的 fflate 也是到真正要用的那一刻才加载。整个扩展产物
-                3.76 MB，但打开工作台时不会去拉 1.26 MB 的 <code>pdf.worker</code>。</span
+                3.78 MB，但打开工作台时不会去拉 1.26 MB 的 <code>pdf.worker</code>。</span
               >
               <span lang="en"
                 >Every heavy dependency is dynamically <code>import()</code>ed inside its converter, heavy child
                 components are lazy-loaded with <code>defineAsyncComponent</code>, and even the ZIP packer (fflate) is
-                loaded at the call site that needs it rather than up front. The whole extension builds to 3.76 MB, but
+                loaded at the call site that needs it rather than up front. The whole extension builds to 3.78 MB, but
                 opening the workbench never pulls the 1.26 MB <code>pdf.worker</code>.</span
               >
             </p>
@@ -891,13 +891,13 @@ pnpm install &amp;&amp; pnpm build</code></pre>
             <p>
               <span lang="zh-CN"
                 >技术栈：<b>WXT + Vue 3 + TypeScript + Element Plus</b>，Manifest V3，权限只有 <code>storage</code>，MIT
-                协议。验证方式也是交付的一部分：Playwright 驱动构建产物跑 283
+                协议。验证方式也是交付的一部分：Playwright 驱动构建产物跑 317
                 条断言，转换用的夹具（<code>fixtures/</code>）随仓库走，谁都能本地重跑。</span
               >
               <span lang="en"
                 >Tech stack: <b>WXT + Vue 3 + TypeScript + Element Plus</b>, Manifest V3, <code>storage</code> as the
                 only permission, MIT licence. How it is verified is part of the deliverable too: Playwright drives the
-                built artifact through 283 assertions, and the fixtures it converts live in <code>fixtures/</code> next
+                built artifact through 317 assertions, and the fixtures it converts live in <code>fixtures/</code> next
                 to the code, so anyone can re-run them.</span
               >
             </p>

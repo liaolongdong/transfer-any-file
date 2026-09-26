@@ -15,8 +15,8 @@ from a recorded test run, so a number that moved in the code makes the prose fai
 - BFS over that graph makes 143 combinations reachable, and the picker offers 116 of them: the other 27 are greyed out with a reason (24 image→text/data and 3 PDF→data pairs)
 - One permission: `storage`. No host permissions, no upload step, works with networking off
 - 100 MB per file, 200 files per batch; a batch above 5 files or 20 MB asks first
-- Playwright drives the built artifact through 283 assertions
-- The whole extension builds to 3.76 MB
+- Playwright drives the built artifact through 317 assertions
+- The whole extension builds to 3.78 MB
 - MIT, sole author ([github.com/liaolongdong](https://github.com/liaolongdong))
 - **Not on the Chrome Web Store yet.** Installing means building and loading unpacked.
 

@@ -30,8 +30,10 @@
   --shadow-sm: 0 1px 2px rgb(16 24 40 / 6%);
   --shadow-md: 0 4px 24px -12px rgb(16 24 40 / 18%);
   --dur-fast: 0.16s;
+  --dur-mid: 0.24s;
   --dur-slow: 0.42s;
   --ease-out: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --ease-in: cubic-bezier(0.55, 0, 0.55, 0.2);
 }
 
 * {
@@ -541,6 +543,183 @@ details p {
   transform: none;
 }
 
+/* The route card is the one thing these pages exist to say, so its chain arrives in step order instead of
+   all at once: the eye walks from the first format to the last rather than reading a row of chips. Delay is
+   the only lever — the marks are already styled — and seven of them at 60ms still finish inside two-thirds
+   of a second. Behind `.js` because a client that never runs the reveal script must not be shown a route it
+   cannot see; chains shorter than the last rule below simply leave those delays unused. */
+.js .route-steps > * {
+  opacity: 0;
+  transform: translateX(-8px);
+  transition:
+    opacity var(--dur-mid) var(--ease-out),
+    transform var(--dur-mid) var(--ease-out);
+}
+
+.js .route-card.reveal.in .route-steps > * {
+  opacity: 1;
+  transform: none;
+}
+
+.js .route-steps > :nth-child(2) {
+  transition-delay: 60ms;
+}
+
+.js .route-steps > :nth-child(3) {
+  transition-delay: 120ms;
+}
+
+.js .route-steps > :nth-child(4) {
+  transition-delay: 180ms;
+}
+
+.js .route-steps > :nth-child(5) {
+  transition-delay: 240ms;
+}
+
+.js .route-steps > :nth-child(6) {
+  transition-delay: 300ms;
+}
+
+.js .route-steps > :nth-child(7) {
+  transition-delay: 360ms;
+}
+
+/* The nav labels already change colour on hover; the rule that sweeps in beneath them says the same thing
+   with geometry, and arrives on the curve for entering, leaves on the one for leaving. Gated to a mouse
+   because a touch device has no hover state to earn, and a line left behind after a tap reads as a bug
+   rather than as feedback. */
+@media (hover: hover) and (pointer: fine) {
+  .site-nav a {
+    position: relative;
+  }
+
+  .site-nav a::after {
+    content: '';
+    position: absolute;
+    right: 0;
+    bottom: -1px;
+    left: 0;
+    height: 2px;
+    border-radius: 2px;
+    background-color: var(--brand);
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform var(--dur-mid) var(--ease-in);
+  }
+
+  .site-nav a:hover::after,
+  .site-nav a:focus-visible::after {
+    transform: scaleX(1);
+    transition-timing-function: var(--ease-out);
+  }
+}
+
+/* A hairline across the top that fills as you read answers "how far into this page" — on a 900px column of
+   dense bilingual prose that question is real. It is driven by the scroll offset rather than a timer, so it
+   can never run ahead of the reader and needs no script. The blanket collapse in the block below cannot stop
+   a progress-driven animation, so this one is switched off by name there. */
+@supports (animation-timeline: scroll()) {
+  body::after {
+    content: '';
+    position: fixed;
+    top: 0;
+    right: 0;
+    left: 0;
+    z-index: 20;
+    height: 2px;
+    background: linear-gradient(90deg, var(--brand-line), var(--brand));
+    transform: scaleX(0);
+    transform-origin: left;
+    pointer-events: none;
+    animation-name: read-progress;
+    animation-duration: auto;
+    animation-timing-function: linear;
+    animation-fill-mode: both;
+    animation-timeline: scroll(root block);
+  }
+
+  @keyframes read-progress {
+    to {
+      transform: scaleX(1);
+    }
+  }
+}
+
+/* Engines that have both `interpolate-size` and `::details-content` can animate the panel a `<details>`
+   opens, and every one of these pages carries a FAQ, so an answer should grow out of its question instead of
+   landing mid-scroll. Doubly gated — without
+   `interpolate-size`, `auto` is not an animatable length; without `::details-content`, there is no panel to
+   address — and either absence leaves today's instant snap. The chevron below lives inside the same gate on
+   purpose: an engine that cannot grow the panel keeps its own disclosure triangle, which is at least
+   honest about snapping. */
+@supports (interpolate-size: allow-keywords) and (selector(::details-content)) {
+  html {
+    interpolate-size: allow-keywords;
+  }
+
+  details::details-content {
+    block-size: 0;
+    opacity: 0;
+    overflow: clip;
+    transition:
+      block-size var(--dur-slow) var(--ease-out),
+      opacity var(--dur-mid) var(--ease-out),
+      content-visibility var(--dur-slow) allow-discrete;
+  }
+
+  details[open]::details-content {
+    block-size: auto;
+    opacity: 1;
+  }
+
+  /* Closing is the short end of the pair: a panel that collapses at opening speed feels like it is waiting
+     for you. */
+  details:not([open])::details-content {
+    transition-duration: var(--dur-fast);
+    transition-timing-function: var(--ease-in);
+  }
+
+  summary {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    justify-content: space-between;
+    list-style: none;
+  }
+
+  summary::-webkit-details-marker {
+    display: none;
+  }
+
+  /* Two borders and a rotation, so the mark is drawn rather than pasted: it inherits nothing from the font
+     and cannot render as a box glyph on a machine without the right fallback. One half-turn on open, and
+     its colour follows the question it belongs to. */
+  summary::after {
+    content: '';
+    flex: none;
+    width: 7px;
+    height: 7px;
+    border-color: var(--ink-faint);
+    border-style: solid;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+    transition:
+      transform var(--dur-mid) var(--ease-out),
+      border-color var(--dur-fast) var(--ease-out);
+  }
+
+  details[open] summary::after {
+    transform: rotate(-135deg);
+    transition-timing-function: var(--ease-in);
+  }
+
+  summary:hover::after,
+  summary:focus-visible::after {
+    border-color: var(--brand);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
@@ -548,11 +727,17 @@ details p {
 
   /* A blanket stop rather than a per-component opt-out, so motion added later cannot slip past it.
      Durations collapse instead of the properties being removed, which keeps every element at the
-     state it was animating *to*. */
+     state it was animating *to*. The iteration count goes with them because a collapsed duration
+     does not stop a loop, it speeds it up: `infinite` at 0.01ms samples a different phase every
+     frame, which is flicker rather than stillness. Nothing on these pages loops today — the line is
+     the backstop for the day something does. A loop whose frames displace the element still has to be
+     named and switched off, the way `docs/index.html` switches off its three: one 0.01ms pass paints
+     those frames for a frame, and a one-frame jump is the artifact this media query exists to prevent. */
   *,
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
     animation-delay: 0ms !important;
     transition-duration: 0.01ms !important;
     transition-delay: 0ms !important;
@@ -563,5 +748,26 @@ details p {
   .js .reveal {
     opacity: 1;
     transform: none;
+  }
+
+  /* The route chips sit inside a `.reveal` section, but their own start state is a separate `opacity: 0`,
+     and the rule above reaches only the section. The delay is gone, so they simply appear with it. */
+  .js .route-steps > * {
+    opacity: 1;
+    transform: none;
+  }
+
+  /* A progress-driven animation cannot be reached by collapsing a duration — its clock is the scroll
+     offset, not time — so the reading rail is removed rather than shortened. */
+  body::after {
+    content: none;
+  }
+
+  /* `::details-content` is not covered by the blanket above (it is neither `*` nor one of the two marker
+     pseudos), and its growth is the only motion here that moves layout. Named on its own so an engine that
+     cannot parse the pseudo-element drops this rule and nothing else. */
+  details::details-content {
+    transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
   }
 }

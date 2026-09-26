@@ -16,8 +16,8 @@
 - 界面实际提供：提供 116 个组合，其余 27 个语义无效的置灰并说明原因 | 出处 `utils/core/conversion-policy.ts`
 - 权限：只有 `storage` 一项 | 出处 `wxt.config.ts`
 - 体积与阈值：单文件最大 100 MB、单批最多 200 个文件，超过 20 MB 或超过 5 个文件先弹确认 | 出处 `components/shared/FileUpload.vue`、`composables/useConversion.ts`
-- 整包体积：3.76 MB | 出处 `pnpm build` 输出，按字节和 ÷ 1e6
-- 端到端断言：跑 283 条断言 | 出处 `scripts/__baseline__/e2e-assertions.json`（一轮完整绿灯运行记录）
+- 整包体积：3.78 MB | 出处 `pnpm build` 输出，按字节和 ÷ 1e6
+- 端到端断言：跑 317 条断言 | 出处 `scripts/__baseline__/e2e-assertions.json`（一轮完整绿灯运行记录）
 - 主题：6 种主题色，浅色 / 深色两组共 12 组配置逐组断言对比度 | 出处 `composables/useTheme.ts`
 - 许可 / 作者：MIT，单一作者 Better（[@liaolongdong](https://github.com/liaolongdong)） | 出处 `LICENSE`、`package.json`
 - 商店状态：**尚未上架**，只能自己构建后「加载已解压的扩展程序」 | 出处 `CHROMEWEBSTORE.md`
@@ -80,8 +80,8 @@
 - 不可信输入一律按不可信处理：上传文件、剪贴板、ZIP 条目、storage 里的旧数据。渲染或转换 HTML/SVG/Markdown 前必须过 DOMPurify；不对不可信内容用 `v-html`。
 - 中文编码：文本按 UTF-8 读，失败依次回退 GB18030 与 GBK；写 CSV 带 UTF-8 BOM，Excel 双击打开不乱码。
 - 值保真比格式更重要：XLSX → CSV 按单元格存储值序列化（不是显示文本），日期在读取期统一成 ISO 形状而不是日序列号；CSV → XLSX 只在「解析后能精确回写」时才判成数值单元格，于是 `00123` 和一串 20 位数字不会被静默改坏。以 `= + - @` 开头的字段统一转义，防止 CSV 在 Excel 里被当公式执行。
-- 首屏：重型转换库全部动态 `import()`，ZIP 引擎（fflate）也只在真正要用它的那个调用点 `await import()`。整包 3.76 MB，但打开工作台不会拉那 1.26 MB 的 `pdf.worker`。注意一个坑：`defineAsyncComponent` 不等于它的 import 也是懒的——被 `v-show` 常驻挂载的异步组件在启动那一刻就解析完了自己的 chunk。
-- 测试没有单测框架，只有 Playwright 驱动**构建产物**跑 283 条断言，包括 6 种主题色 × 明暗共 12 组配置下的逐项对比度断言。
+- 首屏：重型转换库全部动态 `import()`，ZIP 引擎（fflate）也只在真正要用它的那个调用点 `await import()`。整包 3.78 MB，但打开工作台不会拉那 1.26 MB 的 `pdf.worker`。注意一个坑：`defineAsyncComponent` 不等于它的 import 也是懒的——被 `v-show` 常驻挂载的异步组件在启动那一刻就解析完了自己的 chunk。
+- 测试没有单测框架，只有 Playwright 驱动**构建产物**跑 317 条断言，包括 6 种主题色 × 明暗共 12 组配置下的逐项对比度断言。
 - 文档层跑过一遍：所有对外散文里的数字（格式数、路径数、组合数、阈值、断言总数）都由一条脚本现推再比对，历史陈述按文件排除在射程外。
 
 ## 链接
