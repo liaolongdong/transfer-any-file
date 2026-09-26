@@ -16,7 +16,7 @@ import type { WorkSheet } from 'xlsx';
  *   the two-form rule below is what makes it machine-readable.
  *
  * Numbers, booleans and text always come out as the stored value rather than the cached display
- * text; that part lives in the converters (`raw: true`), not here.
+ * text; {@link sheetToValueCsv} is the serializer that keeps that promise on the way out.
  */
 const DANGEROUS_PREFIX = /^[=+\-@\t\r]/;
 
@@ -206,4 +206,38 @@ export function guardFormulaCells(sheet: WorkSheet): WorkSheet {
     }
   }
   return sheet;
+}
+
+/**
+ * Serialize a worksheet to CSV from cell *values* rather than display text.
+ *
+ * `sheet_to_csv` cannot do this: it delegates every cell to `format_cell`, which returns the cached
+ * `cell.w` whenever one exists — and `w` is built while parsing, from the read options. So
+ * `sheet_to_csv(sheet, { raw: true })` is measured (xlsx 0.18.5) to be byte-identical to
+ * `sheet_to_csv(sheet, { raw: false })` and to the bare call: `1234.5` formatted as `#,##0.00` comes
+ * out as the quoted `"1,234.50"` and `0.25` as `25.0%`, which is what a cell LOOKS like rather than
+ * what it holds. `raw` is not a documented read option either, so it cannot be moved to the read.
+ *
+ * The display-text path is not only a formatting difference. Measured on a sheet built by
+ * `aoa_to_sheet` from parsed JSON, `sheet_to_csv` rewrote `1727000000000` to `1.727E+12`,
+ * `3.14159265358979` to `3.141592654` and `true` to `TRUE` — so every route that emits CSV goes
+ * through here rather than calling `sheet_to_csv` directly.
+ *
+ * Dates are not a `Date` here — {@link normalizeDateCells} has already replaced them with two-form
+ * ISO text, which is the only date rendering that is stable across timezones. Quoting follows
+ * RFC 4180 and matches `sheet_to_csv`'s own rules, measured: a field is quoted when it contains a
+ * quote, the separator or a line break, and leading/trailing spaces are deliberately not quoted.
+ */
+export function sheetToValueCsv(XLSX: typeof import('xlsx'), sheet: WorkSheet): string {
+  const rows = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, raw: true, defval: '' });
+  return rows
+    .map(cells =>
+      cells
+        .map(cell => {
+          const text = typeof cell === 'string' ? cell : String(cell ?? '');
+          return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+        })
+        .join(','),
+    )
+    .join('\n');
 }

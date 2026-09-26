@@ -2,6 +2,7 @@ import { FileFormat } from '~/utils/core/types';
 import type { Converter, ConvertResult } from '~/utils/core/types';
 import { decodeTextBlob } from '~/utils/core/text-decode';
 import { guardCsvValue, typeNumericCells } from '~/utils/core/csv-guard';
+import { ownSheet } from '~/utils/core/xlsx-sheets';
 
 /**
  * CSV → XLSX without re-typing the data.
@@ -36,7 +37,7 @@ const csvToXlsxConverter: Converter = {
     }
     const workbook = XLSX.read(text, { type: 'string', raw: true });
     const sheetName = workbook.SheetNames[0];
-    const sheet = sheetName ? workbook.Sheets[sheetName] : undefined;
+    const sheet = sheetName ? ownSheet(workbook, sheetName) : undefined;
     if (!sheet) {
       throw new Error('errors.csvDecode');
     }

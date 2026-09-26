@@ -1,6 +1,7 @@
 import { FileFormat } from '~/utils/core/types';
 import type { Converter, ConvertResult } from '~/utils/core/types';
 import { normalizeDateCells, XLSX_TEXT_DATE_FORMAT } from '~/utils/core/csv-guard';
+import { ownSheetNames } from '~/utils/core/xlsx-sheets';
 
 const xlsxToJsonConverter: Converter = {
   from: FileFormat.XLSX,
@@ -11,7 +12,7 @@ const xlsxToJsonConverter: Converter = {
     // Same read options as xlsx→csv: `cellDates` flags date cells and `dateNF` decides how they are
     // rendered, and both only work at parse time.
     const workbook = XLSX.read(buffer, { type: 'array', cellDates: true, dateNF: XLSX_TEXT_DATE_FORMAT });
-    const sheetNames = workbook.SheetNames.filter(name => workbook.Sheets[name]);
+    const sheetNames = ownSheetNames(workbook);
     if (sheetNames.length === 0) {
       throw new Error('errors.xlsxEmpty');
     }

@@ -2,8 +2,9 @@ import type { Zippable } from 'fflate';
 import type { WorkSheet } from 'xlsx';
 import { FileFormat } from '~/utils/core/types';
 import type { Converter, ConvertResult } from '~/utils/core/types';
-import { guardFormulaCells, normalizeDateCells, XLSX_TEXT_DATE_FORMAT } from '~/utils/core/csv-guard';
+import { guardFormulaCells, normalizeDateCells, sheetToValueCsv, XLSX_TEXT_DATE_FORMAT } from '~/utils/core/csv-guard';
 import { loadFflate } from '~/utils/core/zip';
+import { ownSheetNames } from '~/utils/core/xlsx-sheets';
 
 function csvBlob(csv: string): Blob {
   // UTF-8 BOM so Excel opens the CSV with the correct encoding
@@ -22,36 +23,6 @@ function safeEntryName(name: string, taken: Set<string>): string {
   return candidate;
 }
 
-/**
- * Serialize a worksheet to CSV from cell *values* rather than display text.
- *
- * `sheet_to_csv` cannot do this: it delegates every cell to `format_cell`, which returns the cached
- * `cell.w` whenever one exists — and `w` is built while parsing, from the read options. So
- * `sheet_to_csv(sheet, { raw: true })` is measured (xlsx 0.18.5) to be byte-identical to
- * `sheet_to_csv(sheet, { raw: false })` and to the bare call: `1234.5` formatted as `#,##0.00` comes
- * out as the quoted `"1,234.50"` and `0.25` as `25.0%`, which is what a cell LOOKS like rather than
- * what it holds. `raw` is not a documented read option either, so it cannot be moved to the read.
- *
- * `sheet_to_json` is the one serializer that honours `raw`, hence the route through it. Dates are not
- * a `Date` here — {@link normalizeDateCells} has already replaced them with two-form ISO text, which
- * is the only date rendering that is stable across timezones. Quoting follows RFC 4180 and matches
- * `sheet_to_csv`'s own rules, measured: a field is quoted when it contains a quote, the separator or
- * a line break, and leading/trailing spaces are deliberately not quoted.
- */
-function sheetToValueCsv(XLSX: typeof import('xlsx'), sheet: WorkSheet): string {
-  const rows = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, raw: true, defval: '' });
-  return rows
-    .map(cells =>
-      cells
-        .map(cell => {
-          const text = typeof cell === 'string' ? cell : String(cell ?? '');
-          return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
-        })
-        .join(','),
-    )
-    .join('\n');
-}
-
 /** A sheet's cells, with dates and formulas made safe to serialize as text. */
 function valueSheet(sheet: WorkSheet): WorkSheet {
   return guardFormulaCells(normalizeDateCells(sheet));
@@ -67,7 +38,7 @@ const xlsxToCsvConverter: Converter = {
     // the `raw: false` this call used to carry is not a read option at all and is discarded by
     // option normalization, so it never had the documented effect of "use values".
     const workbook = XLSX.read(buffer, { type: 'array', cellDates: true, dateNF: XLSX_TEXT_DATE_FORMAT });
-    const sheetNames = workbook.SheetNames.filter(name => workbook.Sheets[name]);
+    const sheetNames = ownSheetNames(workbook);
     if (sheetNames.length === 0) {
       throw new Error('errors.xlsxEmpty');
     }

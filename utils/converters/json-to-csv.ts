@@ -1,7 +1,8 @@
 import { FileFormat } from '~/utils/core/types';
 import type { Converter, ConvertResult } from '~/utils/core/types';
 import { decodeTextBlob } from '~/utils/core/text-decode';
-import { guardCsvValue, typeNumericCells } from '~/utils/core/csv-guard';
+import { guardCsvValue, sheetToValueCsv, typeNumericCells } from '~/utils/core/csv-guard';
+import { ownSheet } from '~/utils/core/xlsx-sheets';
 
 const jsonToCsvConverter: Converter = {
   from: FileFormat.JSON,
@@ -51,7 +52,11 @@ const jsonToCsvConverter: Converter = {
     }
 
     const ws = XLSX.utils.aoa_to_sheet(aoa);
-    const csv = XLSX.utils.sheet_to_csv(ws);
+    // Values, not the display text `sheet_to_csv` would otherwise emit: on this exact sheet shape it
+    // was measured to turn `1727000000000` into `1.727E+12`, `3.14159265358979` into `3.141592654`
+    // and `true` into `TRUE`, so a batch of timestamps or snowflake IDs arrived rounded and in
+    // scientific notation. Same value-fidelity rule {@link sheetToValueCsv} states.
+    const csv = sheetToValueCsv(XLSX, ws);
     const blob = new Blob(['\ufeff', csv], { type: 'text/csv;charset=utf-8' });
     return { blob, filename: 'converted.csv' };
   },
@@ -71,9 +76,10 @@ const csvToJsonConverter: Converter = {
     // cell with nothing but `f`, which `sheet_to_json` then had no value to print.
     const workbook = XLSX.read(text, { type: 'string', raw: true });
     const firstSheetName = workbook.SheetNames[0];
-    if (!firstSheetName) throw new Error('errors.csvDecode');
+    const firstSheet = firstSheetName ? ownSheet(workbook, firstSheetName) : undefined;
+    if (!firstSheet) throw new Error('errors.csvDecode');
 
-    const sheet = typeNumericCells(workbook.Sheets[firstSheetName]);
+    const sheet = typeNumericCells(firstSheet);
     // `raw: true` so a number reaches JSON as a number; every other field stays the verbatim text the
     // CSV carried. No formula guard on this side either — an apostrophe is an Excel affordance and
     // JSON is not opened by Excel (see xlsx→json for the same reasoning).

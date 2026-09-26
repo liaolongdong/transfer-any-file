@@ -1,6 +1,7 @@
 import type { WorkBook } from 'xlsx';
 import { escapeHtml } from '~/utils/core/html-document';
 import { stripRemoteResources } from '~/utils/core/html-sanitize';
+import { ownSheet } from '~/utils/core/xlsx-sheets';
 
 const PREVIEW_CSS = `
   body {
@@ -147,7 +148,7 @@ export async function xlsxToPreviewHtml(blob: Blob): Promise<string> {
 
     const parts: string[] = [];
     for (const name of workbook.SheetNames) {
-      const sheet = workbook.Sheets[name];
+      const sheet = ownSheet(workbook, name);
       if (!sheet) continue;
       parts.push(`<h2>${escapeHtml(name)}</h2>`);
       parts.push(XLSX.utils.sheet_to_html(sheet, { editable: false }));
