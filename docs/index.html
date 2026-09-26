@@ -217,7 +217,7 @@
             "alternateName": "Transfer Any File — Offline File Format Converter",
             "softwareVersion": "1.0.0",
             "datePublished": "2026-09-07",
-            "dateModified": "2026-09-22",
+            "dateModified": "2026-09-26",
             "applicationCategory": "UtilitiesApplication",
             "applicationSubCategory": "File Format Converter",
             "keywords": "offline file format converter, file converter chrome extension, markdown to pdf, word to pdf, csv to excel, json to csv, png to webp, svg to png, html to docx, batch file conversion, convert files without uploading, local-first, privacy",
@@ -1889,6 +1889,25 @@
         font-size: 13.5px;
       }
 
+      /* With JavaScript off the carousel is not a carousel: the track is positioned only by the script's
+         `transform`, the dots are created by it, and the counter is frozen at "1 / 7" in the markup. An
+         `overflow: hidden` flex row then shows exactly one of the seven figures and leaves no way to
+         reach the other six. So hand the strip to the scroller and remove the chrome that cannot act —
+         gated on the same `.js` class the head script adds, which is already what arms the scroll
+         reveals for the same reason. */
+      html:not(.js) .carousel {
+        overflow-x: auto;
+        scroll-snap-type: x mandatory;
+      }
+
+      html:not(.js) .carousel-track > figure {
+        scroll-snap-align: start;
+      }
+
+      html:not(.js) .carousel-ctl {
+        display: none;
+      }
+
       /* Screenshots are worth a closer look: the slide opens the lightbox below, and the track only
          claims horizontal gestures so a vertical swipe still scrolls the page. */
       .carousel-track img {
@@ -3242,6 +3261,7 @@
         }
 
         .js .reveal,
+        .js .flow .flow-node,
         .js .hero-copy > *,
         .js .hero-visual,
         section:target .section-head h2 {
@@ -7173,7 +7193,7 @@ pnpm build</code><button
           </div>
           <p class="updated">
             <span lang="zh-CN"
-              ><strong>版本 1.0.0 · 本页最后更新 2026-09-22。</strong>文中全部数字从代码取证：14 种格式来自
+              ><strong>版本 1.0.0 · 本页最后更新 2026-09-26。</strong>文中全部数字从代码取证：14 种格式来自
               <code>FileFormat</code> 枚举，48 条路径与 143 个可达组合来自转换器注册表的邻接图，116 个可选组合是 143
               减去 <code>utils/core/conversion-policy.ts</code> 置灰的 27 个，3.78 MB 来自
               <code>pnpm build</code> 输出，权限与上限来自 manifest 与源码常量。截图与推广图由
@@ -7181,7 +7201,7 @@ pnpm build</code><button
               <code>pnpm pages:render</code> 生成，这一批共 11 个页面，与 <code>docs/sitemap.xml</code> 同步。</span
             >
             <span lang="en"
-              ><strong>Version 1.0.0 · page last updated 2026-09-22.</strong> Every number on this page is taken from
+              ><strong>Version 1.0.0 · page last updated 2026-09-26.</strong> Every number on this page is taken from
               the code: 14 formats from the <code>FileFormat</code> enum, 48 routes and 143 reachable combinations from
               the converter registry's adjacency graph, and 116 selectable combinations — that is 143 minus the 27 pairs
               <code>utils/core/conversion-policy.ts</code> greys out. 3.78 MB comes from <code>pnpm build</code> output,
@@ -7495,7 +7515,7 @@ pnpm build</code><button
               </a>
             </span>
             <span>
-              <span lang="zh-CN">最后更新 2026-09-22 · </span><span lang="en">Last updated 2026-09-22 · </span
+              <span lang="zh-CN">最后更新 2026-09-26 · </span><span lang="en">Last updated 2026-09-26 · </span
               ><a
                 href="https://github.com/liaolongdong/transfer-any-file/blob/main/CHANGELOG.md"
                 rel="noopener"

@@ -12,6 +12,12 @@
  * The route chain shown on each page is read from the same baseline, so 「先转 HTML 再转 Word」 cannot
  * drift away from what `resolvePath()` actually walks.
  *
+ * One exception to "both languages in the markup": an *attribute* is not content. `alt` and
+ * `aria-label` reach a screen reader through the accessibility tree, where a bilingual string is read
+ * twice whichever language is showing, and whatever ships in `alt` is what image search indexes. So
+ * those carry one language — `shotFigure` ships the document's own and swaps it, and the route card is
+ * named by `aria-labelledby` so the same CSS that hides the inactive `<span>` hides it from AT too.
+ *
  * The sitemap is generated for the same reason: eleven of its URLs are one per pair page, and a list
  * maintained by hand is how a cluster gets published without ever being discoverable. The three
  * hand-written URLs it also carries keep their own `lastmod` in `STATIC_PAGES` below, because a date
@@ -33,6 +39,15 @@ const ROOT = path.resolve(import.meta.dirname, '..');
 const OUT_DIR = path.join(ROOT, 'docs', 'convert');
 const SITEMAP = path.join(ROOT, 'docs', 'sitemap.xml');
 const CHECK = process.argv.includes('--check');
+
+/**
+ * What the conversions index calls itself in a breadcrumb.
+ *
+ * One constant rather than four literals: a `BreadcrumbList` whose `name` disagrees with the anchor
+ * text it describes is the structured-data equivalent of a mismatched label, and the Chinese graph
+ * used to say `Conversions` under a link that read 转换一览.
+ */
+const CONVERT_CRUMB = { zh: '转换一览', en: 'Conversions' };
 
 const errors = [];
 /**
@@ -478,7 +493,7 @@ function chrome(depth) {
       </a>
       <nav class="site-nav" aria-label="Site">
         <a href="${up}">${bi('产品说明', 'Product')}</a>
-        <a href="${up}convert/">${bi('转换一览', 'Conversions')}</a>
+        <a href="${up}convert/">${bi(CONVERT_CRUMB.zh, CONVERT_CRUMB.en)}</a>
         <a href="${up}blog/">${bi('博客', 'Blog')}</a>
         <a href="${SITE.repo}" rel="noopener" target="_blank">GitHub</a>
       </nav>
@@ -494,7 +509,7 @@ function chrome(depth) {
       </p>
       <p class="fine">
         <a href="${up}">${bi('产品说明', 'Product page')}</a>
-        <a href="${up}convert/">${bi('转换一览', 'All conversions')}</a>
+        <a href="${up}convert/">${bi(CONVERT_CRUMB.zh, CONVERT_CRUMB.en)}</a>
         <a href="${up}privacy.html">${bi('隐私政策', 'Privacy policy')}</a>
         <a href="${SITE.repo}" rel="noopener" target="_blank">${bi('源码 (MIT)', 'Source (MIT)')}</a>
       </p>
@@ -536,6 +551,20 @@ function renderPage(pair, chain) {
         )}</a></li>`,
     )
     .join('\n');
+
+  // Two of the ten pairs have no same-source / same-target sibling at all. An empty section under a
+  // `相关转换` heading reads to a reader as a page that failed to finish loading, and to a crawler as
+  // thin content, so the heading goes with the list.
+  const relatedSection = related
+    ? `          <section class="related reveal">
+${sectionHeading('相关转换', 'Related conversions')}
+            <ul class="related-list">
+${related}
+            </ul>
+            <p class="fine">${bi('完整一览见', 'The full set is on the')} <a href="../convert/">${bi('转换一览页', 'conversions index')}</a>${bi('。', '.')}</p>
+          </section>
+`
+    : '';
 
   const faq = pair.faq
     .map(
@@ -595,7 +624,7 @@ function renderPage(pair, chain) {
         '@type': 'BreadcrumbList',
         itemListElement: [
           { '@type': 'ListItem', position: 1, name: 'Transfer Any File', item: `${SITE.origin}/` },
-          { '@type': 'ListItem', position: 2, name: 'Conversions', item: `${SITE.origin}/convert/` },
+          { '@type': 'ListItem', position: 2, name: CONVERT_CRUMB[lang], item: `${SITE.origin}/convert/` },
           {
             '@type': 'ListItem',
             position: 3,
@@ -678,7 +707,7 @@ function renderPage(pair, chain) {
         <nav class="crumbs" aria-label="Breadcrumb">
           <a href="../">${bi('产品说明', 'Product')}</a>
           <span aria-hidden="true">/</span>
-          <a href="../convert/">${bi('转换一览', 'Conversions')}</a>
+          <a href="../convert/">${bi(CONVERT_CRUMB.zh, CONVERT_CRUMB.en)}</a>
           <span aria-hidden="true">/</span>
           <span>${bi(`${label(pair.from).zh} → ${label(pair.to).zh}`, `${label(pair.from).en} → ${label(pair.to).en}`)}</span>
         </nav>
@@ -687,8 +716,8 @@ function renderPage(pair, chain) {
           <h1>${bi(pair.title.zh, pair.title.en)}</h1>
           <p class="lede">${bi(pair.lede.zh, pair.lede.en)}</p>
 ${shotFigure(shot)}
-          <section class="route-card reveal" aria-label="${esc('转换链路 / Conversion route')}">
-            <p class="route-label">${bi('这条链路怎么走', 'How the route runs')}</p>
+          <section class="route-card reveal" aria-labelledby="route-label">
+            <p class="route-label" id="route-label">${bi('这条链路怎么走', 'How the route runs')}</p>
             <p class="route-steps">
           ${steps}
             </p>
@@ -733,14 +762,7 @@ ${faq}
               <a class="btn ghost" href="${SITE.repo}">${bi('GitHub 源码', 'Source on GitHub')}</a>
             </p>
           </section>
-          <section class="related reveal">
-${sectionHeading('相关转换', 'Related conversions')}
-            <ul class="related-list">
-${related}
-            </ul>
-            <p class="fine">${bi('完整一览见', 'The full set is on the')} <a href="../convert/">${bi('转换一览页', 'conversions index')}</a>${bi('。', '.')}</p>
-          </section>
-        </article>
+${relatedSection}        </article>
       </div>
     </main>
     ${foot}
@@ -862,7 +884,7 @@ ${items}
         '@type': 'BreadcrumbList',
         itemListElement: [
           { '@type': 'ListItem', position: 1, name: 'Transfer Any File', item: `${SITE.origin}/` },
-          { '@type': 'ListItem', position: 2, name: 'Conversions', item: url },
+          { '@type': 'ListItem', position: 2, name: CONVERT_CRUMB[lang], item: url },
         ],
       },
       {
@@ -926,7 +948,7 @@ ${items}
         <nav class="crumbs" aria-label="Breadcrumb">
           <a href="../">${bi('产品说明', 'Product')}</a>
           <span aria-hidden="true">/</span>
-          <span>${bi('转换一览', 'Conversions')}</span>
+          <span>${bi(CONVERT_CRUMB.zh, CONVERT_CRUMB.en)}</span>
         </nav>
         <article>
           <p class="eyebrow">${bi('离线 · 无上传 · 浏览器本地完成', 'Offline · no uploads · runs in the browser')}</p>
@@ -970,12 +992,83 @@ ${lists}
  * time, so a date derived that way would claim the whole site was rewritten today and would differ
  * between a laptop and CI — which `--check` would then fail on. Bump the date when the page changes,
  * and leave it alone otherwise.
+ *
+ * Each entry also names the page it describes and the patterns that spell the same date *inside* that
+ * page, because those are the ones a crawler sees first: JSON-LD `dateModified`, the `article:modified_time`
+ * meta, and the visible 「本页最后更新」 line. `validateStaticDates()` compares them, so a page whose
+ * declared date has fallen behind its own content — or the other way round — now stops the render
+ * instead of shipping two answers to "when was this written". A pattern that matches nothing is a
+ * failure too: a silently dead comparison is how this check would have stayed unwritten.
  */
 const STATIC_PAGES = {
-  home: { path: '/', updated: '2026-09-25', changefreq: 'monthly', priority: '1.0' },
-  blog: { path: '/blog/', updated: '2026-09-22', changefreq: 'monthly', priority: '0.8' },
-  privacy: { path: '/privacy.html', updated: '2026-09-19', changefreq: 'yearly', priority: '0.6' },
+  home: {
+    path: '/',
+    updated: '2026-09-26',
+    changefreq: 'monthly',
+    priority: '1.0',
+    file: 'docs/index.html',
+    dateClaims: [
+      /"dateModified":\s*"(\d{4}-\d{2}-\d{2})"/g,
+      /最后更新[：:]?\s*(\d{4}-\d{2}-\d{2})/g,
+      /Last updated:?\s*(\d{4}-\d{2}-\d{2})/g,
+    ],
+  },
+  blog: {
+    path: '/blog/',
+    updated: '2026-09-26',
+    changefreq: 'monthly',
+    priority: '0.8',
+    file: 'docs/blog/index.html',
+    dateClaims: [
+      /"dateModified":\s*"(\d{4}-\d{2}-\d{2})"/g,
+      /og:article:modified_time[\s\S]{0,60}?content="(\d{4}-\d{2}-\d{2})"/g,
+    ],
+  },
+  privacy: {
+    path: '/privacy.html',
+    updated: '2026-09-25',
+    changefreq: 'yearly',
+    priority: '0.6',
+    file: 'docs/privacy.html',
+    dateClaims: [/最后更新[：:]?\s*(\d{4}-\d{2}-\d{2})/g, /Last updated:\s*(\d{4}-\d{2}-\d{2})/g],
+  },
 };
+
+/**
+ * Compare every in-page "last updated" claim of a hand-written page with its sitemap `lastmod`.
+ */
+function validateStaticDates() {
+  for (const [key, entry] of Object.entries(STATIC_PAGES)) {
+    const source = fs.existsSync(path.join(ROOT, entry.file))
+      ? fs.readFileSync(path.join(ROOT, entry.file), 'utf8')
+      : null;
+    if (source === null) {
+      fail(`${entry.file} is missing, so STATIC_PAGES.${key}.updated (${entry.updated}) cannot be cross-checked`);
+      continue;
+    }
+    // Deduplicated by position: 「本页最后更新 X」 satisfies both the `dateModified`-style and the
+    // bare-label pattern at one place in the file, and counting the same sentence twice would let a
+    // page pass with a single claim where two were expected.
+    const seen = new Set();
+    let claims = 0;
+    for (const pattern of entry.dateClaims) {
+      for (const match of source.matchAll(pattern)) {
+        if (seen.has(match.index)) continue;
+        seen.add(match.index);
+        claims++;
+        if (match[1] !== entry.updated) {
+          fail(
+            `${entry.file} states it was updated ${match[1]}, but sitemap ${key} says ${entry.updated} — ` +
+              'both are the same claim; change one, change the other',
+          );
+        }
+      }
+    }
+    if (claims === 0) {
+      fail(`${entry.file} carries no date for any pattern of STATIC_PAGES.${key} — the check has gone blind`);
+    }
+  }
+}
 
 /**
  * The site's discoverable URL set: the hand-written pages above plus every generated pair page.
@@ -1016,6 +1109,7 @@ ${urls}
 
 const files = new Map();
 validateScreenshots();
+validateStaticDates();
 for (const pair of PAIRS) {
   const chain = validatePair(pair);
   // A pair whose shot key is unknown is skipped for the same reason a pair without a route is: writing

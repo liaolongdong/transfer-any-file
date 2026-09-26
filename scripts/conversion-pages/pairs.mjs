@@ -40,7 +40,7 @@ export const SITE = {
  * pages it writes, and it lands in `docs/sitemap.xml`; bump it together with a content change so the
  * date a crawler reads is the date the claim was actually edited.
  */
-export const PAGES_UPDATED = '2026-09-25';
+export const PAGES_UPDATED = '2026-09-26';
 
 /**
  * The date the first conversion page entered the repository, used as `datePublished` in the `Article`

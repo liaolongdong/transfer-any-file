@@ -771,3 +771,22 @@ details p {
     transition-delay: 0ms !important;
   }
 }
+
+/* ============ Print ============ */
+/* Printing is exactly the client the motion rules above keep worrying about: it renders CSS and never
+   runs the reveal observer. Without this block a page printed before it was scrolled through comes out
+   as blank bands, and the route card — the one thing these pages exist to say — prints as nothing at
+   all. The reading rail is scroll-driven, so it is removed rather than frozen wherever the paper
+   happens to land. Screen behaviour is untouched: these declarations are print-only. */
+@media print {
+  .js .reveal,
+  .js .route-steps > * {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+
+  body::after {
+    content: none;
+  }
+}
