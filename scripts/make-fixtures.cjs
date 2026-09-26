@@ -164,15 +164,18 @@ async function main() {
   //
   // Carries every vector `stripRemoteResources` claims to cover, because a vector absent here is a
   // branch never executed: `<img src>`, `<link href>`, `@import`, `url()` inside a `<style>`
-  // element, and `url()` inside an inline `style=` attribute — the last two go through different
-  // branches of `stripElement` and both are live on this path.
+  // element, `url()` inside an inline `style=` attribute — the last two go through different
+  // branches of `stripElement` and both are live on this path — and the legacy `background`
+  // attribute, which is the one URL attribute no per-tag table can reach: it is allowed on
+  // `<body>`/`<td>` by DOMPurify's attribute list, and those tags have no row in that table.
   const egressHtml = `<!doctype html><html><head>
 <style>@import url('http://127.0.0.1:9876/canary/css-import');
 body{background:url('http://127.0.0.1:9876/canary/css-bg.png')}</style>
-<link rel="stylesheet" href="http://127.0.0.1:9876/canary/link.css"></head><body>
+<link rel="stylesheet" href="http://127.0.0.1:9876/canary/link.css"></head><body background="http://127.0.0.1:9876/canary/body-bg.png">
 <img src="http://127.0.0.1:9876/canary/img.png">
 <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==">
 <p style="background:url('http://127.0.0.1:9876/canary/inline.png')">x</p>
+<table><tr><td background="http://127.0.0.1:9876/canary/td-bg.png">cell</td></tr></table>
 <a href="http://127.0.0.1:9876/canary/anchor">link</a>
 </body></html>
 `;
