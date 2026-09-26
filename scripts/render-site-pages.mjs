@@ -379,6 +379,10 @@ function ldSwapScript(enDoc) {
  * load-bearing for the same reason: a section that arrives alone must not sit idle waiting for the
  * five that preceded it, and the reduce block's `transition-delay: 0ms !important` only cancels a
  * delay it recognises as a transition property.
+ *
+ * The observer also resolves the sections a jump skipped over. Revealing is a state the reader has to
+ * be able to reach by *not* scrolling, so anything already above the viewport when a record arrives is
+ * marked shown instead of waiting for an intersection that the anchor already passed through.
  * @returns {string} markup for the script tag
  */
 function revealScript() {
@@ -396,7 +400,18 @@ function revealScript() {
         function (entries) {
           var shown = 0;
           entries.forEach(function (entry) {
-            if (!entry.isIntersecting) return;
+            if (!entry.isIntersecting) {
+              /* A jump — an in-page anchor, a deep link straight to the #faq fragment, a restored scroll
+                 position — never lets the observer see the sections in between, and a section whose only
+                 report is "not intersecting" while it sits above the viewport would stay at opacity 0
+                 until the reader scrolled back up. Anything already past the top edge is shown on the
+                 spot: no movement is owed for a section nobody watched arrive. */
+              if (entry.boundingClientRect.top < 0) {
+                entry.target.classList.add('in');
+                io.unobserve(entry.target);
+              }
+              return;
+            }
             entry.target.style.transitionDelay = (shown++ % 6) * 40 + 'ms';
             entry.target.classList.add('in');
             io.unobserve(entry.target);
