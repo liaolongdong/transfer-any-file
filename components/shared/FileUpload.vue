@@ -319,6 +319,13 @@ async function applyFiles(files: File[]): Promise<void> {
   const generation = ++applyGeneration;
   const expanded = await expandArchives(files);
   if (generation !== applyGeneration) return;
+  // The entry guards above all refuse while a batch is running; `expandArchives` is the one await
+  // between the refusal and the write, and a folder or ZIP still inflating when the user pressed
+  // 开始转换 would otherwise land here and replace the list under the running batch. The batch keeps
+  // converting its own snapshot, so what breaks is everything that reads the list by position: the
+  // name in the progress row, and the file a failure row blames. Refusing late costs the user the
+  // drop they could not make while the panel was disabled anyway.
+  if (props.disabled) return;
   const validFiles: File[] = [];
   for (const file of expanded) {
     if (file.size > MAX_REJECT_SIZE) {
