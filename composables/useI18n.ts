@@ -39,9 +39,10 @@ function interpolate(template: string, params?: Record<string, string | number>)
  *
  * `lang` drives screen-reader pronunciation and Chrome's translate prompt; the tab title is the one
  * piece of the workbench's identity that is visible while the page itself is not, and a hardcoded
- * English-only string there goes stale for every other language the app supports. The brand stays
- * untranslated on purpose (`appName` is what the in-page header shows in both locales), so only the
- * page-name half varies. Both go stale on a runtime switch unless they are set from here.
+ * English-only string there goes stale for every other language the app supports. Both halves come
+ * from the resolved dictionary, so the brand reads in the same language as the page name next to it
+ * and as what Chrome shows for that locale in its own UI. Both go stale on a runtime switch unless
+ * they are set from here.
  */
 export function applyDocumentLocale(locale: Locale): void {
   const dict = messages[locale] ?? messages[DEFAULT_LOCALE];

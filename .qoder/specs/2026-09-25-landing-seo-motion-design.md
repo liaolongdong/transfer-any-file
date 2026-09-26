@@ -80,7 +80,7 @@ pair 页声明了 `og:type=article`（`:406`）但 `@graph` 里只有 `WebPage` 
 3. `pnpm lint:all`（`pairs.mjs` / `render-site-pages.mjs` 受 Prettier 与 ESLint 管，`docs/assets/content.css` 与 `docs/index.html` 受 Prettier 管，`docs/convert/` 在 `.prettierignore` 里）。
 4. `pnpm verify:numbers`：本轮只增句不改写旧句，引用基线只会在「少于记录」时失败；若必须改写含数字的句子，`--update` 后读 diff 确认少掉的正是那句。
 5. 真 Chrome 三档核验（裸 CDP，`emulate` 没有减弱动效这一档）：
-   - **禁 JS**：`#fat-ld` 保持双语静态、`.reveal` 全部可见、title 是双语串；
+   - **禁 JS**：`#fat-ld` 保持**中文单语**那份静态图（见 §6.1，不是双语串）、`.reveal` 全部可见、title 是双语串；
    - **`prefers-reduced-motion: reduce`**：computed `animation-duration` / `transition-duration` 为 0.01ms 且 `animation-delay` 为 0，`.reveal` 可见；
    - **`?lang=en`**：title、description、og/twitter 四件、`#fat-ld` 里的 FAQ `name` 全为英文，且 `<html lang="en">`。
 6. 图片：本地静态服务打开任一 pair 页，断言 `<img>` 自然宽高 = 声明值（坏图的 naturalWidth 为 0 会让「配图」变成空洞）。
@@ -90,7 +90,10 @@ pair 页声明了 `og:type=article`（`:406`）但 `@graph` 里只有 `WebPage` 
 
 - `content.css` 是 12 个页面共用，动效一处改全站生效——**同一原因让它成为最大风险面**：`.js` 门写错就等于给不吃 JS 的客户端发空白页。第 3.5 条那一档是这条风险的直接反证，必须先跑再提交。
 - `article` 相关字段用了一个新的手维护常量 `PAGES_PUBLISHED`：它和 `PAGES_UPDATED` 同一条治理口径（随内容改动一起看），JSDoc 里写明取值来源与「尚未上线」，避免下一个人当成发布日。
-- 内联脚本变长会让 11 页同时变大（估 +1.2 KB/页，相对 19 KB 的 HTML 可忽略）；若 S6 的 JSON 改写在线上出问题，回滚只需把那段脚本从模板里删掉——静态那份双语 ld+json 本来就是完整可用的。
+- 内联脚本变长会让 11 页同时变大——**实测 +7.0 KB/页**（11 页均值：18.9 KB → 25.9 KB，最小 +6.9、最大 +7.2），
+  原稿估的 +1.2 KB 少了近六倍，因为按语言整块换掉的 JSON-LD 是把第二份图内联进脚本、不是改写第一份。
+  相对 gzip 后仍是小事（文本类 HTML 压得动），但「可忽略」这个词不该留着。若 S6 的 JSON 改写在线上出问题，
+  回滚只需把那段脚本从模板里删掉——静态那份中文 ld+json 本来就是完整可用的。
 - 本轮不产生新对外数字，但「11 张页有界面图」这类说法若进任何散文，必须能指向 `pairs.mjs` 的 `shot` 字段。
 
 ## 5. 实施顺序（一笔一个主题）
@@ -102,3 +105,68 @@ pair 页声明了 `og:type=article`（`:406`）但 `@graph` 里只有 `WebPage` 
 5. `pages:render` / 全量验证 / 真 Chrome 三档。
 6. 文案同步：`CHANGELOG.md` + `CHANGELOG.en.md` 的「未发布」节各一条；README 与产品页是否要提「落地页有截图」按实现取证决定，不虚写。
 7. 自审 diff + 代码评审（用户点名的 `code-review` / `requesting-code-review`）。
+
+## 6. 实施期定下来的偏差（写实现的人按这一节，不回头照 §1 的旧措辞动手）
+
+1. **S6 的静态那份是中文单语，不是双语。** `#fat-ld` 里写的是与文档 `@type` 语言一致的中文图，英文读者由紧随
+   其后的脚本整块换掉。原稿说「保持双语静态」是想给不吃 JS 的客户端留兜底，但中英混写的 `Question.name` 正是
+   会被原样引成问题本身的那一串——兜底换成「中文那份本来就完整」，双语串反而两头不像。`ldSwapScript()` 包
+   `try`/`catch`，脚本挂掉就留在中文图上，不会剩空标签。
+2. **S8 用独立 `Article` 节点**，不是 `WebPage` 上的 `@type: ['WebPage','Article']` 多类型。原稿说「与
+   `docs/blog/index.html` 那枚 `BlogPosting` 同形」是**说不准的**，实测两处的 `mainEntityOfPage` 不是一种写法：
+   博客那份是裸字符串 `"…/blog/"`（还带 `url` / `keywords` / `isPartOf`，`inLanguage` 是 `["zh-CN","en"]` 数组），
+   本轮这份是 `{ '@type': 'WebPage', '@id': '…#webpage' }`（`inLanguage` 单值，因为节点本来就按语言各一份）。
+   两种都是 Schema.org 合法形状，选后者是让 `Article` 指回同一文档里真实存在的那个 `@id`，而不是靠 URL 约定；
+   共同点只有「独立节点 + 用 `mainEntityOfPage` 反向指回 `WebPage`」这一条，可比的是结构不是字段。
+3. **`theme-color` 取 `#2563eb`**（取证自 `docs/index.html` 头部既有的 `theme-color` 与主色令牌），不是 §1.2
+   里写的 `--paper` 白值：那会把浏览器工具栏涂白，而页面自己的品牌色从没这么用过。
+4. **M5 用 `transition` 而不是 `@keyframes`。** 渐显只有一次状态变化，动画关键帧是多余的一层；因此 §1.5 里
+   「reduce 块补 `animation: none`」改成「时长与延迟一律压到 0.01ms / 0ms」，并用 `.js .reveal { opacity:1;
+   transform:none }` 把起点钉在可见——不依赖观察者是否跑过。
+5. **数据表叫 `SCREENSHOTS`**（不是 `SHOTS`），键是语义名而非文件名；校验落在 `validateScreenshots()`
+   （遍历全表 + 检查每个 `pair.shot` 是否有效键），不放 `validatePair()`——后者按页跑，同一张图会被重复校验，
+   且它回答的是「这条路由存不存在」，与像素无关。
+6. **新增一条承重约束：语言脚本必须排在它要改的那批 meta 之后。** 实现按 §1.6 的直觉放在 `<head>` 顶部时，
+   `<title>` 尚未解析，`document.title = copy.t` 会**造出第二个 `<title>` 元素**（HTML 规范里 setter 在无 title
+   元素时向 head 追加一个），而 description / og / twitter 五个 `querySelector` 全部返回 null——title 看着生效、
+   其余一个字没换，且 DOM 里多出一个假 title。修法：`headScripts()` 移到 ld+json 块之后、`ldSwapScript()` 之前
+   （顺序两处都是硬要求：后者读 `window.__FAT_LANG__`）。
+7. **`alt` 换语言跟着 `<figure>` 走，不在 head 里做。** 头脚本永远看不见 body 里那张 `<img>`；`shotFigure()`
+   因此在 `</figure>` 后直接带一小段脚本，用 `SCREENSHOTS[*].alt.en` 的字面量替换。`figcaption` 不动——它本来就是
+   双语两串、由 CSS 显隐。
+8. **渲染器多了一条防崩判断**：`pair.shot` 是无效键时跳过该页（与「路由不存在即跳过」同一模式）。原先这条
+   守卫仍然会红（`errors` 已记录、不写文件、退出码 1），但操作者看到的是 `renderPage` 里的
+   `Cannot read properties of undefined`，而不是那句指出改哪个文件的说明。
+9. **§1.5 的交错写成 `transitionDelay`，且下标是「本次批次内第几个」，不是文档下标。** 两个改动同一条理由：
+   这层动效是 transition（见第 4 条），reduce 块压的也就是 `transition-delay`；而 `i % 6` 若取文档下标，
+   一个单独滚进来的区块要平白等它前面那五个的份额。实测批次大小（把 `IntersectionObserver` 包一层计数，
+   1280×800）：10 张配对页每一批都是 **1 个**（区块高度 112–571px，视口 800px，同一帧越线的机会很小）；
+   索引页 `docs/convert/index.html` 的卡片在慢滚（每 160ms 走 600px）下出现过 `[1,1,1,1,2]`，即一次 40ms 的
+   真实交错。所以这层交错在配对页上几乎不显形，只在多块同帧越线时才有活——而那正是它该有的唯一场合。另：内联 `transition-delay: 80ms` 在 reduce 下算得 `0s`（作者层 `!important`
+   压过内联非 `!important`），所以观察者先跑、用户后切系统设置这条缝也不会漏出延迟。
+10. **`.shot img` 只留 `box-shadow` 一条。** 评审指出这五条声明里四条是 `figure img`（`content.css:289`）的副本，
+    而 `<figure class="shot">` 本来就命中后者——连 `background: var(--paper-alt)` 也是从那条继承来的，删掉副本
+    不会让它变透明。真 Chrome 逐属性复核过：block / 100% 宽 / 1px 细边 / `--radius-sm` 圆角 / `#f7f9fc` 底全部
+    照旧，只有影子是这一层自己的。
+11. **`theme-color` 的字面值收进 `SITE.themeColor`。** `<meta>` 读不了 CSS 自定义属性，所以这一处非写死不可；
+    改前是两份模板各写一个字面量，改后全站只有一处，取值与 `content.css` 的 `--brand` 同源（那条 JSDoc 里写明
+    两者要一起动）。
+12. **`aria-label` 那处 `esc(a, b)` 的死第二参去掉了**，顺带把 `"转换链路 / route"` 补成 `"转换链路 /
+    Conversion route"`。这处不是本轮的活（HEAD 就这样），但评审说得对：`esc()` 只有一个形参，第二个参数被静默
+    丢掉，读代码的人会以为那是英文分支——而 `bi()` 就在 20 行外，这个误读会直接导致错写双语。
+
+## 7. §3 那条验证链的实际结果
+
+- 3.1 / 3.2：`pages:render` 写出 12 个文件，`pages:check` exit 0；diff 逐份读过，新增只在 head 的 meta、
+  `figure.shot`、两段脚本与 `class="reveal"`。
+- 3.5 三档用裸 CDP（本地 Node 静态服务 + headless Chrome，`setDeviceMetricsOverride` 1280×800 并自证
+  `innerWidth`）跑过 **29 条断言全绿**（脚本 `.test-screenshots/fat-final.mjs`，一次性脚手架，跑完即删）。
+  覆盖：DOM 里 `<title>` 恰好一个、`img.naturalWidth/Height` 等于声明值、首屏外 `.reveal` 起始 computed opacity
+  为 0、批次交错在 1280×2400 那一档真的出现 40ms 台阶且不超过 200ms、`reduce` 下时长 `1e-05s`（Chrome 把
+  0.01ms 序列化成的就是它）与延迟 `0s`、禁 JS 时 8 个区块全可见且 title 保持双语串、`?lang=en` 下 title /
+  description / og / twitter / alt / FAQ `name` 六处都换到英文而 `figcaption` 靠 CSS 只显一种、`theme-color`
+  经常量渲染回 `#2563eb`。踩过的取样坑两条：in-fold 区块在观察者触发那一刻进入 0.42s 过渡，800ms 内采样读到的
+  是过渡中值；单段滚 6000px 不构成「滚到底」，剩下的区块还在屏外就会被误判成「没显出来」。
+- 3.4 `verify:numbers`：本轮为「只增句」，不引用它盯的任何事实；跑出来 8 处失败分布在 5 份文档（`docs/index.html`
+  ×2、`docs/blog/index.html` ×2、四份 promo 稿 ×4），全部是「散文写 313 / 283 条断言，基线记 317」这一件事，
+  且 `git diff` 里这些句子一行都不是本轮加的（`grep -c` 结果 0）。属并发会话留下的不一致。

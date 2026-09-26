@@ -30,6 +30,7 @@
   --shadow-sm: 0 1px 2px rgb(16 24 40 / 6%);
   --shadow-md: 0 4px 24px -12px rgb(16 24 40 / 18%);
   --dur-fast: 0.16s;
+  --dur-slow: 0.42s;
   --ease-out: cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
@@ -498,12 +499,69 @@ details p {
   color: var(--ink-faint);
 }
 
+/* ============ Screenshot ============ */
+
+/* Each page shows one real frame of the workbench. The intrinsic size is declared on the <img>, so the
+   box is reserved before the file arrives and the text below it never jumps when it loads. */
+.shot {
+  margin: 32px 0 28px;
+}
+
+/* Everything a framed screenshot needs beyond what `figure img` already gives it: the figure is a
+   `figure`, so block display, full width, the hairline and the paper-alt backing are already in place.
+   Only the lift is specific to this one. */
+.shot img {
+  box-shadow: var(--shadow-md);
+}
+
+.shot figcaption {
+  margin-top: 10px;
+  color: var(--ink-faint);
+  font-size: 13px;
+  text-align: center;
+}
+
+/* ============ Motion ============ */
+/* One movement for the whole set of content pages, using transform and opacity only — the same ladder
+   `docs/index.html` sets in its own Motion section, so a reader moving between the two stays in one
+   visual language. Nothing longer than half a second, nothing that moves layout.
+   The `opacity: 0` lives under `.js`, a class the head script adds before first paint. A client that
+   renders CSS but never runs the observer would otherwise be shown blank sections, and search and AI
+   crawlers are exactly that kind of client. */
+.js .reveal {
+  opacity: 0;
+  transform: translateY(14px);
+  transition:
+    opacity var(--dur-slow) var(--ease-out),
+    transform var(--dur-slow) var(--ease-out);
+}
+
+.js .reveal.in {
+  opacity: 1;
+  transform: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
   }
 
-  * {
+  /* A blanket stop rather than a per-component opt-out, so motion added later cannot slip past it.
+     Durations collapse instead of the properties being removed, which keeps every element at the
+     state it was animating *to*. */
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
     transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
+  }
+
+  /* And the state that begins invisible is pinned visible, so nothing here depends on the observer
+     above having run. */
+  .js .reveal {
+    opacity: 1;
+    transform: none;
   }
 }

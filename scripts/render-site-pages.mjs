@@ -27,7 +27,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { FORMAT_LABEL, PAIRS, PAGES_UPDATED, SITE } from './conversion-pages/pairs.mjs';
+import { FORMAT_LABEL, PAIRS, PAGES_PUBLISHED, PAGES_UPDATED, SCREENSHOTS, SITE } from './conversion-pages/pairs.mjs';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
 const OUT_DIR = path.join(ROOT, 'docs', 'convert');
@@ -118,6 +118,64 @@ function isBlocked(from, to) {
 for (const value of [...IMAGE_FORMATS, ...DATA_FORMATS]) {
   if (!enumValues.has(value)) {
     fail(`conversion-policy.ts names a format '${value}' that is not in FileFormat — update this reader`);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Evidence: the screenshots the pages show
+// ---------------------------------------------------------------------------
+
+const SHOT_DIR = path.join(ROOT, 'docs', 'assets', 'screenshots');
+
+/**
+ * Read the intrinsic size out of a PNG's IHDR chunk.
+ *
+ * The `<img>` carries `width` / `height` so the browser reserves the box before the file arrives, which
+ * only holds while those numbers are the file's real ones. `file` is a path inside `SHOT_DIR` built from
+ * the data module, not from user input.
+ *
+ * @param {string} file absolute path to the PNG
+ * @returns {{w: number, h: number} | null} the declared size, or null when the file is missing or unreadable
+ */
+function pngSize(file) {
+  let head;
+  try {
+    head = fs.readFileSync(file).subarray(0, 24);
+  } catch {
+    return null;
+  }
+  if (head.length < 24 || head.readUInt32BE(12) !== 0x49484452) return null;
+  return { w: head.readUInt32BE(16), h: head.readUInt32BE(20) };
+}
+
+/**
+ * Check every screenshot reference before a page is written: the key must name a shot, the file must be
+ * on disk where the site will serve it from, and its real pixels must match what the HTML will declare.
+ * A page pointing at a missing image is a broken `<img>` on a public URL, so this fails the run.
+ */
+function validateScreenshots() {
+  for (const [name, shot] of Object.entries(SCREENSHOTS)) {
+    const file = path.join(SHOT_DIR, shot.file);
+    const size = pngSize(file);
+    if (!size) {
+      fail(`SCREENSHOTS['${name}'] has no readable PNG at docs/assets/screenshots/${shot.file}`);
+      continue;
+    }
+    if (size.w !== shot.w || size.h !== shot.h) {
+      fail(
+        `SCREENSHOTS['${name}'] declares ${shot.w}x${shot.h} but ${shot.file} is ${size.w}x${size.h} — the <img> attributes would be a lie`,
+      );
+    }
+    for (const field of ['alt', 'caption']) {
+      if (!shot[field]?.zh?.trim() || !shot[field]?.en?.trim()) {
+        fail(`SCREENSHOTS['${name}'] is missing a ${field} in one of the two languages`);
+      }
+    }
+  }
+  for (const pair of PAIRS) {
+    if (!SCREENSHOTS[pair.shot]) {
+      fail(`${pair.slug}: shot '${pair.shot}' is not a key in SCREENSHOTS (pairs.mjs)`);
+    }
   }
 }
 
@@ -230,7 +288,12 @@ function sectionHeading(zh, en) {
  * the bilingual `<title>` and description, while a reader gets the one matching the language they
  * chose. The JSON is embedded with `<` escaped so a string can never close the script element.
  *
- * @param {{zh: {t: string, d: string}, en: {t: string, d: string}}} meta per-language chrome strings
+ * Position is load-bearing: this runs as the document is parsed, so it has to sit *after* the `<title>`
+ * and the five meta tags it narrows. Placed before them it silently narrows nothing — `document.title`
+ * would invent a second `<title>` element and every `querySelector` below would come back null.
+ *
+ * @param {{zh: {t: string, d: string}, en: {t: string, d: string}}} meta
+ *   per-language chrome strings: `t` title, `d` description
  * @returns {string} markup for the two script tags
  */
 function headScripts(meta) {
@@ -256,6 +319,10 @@ function headScripts(meta) {
         }
         if (!lang) lang = (navigator.language || 'zh-CN').toLowerCase().indexOf('zh') === 0 ? 'zh-CN' : 'en';
         document.documentElement.setAttribute('lang', lang);
+        window.__FAT_LANG__ = lang;
+        /* Scroll reveals start at opacity 0, so they must never apply unless this script ran:
+           a client that renders CSS but not JavaScript would otherwise see blank sections. */
+        document.documentElement.classList.add('js');
         var copy = window.__FAT_META__[lang] || window.__FAT_META__.en;
         if (copy) {
           document.title = copy.t;
@@ -267,6 +334,117 @@ function headScripts(meta) {
         }
       })();
     </script>`;
+}
+
+/**
+ * The script that swaps the page's JSON-LD for the English graph when the reader's language is English.
+ *
+ * The graph emitted in `#fat-ld` is written in one language — Chinese, matching the `<html lang>` the
+ * document ships with — because a mixed `name` is the string a crawler quotes back: it lands in rich
+ * results and in AI answers as the question itself. Only the other language has to travel, since the
+ * shipped graph already answers for Chinese.
+ *
+ * Runs directly after the `<script type="application/ld+json">` so `#fat-ld` exists, escapes `<` so a
+ * string can never close the element, and is wrapped in `try`/`catch`: a throw leaves the shipped graph
+ * in place rather than an empty tag.
+ *
+ * @param {object} enDoc the whole JSON-LD document for English readers, `@context` included
+ * @returns {string} markup for the script tag
+ */
+function ldSwapScript(enDoc) {
+  const literal = JSON.stringify(enDoc).replace(/</g, '\\u003c');
+  return `<script>
+      (function () {
+        if (window.__FAT_LANG__ !== 'en') return;
+        try {
+          var box = document.getElementById('fat-ld');
+          var graph = ${literal};
+          if (box) box.textContent = JSON.stringify(graph);
+        } catch (e) {
+          /* keep the shipped graph */
+        }
+      })();
+    </script>`;
+}
+
+/**
+ * The one movement the content pages share: sections rise into place as they are scrolled to.
+ *
+ * Gated on `.js` by the stylesheet, and here by the observer: with reduced motion, or no
+ * `IntersectionObserver`, every section is marked shown on the spot instead of waiting to be revealed.
+ * Each target is unobserved once shown, so a long page costs nothing after the last section appears.
+ *
+ * The stagger is written per batch rather than per document index, and it lands on
+ * `transition-delay` because the movement is a transition, not an animation. Both choices are
+ * load-bearing for the same reason: a section that arrives alone must not sit idle waiting for the
+ * five that preceded it, and the reduce block's `transition-delay: 0ms !important` only cancels a
+ * delay it recognises as a transition property.
+ * @returns {string} markup for the script tag
+ */
+function revealScript() {
+  return `<script>
+    (function () {
+      var revealables = document.querySelectorAll('.reveal');
+      var reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if (reduced || !('IntersectionObserver' in window)) {
+        Array.prototype.forEach.call(revealables, function (el) {
+          el.classList.add('in');
+        });
+        return;
+      }
+      var io = new IntersectionObserver(
+        function (entries) {
+          var shown = 0;
+          entries.forEach(function (entry) {
+            if (!entry.isIntersecting) return;
+            entry.target.style.transitionDelay = (shown++ % 6) * 40 + 'ms';
+            entry.target.classList.add('in');
+            io.unobserve(entry.target);
+          });
+        },
+        { rootMargin: '0px 0px -10% 0px', threshold: 0.1 },
+      );
+      Array.prototype.forEach.call(revealables, function (el) {
+        io.observe(el);
+      });
+    })();
+  </script>`;
+}
+
+/**
+ * The workbench frame a page shows, and the caption it is shown with.
+ *
+ * `alt` says what is in the picture, `caption` says what the page is proving with it; both come from
+ * `SCREENSHOTS`, so the five pages that share a frame share the wording too. The attribute ships in the
+ * document's own language and the script below swaps it for the English one — an alt holding both
+ * languages is what image search would index, and it is not what a screen reader should be told.
+ *
+ * The swap travels with the figure because the head script that narrows the title and the meta tags
+ * cannot reach this `<img>`: it has not been parsed yet when that script runs.
+ * @param {object} shot a `SCREENSHOTS` entry
+ * @returns {string} markup for the `<figure>` and its swap
+ */
+function shotFigure(shot) {
+  const enAlt = JSON.stringify(shot.alt.en).replace(/</g, '\\u003c');
+  return `          <figure class="shot reveal">
+            <img
+              src="../assets/screenshots/${esc(shot.file)}"
+              width="${shot.w}"
+              height="${shot.h}"
+              loading="lazy"
+              decoding="async"
+              fetchpriority="low"
+              alt="${esc(shot.alt.zh)}"
+            />
+            <figcaption>${bi(shot.caption.zh, shot.caption.en)}</figcaption>
+          </figure>
+          <script>
+            (function () {
+              if (window.__FAT_LANG__ !== 'en') return;
+              var img = document.querySelector('.shot img');
+              if (img) img.setAttribute('alt', ${enAlt});
+            })();
+          </script>`;
 }
 
 /**
@@ -353,37 +531,88 @@ function renderPage(pair, chain) {
     )
     .join('\n');
 
-  const jsonLd = JSON.stringify({
-    '@context': 'https://schema.org',
-    '@graph': [
+  const shot = SCREENSHOTS[pair.shot];
+  const shotUrl = `${SITE.origin}/assets/screenshots/${shot.file}`;
+  // A page whose `dateModified` precedes its `datePublished` is a signal search engines flag as
+  // inconsistent. The pair copy can legitimately be older than the day the file first existed in the
+  // repository, so the later of the two dates is the honest one to publish.
+  const dateModified = PAGES_UPDATED > PAGES_PUBLISHED ? PAGES_UPDATED : PAGES_PUBLISHED;
+
+  /**
+   * The page's structured data in one language.
+   *
+   * A mixed `name` is what gets quoted back: it lands in a rich result, or in an AI answer, as the
+   * question itself. So each language's graph states only that language, `#fat-ld` ships the Chinese one
+   * (the document's own `lang`), and the script under it swaps in this array for English readers.
+   * @param {'zh' | 'en'} lang
+   * @returns {object[]} the `@graph`
+   */
+  const graph = lang => {
+    const inLanguage = lang === 'zh' ? 'zh-CN' : 'en';
+    return [
       {
         '@type': 'WebPage',
         '@id': `${url}#webpage`,
         url,
-        name: `${pair.title.zh} | ${pair.title.en}`,
-        inLanguage: ['zh-CN', 'en'],
+        name: pair.title[lang],
+        inLanguage,
         isPartOf: { '@id': `${SITE.origin}/#website` },
         about: { '@type': 'SoftwareApplication', name: 'Transfer Any File', operatingSystem: 'Chrome' },
-        description: `${pair.desc.zh} | ${pair.desc.en}`,
+        description: pair.desc[lang],
+        image: shotUrl,
+      },
+      {
+        // `og:type` already says article, so the graph has to carry the matching node or the two claims
+        // disagree. `datePublished` is when this content was written down, not when it went live.
+        '@type': 'Article',
+        '@id': `${url}#article`,
+        mainEntityOfPage: { '@type': 'WebPage', '@id': `${url}#webpage` },
+        headline: pair.title[lang],
+        description: pair.desc[lang],
+        image: shotUrl,
+        datePublished: PAGES_PUBLISHED,
+        dateModified,
+        inLanguage,
+        author: { '@type': 'Person', name: 'Better', url: SITE.author },
+        publisher: { '@type': 'Organization', name: 'Transfer Any File', url: `${SITE.origin}/` },
       },
       {
         '@type': 'BreadcrumbList',
         itemListElement: [
           { '@type': 'ListItem', position: 1, name: 'Transfer Any File', item: `${SITE.origin}/` },
           { '@type': 'ListItem', position: 2, name: 'Conversions', item: `${SITE.origin}/convert/` },
-          { '@type': 'ListItem', position: 3, name: `${label(pair.from).en} → ${label(pair.to).en}`, item: url },
+          {
+            '@type': 'ListItem',
+            position: 3,
+            name: `${label(pair.from)[lang]} → ${label(pair.to)[lang]}`,
+            item: url,
+          },
         ],
+      },
+      {
+        // The one image on the page, described for image search rather than left to the filename.
+        '@type': 'ImageObject',
+        '@id': `${shotUrl}#image`,
+        url: shotUrl,
+        contentUrl: shotUrl,
+        width: shot.w,
+        height: shot.h,
+        name: shot.alt[lang],
+        caption: shot.caption[lang],
+        inLanguage,
       },
       {
         '@type': 'FAQPage',
         mainEntity: pair.faq.map(item => ({
           '@type': 'Question',
-          name: `${item.q.zh} ${item.q.en}`,
-          acceptedAnswer: { '@type': 'Answer', text: `${item.a.zh} ${item.a.en}` },
+          name: item.q[lang],
+          acceptedAnswer: { '@type': 'Answer', text: item.a[lang] },
         })),
       },
-    ],
-  });
+    ];
+  };
+
+  const jsonLd = JSON.stringify({ '@context': 'https://schema.org', '@graph': graph('zh') }).replace(/</g, '\\u003c');
 
   const bilingualTitle = `${pair.title.zh} | ${pair.title.en}`;
 
@@ -395,13 +624,15 @@ function renderPage(pair, chain) {
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    ${headScripts({ zh: { t: pair.title.zh, d: pair.desc.zh }, en: { t: pair.title.en, d: pair.desc.en } })}
     <title>${esc(bilingualTitle)}</title>
     <meta name="description" content="${esc(`${pair.desc.zh} | ${pair.desc.en}`)}" />
     <meta name="author" content="Better" />
     <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1" />
     <link rel="canonical" href="${url}" />
     <link rel="icon" type="image/png" sizes="64x64" href="../assets/icon-mark.png" />
+    <link rel="apple-touch-icon" sizes="512x512" href="../assets/icon.png" />
+    <meta name="theme-color" content="${SITE.themeColor}" />
+    <meta name="color-scheme" content="light" />
     <link rel="stylesheet" href="../assets/content.css" />
     <meta property="og:type" content="article" />
     <meta property="og:site_name" content="Transfer Any File" />
@@ -411,13 +642,19 @@ function renderPage(pair, chain) {
     <meta property="og:title" content="${esc(bilingualTitle)}" />
     <meta property="og:description" content="${esc(`${pair.desc.zh} | ${pair.desc.en}`)}" />
     <meta property="og:image" content="${SITE.origin}/assets/store/github-social-preview.png" />
+    <meta property="og:image:width" content="1280" />
+    <meta property="og:image:height" content="640" />
+    <meta property="article:published_time" content="${PAGES_PUBLISHED}" />
+    <meta property="article:modified_time" content="${dateModified}" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="${esc(bilingualTitle)}" />
     <meta name="twitter:description" content="${esc(`${pair.desc.zh} | ${pair.desc.en}`)}" />
     <meta name="twitter:image" content="${SITE.origin}/assets/store/github-social-preview.png" />
-    <script type="application/ld+json">
+    <script type="application/ld+json" id="fat-ld">
       ${jsonLd}
     </script>
+    ${headScripts({ zh: { t: pair.title.zh, d: pair.desc.zh }, en: { t: pair.title.en, d: pair.desc.en } })}
+    ${ldSwapScript({ '@context': 'https://schema.org', '@graph': graph('en') })}
   </head>
   <body>
     ${head}
@@ -434,7 +671,8 @@ function renderPage(pair, chain) {
           <p class="eyebrow">${bi('离线 · 无上传 · 浏览器本地完成', 'Offline · no uploads · runs in the browser')}</p>
           <h1>${bi(pair.title.zh, pair.title.en)}</h1>
           <p class="lede">${bi(pair.lede.zh, pair.lede.en)}</p>
-          <section class="route-card" aria-label="${esc('转换链路 / route', 'Conversion route')}">
+${shotFigure(shot)}
+          <section class="route-card reveal" aria-label="${esc('转换链路 / Conversion route')}">
             <p class="route-label">${bi('这条链路怎么走', 'How the route runs')}</p>
             <p class="route-steps">
           ${steps}
@@ -446,29 +684,29 @@ function renderPage(pair, chain) {
               )}
             </p>
           </section>
-          <section id="keeps">
+          <section id="keeps" class="reveal">
 ${sectionHeading('会保留什么', 'What carries over')}
             <ul>
 ${bullets(pair.keeps)}
             </ul>
           </section>
-          <section id="limits">
+          <section id="limits" class="reveal">
 ${sectionHeading('如实说明的限制', 'What it does not do')}
             <ul class="limits">
 ${bullets(pair.limits)}
             </ul>
           </section>
-          <section id="notes">
+          <section id="notes" class="reveal">
 ${sectionHeading('实操提示', 'Working with it')}
             <ul>
 ${bullets(pair.notes)}
             </ul>
           </section>
-          <section id="faq">
+          <section id="faq" class="reveal">
 ${sectionHeading('常见问题', 'Questions people actually ask')}
 ${faq}
           </section>
-          <section class="cta">
+          <section class="cta reveal">
             <p>
               ${bi(
                 '不需要账号，也不需要联网：装好扩展后点图标，在新标签页里打开工作台，文件从磁盘直接选。',
@@ -480,7 +718,7 @@ ${faq}
               <a class="btn ghost" href="${SITE.repo}">${bi('GitHub 源码', 'Source on GitHub')}</a>
             </p>
           </section>
-          <section class="related">
+          <section class="related reveal">
 ${sectionHeading('相关转换', 'Related conversions')}
             <ul class="related-list">
 ${related}
@@ -491,6 +729,7 @@ ${related}
       </div>
     </main>
     ${foot}
+    ${revealScript()}
   </body>
 </html>
 `;
@@ -559,7 +798,7 @@ function renderIndex() {
             </li>`,
         )
         .join('\n');
-      return `        <section>
+      return `        <section class="reveal">
           <h2>${bi(group.zh, group.en)}</h2>
           <p>${bi(group.note.zh, group.note.en)}</p>
           <ul class="index-list">
@@ -568,28 +807,6 @@ ${items}
         </section>`;
     })
     .join('\n');
-
-  const jsonLd = JSON.stringify({
-    '@context': 'https://schema.org',
-    '@graph': [
-      {
-        '@type': 'CollectionPage',
-        '@id': `${url}#webpage`,
-        url,
-        name: '转换一览 | Conversion index',
-        inLanguage: ['zh-CN', 'en'],
-        isPartOf: { '@id': `${SITE.origin}/#website` },
-        hasPart: PAIRS.map(pair => ({ '@type': 'WebPage', name: pair.title.en, url: `${url}${pair.slug}.html` })),
-      },
-      {
-        '@type': 'BreadcrumbList',
-        itemListElement: [
-          { '@type': 'ListItem', position: 1, name: 'Transfer Any File', item: `${SITE.origin}/` },
-          { '@type': 'ListItem', position: 2, name: 'Conversions', item: url },
-        ],
-      },
-    ],
-  });
 
   const meta = {
     zh: {
@@ -602,13 +819,59 @@ ${items}
     },
   };
 
+  const shot = SCREENSHOTS['workbench-empty'];
+  const shotUrl = `${SITE.origin}/assets/screenshots/${shot.file}`;
+
+  /**
+   * One language's structured data, for the same reason the pair pages have one: a mixed `name` is the
+   * string a crawler quotes back. `hasPart` follows the page's language too, so the list of conversions
+   * an AI answer reads out is not half in another language.
+   * @param {'zh' | 'en'} lang
+   * @returns {object[]} the `@graph`
+   */
+  const graph = lang => {
+    const inLanguage = lang === 'zh' ? 'zh-CN' : 'en';
+    return [
+      {
+        '@type': 'CollectionPage',
+        '@id': `${url}#webpage`,
+        url,
+        name: lang === 'zh' ? '转换一览' : 'Conversion index',
+        inLanguage,
+        isPartOf: { '@id': `${SITE.origin}/#website` },
+        description: meta[lang].d,
+        image: shotUrl,
+        hasPart: PAIRS.map(pair => ({ '@type': 'WebPage', name: pair.title[lang], url: `${url}${pair.slug}.html` })),
+      },
+      {
+        '@type': 'BreadcrumbList',
+        itemListElement: [
+          { '@type': 'ListItem', position: 1, name: 'Transfer Any File', item: `${SITE.origin}/` },
+          { '@type': 'ListItem', position: 2, name: 'Conversions', item: url },
+        ],
+      },
+      {
+        '@type': 'ImageObject',
+        '@id': `${shotUrl}#image`,
+        url: shotUrl,
+        contentUrl: shotUrl,
+        width: shot.w,
+        height: shot.h,
+        name: shot.alt[lang],
+        caption: shot.caption[lang],
+        inLanguage,
+      },
+    ];
+  };
+
+  const jsonLd = JSON.stringify({ '@context': 'https://schema.org', '@graph': graph('zh') }).replace(/</g, '\\u003c');
+
   return `<!doctype html>
 <!-- Generated by scripts/render-site-pages.mjs. Edit scripts/conversion-pages/pairs.mjs instead. -->
 <html lang="zh-CN" id="top">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    ${headScripts(meta)}
     <title>${esc(`${meta.zh.t} | ${meta.en.t}`)}</title>
     <meta
       name="description"
@@ -617,6 +880,9 @@ ${items}
     <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1" />
     <link rel="canonical" href="${url}" />
     <link rel="icon" type="image/png" sizes="64x64" href="../assets/icon-mark.png" />
+    <link rel="apple-touch-icon" sizes="512x512" href="../assets/icon.png" />
+    <meta name="theme-color" content="${SITE.themeColor}" />
+    <meta name="color-scheme" content="light" />
     <link rel="stylesheet" href="../assets/content.css" />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Transfer Any File" />
@@ -626,9 +892,17 @@ ${items}
     <meta property="og:title" content="转换一览 | Conversion index" />
     <meta property="og:description" content="14 种格式、48 条注册路径、界面提供 116 个可选组合。 | 14 formats, 48 registered direct routes, 116 selectable combinations." />
     <meta property="og:image" content="${SITE.origin}/assets/store/github-social-preview.png" />
-    <script type="application/ld+json">
+    <meta property="og:image:width" content="1280" />
+    <meta property="og:image:height" content="640" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="转换一览 | Conversion index" />
+    <meta name="twitter:description" content="14 种格式、48 条注册路径、界面提供 116 个可选组合。 | 14 formats, 48 registered direct routes, 116 selectable combinations." />
+    <meta name="twitter:image" content="${SITE.origin}/assets/store/github-social-preview.png" />
+    <script type="application/ld+json" id="fat-ld">
       ${jsonLd}
     </script>
+    ${headScripts(meta)}
+    ${ldSwapScript({ '@context': 'https://schema.org', '@graph': graph('en') })}
   </head>
   <body>
     ${head}
@@ -648,14 +922,15 @@ ${items}
               'These pages are not another way of saying “14 formats supported”. The format count is just the number of vertices: 14 formats and 48 registered direct routes, and every source format reaches all 11 writable ones, which makes 143 combinations reachable and 116 selectable. The other 27 are not missing work — they are semantically invalid, so the picker greys them out and says why. Each pair page spells that class of limits out in its own “what it does not do”.',
             )}
           </p>
+${shotFigure(shot)}
 ${lists}
-          <p class="fine">
+          <p class="fine reveal">
             ${bi(
               '这里列出的是常被搜索的配对，不是全部 116 个；工作台里的目标格式下拉按批次实时给出可用项。',
               'This index lists the pairs people search for, not all 116; the workbench shows what is available for the exact batch you dropped in.',
             )}
           </p>
-          <p class="cta-links">
+          <p class="cta-links reveal">
             <a class="btn" href="../#install">${bi('安装步骤', 'Install steps')}</a>
             <a class="btn ghost" href="${SITE.repo}">${bi('GitHub 源码', 'Source on GitHub')}</a>
           </p>
@@ -663,6 +938,7 @@ ${lists}
       </div>
     </main>
     ${foot}
+    ${revealScript()}
   </body>
 </html>
 `;
@@ -681,7 +957,7 @@ ${lists}
  * and leave it alone otherwise.
  */
 const STATIC_PAGES = {
-  home: { path: '/', updated: '2026-09-22', changefreq: 'monthly', priority: '1.0' },
+  home: { path: '/', updated: '2026-09-25', changefreq: 'monthly', priority: '1.0' },
   blog: { path: '/blog/', updated: '2026-09-22', changefreq: 'monthly', priority: '0.8' },
   privacy: { path: '/privacy.html', updated: '2026-09-19', changefreq: 'yearly', priority: '0.6' },
 };
@@ -724,9 +1000,14 @@ ${urls}
 // ---------------------------------------------------------------------------
 
 const files = new Map();
+validateScreenshots();
 for (const pair of PAIRS) {
   const chain = validatePair(pair);
-  if (chain.length) files.set(path.join(OUT_DIR, `${pair.slug}.html`), renderPage(pair, chain));
+  // A pair whose shot key is unknown is skipped for the same reason a pair without a route is: writing
+  // it would put a broken `<img>` on a public URL, and `renderPage` would crash before the collected
+  // message from `validateScreenshots()` ever reached the operator's terminal.
+  if (chain.length && SCREENSHOTS[pair.shot])
+    files.set(path.join(OUT_DIR, `${pair.slug}.html`), renderPage(pair, chain));
 }
 if (errors.length === 0) {
   files.set(path.join(OUT_DIR, 'index.html'), renderIndex());

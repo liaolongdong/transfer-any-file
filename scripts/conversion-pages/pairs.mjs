@@ -15,6 +15,7 @@
  * - `notes`   operating facts the picker will otherwise surprise the reader with (multi-sheet → ZIP,
  *   batch ceilings, the quality dial only on lossy containers),
  * - `faq`     the questions a reader of that specific pair actually arrives with.
+ * - `shot`    which workbench screenshot the page shows, keyed by the `SCREENSHOTS` table below.
  *
  * Numbers quoted here are the governed set (`pnpm verify:numbers` derives them from code), so they must
  * be written in a shape the guard recognises: 「14 种格式」/ `14 formats`, 「200 个」/ `200 files`.
@@ -25,6 +26,13 @@ export const SITE = {
   repo: 'https://github.com/liaolongdong/transfer-any-file',
   product: 'https://liaolongdong.github.io/transfer-any-file/',
   privacy: 'https://liaolongdong.github.io/transfer-any-file/privacy.html',
+  // The profile `docs/blog/index.html` already credits in its `BlogPosting.author`; the same person
+  // wrote these pages, so the `Article` nodes point at the same identity rather than inventing one.
+  author: 'https://github.com/liaolongdong',
+  // `<meta name="theme-color">` cannot read a CSS custom property, so this is the one place the brand
+  // blue is written as a literal in the generator. It is `--brand` in `docs/assets/content.css`, and
+  // the two have to move together — the colour painted on the browser chrome is the colour of the links.
+  themeColor: '#2563eb',
 };
 
 /**
@@ -32,7 +40,74 @@ export const SITE = {
  * pages it writes, and it lands in `docs/sitemap.xml`; bump it together with a content change so the
  * date a crawler reads is the date the claim was actually edited.
  */
-export const PAGES_UPDATED = '2026-09-22';
+export const PAGES_UPDATED = '2026-09-25';
+
+/**
+ * The date the first conversion page entered the repository, used as `datePublished` in the `Article`
+ * node. Unlike {@link PAGES_UPDATED} this one never moves: it is a repository fact, taken from
+ * `git log --reverse -- docs/convert` (`b441af2`, 2026-09-25), and it states when the content was
+ * written down — not when it went live. As of this revision the pages sit on a feature branch, so
+ * GitHub Pages has not served any of them; do not read this as a release date.
+ */
+export const PAGES_PUBLISHED = '2026-09-25';
+
+/**
+ * The workbench screenshots a page may show, keyed by the name used in `docs/assets/screenshots/`.
+ *
+ * These are the same un-captioned captures the store listing and the README use, so no second set of
+ * UI imagery exists to drift. `w` / `h` are the intrinsic pixel sizes the `<img>` declares (the
+ * generator re-reads the PNG header and fails the build on a mismatch), `alt` describes what is
+ * actually on screen rather than the conversion the page is about — an alt that restates the heading
+ * would be a caption in image search's clothing — and `caption` is the claim the shot is shown to
+ * support, worded the way `SCREEN_CAPTIONS` in `scripts/capture-store-assets.mjs` burns it into the
+ * store screenshots so the two surfaces do not say different things about the same frame.
+ */
+export const SCREENSHOTS = {
+  'workbench-empty': {
+    file: 'workbench-empty.png',
+    w: 1280,
+    h: 800,
+    alt: { zh: '工作台空状态：拖放区与格式选择器', en: 'The empty workbench: the drop zone and the format picker' },
+    caption: { zh: '拖入、选格式，在你自己电脑上转换', en: 'Drop, pick a format, convert on your own machine' },
+  },
+  'batch-files': {
+    file: 'batch-files.png',
+    w: 1280,
+    h: 800,
+    alt: {
+      zh: '工作台里已载入的多个文件，每行带自己的格式标签',
+      en: 'Several files loaded in the workbench, each row tagged with its format',
+    },
+    caption: { zh: '批量：多种源格式，一个目标格式', en: 'Batch: mixed source formats, one target' },
+  },
+  'batch-results': {
+    file: 'batch-results.png',
+    w: 1280,
+    h: 800,
+    alt: {
+      zh: '一批转换结果卡片，含文件名、体积与下载入口',
+      en: 'A set of result cards with file names, sizes and download actions',
+    },
+    caption: { zh: '一次混合批量，一个 ZIP 下载', en: 'One mixed batch, one ZIP download' },
+  },
+  'preview-edit': {
+    file: 'preview-edit.png',
+    w: 1280,
+    h: 800,
+    alt: { zh: '左右对照的预览与编辑视图', en: 'The side-by-side comparison and editing view' },
+    caption: { zh: '左右对照预览，下载前直接改', en: 'Preview side by side, edit before you download' },
+  },
+  'output-preset': {
+    file: 'output-preset.png',
+    w: 1280,
+    h: 800,
+    alt: {
+      zh: '图片输出参数面板与预设条',
+      en: 'The image output parameters panel and the preset bar',
+    },
+    caption: { zh: '尺寸、质量、目标体积，存成一键预设', en: 'Dial in size and quality, save it as a preset' },
+  },
+};
 
 export const FORMAT_LABEL = {
   md: { zh: 'Markdown', en: 'Markdown', ext: '.md' },
@@ -53,6 +128,7 @@ export const PAIRS = [
     slug: 'markdown-to-word',
     from: 'md',
     to: 'docx',
+    shot: 'batch-results',
     title: {
       zh: 'Markdown 转 Word（.docx）——离线、可批量、不上传',
       en: 'Convert Markdown to Word (.docx) offline — in batches, without uploading',
@@ -132,6 +208,7 @@ export const PAIRS = [
     slug: 'word-to-markdown',
     from: 'docx',
     to: 'md',
+    shot: 'preview-edit',
     title: {
       zh: 'Word 转 Markdown（.docx → .md）——本地完成，不上传',
       en: 'Convert Word to Markdown (.docx → .md) locally, no upload',
@@ -208,6 +285,7 @@ export const PAIRS = [
     slug: 'excel-to-csv',
     from: 'xlsx',
     to: 'csv',
+    shot: 'batch-files',
     title: {
       zh: 'Excel 转 CSV（.xlsx → .csv）——取值不取显示文本，离线',
       en: 'Convert Excel to CSV (.xlsx → .csv) offline — cell values, not display text',
@@ -286,6 +364,7 @@ export const PAIRS = [
     slug: 'csv-to-excel',
     from: 'csv',
     to: 'xlsx',
+    shot: 'batch-files',
     title: {
       zh: 'CSV 转 Excel（.csv → .xlsx）——长数字不被改坏，离线',
       en: 'Convert CSV to Excel (.csv → .xlsx) offline — long numbers stay exactly as written',
@@ -365,6 +444,7 @@ export const PAIRS = [
     slug: 'json-to-csv',
     from: 'json',
     to: 'csv',
+    shot: 'batch-files',
     title: {
       zh: 'JSON 转 CSV——对象数组离线落成表格',
       en: 'Convert JSON to CSV — turn an array of objects into a spreadsheet offline',
@@ -441,6 +521,7 @@ export const PAIRS = [
     slug: 'pdf-to-text',
     from: 'pdf',
     to: 'txt',
+    shot: 'preview-edit',
     title: {
       zh: 'PDF 转文本（.pdf → .txt）——本地提取文字层，不上传',
       en: 'Convert PDF to text (.pdf → .txt) locally — the text layer, no upload',
@@ -517,6 +598,7 @@ export const PAIRS = [
     slug: 'markdown-to-pdf',
     from: 'md',
     to: 'pdf',
+    shot: 'batch-results',
     title: {
       zh: 'Markdown 转 PDF——离线渲染成 A4，产物是图像不是文字层',
       en: 'Markdown to PDF offline, rendered onto A4 — the output is an image, not a text layer',
@@ -593,6 +675,7 @@ export const PAIRS = [
     slug: 'word-to-pdf',
     from: 'docx',
     to: 'pdf',
+    shot: 'batch-results',
     title: {
       zh: 'Word 转 PDF——离线出 A4 图像，版式由浏览器决定',
       en: 'Word to PDF offline — an A4 image whose layout the browser decides',
@@ -666,6 +749,7 @@ export const PAIRS = [
     slug: 'png-to-webp',
     from: 'png',
     to: 'webp',
+    shot: 'output-preset',
     title: {
       zh: 'PNG 转 WebP——本地批量压体积，质量与目标大小可调',
       en: 'Convert PNG to WebP locally — batch it, tune quality or aim at a target size',
@@ -744,6 +828,7 @@ export const PAIRS = [
     slug: 'svg-to-png',
     from: 'svg',
     to: 'png',
+    shot: 'output-preset',
     title: {
       zh: 'SVG 转 PNG——先净化再栅格化，脚本不执行',
       en: 'Convert SVG to PNG — sanitised first, rasterised second, scripts never run',

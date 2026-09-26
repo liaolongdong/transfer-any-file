@@ -12,9 +12,11 @@
     <!-- Resolve the UI language before first paint so the page never flashes the wrong language.
          All copy ships in BOTH languages in the HTML (see the [lang] rules in the stylesheet),
          so crawlers that do not run JavaScript still read every fact in either language.
-         `setLang()` at the end of this document narrows <title>, the description and the
-         og: / twitter: metadata to the language being shown; the bilingual values baked into
-         the markup below stay as the no-JavaScript fallback. -->
+         The script under the `twitter:` block narrows <title>, the description and the
+         og: / twitter: metadata to that language while the head is still being parsed — a reader
+         never sees the bilingual string in the tab. The bilingual values baked into the markup
+         stay as the no-JavaScript fallback, and `setLang()` at the end of the document reuses the
+         same table for the toggle. -->
     <script>
       (function () {
         var KEY = 'fat-docs-lang';
@@ -148,6 +150,52 @@
       name="twitter:image:alt"
       content='Transfer Any File brand mark and the headline "Convert 14 file formats without uploading a byte" beside a screenshot of the workbench converting a Markdown file to HTML.'
     />
+    <script>
+      (function () {
+        /**
+         * Metadata per language, applied while the head is still being parsed: the tab title a reader
+         * lands on is already theirs, not the bilingual fallback. `setLang()` at the end of this
+         * document reads the same object, so the strings exist once. A crawler that never runs the
+         * page still reads the bilingual values baked into the markup above.
+         */
+        var META = {
+          'zh-CN': {
+            title: 'Transfer Any File｜离线文件格式转换扩展 · 14 种格式本地互转，零上传',
+            description:
+              '开源 Chrome 离线文件格式转换扩展——14 种文档、表格与图片格式在你自己的电脑本地互转。不上传、无账号、零网络请求。',
+            ogTitle: 'Transfer Any File｜离线文件格式转换扩展（Chrome）',
+            ogDescription:
+              '在浏览器本地完成 14 种格式互转：批量、多步链路、预览编辑与 ZIP 打包，不上传一个字节，只申请 storage 权限。',
+            twitterDescription: '14 种格式、48 条直接路径、116 个可选组合、0 次网络请求，全部在你自己的浏览器里完成。',
+          },
+          en: {
+            title: 'Transfer Any File — Offline File Format Converter for Chrome',
+            description:
+              'Offline file format converter for Chrome — convert 14 document, data and image formats in your browser. No uploads, no account, zero network requests.',
+            ogTitle: 'Transfer Any File — offline file format converter for Chrome',
+            ogDescription:
+              'Convert 14 file formats inside your browser. Batch, multi-step, preview and edit — without uploading a byte.',
+            twitterDescription:
+              '14 formats, 48 direct routes, 116 selectable combinations, zero network requests. Runs entirely in your browser.',
+          },
+        };
+        window.__FAT_DOCS_META__ = META;
+        var copy = META[document.documentElement.getAttribute('lang')] || META.en;
+        if (copy) {
+          document.title = copy.title;
+          [
+            ['meta[name="description"]', copy.description],
+            ['meta[property="og:title"]', copy.ogTitle],
+            ['meta[property="og:description"]', copy.ogDescription],
+            ['meta[name="twitter:title"]', copy.ogTitle],
+            ['meta[name="twitter:description"]', copy.twitterDescription],
+          ].forEach(function (pair) {
+            var el = document.querySelector(pair[0]);
+            if (el) el.setAttribute('content', pair[1]);
+          });
+        }
+      })();
+    </script>
 
     <!--
       Structured data. Every number here is derived from the code, not from prose:
@@ -7517,32 +7565,10 @@ pnpm build</code><button
         var root = document.documentElement;
 
         /**
-         * Metadata per language. The markup ships bilingual `<title>` / description values as the
-         * no-JavaScript fallback, so a crawler that never runs the page still reads both languages;
-         * once the language is known these are narrowed to the one being displayed, which is what
-         * search results and social cards quote verbatim.
+         * The same per-language table the head script applied before first paint. Kept in one object so
+         * switching language in the page cannot quote strings that differ from the ones already indexed.
          */
-        var META = {
-          'zh-CN': {
-            title: 'Transfer Any File｜离线文件格式转换扩展 · 14 种格式本地互转，零上传',
-            description:
-              '开源 Chrome 离线文件格式转换扩展——14 种文档、表格与图片格式在你自己的电脑本地互转。不上传、无账号、零网络请求。',
-            ogTitle: 'Transfer Any File｜离线文件格式转换扩展（Chrome）',
-            ogDescription:
-              '在浏览器本地完成 14 种格式互转：批量、多步链路、预览编辑与 ZIP 打包，不上传一个字节，只申请 storage 权限。',
-            twitterDescription: '14 种格式、48 条直接路径、116 个可选组合、0 次网络请求，全部在你自己的浏览器里完成。',
-          },
-          en: {
-            title: 'Transfer Any File — Offline File Format Converter for Chrome',
-            description:
-              'Offline file format converter for Chrome — convert 14 document, data and image formats in your browser. No uploads, no account, zero network requests.',
-            ogTitle: 'Transfer Any File — offline file format converter for Chrome',
-            ogDescription:
-              'Convert 14 file formats inside your browser. Batch, multi-step, preview and edit — without uploading a byte.',
-            twitterDescription:
-              '14 formats, 48 direct routes, 116 selectable combinations, zero network requests. Runs entirely in your browser.',
-          },
-        };
+        var META = window.__FAT_DOCS_META__;
 
         function setMeta(selector, value) {
           var el = document.querySelector(selector);

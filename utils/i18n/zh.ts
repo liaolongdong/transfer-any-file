@@ -5,8 +5,9 @@ export default {
     cancel: '取消',
   },
 
-  // App / brand
-  appName: 'Transfer Any File',
+  // App / brand — the Chinese half of `_locales/zh_CN`'s extensionName, so the header, the tab title
+  // and what Chrome itself shows a Chinese user all read the same way.
+  appName: '文件格式任意转换助手',
 
   // Options / workbench
   options: {

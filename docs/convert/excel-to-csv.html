@@ -6,6 +6,35 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Excel 转 CSV（.xlsx → .csv）——取值不取显示文本，离线 | Convert Excel to CSV (.xlsx → .csv) offline — cell values, not display text</title>
+    <meta name="description" content="浏览器本地把 .xlsx 转成 CSV：按单元格值序列化，日期统一格式，带 UTF-8 BOM，公式注入被转义。多 sheet 每表一份 CSV 装进 ZIP。 | Convert .xlsx to CSV in your browser: serialised from cell values, normalised dates, a UTF-8 BOM, formula injection escaped. Multi-sheet workbooks emit one CSV per sheet inside a ZIP." />
+    <meta name="author" content="Better" />
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1" />
+    <link rel="canonical" href="https://liaolongdong.github.io/transfer-any-file/convert/excel-to-csv.html" />
+    <link rel="icon" type="image/png" sizes="64x64" href="../assets/icon-mark.png" />
+    <link rel="apple-touch-icon" sizes="512x512" href="../assets/icon.png" />
+    <meta name="theme-color" content="#2563eb" />
+    <meta name="color-scheme" content="light" />
+    <link rel="stylesheet" href="../assets/content.css" />
+    <meta property="og:type" content="article" />
+    <meta property="og:site_name" content="Transfer Any File" />
+    <meta property="og:locale" content="zh_CN" />
+    <meta property="og:locale:alternate" content="en_US" />
+    <meta property="og:url" content="https://liaolongdong.github.io/transfer-any-file/convert/excel-to-csv.html" />
+    <meta property="og:title" content="Excel 转 CSV（.xlsx → .csv）——取值不取显示文本，离线 | Convert Excel to CSV (.xlsx → .csv) offline — cell values, not display text" />
+    <meta property="og:description" content="浏览器本地把 .xlsx 转成 CSV：按单元格值序列化，日期统一格式，带 UTF-8 BOM，公式注入被转义。多 sheet 每表一份 CSV 装进 ZIP。 | Convert .xlsx to CSV in your browser: serialised from cell values, normalised dates, a UTF-8 BOM, formula injection escaped. Multi-sheet workbooks emit one CSV per sheet inside a ZIP." />
+    <meta property="og:image" content="https://liaolongdong.github.io/transfer-any-file/assets/store/github-social-preview.png" />
+    <meta property="og:image:width" content="1280" />
+    <meta property="og:image:height" content="640" />
+    <meta property="article:published_time" content="2026-09-25" />
+    <meta property="article:modified_time" content="2026-09-25" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Excel 转 CSV（.xlsx → .csv）——取值不取显示文本，离线 | Convert Excel to CSV (.xlsx → .csv) offline — cell values, not display text" />
+    <meta name="twitter:description" content="浏览器本地把 .xlsx 转成 CSV：按单元格值序列化，日期统一格式，带 UTF-8 BOM，公式注入被转义。多 sheet 每表一份 CSV 装进 ZIP。 | Convert .xlsx to CSV in your browser: serialised from cell values, normalised dates, a UTF-8 BOM, formula injection escaped. Multi-sheet workbooks emit one CSV per sheet inside a ZIP." />
+    <meta name="twitter:image" content="https://liaolongdong.github.io/transfer-any-file/assets/store/github-social-preview.png" />
+    <script type="application/ld+json" id="fat-ld">
+      {"@context":"https://schema.org","@graph":[{"@type":"WebPage","@id":"https://liaolongdong.github.io/transfer-any-file/convert/excel-to-csv.html#webpage","url":"https://liaolongdong.github.io/transfer-any-file/convert/excel-to-csv.html","name":"Excel 转 CSV（.xlsx → .csv）——取值不取显示文本，离线","inLanguage":"zh-CN","isPartOf":{"@id":"https://liaolongdong.github.io/transfer-any-file/#website"},"about":{"@type":"SoftwareApplication","name":"Transfer Any File","operatingSystem":"Chrome"},"description":"浏览器本地把 .xlsx 转成 CSV：按单元格值序列化，日期统一格式，带 UTF-8 BOM，公式注入被转义。多 sheet 每表一份 CSV 装进 ZIP。","image":"https://liaolongdong.github.io/transfer-any-file/assets/screenshots/batch-files.png"},{"@type":"Article","@id":"https://liaolongdong.github.io/transfer-any-file/convert/excel-to-csv.html#article","mainEntityOfPage":{"@type":"WebPage","@id":"https://liaolongdong.github.io/transfer-any-file/convert/excel-to-csv.html#webpage"},"headline":"Excel 转 CSV（.xlsx → .csv）——取值不取显示文本，离线","description":"浏览器本地把 .xlsx 转成 CSV：按单元格值序列化，日期统一格式，带 UTF-8 BOM，公式注入被转义。多 sheet 每表一份 CSV 装进 ZIP。","image":"https://liaolongdong.github.io/transfer-any-file/assets/screenshots/batch-files.png","datePublished":"2026-09-25","dateModified":"2026-09-25","inLanguage":"zh-CN","author":{"@type":"Person","name":"Better","url":"https://github.com/liaolongdong"},"publisher":{"@type":"Organization","name":"Transfer Any File","url":"https://liaolongdong.github.io/transfer-any-file/"}},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Transfer Any File","item":"https://liaolongdong.github.io/transfer-any-file/"},{"@type":"ListItem","position":2,"name":"Conversions","item":"https://liaolongdong.github.io/transfer-any-file/convert/"},{"@type":"ListItem","position":3,"name":"Excel (.xlsx) → CSV","item":"https://liaolongdong.github.io/transfer-any-file/convert/excel-to-csv.html"}]},{"@type":"ImageObject","@id":"https://liaolongdong.github.io/transfer-any-file/assets/screenshots/batch-files.png#image","url":"https://liaolongdong.github.io/transfer-any-file/assets/screenshots/batch-files.png","contentUrl":"https://liaolongdong.github.io/transfer-any-file/assets/screenshots/batch-files.png","width":1280,"height":800,"name":"工作台里已载入的多个文件，每行带自己的格式标签","caption":"批量：多种源格式，一个目标格式","inLanguage":"zh-CN"},{"@type":"FAQPage","mainEntity":[{"@type":"Question","name":"为什么多 sheet 给了一个 ZIP？","acceptedAnswer":{"@type":"Answer","text":"因为一个 CSV 只能表达一张平面表格，而把多个 sheet 拼进一个文件会制造无法还原的行。每表一份 CSV、文件名取工作表名，是唯一不撒谎的结果形状。"}},{"@type":"Question","name":"Excel 打开 CSV 出现乱码怎么办？","acceptedAnswer":{"@type":"Answer","text":"本项目已在 CSV 开头写入 UTF-8 BOM，双击打开通常就正常了。若你用的是「数据 → 从文本」导入向导，请手工选 UTF-8。"}},{"@type":"Question","name":".xls（97-2003）能转吗？","acceptedAnswer":{"@type":"Answer","text":"输入侧支持的是 .xlsx；老的二进制 .xls 请先在 Excel 里另存为 .xlsx。"}}]}]}
+    </script>
     <script>
       window.__FAT_META__ = {"zh-CN":{"t":"Excel 转 CSV（.xlsx → .csv）——取值不取显示文本，离线","d":"浏览器本地把 .xlsx 转成 CSV：按单元格值序列化，日期统一格式，带 UTF-8 BOM，公式注入被转义。多 sheet 每表一份 CSV 装进 ZIP。"},"en":{"t":"Convert Excel to CSV (.xlsx → .csv) offline — cell values, not display text","d":"Convert .xlsx to CSV in your browser: serialised from cell values, normalised dates, a UTF-8 BOM, formula injection escaped. Multi-sheet workbooks emit one CSV per sheet inside a ZIP."}};
     </script>
@@ -27,6 +56,10 @@
         }
         if (!lang) lang = (navigator.language || 'zh-CN').toLowerCase().indexOf('zh') === 0 ? 'zh-CN' : 'en';
         document.documentElement.setAttribute('lang', lang);
+        window.__FAT_LANG__ = lang;
+        /* Scroll reveals start at opacity 0, so they must never apply unless this script ran:
+           a client that renders CSS but not JavaScript would otherwise see blank sections. */
+        document.documentElement.classList.add('js');
         var copy = window.__FAT_META__[lang] || window.__FAT_META__.en;
         if (copy) {
           document.title = copy.t;
@@ -38,27 +71,17 @@
         }
       })();
     </script>
-    <title>Excel 转 CSV（.xlsx → .csv）——取值不取显示文本，离线 | Convert Excel to CSV (.xlsx → .csv) offline — cell values, not display text</title>
-    <meta name="description" content="浏览器本地把 .xlsx 转成 CSV：按单元格值序列化，日期统一格式，带 UTF-8 BOM，公式注入被转义。多 sheet 每表一份 CSV 装进 ZIP。 | Convert .xlsx to CSV in your browser: serialised from cell values, normalised dates, a UTF-8 BOM, formula injection escaped. Multi-sheet workbooks emit one CSV per sheet inside a ZIP." />
-    <meta name="author" content="Better" />
-    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1" />
-    <link rel="canonical" href="https://liaolongdong.github.io/transfer-any-file/convert/excel-to-csv.html" />
-    <link rel="icon" type="image/png" sizes="64x64" href="../assets/icon-mark.png" />
-    <link rel="stylesheet" href="../assets/content.css" />
-    <meta property="og:type" content="article" />
-    <meta property="og:site_name" content="Transfer Any File" />
-    <meta property="og:locale" content="zh_CN" />
-    <meta property="og:locale:alternate" content="en_US" />
-    <meta property="og:url" content="https://liaolongdong.github.io/transfer-any-file/convert/excel-to-csv.html" />
-    <meta property="og:title" content="Excel 转 CSV（.xlsx → .csv）——取值不取显示文本，离线 | Convert Excel to CSV (.xlsx → .csv) offline — cell values, not display text" />
-    <meta property="og:description" content="浏览器本地把 .xlsx 转成 CSV：按单元格值序列化，日期统一格式，带 UTF-8 BOM，公式注入被转义。多 sheet 每表一份 CSV 装进 ZIP。 | Convert .xlsx to CSV in your browser: serialised from cell values, normalised dates, a UTF-8 BOM, formula injection escaped. Multi-sheet workbooks emit one CSV per sheet inside a ZIP." />
-    <meta property="og:image" content="https://liaolongdong.github.io/transfer-any-file/assets/store/github-social-preview.png" />
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Excel 转 CSV（.xlsx → .csv）——取值不取显示文本，离线 | Convert Excel to CSV (.xlsx → .csv) offline — cell values, not display text" />
-    <meta name="twitter:description" content="浏览器本地把 .xlsx 转成 CSV：按单元格值序列化，日期统一格式，带 UTF-8 BOM，公式注入被转义。多 sheet 每表一份 CSV 装进 ZIP。 | Convert .xlsx to CSV in your browser: serialised from cell values, normalised dates, a UTF-8 BOM, formula injection escaped. Multi-sheet workbooks emit one CSV per sheet inside a ZIP." />
-    <meta name="twitter:image" content="https://liaolongdong.github.io/transfer-any-file/assets/store/github-social-preview.png" />
-    <script type="application/ld+json">
-      {"@context":"https://schema.org","@graph":[{"@type":"WebPage","@id":"https://liaolongdong.github.io/transfer-any-file/convert/excel-to-csv.html#webpage","url":"https://liaolongdong.github.io/transfer-any-file/convert/excel-to-csv.html","name":"Excel 转 CSV（.xlsx → .csv）——取值不取显示文本，离线 | Convert Excel to CSV (.xlsx → .csv) offline — cell values, not display text","inLanguage":["zh-CN","en"],"isPartOf":{"@id":"https://liaolongdong.github.io/transfer-any-file/#website"},"about":{"@type":"SoftwareApplication","name":"Transfer Any File","operatingSystem":"Chrome"},"description":"浏览器本地把 .xlsx 转成 CSV：按单元格值序列化，日期统一格式，带 UTF-8 BOM，公式注入被转义。多 sheet 每表一份 CSV 装进 ZIP。 | Convert .xlsx to CSV in your browser: serialised from cell values, normalised dates, a UTF-8 BOM, formula injection escaped. Multi-sheet workbooks emit one CSV per sheet inside a ZIP."},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Transfer Any File","item":"https://liaolongdong.github.io/transfer-any-file/"},{"@type":"ListItem","position":2,"name":"Conversions","item":"https://liaolongdong.github.io/transfer-any-file/convert/"},{"@type":"ListItem","position":3,"name":"Excel (.xlsx) → CSV","item":"https://liaolongdong.github.io/transfer-any-file/convert/excel-to-csv.html"}]},{"@type":"FAQPage","mainEntity":[{"@type":"Question","name":"为什么多 sheet 给了一个 ZIP？ Why a ZIP for multiple sheets?","acceptedAnswer":{"@type":"Answer","text":"因为一个 CSV 只能表达一张平面表格，而把多个 sheet 拼进一个文件会制造无法还原的行。每表一份 CSV、文件名取工作表名，是唯一不撒谎的结果形状。 A CSV can express exactly one flat grid, and merging sheets into one file manufactures rows that cannot be undone. One CSV per sheet, named after the worksheet, is the only result shape that does not lie."}},{"@type":"Question","name":"Excel 打开 CSV 出现乱码怎么办？ Excel shows mojibake when opening the CSV — why?","acceptedAnswer":{"@type":"Answer","text":"本项目已在 CSV 开头写入 UTF-8 BOM，双击打开通常就正常了。若你用的是「数据 → 从文本」导入向导，请手工选 UTF-8。 The file already carries a UTF-8 BOM, which is what makes a double click read correctly. If you go through the Data → From Text import wizard instead, choose UTF-8 there yourself."}},{"@type":"Question","name":".xls（97-2003）能转吗？ Does it take .xls (97-2003)?","acceptedAnswer":{"@type":"Answer","text":"输入侧支持的是 .xlsx；老的二进制 .xls 请先在 Excel 里另存为 .xlsx。 The supported input is .xlsx; save legacy binary .xls as .xlsx first."}}]}]}
+    <script>
+      (function () {
+        if (window.__FAT_LANG__ !== 'en') return;
+        try {
+          var box = document.getElementById('fat-ld');
+          var graph = {"@context":"https://schema.org","@graph":[{"@type":"WebPage","@id":"https://liaolongdong.github.io/transfer-any-file/convert/excel-to-csv.html#webpage","url":"https://liaolongdong.github.io/transfer-any-file/convert/excel-to-csv.html","name":"Convert Excel to CSV (.xlsx → .csv) offline — cell values, not display text","inLanguage":"en","isPartOf":{"@id":"https://liaolongdong.github.io/transfer-any-file/#website"},"about":{"@type":"SoftwareApplication","name":"Transfer Any File","operatingSystem":"Chrome"},"description":"Convert .xlsx to CSV in your browser: serialised from cell values, normalised dates, a UTF-8 BOM, formula injection escaped. Multi-sheet workbooks emit one CSV per sheet inside a ZIP.","image":"https://liaolongdong.github.io/transfer-any-file/assets/screenshots/batch-files.png"},{"@type":"Article","@id":"https://liaolongdong.github.io/transfer-any-file/convert/excel-to-csv.html#article","mainEntityOfPage":{"@type":"WebPage","@id":"https://liaolongdong.github.io/transfer-any-file/convert/excel-to-csv.html#webpage"},"headline":"Convert Excel to CSV (.xlsx → .csv) offline — cell values, not display text","description":"Convert .xlsx to CSV in your browser: serialised from cell values, normalised dates, a UTF-8 BOM, formula injection escaped. Multi-sheet workbooks emit one CSV per sheet inside a ZIP.","image":"https://liaolongdong.github.io/transfer-any-file/assets/screenshots/batch-files.png","datePublished":"2026-09-25","dateModified":"2026-09-25","inLanguage":"en","author":{"@type":"Person","name":"Better","url":"https://github.com/liaolongdong"},"publisher":{"@type":"Organization","name":"Transfer Any File","url":"https://liaolongdong.github.io/transfer-any-file/"}},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Transfer Any File","item":"https://liaolongdong.github.io/transfer-any-file/"},{"@type":"ListItem","position":2,"name":"Conversions","item":"https://liaolongdong.github.io/transfer-any-file/convert/"},{"@type":"ListItem","position":3,"name":"Excel (.xlsx) → CSV","item":"https://liaolongdong.github.io/transfer-any-file/convert/excel-to-csv.html"}]},{"@type":"ImageObject","@id":"https://liaolongdong.github.io/transfer-any-file/assets/screenshots/batch-files.png#image","url":"https://liaolongdong.github.io/transfer-any-file/assets/screenshots/batch-files.png","contentUrl":"https://liaolongdong.github.io/transfer-any-file/assets/screenshots/batch-files.png","width":1280,"height":800,"name":"Several files loaded in the workbench, each row tagged with its format","caption":"Batch: mixed source formats, one target","inLanguage":"en"},{"@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Why a ZIP for multiple sheets?","acceptedAnswer":{"@type":"Answer","text":"A CSV can express exactly one flat grid, and merging sheets into one file manufactures rows that cannot be undone. One CSV per sheet, named after the worksheet, is the only result shape that does not lie."}},{"@type":"Question","name":"Excel shows mojibake when opening the CSV — why?","acceptedAnswer":{"@type":"Answer","text":"The file already carries a UTF-8 BOM, which is what makes a double click read correctly. If you go through the Data → From Text import wizard instead, choose UTF-8 there yourself."}},{"@type":"Question","name":"Does it take .xls (97-2003)?","acceptedAnswer":{"@type":"Answer","text":"The supported input is .xlsx; save legacy binary .xls as .xlsx first."}}]}]};
+          if (box) box.textContent = JSON.stringify(graph);
+        } catch (e) {
+          /* keep the shipped graph */
+        }
+      })();
     </script>
   </head>
   <body>
@@ -89,7 +112,26 @@
           <p class="eyebrow"><span lang="zh-CN">离线 · 无上传 · 浏览器本地完成</span><span lang="en">Offline · no uploads · runs in the browser</span></p>
           <h1><span lang="zh-CN">Excel 转 CSV（.xlsx → .csv）——取值不取显示文本，离线</span><span lang="en">Convert Excel to CSV (.xlsx → .csv) offline — cell values, not display text</span></h1>
           <p class="lede"><span lang="zh-CN">Excel 里一个单元格「显示成什么」和「存的是什么」是两件事：1234.5 可以显示为 &quot;1,234.50&quot;，0.25 可以显示为 25.0%。多数转换翻车就翻在这里——导出的其实是显示文本。本项目从单元格值序列化（在 xlsx 0.18.5 上实测过 SheetJS 各条序列化为什做不到，所以走 sheet_to_json 那条），日期统一成机器可读的两段式，文件开头写 UTF-8 BOM，于是 Excel 双击打开不乱码。</span><span lang="en">In Excel, what a cell displays and what it stores are two different facts: 1234.5 can display as &quot;1,234.50&quot; and 0.25 as 25.0%. Most conversions fail on exactly that line, exporting the display text. This route serialises from the stored value — measured against xlsx 0.18.5, where the obvious serializer cannot do it, which is why it goes through sheet_to_json — normalises dates into one machine-readable shape, and writes a UTF-8 BOM so Excel opens the result without mojibake.</span></p>
-          <section class="route-card" aria-label="转换链路 / route">
+          <figure class="shot reveal">
+            <img
+              src="../assets/screenshots/batch-files.png"
+              width="1280"
+              height="800"
+              loading="lazy"
+              decoding="async"
+              fetchpriority="low"
+              alt="工作台里已载入的多个文件，每行带自己的格式标签"
+            />
+            <figcaption><span lang="zh-CN">批量：多种源格式，一个目标格式</span><span lang="en">Batch: mixed source formats, one target</span></figcaption>
+          </figure>
+          <script>
+            (function () {
+              if (window.__FAT_LANG__ !== 'en') return;
+              var img = document.querySelector('.shot img');
+              if (img) img.setAttribute('alt', "Several files loaded in the workbench, each row tagged with its format");
+            })();
+          </script>
+          <section class="route-card reveal" aria-label="转换链路 / Conversion route">
             <p class="route-label"><span lang="zh-CN">这条链路怎么走</span><span lang="en">How the route runs</span></p>
             <p class="route-steps">
           <span class="chip"><span lang="zh-CN">Excel (.xlsx)</span><span lang="en">Excel (.xlsx)</span></span>
@@ -99,7 +141,7 @@
               <span lang="zh-CN">共 1 步，由扩展的路径搜索自动选出，中间产物不落盘。</span><span lang="en">1 step, chosen by the extension's own path search; intermediate results never touch the disk.</span>
             </p>
           </section>
-          <section id="keeps">
+          <section id="keeps" class="reveal">
       <h2><span lang="zh-CN">会保留什么</span><span lang="en">What carries over</span></h2>
             <ul>
         <li><span lang="zh-CN">数值按存储值写出：格式化成 &quot;1,234.50&quot; 的单元格仍然输出 1234.5，百分比显示的 0.25 仍然输出 0.25</span><span lang="en">Numbers come from the stored value: a cell formatted &quot;1,234.50&quot; still writes 1234.5, and a percentage-displayed 0.25 still writes 0.25</span></li>
@@ -109,7 +151,7 @@
         <li><span lang="zh-CN">引号、逗号、换行按 RFC 4180 规则处理，与 Excel 自己的写出行为一致（实测比对）</span><span lang="en">Quoting of quotes, commas and line breaks follows RFC 4180 and matches what Excel itself writes out (compared byte for byte)</span></li>
             </ul>
           </section>
-          <section id="limits">
+          <section id="limits" class="reveal">
       <h2><span lang="zh-CN">如实说明的限制</span><span lang="en">What it does not do</span></h2>
             <ul class="limits">
         <li><span lang="zh-CN">多个工作表的工作簿会给出「每表一份 CSV」，一起装进 ZIP；只有一个工作表时直接给 CSV</span><span lang="en">A workbook with several sheets yields one CSV per sheet, packed as a ZIP; a single sheet yields a CSV directly</span></li>
@@ -117,14 +159,14 @@
         <li><span lang="zh-CN">图表、透视表、条件格式、单元格样式、批注在 CSV 里没有位置，全部不出现</span><span lang="en">Charts, pivot tables, conditional formats, cell styles and comments have nowhere to live in CSV, so they do not appear</span></li>
             </ul>
           </section>
-          <section id="notes">
+          <section id="notes" class="reveal">
       <h2><span lang="zh-CN">实操提示</span><span lang="en">Working with it</span></h2>
             <ul>
         <li><span lang="zh-CN">单文件上限 100 MB，一批最多 200 个文件；超过 20 MB 或文件较多时会先请你确认再开转</span><span lang="en">100 MB per file and 200 files per batch; above 20 MB or a large count the app asks before starting</span></li>
         <li><span lang="zh-CN">CSV 是纯文本，结果也能直接在工作台里预览和复制</span><span lang="en">CSV is plain text, so the result previews in the workbench and can be copied from there</span></li>
             </ul>
           </section>
-          <section id="faq">
+          <section id="faq" class="reveal">
       <h2><span lang="zh-CN">常见问题</span><span lang="en">Questions people actually ask</span></h2>
         <details>
           <summary><span lang="zh-CN">为什么多 sheet 给了一个 ZIP？</span><span lang="en">Why a ZIP for multiple sheets?</span></summary>
@@ -139,7 +181,7 @@
           <p><span lang="zh-CN">输入侧支持的是 .xlsx；老的二进制 .xls 请先在 Excel 里另存为 .xlsx。</span><span lang="en">The supported input is .xlsx; save legacy binary .xls as .xlsx first.</span></p>
         </details>
           </section>
-          <section class="cta">
+          <section class="cta reveal">
             <p>
               <span lang="zh-CN">不需要账号，也不需要联网：装好扩展后点图标，在新标签页里打开工作台，文件从磁盘直接选。</span><span lang="en">No account and no network: install the extension, click its icon, and the workbench opens in a new tab reading straight off your disk.</span>
             </p>
@@ -148,7 +190,7 @@
               <a class="btn ghost" href="https://github.com/liaolongdong/transfer-any-file"><span lang="zh-CN">GitHub 源码</span><span lang="en">Source on GitHub</span></a>
             </p>
           </section>
-          <section class="related">
+          <section class="related reveal">
       <h2><span lang="zh-CN">相关转换</span><span lang="en">Related conversions</span></h2>
             <ul class="related-list">
         <li><a href="csv-to-excel.html"><span lang="zh-CN">CSV → Excel (.xlsx)</span><span lang="en">CSV → Excel (.xlsx)</span></a></li>
@@ -172,5 +214,32 @@
       </p>
     </div>
   </footer>
+    <script>
+    (function () {
+      var revealables = document.querySelectorAll('.reveal');
+      var reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if (reduced || !('IntersectionObserver' in window)) {
+        Array.prototype.forEach.call(revealables, function (el) {
+          el.classList.add('in');
+        });
+        return;
+      }
+      var io = new IntersectionObserver(
+        function (entries) {
+          var shown = 0;
+          entries.forEach(function (entry) {
+            if (!entry.isIntersecting) return;
+            entry.target.style.transitionDelay = (shown++ % 6) * 40 + 'ms';
+            entry.target.classList.add('in');
+            io.unobserve(entry.target);
+          });
+        },
+        { rootMargin: '0px 0px -10% 0px', threshold: 0.1 },
+      );
+      Array.prototype.forEach.call(revealables, function (el) {
+        io.observe(el);
+      });
+    })();
+  </script>
   </body>
 </html>

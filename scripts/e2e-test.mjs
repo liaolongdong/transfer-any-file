@@ -648,7 +648,7 @@ async function run() {
   else fail('Document language on load', `lang="${langOnLoad}"`);
 
   const titleOnLoad = await page.title();
-  if (titleOnLoad === 'Transfer Any File · 转换工作台') ok(`Tab title localized on first paint (${titleOnLoad})`);
+  if (titleOnLoad === '文件格式任意转换助手 · 转换工作台') ok(`Tab title localized on first paint (${titleOnLoad})`);
   else fail('Document title on load', `"${titleOnLoad}"`);
 
   // ═══════════════════════════════════════════

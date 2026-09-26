@@ -305,9 +305,45 @@ always name the same release.
   2 languages). Both kinds of generated file are now outside Prettier's reach, since a hand edit would be
   overwritten by the next render; the guard instead is `pages:check`, wired into CI's lint job, and
   `verify:numbers` derives its facts over these pages too.
+- **The generated pages now move, and know what they are.** Every pair page carries one real workbench frame —
+  no new shoots, these are the same 1280×800 captures the store listing and the README use — and describes it
+  with an `ImageObject`. The `width` / `height` declared on the `<img>` are checked against the PNG's own IHDR
+  by the renderer, which refuses to write the file when the two disagree: reserving a box is only honest while
+  those two numbers are real. The structured data gained an `Article` node (`author` with a URL, `publisher`,
+  `datePublished` / `dateModified`) to match the `og:type="article"` the page already claims; `dateModified`
+  takes the later of "content last changed" and "file first entered the repository", because a modification
+  date older than publication is exactly the inconsistency search engines flag. `og:image` gained its
+  dimensions, and `theme-color`, `color-scheme` and `apple-touch-icon`'s `sizes` came along. The JSON-LD is now
+  one graph per language: `#fat-ld` ships the Chinese one, matching the document's own `lang`, and a script
+  directly under it swaps in the English graph for English readers — a `Question.name` written in both
+  languages is what lands verbatim in a rich result or an AI answer, where it becomes the question as
+  restated on our behalf. A scroll-reveal layer arrived (only `transform` and `opacity`, 0.42s per step), but
+  the whole thing hangs off a `.js` class that the head script adds before the first frame, so a client that
+  renders CSS without executing JavaScript reads fully visible prose rather than eight blank blocks. Under
+  `prefers-reduced-motion: reduce` the layer stops entirely — durations collapse to 0.01ms instead of the
+  properties being removed, which leaves each element at the state it was animating _to_ — and every section is
+  marked shown outright, so nothing depends on whether the observer ran. The product page and the generated
+  pages narrow `<title>`, the description and the `og:` / `twitter:` strings to the reader's own language on the
+  first frame; before this, both languages competed inside one social-card excerpt and the second half was the
+  part that got cut. Position is load-bearing here: that script has to sit _after_ the meta tags it rewrites.
+  Placed above `<title>`, `document.title` invents a second `<title>` element, all five `querySelector` calls
+  return null, and the page looks fixed while nothing changed — which is what a bare-CDP run in three client
+  postures (JavaScript off, `reduce`, `?lang=en`) measured, not a code read. One more string got corrected in
+  passing: the route card's label for screen readers read `转换链路 / route`, because the full English phrase was
+  passed as a second argument to a one-argument escape function and dropped without a sound — it now reads
+  `转换链路 / Conversion route`.
 
 ### Changed
 
+- **The Chinese interface now names the extension in Chinese.** The brand in the workbench header and in
+  the tab title used to read `Transfer Any File` in both languages; under Chinese it reads
+  「文件格式任意转换助手」 now, which is the brand half of the Chinese `extensionName` already sitting in
+  `_locales/zh_CN` (its second half, "离线转换无上传", is the store and management-page slot, and this side of
+  the product has its own subtitle). So the three names a Chinese user meets — the Chrome extensions page,
+  the toolbar tooltip and the page itself — say the same thing for the first time. The English side is
+  untouched, character for character. The interface is all this reaches: the repository, README, landing
+  pages and store assets still carry `Transfer Any File` as the outward brand, and `package.json` and the
+  manifest version are unchanged.
 - **The archive you download is named by the same rule as everything else.** It used to be
   `converted-<date_time>.zip`; with the built-in pattern it is now `converted_<date_time>.zip`, a
   one-character drift from hyphen to underscore. The old spelling was not kept as a special case:
