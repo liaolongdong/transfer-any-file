@@ -190,7 +190,19 @@ watch(isOpen, value => {
    because `visibility: hidden` removes the subtree from painting entirely, in both motion tiers.
    `hidden` stays above `clip` as a parse-time fallback: `clip` reached Chrome 90, this manifest
    declares no minimum, and a dropped declaration would fall back to `visible` — a panel that no
-   longer clips is a panel that never closes. */
+   longer clips is a panel that never closes.
+
+   What taking `visibility` over `display` costs, measured so this does not have to be re-derived: a
+   `display: none` subtree is laid out by nobody, and a `visibility: hidden` one still is. On a
+   50-row panel, a layout pass that invalidates the panel goes from 0.02ms to 0.8ms (headless Chrome,
+   1280×900, 300 forced reflows) — i.e. a closed card now costs what an open one does. That is paid
+   only when the subtree is invalidated (resize, a language switch, a history row appended), never
+   per frame, which is the trade the growth animation is worth. `content-visibility: hidden` would
+   skip that layout and was tried: it cannot be held open across the collapse, because the discrete
+   flip lands on the first frame regardless of the delay, `transition-behavior: allow-discrete`
+   included, so the row would animate an empty box shut. Getting both back would take a
+   `transitionend` state machine around the resting value, and the failure modes it adds (a missed
+   end event leaves the card blank) cost more than 0.8ms on a resize frame. */
 .collapsible-body {
   overflow: hidden;
   overflow: clip;

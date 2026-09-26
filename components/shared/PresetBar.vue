@@ -259,8 +259,8 @@ async function handleRemove(preset: ConversionPreset): Promise<void> {
      wraps: a chip landing on the second line has no left edge to arrive from. */
 .preset-enter-active {
   transition:
-    opacity var(--fat-duration-base) var(--fat-ease-standard),
-    transform var(--fat-duration-base) var(--fat-ease-standard);
+    opacity var(--fat-duration-base) var(--fat-ease-enter),
+    transform var(--fat-duration-base) var(--fat-ease-enter);
 }
 
 .preset-enter-from {

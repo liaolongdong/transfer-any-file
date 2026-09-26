@@ -653,7 +653,7 @@ onUnmounted(() => {
         {{ t('footer.stats', { formats: formatCount, paths: pathCount }) }}
       </footer>
 
-      <Transition name="fade">
+      <Transition name="fat-fade">
         <div
           v-if="isWorkspaceDragging"
           class="drop-overlay"
@@ -800,8 +800,10 @@ onUnmounted(() => {
    have to manage: a CSS animation starts when an element begins matching, so this fires on the
    disabled→enabled edge and on nothing else. Element Plus puts the real `disabled` attribute on the
    `<button>` for both `:disabled` and `:loading`, which covers the second case that matters — the
-   button becoming usable again when a batch ends. It cannot fire on mount, because the card it lives
-   in only exists once files are staged and no target is chosen by then.
+   button becoming usable again once a batch ends, or once `undo` puts its target back. What it never
+   does is play over a button that cannot be pressed, because the card it lives in only exists once
+   files are staged. Where that card mounts with a target already chosen — the previous batch kept
+   one — the ring plays at mount instead of on an edge, which is the same announcement either way.
    No `all`, and no transform: the flat-design rule for `.el-button` is colour shift only, and a
    lifting or shrinking primary button would contradict the note above that rule in global.css. */
 @keyframes fat-ready {
@@ -993,16 +995,6 @@ onUnmounted(() => {
   font-size: 18px;
   font-weight: 600;
   animation: fat-place var(--fat-duration-slow) var(--fat-ease-enter);
-}
-
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity var(--fat-duration-fast) var(--fat-ease-standard);
-}
-
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
 }
 
 @media (width <= 640px) {

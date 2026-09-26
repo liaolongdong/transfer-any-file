@@ -661,6 +661,13 @@ defineExpose({
   margin-top: var(--fat-space-sm);
 }
 
+/* Deliberately `hidden`, which outranks the `clip` that `.fat-expand > *` asks for (a scoped class
+   beats that selector) and so leaves `overflow-clip-margin` inert on this one box. It has to stay
+   `hidden` because the rows are full-bleed inside a rounded border — `clip` plus a clip margin would
+   let them paint over the corner. Nothing is lost to the focus ring either: the header pads its
+   content by `--fat-space-xs` and the rows by `--fat-space-sm`, both at least the ring's own extent
+   (`--fat-focus-ring-inset`, 4px = 2px outline + 2px offset), so a ring reaches the padding box —
+   which is the clip edge — and no farther. */
 .file-list {
   border: 1px solid var(--fat-border);
   border-radius: var(--fat-radius-md);
