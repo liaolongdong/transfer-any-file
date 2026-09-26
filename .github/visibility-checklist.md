@@ -27,27 +27,36 @@
 
 ## 2. 验证：本机已经全部跑过
 
-| 命令                                                         | 结论                                                                                                                                 |
-| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
-| `pnpm lint:all`                                              | 通过（本轮 5 个文件需要格式化，已 `prettier --write` 修掉：`repo-metadata.md`、`content.css`、`docs/blog/index.html`、两份生成脚本） |
-| `pnpm verify:meta`                                           | 通过，英文简介 127/132                                                                                                               |
-| `pnpm verify:listing`                                        | 通过，7 个粘贴字段在限内且与各事实源一致                                                                                             |
-| `pnpm verify:paths`                                          | 通过，48 条边 / 182 对                                                                                                               |
-| `pnpm pages:check`                                           | 通过，12 个文件等于数据源渲染结果（格式化生成脚本之后重跑仍等于原字节）                                                              |
-| `pnpm verify:numbers`                                        | 通过，23 项事实比对 **30 份**对外散文（这份清单也在其中，它引用的数字同样会老化）                                                    |
-| `pnpm verify:offline:source` / `pnpm verify:offline`         | 两层都通过，产物 manifest 权限恰为 `["storage"]`，无 host / optional                                                                 |
-| `pnpm verify:remote-code:source` / `pnpm verify:remote-code` | 两层都通过（源码 77 个文件、产物 45 个文件）                                                                                         |
-| `pnpm build`                                                 | 通过，8.1 s，整包 3.76 MB；`.output/chrome-mv3` 内**没有** `docs/`、`CHROMEWEBSTORE.md` 等文档产物                                   |
+下表是 2026-09-26 这一轮（存量代码深度评审 + 安全评审）收口时的实测；上面第 1 节那份清单属于同一分支上
+更早的站点生成层那一轮，记录照旧成立，只是数字要以这里为准。
 
-**没跑的一项**：`pnpm test:e2e`。理由是本轮只动文档、生成脚本与工作流，未触碰运行时、manifest 与依赖。
-如果要在合并前跑满（约 20 分钟，且本机需要手动装过 ffmpeg 与 chromium 二进制）：
+| 命令                                                         | 结论                                                                                                                                                                                                 |
+| ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm lint:all`                                              | 通过（typecheck / eslint / stylelint / format:check 四道；本轮 4 个文件经 `prettier --write` 校正后转绿，改动只是换行与强调号写法）。收口时又跑一遍，仍四道全绿                                      |
+| `pnpm verify:meta`                                           | 通过，英文简介 127/132                                                                                                                                                                               |
+| `pnpm verify:listing`                                        | 通过，7 个粘贴字段在限内且与各事实源一致                                                                                                                                                             |
+| `pnpm verify:paths`                                          | 通过，48 条边 / 182 对                                                                                                                                                                               |
+| `pnpm pages:check`                                           | 通过，12 个文件等于数据源渲染结果（改过 `STATIC_PAGES` 的 `lastmod` 之后重渲染，仍等于提交字节）。同一轮新加的 `validateStaticDates()` 第一次运行就把 `docs/privacy.html` 页脚那两行落后的日期报了红 |
+| `pnpm verify:numbers`                                        | 通过，23 项事实比对 **31 份**对外散文（`docs/privacy.html` 本轮起入列；这份清单也在其中，它引用的数字同样会老化）                                                                                    |
+| `pnpm verify:offline:source` / `pnpm verify:offline`         | 两层都通过，扫描 **87** 个第一方文件（本轮把 `.js` / `.mjs` 与入口 HTML 纳入，目录缺失改为直接失败）；产物 manifest 权限恰为 `["storage"]`，无 host / optional                                       |
+| `pnpm verify:remote-code:source` / `pnpm verify:remote-code` | 两层都通过，产物 **46** 个文件；本轮给这条守卫补了两条形状——拼出来的远程 `import()` 与远程 `Worker`                                                                                                  |
+| `pnpm build`                                                 | 通过，5.4 s，整包 **3,784,824 B**（68 个文件，`Σ` 打印 3.78 MB；首屏 JS 440,057 B / 21 个 chunk）；`.output/chrome-mv3` 内**没有** `docs/`、`CHROMEWEBSTORE.md` 等文档产物                           |
+| `pnpm test:e2e`                                              | 通过，**317/317**（100%），约 10 分钟（21:27:07 首张截图 → 21:37:11 末张），87 张截图落 `.test-screenshots/`                                                                                         |
+
+**这一轮把 e2e 跑满了**，因为改动落在运行时与净化链上（子资源剥离、五个转换器、`utils/core` 新增一个模块），
+不是只动文档。断言总数 317 一格没增也没减：两处新夹具向量跑在已有的那条「零子资源请求」哨兵断言里面，
+后半程那条 `HTML→TXT` 的有序列表编号检查也折进已有的一条断言，而不是新开一条。
+以后再补跑的成本（本机需要手动装过 ffmpeg 与 chromium 二进制）：
 
 ```bash
-pnpm test:e2e        # = pnpm build + node scripts/e2e-test.mjs，断言基线 283 条
+pnpm test:e2e        # = pnpm build + node scripts/e2e-test.mjs，断言基线 317 条
 ```
 
-**待裁决的那个包没被动过**（已核 sha）：`.output/transfer-any-file-1.0.0-chrome.zip`，sha256 `dd8688b2…c0b0b3`，
-1,146,878 B。`pnpm build` 只重写 `.output/chrome-mv3/`，不生成 zip；zip 只在 `pnpm package` 时才换，所以第 8 节那条禁令是有效的。
+**包这一层本轮没有动**（未跑 `pnpm package`）：`.output/transfer-any-file-1.0.0-chrome.zip` 仍是
+2026-09-23 00:39 那一次构建的产物，1,146,773 B，sha256 `db83fe65…12f05`。而被当成「只改了一个变量」样本
+记下来的那一份是 `dd8688b2…c0b0b3` / 1,146,878 B——它既不在这个路径上，`/tmp` 里的备份也不在了。换掉它的
+是谁、哪一次操作，仓库里查不到；下一次提交商店之前，需要所有者先在后台核实手上那份对应的是哪个包
+（第 8 节那条「不许重打包」的禁令就是为了这个样本）。
 
 ## 3. 收下改动：建议分两个提交
 
