@@ -217,7 +217,7 @@
             "alternateName": ["Transfer Any File — Offline File Format Converter", "文件格式任意转换助手"],
             "softwareVersion": "1.0.0",
             "datePublished": "2026-09-07",
-            "dateModified": "2026-09-26",
+            "dateModified": "2026-09-28",
             "applicationCategory": "UtilitiesApplication",
             "applicationSubCategory": "File Format Converter",
             "keywords": "offline file format converter, file converter chrome extension, markdown to pdf, word to pdf, csv to excel, json to csv, png to webp, svg to png, html to docx, batch file conversion, convert files without uploading, local-first, privacy",
@@ -744,6 +744,12 @@
         --radius: 16px;
         --radius-sm: 10px;
         --container: 1180px;
+        /* Where content stops under the sticky nav. One value, two consumers: the `scroll-padding-top`
+           that every fragment jump on this page lands against, and the offset the FAQ rail sticks at.
+           They are the same question — how far below the top edge does something need to be to read as
+           "here, not hidden" — so they get one answer, and the nav's 62px height clears it with room left
+           over at every breakpoint down to the 39px mobile bar. */
+        --sticky-inset: 76px;
         --shadow-sm: 0 1px 2px rgb(16 24 40 / 6%);
         --shadow-md: 0 4px 24px -12px rgb(16 24 40 / 18%);
         --shadow-lg: 0 30px 60px -30px rgb(16 24 40 / 35%);
@@ -766,7 +772,7 @@
 
       html {
         scroll-behavior: smooth;
-        scroll-padding-top: 76px;
+        scroll-padding-top: var(--sticky-inset);
         -webkit-text-size-adjust: 100%;
       }
 
@@ -1064,22 +1070,10 @@
         font-size: 14px;
       }
 
-      .btn-dark {
-        background: var(--ink);
-        color: #fff;
-      }
-
-      .btn-dark:hover {
-        background: #1d2939;
-      }
-
-      .nav .btn {
-        padding: 9px 15px;
-        font-size: 14px;
-      }
-
       /* Reading progress: JS writes --scroll-p on the sticky bar, so the rule needs no extra node
-         and the bar stays glued to the nav's bottom edge at every breakpoint. */
+         and the bar stays glued to the nav's bottom edge at every breakpoint. This is the page's only
+         reading-progress line on purpose — a second one pinned to the viewport top used to run 2px
+         above it, and the pair read as a rendering glitch rather than as one measure taken twice. */
       .nav::after {
         position: absolute;
         right: 0;
@@ -1433,6 +1427,7 @@
       }
 
       .card .icon {
+        position: relative;
         display: grid;
         place-items: center;
         width: 42px;
@@ -1442,6 +1437,23 @@
         border: 1px solid var(--brand-line);
         border-radius: 11px;
         color: var(--brand-dark);
+      }
+
+      /* The ripple: one hairline in the colour the chip already carries, drawn on the icon's own box
+         and released by the hover that lifts the card. `currentcolor` is what keeps this a single rule
+         across the four chip variants below — brand, teal, violet and amber each ripple in their own
+         accent without a per-variant copy. It sits at `inset: -1px` so it starts exactly on the chip's
+         border rather than a pixel inside it, and it inherits the chip's transform, so the ring travels
+         with the tilt instead of detaching from it. Opacity is 0 at rest and the animation is finite,
+         so the blanket reduced-motion rule parks it out of the way with no rule of its own. */
+      .card .icon::after {
+        position: absolute;
+        inset: -1px;
+        border: 1px solid currentcolor;
+        border-radius: inherit;
+        content: '';
+        opacity: 0;
+        pointer-events: none;
       }
 
       .card .icon.teal {
@@ -1537,14 +1549,21 @@
         flex: 1;
       }
 
-      .sibling-card .sib-ico {
-        width: 20px;
-        height: 20px;
-        fill: none;
-        stroke: currentColor;
-        stroke-width: 2;
-        stroke-linecap: round;
-        stroke-linejoin: round;
+      /* Each card carries that extension's own toolbar icon rather than a generic glyph: a reader who has
+         seen it in a browser already has the shape to match against. The file is verbatim the sibling
+         repository's `public/icon/128.png`, so it is the same bitmap the browser itself draws in the
+         toolbar, downscaled here to the chip's 40px content box. The chip's tint and border step aside
+         because the artwork brings its own background and its own corner radius; `color` stays, so the
+         hover ripple around the icon still takes the card's accent. Two files, 1,654 B and 1,454 B —
+         copied rather than re-rendered, because a second asset pipeline would cost more than it saves. */
+      .sibling-card .icon.sib-brand {
+        background: none;
+        border-color: transparent;
+      }
+
+      .sibling-card .icon.sib-brand img {
+        width: 100%;
+        height: 100%;
       }
 
       .sibling-link {
@@ -2252,7 +2271,32 @@
       }
 
       /* ============ FAQ ============ */
+      /* Twenty-two questions in one column is a long scroll with no structure a reader can hold on to
+         beyond four small headings, so at wide widths the column gives up its right 320px to a rail that
+         carries both: 「分类直达」 answers "where am I in this", 「没找到答案？」 answers the one thing the
+         list cannot. The rail is sticky so it stays reachable while that column scrolls.
+         Below 1080px it stops being a side rail and becomes what its DOM order already says it is — a
+         table of contents above the questions — so tab order and reading order stay the same order. Its
+         rows are ordinary fragment links, so the headroom they need under the sticky nav is the
+         `scroll-padding-top` on `html` that every other anchor on this page already relies on; a
+         `scroll-margin` of their own would have stacked a second answer to the same question and landed
+         the heading 160px down instead of 76px. */
+      .faq-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 320px;
+        gap: 34px 40px;
+        align-items: start;
+      }
+
+      /* The head spans both columns and hands its own 34px bottom margin to the grid gap, so the
+         questions start exactly where they did before the rail existed. */
+      .faq-grid > .section-head {
+        grid-column: 1 / -1;
+        margin-bottom: 0;
+      }
+
       .faq-list {
+        grid-area: 2 / 1;
         display: grid;
         gap: 10px;
       }
@@ -2316,6 +2360,91 @@
 
       .faq-cat:first-child {
         margin-top: 0;
+      }
+
+      /* Sticks at the same inset a jumped-to heading lands against, so the rail and the answers it indexes
+         stop at one line rather than two. */
+      .faq-rail {
+        position: sticky;
+        top: var(--sticky-inset);
+        display: grid;
+        grid-area: 2 / 2;
+        gap: 14px;
+        align-content: start;
+      }
+
+      .faq-rail-card {
+        padding: 16px 18px;
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow-sm);
+      }
+
+      /* Only one of the two rail cards asks for a response, so only it is tinted. The tint is
+         `--brand-soft`, the page's single brand-wash token — the icon chips and the nav's
+         "you are here" state already sit on it — so marking this card adds no colour to the palette.
+         It drops the shadow rather than keeping it: on a tinted background the shadow only reads as dirt. */
+      .faq-rail-card--key {
+        background: var(--brand-soft);
+        border-color: var(--brand-line);
+        box-shadow: none;
+      }
+
+      /* `h3` rather than `h4`: the rail sits inside the FAQ section, whose own headings are `h3`, and a
+         level skip out of an `h2` is the one thing a heading outline cannot forgive. */
+      .faq-rail-card h3 {
+        margin: 0 0 8px;
+        color: var(--ink-faint);
+        font-size: 13.5px;
+        font-weight: 700;
+      }
+
+      .faq-rail-card p {
+        margin: 0;
+        color: var(--ink-soft);
+        font-size: 13.5px;
+        line-height: 1.7;
+      }
+
+      .faq-rail-card p + p {
+        margin-top: 8px;
+      }
+
+      /* One row per category, the count pushed to the far edge in tabular figures so the four digits
+         line up. The negative margin widens the hit area past the text without moving the text itself. */
+      .faq-toc {
+        display: grid;
+        gap: 1px;
+        padding: 0;
+        margin: 0;
+        list-style: none;
+      }
+
+      .faq-toc a {
+        display: flex;
+        gap: 10px;
+        align-items: baseline;
+        justify-content: space-between;
+        padding: 5px 8px;
+        margin: 0 -8px;
+        color: var(--ink-soft);
+        font-size: 14px;
+        border-radius: 8px;
+        transition:
+          color var(--dur-fast) ease,
+          background-color var(--dur-fast) ease;
+      }
+
+      .faq-toc a:hover {
+        color: var(--brand-dark);
+        background: var(--brand-soft);
+      }
+
+      .faq-toc-n {
+        color: var(--ink-faint);
+        font-size: 12.5px;
+        font-variant-numeric: tabular-nums;
       }
 
       /* ============ Footer ============ */
@@ -2724,11 +2853,12 @@
         animation: found 1.2s var(--ease-out);
       }
 
-      /* ---- Playful layer: three ambient loops and one hover detail ---- */
+      /* ---- Playful layer: four ambient loops and one hover detail ---- */
 
       /* The badges beside the hero screenshot float as if pinned over it: a slow ±5px bob,
-         out of phase between the two, and nothing else on the page loops. translate-only,
-         so it costs no layout and reads as life rather than as movement. */
+         out of phase between the two. translate-only, so it costs no layout and reads as life
+         rather than as movement. These four loops — bob, wire, caret, dot-pulse — are the whole
+         set, and every one of them is named in the reduced-motion block below. */
       @keyframes bob {
         from {
           transform: translateY(-5px);
@@ -2803,6 +2933,24 @@
         animation: caret 1.1s steps(1) infinite;
       }
 
+      /* The badge in front of 「开源 MIT · Manifest V3 · 零网络请求」 is the page's own status light, and a
+         status light that never moves reads as decoration rather than as a claim. Only the 50% keyframe
+         is written: the ring is `box-shadow`, so it scales with the dot and the whole thing breathes
+         outward once per cycle. 2.4s is slower than a resting heartbeat on purpose — anything quicker
+         starts competing with the headline for attention. Unlike the three loops above, this one is not
+         `.js`-gated: it decorates markup that is already there, so a reader without scripts gets the
+         same status light as a reader with them. */
+      @keyframes dot-pulse {
+        50% {
+          opacity: 0.55;
+          transform: scale(1.4);
+        }
+      }
+
+      .eyebrow .dot {
+        animation: dot-pulse 2.4s ease-in-out infinite;
+      }
+
       @keyframes brand-spin {
         to {
           transform: rotate(1turn);
@@ -2813,6 +2961,20 @@
         animation: brand-spin 0.7s var(--ease-out);
       }
 
+      /* Expands out of the chip and thins to nothing — the shape of a ripple on water, which is why it
+         ends at full scale rather than settling: a ring that stops is a box that appeared. */
+      @keyframes icon-halo {
+        from {
+          opacity: 0.5;
+          transform: scale(1);
+        }
+
+        to {
+          opacity: 0;
+          transform: scale(1.28);
+        }
+      }
+
       @media (hover: hover) and (pointer: fine) {
         .card .icon {
           transition: transform var(--dur-mid) var(--ease-out);
@@ -2820,6 +2982,18 @@
 
         .card:hover .icon {
           transform: rotate(-6deg) scale(1.06);
+        }
+
+        /* Hover-only on purpose: the ring is a response to a pointer that has arrived, and on touch the
+           first tap would fire it a frame before the card scrolls into place, which reads as the icon
+           flickering rather than greeting. The curve is written out rather than taken from `--ease-out`,
+           which the icon's own lift two rules above runs on. Both ease out, but not by the same margin: a
+           fifth of the way through, this one has covered 75% of its expansion where that token is at 50%.
+           So the ring is open almost at once and spends the rest of its life fading rather than still
+           travelling, which is what makes it read as released rather than as grown. 0.62s is long enough
+           to be seen travelling and short enough that it never outstays the hover it belongs to. */
+        .card:hover .icon::after {
+          animation: icon-halo 0.62s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
         /* The one surface on this page the pointer lights rather than pulls. `--mx` and `--my` are written
@@ -2890,39 +3064,6 @@
         animation: shine 1.2s ease-in-out 0.25s forwards;
       }
 
-      /* How far into a page this long you have read is a question the scroll bar answers in browser-chrome
-         terms. A hairline across the top answers it in the page's own colours, and it is driven by the
-         scroll offset rather than by a timer, so it can never run ahead of the reader and needs no script —
-         the same rail the conversion pages carry, so the two pages are one system. Below the lightbox in
-         the stacking order on purpose: a reading position is not something you need while a screenshot is
-         filling the screen. */
-      @supports (animation-timeline: scroll()) {
-        body::after {
-          content: '';
-          position: fixed;
-          top: 0;
-          right: 0;
-          left: 0;
-          z-index: 60;
-          height: 2px;
-          background: linear-gradient(90deg, var(--brand-line), var(--brand));
-          transform: scaleX(0);
-          transform-origin: 0 50%;
-          pointer-events: none;
-          animation-name: read-progress;
-          animation-duration: auto;
-          animation-timing-function: linear;
-          animation-fill-mode: both;
-          animation-timeline: scroll(root block);
-        }
-
-        @keyframes read-progress {
-          to {
-            transform: scaleX(1);
-          }
-        }
-      }
-
       @media (prefers-reduced-motion: reduce) {
         html {
           scroll-behavior: auto;
@@ -2954,21 +3095,17 @@
           transform: none;
         }
 
-        /* The three perpetual loops go further than the cap above, which would already leave each of
+        /* The four perpetual loops go further than the cap above, which would already leave each of
            them still: one 0.01ms pass is technically stillness, but the badge would spend that pass
            travelling and the caret would spend it blinking once. Switching them off by name means the
            element simply shows the state its own rule describes — the badge un-bobbed, the wire in its
-           settled colour, the caret visible and not blinking. */
+           settled colour, the caret visible and not blinking, the status dot at full weight. Unlike the
+           three `.js` ones, the dot's animation is plain CSS, so its selector carries no `.js` prefix. */
         .js .float-badge,
         .js .flow-node::before,
-        .js #installCode > code::after {
+        .js #installCode > code::after,
+        .eyebrow .dot {
           animation: none;
-        }
-
-        /* A progress-driven animation has no duration to collapse — its clock is the scroll offset — so
-           the reading rail is removed rather than shortened. */
-        body::after {
-          content: none;
         }
 
         /* `::details-content` is not covered by the blanket above (it is neither `*` nor one of the two
@@ -2986,9 +3123,11 @@
            background just above, and the card behind the icon still lights, because the glow animates
            `opacity` alone and the cap above makes that an instant change. It reads at `--mx/--my` defaults
            (the card's own centre) rather than under the cursor, since the script that writes those two is
-           gated on `!reduced` as well. The workbench settles the same question the same way, by collapsing
-           `--fat-swatch-scale` to 1, and these rules sit after both originals in document order — which is
-           what decides it now that no `!important` is involved. */
+           gated on `!reduced` as well. The third thing a hover does — the ripple released around the icon
+           — needs no rule here: it is finite and ends at `opacity: 0`, so the cap already leaves it at the
+           invisible resting state its own rule describes. The workbench settles the same question the same
+           way, by collapsing `--fat-swatch-scale` to 1, and these rules sit after both originals in
+           document order — which is what decides it now that no `!important` is involved. */
         .rail-top:hover svg,
         .rail-bottom:hover svg,
         .card:hover .icon {
@@ -2997,6 +3136,26 @@
       }
 
       /* ============ Responsive ============ */
+      /* The FAQ rail is the only pairing on this page that is not an auto-fitting card grid, so it is
+         the first to run out of room: below 1080px the question column falls under ~640px and the longer
+         English answers start to break mid-word. The rail gives up its column and its stickiness, and
+         `grid-area: auto` drops both blocks back into DOM order — head, rail, questions. */
+      @media (width <= 1080px) {
+        .faq-grid {
+          grid-template-columns: minmax(0, 1fr);
+        }
+
+        .faq-rail {
+          position: static;
+          grid-area: auto;
+          max-width: 420px;
+        }
+
+        .faq-list {
+          grid-area: auto;
+        }
+      }
+
       @media (width <= 1000px) {
         .hero-grid {
           grid-template-columns: minmax(0, 1fr);
@@ -3050,17 +3209,9 @@
           align-self: flex-start;
         }
 
-        .nav-links .btn {
-          margin-top: 8px;
-        }
-
         .menu-btn {
           display: grid;
           place-items: center;
-        }
-
-        .nav .gh {
-          display: none;
         }
 
         /* Touch targets: 38px arrows and a 9px dot are too small for a thumb, so the controls grow
@@ -3571,25 +3722,6 @@
             </button>
           </div>
         </nav>
-        <a
-          class="btn btn-dark gh"
-          href="https://github.com/liaolongdong/transfer-any-file"
-          rel="noopener"
-          target="_blank"
-        >
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="currentColor"
-            aria-hidden="true"
-          >
-            <path
-              d="M12 1.5a10.5 10.5 0 0 0-3.32 20.46c.53.1.72-.23.72-.5v-1.9c-2.92.63-3.54-1.24-3.54-1.24-.48-1.22-1.17-1.55-1.17-1.55-.96-.65.07-.64.07-.64 1.06.08 1.62 1.09 1.62 1.09.94 1.61 2.47 1.15 3.07.88.1-.68.37-1.15.67-1.42-2.34-.27-4.8-1.17-4.8-5.2 0-1.15.41-2.09 1.08-2.83-.11-.27-.47-1.34.1-2.8 0 0 .88-.28 2.88 1.08a10 10 0 0 1 5.24 0c2-1.36 2.88-1.08 2.88-1.08.57 1.46.21 2.53.1 2.8.67.74 1.08 1.68 1.08 2.83 0 4.04-2.47 4.93-4.82 5.19.38.33.72.98.72 1.98v2.94c0 .28.19.61.73.5A10.5 10.5 0 0 0 12 1.5Z"
-            />
-          </svg>
-          GitHub
-        </a>
       </div>
     </header>
 
@@ -6317,7 +6449,7 @@ pnpm build</code><button
         id="faq"
         class="alt"
       >
-        <div class="wrap">
+        <div class="wrap faq-grid">
           <div class="section-head">
             <span class="eyebrow-sm">
               <svg
@@ -6343,8 +6475,71 @@ pnpm build</code><button
               >
             </p>
           </div>
+          <aside
+            class="faq-rail"
+            aria-label="FAQ shortcuts"
+          >
+            <nav
+              class="faq-rail-card"
+              aria-labelledby="faq-toc-title"
+            >
+              <h3 id="faq-toc-title"><span lang="zh-CN">分类直达</span><span lang="en">Jump to a category</span></h3>
+              <ol class="faq-toc">
+                <li>
+                  <a href="#faq-security"
+                    ><span lang="zh-CN">安全与隐私</span><span lang="en">Security &amp; privacy</span
+                    ><span class="faq-toc-n">3</span></a
+                  >
+                </li>
+                <li>
+                  <a href="#faq-formats"
+                    ><span lang="zh-CN">格式与能力</span><span lang="en">Formats &amp; capability</span
+                    ><span class="faq-toc-n">9</span></a
+                  >
+                </li>
+                <li>
+                  <a href="#faq-usage"
+                    ><span lang="zh-CN">使用与限制</span><span lang="en">Usage &amp; limits</span
+                    ><span class="faq-toc-n">5</span></a
+                  >
+                </li>
+                <li>
+                  <a href="#faq-install"
+                    ><span lang="zh-CN">安装与兼容</span><span lang="en">Install &amp; compatibility</span
+                    ><span class="faq-toc-n">5</span></a
+                  >
+                </li>
+              </ol>
+            </nav>
+            <div class="faq-rail-card faq-rail-card--key">
+              <h3><span lang="zh-CN">没找到答案？</span><span lang="en">Not answered here?</span></h3>
+              <p>
+                <span lang="zh-CN"
+                  >还卡着就直接问：<a href="#contact">联系区</a
+                  >（微信、邮箱、Issue）都通到同一个人，安全漏洞请走私密渠道。</span
+                >
+                <span lang="en"
+                  >If it still blocks you, ask directly — every channel in the
+                  <a href="#contact">contact block</a> reaches the same person, and security reports go through a
+                  private channel.</span
+                >
+              </p>
+              <p>
+                <span lang="zh-CN">说清源格式、目标格式与浏览器版本，通常一轮就能定位到是哪一步。</span>
+                <span lang="en"
+                  >Name the source format, the target and your browser version — one round usually pinpoints the step
+                  that broke.</span
+                >
+              </p>
+            </div>
+          </aside>
           <div class="faq-list">
-            <h3 class="faq-cat"><span lang="zh-CN">安全与隐私</span><span lang="en">Security &amp; privacy</span></h3>
+            <h3
+              id="faq-security"
+              class="faq-cat"
+            >
+              <span lang="zh-CN">安全与隐私</span><span lang="en">Security &amp; privacy</span>
+            </h3>
             <details class="faq-item">
               <summary>
                 <span lang="zh-CN">文件格式任意转换助手会把我的文件上传到服务器吗？</span>
@@ -6452,7 +6647,12 @@ pnpm build</code><button
                 >
               </div>
             </details>
-            <h3 class="faq-cat"><span lang="zh-CN">格式与能力</span><span lang="en">Formats &amp; capability</span></h3>
+            <h3
+              id="faq-formats"
+              class="faq-cat"
+            >
+              <span lang="zh-CN">格式与能力</span><span lang="en">Formats &amp; capability</span>
+            </h3>
             <details class="faq-item">
               <summary>
                 <span lang="zh-CN">它能转换哪些文件格式？</span>
@@ -6766,7 +6966,12 @@ pnpm build</code><button
                 >
               </div>
             </details>
-            <h3 class="faq-cat"><span lang="zh-CN">使用与限制</span><span lang="en">Usage &amp; limits</span></h3>
+            <h3
+              id="faq-usage"
+              class="faq-cat"
+            >
+              <span lang="zh-CN">使用与限制</span><span lang="en">Usage &amp; limits</span>
+            </h3>
             <details class="faq-item">
               <summary>
                 <span lang="zh-CN">单文件与批次的大小上限是多少？</span>
@@ -6931,7 +7136,10 @@ pnpm build</code><button
                 >
               </div>
             </details>
-            <h3 class="faq-cat">
+            <h3
+              id="faq-install"
+              class="faq-cat"
+            >
               <span lang="zh-CN">安装与兼容</span><span lang="en">Install &amp; compatibility</span>
             </h3>
             <details class="faq-item">
@@ -7194,7 +7402,7 @@ pnpm build</code><button
           </div>
           <p class="updated">
             <span lang="zh-CN"
-              ><strong>版本 1.0.0 · 本页最后更新 2026-09-26。</strong>文中全部数字从代码取证：14 种格式来自
+              ><strong>版本 1.0.0 · 本页最后更新 2026-09-28。</strong>文中全部数字从代码取证：14 种格式来自
               <code>FileFormat</code> 枚举，48 条路径与 143 个可达组合来自转换器注册表的邻接图，116 个可选组合是 143
               减去 <code>utils/core/conversion-policy.ts</code> 置灰的 27 个，3.78 MB 来自
               <code>pnpm build</code> 输出，权限与上限来自 manifest 与源码常量。截图与推广图由
@@ -7202,7 +7410,7 @@ pnpm build</code><button
               <code>pnpm pages:render</code> 生成，这一批共 11 个页面，与 <code>docs/sitemap.xml</code> 同步。</span
             >
             <span lang="en"
-              ><strong>Version 1.0.0 · page last updated 2026-09-26.</strong> Every number on this page is taken from
+              ><strong>Version 1.0.0 · page last updated 2026-09-28.</strong> Every number on this page is taken from
               the code: 14 formats from the <code>FileFormat</code> enum, 48 routes and 143 reachable combinations from
               the converter registry's adjacency graph, and 116 selectable combinations — that is 143 minus the 27 pairs
               <code>utils/core/conversion-policy.ts</code> greys out. 3.78 MB comes from <code>pnpm build</code> output,
@@ -7242,13 +7450,14 @@ pnpm build</code><button
 
           <div class="grid grid-2">
             <div class="card sibling-card reveal">
-              <div class="icon violet">
-                <svg
-                  class="sib-ico"
-                  aria-hidden="true"
-                >
-                  <use href="#i-lock" />
-                </svg>
+              <div class="icon violet sib-brand">
+                <img
+                  src="assets/siblings/account-password-helper.png"
+                  alt=""
+                  width="42"
+                  height="42"
+                  loading="lazy"
+                />
               </div>
               <h3>
                 <a
@@ -7297,13 +7506,14 @@ pnpm build</code><button
               </p>
             </div>
             <div class="card sibling-card reveal">
-              <div class="icon teal">
-                <svg
-                  class="sib-ico"
-                  aria-hidden="true"
-                >
-                  <use href="#i-repeat" />
-                </svg>
+              <div class="icon teal sib-brand">
+                <img
+                  src="assets/siblings/cross-origin-proxy.png"
+                  alt=""
+                  width="42"
+                  height="42"
+                  loading="lazy"
+                />
               </div>
               <h3>
                 <a
@@ -7516,7 +7726,7 @@ pnpm build</code><button
               </a>
             </span>
             <span>
-              <span lang="zh-CN">最后更新 2026-09-26 · </span><span lang="en">Last updated 2026-09-26 · </span
+              <span lang="zh-CN">最后更新 2026-09-28 · </span><span lang="en">Last updated 2026-09-28 · </span
               ><a
                 href="https://github.com/liaolongdong/transfer-any-file/blob/main/CHANGELOG.md"
                 rel="noopener"
