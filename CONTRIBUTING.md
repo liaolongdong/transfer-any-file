@@ -52,7 +52,7 @@ node scripts/render-icons.mjs   # 从 assets/*.svg 重新渲染两档图标
 node scripts/verify-extension.mjs   # 校验构建产物内容
 pnpm release:plan     # 只看计划：下一个版本号、双语 changelog 区块、哪些提交被当作噪声略过（不写盘）
 pnpm release:cut      # 本机落地：改那三份文件 + 本地提交 + 本地轻量标签（不推送）
-git tag vX.Y.Z && git push --tags   # 推送标签即触发 release.yml：产出商店包、校验包内容、创建 GitHub Release
+git tag vX.Y.Z && git push origin vX.Y.Z   # 推送标签即触发 release.yml：产出商店包、校验包内容、创建 GitHub Release；只推这一个，--tags 会把本地遗留标签一并发布
 ```
 
 演示 GIF 与截图一样从真实构建产物录制（`docs/assets/demo/demo-<locale>.gif`，中/英各一条，用 `DEMO_LOCALES="zh en"` 控制），界面交互变更后若不重录，README 会与实际控制台漂移。

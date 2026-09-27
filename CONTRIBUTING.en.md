@@ -52,7 +52,7 @@ node scripts/render-icons.mjs   # re-render both icon tiers from assets/*.svg
 node scripts/verify-extension.mjs   # check the built package contents
 pnpm release:plan     # plan only: next version, both changelog entries, which commits count as noise (writes nothing)
 pnpm release:cut      # cut locally: edit those three files + the release commit + the lightweight tag (no push)
-git tag vX.Y.Z && git push --tags   # pushing the tag starts release.yml: build the store zip, verify it, open the GitHub Release
+git tag vX.Y.Z && git push origin vX.Y.Z   # pushing the tag starts release.yml: build the store zip, verify it, open the GitHub Release; push just this one — --tags would publish any leftover local tags
 ```
 
 Like the screenshots, the demo GIF is recorded from the real build output (`docs/assets/demo/demo-<locale>.gif`, one per language, chosen with `DEMO_LOCALES="zh en"`); if the UI changes and the GIF is not re-recorded, the README drifts from the actual workbench.

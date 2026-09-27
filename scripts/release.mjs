@@ -36,7 +36,7 @@
  *     node scripts/release.mjs --write                apply the changelog pair + package.json
  *     node scripts/release.mjs --write --commit --tag  ... plus the release commit and the `vX.Y.Z` tag
  *
- * The tag stays lightweight: `CONTRIBUTING.md` documents `git tag vX.Y.Z && git push --tags`, and
+ * The tag stays lightweight: `CONTRIBUTING.md` documents `git tag vX.Y.Z && git push origin vX.Y.Z`, and
  * `release.yml` reads the version out of the ref name alone.
  *
  * A dirty working tree is reported in every mode (the changelog pair and the stale-version scan read the
