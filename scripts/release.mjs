@@ -39,6 +39,10 @@
  * The tag stays lightweight: `CONTRIBUTING.md` documents `git tag vX.Y.Z && git push --tags`, and
  * `release.yml` reads the version out of the ref name alone.
  *
+ * A dirty working tree is reported in every mode (the changelog pair and the stale-version scan read the
+ * worktree, so the plan can differ from what CI computes on a clean checkout) and refused only when
+ * `--write` is involved. See `reportTreeState`.
+ *
  * Flags: `--bump major|minor|patch`, `--version X.Y.Z`, `--from <rev>`, `--as-of YYYY-MM-DD`,
  * `--with-commit-list`, `--require-en`, `--allow-dirty`, `--json <path>`.
  */
@@ -173,15 +177,47 @@ process.stdout.on('error', error => {
   throw error;
 });
 
-/** Refuse to build a release on top of somebody's unfinished work — the tree is shared. */
-function assertCleanTree() {
+/**
+ * Say what the working tree costs this run, and refuse only where it would end up in a commit.
+ *
+ * The plan is not computed purely from history: the `## [未发布]` bodies, `package.json#version` and the
+ * `git grep` behind `staleVersionMentions` are all read from the worktree. On a dirty tree the number
+ * printed here can therefore differ from what the CI job (a clean checkout) would produce — so a dirty
+ * tree is worth *saying*, always. It is only worth *failing* for `--write`, where a release commit stages
+ * three named paths and any other tracked change is somebody else's unfinished work that would ride along
+ * on the next `--commit`.
+ *
+ * Refusing in read-only plan mode was the first version, and it is wrong in both directions: it blocks the
+ * advertised `pnpm release:plan` for anyone with a work-in-progress edit checked out (which is the normal
+ * state of a development machine), while the actual hazard it was guarding — an unrelated file inside a
+ * release commit — cannot happen without `--write`.
+ */
+function reportTreeState() {
   // Untracked files are deliberately not part of this check: a release commit stages three named paths,
   // so a new file nobody has added yet cannot ride along. Modified or deleted tracked files can, and do.
   const dirty = git(['status', '--porcelain', '--untracked-files=no']);
-  if (dirty && !OPTS.allowDirty) {
-    const count = dirty.split('\n').filter(Boolean).length;
-    fail(`工作树有 ${count} 处未提交的已跟踪改动。发布提交会把它们一起带走；先处理，或确认无误后加 --allow-dirty。`);
+  if (!dirty) return;
+  const count = dirty.split('\n').filter(Boolean).length;
+  const list = dirty
+    .split('\n')
+    .slice(0, 8)
+    .map(line => `    ${line}`)
+    .join('\n');
+  if (OPTS.write && !OPTS.allowDirty) {
+    fail(
+      `工作树有 ${count} 处未提交的已跟踪改动。发布提交会把它们一起带走；先处理，或确认无误后加 --allow-dirty：\n${list}`,
+    );
   }
+  if (OPTS.allowDirty) {
+    process.stderr.write(
+      `release: 已按 --allow-dirty 放行工作树的 ${count} 处改动，计划与落地都按这棵树算：\n${list}\n`,
+    );
+    return;
+  }
+  process.stderr.write(
+    `release: 提示 —— 工作树有 ${count} 处未提交的已跟踪改动，而「未发布」区块、package.json 与陈旧版本号检查读的都是工作树，` +
+      `所以这份计划可能与干净检出上的 CI 不同：\n${list}\n`,
+  );
 }
 
 /**
@@ -568,7 +604,7 @@ function assertPlan(plan) {
 }
 
 function main() {
-  assertCleanTree();
+  reportTreeState();
 
   const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
   const currentVersion = pkg.version;

@@ -138,10 +138,16 @@ jobs:
       - name: Open the release PR
         if: steps.plan.outputs.releasable == 'true' && steps.existing.outputs.reason == ''
         env:
-          # 有 PAT 就用 PAT 开 PR（这样 PR 才会触发 ci.yml 的状态检查），没有就退回 GITHUB_TOKEN。
+          # 有 PAT 就用 PAT 开 PR（这样 PR 才会触发 ci.yml 的状态检查），没有就退回工作流自带的令牌。
           # 选择在 bash 里做而不是 `${{ secrets.X || secrets.Y }}`：令牌来源只有一条路径，
           # 摘要里「这次用了谁的身份」也就由同一个判断写出来，不会出现两者不一致的第三种情况。
+          #
+          # 备用那个变量的名字**故意**不叫 `GITHUB_TOKEN`：run 步骤的环境里从来没有这个变量，
+          # 它只存在于 `secrets` 上下文，必须像这里一样显式映射进来。同名会让人以为不写 env 也能读到，
+          # 而 `${GITHUB_TOKEN:-}` 展开成空串之后 `gh` 只报「set the GH_TOKEN environment variable」，
+          # 错误信息离真正的原因有两个文件的距离。
           RELEASE_PAT: ${{ secrets.RELEASE_PAT }}
+          WORKFLOW_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ steps.plan.outputs.version }}
           TAG: ${{ steps.plan.outputs.tag }}
         run: |
@@ -150,7 +156,7 @@ jobs:
             export GH_TOKEN="$RELEASE_PAT"
             identity='RELEASE_PAT'
           else
-            export GH_TOKEN="${GITHUB_TOKEN:-}"
+            export GH_TOKEN="$WORKFLOW_TOKEN"
             identity='GITHUB_TOKEN'
           fi
           # 正文由 scripts/release-ci.mjs 渲染：这段 JS 一旦写进 `node -e '…'`，
@@ -230,17 +236,22 @@ jobs:
 
       # `GITHUB_TOKEN` 推的标签不触发工作流，所以只有拿到 PAT 时才真的推；否则把本机两条命令写进
       # 任务摘要。这不是「失败」——标签没推出去，发版就还没发生，而红着的工作流会让人以为已发布。
+      #
+      # 这一步故意**不**在 env 里映射 `GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}`。`gh` 读 GH_TOKEN 优先于
+      # GITHUB_TOKEN，所以只要那一行在，PAT 分支里的 `gh api` 用的仍是工作流自带的令牌：标签照建、
+      # 摘要照写「release.yml 随即开始」，而那条工作流永远不会被触发——正是本文件开头警告的静默半成品。
+      # 令牌只在真要调 API 的那个分支里 export，「用了谁的身份」就没有第二种来源。
       - name: Push the tag
         if: steps.exists.outputs.exists != 'true'
         env:
           RELEASE_PAT: ${{ secrets.RELEASE_PAT }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ steps.want.outputs.tag }}
           SHA: ${{ steps.want.outputs.sha }}
           REPOSITORY: ${{ github.repository }}
         run: |
           set -uo pipefail
           if [ -n "${RELEASE_PAT:-}" ]; then
+            export GH_TOKEN="$RELEASE_PAT"
             # 走 `gh api` 而不是改 remote URL：后者会把令牌写进命令行与 .git/config，
             # 而 run 步骤的命令行是会进日志的。
             if gh api --method POST "repos/$REPOSITORY/git/refs" -f "ref=refs/tags/$TAG" -f "sha=$SHA" >/dev/null; then
