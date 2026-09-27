@@ -38,7 +38,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       # 未发布的推广稿放在 docs/promo/（按 AGENTS.md，它们只留在仓库里，永不发布）；
       # docs/ 下其余的都是站点本身。内部运营文档（商店手册、上架 runbook）不属于站点，

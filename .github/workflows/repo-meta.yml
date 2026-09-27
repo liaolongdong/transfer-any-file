@@ -29,7 +29,7 @@ jobs:
     name: Apply description, website and topics
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # GitHub 每次写入都会整表替换 topics，所以一个格式错误或只有一半的文件必须在这里就停下，
       # 而不是静默删掉那些花力气攒起来的 topic。
