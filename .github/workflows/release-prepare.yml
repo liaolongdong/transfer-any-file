@@ -234,8 +234,9 @@ jobs:
             echo "标签 $TAG 已存在，什么都不做。" >> "$GITHUB_STEP_SUMMARY"
           fi
 
-      # `GITHUB_TOKEN` 推的标签不触发工作流，所以只有拿到 PAT 时才真的推；否则把本机两条命令写进
-      # 任务摘要。这不是「失败」——标签没推出去，发版就还没发生，而红着的工作流会让人以为已发布。
+      # `GITHUB_TOKEN` 推的标签不触发工作流，所以只有拿到 PAT 时才真的推；完全没配 PAT 时这一步只报
+      # warning，把本机补上的三行命令写进任务摘要——发版确实还没发生，但那是待办而不是故障，让它红起来会把
+      # 「链路坏了」和「还没配令牌」两件事混成一件。配了却被 GitHub 拒掉是另一种情形，那一步是红的。
       #
       # 这一步故意**不**在 env 里映射 `GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}`。`gh` 读 GH_TOKEN 优先于
       # GITHUB_TOKEN，所以只要那一行在，PAT 分支里的 `gh api` 用的仍是工作流自带的令牌：标签照建、
@@ -250,30 +251,37 @@ jobs:
           REPOSITORY: ${{ github.repository }}
         run: |
           set -uo pipefail
+          # 摘要里那段「本机补那三行命令」在两种情形里都要出现：没配 PAT 是一次跳过（warning 就过），
+          # 配了却被 GitHub 拒绝是一次失败（这一步是红的），而对用户来说未完成的动作是同一个。
+          manual_hint() {
+            {
+              echo "### 差一步：${TAG} 还没推"
+              echo
+              echo "GitHub 不允许 \`GITHUB_TOKEN\` 推的标签再去触发工作流，所以这一步只能由人、或由一个有仓库写入权限的令牌完成。"
+              echo
+              echo "\`\`\`bash"
+              echo "# 标签指向刚合并的那个提交"
+              echo "git fetch origin main"
+              echo "git tag ${TAG} ${SHA}"
+              echo "git push origin ${TAG}"
+              echo "\`\`\`"
+              echo
+              echo "或配置 \`RELEASE_PAT\`（Settings → Secrets and variables → Actions），之后重跑本工作流的 \`tag\` 模式；"
+              echo "权限怎么勾、失败怎么读，见 \`.github/RELEASE_AUTOMATION.md\`。"
+            } >> "$GITHUB_STEP_SUMMARY"
+          }
           if [ -n "${RELEASE_PAT:-}" ]; then
             export GH_TOKEN="$RELEASE_PAT"
             # 走 `gh api` 而不是改 remote URL：后者会把令牌写进命令行与 .git/config，
-            # 而 run 步骤的命令行是会进日志的。
+            # 而 run 步骤的命令行是会进日志的。GitHub 的拒绝原因本来就打在 stderr，
+            # 会进日志，所以这里只把成功的 stdout 丢掉，不在 shell 里翻译它的原话。
             if gh api --method POST "repos/$REPOSITORY/git/refs" -f "ref=refs/tags/$TAG" -f "sha=$SHA" >/dev/null; then
               echo "已创建标签 $TAG → ${SHA:0:7}，release.yml 随即开始。" >> "$GITHUB_STEP_SUMMARY"
               exit 0
             fi
-            echo "::error::用 RELEASE_PAT 创建标签失败。多半是该令牌没有 Actions: write 权限（创建 ref 需要它），详见 .github/RELEASE_AUTOMATION.md"
+            echo "::error::用 RELEASE_PAT 创建标签失败（GitHub 的原话见上方日志）。可能是令牌过期或被撤销、只对别的仓库生效，或缺少**仓库内容**写入权限——创建 ref 写的是仓库内容，不是 Actions。"
+            manual_hint
             exit 1
           fi
           echo "::warning title=标签未推送::仓库还没有配置 RELEASE_PAT，自动打标签这一步已跳过。"
-          {
-            echo "### 差一步：${TAG} 还没推"
-            echo
-            echo "GitHub 不允许 \`GITHUB_TOKEN\` 推的标签再去触发工作流，所以这一步只能由人或有权限的令牌完成。二选一："
-            echo
-            echo "\`\`\`bash"
-            echo "# A. 本机直接补（标签指向刚合并的那个提交）"
-            echo "git fetch origin main"
-            echo "git tag ${TAG} ${SHA}"
-            echo "git push origin ${TAG}"
-            echo "\`\`\`"
-            echo
-            echo "或配置 \`RELEASE_PAT\`（Settings → Secrets and variables → Actions），步骤见"
-            echo "\`.github/RELEASE_AUTOMATION.md\`，之后重跑本工作流的 \`tag\` 模式即可。"
-          } >> "$GITHUB_STEP_SUMMARY"
+          manual_hint
