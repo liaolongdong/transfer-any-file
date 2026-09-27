@@ -41,7 +41,7 @@
       })();
     </script>
     <title>
-      Transfer Any File｜离线文件格式转换扩展 · 14 种格式本地互转，零上传 | Offline File Format Converter for Chrome
+      文件格式任意转换助手｜离线文件格式转换扩展 · 14 种格式本地互转，零上传 | Offline File Format Converter for Chrome
     </title>
     <meta
       name="description"
@@ -104,7 +104,7 @@
     />
     <meta
       property="og:title"
-      content="Transfer Any File｜离线文件格式转换扩展（Chrome） | Transfer Any File — offline file format converter for Chrome"
+      content="文件格式任意转换助手｜离线文件格式转换扩展（Chrome） | Transfer Any File — offline file format converter for Chrome"
     />
     <meta
       property="og:description"
@@ -136,7 +136,7 @@
     />
     <meta
       name="twitter:title"
-      content="Transfer Any File｜离线文件格式转换扩展（Chrome） | Transfer Any File — offline file format converter for Chrome"
+      content="文件格式任意转换助手｜离线文件格式转换扩展（Chrome） | Transfer Any File — offline file format converter for Chrome"
     />
     <meta
       name="twitter:description"
@@ -160,10 +160,10 @@
          */
         var META = {
           'zh-CN': {
-            title: 'Transfer Any File｜离线文件格式转换扩展 · 14 种格式本地互转，零上传',
+            title: '文件格式任意转换助手｜离线文件格式转换扩展 · 14 种格式本地互转，零上传',
             description:
               '开源 Chrome 离线文件格式转换扩展——14 种文档、表格与图片格式在你自己的电脑本地互转。不上传、无账号、零网络请求。',
-            ogTitle: 'Transfer Any File｜离线文件格式转换扩展（Chrome）',
+            ogTitle: '文件格式任意转换助手｜离线文件格式转换扩展（Chrome）',
             ogDescription:
               '在浏览器本地完成 14 种格式互转：批量、多步链路、预览编辑与 ZIP 打包，不上传一个字节，只申请 storage 权限。',
             twitterDescription: '14 种格式、48 条直接路径、116 个可选组合、0 次网络请求，全部在你自己的浏览器里完成。',
@@ -214,7 +214,7 @@
             "@type": "SoftwareApplication",
             "@id": "https://liaolongdong.github.io/transfer-any-file/#app",
             "name": "Transfer Any File",
-            "alternateName": "Transfer Any File — Offline File Format Converter",
+            "alternateName": ["Transfer Any File — Offline File Format Converter", "文件格式任意转换助手"],
             "softwareVersion": "1.0.0",
             "datePublished": "2026-09-07",
             "dateModified": "2026-09-26",
@@ -297,7 +297,7 @@
               },
               {
                 "@type": "Question",
-                "name": "Transfer Any File 会把我的文件上传到服务器吗？",
+                "name": "文件格式任意转换助手会把我的文件上传到服务器吗？",
                 "acceptedAnswer": {
                   "@type": "Answer",
                   "text": "不会。所有转换器都是打包进扩展的 JavaScript，清单只声明 storage 权限且没有 host_permissions，entrypoints/、components/、composables/ 与 utils/ 下的第一方源码不存在 fetch、XMLHttpRequest、WebSocket、EventSource 或 sendBeacon 调用——CI 会在每次推送时重新校验这一断言。打包进来的第三方转换库保留了一些从不被调用的请求路径，但没有 host 权限时浏览器会直接拦下这些调用。没有可供上传的服务器，关闭网络也能正常使用。"
@@ -654,7 +654,7 @@
               },
               {
                 "@language": "zh-CN",
-                "@value": "从源码安装 Transfer Any File"
+                "@value": "从源码安装文件格式任意转换助手"
               }
             ],
             "description": [
@@ -3517,7 +3517,7 @@
             width="28"
             height="28"
           />
-          <span>Transfer Any File</span>
+          <span lang="zh-CN">文件格式任意转换助手</span><span lang="en">Transfer Any File</span>
         </a>
         <button
           class="menu-btn"
@@ -3617,7 +3617,7 @@
             </h1>
             <p class="lede">
               <span lang="zh-CN"
-                >Transfer Any File 是一款完全离线的 Chrome 扩展。Markdown、Word、PDF、Excel、CSV、JSON、HTML
+                >文件格式任意转换助手是一款完全离线的 Chrome 扩展。Markdown、Word、PDF、Excel、CSV、JSON、HTML
                 与图片在你自己的电脑上完成转换：批量混合格式、自动多步链路、预览与内联编辑、ZIP
                 打包。无账号、无上传、无网络请求。</span
               >
@@ -4023,7 +4023,7 @@
             <table class="matrix">
               <caption>
                 <span lang="zh-CN"
-                  >Transfer Any File 1.0.0 的实际转换能力（从 utils/converters/
+                  >文件格式任意转换助手 1.0.0 的实际转换能力（从 utils/converters/
                   注册表直接推导，非估计值）。三个格式列互不重叠，相加正好等于「可达」：「一步直达」是已注册转换器的目标，「经链路到达」只列链路可达且仍然可选的目标，「被置灰」列同样链路可达、但被语义策略禁用的组合（图片
                   → 文本 / 数据：没有文字层，除非接 OCR；PDF → 表格 / JSON：PDF
                   不携带表格结构）。被置灰的全部是多步链路目标，因为没有任何一条已注册的直连转换被策略禁用。去掉「被置灰」即为「可选」。</span
@@ -6017,7 +6017,8 @@ pnpm build</code><button
                     scope="col"
                     class="own"
                   >
-                    <span aria-hidden="true">⭐</span> Transfer Any File
+                    <span aria-hidden="true">⭐</span>
+                    <span lang="zh-CN">文件格式任意转换助手</span><span lang="en">Transfer Any File</span>
                   </th>
                   <th scope="col"><span lang="zh-CN">在线转换网站</span><span lang="en">Online converter</span></th>
                   <th scope="col"><span lang="zh-CN">命令行工具</span><span lang="en">CLI tool</span></th>
@@ -6346,7 +6347,7 @@ pnpm build</code><button
             <h3 class="faq-cat"><span lang="zh-CN">安全与隐私</span><span lang="en">Security &amp; privacy</span></h3>
             <details class="faq-item">
               <summary>
-                <span lang="zh-CN">Transfer Any File 会把我的文件上传到服务器吗？</span>
+                <span lang="zh-CN">文件格式任意转换助手会把我的文件上传到服务器吗？</span>
                 <span lang="en">Does Transfer Any File upload my files?</span>
                 <svg
                   class="chev"
@@ -7373,7 +7374,7 @@ pnpm build</code><button
             <li>
               <b><span lang="zh-CN">微信</span><span lang="en">WeChat</span></b>
               <span lang="zh-CN"
-                >：<code>lld_1025</code>，备注「taf」（Transfer Any File
+                >：<code>lld_1025</code>，备注「taf」（英文名 Transfer Any File
                 的首字母）。问题反馈、格式需求、新版本试用都在群里。</span
               >
               <span lang="en"
@@ -7433,7 +7434,7 @@ pnpm build</code><button
               width="28"
               height="28"
             />
-            <span>Transfer Any File</span>
+            <span lang="zh-CN">文件格式任意转换助手</span><span lang="en">Transfer Any File</span>
           </a>
           <p class="foot-disclaimer">
             <span lang="zh-CN"

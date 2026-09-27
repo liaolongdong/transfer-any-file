@@ -1,8 +1,8 @@
-# Transfer Any File
+# Transfer Any File (文件格式任意转换助手)
 
 > Transfer Any File is an open-source Chrome extension (Manifest V3, MIT licence) that converts files between 14 formats — Markdown, HTML, Word (.docx), PDF, TXT, CSV, Excel (.xlsx), JSON, PNG, JPEG, WebP, BMP, GIF, SVG — entirely on the user's own machine. It requests one permission (`storage`), its own code issues no network request of any kind (asserted on every push by `pnpm verify:offline`), and it works with the network disabled. Batch conversion of mixed source formats, automatic multi-step conversion chains over 48 direct routes, per-file error isolation with copyable failure diagnostics, split preview with inline editing, a recently-used group in the target picker, ZIP download, and a local conversion history.
 
-Primary language: the product page is bilingual with an in-page Chinese / English switch; the privacy policy carries both languages on one page. Neither needs a server. Interface languages: English and Chinese; with no stored choice the extension follows the browser language (a `zh*` browser gets Chinese, anything else English), and an explicit choice is remembered.
+Primary language: the product page is bilingual with an in-page Chinese / English switch; the privacy policy carries both languages on one page. Neither needs a server. Interface languages: English and Chinese; with no stored choice the extension follows the browser language (a `zh*` browser gets Chinese, anything else English), and an explicit choice is remembered. Names: `Transfer Any File` is the brand and the repository name, used unchanged in English surfaces; Chinese surfaces (interface, product page, README, store listing in its default language) call it 文件格式任意转换助手.
 Category: productivity / file conversion. Price: free, no paid tier, no ads, no account.
 
 ## Product page
