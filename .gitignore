@@ -7,7 +7,10 @@ dist
 # GitHub Pages staging directory (see .github/workflows/static.yml)
 _site/
 *.local
-# Credentials for `wxt-publish-extension` (Chrome Web Store / addons.mozilla.org)
+# Local-only credential file. Nothing in this repository reads it any more — `release.yml` takes its
+# Chrome Web Store credentials from repository Secrets and calls the upload/publish API with `curl` —
+# but a file by this name is exactly the shape a `wxt-publish-extension`-style tool writes, so the
+# ignore stays as the cheap guard against pasting an extension ID and refresh token into a public repo.
 .env.submit
 .test-files
 .test-screenshots
@@ -19,6 +22,12 @@ _site/
 # lint job down with it. Note `.test-screenshots` is gitignored yet still linted: ESLint walks the
 # filesystem, not git, so a probe left there fails the gate just the same.
 .tmp-staging
+# A one-off verification screenshot from an early build, tracked since the first commit. This
+# extension has no popup at all (`entrypoints/` is `background.ts` + `options/`, and `AGENTS.md` says
+# so), so the file documented a surface that never shipped; `.qoder/specs/2026-09-19-…-design.md` had
+# already recorded it as contradicting that claim. Nothing references it as an asset — no README, no
+# `docs/`, no script — so removing it from the index cannot break a link, only a history view.
+popup-verify.png
 # Generated paste-ready drafts (images inlined as data URIs, ~MBs each); the .md sources are tracked.
 docs/promo/*.html
 .DS_Store
