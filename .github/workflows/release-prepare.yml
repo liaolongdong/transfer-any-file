@@ -1,0 +1,268 @@
+# 半自动发布链路的前半段：把 `main` 上攒下的改动变成一个可审阅的 Release PR，
+# 并在该 PR 被合并的那一刻打上 `vX.Y.Z` 标签 —— 标签一落地，已有的 `release.yml` 接手
+# （构建 → 校验产物 → GitHub Release → 商店上传）。
+#
+# 为什么是「PR 即关卡」而不是「合并到 main 就发版」：本项目的商店条目已被拒三次，
+# 每一次都改的是对外文案或产物本身，所以「发版」这个动作必须留一次人能看见、能改、能否掉的
+# 机会。Release PR 就是那次机会：版本号的算法、双语 changelog 的正文、还缺哪几条英文说明，
+# 全在 diff 里，approve 之后才轮到打标签与出包。
+#
+# 为什么标签要单独推：GitHub 的 `GITHUB_TOKEN` 创建的 push 事件**不会**再触发任何工作流，
+# 所以用 `GITHUB_TOKEN` 打标签会得到一个「标签有了、发布没跑」的静默半成品。这一步要么用
+# 一个细粒度 PAT（`RELEASE_PAT`，见 `.github/RELEASE_AUTOMATION.md`），要么由人在本机推标签；
+# 本工作流两种情况都写清楚，且缺 PAT 时**只警告不失败**——半条链路比红着的门禁更容易让人收尾。
+#
+# 同一条限制也管着 PR：用 `GITHUB_TOKEN` 开的 PR 不会触发 `pull_request` 事件，于是那条 PR 上
+# 一个状态检查都不会跑——分支保护若要求检查通过，这个 PR 就永远点不下 Merge。所以拿到
+# `RELEASE_PAT` 时连开 PR 都用它（PR 作者是令牌所有者，CI 随即跑起来）；没有它时 PR 照样开，
+# 只是把「分支保护会挡住」这件事写进摘要，而不是让人对着空转的检查列表猜。
+name: Release Prepare
+
+on:
+  push:
+    branches: [main]
+  # branches 对 pull_request 过滤的是**基**分支：只关心合进 main 的那些，
+  # 而 release/v* 分支按约定只以 main 为基（下面的 tag 步骤也是从 main 解析 SHA 的）。
+  pull_request:
+    types: [closed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'prepare = 只准备/刷新 Release PR；tag = 给 main 上已合并的版本补打标签'
+        required: true
+        default: prepare
+        type: choice
+        options:
+          - prepare
+          - tag
+
+# contents: write 用于推 release 分支与标签；pull-requests: write 用于开那个 PR。
+# 没有 id-token、没有 deployments，商店凭据全部留在 release.yml 那一侧。
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: release-prepare-${{ github.event_name }}
+  cancel-in-progress: false
+
+jobs:
+  # ── 1. 算版本 + 生成双语 changelog 区块 + 开/复用 Release PR ──────────────────────────
+  prepare:
+    name: Prepare release PR
+    if: >-
+      github.event_name == 'push' ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.mode == 'prepare')
+    runs-on: ubuntu-latest
+    # 两个 job 之间没有 `needs`：prepare 由 push 触发、tag 由 PR 合并触发，本来就是两次不同的运行，
+    # 中间隔着人的 approve。它们唯一的接口是仓库本身 —— prepare 写下版本号与 changelog，
+    # tag 从合并后的 main 上把它们读回来，并核对两者仍然一致（见 `Resolve the tag to create`）。
+    steps:
+      # fetch-depth: 0 是必需的而不是「顺手」：release.mjs 用 `git describe --tags` 与
+      # `<起点>..HEAD` 求区间，浅克隆会让它把起点认成仓库根，然后交出一份重数历史的 changelog。
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # 这条链路只需要 Node 与 git，不需要任何依赖：把 pnpm install 省掉，
+      # 既让这一步在几秒内完成，也让「发布准备」不依赖一次成功的依赖解析。
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Compute version and changelog entries
+        id: plan
+        run: |
+          node scripts/release.mjs --json plan.json
+          node scripts/release-ci.mjs output plan.json
+
+      # 摘要由计划文档渲染，可发布与不可发布两条路都在同一个脚本里（scripts/release-ci.mjs）：
+      # 一次运行总得留下一句「这次是什么情况」，否则绿着的 job 和空的摘要没有区别。
+      - name: Summarise the plan
+        run: node scripts/release-ci.mjs summary plan.json
+
+      - name: Skip when the release branch is already taken
+        id: existing
+        if: steps.plan.outputs.releasable == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.plan.outputs.tag }}
+        run: |
+          # 不覆盖、不重开：人很可能正在那个 PR 里补英文说明。force-push 会把他们的改动抹掉，
+          # 而「同一个版本再开一个 PR」也没有意义，所以这里只报告并停下。
+          number="$(gh pr list --repo "$GITHUB_REPOSITORY" --head "release/$TAG" --state open --json number --jq '.[0].number // empty')"
+          if [ -n "$number" ]; then
+            echo "reason=pr-$number-already-open" >> "$GITHUB_OUTPUT"
+            {
+              echo "### Release PR #${number} 已经开着"
+              echo
+              echo "分支 \`release/$TAG\` 上有人在改，本轮不重复准备、也不 force-push。"
+              echo "要重新生成正文，先关掉那个 PR，再手动重跑本工作流的 \`prepare\`。"
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          # 分支还在但没有开着的 PR（上一次被关掉、或被手工删了 PR 却没删分支）：
+          # 此时 push 会因 non-fast-forward 被拒，报错信息指向 Git 而不是指向真正的原因。
+          if [ -n "$(git ls-remote --heads origin "release/$TAG")" ]; then
+            echo "reason=branch-exists-without-pr" >> "$GITHUB_OUTPUT"
+            {
+              echo "### 差一步：远端还留着 \`release/$TAG\`"
+              echo
+              echo "这个版本上一次准备的分支还在，但没有开着的 PR，所以本轮不推（避免 non-fast-forward）。"
+              echo "确认那份内容不要了，删掉它再重跑 \`prepare\`："
+              echo
+              echo '```bash'
+              echo "git push origin --delete release/$TAG"
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Write, commit and push the release branch
+        if: steps.plan.outputs.releasable == 'true' && steps.existing.outputs.reason == ''
+        env:
+          TAG: ${{ steps.plan.outputs.tag }}
+          SUBJECT: ${{ steps.plan.outputs.subject }}
+        run: |
+          set -euo pipefail
+          node scripts/release.mjs --write
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "release/$TAG"
+          # 只暂存这三份文件：与本机脚本同理，`-A` 会把任何未预期进来的东西一起打包成一次发布。
+          # plan.json 就在这时候躺在工作区里，它不进提交。
+          git add CHANGELOG.md CHANGELOG.en.md package.json
+          git commit -m "$SUBJECT" -m "由 .github/workflows/release-prepare.yml 生成，统计区间见 \`node scripts/release.mjs\` 的计划输出。合并本 PR 即批准发布。"
+          git push --set-upstream origin "release/$TAG"
+
+      - name: Open the release PR
+        if: steps.plan.outputs.releasable == 'true' && steps.existing.outputs.reason == ''
+        env:
+          # 有 PAT 就用 PAT 开 PR（这样 PR 才会触发 ci.yml 的状态检查），没有就退回 GITHUB_TOKEN。
+          # 选择在 bash 里做而不是 `${{ secrets.X || secrets.Y }}`：令牌来源只有一条路径，
+          # 摘要里「这次用了谁的身份」也就由同一个判断写出来，不会出现两者不一致的第三种情况。
+          RELEASE_PAT: ${{ secrets.RELEASE_PAT }}
+          VERSION: ${{ steps.plan.outputs.version }}
+          TAG: ${{ steps.plan.outputs.tag }}
+        run: |
+          set -euo pipefail
+          if [ -n "${RELEASE_PAT:-}" ]; then
+            export GH_TOKEN="$RELEASE_PAT"
+            identity='RELEASE_PAT'
+          else
+            export GH_TOKEN="${GITHUB_TOKEN:-}"
+            identity='GITHUB_TOKEN'
+          fi
+          # 正文由 scripts/release-ci.mjs 渲染：这段 JS 一旦写进 `node -e '…'`，
+          # 里面任何一个单引号都会提前结束 bash 的字符串，而报错信息不会提到这两件事有关系。
+          node scripts/release-ci.mjs pr-body plan.json pr-body.md
+          gh pr create \
+            --repo "$GITHUB_REPOSITORY" \
+            --base main \
+            --head "release/$TAG" \
+            --title "$VERSION 发布准备（双语 changelog 提升与版本 bump）" \
+            --body-file pr-body.md
+          if [ "$identity" = 'RELEASE_PAT' ]; then
+            echo "Release PR 由 RELEASE_PAT 创建，GitHub 会照常为它跑 ci.yml 的状态检查。" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "::notice title=这个 PR 不会有状态检查::PR 由 GITHUB_TOKEN 创建，GitHub 不会为它触发 pull_request 事件。若 main 的分支保护要求状态检查通过，这个 PR 点不了 Merge——配置 RELEASE_PAT（步骤见 .github/RELEASE_AUTOMATION.md），或先放行 release/* 分支。"
+          fi
+
+  # ── 2. 合并 Release PR = 批准发布：打标签，让 release.yml 接手 ────────────────────────
+  tag:
+    name: Tag the approved release
+    if: >-
+      (github.event_name == 'pull_request' &&
+        github.event.pull_request.merged == true &&
+        startsWith(github.event.pull_request.head.ref, 'release/v')) ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.mode == 'tag')
+    runs-on: ubuntu-latest
+    steps:
+      # 标签必须打在 main 上而不是 PR 头上：合并可能产生 squash 或 rebase，
+      # 那个 commit 只存在于分支里，而 release.yml 检出的是标签指向的对象。
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: refs/heads/main
+
+      - name: Resolve the tag to create
+        id: want
+        env:
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        run: |
+          set -euo pipefail
+          if [ -n "${HEAD_REF:-}" ]; then
+            # 合并的那次 approve 就是许可，分支名即版本号 —— 但下面仍然拿 package.json 复核，
+            # 因为「PR 叫什么」和「main 上现在是什么版本」可以不一致。
+            tag="${HEAD_REF#release/}"
+          else
+            # 手动模式（workflow_dispatch mode=tag）：从 main 的内容反推该打哪个标签。
+            tag="$(node scripts/release-ci.mjs pending-tag)"
+          fi
+          if [ -z "$tag" ]; then
+            echo "::error::找不到可打标签的版本：CHANGELOG.md 里最高的版本号与 package.json 不一致（详见上一条 stderr）"
+            exit 1
+          fi
+          # 标签名与 main 上的 package.json 必须一致，否则 release.yml 的 `Resolve version`
+          # 会在这个标签已经存在之后才报错——那时标签删不掉（删了等于改历史），发版就卡在半路。
+          # PR 模式下这一步尤其重要：分支名是准备时算的，合并前 main 可能又攒了别的版本改动。
+          pkg_version="$(node -p "require('./package.json').version")"
+          if [ "${tag#v}" != "$pkg_version" ]; then
+            echo "::error::main 上的 package.json 是 $pkg_version，却要打标签 $tag —— 说明这份 changelog 与版本号已经错位，先别合这个 PR"
+            exit 1
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          sha="$(git rev-parse HEAD)"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "将为 $sha 打标签 $tag"
+
+      - name: Skip when the tag already exists
+        id: exists
+        env:
+          # 走 env 而不是把 `${{ … }}` 直接插进命令行：插值发生在 shell 之前，值里一旦出现空格或
+          # 引号就是一段别人看不出来的注入；本工作流里所有步骤都按这个约定写。
+          TAG: ${{ steps.want.outputs.tag }}
+        run: |
+          if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "标签 $TAG 已存在，什么都不做。" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      # `GITHUB_TOKEN` 推的标签不触发工作流，所以只有拿到 PAT 时才真的推；否则把本机两条命令写进
+      # 任务摘要。这不是「失败」——标签没推出去，发版就还没发生，而红着的工作流会让人以为已发布。
+      - name: Push the tag
+        if: steps.exists.outputs.exists != 'true'
+        env:
+          RELEASE_PAT: ${{ secrets.RELEASE_PAT }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.want.outputs.tag }}
+          SHA: ${{ steps.want.outputs.sha }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -uo pipefail
+          if [ -n "${RELEASE_PAT:-}" ]; then
+            # 走 `gh api` 而不是改 remote URL：后者会把令牌写进命令行与 .git/config，
+            # 而 run 步骤的命令行是会进日志的。
+            if gh api --method POST "repos/$REPOSITORY/git/refs" -f "ref=refs/tags/$TAG" -f "sha=$SHA" >/dev/null; then
+              echo "已创建标签 $TAG → ${SHA:0:7}，release.yml 随即开始。" >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            echo "::error::用 RELEASE_PAT 创建标签失败。多半是该令牌没有 Actions: write 权限（创建 ref 需要它），详见 .github/RELEASE_AUTOMATION.md"
+            exit 1
+          fi
+          echo "::warning title=标签未推送::仓库还没有配置 RELEASE_PAT，自动打标签这一步已跳过。"
+          {
+            echo "### 差一步：${TAG} 还没推"
+            echo
+            echo "GitHub 不允许 \`GITHUB_TOKEN\` 推的标签再去触发工作流，所以这一步只能由人或有权限的令牌完成。二选一："
+            echo
+            echo "\`\`\`bash"
+            echo "# A. 本机直接补（标签指向刚合并的那个提交）"
+            echo "git fetch origin main"
+            echo "git tag ${TAG} ${SHA}"
+            echo "git push origin ${TAG}"
+            echo "\`\`\`"
+            echo
+            echo "或配置 \`RELEASE_PAT\`（Settings → Secrets and variables → Actions），步骤见"
+            echo "\`.github/RELEASE_AUTOMATION.md\`，之后重跑本工作流的 \`tag\` 模式即可。"
+          } >> "$GITHUB_STEP_SUMMARY"

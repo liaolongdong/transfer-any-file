@@ -34,6 +34,8 @@
     "lint:all": "pnpm typecheck && pnpm lint && pnpm lint:style && pnpm format:check",
     "fix:all": "eslint . --fix && stylelint --fix \"assets/**/*.css\" \"{components,entrypoints}/**/*.vue\" && pnpm format",
     "test:e2e": "pnpm build && node scripts/e2e-test.mjs",
+    "release:plan": "node scripts/release.mjs",
+    "release:cut": "node scripts/release.mjs --write --commit --tag",
     "verify:meta": "node scripts/check-package-meta.mjs",
     "verify:offline": "node scripts/check-offline.mjs",
     "verify:offline:source": "node scripts/check-offline.mjs --source-only",
