@@ -38,7 +38,7 @@
 | README 演示 GIF    | `pnpm build && node scripts/render-demo-gif.mjs`（录制真实构建产物 → `docs/assets/demo/demo-<locale>.gif`，中/英各一条，`DEMO_LOCALES` 控制；另需 PATH 上有 `ffmpeg`）                                |
 | 公众号稿排版       | `pnpm promo:wechat`（`scripts/render-wechat-html.mjs`，内联样式 + 图片内嵌 + 外链转文末）                                                                                                             |
 | 产物校验           | `node scripts/verify-extension.mjs`                                                                                                                                                                   |
-| 发布               | `git tag vX.Y.Z && git push --tags` → `.github/workflows/release.yml`（校版本/包内容 → GitHub Release → 凭证齐备时提交商店）                                                                          |
+| 发布               | 合并 Release PR 即批准 → `release-prepare.yml` 推标签 → `release.yml`（校版本与包内容 → GitHub Release → 凭证齐备时上传商店、默认不提审）；见 `.github/RELEASE_AUTOMATION.md`                         |
 | 仓库 About 同步    | 改 `.github/repo-metadata.json` → `.github/workflows/repo-meta.yml`（需 `REPO_METADATA_TOKEN`）；理由与一次性落地命令见 `.github/repo-metadata.md`                                                    |
 | 对外可见与发布     | `.github/visibility-checklist.md`——「收下改动 → Pages 上线 → GitHub 曝光 → 搜索收录 → 商店 → 社区」的命令与核对点。写操作一律由所有者执行；里面每个数字都在这轮实测过，`verify:numbers` 盯着它        |
 
@@ -103,14 +103,14 @@
 ## i18n 与文档同步
 
 - 文案源 `utils/i18n/zh.ts`，`en.ts` 类型 `typeof zh`；增删改 key 时中英必须一致。`zh` 只是**兜底字典**——首次打开的界面语言按浏览器语言解析（存储里有明确选择则优先），见 `composables/useI18n.ts` 的 `resolveLocale`。`t(key, params)` 支持 `{param}` 插值。这条链路只管界面，与 manifest 级的 `public/_locales/` 是两套东西。
-- 文档按影响分层更新：功能/用法 → `README.md`（中文）+ `README.en.md`（英文，双语一致）；对外产品说明/隐私政策 → `docs/index.html` + `docs/privacy.html`；商店文案 → `CHROMEWEBSTORE.md`；manifest 名称/描述 → `public/_locales/{zh_CN,en}/messages.json`（`wxt.config.ts` 里只放 `__MSG_extensionName__` / `__MSG_extensionDescription__` 与 `default_locale: "zh_CN"`，英文值与 `package.json#description` 同步且 ≤132 字符）；权限 → `wxt.config.ts`；GitHub About（描述/网站/topics）→ `.github/repo-metadata.json`（由 `repo-meta.yml` 落地，勿只在页面上手改）。发版级改动另记 `CHANGELOG.md`（中文）+ `CHANGELOG.en.md`；安全策略与贡献须知按同一约定成对（`SECURITY.md` + `SECURITY.en.md`、`CONTRIBUTING.md` + `CONTRIBUTING.en.md`）——仓库根双语文档统一「中文为主文件、`.en.md` 为英文对照」，新增根文档不要再产出 `*.zh-CN.md`。
+- 文档按影响分层更新：功能/用法 → `README.md`（中文）+ `README.en.md`（英文，双语一致）；对外产品说明/隐私政策 → `docs/index.html` + `docs/privacy.html`；商店文案 → `CHROMEWEBSTORE.md`；manifest 名称/描述 → `public/_locales/{zh_CN,en}/messages.json`（`wxt.config.ts` 里只放 `__MSG_extensionName__` / `__MSG_extensionDescription__` 与 `default_locale: "zh_CN"`，英文值与 `package.json#description` 同步且 ≤132 字符）；权限 → `wxt.config.ts`；GitHub About（描述/网站/topics）→ `.github/repo-metadata.json`（由 `repo-meta.yml` 落地，勿只在页面上手改）。发版级改动另记 `CHANGELOG.md`（中文）+ `CHANGELOG.en.md`（英文）——那两条区块默认由 `scripts/release.mjs` 按 `main` 上的提交信息生成（类型即分组与 bump 依据，英文行取自提交正文末尾的 `Changelog-En:` 尾注；手写进 `## [未发布]` / `## [Unreleased]` 区块的内容优先，原样带过去），约定见 `CONTRIBUTING.md`；安全策略与贡献须知按同一约定成对（`SECURITY.md` + `SECURITY.en.md`、`CONTRIBUTING.md` + `CONTRIBUTING.en.md`）——仓库根双语文档统一「中文为主文件、`.en.md` 为英文对照」，新增根文档不要再产出 `*.zh-CN.md`。
 - 根目录**无** `index.html`（产品页故意放 `docs/`，避开与 `entrypoints/options/index.html` 混淆）；亦无 HelpDialog、popup；`_locales/` 只存在于 `public/` 下、只有 `zh_CN`（`default_locale`）与 `en` 两个 locale；**尚未上架 Chrome 应用商店**，勿引用不存在的商店链接。
 
 ## 测试与验证
 
 - **无单元测试框架（无 vitest）**。端到端用 Playwright：`scripts/e2e-test.mjs` 加载构建产物，跑各转换场景并截图到 `.test-screenshots/`，夹具在 `fixtures/`（由 `scripts/make-fixtures.cjs` 生成）。
 - 交付前按改动范围执行：`pnpm lint:all`（必过）；涉及入口/manifest/依赖/打包 → `pnpm build`；涉及转换逻辑或端到端行为 → `pnpm test:e2e`。
-- CI（`.github/workflows/ci.yml`，Node 22）：lint（`pnpm lint:all` + `verify:meta` + `verify:offline:source` + `verify:paths` + `pages:check` + `verify:numbers` + `verify:listing`）+ build（`pnpm build` 后跑 `verify:offline` 断言产物 manifest）+ e2e。另有三条独立工作流：`static.yml`（Pages，只在 `docs/**` 变更时部署）、`release.yml`（tag 发布，守卫同样是「源码层在 build 前、产物层在 build 后」的拆法）、`repo-meta.yml`（About 同步）。
+- CI（`.github/workflows/ci.yml`，Node 22）：lint（`pnpm lint:all` + `verify:meta` + `verify:offline:source` + `verify:paths` + `pages:check` + `verify:numbers` + `verify:listing`）+ build（`pnpm build` 后跑 `verify:offline` 断言产物 manifest）+ e2e。另有四条独立工作流：`static.yml`（Pages，只在 `docs/**` 变更时部署）、`release-prepare.yml`（半自动发布链路的前半段：`main` 上的攒批变成一个可审阅的 Release PR，PR 被合并那一刻才推 `vX.Y.Z` 标签）、`release.yml`（接手标签：构建 → 校验产物 → GitHub Release → 商店上传，守卫同样是「源码层在 build 前、产物层在 build 后」的拆法）、`repo-meta.yml`（About 同步）。
 - 截图脚本与 e2e 共用一套「静态服务 + mock `chrome.storage`」启动方式，目前**故意保留两份**（避免改动千行级测试文件引入回归）；出现第三个消费方时再抽 `scripts/e2e-harness.mjs`。
 - 不为通过检查而弱化规则、跳过或隐藏错误；无法运行的项在交付时说明原因。
 

@@ -332,6 +332,27 @@ always name the same release.
   passing: the route card's label for screen readers read `转换链路 / route`, because the full English phrase was
   passed as a second argument to a one-argument escape function and dropped without a sound — it now reads
   `转换链路 / Conversion route`.
+- **Releasing gained a human gate, and it is the merge itself.** Work accumulated on `main` no longer reaches the
+  store through one `git push --tags`. `.github/workflows/release-prepare.yml` first runs `scripts/release.mjs`,
+  which reads the next version off the Conventional Commit subjects on `main` (`feat` → minor, a `!` or a
+  `BREAKING CHANGE:` / `不兼容变更:` trailer → major, anything else → patch; `build` / `chore` / `ci` / `deps` /
+  `docs` / `release` / `style` / `test` count as noise and are skipped), promotes the bilingual `## [未发布]` /
+  `## [Unreleased]` blocks into `## [X.Y.Z]` sections, pushes a branch that touches only those three files (both
+  changelogs plus `package.json`), and opens a Release PR. **Merging that PR is the approval** — only afterwards
+  does the same workflow create the `vX.Y.Z` tag and `release.yml` take over. The tag cannot be pushed with
+  `GITHUB_TOKEN`, because events it produces start no other workflow, and the result would be the silent
+  half-success of "the tag exists, the release never ran"; tag creation therefore uses `RELEASE_PAT`, and where
+  that secret is absent the step only warns and prints the three local commands in the job summary — that
+  fallback is deliberate, not a fault. The store step **uploads without submitting for review** by default:
+  before uploading, `release.yml` reads the version currently attached to the item (the store accepts a strictly
+  higher one only; when the field name is not recognisable the pre-flight abstains and lets the upload response
+  speak, rather than guessing) and, after a successful upload, stops at "uploaded, not submitted". Review stays
+  a click in the developer dashboard, or an explicit `submit_for_review` checkbox on a `workflow_dispatch` run —
+  which re-uploads the same package and can be stopped by that very pre-flight. The reason the default is not to
+  submit is recorded in the chain: `1.0.0` was rejected three times, and each time a human had to look at the
+  artifact and the listing first. The operations side gained `.github/RELEASE_AUTOMATION.md` (in Chinese: which
+  secrets to set, what to do for each release, how to read a failure, and which parts remain unverified);
+  sections 3.3, 5.1 and 5.2 of `.github/CWS_PUBLISHING_GUIDE.md` / `.en.md`, plus a new Q5, point at it.
 
 ### Changed
 

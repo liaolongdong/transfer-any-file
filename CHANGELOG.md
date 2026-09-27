@@ -229,6 +229,21 @@ manifest 的版本号，因此 `vX.Y.Z` 标签、构建产物与商店包始终�
   实际一个字都没换。这是拿裸 CDP 三种客户端姿态（禁 JS、`reduce`、`?lang=en`）量出来的，不是看代码看出来的。
   另一处顺手修的是链路卡片给读屏器的那句标签：它一直写成 `转换链路 / route`，第二个参数（真正的英文全称）传进了
   一个只收一个参数的转义函数，于是被静默丢掉——现在它是 `转换链路 / Conversion route`。
+- **发版多了一个「人点头」的闸口，而它就设在合并那一刻。** 攒在 `main` 上的改动不再由一次
+  `git push --tags` 直接推向商店：`.github/workflows/release-prepare.yml` 先跑 `scripts/release.mjs`，按 `main`
+  上的 Conventional Commit 主题算出下一版（`feat` → 次版本，带 `!` 或正文有 `BREAKING CHANGE:` / `不兼容变更:`
+  → 主版本，其余 → 修订号；`build` / `chore` / `ci` / `deps` / `docs` / `release` / `style` / `test` 当噪声略过），
+  把双语 `CHANGELOG*` 的 `## [未发布]` 提升成 `## [X.Y.Z]` 区块，推一个只改那三份文件（两份 changelog 加
+  `package.json`）的分支，并开出一个 Release PR。**合并那个 PR 就是批准发布**——之后同一条工作流才建
+  `vX.Y.Z` 标签，`release.yml` 随即接手。标签不能由 `GITHUB_TOKEN` 推：GitHub 不允许它产生的事件再触发工作流，
+  那样只会得到「标签有了、发布从没跑过」的静默半成品，所以建标签走 `RELEASE_PAT`；没配时那一步只报 warning，
+  并在任务摘要里给出本机补上的三行命令——这条退路是刻意留的，不是故障。商店那一步默认**只上传、不提审**：
+  `release.yml` 上传前先读条目上现在挂着的版本号做预检（商店只接受严格更高的版本号；字段名认不出时预检弃权、
+  交给上传响应体说明原因，不猜），上传成功就停在「已上传，未提审」。提审留在开发者后台点，或用
+  `workflow_dispatch` 显式勾上 `submit_for_review`（那样会把同一个包重新上传一遍，可能被自己的预检拦下）。
+  默认不提审的理由写在链路里：`1.0.0` 被拒过三次，每一次都要先有人看一眼产物与文案。操作侧新增
+  `.github/RELEASE_AUTOMATION.md`（中文：要配哪些 secret、每次发版做什么、失败了怎么读、还有哪几处没被真实
+  验证过），`.github/CWS_PUBLISHING_GUIDE.md` / `.en.md` 的 3.3、5.1、5.2 与新增的 Q5 一并指向它。
 
 ### 变更
 
