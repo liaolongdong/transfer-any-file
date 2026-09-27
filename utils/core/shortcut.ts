@@ -22,10 +22,53 @@ export interface ParsedBinding {
 /** Serialized binding format: modifiers + key joined by `+`, e.g. `mod+enter`, `ctrl+shift+k`.
  *  - `mod` resolves to `cmd` on macOS, `ctrl` elsewhere (VS Code convention).
  *  - Modifiers: `ctrl`, `cmd`/`meta`/`mod`, `alt`/`option`, `shift`.
- *  - All parts case-insensitive; the key is the rightmost token. */
+ *  - All parts case-insensitive; the key is the rightmost token.
+ *  - Two keys are written as word tokens because they cannot survive a literal round trip:
+ *    see `KEY_TOKENS`. */
 export const DEFAULT_SHORTCUTS: ShortcutMap = {
   convert: 'mod+enter',
 };
+
+/** Keys that have no representable literal form in a `+`-joined binding: `+` *is* the delimiter,
+ *  so `ctrl++` parses back to `['ctrl']`, and the space key serializes to a trailing space that
+ *  `parseBinding`'s trim-and-filter drops. Both are stored under a word token instead, and every
+ *  producer and consumer of `ParsedBinding.key` goes through `keyToken` so the two forms can never
+ *  disagree. No migration is implied: neither token was writable before this, because the capture
+ *  path produced the literal form that the parser then threw away. */
+const KEY_TOKENS: ReadonlyMap<string, string> = new Map([
+  [' ', 'space'],
+  ['+', 'plus'],
+]);
+
+/** The token a key is stored and compared under: the literal where one is representable, the word
+ *  where it is not. Also the normalizer for `KeyboardEvent.key`, which is case-sensitive. */
+function keyToken(eventKey: string): string {
+  const lower = eventKey.toLowerCase();
+  return KEY_TOKENS.get(lower) ?? lower;
+}
+
+/** Names that only ever mean "modifier" in a binding, so they are never a legal key slot.
+ *  `+` being the delimiter is what made this reachable: capturing Ctrl+Shift+= (whose `event.key`
+ *  is `'+'`) serialized to `ctrl+shift++`, whose trailing empty token is dropped, leaving `shift`
+ *  in the key slot and `ctrl` alone in the modifier set. That string passes `validateBinding` — no
+ *  reserved combination names `shift` — so it persisted with a success message, displayed as
+ *  "Ctrl + Shift", and never fired again: `matchEvent` demands `shiftKey === false` on a key whose
+ *  own keydown reports `shiftKey === true`. The user's working default was replaced by a binding
+ *  that only looks alive. Storage is untrusted on the read side anyway (`setBinding` never gated
+ *  this shape), so the parser refuses it outright and `normalizeMap` drops such a value back to the
+ *  default instead of honouring it. */
+const MODIFIER_NAMES: ReadonlySet<string> = new Set([
+  'ctrl',
+  'control',
+  'cmd',
+  'meta',
+  'mod',
+  'alt',
+  'option',
+  'shift',
+  'super',
+  'os',
+]);
 
 /** Reserved keys we refuse to bind globally. These either conflict with browser/extension
  *  shortcuts (Ctrl+T/W/N/L) or would hijack user expectations (Escape/Tab). */
@@ -73,7 +116,10 @@ function sanitize(binding: string): string | null {
 export function parseBinding(binding: string): ParsedBinding | null {
   const clean = sanitize(binding);
   if (!clean) return null;
-  const parts = clean.split('+').map(p => p.trim()).filter(Boolean);
+  const parts = clean
+    .split('+')
+    .map(p => p.trim())
+    .filter(Boolean);
   if (parts.length < 2) return null;
   const key = parts[parts.length - 1];
   const mods = new Set(parts.slice(0, -1));
@@ -84,6 +130,7 @@ export function parseBinding(binding: string): ParsedBinding | null {
   }
   if (mods.has('meta')) mods.add('cmd');
   if (mods.has('option')) mods.add('alt');
+  if (MODIFIER_NAMES.has(key)) return null;
   if (RESERVED_LOWER.has(key)) return null;
   const ctrl = mods.has('ctrl');
   const meta = mods.has('cmd');
@@ -148,8 +195,10 @@ function prettifyKey(key: string): string {
       return '←';
     case 'arrowright':
       return '→';
-    case ' ':
+    case 'space':
       return 'Space';
+    case 'plus':
+      return '+';
     case ',':
       return ',';
     case '.':
@@ -169,10 +218,10 @@ export function matchEvent(binding: string, event: KeyboardEvent): boolean {
   if (event.metaKey !== parsed.meta) return false;
   if (event.altKey !== parsed.alt) return false;
   if (event.shiftKey !== parsed.shift) return false;
-  // `parseBinding` lowercases, and `event.key` is case-sensitive for letters,
-  // so lowercase before comparing. That single check also covers `Enter` and
-  // the space bar — both are already case-invariant.
-  return event.key.toLowerCase() === parsed.key;
+  // Both sides go through `keyToken`, which lowercases — that single check also covers `Enter`
+  // and the space bar, and turns the `'+'` / `' '` a real event carries into the tokens the
+  // binding is stored under.
+  return keyToken(event.key) === parsed.key;
 }
 
 /** Serialize a KeyboardEvent back into a binding string, or null if it isn't a valid combo. */
@@ -182,22 +231,35 @@ export function eventToBinding(event: KeyboardEvent): string | null {
   if (event.metaKey) parts.push('cmd');
   if (event.altKey) parts.push('alt');
   if (event.shiftKey) parts.push('shift');
-  const key = (event.key || '').toLowerCase();
-  if (!key || key === 'control' || key === 'meta' || key === 'shift' || key === 'alt') return null;
+  const key = keyToken(event.key || '');
+  if (!key || MODIFIER_NAMES.has(key)) return null;
   parts.push(key);
   return parts.join('+');
 }
 
-/** Coerce arbitrary stored shape into a complete map. Drops invalid entries. */
+/**
+ * Coerce arbitrary stored shape into a complete map, dropping what cannot be honoured.
+ *
+ * This is the read path for a value the write path checked, and stored data is untrusted input:
+ * `setBinding` only canonicalises, so the reserved-combination gate lives in the preferences UI
+ * alone. Parsing here is what keeps a hand-edited `{"convert":"ctrl+r"}` from reaching the
+ * `preventDefault()` in `App.vue`'s global handler and eating the browser's reload whenever a batch
+ * is armed. An unparseable string would otherwise match nothing forever — the shortcut dies silently
+ * instead of falling back to the default, because `getBinding` only falls back on a *missing* key.
+ * Canonicalising the accepted value is free (`setBinding` stores that form anyway) and makes the
+ * stored map self-heal.
+ */
 export function normalizeMap(input: Partial<ShortcutMap> | undefined): Partial<ShortcutMap> {
   if (!input || typeof input !== 'object') return {};
   const out: Partial<ShortcutMap> = {};
   for (const action of Object.keys(DEFAULT_SHORTCUTS) as ShortcutAction[]) {
     const raw = (input as Record<string, unknown>)[action];
-    if (typeof raw === 'string') {
-      const cleaned = sanitize(raw);
-      if (cleaned) out[action] = cleaned;
-    }
+    if (typeof raw !== 'string') continue;
+    const cleaned = sanitize(raw);
+    if (!cleaned) continue;
+    const canonical = canonicalize(cleaned);
+    if (!canonical || validateBinding(cleaned)) continue;
+    out[action] = canonical;
   }
   return out;
 }

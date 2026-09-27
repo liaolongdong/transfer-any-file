@@ -11,6 +11,55 @@ always name the same release.
 
 ### Added
 
+- **You can write the names your results come back with.** Preferences gained an **Output file names**
+  field, and its built-in pattern `{name}_{date}_{time}` renders exactly the string that used to be hard
+  coded in the orchestration layer (`report_20260914_153012.pdf`), so anyone who never touches the field
+  gets bytes identical to yesterday's. Five placeholders: `{name}` is the source name without its
+  extension, `{date}` is `20260914`, `{time}` is `153012`, `{index}` counts position in this batch from 1,
+  `{target}` is the output format. Three things that are not obvious from the field itself: **the
+  extension is never the template's to decide** — the last step of the route owns it (if `containerExt`
+  says `.zip`, it is `.zip`), because the preview's "editable text" test, the format badge on the result
+  card and the per-entry ZIP compression strategy all read it back off the trailing dot, so letting a
+  pattern set it would only create three places that can lie; **`{name}` is substituted last**, so a file
+  genuinely named `{date}.md` cannot inject a token into anybody's name; **the field is untrusted input,
+  like storage** — `/`, `\`, `:`, `*`, `?`, `"`, `<`, `>`, `|` and control characters are stripped on the way
+  in, again on every substituted value, and once more over the rendered whole, which closes both
+  "hand-edited store" and "ZIP entry authored on Windows with backslashes" at the same place. A
+  placeholder you mis-typed (`{tile}`) stays literal in the name and is named out loud under the field —
+  silently dropping it would rename the file to `report-` and never mention it. Clearing the field
+  restores the default, so nobody has to retype it exactly. The `_2` collision suffix is unchanged, and
+  under a pattern with no `{date}` in it that suffix is the only defence left, which is why the suite now
+  pins a colliding pair (`notes.csv` + `notes.json`) and asserts both results arrive.
+- **Dropping a folder imports what is inside it.** A folder used to be a no-op, and the only workaround
+  was to zip it up first — which already worked, because archives are expanded. Folders are now walked
+  breadth-first, keeping only the formats the recognizer knows plus `.zip`s, skipping dotfiles and
+  `__MACOSX`, and stopping at the batch cap. Three things are not obvious: `readEntries()` hands back one
+  chunk per call, so **a directory is read until a call comes back empty** — reading a single chunk is
+  exactly how a large folder silently loses most of its files; entry objects are revoked the moment the
+  drop handler returns, so every entry has to be snapshotted synchronously and the asynchronous walk
+  carries that snapshot; and both the depth and the number of entries read are bounded
+  (`utils/core/folder-drop.ts`), because a dropped tree is untrusted input — one symlink back to an
+  ancestor is an infinite descent. The three notices do not stand in for each other: how many files came
+  in, that the folder really held nothing convertible, and the limit that stopped the walk. A previously
+  invisible duplicate is fixed on the way: the drop bubbles from the upload zone up to the page-wide
+  overlay, so one physical drop was read twice — invisible for loose files, which produced the same list
+  either way, but a folder would be walked twice and announce itself twice. A new e2e section drives the
+  whole chain with entry objects built inside the page (Playwright cannot inject a real folder), so what
+  it pins is this repository's walk, filters, budgets and wording — not Chrome's own entry
+  implementation.
+- **Multi-step routes show which step you are on.** Alongside the existing "Converting, please wait..." the
+  progress area reports "Step 2 of 3" and names the file in flight — in both the batch bar and the single-file
+  progress card. A three-step chain such as `md → html → png` used to show an unchanging line from step one to
+  step three; single-step routes stay gated on `steps > 1`, so they render exactly as before.
+- **ZIP packaging gives feedback.** Download-all stays in its loading state while the archive is written; that
+  second or two used to give no sign at all, which is exactly how a double click happens.
+- **Retry only the failures.** The files that failed in a batch can be re-run on their own; the ones that
+  already converted are left alone.
+- **A batch that finishes off-screen says so.** When the page is not in the foreground, the tab title gains a
+  "[Done] " prefix and loses it again as soon as you come back. No OS permission is involved, and it does not
+  depend on the desktop-notification toggle, which ships off. The restore only fires while the title is still
+  the string this feature wrote, so a language switch that rewrites the title is never undone by it.
+
 - **Image output parameters.** When the target is PNG, JPEG or WebP, the workbench gains an output
   tuning row: longest edge (800–4096 px; the accepted domain is 16–8192 px) is always offered,
   quality (40–90%) and target size (20–2000 KB; accepted 1 KB–50 MB) appear for JPEG and WebP only
@@ -22,6 +71,19 @@ always name the same release.
   ceiling chased rather than guaranteed: the smallest reachable result is returned instead of an error.
   Parameters persist under `fat:outputOptions`, apply to image targets only, and a parameter set left
   over from an earlier image batch cannot degrade a later document conversion.
+- **A PDF can convert only the pages you name.** When the batch holds a PDF and the target is an image, the
+  tuning row gains a Pages field: a spec such as `1-3, 5` rasterizes exactly those pages, `-`, `–` and `~`
+  all count as the range dash, `,`, `，`, `、`, `;` and `；` all separate, and an empty field is still the whole
+  document. The parsing rules are a pure function (`utils/core/pdf-pages.ts`) while the page numbers are
+  clamped by the converter against `numPages` — it is the only party that knows how many pages this document
+  has. Three choices are deliberate: **it belongs neither to `fat:outputOptions` nor to a preset**, because
+  that state describes what an _output_ should look like while a page range describes which pages _this file_
+  has in mind, and persisting it would silently truncate the next, unrelated PDF; a range that matches no page
+  **fails** the file (`errors.pdfPageRange`) instead of handing back every page as though nothing had been set,
+  since that silent version of the mistake is the one this project cannot walk back; and ZIP entries **keep
+  their original page numbers**, so pages 2 and 4 give `page-2.png` and `page-4.png`, while no range still
+  gives `page-1.png … page-N.png`. The field acts on the PDF→image route alone: every other route out of a PDF
+  (`PDF → DOCX` and friends) still reads the whole document's text.
 - **Conversion presets.** The current target plus its output parameters save as a named card (up to
   12, names clamped to 40 characters, untitled saves describe themselves) above the format picker. A
   preset is bound to a target, not to a source format — "PNG → 200 KB WebP" applies whether the next
@@ -74,9 +136,323 @@ always name the same release.
   reimplemented. A Playwright pass over the real page in both scenarios (normal / reduced motion) reports
   13/13, with zero console errors and zero external requests; `docs/` stays out of the bundle and the
   extension's behaviour is untouched.
+- **A mis-deleted history entry can be undone for 5 seconds.** Deleting one record, or clearing all of
+  them, used to take effect immediately with no way back. The success toast now carries an **Undo**
+  button — undo rather than a confirmation dialog, because a dialog would change the existing
+  single-click interaction while an undo changes nothing unless you reach for it. The window during
+  which recovery is possible _is_ the lifetime of that toast, both driven by one constant
+  (`UNDO_WINDOW = 5000`), so the affordance disappears with the message instead of lingering as a
+  dead button. `ElMessage` renders as `role="alert"`, so the same toast is already the screen-reader
+  announcement. Recovery goes through `useHistory().restoreRecords()`: merge by `id` into the current
+  list, sort newest-first, keep the usual most-recent 50 — pressing undo twice cannot duplicate a record.
+  The empty state a clear leaves behind now carries the **Import** button too: export and clear only exist
+  while there are records, and right after a mistaken clear is exactly when import is needed.
+- **File list changes now speak.** Only conversion progress had a `role="status"` announcement, so
+  dropping, appending or clearing files was silent for screen-reader users (WCAG 4.1.3) — the count
+  changed and nothing said so. The same region now announces "Loaded {count} file(s)" and "File list
+  cleared". It hangs on `update:files`, the single exit of the file list, so picking via the button,
+  dragging, pasting, appending and clearing all share one behaviour. Conversion status keeps priority:
+  while a batch runs, progress is what is spoken, not a file count. Each write clears the region first,
+  because a live region only speaks on an actual DOM change and a repeated message would be swallowed.
+- **A batch nothing could recognize explains itself.** The target picker used to show its hint only for
+  "recognized, but no shared target"; when not a single file was recognized it too left just an empty
+  select, and you could not tell whether the drop had failed or the format was unsupported. The two dead
+  ends now say different things — keep picking another target, or these files are not a supported type.
+- **The comparison view's split bar gained semantics and a hittable area.** It was a 12 px visible line
+  with no role to expose, and a pointer had to land inside that narrow band exactly. It now carries
+  `role="separator"`, `aria-orientation="vertical"`, `aria-valuenow/min/max` and a label describing what
+  it adjusts, with the hit area extended 6 px into each panel (24 px total, meeting the WCAG 2.5.8
+  minimum pointer target). The extension is a transparent pseudo-element, so the rendering is pixel for
+  pixel what it was; because that element paints over statically positioned panel content, the mode buttons
+  below it gained `position: relative` and stay clickable on top of it. Arrow-key adjustment already existed
+  and was not reimplemented.
+- **Prettier went from "installed, never run" to a guard.** `pnpm format:check` is part of `lint:all`, and the
+  CI lint job already runs `lint:all`, so formatting is now a check a commit has to pass (`pnpm fix:all` ends
+  with `pnpm format` too). The first repository-wide `pnpm format`: 16 files changed in **nothing but**
+  formatting — each one verified by running Prettier over its HEAD version and comparing against the working
+  copy — while the remaining files were normalised alongside a real change. `.prettierignore` covers exactly
+  three kinds of thing: build output, `fixtures/` (the conversion inputs the e2e suite asserts on a byte and
+  size basis, so reformatting them rewrites the assertion), and `.qoder/` (specs and plans). One brittle
+  assertion surfaced by that sweep got fixed on the way: `scripts/check-store-listing.mjs` looked for
+  `__MSG_extensionName__` in `wxt.config.ts` through a double-quoted literal, which Prettier's object-key
+  quoting turned into a permanent false. It now matches regardless of quote style — what it guards is "does the
+  manifest reference these two keys", not "how those keys happen to be formatted".
+- **`pnpm verify:numbers` — someone finally reconciles the numbers in the outward prose.** Format count, route
+  count, reachable and selectable combinations, how the 27 blocked pairs split up, the batch and size thresholds,
+  the theme count and the 12 combinations behind "6 themes × light/dark", the measured length of the two
+  store description blocks and the assertion total recorded by the e2e suite: all 23 values are evidenced during
+  the run itself. The enum comes from `utils/core/types.ts`, the edge count and the closure from
+  `scripts/__baseline__/conversion-paths.json`, the blocked count is recomputed from the two sets in
+  `conversion-policy.ts` (the two branches failing to sum to the total is an error, not a number to fudge), the
+  thresholds are read back from the constants in `FileUpload.vue` / `useConversion.ts` / `presets.ts` /
+  `useHistory.ts` / `useRecentTargets.ts`, and the two description lengths are measured with the same ruler
+  `verify:listing` uses. The assertion total is the one value the source cannot answer: it comes from the record
+  `scripts/e2e-test.mjs` writes at the end of a full green run. Those values then get compared against sentences
+  in 15 documents —
+  sentences are exactly the class that drifted twice before, once when a description's character count moved under
+  an unrelated edit and once when a name/limit pair shipped as 33/75 against a real 20/75.
+  Two kinds of sentence are handled apart. Where the sentence names its fact (「可到达 143 个组合」 versus
+  「实际提供 116 个」) the number is compared against that one fact. Where one shape carries several facts —
+  「N 个组合」 — the number only has to be the current value of one of them, so a stale or invented count still
+  fails without the guard pretending to read which one the sentence means.
+  `scripts/__baseline__/prose-number-quotes.json` records how many quotes each document carries today; when a
+  sentence is reworded out of every pattern, the cell that disappears from that diff is the reviewable signal
+  (`--update` re-takes it). The 1.0.0 section of this changelog and the version history and rejection log in
+  `CHROMEWEBSTORE.md` are excluded per file: those are records of what was true, and what was said, then. Numbers
+  in the Unreleased section are still compared, they just do not enter the baseline. The guard runs in the CI lint
+  job, on the same side as `verify:paths`: purely static, before the build.
+- **The suite now reports its own assertion total, so the four sentences that quote it need no keeper.**
+  The assertion total quoted in prose is the only outward number that requires _running the suite_: the product page
+  quotes it in both
+  languages and so does each promo article, and every added assertion meant finding all four by hand — six commits on
+  this branch carry that sweep in their title. `scripts/e2e-test.mjs` now writes the count into
+  `scripts/__baseline__/e2e-assertions.json` as it finishes, and `verify:numbers` reads that record, which puts the
+  total under the same ruler as the format count and the thresholds. Only a run that is green **and unfiltered** may
+  write: a subset counted part of the suite and a failing run counted something nobody should quote, so neither
+  touches the file. In CI a difference between record and measurement is itself the failure, because it means the two
+  were committed as different numbers; locally the new value is written and the run says to go sync the prose. A
+  sentence reworded out of every pattern is still caught by the quote baseline, which now carries a cell for each of
+  those four quotes. Verified in three directions: setting the record to 258 reports 4 problems, setting the product
+  page to 260 reports 1, and swapping the classifier in 「共 … 项断言」 from 「项」 to 「处」 shows up as the cell the
+  baseline diff lost. Out of reach remains the gitignored WeChat HTML, still printing 244 until the next
+  `pnpm promo:wechat`.
+- **The "no text layer" fact about our PDFs is now sayable inside the product.** When a batch contains a PDF
+  result, the result card carries one extra line: the produced PDF is a page image with no text layer, and if you
+  need the text on it you can try selecting and copying in a PDF viewer — a step that viewer performs, not this
+  extension. The trigger was a user who copied text out of a PDF converted from an image and concluded we bundle
+  OCR: a limitation written only in the README had no counterpart in the product, so the greyed-out "images carry
+  no text to extract" note and the text they had just pasted contradicted each other. This is also the first entry
+  against the long-standing "lossy semantics are never disclosed in the UI" item. The check keys off the result
+  format, not the source format: every PDF this app writes is a page image (the converters call `addImage` and
+  have no path that draws text onto a page), so there is nothing to distinguish an image-sourced PDF from an
+  HTML- or DOCX-sourced one. Two new assertions keep it honest: one that the line appears and says what it should,
+  one that measures its contrast against the `el-alert` tint it sits on, across all 6 themes × light/dark (worst
+  11.34:1) — the informational-text gate further down runs against an empty workbench and cannot reach this string.
+  Suite total: 242 → 244, and the same number in the product page and both promo drafts moved with it.
+- **"The text you copied out of a PDF was recognised by your viewer" is now said everywhere it is implied.** The
+  entry above put the limitation inside the product, but the outward prose only told half the story: the README,
+  the product page and the store description all said "no text layer", and none of them answered what a user
+  actually observes — a PDF converted from an image can be selected and copied. That leaves "image → TXT is
+  greyed out" reading as a contradiction. Three places now say it, in both languages: a new FAQ entry in the
+  README; the same question added as a pair in the product page's visible FAQ and its JSON-LD `FAQPage` (structured
+  data that disagrees with what the page shows is a search-engine penalty item), where the limitations card also
+  stops asserting that nothing can be extracted — the sentence was about viewer behaviour, and that is exactly the
+  claim that fails; and the same clause added to the "please know before installing" bullet in both store
+  descriptions, with the reviewer-facing note in `CHROMEWEBSTORE.md` aligned to it. Editing those blocks surfaced a
+  second problem: the character counts quoted in the quick-reference table and in the publishing guide were already
+  stale — the previous round's rewording moved them, and nothing noticed. That is precisely the class of number the
+  new guard exists for, so the two paste blocks are now measured the way `verify:listing` measures them and added as
+  facts 21 and 22, with both publishing guides brought into the comparison; the four places that quote those lengths
+  are checked from now on.
+- **The result card now admits when it flattened an animation.** When a batch contains a file whose route decoded a
+  GIF down to a single frame, the card carries a line: a GIF converted to an image or a PDF keeps only its first
+  frame, the animation is not in the result, and the original file is where the animation still lives. The README's
+  format table and the product page FAQ had always said "GIF renders its first frame" while the product stayed
+  silent — the user held a still image and nothing acknowledged what had been dropped. This is the second entry
+  against "lossy semantics are never disclosed in the UI", and the trigger is declared on the _edge_ rather than on
+  the source format: `Converter.flattensInput` is set only by `gif→png / jpg / webp` and `gif→pdf`, the routes that
+  really do pass through a canvas decode, whereas `gif→html` copies the original bytes into an `<img>` and the
+  animation survives intact — that route has to stay quiet. The orchestrator carries the fact out with the result
+  (`ConvertResult.lostFrames`), because an output name is rebuilt as "source basename plus new extension" and
+  `sample_png_….png` does not say it ever was a GIF. Two new assertions, the second of which checks the silence:
+  GIF→PNG must show the line, GIF→HTML must not — keying the note off `source === GIF` would pass the first and fail
+  the second. Suite total: 244 → 246, and the same number in the product page and both promo drafts moved with it.
+  Still uncovered: SVG flattening (whether `svg→md` and `svg→docx` really keep the vector is unmeasured, and a
+  sentence nobody measured does not get written), animated WebP input (`webp→png` takes its first frame too, and
+  that edge declares nothing), and turning an HTML page that embeds an animated GIF into an image or a PDF — that
+  route really does end up with one frame, but neither its trigger nor its wording fits on this line.
+- **The result card now says so when it flattens a vector drawing too.** This closes the last item outstanding
+  against "lossy semantics are never disclosed in the UI" — the "unmeasured" caveat above was measured during F-8,
+  and the disclosure follows it. `html→docx` and `html→md` rasterize an inline `<svg>` into an embedded PNG: the
+  drawing survives, the vector does not, and until now only the README and the product page said so. Unlike the GIF
+  line, this one cannot hang off the _edge_ — inside a single `html→docx` batch a document with a diagram should say
+  it and one without should not — so it is a property of the document, reported by the converter that does the work
+  (`ConvertResult.svgRasterized`) and collected step by step by the orchestrator: `md→docx` and `svg→docx` are both
+  multi-step chains (`md→html→docx`, `svg→html→docx`), the flag is written at the end of the chain, and the UI still
+  receives it. What gets counted is the drawings this call _actually_ turned into a raster: a nested
+  `<svg>` already sits inside its parent's markup and lands in the same bitmap, and a diagram whose
+  rasterization failed is not counted either — the line says the drawing was written into the result as a
+  bitmap, which is no more true of a dropped one than of a preserved vector. `html→md` additionally looks at
+  the string it produced: `gfmTable` flattens a cell to its `textContent`, so a diagram inside a `<td>` never
+  reaches the markdown and a count taken from the input alone would be lying right there (cells dropping
+  images is pre-existing behaviour; this round does not change it, it just stops claiming the drawing
+  survived). Four new assertions: `md→docx`, `svg→docx` and `svg→md` must show the line, and a
+  `<svg>`-free `sample.html → docx` must not — with the latter requiring a real .docx first, since otherwise
+  "no note" would only prove that nothing rendered. Suite total: 254 → 258, and the same number in the
+  product page and both promo drafts moved with it. Still uncovered: animated WebP input (`webp→png` takes
+  its first frame too) and turning an HTML page
+  that embeds an animated GIF into an image or a PDF — that wording is GIF-specific, so widening it needs a new
+  sentence, not a new trigger.
+- **`pnpm verify:remote-code`** — asserts that the build output contains no code fetched from the network: no
+  `http(s)://….js` literals, no `importScripts(`, no `<script src="http…">`, no shape that assembles an `import()`
+  into a string and hands it to a Worker, no `eval(`, plus a manifest CSP that admits no remote script source. Like
+  the offline guard it has two layers: `--source-only` reads first-party source and can run on a clean checkout
+  before any build, while the default pass reads `.output/chrome-mv3` and fails outright when the artifact is
+  missing. Wired into both CI jobs and into the release workflow **before** packaging. The reason it exists is the
+  Fixed entry below: these shapes live only in minified third-party output, and neither "our source makes no
+  requests" nor "the manifest asks for `storage` only" can see them structurally.
+- **The site gained a route-per-page layer, and it is generated.** `docs/convert/` is now one index plus ten
+  pairing pages (Markdown→Word, Word→Markdown, Excel⇄CSV, JSON→CSV, PDF→text, Markdown→PDF, Word→PDF,
+  PNG→WebP, SVG→PNG), and `docs/blog/` turns the long post that used to sit in `docs/promo/` into a published
+  page. `scripts/conversion-pages/pairs.mjs` is the single source of that copy; `scripts/render-site-pages.mjs`
+  renders it and rewrites `docs/sitemap.xml` on the way (14 URLs now) — a sentence changes in the data source,
+  `pnpm pages:render` rebuilds, `pnpm pages:check` compares committed bytes. What each route keeps and what it
+  drops is taken from the path baseline and the converter implementations rather than written as marketing, and
+  both languages still ship inside one document with CSS switching on `lang`, so a crawler that runs no
+  JavaScript reads the same facts. The product page carries three more long-tail FAQs — what happens to images
+  on Markdown→Word, whether Word→Markdown leaves data URIs behind, and whether Excel→CSV yields values or
+  displayed text — with the JSON-LD `Question` entries kept 1:1 with the visible ones (22 questions ×
+  2 languages). Both kinds of generated file are now outside Prettier's reach, since a hand edit would be
+  overwritten by the next render; the guard instead is `pages:check`, wired into CI's lint job, and
+  `verify:numbers` derives its facts over these pages too.
+- **The generated pages now move, and know what they are.** Every pair page carries one real workbench frame —
+  no new shoots, these are the same 1280×800 captures the store listing and the README use — and describes it
+  with an `ImageObject`. The `width` / `height` declared on the `<img>` are checked against the PNG's own IHDR
+  by the renderer, which refuses to write the file when the two disagree: reserving a box is only honest while
+  those two numbers are real. The structured data gained an `Article` node (`author` with a URL, `publisher`,
+  `datePublished` / `dateModified`) to match the `og:type="article"` the page already claims; `dateModified`
+  takes the later of "content last changed" and "file first entered the repository", because a modification
+  date older than publication is exactly the inconsistency search engines flag. `og:image` gained its
+  dimensions, and `theme-color`, `color-scheme` and `apple-touch-icon`'s `sizes` came along. The JSON-LD is now
+  one graph per language: `#fat-ld` ships the Chinese one, matching the document's own `lang`, and a script
+  directly under it swaps in the English graph for English readers — a `Question.name` written in both
+  languages is what lands verbatim in a rich result or an AI answer, where it becomes the question as
+  restated on our behalf. A scroll-reveal layer arrived (only `transform` and `opacity`, 0.42s per step), but
+  the whole thing hangs off a `.js` class that the head script adds before the first frame, so a client that
+  renders CSS without executing JavaScript reads fully visible prose rather than eight blank blocks. Under
+  `prefers-reduced-motion: reduce` the layer stops entirely — durations collapse to 0.01ms instead of the
+  properties being removed, which leaves each element at the state it was animating _to_ — and every section is
+  marked shown outright, so nothing depends on whether the observer ran. The product page and the generated
+  pages narrow `<title>`, the description and the `og:` / `twitter:` strings to the reader's own language on the
+  first frame; before this, both languages competed inside one social-card excerpt and the second half was the
+  part that got cut. Position is load-bearing here: that script has to sit _after_ the meta tags it rewrites.
+  Placed above `<title>`, `document.title` invents a second `<title>` element, all five `querySelector` calls
+  return null, and the page looks fixed while nothing changed — which is what a bare-CDP run in three client
+  postures (JavaScript off, `reduce`, `?lang=en`) measured, not a code read. One more string got corrected in
+  passing: the route card's label for screen readers read `转换链路 / route`, because the full English phrase was
+  passed as a second argument to a one-argument escape function and dropped without a sound — it now reads
+  `转换链路 / Conversion route`.
 
 ### Changed
 
+- **The Chinese interface now names the extension in Chinese.** The brand in the workbench header and in
+  the tab title used to read `Transfer Any File` in both languages; under Chinese it reads
+  「文件格式任意转换助手」 now, which is the brand half of the Chinese `extensionName` already sitting in
+  `_locales/zh_CN` (its second half, "离线转换无上传", is the store and management-page slot, and this side of
+  the product has its own subtitle). So the three names a Chinese user meets — the Chrome extensions page,
+  the toolbar tooltip and the page itself — say the same thing for the first time. The English side is
+  untouched, character for character. The interface is all this reaches: the repository, README, landing
+  pages and store assets still carry `Transfer Any File` as the outward brand, and `package.json` and the
+  manifest version are unchanged.
+- **The archive you download is named by the same rule as everything else.** It used to be
+  `converted-<date_time>.zip`; with the built-in pattern it is now `converted_<date_time>.zip`, a
+  one-character drift from hyphen to underscore. The old spelling was not kept as a special case:
+  "the ZIP gets its own naming rule" is exactly the exception this feature removes, and what changes is one
+  name in your downloads folder — not the storage format, and not the entry names inside the archive,
+  which stay whatever each result was called.
+- **Adding or removing files no longer throws away results that had nothing to do with the edit.**
+  Appending a file to a batch, or clicking the delete button on one row, used to wipe the whole screen of
+  results along with the chosen target — so recovering one wrong file cost every other file a re-run.
+  A wipe now happens on exactly one condition: the edited list contains a file that can no longer reach the
+  current target. That wipe also says why, because a mixed batch offers no target that is invalid for some of
+  its files, and that rule should not be something the user has to infer. Making the distinction required a
+  fact the code did not have: a result row carries only an output name rebuilt from the source basename, never
+  the source itself, so `useConversion` now keeps an ownership table index-aligned with `batchResults` and
+  pairs rows by `File` object identity — two files with the same name really can be in one batch, and pairing
+  by name would delete the wrong row. Switching the target is still a full reset, deliberately: those rows are
+  products of the target just abandoned, and keeping them would mix PNG and PDF rows into one list. The undo
+  snapshot is retired by any change to the file list, exactly as before — otherwise it would restore a
+  workspace that no longer exists.
+- **Transition durations moved into design tokens, and reduced motion clears delays too.** The 11 scattered
+  `0.15s` / `0.18s` / `0.2s` / `0.25s` values settle on `--fat-duration-fast|base|slow`; under
+  `prefers-reduced-motion` the stagger delays are zeroed along with the durations, and four `0.2s` uses become
+  `0.18s`.
+- **Motion now has an easing vocabulary, and distance and scale are tokens.** With durations settled, two
+  kinds of value were still loose: every transition ended in the keyword `ease` — which decelerates in both
+  directions, so an arrival and a departure were the same gesture, and that flatness is precisely what
+  "cheap" registers as — while the displacements sat in three source files (`App.vue`, `FileUpload.vue`,
+  `PreferencesMenu.vue`) as `translateY(8px)` / `translateX(-12px)` / `scale(1.08)` literals. Easings are now
+  named by direction, three of them: `standard` for a state that
+  changes in place, `enter` decelerating only (for arriving), `leave` accelerating only (for departing — never
+  ease-out a removal). A fourth, an overshoot for releasing a press, was drafted and dropped before it shipped:
+  nothing in this interface changes size or position on press, so an overshoot landing on a colour transition
+  clamps and reads as nothing, and inventing an action just to hang a curve on it would be a different change.
+  Distances and scales each have tokens, and there too only the ones some rule actually reads.
+  `--fat-ease-standard` keeps its name, so existing call sites pick up the new shape without an edit. The
+  ceiling is the number that matters most here: a surface that travels more than a card's worth of padding
+  stops reading as "moved" and starts reading as "fell over".
+- **The reduced-motion setting now removes displacement, not just time.** Collapsing a duration to 0.01ms does
+  not remove a displacement, it only removes the time spent crossing it — so `.card-enter-from`'s translateY
+  still put a card on screen 8px short for one frame, and a one-frame jump is exactly what that media query
+  exists to prevent. `--fat-lift-sm`, `--fat-lift-md`, `--fat-slide-md`, `--fat-swatch-scale` and
+  `--fat-enter-scale` now collapse in the same place as the durations. Element Plus needs no per-rule entry: its
+  motion tokens are already declared in terms of `--fat-duration-*`, so collapsing the ladder collapses dialogs,
+  dropdowns and toasts with it. The three values it hardcodes instead of using those tokens (the progress bar's
+  `width .6s`, the message's `transform/top/bottom .4s`, the loading icon's `2s`) are struck by name at the bottom
+  of `global.css`, and the dialog's 20px entrance offset is answered by swapping its **animation name**: the reduce
+  block carries two plain cross-fade keyframes of its own and points `animation-name: … !important` at them. It does
+  not redefine Element Plus's keyframes under the same name, because `@keyframes` is settled by document order alone
+  and has no `!important` — a rewrite that wins today goes silently losing when the chunks are split differently,
+  and that order was read off the built page's CSSOM rather than assumed. The confirmation dialog (`ElMessageBox`,
+  the surface behind "clear history" and the large-batch prompt) shares the `dialog-fade` transition name but runs a
+  different keyframe set, `msgbox-fade-in`, with the same 20px — so it is mapped separately too. Those three names
+  were found by enumerating every `@keyframes` in the shipped bundle that carries a displacement, not by reading the
+  docs. The zoom and list poses are struck the same way, by family: all four directions of `el-zoom-in-*` —
+  `el-tag` uses `center` — and `el-list`'s `-30px`, all written in component CSS rather than in a token, so
+  collapsing the duration alone would leave them flat or mislocated for one frame. The
+  criterion behind all of this came out of a reduced-motion scan run in real Chrome, and that scan caught the last
+  displacement literal still loose in the workbench — the 8% the theme swatch grows on hover, now
+  `--fat-swatch-scale`, and the only hover scale in the interface.
+- **The workbench's state changes now have transitions.** The cancel button, the batch-progress block and the
+  multi-step path hint used to pop in at zero duration and shove their row apart: small controls arrive by
+  scaling (a control inside a flex row has nowhere honest to slide from), whole blocks grow along
+  `0fr ↔ 1fr` through the new `.fat-expand` helper, and the shared `.fat-fade` covers swaps that keep their
+  box the same size. The preset row became a `<TransitionGroup>` — `addPreset` prepends, so without `-move`
+  the new chip lands at the left and every other one teleports a slot. Leaving is a cut in both lists, on purpose:
+  `<TransitionGroup>` waits out the transition the element itself carries (the rows' `--fat-transition-fast`, the
+  chips' `--fat-transition`) before it unmounts them, so "delete a row" became one duration of a row sitting there
+  unchanged and then a second reflow; and a "no presets yet" hint that fades while still in flow shares that
+  wrapping bar with the chip row that just replaced it, pushing everything below it down for the length of the fade.
+  Entering and `-move` keep their motion, leaving loses it. CollapsibleCard's panel moved from
+  `v-show` to the same `0fr ↔ 1fr`: `v-show` flips `display` in one frame, so the arrow spent 0.18s rotating
+  over content that had already changed, the animation contradicting the layout change instead of explaining
+  it — and a height transition means `visibility` has to be managed too, because a subtree clipped by
+  `overflow` alone stays in the accessibility tree and in the tab order. That clip is permanent, and it also ate
+  the keyboard focus ring: `.collapsible-body` carries no top padding, so the first control in a panel sits flush
+  against the clip edge and 2px of its 4px ring (`outline: 2px` plus `outline-offset: 2px`) fell outside it — measured
+  on the preset-name input's top edge. So the clip is written `overflow: clip` rather than `hidden`, with
+  `overflow-clip-margin: var(--fat-focus-ring-inset)`: a new token holding exactly that 4px, declared next to the ring
+  it belongs to. `.fat-expand > *` is a permanent clip too and changed with it. The cost is bounded to the animation:
+  4px of content paints past the clip edge, and it is the same 4px already fading out with the opacity. Measuring this
+  turned up a trap in the measurement itself — `--fat-transition` transitions `outline-offset` as well, so reading the
+  computed value the instant focus lands returns its _starting_ `0px`, which reported the card header's `-2px` inset
+  ring (an inset ring cannot be clipped by an ancestor at all) as "2px clipped"; the sample has to wait for the
+  transition to settle. The conversion card, the result cards
+  and the footer gained background/border/color transitions, so a theme switch no longer splits into two
+  groups: buttons and chips slide over 0.18s while the page used to snap. These name their properties instead
+  of using the `--fat-transition` shorthand, because that shorthand carries `transform` as well and `.card` is
+  exactly the element the card entrance animates — two transform transitions settled by source order is not a
+  thing to leave to chance.
+- **The site layer shares one motion vocabulary across the product page and the 11 generated convert
+  pages.** The pairing pages link `docs/assets/content.css` rather than inlining it (so `pnpm pages:check`
+  byte comparison is unaffected), which makes every line there worth eleven pages — ten pairing pages and
+  their index: the route chain's chips slide in one after
+  another (the stagger is written per child on `transition-delay`, because this is a transition and not an
+  animation), the nav underline sweeps left to right (returning on an accelerating curve, and the whole block
+  sits inside `@media (hover: hover) and (pointer: fine)` so touchscreens keep no sticky hover artefact), a
+  scroll-progress rail at the top of the page, and the FAQ panel grows open. The product page adds the
+  cursor-following card glow and the same rail. Three deliberate calls: the rail is driven by a scroll
+  timeline, and a blanket `animation-duration: 0.01ms` cannot reach a progress timeline, so the reduce block
+  deletes it with `content: none` rather than shortening it; the glow's `::before` carries `z-index: -1`, so
+  the parent needs `isolation: isolate` or it drops behind the card's own background; both rails are
+  `pointer-events: none`, because 2px of fixed overlay would otherwise eat clicks on the sticky header.
+
+- **The tab title follows the UI language.** `<title>` was permanently `Transfer Any File` and switching
+  to English left it alone — yet the tab title is the only string of this page that the browser chrome
+  shows, while everything beside it was already translated. It is now "brand · page name", where the
+  brand stays identical in both locales on purpose and only the second half follows `useI18n`. It is
+  written by the same `applyDocumentLocale()` call as `<html lang>`, still before mount, so the first
+  frame is already correct and there is no flash of a Chinese label.
 - **Bilingual root documents standardised on "Chinese primary + `.en.md` English twin".**
   `CONTRIBUTING`, `SECURITY` and `CHANGELOG` previously held English in the primary filename and Chinese in
   `*.zh-CN.md`, while the README pair ran the other way — three bilingual conventions in one repository, the third
@@ -189,9 +565,275 @@ zero network requests`) and the Chinese equivalent never appeared in a search re
   `docs/llms.txt`, both promo drafts, and the product page's two JSON-LD `license` nodes plus its four visible
   mentions. Nothing in the shipped extension reads a licence string, so behaviour, storage and permissions are
   untouched.
+- **fflate moved off the first screen.** ZIP is only needed for four things: bundling several results into one
+  download, multi-sheet XLSX → CSV, multi-page PDF → images, and unpacking an archive the user drops in. But
+  `import { Zip } from 'fflate'` sat at the top of `composables/useConversion.ts`, and `App.vue` calls
+  `initConverters()` on startup, which registers every converter statically — either route alone pulled fflate
+  into the first-screen chunk. There is now one door: `loadFflate()` in `utils/core/zip.ts`, which `import()`s
+  on first call and reuses the same module instance afterwards; the five call sites each `await` it right before
+  they need it. Measured first-screen JS for the workbench: 440,395 B → 421,532 B (−18,863 B, −4.3%).
+  **The cost is stated plainly**: the total package grew from 3.74 MB to 3.76 MB, because splitting it into an
+  async chunk carries its own overhead — paid so that the first screen does not load it.
+- **"Its text is not selectable" rewritten as "it carries no text layer".** The old sentence made an assertion
+  about what a user can do, and it does not hold: the file has no text layer, yet some PDF viewers recognise the
+  text on the page themselves and users can still select and copy it. What our PDFs contain has never changed —
+  all that changed is whether the sentence describes the file or the person. Synced across 17 mentions in 9 files:
+  the conversion-semantics list in `AGENTS.md`, two mentions per README (limitation note and FAQ) in each language,
+  the Chinese and English store paste blocks in `CHROMEWEBSTORE.md`, three zh/en pairs on the product page (the
+  FAQ answer in JSON-LD, the same answer rendered visibly, and the limitation card), the limits list in
+  `docs/llms.txt`, and both promo drafts plus the Weibo copy. The old sentence stays in the 1.0.0 release notes:
+  that section records what was said then, not what is promised now.
+- **The Markdown parser moved off the first screen.** `components/shared/PreviewDialog.vue` carried
+  `import { marked } from 'marked'` at module scope, and that dialog is mounted by `FileUpload.vue` through
+  `defineAsyncComponent` — an async component kept mounted under `v-show` resolves its chunk at boot, so the
+  laziness bought the dialog itself and none of the 41 KB it imports. `marked` is now `await import()`ed inside
+  the one branch that renders a Markdown preview, the same shape as the `await import('dompurify')` already in
+  that function. Measured by what Chrome actually fetches (not the static import closure — the two diverge once
+  a `v-show`ed async component is involved): first-screen JS for the workbench went from 489,929 B across 24
+  requests to 448,476 B across 23 (−41,453 B, −8.5%; the `marked` chunk on its own is 41,468 B), identical
+  across three independent samples. The package as a whole is 3,758,883 → 3,758,543 B, still 3.76 MB — nothing
+  was removed, it only changed rooms from boot to on-demand. **No difference in what the UI does**: the preview's
+  inputs, outputs, sanitisation step and failure fallback are untouched, and the e2e Markdown preview assertion
+  still reads the same `srcdoc` (that iframe carries `sandbox=""`, so the parent document cannot read it — the
+  assertion looks at the attribute, not at a live DOM).
+- **The result list stopped fabricating `File` objects just to read a suffix.** Each row decides whether the
+  Preview and Copy buttons appear based on the format, and the format is recognised from the result filename's
+  extension. The old shape wrapped the name in `new File([], name)` and handed it to `detectFormat` to get that
+  extension back. That layer is pure logic, so it moved out of `composables/useFileDetect.ts` into
+  `utils/core/file-detect.ts` together with `EXTENSION_MAP`/`MIME_MAP`, and the composable left forwarding to it was
+  deleted; the name-only half is now the module-level pure function `formatFromFilename(name)`, which
+  `components/shared/ResultDownload.vue` calls directly instead of inventing a file. The equivalence is provable rather than tested: `new File([], name).type` is always `''`, and `MIME_MAP`
+  has no `''` key, so the old route only ever used the extension branch. Measured in real Chrome — the same engine
+  the extension runs on: detecting across 200 rows one at a time costs 16.35 ms through `new File()` and 0.04 ms
+  through the suffix (≈82 µs per allocation), and the template asks twice per row (the Preview button's `v-if` and
+  `isTextResult` for the Copy button), so a 200-row re-render drops from ≈33 ms of pure allocation to well under
+  0.1 ms — on a path that runs again every time conversion progress repaints.
+- **A document is no longer converted twice for its own preview.** The DOCX and XLSX previews are real
+  conversions of the whole document into HTML (mammoth / `XLSX.read`), and the preview dialog and the
+  comparison view are handed the **same `File` object** — so previewing a file and then opening the
+  comparison view ran that conversion twice, and closing and reopening the preview ran it a third time.
+  `utils/core/preview.ts` now memoises each renderer on its own blob-identity `WeakMap`, replaced wholesale
+  once it holds about 8 entries. **Two implementation details were settled by measurement rather than
+  written first**: evicting through a queue of keys would hold strong references to the uploaded files
+  themselves, pinning them after the batch is cleared, so the cap is cleared by swapping the map; and one
+  shared map let the same Blob be answered by the _other_ renderer's output (observed: feeding an XLSX file
+  to the DOCX path returned a table instead of failing), so there is now one map per renderer and a
+  cross-format call fails exactly as it used to. What disappears is real work — a full re-conversion of a
+  176 KB DOCX costs 33 ms against 0 ms for a hit, a 17 KB XLSX 13.1 ms against 0 ms, the 5 KB DOCX fixture
+  8.5 ms against 0 ms. Small documents are below one frame; large ones are where it shows. The premise the
+  cache rests on was measured rather than assumed: for the same bytes the cached string and a freshly
+  converted one are **byte-identical**. A failed conversion is never cached, so one transient failure cannot
+  leave a file for ever without a preview. What the cache now stores is specifically the **renderable**
+  document — the subresource strip (`stripRemoteResources`) moved inside it too, because it is pure as well:
+  left at the six call sites it meant every cache hit still re-parsed and re-serialised the whole document,
+  at ≈0.1 ms per KB (measured in real Chrome: 0.24 ms at 2.3 KB, 1.96 ms at 15 KB, 6.04 ms at 61 KB, 22.4 ms
+  at 228 KB) — more than the hit itself was worth. Stripping one level deeper does not weaken it, and that is
+  checked against the **built artifact** rather than argued: in real Chrome the value the bundled function
+  returns is byte-identical to applying the strip once to the raw conversion output, and the strip is itself
+  idempotent (`strip(strip(x)) === strip(x)`), so one call site fewer cannot leak and one call site more
+  cannot distort. Cross-format calls still throw. A repeat open now measures 0 ms. The package goes
+  3,758,543 → 3,758,831 B (+288 B, still 3.76 MB).
+  This round gives it a second ceiling. The count bounds how many previews are remembered, not how big each one
+  is: the map holds a resolved `Promise<string>`, which keeps its string, and a DOCX preview inlines every
+  embedded picture as base64 (`docx-to-html.ts` hands mammoth an `imgElement` reader), so those eight slots cap
+  the cost at eight copies of whatever the largest document renders to. Base64 is a third larger than the bytes
+  it encodes, so a document that fills the 100 MB upload limit costs ≈140 million characters per copy — no
+  footprint a count of eight holds. The new ceiling is 4,000,000 UTF-16 code units per renderer (two bytes each
+  at the worst, CJK prose; one for the base64 that dominates an image-heavy rendering), and there are two
+  renderers, so the page-wide steady state is twice that. It bounds the steady state and not the peak: the
+  tally is written when a rendering resolves while the ceiling is read when a request starts, so a burst of
+  concurrent misses stays bounded by the count alone. An entry over budget is still stored — the same reasoning
+  that moved the count eviction _before_ the store applies here, and refusing it would answer the expensive
+  case with a recomputation every time — and what it buys instead is the reset that follows it: the next open of
+  a different file replaces the map, so whatever was cached alongside it, and the big rendering itself on a
+  second look, is computed again. Without the ceiling, that one document sets the footprint of every preview
+  remembered after it. The fixtures sit three orders of magnitude below 4M, so this is not observable from the
+  UI and gains no assertion (the suite stays at 267). The package goes
+  3,758,958 → 3,759,005 B (+47 B, still 3.76 MB).
+- **The 100 ms pause before a document is rasterized is now paid only by documents that can still move.**
+  `utils/core/html-raster.ts` used to sleep 100 ms unconditionally after the page's images and fonts had
+  settled, to cover layout that lands _after_ that: an image whose decoded size reflows its neighbours, a
+  `@font-face` swapping in real metrics. The pause sits on the **HTML→PNG and HTML→PDF** routes, and every
+  multi-step chain (md / txt / csv / xlsx / docx / svg / json / pdf → an image or a PDF) runs through them —
+  so each file paid 100 ms, while almost nothing it renders had anything left in motion. The wait is now
+  decided per document: `doc.images.length > 0`, `doc.fonts.size > 0`, or a declaration in the HTML that
+  can still move it — `animation…:` / `transition…:`, prefixed or not, including the _first_ one inside an
+  inline `style`, and a SMIL `<animate…>` element; only with none of the three is it skipped. **The
+  predicate errs conservative, not eager**: an image that pointed at the network keeps its element after
+  the strip removes its `src`, so that document is still waited on, and among the converters that emit HTML
+  only `json-to-html` writes a motion declaration into its template (a `transition` shorthand; motion in any
+  other output can only have come from the user's own document), so that route keeps paying. Read the other
+  way, a pattern anchored on `{` or `;` alone misread three common hand-written shapes as "nothing moves":
+  the first declaration inside `style="…"`, a `-webkit-` / `-moz-` prefix, and a SMIL tag — and the price of
+  that mistake is a picture caught mid-motion, so all three now count as moving. Ten shapes were run through
+  both patterns to settle it, including the reverse case: a bare `@keyframes` that no `animation:` refers to
+  still counts as still. **What is saved needs no measurement — it is the constant, 100 ms per file. What
+  needed measuring is whether skipping it loses anything, and that was measured on the built artifact**:
+  seven document shapes (plain, long, inline image, sized image, `animation`, `transition`,
+  `@font-face`) produced **byte-identical** PNGs with the pause and without it. The pause itself stays
+  wall-clock rather than frame-aligned on purpose: it runs in the workbench tab, where `requestAnimationFrame`
+  stops firing the moment the user switches away, which would stall the conversion outright. A new e2e
+  section, `Layout Settle Completeness` (+4 assertions, suite total 260 → 264), pins both sides: on the
+  skipped side the picture must be the page at one magnification (nothing cut from the tail) and the closing
+  red block must be whole and sit on the last row; on the waited side the `data:` images must have painted
+  at their intrinsic size (a blue pixel count) with nothing left overlapping that block. **What the
+  assertion cannot see is the pause itself** — those pages come out the same either way — so what it holds is
+  the reason the pause was ever there. The package goes 3,758,831 → 3,759,003 B (+172 B, still 3.76 MB).
+
+  **The determinism of the artifact** then gets two more pins: the same page rasterized twice has to give the
+  same PNG width and height, and the same page sent to PDF twice has to give the same page count (+2 assertions,
+  suite total 264 → 266). Neither had ever been asserted — they were only ever run incidentally — and ±1 px and
+  ±1 page are exactly the drift a skipped pause is likeliest to leave. Both pixel scans (the red/blue counts and
+  the red block's top and bottom rows) moved into a shared `scanPaintedPixels()`, now used by the inline-SVG
+  assertion on `md → png` as well. The test script never enters the package, so its bytes are unchanged.
+  This round widens the predicate three more ways, and the widening runs one direction only: it can make a
+  document wait 100 ms longer, never stop one that used to be waited on. The first two are shapes the last
+  round acknowledged without listing. `<marquee>` is the one tag on the HTML allow-list that carries its own
+  motion and writes no `animation:` / `transition:` declaration, so the old pattern called it still. SVG's
+  `<image>` and `<video>` are the shapes no upper wait covers but that reflow a second time — `doc.images` is
+  an `HTMLCollectionOf<HTMLImageElement>` and structurally cannot count an SVG `<image>`, and a `<video>`
+  settles its box only when its own metadata arrives. `UNWAITED_ASSET_RE = /<(?:image|video)/i` takes exactly
+  those two: `<audio>` is left out on purpose, since its box is fixed and nothing moves when it loads, and a
+  legacy HTML `<image>` never reaches the predicate because the parser turns it into an `<img>` before the
+  document is serialized, which `doc.images` already counts. The third is `doc.fonts?.size ?? 0` — the wait
+  above already treats a missing FontFaceSet as survivable, and a predicate that assumed it exists would turn
+  that tolerance into a conversion that throws. The e2e section gains a 12-row shape table (7 wait, 5 skip)
+  that **does not copy the predicate**: both regex literals are read out of `utils/core/html-raster.ts` and
+  rebuilt, because a pattern copied into the test narrows along with it — exactly the drift the table exists
+  to catch. It pins every decision taken here, the negative rows included: a bare `@keyframes`, the word
+  "animation" in prose, an HTML `<img>` (the asset wait already counts it) and `<audio>` (+1 assertion, suite
+  total 266 → 267). The package goes 3,758,908 → 3,758,958 B (+50 B, still 3.76 MB).
+
+- **The workbench no longer pays for a preview dialog nobody opened, or for reading one key twice.** Neither
+  entry changes what the interface does; both change what happens before it mounts. **One: the top-level await
+  that gates the mount carried three `storage.local.get` round trips** — theme, colour mode, language — and
+  each `storageGet` is one trip to the browser process, so all three sat on the path into the first frame.
+  `utils/storage.ts` gains `storageGetMany()`, which reads the three keys in one call and keeps `storageGet`'s
+  per-key fallback semantics exactly (an absent key yields its fallback; a key holding `false` / `0` / `''`
+  yields that falsy value, not the fallback); a failed call falls back for every key. `useI18n` gains a
+  `seeded` flag: `main.ts` already hands the resolved language to `seedLocale()`, so `initLocale` re-reading
+  the same key was pure repetition, and it now only reads when nothing seeded it — the un-seeded path that
+  non-workbench entries take stays whole. Measured: 13 → 10 `storage.local.get` calls. **Two: `PreviewDialog`
+  was a `defineAsyncComponent`, but mounted under a plain `v-model:visible`** — and what that defers is the
+  component, never its chunks, so the first render of its host resolved all four of its requests (three
+  scripts plus the stylesheet the dialog injects, and stylesheets are render-blocking) inside the
+  first-contentful-paint window, on a workbench that has nothing to preview. A `previewMounted` flag now gates
+  it through `v-if`. When to arm that gate was measured, not reasoned: `requestIdleCallback({ timeout: 2000 })`
+  still landed before FCP (the pre-paint request count did not move — 32), and `first-paint` is worse, since on
+  this page it can fire while `#app` is still empty (88 ms against an FCP of 164 ms), which puts the four
+  requests straight back into the window they were meant to leave. The moment that is actually late enough is
+  the first contentful paint itself, taken through `PerformanceObserver({ type: 'paint', buffered: true })` —
+  `buffered` is what makes the remount case correct, since by then the paint is long over and the entry still
+  arrives — and a tab that never paints never warms the dialog up, which costs nothing because nobody is
+  looking at it. The registration sits inside a `try`: a warm-up that fails to arm is fine, one that throws
+  out of `onMounted` and takes the upload card with it is not. `previewFile()` sets the flag as its first
+  statement, and once open the gate stays open, leaving the close animation and every piece of
+  component-internal state untouched. **That click-side fallback was itself the defect, caught in review,
+  reproduced in real Chrome and then fixed**: the dialog fills itself from a non-`immediate` watcher in
+  `PreviewDialog`, and the click sets the flag and `visible = true` in the same flush, so the component was
+  created already open and the watcher saw no change to react to — a text preview left an empty `<pre>` and
+  a document preview an iframe with an empty `srcdoc`. Stubbing the paint gate (an `PerformanceObserver`
+  that does nothing) walks that path deterministically instead of racing the real FCP: before the fix the
+  `<pre>` was empty, after it all three fixtures — txt, md, docx — render content on the cold path
+  (`srcdoc` of 2,719 and 2,928 characters).
+  **The gains are paired, not two independent timings**: both arms were rebuilt separately and run interleaved
+  for 13 rounds on one machine (Spotlight's index was holding CPU in the same window, so absolute values are
+  not comparable and only the paired deltas are read) — FCP 364 → 316 ms (HEAD slower in 11/13), DCL
+  222 → 199, Vue mounted 337 → 269, last pre-paint response 210 → 86 ms (13/13). The structural side agrees:
+  32 → 28 requests before paint, 564,640 → 543,150 B. **The cost**: declared first screen
+  425,840 → 426,289 B (+449 B, still 20 chunks), whole package 3,759,222 → 3,759,689 B (+467 B, still
+  3.76 MB). The regression lives in the repository rather than a scratch harness: the e2e suite gains a
+  `Startup Request Budget` section (+3 assertions, suite total 271 → 274): no dialog request before paint — and
+  it requires those four files to be present at the same time, because the sentence is equally true of a
+  dialog that is never fetched at all — the three boot keys coming out of **one** `get`, and `fat:locale`
+  read exactly once for the whole boot. Deliberately no "at most N round trips" budget: ten reads today
+  against thirteen last round, so any ceiling tight enough to catch this regression has no headroom, and the
+  next persisted preference would trip it for the right reason. **Deliberately not touched**: `css-*.js` (78,683 B — the `el-select` / `el-tag` set) is still in
+  the preload graph only because `HistoryPanel.vue` sits mounted under `CollapsibleCard`'s `v-show`
+  statically, and moving it would make the filter toolbar appear one tick late, which is an observable
+  interaction change; the two i18n dictionaries and both Element Plus locale tables are in the first-screen
+  closure too, but splitting them would put the language seed above at risk. Both stay, per the rule that a
+  change touching behaviour, interaction or the performance baseline is proposed before it is made.
+
+- **The one key still read twice during boot is gone, and it uncovered a serialization that never worked.**
+  Continuing the "same key read twice" thread, the boot window measures 10 reads → 9, and opening the
+  preferences popover for the first time costs two reads less. **One:**
+  `useTheme`'s `initTheme` re-read `fat:theme` / `fat:colorMode` after `main.ts` had already read them and
+  written them onto `<html>`, only to put the same values into its own reactive state; `main.ts` now hands
+  the two validated values back through `seedTheme()` — the same shape as `seedLocale` — and `initTheme`
+  reads only when nothing was seeded, so the unseeded path stays complete. **This was never part of the boot
+  path:** `PreferencesMenu` lives inside a `:persistent="false"` popover, so `useTheme()` runs on the user's
+  first open rather than at startup. What the seed saves there is those two reads _and_ the frame before they
+  land, when the theme picker rendered at `DEFAULT_THEME` — a user who stored `rose` saw `blue` in the
+  freshly opened panel until the read resolved. **Two:** the two
+  `CollapsibleCard`s (`presets` and `history`) mount in one frame and each read the shared
+  `fat:collapsedState`; they now share one read, and the cache covers the read alone and is dropped the
+  moment it settles, so a card mounting in a later batch still sees what is stored now — a card joining
+  while the read is in flight sees that read's snapshot. Harmless today, since the merge only ever spans
+  cards mounting in one frame, but stated here so nobody reads it as a stronger promise.
+  **The defect dug up alongside is worth more than those two.** The first version of the merged read was
+  inert, because of `<script setup>`: every line written there runs inside `setup()`, i.e. **once per
+  component instance**, and the built bundle shows the queue declared inside `setup(e){ … }`. Which means the
+  cross-card serialization promised on 2026-09-20 never existed — each card was only serialized against
+  itself, so two cards updating that one map still interleaved read-modify-write and the later writer
+  overwrote the earlier card's key with its own stale map. The queue and the in-flight read now live in
+  `utils/core/collapsed-state.ts`, one copy per page. Every other top-level `let` in a `<script setup>` in
+  this repository was checked one by one and is genuinely per-instance (debounce timers, `isMounted`,
+  `paintObserver`); this was the only case of the kind.
+  **Two things the review added.** Every link in that queue read-modify-writes the whole map, so what comes
+  back from storage is now put through `toCollapsedStateMap()` first: anything that is not a plain object,
+  any array, and any value that is not a boolean is dropped. A stored `null` or string used to make the
+  assignment inside the link throw, and one rejected link stalls the persistence of every card behind it —
+  which is precisely what the comment on that queue promised could not happen. The coercion also returns a
+  copy, so the two cards no longer hold the same object. The other addition: restoring on mount no longer
+  writes back the value it just read. Nothing on disk changes, but each card whose stored value differs
+  from its default used to pay an extra read and write just after the first paint — and that write was the
+  unstated assumption keeping the new assertion below green.
+  **Regression:** the third assertion in `Startup Request Budget` becomes "no key is read twice during boot"
+  in place of "`fat:locale` is read exactly once" — the reason for refusing a total round-trip budget stands,
+  but a per-key judgement has headroom, and it caught the inert implementation on its first run. A new
+  `Collapsed State Writes Serialize` section clicks both card headers within one tick and requires both keys
+  to survive in the map; on that page `get` is wrapped to behave like Chrome's — the value is the store as of
+  dispatch, delivered a task later — and the 30 ms is measured rather than styled: at 0 ms the section stays
+  green with the chaining deleted, at 30 ms it loses `presets`. No change to the interface, interaction or
+  stored data.
 
 ### Fixed
 
+- **Sections a jump skipped over stayed transparent.** `.reveal` on the product page and the 11 generated
+  convert pages becomes visible when IntersectionObserver adds a class, and the observer only calls back for elements
+  that enter the viewport: opening `…#faq` directly, clicking an in-page anchor, or having the browser restore
+  a scroll position left every section above the target at `opacity: 0` — several paragraphs simply missing
+  from the top of the page, and scrolling back up did not bring them back. A callback entry whose rectangle is
+  already above the top edge is now marked shown on the spot and unobserved: no one watched it arrive, so it
+  is owed no movement.
+- **Removing the first file replayed the entrance animation on every row below it.** The file list was keyed
+  `file.name + index`, so deleting one row changed the key of every row beneath it, and `<TransitionGroup>`
+  remounted those as new nodes — removing a file looked like removing five. The only identity this list has is
+  the `File` object itself (`removeFile()` rebuilds the array but carries the same objects through), so the key
+  is now minted once per object and held in a `WeakMap`. The lookup goes through `toRaw()` first: Vue does not
+  proxy a `File` (`getTargetType` only reacts to Object / Array / collection tags), but if that ever changed,
+  without the guard the map would key on a fresh proxy each render and hand out a new id every frame —
+  trading this bug for a harder one to find.
+
+- **The comparison view no longer squeezes two unreadable columns into a narrow window.** Split-screen
+  browsing and half-width windows left each pane around 300 px: 编辑 / Edit and 复制 / Copy in the result
+  header were clipped away by `.panel { overflow: hidden }` (missing by 9 px at 700 px, by 139 px at
+  440 px) and both panes scrolled sideways. Below 720 px the pair now stacks vertically, the divider
+  turns horizontal, and the drag axis, `aria-orientation` and the ↑/↓ keys follow the change — the
+  breakpoint is tracked live without reloading the tab (`matchMedia`, removed on unmount). In that same
+  width band a long file name pushed the download buttons past the right edge of the tab:
+  `.el-alert__content` is a flex item, and its default `min-width: auto` set a floor for the whole
+  card; with `0` the name ellipsizes instead.
+- **Dragging the divider across a preview no longer lets go.** A preview is a sandboxed `<iframe>`, and
+  once a pressed pointer enters it Chrome routes the rest of the gesture to that document: the divider
+  stopped tracking and the `pointerup` never arrived either, leaving `user-select: none` and a
+  `col-resize` cursor on the page. While a drag is live a transparent sheet now covers the panel row, so
+  the whole gesture stays in this document (pointer capture still retargets it to the separator), with a
+  `pointerup` listener on `document` as the backstop that guarantees the sheet comes off. Measured at
+  1280 px: before, a 60 px horizontal drag left the split at 50; now it reads 55% for that container
+  width. Both changes add 1,637 B to the package (3,763,908 → 3,765,545), which crosses the rounding
+  boundary the outward prose quotes — 3.76 MB becomes 3.77 MB.
 - **A cancelled batch no longer reported as a completed one.** Cancelling mid-batch left the
   "conversion finished" alert over the partial results, and cancelling before the first file
   finished left the screen empty, as though the button had done nothing. A stopped batch now reads
@@ -332,6 +974,339 @@ zero network requests`) and the Chinese equivalent never appeared in a search re
   now and only the split position fills in asynchronously.
 - **The notification switch accepted any truthy value.** A non-boolean `fat:notifyOnComplete` (from an old
   build or hand-edited storage) turned notifications on; only a real `true` does now.
+- **English users still saw a screenful of Chinese first.** `<html lang>` and the tab title were resolved
+  from the browser language before mount, but the rendered strings started from the `zh` fallback dictionary
+  and only flipped after a `storage.local` round-trip — and nothing consumes the "locale ready" flag, so that
+  frame really did paint. The same resolved value now seeds the shared locale state before mount, so markup,
+  title and body agree from the very first frame.
+- **In dark mode, Element Plus's own tokens were still light-mode values.** The library puts its dark palette
+  behind an `html.dark` class this project never sets — dark here is `data-mode='dark'` — so every `--el-*`
+  token that `assets/theme/tokens.css` does not map kept its light value on a dark surface. Dropdown panels
+  stayed white while their text had already switched to dark-mode `#bac2de`: 1.77:1, measured. `is-light`
+  alert bands kept a near-white `*-light-9` fill, a 15:1 slab of highlight over the dark card. The overlay
+  background, the six `--el-fill-color*` steps and the `light-3…9` / `dark-2` sets for all five semantic
+  colours are now mapped with the same recipe the light side uses — keep the hue, swap the surface carrying it
+  for the dark card: alert text moves from 2.04–2.80:1 on the light palette to 4.59–6.31:1, and dropdown text
+  reads 9.26:1 against its own panel.
+- **A Markdown or HTML preview that failed to parse spun forever.** The docx and xlsx branches already caught
+  their errors and showed a failure message; markdown and html did not, so a `marked` throw landed in the
+  watcher and the dialog stayed in its loading state. Both branches now share one `try/catch` and end in the
+  same "render failed" line, whose condition also stopped being gated to docx/xlsx. Two accessibility problems
+  in the same dialog: the custom `#header` ignored the `titleId` Element Plus hands out while no `title` prop is
+  passed, leaving `aria-labelledby` pointing at an id that does not exist — a dialog with no accessible name —
+  and the loading spinner now carries `role="status"`.
+- **The two cards' collapsed states overwrote each other.** The history and preset cards read-modify-write the
+  same `fat:collapsedState` map; when their writes interleaved, the one that returned later wrote back the
+  snapshot it had read and dropped the other card's change entirely. Writes are now chained and run serially.
+  The other direction is fixed too: a click landing while the restore read is still in flight used to be
+  reverted by the value that came back — and that reverted state then got persisted. Once the user has
+  interacted, nothing writes back.
+- **Arrow keys reached the split bar behind an open preview dialog.** The comparison view listens on
+  `document`, and the preview dialog sits on top of it: pressing `←` / `→` inside the dialog also dragged the
+  divider it could not see. The guard covered `el-select`, `el-dropdown` and `el-popper`; `.el-overlay` and
+  `.el-dialog` are now on the list as well.
+- **The divider's active mode button had a hardcoded `#fff` label.** It follows `--fat-primary`, and white only
+  reaches 2.54:1 on the light-green fill — 1.69:1 at worst on the dark-mode pastels. It now takes
+  `--fat-on-btn-solid`, the same convention the primary button uses: the theme declares which ink belongs on its
+  own fill.
+- **Text you are meant to read was sitting at 2.33–2.56:1.** The drop-zone hint, file sizes, path arrows, status
+  lines and the footer all took `--fat-text-placeholder`. WCAG 1.4.3 exempts real input placeholders, disabled
+  controls and decoration whose state is already carried by an ARIA attribute — those three stay exactly where
+  they are. What is written above is body text, so it is not exempt. 14 sites moved to `--fat-text-secondary`,
+  and that token only reached 4.33:1 on the tinted light surfaces of four of the six themes (rose's `#fff1f2` is
+  the weakest backdrop in the palette — the neutral surfaces passed), so it was darkened from `#64748b` to
+  `#5b6b80` first (4.95–5.44:1 light, 7.37–8.42:1 dark) and only then referenced. Swapping the reference without
+  fixing the colour would have shipped a "fix" that still failed AA. The suite gained a fourth contrast group:
+  those five strings are asserted at ≥ 4.5:1 across all 6 themes × light/dark, worst reading this run 4.95:1
+  (`.drop-text` under light rose). Each sample now waits 400 ms for the token transition to settle — reading
+  mid-transition returns an interpolated colour, which is a plausible-looking wrong number (the first version of
+  this guard sampled a backdrop of `rgb(187,187,193)`, a colour that exists nowhere in the palette).
+- **Markdown / SVG → Word handed back an empty page.** DOMPurify's `html` profile contains no svg tag at all, and
+  both ends of that chain were using it: `md-to-html` deleted an inline `<svg>` while sanitizing the output of
+  `marked`, and `html-to-docx` deleted it a second time before packing the markup into an MHT altChunk. So
+  `SVG → Word` and `Markdown → Word` reported success and delivered a valid, openable, picture-free page.
+  `SVG → Markdown` was the other half of the same result — turndown has no rule for `<svg>`, so a diagram came out
+  as the few characters sitting in its `<text>` nodes. The fix is three parts: the size derivation from
+  `svg-rasterize.ts` (viewBox fallback, relative units refused, `MAX_DIM` scaling) moves into
+  `utils/core/svg-raster-common.ts`; `md-to-html` adds `svg` and `svgFilters` to its profile; and a new
+  `utils/core/svg-embed.ts` rasterizes every inline `<svg>` into a PNG `<img>` at the DOCX and Markdown boundaries
+  _before_ the existing sanitize. Widening that profile is not a wider attack surface: `svg-to-html.ts` has long
+  run the same pair over untrusted uploaded SVG files, the svg profile carries its own `svgDisallowed` list
+  (`script`, `set`, `animate`, `foreignObject`, `use` are all excluded) and DOMPurify strips `on*` by default — the
+  two boundaries were simply inconsistent. The order cannot flip either: sanitize first and there is no SVG left
+  to rasterize. The cost is stated plainly: that picture is a bitmap inside the .docx and the .md, not a vector.
+  That was the trade, not a compromise — Word's support for `data:image/svg+xml` inside an altChunk cannot be
+  verified on this machine (there is no Word here), while a PNG always paints. Documents without inline SVG keep
+  the old path: `replaceInlineSvgWithPng` returns its input untouched when it finds no `<svg>`. The assertions
+  probe the PNG's IHDR dimensions (40×30 and 240×140) rather than a generic PNG header, because another fixture in
+  the same suite embeds a 1×1 control image and a loose beacon would stay green while the diagram was still being
+  eaten. `Markdown → PNG` counts the fixture's own red pixels instead: that chain renders through an iframe and a
+  foreignObject, so "a file was produced" proves neither that the SVG survived the sanitizer nor that it painted.
+- **Importing history read the whole file before asking how big it was.** The import handler ran `file.text()` and
+  then `JSON.parse` on the workbench tab's main thread, so a handcrafted oversized JSON made the interface
+  unresponsive _before_ it asked the user whether to merge. The size is now checked on its own, and anything above
+  16 MB is refused with the limit named in the message. That ceiling sits far above the largest export the
+  extension can itself produce (50 records × at most 200 file names each), so no real history file is ever
+  rejected — what goes away is "we will read however many you hand me".
+- **One keystroke in the result editor wiped the disclosures.** The comparison view emitted only
+  `{ blob, filename }` when it saved an edit, and the receiver replaces the whole entry, so `containerExt`,
+  `lostFrames` and this round's `svgRasterized` all disappeared from a file that had not changed in those
+  respects. `lostFrames` never showed it because a GIF's results are not an editable text format; Markdown
+  is, so the SVG line reached this path on its first day. The editor now emits `{ ...props.result, blob }` —
+  it replaces the one field it owns. That fix has an assertion of its own now, and the suite total goes
+  258 → 259 with the outward copy following: `Result Edit Keeps The Disclosures` first confirms the note really
+  is on the `svg→md` card, presses space once in the editor to trip the debounced emit, then requires the note
+  to still be there. Putting the old `{ blob, filename }` back does turn it red — and it is not only the SVG
+  line that goes: the editor was wiping every note on the result card.
+- **A GIF with no animation was told it had lost one.** The first-frame note added last round hung off the
+  _edge_: `Converter.flattensInput` was true for every `gif→png / jpg / webp / pdf` route, so converting a
+  one-frame GIF to PNG printed a sentence that was not true of that file — there was no frame to lose.
+  Whether an animation exists is a property of these bytes, not of this route, exactly like whether a
+  document contains an `<svg>`, so the converter has to look. `utils/core/animated-image.ts` walks the GIF
+  block structure (logical screen descriptor, global and local colour tables, `0x21` extensions, `0x2c`
+  image descriptors, sub-block chains) and answers true at the second image descriptor, reading at most
+  4 MB; anything it cannot parse, or that is not a GIF, answers false — silence is preferred over a wrong
+  claim. `flattensInput` is gone with it: `image-convert.ts` and `image-to-pdf.ts` now measure inside
+  `convert()` and hand the orchestrator a `ConvertResult.lostFrames`, combined per step with `||=`. The copy
+  is unchanged character for character — it still talks about GIFs and first frames, it just only says so
+  when a frame was actually lost. The scope is GIF alone: animated WebP (`VP8X`'s ANIM flag) and APNG
+  (`acTL`) lose their frames on these same routes, but the repository has no fixture of either kind that is
+  both offline-creatable and decodable, and a judgement that has never been exercised does not go in front
+  of users — which is recorded in the scope note of `animated-image.ts`. Three assertions now: animated
+  GIF → PNG requires the note, `sample.gif` (one frame) → PNG requires its absence, GIF → HTML requires
+  silence (that route embeds the original bytes, animation intact). The positive one alone would not have
+  caught this change — reverting the test to "any GIF" keeps it green — what went red was the new cell
+  (measured: with the static judgement restored, that one of 235 assertions in the filtered run fails and
+  nothing else does). Suite total 259 → 260.
+- **The package we uploaded carried two pieces of remotely hosted code, which is why 1.0.0 was rejected a third
+  time (2026-09-21, violation type: policy).** Both lived inside minified third-party output, and this project
+  reaches neither: jsPDF 4.2.1's `output('pdfobjectnewwindow')` branch assigns
+  `https://cdnjs.cloudflare.com/ajax/libs/pdfobject/2.1.1/pdfobject.min.js` to the `src` of a `<script>` it creates
+  on the fly (the whole repository only ever calls `output('blob')`), and pdf.js's `_createCDNWrapper` builds the
+  text `await import("<url>")` into a Blob and starts a Worker from it — a path taken only when `workerSrc` is
+  cross-origin, whereas ours is a same-origin `.mjs` asset shipped in the package. The store's judgement does not
+  care about reachability: the path existing is the violation, so the only fix is for the strings to leave the
+  package; guarding the call site at runtime would change nothing. `stripRemotelyHostedCode()` in `wxt.config.ts`
+  deletes both blocks at build time, and the new `pnpm verify:remote-code` guard asserts the artifact really is
+  clean — source layer and bundle layer both green on the rebuilt 3.76 MB package. **No user-visible behaviour
+  changes**: a full `pnpm test:e2e` run passes 260/260 on a build of the same tree with nothing else competing for
+  the artifact, and the scenarios that reach the two patched loaders are in it — MD/HTML/TXT/CSV/XLSX/SVG → PDF
+  produce their documents through the stripped jsPDF, and PDF → PNG / WEBP plus the two-page PDF → ZIP still decode
+  through its packaged worker.
+- **Applying a non-image preset cleared the live image output parameters.** A preset only captures output
+  parameters when its target is an image (`PresetBar`'s own capture rule), so the stored HTML preset carries
+  an empty `options`; applying it handed that object straight to `setOptions`, whose semantics are a
+  **whole-set replace** — so "run this workflow" also erased whatever `maxEdge` / `quality` the user was in
+  the middle of adjusting, silently. `PendingApplication.options` is now an object only when the target really
+  is an image output format (the same `isImageOutputFormat` predicate the capture side uses) and `null`
+  otherwise, which means "leave the live parameters alone". An image preset still carries an object, and an
+  empty one is still that preset speaking: "these are the defaults for this workflow". Clearing has not lost
+  its entry point — the panel's own reset button is it, it is just pressed by the user now.
+  Two assertions added: applying an HTML preset really does switch the target, and switching the target back
+  to PNG reads the same `800 px` that was there before the apply. The temporary chip is deleted afterwards —
+  `addPreset` prepends, and leaving it would push the next section's "first chip" assertions off by one.
+- **A destructive confirmation labelled its second button "Close".** The clear-history and import-history
+  dialogs both took their cancel label from `common.close`: that is how an informational dialog signs off,
+  not an option meaning "I am not doing that" — and the first one deletes up to 50 history records.
+  The dictionary gains `common.cancel` (取消 / Cancel), now used by three places: those two, plus the
+  large-batch confirmation's own `convert.confirmCancel` (the same word for the same job, which is no reason
+  to keep two keys). Not one line of interface text changes — `convert.confirmCancel` already rendered as
+  取消, the migration only merges the duplicate. One assertion added: the first button of the clear-history
+  dialog really reads as cancel.
+- **A multi-file batch would not say which file it is on.** The "Processing: xxx" hint has existed for a
+  while, but it lives in `ConversionProgress`, which is only mounted when the batch is **not** a batch —
+  more than one file switches the UI to the batch card, and that one carried nothing but a percentage bar.
+  In other words the scenario that needs the hint most — the long batch — was exactly the one without it.
+  The batch card now reuses the same hint; the line and its ellipsis styling are extracted into
+  `components/shared/CurrentFileHint.vue` so both hosts share one copy instead of a second six-line CSS
+  block. One assertion added: the waiter is armed before the click (the batch card is only on screen for the
+  length of the batch, a few hundred milliseconds on a fast machine) and requires the text to name one of the
+  fixtures in the batch. It proves a name appears, not that the line changes on every file — that one would
+  have to gamble on timing inside the window, which is the kind of assertion this baseline cannot remember.
+  The batch line is deliberately outside any live region: it changes once per file, and reading those
+  names out loud one after another is noise to a screen reader. The single-file card's container already
+  is a `role="status"` region, so that one still announces.
+  The suite goes 267 → 271 assertions, the package 3,759,005 → 3,759,222 B (+217 B, still 3.76 MB) and the
+  first screen 425,623 → 425,840 B — the same 20 chunks, one request more was not added and neither was an
+  `await`.
+- **`<body background>` is a remote reference the browser really fetches, and the sanitizer could not see it.**
+  Subresource stripping looks attributes up per tag (`img src`, `link href`, `video poster`, …), but
+  `background` belongs to no table: it is the legacy attribute of `<body>` and of table cells, DOMPurify's
+  attribute allow-list keeps it, and neither `body` nor `td` has a row to look it up in. Measured in real
+  Chrome on the exact profile `html-raster` uses: after sanitize + strip, a sandboxed `srcdoc` iframe
+  requested **every** `background` URL it was handed and not one `src` or inline `url()`. So the offline
+  promise leaked a whole class of reference, on the path that carries the user's own HTML — preview, the
+  comparison view, the rasterizer behind HTML→PNG / HTML→PDF and the altChunk of HTML→DOCX all leave
+  through this one function, so all four were affected. The fix adds `GLOBAL_SUBRESOURCE_ATTRS` (an
+  attribute any element may carry, which is precisely what a per-tag table cannot reach) to the
+  per-element attribute loop. Regression coverage came with it: `fixtures/sample-remote.html` and
+  `sample-egress.html` (generated by `scripts/make-fixtures.cjs`, so both were edited) each gained a
+  `<body background>` and a `<td background>` vector, which is the first time the sentinel's
+  "zero subresource requests" assertion has teeth for this class — revert the fix and it is that existing
+  assertion which goes red, not a newly written one. The assertion total is unchanged (the two new vectors
+  run inside assertions that already existed). Measured for this batch in one build: the package goes
+  3,783,937 → 3,784,210 B (+273 B across 68 files, still the 3.78 MB the docs claim) and the first screen
+  439,168 → 439,443 B (the same 21 chunks, not one extra request).
+- **PDF→HTML dropped every hyperlink in the document.** The hit test read `y >= link.y2 && y <= link.y1`,
+  but pdf.js already runs every annotation rect through `Util.normalizeRect`, which guarantees
+  `rect[1] <= rect[3]` for any input PDF — so `y1` is the bottom edge and `y2` the top, and that condition
+  can only hold for a degenerate zero-height rect. Every non-degenerate annotation missed. What the user
+  saw: HTML converted from a linked PDF looked like plain text, links gone silently, no error, no note.
+  Now `y >= y1 && y <= y2`. The e2e for this route asserts text and page count and never asserted a link,
+  so this is not a regression — the feature never worked.
+- **JSON→CSV emitted what a cell looks like, not what it holds.** `sheet_to_csv` hands every cell to
+  `format_cell`, which returns the cached `w` whenever one exists, and `raw: true` changes nothing
+  (measured on xlsx 0.18.5: with and without `raw` the output is byte-identical). `xlsx→csv` had known
+  this for a while and carried its own value-faithful `sheetToValueCsv`; `json→csv` called
+  `sheet_to_csv` directly. Measured on the very sheet `aoa_to_sheet` builds from parsed JSON:
+  `1727000000000` → `1.727E+12`, `3.14159265358979` → `3.141592654`, `true` → `TRUE` — a batch of
+  millisecond timestamps or snowflake IDs arrived in scientific notation, high-precision decimals rounded
+  to nine digits, and booleans in Excel's uppercase spelling. The fix promotes `sheetToValueCsv` out of
+  the converter into `utils/core/csv-guard.ts` so both CSV-producing routes leave through one serializer:
+  the value-fidelity promise can now only be broken in one place.
+- **A sheet named after something on `Object.prototype` was treated as a sheet that exists.** Both
+  `SheetNames` and `Sheets` come out of the parsed file, so a hand-built workbook that lists a name with
+  no matching sheet makes `workbook.Sheets[name]` resolve up the prototype chain — truthy, but not a
+  worksheet. Measured (0.18.5, a phantom sheet called `toString`): `sheet_to_html` throws
+  `Cannot read properties of undefined (reading 'indexOf')`, and the preview loop gates on "does this name
+  have a sheet", so one nonexistent table took down the entire XLSX preview; `sheet_to_json` returns zero
+  rows, so `xlsx→csv` wrote an empty `toString.csv` into the ZIP. New `utils/core/xlsx-sheets.ts`
+  (`ownSheet` / `ownSheetNames`, one `Object.hasOwn`) wired into the preview, `data-to-html`,
+  `csv-to-xlsx`, `xlsx-to-csv`, `xlsx-to-json` and the csv→json half of `json-to-csv` — the same rule
+  `file-detect.ts` applies to its lookup tables, which these six sites had been bypassing by indexing
+  directly.
+- **A TXT file made of backticks crashed TXT→MD.** The fence is one longer than the longest run in the
+  body, but the implementation was `Math.max(...runs.map(…))` — one argument per match, and 200,000 of
+  them measured `RangeError: Maximum call stack size exceeded`. That is not "the file was too big"; the
+  spread itself has a limit. Now a `reduce`, with the rule unchanged and the worst case demoted from a
+  throw to being slightly slower.
+- **HTML→JSON table reading: nested tables became outer data and a leading `<th>` became blank.**
+  `table.querySelectorAll('tr')` descends, so a document with a table inside a cell had its inner rows
+  emitted as outer data rows (measured: it fabricated `{"a":"x","b":"y"}` records under the outer header).
+  The other half: the header row collected `th, td` while data rows collected only `td`, so
+  `<th>苹果</th><td>3</td>` shifted one column left and lost its row label. Two `:scope >` helpers now
+  take only the table's own rows and cells, listing both `> tr` and `> tbody > tr`, because the parser
+  pushes authored `<tr>` elements into a `tbody` — matching only the former would read no table at all.
+- **DOCX→HTML allocated N copies of something it reads once.** `extractAltChunkHtml` collects `.mht`
+  entries through fflate's `filter` and its only test was "declared size ≤ 200 MB per entry", so a
+  document pairing one real MHT with N padded ones made it allocate every part in full from the declared
+  size and throw all but one away — the `find(isMhtEntry)` that reads the content takes the first. Measured
+  on fflate 0.8: three 200 MB declared entries are 600 MB of retained buffers. `MAX_MHT_PARTS = 1` caps it
+  at what this module can use, and the per-entry test became a running budget: the ceiling is about how
+  much this one call allocates in total, and `filter` runs before any inflate, which is the only moment
+  where refusing is still cheap.
+- **The offline guard could not see `.js` / `.mjs`, nor the entrypoint HTML.** The extension list in
+  `scripts/check-offline.mjs` was `.ts / .mts / .vue`, so a plain-JS module under `utils/` was the one
+  place a `fetch()` could hide from a guard whose entire claim is about source text; and the inline script
+  in `entrypoints/options/index.html` — which runs before the bundle — was never in scope. Both are, and
+  the scan now reports 87 files. "Missing directory returns an empty list" became a failure while it was
+  open: a guard that quietly scans one layer less prints OK either way, and quietly scanning one layer
+  less is exactly the thing it was written to catch. `scripts/check-remote-code.mjs` gained two shapes in
+  the same pass — its remote-URL rule required a `.js` extension in the string, and an ESM specifier such
+  as `import("https://esm.sh/pkg")` has none, yet by the store's definition that is hosted code just the
+  same; `remote-dynamic-import` and `remote-worker` now cover it, with the same missing-directory failure.
+- **Prose-number forensics had three blind spots on the English side, plus "not found means the whole file
+  is fine".** The `routes` pattern required the qualifier before 「路径」, but English prose does not always
+  carry it: `README.en.md`'s feature table says "48 edges" and its badge says "48+ routes", and neither
+  number was under evidence — getting them wrong did not turn anything red. `historyRecords` had the same
+  Chinese-only wording. `docs/privacy.html` was never in the compared document list, and what it asserts
+  is precisely the "never leaves your computer" class. With those closed the compared set goes from 30 to
+  31 documents (`AGENTS.md` and `.qoder/rules/wxt-rules.md` updated to match). The other one is the `only`
+  section locator: when its regex missed, the whole document used to be compared instead, and the last
+  historical section has no following `## [` to match — now a section either resolves or the guard fails
+  on the spot.
+- **Two artifact guards in the release workflow ran before the build that gets uploaded.** In
+  `release.yml`, `verify:offline` and `verify:remote-code` followed `Build`, but what is uploaded is the
+  output of the next step, `pnpm package` — and `wxt zip` rebuilds. When the build is byte-reproducible
+  the two are the same, so nothing leaks today; but those guards assert something about _the package the
+  store receives_, so they have to scan the last thing written, and they now run after `Package`. In the
+  same step, a `CHANGELOG.md` with no `## [X.Y.Z]` block used to leave only a placeholder note; it now also
+  raises a workflow warning: an empty release note should not block a tagged release, but it should not go
+  unnoticed either.
+- **Pages now checks that the sitemap points at files that exist.** `static.yml` deliberately installs
+  nothing (the site has no builder), so its pre-deploy check is shell only: every `<loc>` in
+  `_site/sitemap.xml` is mapped back to a path inside the staging directory and a missing file fails the
+  run. This covers exactly what `pages:check` and `verify:numbers` cannot reach — the generated pages' URLs
+  live in the sitemap, that layer is verified in a different `ci.yml` job, and there is no `needs` relation
+  between the workflows, so Pages could ship with a dead entry.
+- **With JavaScript off, the product page's carousel showed one seventh of itself.** The track is
+  positioned solely by the script's `transform`, the dots are created by it, and the container is
+  `overflow: hidden`: without JS you get the first figure and a counter frozen at "1 / 7" while the other
+  six sit in a place nobody can reach. A `html:not(.js)` block is the escape hatch — horizontal scroll
+  with `scroll-snap`, controls hidden. "Never drop the degradation insurance" applies at the site layer
+  too.
+- **Generated pages: the `BreadcrumbList` name and the anchor it describes are now one string, and the
+  route card has a real label.** In the `docs/convert/` layer the breadcrumb's structured-data name and
+  the visible link text were separate literals (one place `All conversions`, another `转换一览`, a third
+  inside the JSON-LD), and a name that disagrees with the anchor text it describes is precisely the
+  mismatch nobody notices without scripting. Both now read from one `CONVERT_CRUMB`. The "How the route
+  runs" card used an `aria-label`, and since both language copies are in the DOM a screen reader said the
+  label twice; it now uses `aria-labelledby` pointing at the visible `<p class="route-label">` — an
+  attribute is not content, the inactive language is removed from the accessibility tree by
+  `display: none`, so this is language-correct with zero JS. Along the way the `STATIC_PAGES` `lastmod`
+  values were aligned with the hand-written `dateModified` and 「本页最后更新」 strings in the static
+  pages: the same claim written down twice, so changing one means changing the other. This round gave it
+  an actual check — each hand-written page in `STATIC_PAGES` now names its own file and the patterns its
+  in-page dates take, and `validateStaticDates()` compares them against the `sitemap.xml` `lastmod`,
+  failing when the file is missing, when nothing matched at all, or when a match disagrees with
+  `lastmod`. "Nothing matched" is its own failure because a guard that scans an empty set prints OK just
+  the same. It caught something on its first run: `docs/privacy.html` says the content changed on 09-25
+  while both footer lines still said 09-19, and `pages:check` only ever covers generated pages, never a
+  hand-written one. The footer and blog-page link text join the same wording table as the breadcrumb.
+- **`scripts/verify-extension.mjs` used to pass the things it claims to check.** It is in no CI job and is
+  not an npm script — it exists in `AGENTS.md`'s command table as "artifact verification" — and since it
+  asserts on the built package, four places where it could not speak are fixed: a missing screenshots
+  directory now fails outright (`.test-screenshots/` is gitignored, so it is always missing on a clean
+  checkout); the heavy-chunk list was printed but never asserted; `pdf-BOIs` was a one-build fact, and when
+  that hash changed the log silently became "nothing loaded" — the match is now by prefix and a successful
+  PDF→HTML has to prove a pdfjs chunk was actually fetched; the run logs whether it is looking at a local
+  build and ends with an assertion that nothing left the machine; and the exit code aggregates every
+  failure instead of only console errors.
+- **HTML→TXT ate the numbering of ordered lists, and a nested list shared one line with its parent.**
+  `extractText` had a single generic walk that maps block elements to line breaks, and `1.` is never a
+  text node — it belongs to the `<ol>` — so an `<li>` came out as bare text and the fact that the items
+  _are_ a sequence disappeared with it: a procedure converted to TXT was indistinguishable from a bullet
+  list, with no error and no warning. `ol` and `ul` now take their own branch and walk children in order:
+  `<ol>` emits `1. 2. 3.`, `<ul>` emits no marker (a bullet is decoration and the line break already
+  separates the items). `start` follows the HTML rule and only counts when it parses to a non-negative
+  integer, so `start=""`, `start="abc"` and `start="-2"` restart at 1 rather than producing `0.`,
+  `-2.` or `1.9.` — numbering no list actually has; `type` and `reversed` are ignored, since a letter or
+  a roman numeral cannot be re-read from a text file either. The nesting half is a leading newline in the
+  same branch, with indentation two spaces per level capped at six. That newline is emitted only when
+  `depth > 0`, so a top-level list keeps the separation it always had (compared case by case against a
+  real DOM: flat, in-table and mixed `<ul>` shapes produce identical bytes), while a document nested
+  three thousand levels deep is something an author can write — without the cap the leading blanks would
+  outweigh the content. Coverage: `fixtures/sample.html` gained an `<ol>`, and the e2e assertion now pins
+  ordered numbering present _and_ unordered lists free of markers — folded into the existing assertion, so
+  the outward total stays 317.
+- **DOCX→HTML re-inlined images at O(parts × document length), so one hand-built MHT turned it into
+  minutes.** The old loop ran `html.split(location).join(dataUrl)` once per image part, and each call
+  rebuilds the whole string: P parts over an L-character document move L×P bytes. Measured here against a
+  1 MB document: 2 000 image parts took 11.6 s and 20 000 took 141 s (about 16 GB of string copying),
+  against 0.75 s and 0.12 s for the replacement on the identical input. The second row is not even
+  adversarial — it is a document with a lot of pictures in it — and under this module's 200 MB ceiling
+  the product has no useful bound. The rewrite collects `location → data:` URLs in one map (deduped by
+  location, so a reference used many times is decoded once) and makes a single linear pass over the
+  document; `MAX_INLINED_BYTES = 256 MB` covers the direction that pass cannot see — one image part whose
+  fake `file:///` location is repeated thousands of times. Output is byte-identical to the old loop on the
+  generated `sample.docx`. `MAX_MHT_BYTES` deliberately does **not** come down as part of this, and the
+  reason is now in its JSDoc: that number answers "is this document plausible", and lowering it would
+  refuse image-heavy DOCX files that convert fine today, while the unbounded cost no longer lives there.
+- **A drop could slip past the disabled state in the moment a batch starts.** `applyFiles` is async: the
+  entry guards run, then there is one `await expandArchives(files)`, and nothing looks at the panel again
+  on the way back. A ZIP or folder still inflating while the user pressed 开始转换 / Start conversion
+  landed on a disabled panel and replaced the list under the running batch. The batch converts its own
+  snapshot, so the conversion itself does not cross wires — what breaks is everything that reads the list
+  by position: the name in the progress row and the file a failure row blames, both pointing at something
+  that is no longer there. `props.disabled` is now re-read after the await. Refusing late costs nothing
+  the user could otherwise have done, because that drop could not have entered the panel while it was
+  disabled anyway. The other half is recorded and left alone: `isPackaging` and `canConvert` really do
+  mean different things, but `convert()` snapshots its own `items` and reads each blob inside the loop, so
+  editing the list mid-pack cannot corrupt the ZIP being written — and changing a disable condition to make
+  two names agree costs the user visible interaction.
+  One build across these three: 3,784,210 → 3,784,824 B (+614 B, 68 files, still the 3.78 MB the docs
+  claim) and a first screen of 439,443 → 440,057 B over the same 21 chunks — no extra request, no extra
+  `await`.
 
 ## [1.0.0] - 2026-09-07
 

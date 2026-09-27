@@ -12,9 +12,7 @@ const VALID_FORMATS = new Set<string>(Object.values(FileFormat));
 
 function sanitizeList(value: unknown): FileFormat[] {
   if (!Array.isArray(value)) return [];
-  return value
-    .filter((v): v is FileFormat => typeof v === 'string' && VALID_FORMATS.has(v))
-    .slice(0, MAX_RECENT);
+  return value.filter((v): v is FileFormat => typeof v === 'string' && VALID_FORMATS.has(v)).slice(0, MAX_RECENT);
 }
 
 const recent: Ref<FileFormat[]> = ref([]);

@@ -1,12 +1,16 @@
 import { FileFormat } from '~/utils/core/types';
 import type { Converter, ConvertResult } from '~/utils/core/types';
 import { loadImage, releaseCanvas, MAX_DIM } from '~/utils/core/image-utils';
+import { hasMultipleFrames } from '~/utils/core/animated-image';
 
 function createImageToPdfConverter(from: FileFormat): Converter {
   return {
     from,
     to: FileFormat.PDF,
     async convert(input: Blob): Promise<ConvertResult> {
+      // The `drawImage` below keeps a single frame, which is a loss only if the source had a second
+      // one to keep. See `utils/core/animated-image.ts` for the scope of that check.
+      const lostFrames = from === FileFormat.GIF && (await hasMultipleFrames(input));
       const { default: jsPDF } = await import('jspdf');
       const objectUrl = URL.createObjectURL(input);
       let img: HTMLImageElement;
@@ -55,7 +59,7 @@ function createImageToPdfConverter(from: FileFormat): Converter {
 
       pdf.addImage(dataUrl, pdfFormat, 0, 0, widthPt, heightPt);
       const pdfBlob = pdf.output('blob');
-      return { blob: pdfBlob, filename: 'converted.pdf' };
+      return { blob: pdfBlob, filename: 'converted.pdf', lostFrames };
     },
   };
 }

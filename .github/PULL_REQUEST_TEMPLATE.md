@@ -16,7 +16,7 @@ Keep the title in the repository's existing style: `type(scope): description`, i
 - [ ] 没有新增权限，也没有新增 `host_permissions` / No new permission and no `host_permissions`
 - [ ] 没有引入网络请求、远程资源或需要下载的模型 / No network call, remote asset or downloadable model
 - [ ] 没有引入 `eval` / `new Function`；不可信输入（上传文件、剪贴板、ZIP 条目、storage 值）仍在边界处校验，HTML / SVG / Markdown 渲染前经 DOMPurify 净化
-- [ ] `pnpm verify:offline` 通过
+- [ ] 离线守卫两层都过：`pnpm verify:offline:source`，以及 `pnpm build` 之后的 `pnpm verify:offline`（产物 manifest 仍只有 `storage`）/ both layers, source-level and the built-manifest pass
 
 ## 验证 / Verification
 

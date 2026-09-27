@@ -1,6 +1,6 @@
 import type { Config as SanitizeConfig } from 'dompurify';
 import { FileFormat } from '~/utils/core/types';
-import type { Converter, ConvertResult } from '~/utils/core/types';
+import type { Converter, ConvertResult, ConvertContext } from '~/utils/core/types';
 import { wrapHtmlDocument } from '~/utils/core/html-document';
 import { extractAltChunkHtml } from '~/utils/core/alt-chunk';
 
@@ -13,7 +13,7 @@ const docxToHtmlConverter: Converter = {
   from: FileFormat.DOCX,
   to: FileFormat.HTML,
 
-  async convert(input: Blob): Promise<ConvertResult> {
+  async convert(input: Blob, ctx?: ConvertContext): Promise<ConvertResult> {
     const [mammothModule, purifyModule] = await Promise.all([import('mammoth'), import('dompurify')]);
     const mammoth = mammothModule.default;
     const DOMPurify = purifyModule.default;
@@ -54,7 +54,7 @@ const docxToHtmlConverter: Converter = {
       if (!htmlBody.trim()) {
         // mammoth ignores altChunk documents (html-docx-js output, including
         // this app's own HTML→DOCX results); recover the embedded MHT HTML
-        const altHtml = extractAltChunkHtml(new Uint8Array(arrayBuffer));
+        const altHtml = await extractAltChunkHtml(new Uint8Array(arrayBuffer));
         if (altHtml) {
           const altDoc = new DOMParser().parseFromString(altHtml, 'text/html');
           htmlBody = DOMPurify.sanitize(altDoc.body?.innerHTML ?? '', SANITIZE_OPTIONS) as string;
@@ -69,7 +69,7 @@ const docxToHtmlConverter: Converter = {
     // report from a parse failure — and different from the old silent blank HTML.
     if (!htmlBody.trim()) throw new Error('errors.docxEmpty');
 
-    const blob = wrapHtmlDocument(htmlBody);
+    const blob = wrapHtmlDocument(htmlBody, { sourceName: ctx?.source?.name });
     return { blob, filename: 'converted.html' };
   },
 };

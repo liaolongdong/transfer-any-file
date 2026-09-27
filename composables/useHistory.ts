@@ -27,6 +27,20 @@ export interface HistoryRecord {
 }
 
 const MAX_RECORDS = 50;
+
+/**
+ * Largest history JSON the import will read, in bytes.
+ *
+ * The extension's own worst-case export is bounded by construction: `MAX_RECORDS` rows, each with
+ * at most `MAX_BATCH_FILES` (200) names of ~255 characters — a few megabytes of JSON at most. This
+ * ceiling sits well above that, so nothing the export button can produce is ever rejected, while
+ * the unbounded path is gone: `file.text()` reads the whole file into memory and `JSON.parse` then
+ * runs synchronously on the main thread, so without a cap a handcrafted file decides how long the
+ * workbench stops responding. 16 MB also stays under the 100 MB upload ceiling in `FileUpload`,
+ * which governs conversion inputs rather than this one small document.
+ */
+export const MAX_IMPORT_BYTES = 16 * 1024 * 1024;
+
 /** Bumped on breaking changes to the export shape so old imports fail loudly.
  *  Deliberately NOT bumped when `fileNames` was added: the field is optional, so
  *  old exports still import cleanly and new exports still open in an older build
@@ -56,11 +70,22 @@ const VALID_FORMATS = new Set<string>(Object.values(FileFormat));
  *  `normalizeRecord` is what decides whether any of it survives. */
 type LooseHistoryRecord = HistoryRecord & { [key: string]: unknown };
 
+/** Largest `time` the Date API can render: ECMAScript clamps to ±8,640,000,000,000 ms, and
+ *  `toISOString()` throws `RangeError` past it. That throw happens at render time —
+ *  `:datetime="isoTime(record.time)"` in `HistoryPanel` — so a single such record blanks the whole
+ *  panel rather than one row. `Number.isFinite` alone does not catch it: `1e18` is finite. */
+const MAX_TIME_MS = 8.64e15;
+
+/** Same ceiling the writers use (`MAX_BATCH_FILES` in `FileUpload.vue`), restated here because that
+ *  constant lives inside the SFC. An imported payload can claim any number of names per record, and
+ *  every one of them reaches the search index and the row tooltip. */
+const MAX_BATCH_NAMES = 200;
+
 function isHistoryRecord(o: unknown): o is LooseHistoryRecord {
   if (!o || typeof o !== 'object') return false;
   const r = o as Record<string, unknown>;
   if (typeof r.id !== 'string' || !r.id) return false;
-  if (typeof r.time !== 'number' || !Number.isFinite(r.time)) return false;
+  if (typeof r.time !== 'number' || !Number.isFinite(r.time) || Math.abs(r.time) > MAX_TIME_MS) return false;
   if (typeof r.fileName !== 'string' || !r.fileName) return false;
   if (typeof r.sourceFormat !== 'string' || !VALID_FORMATS.has(r.sourceFormat)) return false;
   if (typeof r.targetFormat !== 'string' || !VALID_FORMATS.has(r.targetFormat)) return false;
@@ -75,33 +100,52 @@ function isHistoryRecord(o: unknown): o is LooseHistoryRecord {
  *  silently dropping an otherwise-valid entry the user exported. Unknown keys are
  *  discarded too, so a hand-edited payload cannot smuggle extra data into storage. */
 function normalizeRecord(o: LooseHistoryRecord): HistoryRecord {
-  // Every field below is already narrowed by `isHistoryRecord`, which runs first.
+  // Every field below is already narrowed by `isHistoryRecord`, which runs first. The sizes are
+  // clamped to non-negative because they feed `formatSize`, whose domain is byte counts: a
+  // negative `resultSize` makes its `Math.log` return NaN, and the trend chart then renders
+  // `NaN undefined` — a wrong-looking label on a row that is otherwise fine.
   const base: HistoryRecord = {
     id: o.id,
     time: o.time,
     fileName: o.fileName,
     sourceFormat: o.sourceFormat,
     targetFormat: o.targetFormat,
-    fileSize: o.fileSize,
-    resultSize: o.resultSize,
-    fileCount: o.fileCount,
+    fileSize: Math.max(0, o.fileSize),
+    resultSize: Math.max(0, o.resultSize),
+    fileCount: Math.max(0, Math.floor(o.fileCount)),
   };
   const names: unknown = o.fileNames;
   if (Array.isArray(names) && names.length > 0 && names.every(n => typeof n === 'string' && n)) {
-    base.fileNames = names as string[];
+    base.fileNames = (names as string[]).slice(0, MAX_BATCH_NAMES);
   }
   return base;
 }
 
 /** Names a record can be matched against: every file in the batch for records saved by
- *  current versions, otherwise just the display label. Reads through `unknown` because
- *  records restored straight from storage never pass through `normalizeRecord`. */
+ *  current versions, otherwise just the display label. The `unknown` read stays defensive
+ *  because a record can also arrive from a caller that never went through `toStorable`. */
 export function searchableFileNames(r: HistoryRecord): string[] {
   const names: unknown = r.fileNames;
   if (Array.isArray(names) && names.length > 0 && names.every(n => typeof n === 'string')) {
     return names as string[];
   }
   return [r.fileName];
+}
+
+/**
+ * Repair whatever came out of storage into the shape every consumer assumes.
+ *
+ * A stored record is untrusted input like an uploaded file is: `importData` has always run the
+ * `isHistoryRecord` / `normalizeRecord` pair, but the restore path took the array as it found it, so
+ * one record missing `time` throws inside the row template (`new Date(undefined).toISOString()`, via
+ * the `:datetime` binding in `HistoryPanel`) and blanks the whole panel on every re-render, and a
+ * `null` element throws one level earlier in the filter computed. The `MAX_RECORDS` cap belongs here
+ * too — it is what the writers apply, so reading without it renders every row a hand-edited value
+ * holds until the next write trims the list back.
+ */
+function toStorable(value: unknown): HistoryRecord[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter(isHistoryRecord).map(normalizeRecord).slice(0, MAX_RECORDS);
 }
 
 const records: Ref<HistoryRecord[]> = ref([]);
@@ -115,9 +159,9 @@ async function initHistory(): Promise<void> {
   const stored = await storageGet<HistoryRecord[]>(STORAGE_KEYS.history, []);
   // Set the guard AFTER the read so a transient storage failure lets the next caller retry.
   initialized = true;
-  records.value = Array.isArray(stored) ? stored : [];
+  records.value = toStorable(stored);
   unsubscribe = onStorageChange<HistoryRecord[]>(STORAGE_KEYS.history, value => {
-    records.value = Array.isArray(value) ? value : [];
+    records.value = toStorable(value);
   });
 }
 
@@ -147,14 +191,35 @@ export function useHistory() {
   }
 
   async function removeRecord(id: string): Promise<void> {
+    // Every mutator waits for the restore: writing from in-memory state before it has been read
+    // would persist a list that never contained the stored records.
+    await initPromise;
     const next = records.value.filter(r => r.id !== id);
     records.value = next;
     await storageSet(STORAGE_KEYS.history, next);
   }
 
   async function clear(): Promise<void> {
+    await initPromise;
     records.value = [];
     await storageSet(STORAGE_KEYS.history, []);
+  }
+
+  /**
+   * Put deleted records back, for the undo affordance in `HistoryPanel`.
+   *
+   * Merge rather than replace: anything recorded after the deletion (a conversion that finished in
+   * the few seconds the toast was open) has to survive. Keyed by id so a record that came back via
+   * import in the meantime is not duplicated, then re-sorted and re-capped exactly like
+   * `importData` does — every mutator leaves the list in the same shape.
+   */
+  async function restoreRecords(restored: HistoryRecord[]): Promise<void> {
+    await initPromise;
+    const byId = new Map<string, HistoryRecord>();
+    for (const r of [...restored, ...records.value]) byId.set(r.id, r);
+    const next = [...byId.values()].sort((a, b) => b.time - a.time).slice(0, MAX_RECORDS);
+    records.value = next;
+    await storageSet(STORAGE_KEYS.history, next);
   }
 
   /** Snapshot the current history for export. Returns a plain object so the caller
@@ -170,6 +235,7 @@ export function useHistory() {
    *  Result is sorted by time desc and capped at MAX_RECORDS. Throws an Error whose
    *  message is a key from HISTORY_IMPORT_ERROR_KEYS when the payload is unusable. */
   async function importData(payload: unknown): Promise<{ merged: number; total: number }> {
+    await initPromise;
     if (!payload || typeof payload !== 'object') {
       throw new Error('history.importErrPayload');
     }
@@ -190,13 +256,11 @@ export function useHistory() {
     const merged = new Map<string, HistoryRecord>();
     for (const r of records.value) merged.set(r.id, r);
     for (const r of incoming) merged.set(r.id, r);
-    const next = [...merged.values()]
-      .sort((a, b) => b.time - a.time)
-      .slice(0, MAX_RECORDS);
+    const next = [...merged.values()].sort((a, b) => b.time - a.time).slice(0, MAX_RECORDS);
     records.value = next;
     await storageSet(STORAGE_KEYS.history, next);
     return { merged: incoming.length, total: next.length };
   }
 
-  return { records, addRecord, removeRecord, clear, exportData, importData };
+  return { records, addRecord, removeRecord, clear, restoreRecords, exportData, importData };
 }

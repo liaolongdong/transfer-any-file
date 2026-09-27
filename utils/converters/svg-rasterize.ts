@@ -1,14 +1,12 @@
 import { FileFormat } from '~/utils/core/types';
 import type { Converter, ConvertContext, ConvertResult } from '~/utils/core/types';
-import { loadImage, encodeCanvas, releaseCanvas, MAX_DIM } from '~/utils/core/image-utils';
+import { loadImage, encodeCanvas, releaseCanvas } from '~/utils/core/image-utils';
+import { normalizeSvgForRaster, stripSvgActiveContent, fitToMaxDim } from '~/utils/core/svg-raster-common';
 import { decodeTextBlobLenient } from '~/utils/core/text-decode';
 
-const DEFAULT_DIM = 1024;
-
 /**
- * Normalize an SVG document for rasterization: strip scripts, and give the
- * root element explicit pixel dimensions (from width/height attrs or the
- * viewBox) so <img> reports a usable intrinsic size.
+ * Read an SVG upload and normalize it for rasterization. The shared size rules live in
+ * `utils/core/svg-raster-common.ts` so the DOCX boundary paints an inline `<svg>` the same way.
  */
 async function prepareSvg(input: Blob): Promise<{ blob: Blob; width: number; height: number }> {
   const text = await decodeTextBlobLenient(input);
@@ -19,36 +17,9 @@ async function prepareSvg(input: Blob): Promise<{ blob: Blob; width: number; hei
 
   // <img> rendering already disables scripts; remove them and event handler
   // attributes as defense in depth
-  svg.querySelectorAll('script').forEach(el => el.remove());
-  svg.querySelectorAll('*').forEach(el => {
-    for (const attr of Array.from(el.attributes)) {
-      if (attr.name.startsWith('on')) {
-        el.removeAttribute(attr.name);
-      }
-    }
-  });
+  stripSvgActiveContent(svg);
 
-  // Relative units carry no meaning for a raster canvas, but `parseFloat` would happily read
-  // "100%" as 100 and "20em" as 20 — anything that is not a plain number or px length counts as
-  // missing and falls back to the viewBox (or the default square).
-  const pixelAttr = (name: string): number => {
-    const raw = svg.getAttribute(name)?.trim() ?? '';
-    return /^\d+(?:\.\d+)?(?:px)?$/i.test(raw) ? parseFloat(raw) : NaN;
-  };
-  let width = pixelAttr('width');
-  let height = pixelAttr('height');
-  const viewBox = svg
-    .getAttribute('viewBox')
-    ?.trim()
-    .split(/[\s,]+/)
-    .map(Number);
-  if (!Number.isFinite(width) || width <= 0) width = viewBox && viewBox[2] > 0 ? viewBox[2] : DEFAULT_DIM;
-  if (!Number.isFinite(height) || height <= 0) height = viewBox && viewBox[3] > 0 ? viewBox[3] : DEFAULT_DIM;
-  svg.setAttribute('width', String(width));
-  svg.setAttribute('height', String(height));
-  if (!svg.getAttribute('xmlns')) svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
-
-  const serialized = new XMLSerializer().serializeToString(svg);
+  const { serialized, width, height } = normalizeSvgForRaster(new XMLSerializer().serializeToString(svg));
   return { blob: new Blob([serialized], { type: 'image/svg+xml' }), width, height };
 }
 
@@ -74,13 +45,7 @@ function createSvgRasterConverter(to: FileFormat): Converter {
         URL.revokeObjectURL(objectUrl);
       }
 
-      let w = img.naturalWidth || width;
-      let h = img.naturalHeight || height;
-      if (w > MAX_DIM || h > MAX_DIM) {
-        const scale = Math.min(MAX_DIM / w, MAX_DIM / h);
-        w = Math.round(w * scale);
-        h = Math.round(h * scale);
-      }
+      const { w, h } = fitToMaxDim(img.naturalWidth || width, img.naturalHeight || height);
 
       const canvas = document.createElement('canvas');
       canvas.width = w;

@@ -1,12 +1,6 @@
 import { reactive } from 'vue';
 import { STORAGE_KEYS, storageGet, storageSet, onStorageChange } from '~/utils/storage';
-import {
-  DEFAULT_SHORTCUTS,
-  canonicalize,
-  formatBinding,
-  matchEvent,
-  normalizeMap,
-} from '~/utils/core/shortcut';
+import { DEFAULT_SHORTCUTS, canonicalize, formatBinding, matchEvent, normalizeMap } from '~/utils/core/shortcut';
 import type { ShortcutAction, ShortcutMap } from '~/utils/core/shortcut';
 
 /**

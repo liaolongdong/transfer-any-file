@@ -1,7 +1,8 @@
 import { FileFormat } from '~/utils/core/types';
 import type { Converter, ConvertResult } from '~/utils/core/types';
 import { decodeTextBlob } from '~/utils/core/text-decode';
-import { guardCsvValue } from '~/utils/core/csv-guard';
+import { guardCsvValue, sheetToValueCsv, typeNumericCells } from '~/utils/core/csv-guard';
+import { ownSheet } from '~/utils/core/xlsx-sheets';
 
 const jsonToCsvConverter: Converter = {
   from: FileFormat.JSON,
@@ -51,7 +52,11 @@ const jsonToCsvConverter: Converter = {
     }
 
     const ws = XLSX.utils.aoa_to_sheet(aoa);
-    const csv = XLSX.utils.sheet_to_csv(ws);
+    // Values, not the display text `sheet_to_csv` would otherwise emit: on this exact sheet shape it
+    // was measured to turn `1727000000000` into `1.727E+12`, `3.14159265358979` into `3.141592654`
+    // and `true` into `TRUE`, so a batch of timestamps or snowflake IDs arrived rounded and in
+    // scientific notation. Same value-fidelity rule {@link sheetToValueCsv} states.
+    const csv = sheetToValueCsv(XLSX, ws);
     const blob = new Blob(['\ufeff', csv], { type: 'text/csv;charset=utf-8' });
     return { blob, filename: 'converted.csv' };
   },
@@ -63,12 +68,22 @@ const csvToJsonConverter: Converter = {
 
   async convert(input: Blob): Promise<ConvertResult> {
     const [XLSX, text] = await Promise.all([import('xlsx'), decodeTextBlob(input, 'errors.csvDecode')]);
-    const workbook = XLSX.read(text, { type: 'string' });
+    // Same read as csv→xlsx: `raw: true` keeps the reader's type inferrer away from the data, and
+    // {@link typeNumericCells} then gives back the numeric fields on the one rule that rule was
+    // written for. Without it a row of `2024-01-05,=1+1,1/2` was measured to come out as
+    // `{"date":"1/5/24","frac":"1/2/01"}` with the `calc` key gone entirely — the inferrer turned the
+    // date into the serial 45296.33383101852, the fraction into 2001-01-02, and the formula into a
+    // cell with nothing but `f`, which `sheet_to_json` then had no value to print.
+    const workbook = XLSX.read(text, { type: 'string', raw: true });
     const firstSheetName = workbook.SheetNames[0];
-    if (!firstSheetName) throw new Error('errors.csvDecode');
+    const firstSheet = firstSheetName ? ownSheet(workbook, firstSheetName) : undefined;
+    if (!firstSheet) throw new Error('errors.csvDecode');
 
-    const sheet = workbook.Sheets[firstSheetName];
-    const aoa = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { raw: false });
+    const sheet = typeNumericCells(firstSheet);
+    // `raw: true` so a number reaches JSON as a number; every other field stays the verbatim text the
+    // CSV carried. No formula guard on this side either — an apostrophe is an Excel affordance and
+    // JSON is not opened by Excel (see xlsx→json for the same reasoning).
+    const aoa = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { raw: true });
 
     const jsonStr = JSON.stringify(aoa, null, 2);
     const blob = new Blob([jsonStr], { type: 'application/json' });

@@ -2,7 +2,7 @@ import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { FileFormat } from '~/utils/core/types';
 import type { Converter, ConvertContext, ConvertResult } from '~/utils/core/types';
 import { throwIfAborted } from '~/utils/core/abort';
-import { escapeHtml, escapeAttr } from '~/utils/core/html-document';
+import { escapeHtml, escapeAttr, documentTitle } from '~/utils/core/html-document';
 
 interface LinkRect {
   x1: number;
@@ -12,9 +12,19 @@ interface LinkRect {
   url: string;
 }
 
+/**
+ * Locate the link annotation covering a text item's origin.
+ *
+ * `annotation.rect` arrives already normalized: pdf.js runs every annotation rect through
+ * `Util.normalizeRect`, which swaps the y pair when needed, so `rect[1] <= rect[3]` holds for any
+ * input PDF regardless of how its `/Rect` was written. Both coordinates are PDF user space with the
+ * y axis pointing up, the same space `textContent` items report their baseline in. The comparison
+ * below was the other way round, which made the test unsatisfiable for every non-degenerate
+ * annotation and silently dropped every hyperlink on this route.
+ */
 function findLinkForPosition(x: number, y: number, links: LinkRect[]): string | null {
   for (const link of links) {
-    if (x >= link.x1 && x <= link.x2 && y >= link.y2 && y <= link.y1) {
+    if (x >= link.x1 && x <= link.x2 && y >= link.y1 && y <= link.y2) {
       return link.url;
     }
   }
@@ -160,12 +170,16 @@ const pdfToHtmlConverter: Converter = {
       await loadingTask.destroy();
     }
 
+    // No `lang` on the root: the extracted text is in whatever language the document is, and
+    // `lang="en"` was a claim screen readers act on. Title = the user's own file name, same as
+    // `wrapHtmlDocument` (this route builds its own shell because of the per-page layout below).
+    const title = escapeHtml(documentTitle(ctx?.source?.name));
     const htmlDoc = `<!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Converted Document</title>
+  <title>${title}</title>
   <style>
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;

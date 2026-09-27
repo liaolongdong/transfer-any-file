@@ -1,12 +1,16 @@
 # Chrome 应用商店 · 提交与运营手册 — Transfer Any File
 
-> **当前状态（2026-09-16）**：1.0.0 草稿提交过一次审核、**被拒两次**。两次是同一违规类型、同一参考 ID
-> （`垃圾内容和商店中的排名` / `Yellow Argon`），同一条政策：产品说明中有过多关键字。第一次（09-14）引用的是
-> **简介**里的 `"Markdown, Word, PDF, Excel, CSV, JSON, HTML, images"`，于是简介、与它同形的 `Chinese (China)`
-> 简介、以及 marquee 推广图的副标题都改按品类表述。第二次（09-15）引用的是**详细介绍**里 WHAT YOU CAN CONVERT 的
-> 三条 family bullet，于是剩下的那处枚举也去了——两次测量的完整对照见[拒审记录](#拒审记录与政策口径)。
-> 条目仍未上线：`manifest.json` 里没有 `key`，整个仓库里也找不到扩展 ID。同日，listing 的**默认语言**从英文换成中文
-> （包里带 `_locales/zh_CN` 与 `_locales/en`），见[语言闸门](#语言闸门)。所以本文件是**可提交素材包 +
+> **当前状态（2026-09-21）**：1.0.0 草稿提交过三次审核、**被拒三次**，但第三次换了一条政策。前两次（09-14 /
+> 09-15）是同一违规类型、同一参考 ID（`垃圾内容和商店中的排名` / `Yellow Argon`），同一条政策：产品说明中有过多
+> 关键字。第一次引用的是**简介**里的 `"Markdown, Word, PDF, Excel, CSV, JSON, HTML, images"`，于是简介、与它同形的
+> `Chinese (China)` 简介、以及 marquee 推广图的副标题都改按品类表述。第二次引用的是**详细介绍**里 WHAT YOU CAN
+> CONVERT 的三条 family bullet，于是剩下的那处枚举也去了——两次测量的完整对照见
+> [拒审记录](#拒审记录与政策口径)。第三次（09-21）的违规类型是 `内容政策`，理由是 **Manifest V3 包里含远程托管
+> 代码**，与文案无关：被扫出来的是两份第三方依赖里的死代码路径。按本文件自己 09-15 那条笔记的判据（「如果第三次
+> 裁决落在一份**不带列表**的文案上，那时才轮到那个表单」），关键字那条模式这次可以判定为已走完——它没能再拦住我们，
+> 而这次也没得申诉，因为被点名的代码确实在包里。
+> 条目仍未上线：`manifest.json` 里没有 `key`，整个仓库里也找不到扩展 ID。listing 的**默认语言**自 2026-09-16 起
+> 是中文（包里带 `_locales/zh_CN` 与 `_locales/en`），见[语言闸门](#语言闸门)。所以本文件是**可提交素材包 +
 > 手工 runbook**，不是现网列表的镜像：把每个字段复制进 [Chrome Developer Dashboard](https://chrome.google.com/webstore/devconsole)，
 > 并在权限、功能或图形变化时同步更新它。
 >
@@ -51,27 +55,28 @@
 
 按后台标签页顺序填完整张表。短字段逐字给出、可直接粘贴；长文案按小节引用，所以这里不会与被引用的文案漂移。
 
-**开工前，仓库侧五项全过**（在动后台之前跑完，不是填到一半再跑）：
+**开工前，仓库侧六项全过**（在动后台之前跑完，不是填到一半再跑）：
 
 ```bash
 pnpm verify:listing   # 下面每个字段都在上限内，且与 _locales / manifest / package.json / repo-metadata 一致
-pnpm verify:offline   # 第一方源码不发起网络请求；manifest 权限仍只有 storage
 pnpm build            # 产出要上传的包
+pnpm verify:offline   # 第一方源码不发起网络请求，且上面产物的 manifest 权限仍只有 storage（缺产物即失败）
+pnpm verify:remote-code # 产物里没有「从网络取来的代码」，见 09-21 那条拒审（同样缺产物即失败）
 ls .output/chrome-mv3/_locales   # 必须同时有 en 与 zh_CN，否则后台只有一种语言可填
 curl -Is https://liaolongdong.github.io/transfer-any-file/privacy.html | head -1   # 必须是 HTTP/2 200，否则提交按钮点了没反应
 ```
 
 ### Tab 1 — Store listing（商店页面）
 
-| 字段                   | 英文取值                                                                                          | 中文取值（默认语言标签页）                                                                        |
-| ---------------------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| 名称 Extension Name      | `Transfer Any File — Offline File Format Converter` (49/75)                                       | `文件格式任意转换助手 — 离线转换无上传` (28/75)                                          |
-| 简介 Short description   | `Convert between 14 common document, spreadsheet and image file formats right in your browser...` (127/132) | `在本机浏览器内互转 14 种常见的文档、表格与图片格式。支持混合批量、多步链路、预览编辑与 ZIP 打包，全程离线，不上传、无账号。` (66/132) |
-| 详描 Full description    | [英文详细介绍](#英文详细介绍) (7,948 字符)                                                          | [中文详细介绍](#中文详细介绍) (2,845 字符)                                                          |
-| 类别 Category            | `Productivity`                                                                                    | `Productivity`                                                                                    |
-| 主要语言 Primary Language | -                                                                                                 | `Chinese (China)`                                                                               |
-| 附加语言 Additional Languages | `English (United States)`                                                                       | -                                                                                                 |
-| 产品页 Product page      | [https://liaolongdong.github.io/transfer-any-file/](https://liaolongdong.github.io/transfer-any-file/) | [https://liaolongdong.github.io/transfer-any-file/](https://liaolongdong.github.io/transfer-any-file/) |
+| 字段                          | 英文取值                                                                                                    | 中文取值（默认语言标签页）                                                                                                             |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| 名称 Extension Name           | `Transfer Any File — Offline File Format Converter` (49/75)                                                 | `文件格式任意转换助手 — 离线转换无上传` (20/75)                                                                                        |
+| 简介 Short description        | `Convert between 14 common document, spreadsheet and image file formats right in your browser...` (127/132) | `在本机浏览器内互转 14 种常见的文档、表格与图片格式。支持混合批量、多步链路、预览编辑与 ZIP 打包，全程离线，不上传、无账号。` (66/132) |
+| 详描 Full description         | [英文详细介绍](#英文详细介绍) (8,581 字符)                                                                  | [中文详细介绍](#中文详细介绍) (3,039 字符)                                                                                             |
+| 类别 Category                 | `Productivity`                                                                                              | `Productivity`                                                                                                                         |
+| 主要语言 Primary Language     | -                                                                                                           | `Chinese (China)`                                                                                                                      |
+| 附加语言 Additional Languages | `English (United States)`                                                                                   | -                                                                                                                                      |
+| 产品页 Product page           | [https://liaolongdong.github.io/transfer-any-file/](https://liaolongdong.github.io/transfer-any-file/)      | [https://liaolongdong.github.io/transfer-any-file/](https://liaolongdong.github.io/transfer-any-file/)                                 |
 
 ```
 Transfer Any File — Offline File Format Converter
@@ -81,7 +86,7 @@ Transfer Any File — Offline File Format Converter
 Convert between 14 common document, spreadsheet and image file formats right in your browser — offline, in batches, no uploads.
 ```
 
-**Chinese (China) —— 默认语言标签页，先贴这一套。** 三个字段（名称 33/75、简介 66/132、详描 2,845 字符）在
+**Chinese (China) —— 默认语言标签页，先贴这一套。** 三个字段（名称 20/75、简介 66/132、详描 3,039 字符）在
 [商店文案](#商店文案)里；名称与简介同时活在 `public/_locales/zh_CN/messages.json`，`pnpm verify:listing` 逐字比对两边。
 那个标签页要等**带 `_locales/zh_CN/` 的包上传之后**才出现——先传包再填表，手上那份旧草稿看不到它是正常的。
 
@@ -111,7 +116,7 @@ Converts user-selected documents, spreadsheets and images between common file fo
 ```
 
 ```
-storage: persists the user's own conversion history (file names, formats and sizes — never file contents) and interface preferences (theme, colour mode, language, notification and confirmation switches, custom shortcut) via chrome.storage.local. Nothing leaves the device: the extension declares no host permissions and its own code issues no network request. No narrower permission can do this.
+storage: persists the user's own conversion history (file names, formats and sizes — never file contents), interface preferences (theme, colour mode, language, notification and confirmation switches, custom shortcut, output file name pattern), image output options (longest edge, quality, target size, PDF render density) and conversion presets (the preset name the user types, together with the target format and output options it records) via chrome.storage.local. Nothing leaves the device: the extension declares no host permissions and its own code issues no network request. No narrower permission can do this.
 ```
 
 ```
@@ -127,7 +132,7 @@ Files are read into the extension page's memory, converted there, and returned t
 ### Tab 4 — Distribution（分发）
 
 Public · 全部地区 · 默认价格（free）。32 位 item ID 出现在这一页：**不要提交进 git**，放进
-[交接给自动化](#5-交接给自动化条目已存在之后)里说的 `CHROME_EXTENSION_ID` secret。
+[交接给自动化](#5-交接给自动化条目已存在之后)里说的 `CHROME_EXTENSION_ID_TAF` secret。
 
 ### 给审核员的备注（可选，能省一个来回）
 
@@ -196,7 +201,7 @@ Google 只把 listing 本地化到**包**里声明过的 locale：_"Each locale 
 
 | 目录                                  | 角色                                     | 承载的后台文案                         |
 | ------------------------------------- | ---------------------------------------- | -------------------------------------- |
-| `public/_locales/zh_CN/messages.json` | `default_locale`，**listing 的默认语言** | 中文名称（33/75）与中文简介（66/132）  |
+| `public/_locales/zh_CN/messages.json` | `default_locale`，**listing 的默认语言** | 中文名称（20/75）与中文简介（66/132）  |
 | `public/_locales/en/messages.json`    | 附加 locale                              | 英文名称（49/75）与英文简介（127/132） |
 
 `public/` 是 WXT 的 `publicDir`，整目录原样落到扩展根，所以 `_locales/` 必须在 `public/` 下——它在扩展根的位置
@@ -225,7 +230,7 @@ key 集一致、`default_locale` 仍是 `zh_CN`；`pnpm verify:meta` 比对 `_lo
 
 它就是默认 `Chinese (China)` 标签页的名称，同时也是 `__MSG_extensionName__` 在 `zh_CN` 下的取值——中文系统用户在
 扩展管理页与安装提示里看到的正是这一行。**"任意转换"对应英文"Transfer Any File"**，比直译更自然；"助手"比"扩展"更亲和。
-破折号后强调核心价值："离线转换无上传"，直接命中隐私敏感用户的最强需求。这个名字用了 28/75 字符，远低于类目天花板；
+破折号后强调核心价值："离线转换无上传"，直接命中隐私敏感用户的最强需求。这个名字用了 20/75 字符，远低于类目天花板；
 读起来是名词短语而非列表——与英文字段同一条形状规则。
 
 **简介（Short Description）** [必填] —— 127 字符，上限 132
@@ -260,7 +265,7 @@ Convert between 14 common document, spreadsheet and image file formats right in 
 扩展真正具备的能力（混格式批量、多步链路、预览与编辑、ZIP 下载），而不是文件扩展名。依旧不写 PDF 转 Word、PDF 转 Excel，
 因为这个扩展做不到无损的 PDF 转换。
 
-**详细介绍（Detailed Description）** [必填] —— 纯文本，本仓库自设上限 16,000 字符（英文块实测 7,948；下面的中文块实测 2,845）
+**详细介绍（Detailed Description）** [必填] —— 纯文本，本仓库自设上限 16,000 字符（英文块实测 8,581；下面的中文块实测 3,039）
 
 _Google 没有为这个字段公布长度_——75 与 132 是写在文档里的，16,000 不是。把它当成本仓库自己的守卫
 （`pnpm verify:listing`），按后台计数器设定，提交时以那个计数器为准，不要把 16,000 背给审核员。
@@ -297,7 +302,9 @@ BUILT FOR REAL WORKLOADS
 • Preview and edit: view the source and the result side by side, and correct a text result before downloading it
 • Recent targets: the formats you convert to most often are grouped at the top of the target picker
 • Image output parameters: an image target exposes a longest edge (800–4096 px), and a compressed image target additionally takes encoder quality (40–90%) and a target file size (20 KB–2 MB); a source that is rendered page by page takes a render density of 96–300 DPI — every knob starts untouched
+• PDF page selection: converting a PDF to images can be limited to the pages you name (1-3, 5) instead of the whole document; that choice belongs to the batch in front of you and is never stored, so it cannot silently truncate the next PDF
 • Conversion presets: save a target format together with its parameters as a named shortcut (up to 12) and restore the whole setup in one click; a preset works for any batch that can reach that format
+• Output names you can write: a result is named after its source file plus the date and time to the second by default, and Preferences takes a pattern of your own; the extension always comes from the real output, so a customised name never claims a format it is not
 • Archive intake: drop a .zip and the supported files inside join the batch automatically
 • Spreadsheet-friendly encoding: text is read as UTF-8 with a GB18030 then GBK fallback, and written with a byte-order mark so the result opens in a spreadsheet application without garbled characters
 • Conversion history: the last 50 runs (file names, formats and sizes only), searchable by file name, filterable, reusable in one click, exportable and importable as JSON
@@ -309,7 +316,7 @@ HOW TO USE
 1. Click the toolbar icon — the workbench opens in a new tab
 2. Drop files on the upload area, click to choose them, or paste from the clipboard
 3. Pick the target format. Only formats that every selected file can reach are offered; the rest are greyed out with a reason
-4. Converting to an image? The output panel appears whenever the target is an image: longest edge, plus quality and a target file size when the target is a compressed one
+4. Converting to an image? The output panel appears whenever the target is an image: longest edge, plus quality and a target file size when the target is a compressed one, and a page range when the batch holds a PDF
 5. Press Convert, then download a single file or the whole batch as one ZIP
 6. Repeat the same setup often? Save the format and its parameters as a named preset and restore both in one click
 
@@ -319,7 +326,7 @@ PRIVACY
 • No analytics, no tracking, no sign-in, no advertising, no paid tier
 
 PLEASE KNOW BEFORE INSTALLING
-• A produced PDF is rendered page by page as an image, so text in it is not selectable
+• A produced PDF is rendered page by page as an image, so it carries no text layer; text you select in a PDF viewer was recognised by that viewer, not by this extension
 • Reading a PDF in extracts its text; the original layout and embedded images are not preserved
 • Images cannot be turned into text or spreadsheets — that needs OCR, which is not bundled
 • Three of the image formats are input-only, because no browser can encode them; an animated source contributes its first frame, and a vector source is rasterised
@@ -373,7 +380,9 @@ Version 1.0.0 — first store submission.
 • 预览与编辑：源文件与结果左右对照显示，文本类结果可在下载前就地修改
 • 最近使用：你常转的目标格式会以下拉顶部的「最近使用」分组呈现
 • 图片输出参数：目标为图片时可设最长边（800–4096 px）；目标为压缩图片格式时还可设质量（40–90%）与目标体积（20 KB–2 MB）；逐页渲染的源文件另可按「清晰度」选 96–300 DPI；不设置即保持默认
+• PDF 选页：把 PDF 转成图片时可以只点名要渲染的页（如 1-3, 5），不必整份出图；这个选择只属于眼前这一批、不落存储，所以不会悄悄截断下一份 PDF
 • 转换预设：把目标格式连同输出参数存成一个命名快捷方式（最多 12 个），下次一键套用；预设不绑定源格式，凡能转到该格式的批次都能直接用
+• 输出文件名：结果默认叫「源文件名 + 精确到秒的日期与时间」，偏好设置里这一串写法可以自定义；扩展名始终取自真实产物，自定义过的名字因此不会与实际格式不符
 • 压缩包解包：拖入一个 .zip，其中受支持的文件自动加入批次
 • 表格友好的编码：文本按 UTF-8 读取，失败时依次回退 GB18030 与 GBK，写出时带字节序标记，用表格软件打开不乱码
 • 转换历史：保留最近 50 次转换的元数据（仅文件名、格式与体积），支持按文件名搜索、筛选、一键「复用此格式」，以及 JSON 导出与导入
@@ -395,7 +404,7 @@ Version 1.0.0 — first store submission.
 • 无统计埋点、无追踪、无登录、无广告、无付费版本
 
 安装前请了解
-• 转出的 PDF 是逐页渲染成的图片，因此其中的文字不可选中
+• 转出的 PDF 是逐页渲染成的图片，因此其中不含文字层；在 PDF 查看器里能选中复制出的文字，是那个查看器自己识别的，不是本扩展的功能
 • 读入 PDF 只提取文本，原有版式与内嵌图片不会保留
 • 图片无法转换为文本或表格——那需要 OCR，本扩展未内置
 • 有三种图片格式只能作为输入、不能作为输出，因为浏览器未提供它们的编码器；动图源文件取首帧，矢量源文件先展平
@@ -536,9 +545,9 @@ caption 条是叠上去的，不是裁出来的：界面保持完整的 1280×80
 
 ### 权限说明
 
-| 权限      | 类型        | 说明（中文摘要；要贴进后台的英文原句见[提交速查 → Tab 3](#tab-3--privacy-practices隐私实践)）                                                                                                                                  |
-| --------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `storage` | permissions | 通过 `chrome.storage.local` 跨会话保存用户自己的转换历史（文件名、格式、体积——绝不含文件内容）与界面偏好（主题色、显示模式、语言、通知与确认开关、自定义快捷键）。什么都不传输：扩展不声明 host 权限，自身代码不发起网络请求。 |
+| 权限      | 类型        | 说明（中文摘要；要贴进后台的英文原句见[提交速查 → Tab 3](#tab-3--privacy-practices隐私实践)）                                                                                                                                                                                                                                                                              |
+| --------- | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `storage` | permissions | 通过 `chrome.storage.local` 跨会话保存用户自己的转换历史（文件名、格式、体积——绝不含文件内容）、界面偏好（主题色、显示模式、语言、通知与确认开关、自定义快捷键、输出文件名写法）、图片输出参数（最长边、质量、目标体积、PDF 渲染清晰度）与转换预设（用户自己输入的预设名称，连同它记录的目标格式与输出参数）。什么都不传输：扩展不声明 host 权限，自身代码不发起网络请求。 |
 
 没有 `host_permissions`、没有 content script、没有 `tabs`、没有 `<all_urls>`、没有远程代码。工具栏图标走
 `chrome.action.onClicked` → `chrome.runtime.openOptionsPage()`；工作台是扩展页面，因此从不申请访问任何网站。
@@ -581,8 +590,10 @@ ban of the entire publisher entity"。这是整份文档里唯一可能赔上整
 
 离线保证真正换来的是那一页**其他**答案——没有传输，于是传输规则那几条根本没有东西要认证。每次提交前用
 `pnpm verify:offline` 重跑它背后的断言（`entrypoints/`、`components/`、`composables/`、`utils/` 里没有网络请求入口，
-manifest 不声明任何 host 权限），并记住 jsPDF / pdf.js 里那些无人调用的请求路径既读不到响应、也碰不到任何网站的数据。
-CI 每次 push 都会跑 `verify:offline`。
+`wxt.config.ts` 不声明任何 host 权限，并且**要上传的那份产物** `.output/chrome-mv3/manifest.json` 的权限仍然只有
+`storage`——所以它必须在 `pnpm build` 之后跑，缺产物时它直接失败而不是跳过），并记住 jsPDF / pdf.js 里那些无人调用的
+请求路径既读不到响应、也碰不到任何网站的数据。CI 每次 push 两层都跑：lint job 先跑源码层
+（`verify:offline:source`，此时还没有产物可查），build job 在 `pnpm build` 之后跑这条完整的。
 
 ### 数据使用认证
 
@@ -653,9 +664,9 @@ time by hand."。创建条目、粘贴 listing 文本、上传截图、勾选隐
 ### 2. 仓库侧前置条件
 
 ```bash
-pnpm verify:offline   # 第一方源码无网络请求，manifest 只有 storage
-pnpm verify:meta      # 132 字符的简介在 package.json 与 wxt.config.ts 一致
-pnpm verify:listing   # 下面每个粘贴字段都在上限内，且与 manifest 一致
+pnpm verify:offline:source   # 源码层：第一方源码无网络请求，wxt.config.ts 只有 storage（产物断言见下面第 3 步）
+pnpm verify:meta             # 132 字符的简介在 package.json 与 wxt.config.ts 一致
+pnpm verify:listing          # 下面每个粘贴字段都在上限内，且与 manifest 一致
 curl -Is https://liaolongdong.github.io/transfer-any-file/privacy.html | head -1   # 必须是 HTTP/2 200
 ```
 
@@ -665,8 +676,10 @@ curl -Is https://liaolongdong.github.io/transfer-any-file/privacy.html | head -1
 
 ### 3. 产出包
 
-`pnpm build && pnpm package` 写出 `.output/transfer-any-file-<version>-chrome.zip`。推荐路径是推 tag：
-`.github/workflows/release.yml` 会校验 tag 与 `package.json#version` 一致、跑上面两项守卫、确认 `manifest.json`
+`pnpm build && pnpm package` 写出 `.output/transfer-any-file-<version>-chrome.zip`；构建之后补跑一次
+`pnpm verify:offline`，它才会断言这份产物的 manifest 权限只有 `storage`。推荐路径是推 tag：
+`.github/workflows/release.yml` 会校验 tag 与 `package.json#version` 一致、跑上面两项守卫（离线那条按同样的顺序拆成
+构建前的源码层与构建后的产物层）、确认 `manifest.json`
 位于压缩包根目录且旁边没有仓库文件，然后把 zip 挂到 GitHub Release 上。
 
 ### 4. 填后台条目
@@ -675,37 +688,33 @@ curl -Is https://liaolongdong.github.io/transfer-any-file/privacy.html | head -1
 
 | 后台标签页         | 本文件里的小节                                                                                                                                                                   |
 | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Store listing      | [商店文案](#商店文案)（`Chinese (China)` 默认：33/75 + 66/132 + 中文详描；`English (United States)`：49/75 + 127/132 + 英文详描；`Productivity`、单一目的）                      |
+| Store listing      | [商店文案](#商店文案)（`Chinese (China)` 默认：20/75 + 66/132 + 中文详描；`English (United States)`：49/75 + 127/132 + 英文详描；`Productivity`、单一目的）                      |
 | Screenshots & icon | [图形与素材](#图形与素材)——**两个语言页各传一套**，各从 7 张 1280×800 里传 5 张（各砍 `history` 与 `dark-mode`）、`public/icon/128.png`、small 与 marquee 推广图（推广图只一套） |
 | Privacy practices  | [权限与隐私申报](#权限与隐私申报)——声明条目_处理_用户数据；只在设备本地、从不传输。**不是**「不收集任何用户数据」。                                                              |
 | Distribution       | [分发与开发者信息](#分发与开发者信息)（public、全部地区）；item ID 出现在这一页                                                                                                  |
 
-提交审核，然后盯后台的 **Package → status**，或者配好下面那套凭据后问 API：
-`pnpm exec wxt-publish-extension status`。
+提交审核，然后盯后台的 **Package → status**。配好下面那套凭据之后，也可以用 `release.yml` 打的同一组端点查状态：
+GET `https://www.googleapis.com/chromewebstore/v1.1/items/<item ID>`，带 `x-goog-api-version: 2` 和一个
+`Authorization: Bearer <access token>`；换 access token 的命令见 `.github/CWS_PUBLISHING_GUIDE.md → 3.1`。
 
 ### 5. 交接给自动化（条目已存在之后）
 
-从后台 URL 里复制 32 位 **item ID**，然后为 Chrome Web Store API 生成 OAuth 凭据。有人维护的路径是 CLI 自带的向导，
-它会带你走完 Google Cloud 那侧（在某个项目里启用 _Chrome Web Store API_、创建 OAuth client、用授权码换 refresh token），
-并把结果写进 `.env.submit`：
+从后台 URL 里复制 32 位 **item ID**，然后为 Chrome Web Store API 生成 OAuth 凭据。Google Cloud 那侧的完整步骤
+（在某个项目里启用 _Chrome Web Store API_、创建 OAuth client、用授权码换 refresh token）写在
+`.github/CWS_PUBLISHING_GUIDE.md → 3.1`，这里不重复。
 
-```bash
-pnpm exec wxt-publish-extension init   # 交互式；.env.submit 已在 .gitignore 里
-```
+补上四个仓库 secrets——本扩展专用的 `CHROME_EXTENSION_ID_TAF`，以及与 account-password-helper 共用的
+`CWS_CLIENT_ID` / `CWS_CLIENT_SECRET` / `CWS_REFRESH_TOKEN`（个人账号没有组织级 secret 共享，这三个值仍要在
+**每个仓库里各填一次**）——`release.yml` 里的 `Submit to the Chrome Web Store` 步骤就不再说「跳过」，而是从下一个 tag
+开始真正发布。它用 runner 自带的 `curl` 打 v1.1 端点：先 PUT `upload/items/<id>` 上传新包，再 POST
+`items/<id>?publishTarget=default` 提交审核；不引入第三方 npm 包或 action。头几次运行想先预演，手动触发
+workflow_dispatch 时勾 `dry_run`（只做认证与校验，不上传、不提交）。
 
-补上四个仓库 secrets——`CHROME_EXTENSION_ID`、`CHROME_CLIENT_ID`、`CHROME_CLIENT_SECRET`、
-`CHROME_REFRESH_TOKEN`——`release.yml` 里的 `Submit to the Chrome Web Store` 步骤就不再说「跳过」，而是从下一个 tag
-开始真正发布。头几次运行有用的 flag：
-
-| Flag                                                     | 作用                                                                   |
-| -------------------------------------------------------- | ---------------------------------------------------------------------- |
-| `--dry-run`                                              | 只做认证，什么都不上传、什么都不提交。在相信一个 tag 之前先跑它。      |
-| `--chrome-skip-submit-review`                            | 把包作为草稿上传，不请求审核。                                         |
-| `--chrome-publish-target trustedTesters`                 | 限定范围发布，而不是 `default`（public）。                             |
-| `--chrome-api-version v2` + `--chrome-service-account-*` | v2 API 路径，用于拿到的不是 OAuth client 而是 service account 的账号。 |
-
-注意 CLI 把 OAuth 那几个 flag 标成 `[Deprecated: API v1.1 only]`：Google 正在把这个 API 迁到带 service account 的
-v2，所以如果 `init` 建不出 v1.1 client，就用 v2 的 flag。工作流保留 v1.1 三件套，因为那是今天发给新开发者账号的东西。
+| 想改的行为                  | 改哪里                                                                                         |
+| --------------------------- | ---------------------------------------------------------------------------------------------- |
+| 限定范围发布（只给白名单）  | 那行 POST 的 `publishTarget` 换成 `trustedTesters`，它是工作流里的字面量，不是仓库变量         |
+| 只上传不请求审核（留草稿）  | 注释掉那行 POST；包已经上传，后台的 Package 页会停在草稿态                                     |
+| 用 v2 API + service account | 换掉整套端点与鉴权；**当前刻意留在 v1.1**，因为新开发者账号今天拿到的就是 v1.1 的 OAuth client |
 
 ### 无法自动化的部分（别排期，然后困惑）
 
@@ -753,11 +762,15 @@ v2，所以如果 `init` 建不出 v1.1 client，就用 v2 的 flag。工作流�
 ### 已知限制（审核员问到时主动披露）
 
 - PDF 输出按设计就是图片（jsPDF 逐页渲染），不提供可选中文字的 PDF 导出。已写进详细介绍，避免被读成误导性主张。
+  若有人从图片转出的 PDF 里复制出了文字，那是 PDF 查看器自己识别的结果——文件里没有文字层，识别结果也不在文件里；详细介绍、产品页 FAQ 与结果卡片上的提示都按这个口径写。
 - PDF 输入只做文本提取；原版式与内嵌图片不保留。
 - 没有 OCR，所以 图片 → 文本/数据 在目标选择器里是刻意置灰的，而不是等到转换时才失败。
 - BMP / GIF / SVG 只能作为输入，因为浏览器不给它们提供编码器。
-- 对比度三元组由端到端套件在 6 主题色 × 浅/深（12 种组合）下断言：顶栏品牌文字对顶栏 ≥ 4.5:1；主按钮标签在
-  常态 / hover / 按下三态 ≥ 4.5:1（取自已启用的按钮，因为文本规则豁免禁用控件）；卡片上的焦点环 ≥ 3:1。
+- 内联 SVG 进 Word 或 Markdown 时栅格成 PNG 嵌入：Word 的 HTML 导入不画内联 SVG，栅格化是「必定渲染」的那条
+  路，代价是那张图在 .docx 与 .md 里是位图，放大不再是矢量。README 与产品页同步写明这一点。
+- 四组对比度由端到端套件在 6 主题色 × 浅/深（12 种组合）下断言：顶栏品牌文字对顶栏 ≥ 4.5:1；主按钮标签在
+  常态 / hover / 按下三态 ≥ 4.5:1（取自已启用的按钮，因为文本规则豁免禁用控件）；卡片上的焦点环 ≥ 3:1；
+  正文信息文字（拖放提示、文件大小、页脚等五串）对各自底色 ≥ 4.5:1。
   最差实测值（2026-09-14）：4.70:1。已知缺口：控件的填充色还需要与它底下的表面满足 3:1（WCAG 1.4.11），
   12 种组合里 10 种满足，浅森林绿与橙色按钮不满足（2.21 / 2.96:1）——这一点写在 README 里，而不是当作已达标呈现。
 
@@ -790,23 +803,24 @@ v2，所以如果 `init` 建不出 v1.1 client，就用 v2 的 flag。工作流�
 - [ ] GitHub 社交预览图尚未上传（`docs/assets/store/github-social-preview.png`）——只能后台操作，没有 API
 - [x] `pnpm package` 的 zip 已检查：不含 `.git/`、`node_modules/`、`.test-*`、`CHROMEWEBSTORE.md`、`docs/`、
       `fixtures/` —— 由 `.github/workflows/release.yml` 断言
-- [ ] 在被打包的那个 commit 上 `pnpm lint:all`、`pnpm verify:meta`、`pnpm verify:offline`、`pnpm verify:listing`、
-      `pnpm test:e2e` 全绿
+- [ ] 在被打包的那个 commit 上 `pnpm lint:all`、`pnpm verify:meta`、`pnpm verify:offline`、`pnpm verify:remote-code`、
+      `pnpm verify:listing`、`pnpm test:e2e` 全绿
 
 ---
 
 ## 版本历史
 
-| 版本  | 日期       | 变更                                                                                                                                                                                                                                                                                                                                                                                                | 状态                 |
-| ----- | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------- |
-| 1.0.0 | 2026-09-07 | 首次提交：14 种格式 / 46 条直接路径、批量 + ZIP、多步链路、预览与编辑、失败诊断、最近使用的目标分组、历史、6 种主题、中英界面。英文 listing 文案可直接粘贴；中文文案已写好但被 `_locales/` 拦着——见[语言闸门](#语言闸门)。审核后**被拒两次**——09-14 因为简介里的格式列表，09-15 因为详细介绍——同一条政策；见[拒审记录](#拒审记录与政策口径)。重新提交时，每个商店字段都改成按品类而非按格式名表述。 | 被拒 ×2 → 重新提交中 |
+| 版本  | 日期       | 变更                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | 状态                 |
+| ----- | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------- |
+| 1.0.0 | 2026-09-07 | 首次提交：14 种格式 / 46 条直接路径、批量 + ZIP、多步链路、预览与编辑、失败诊断、最近使用的目标分组、历史、6 种主题、中英界面。英文 listing 文案可直接粘贴；中文文案已写好但被 `_locales/` 拦着——见[语言闸门](#语言闸门)。审核后**被拒两次**——09-14 因为简介里的格式列表，09-15 因为详细介绍——同一条政策；见[拒审记录](#拒审记录与政策口径)。重新提交时，每个商店字段都改成按品类而非按格式名表述。09-21 第三次拒绝落在另一根轴上（`内容政策` / Manifest V3 远程托管代码），改的是包而不是文案，见[拒审记录](#拒审记录与政策口径)。 | 被拒 ×3 → 重新提交中 |
 
 ---
 
 ## 拒审记录与政策口径
 
 两次裁决的价值不在于「被拒了两次」，而在于它们共同划出的那条线：**看形状，不看次数**。这一节留下全部测量，
-因为下次有人想把卖点写得更具体时，需要知道代价。
+因为下次有人想把卖点写得更具体时，需要知道代价。第三次（09-21）换了一根轴——不再是文案，而是包里的代码，
+所以它单独成节，也提醒一件事：过了文案这关不等于过了政策这关。
 
 ### 2026-09-14 · v1.0.0 · 违规类型：垃圾内容和商店中的排名 · 参考 ID `Yellow Argon`
 
@@ -879,12 +893,90 @@ v2，所以如果 `init` 建不出 v1.1 client，就用 v2 的 flag。工作流�
 但它带的是不同的词，也就带着不同的风险。如果第三次裁决落在中文侧，那不该记成「去列表那一刀没生效」——
 先按语言把两份文案分开归因，再决定动哪一份。
 
+### 2026-09-21 · v1.0.0 · 违规类型：内容政策 · 无参考 ID
+
+> 违规行为：Manifest V3 产品包含远程托管代码。
+> 政策引用：开发者服务条款、计划政策、品牌推广指南。
+
+**这一次跟文案没有关系。** 前两次裁的是关键字形状，这一次裁的是**包的内容**：MV3 不允许扩展存在「把网络上的东西
+当代码执行」的可能。裁决没有点名具体是哪一处（也没给参考 ID），所以修法不是改被引用的那一个字段，而是把产物里
+**所有**这一类形状一次清干净——留着任何一处，下一次还是同一条判定。
+
+**产物里实际有什么。** 用 `grep` 扫 `.output/chrome-mv3/` 而不是扫源码，找到的两处都在第三方依赖里，都是本项目
+从来不会走到的死代码：
+
+| 位置                               | 形状                                                                                                                                                                           | 为什么它算远程托管代码                                                                   | 我们走到吗                                                          |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| `chunks/jspdf.*.js`（jsPDF 4.2.1） | `output('pdfobjectnewwindow')` 分支：`var i="https://cdnjs.cloudflare.com/ajax/libs/pdfobject/2.1.1/pdfobject.min.js"` → `createElement("script")` → `c.src=i` → `appendChild` | 一个远端 URL 直接成为 `<script>` 的 `src`；`options.pdfObjectUrl` 还允许调用方传任意 URL | 否。全仓库只调 `output('blob')`                                     |
+| `chunks/pdf-*.js`（pdf.js）        | `_createCDNWrapper`：把 `await import("<url>")` 拼成字符串塞进 Blob，再 `new Worker(blobURL)`                                                                                  | 代码文本在运行时组装后交给解析器                                                         | 否。只在 `workerSrc` 跨源时才走，而我们那份是包内同源的 `.mjs` 资源 |
+
+其余匹配过的形状都不在这条政策的射程里，且刻意**没有**清：jszip 的 `setImmediate` 垫片用一个空 `<script>` 做调度、
+lodash 与 `lib-*.js` 的 `Function('return this')()` 取全局、SheetJS 里几百个 `http://purl.oclc.org/…` 的 XML 命名空间
+字符串、pdf.js 拿 `https://foo.bar` 当 URL 解析的基准占位。它们要么是间接 eval 的形状（MV3 的 CSP 本来就在运行时
+拦死），要么根本不是代码。把它们一起砍掉只会让守卫变成永久噪声，见下。
+
+**为什么两道离线守卫都没看见它。** `verify:offline:source` 读的是第一方源码（干净检出上根本没有产物），
+`verify:offline` 断言的是产物 manifest 的权限集合。这两条**都不读第三方 bundle 的文本**，所以一条硬编码的 cdnjs URL
+从它们中间完整穿过去；扩展也从来没有运行时症状可看——那段代码不会被调用，浏览器连一次失败请求都不会发。
+这是「离线」与「无远程代码」是两条独立主张的第一个实例：前者管我们做不做请求，后者管包里躺着什么。
+
+**修法在构建期，不在运行期。** 加个 `if` 把调用点挡住没有任何意义——商店扫的是字符串本身。所以
+`wxt.config.ts` 里 `stripRemotelyHostedCode()` 用 Vite 的 `transform` 钩子把这两段整块删掉（jsPDF 那个 `case` 分支
+直接消失，pdf.js 那个包装器变成恒等函数）。这个钩子必须在 `transform` 而不是 `renderChunk`：rolldown 在**所有** JS
+钩子之后才压缩，`renderChunk` 看到的仍是未压缩文本，改完再被压缩器重排，等于没改——第一次尝试就是这么失败的。
+随之而来的约束是：正则得按各厂商**实际发布形态**写（`jspdf` 只发压缩版 `dist/jspdf.es.min.js`，
+`pdfjs-dist/build/pdf.mjs` 是未压缩版），并容忍两种引号风格。
+
+**新守卫：`pnpm verify:remote-code`。** 上面那些正则在依赖升级后可能静默失配，所以断言放在产物上：
+无 `http(s)://…js` 字面量、无 `importScripts(`、无 `<script src="http…">`、无 `createCDNWrapper`、无拼出来的
+`await import("${…}")`、无 `eval(`，外加 manifest 的 CSP 不放远程脚本源。缺产物即失败，与离线守卫同一套纪律；
+`--source-only` 那层给 CI 的 lint job（build 之前）用。接线：`ci.yml` 的 lint 与 build 两个 job、
+`release.yml` 里 **Package 之前**（把包递给商店前的最后一道）。
+
+**没变的东西，以及验证。** 功能、交互、权限、存储结构全部未变：被删的两条路径一条不可达（`output('blob')` 是唯一
+用到的输出模式），一条在跨源时才触发（我们的 `workerSrc` 是包内资源）。验证按改动范围跑：
+`pnpm lint:all`、`pnpm verify:meta`、`pnpm verify:offline`、`pnpm verify:remote-code`（源码层与产物层）、
+`pnpm verify:paths`（48 条边不变）、`pnpm verify:listing`，产物体积仍为 3.76 MB；`pnpm test:e2e` 在**同一次构建的产物**上
+260/260 全绿，其中走到这两处被改依赖的场景照旧（MD/HTML/TXT/CSV/XLSX/SVG → PDF 出文档，PDF → PNG / WEBP 与两页
+PDF → ZIP 解码）。跑这一步的纪律：**`.output/chrome-mv3` 在被测期间不能换**——本轮前三次运行都因为同机另一套套件
+中途重构建了它而作废（满屏 30s 截图超时 + 同一目标在相邻场景一会儿可用一会儿不可用），那种运行说明不了任何事。
+
+**申诉仍然不做，但理由和上次不同。** 按 09-15 那条笔记预登记的判据，「第三次裁决落在不带列表的文案上」确实是启动
+申诉表单的临界点——可那前提是裁决关于我们的文案。这次不是，而且被点名的代码**真的**在包里：申诉是在否认一个事实。
+真正值得记下的是反面信号：一次关于枚举的判定都没有再出现，说明关键字那条模式这一关过了。
+
+**下一次提交只改一个变量。** 包换成新的，listing 文案一个字不动。09-18 那次已经把所有受审字段去过列表化，
+这次动的是 zip——所以下一次裁决如果还来，它关于的要么是包，要么是账号，不再是文案，这个区分值一次提交。
+版本保持 **1.0.0**。
+
 ---
 
 ## 本文件的变更记录
 
 > 这些是关于**本文件**的修订记录，不是产品发布说明（产品在 `CHANGELOG.md`）。数字全部由 `pnpm verify:listing` 实测。
 
+- **2026-09-24（输出文件名进 listing）** —— 两份详细介绍的「面向真实工作负载 / BUILT FOR REAL WORKLOADS」各加一条
+  bullet，位置同为「转换预设 / Conversion presets」之后。**副作用**：两个粘贴块变长，速查表、字段标签与上架手册
+  （中英两份）里被引用的四处字符数按 `pnpm verify:listing` 重测为英文 8,581 / 中文 3,039。名称、简介、单一目的与
+  隐私披露逐字节未动：这一栏改的就是扩展自己存储里的一个偏好，`storage` 权限那段说明照旧成立。
+- **2026-09-24（PDF 选页进 listing）** —— 两份详细介绍各加一条 bullet，位置同为「图片输出参数 / Image output parameters」之后；
+  「使用方法 / HOW TO USE」第 4 步各补同一从句——那个字段确实就长在那块面板里，而 listing 从没提过它。
+  **副作用**：两个粘贴块变长，速查表、字段标签与上架手册（中英两份）里被引用的四处字符数按 `pnpm verify:listing` 重测为
+  英文 8,315 / 中文 2,959。名称、简介、单一目的与隐私披露逐字节未动：页码范围不落存储，所以 `storage` 权限那段说明照旧成立。
+- **2026-09-22（第三次拒审 · 远程托管代码）** —— [拒审记录](#拒审记录与政策口径)新增 2026-09-21 一节，
+  并据此改了四处操作性内容：开工前置命令从五项变六项（加 `pnpm verify:remote-code`，它读产物所以必须排在
+  `pnpm build` 之后）、顶部当前状态改记「被拒三次」并说明第三次的轴不是文案、版本历史那行补 09-21、
+  拒审记录一节的引言点明「过了文案这关不等于过了政策这关」。**所有粘贴字段逐字节未动**，
+  `pnpm verify:listing` 与 `pnpm verify:numbers` 已复核。
+- **2026-09-20（口径补全）** —— 两份详细介绍的「安装前请了解 / PLEASE KNOW BEFORE INSTALLING」各加同一从句：在 PDF
+  查看器里能选中复制出的文字由查看器识别，不是本扩展的功能；[审核要点](#审核要点) 的对应条目补上这条应对口径。
+  **副作用**：两个粘贴块随之变长，速查表、字段标签与上架手册里被引用的四处字符数按 `pnpm verify:listing` 重测为
+  英文 8,030 / 中文 2,877。此前那几处写着 7,948 与 2,838/2,845——上一轮改措辞时留下的陈旧值，没有任何脚本对比过；
+  现在这两个长度是 `pnpm verify:numbers` 推导的第 21、22 个事实，四个引用点由它盯住。
+- **2026-09-19（守卫）** —— 上面「开工前」代码块里 `pnpm build` 与 `pnpm verify:offline` 互换次序，第 2 步的前置命令
+  换成 `pnpm verify:offline:source`：产物层断言（浏览器实际加载的那份 `manifest.json` 只有 `storage`）只有在构建之后
+  才跑得动，而它现在缺产物即失败，不再静默跳过。第 3 步据此补了构建后重跑一次的说法，CI 那两句改成两层。
+  **七个粘贴字段与所有小节标题逐字节未动**，`pnpm verify:listing` 已复核。
 - **2026-09-16（语言）** —— listing 的默认语言从英文换成中文：包里新增 `public/_locales/zh_CN/messages.json`
   （`manifest.default_locale`）与 `public/_locales/en/messages.json`，`wxt.config.ts` 的 `name` / `description`
   从英文字面量改成 `__MSG_extensionName__` / `__MSG_extensionDescription__`。[语言闸门](#语言闸门)整节由「两条路待选」
@@ -894,7 +986,7 @@ v2，所以如果 `init` 建不出 v1.1 client，就用 v2 的 flag。工作流�
   名称/简介粘贴块并断言 key 集一致，`verify:meta` 改比对 `_locales/en` ↔ `package.json#description`
   （此前它比的是 manifest 字面量）。**代价**：一份从未被审过的中文文案第一次成为主字段，见[拒审记录](#拒审记录与政策口径)
   末尾那条归因说明。构建产物已复核：`.output/chrome-mv3/manifest.json` 带 `"default_locale":"zh_CN"`，
-  两个 `messages.json` 落在扩展根，包体 3.73 MB（+617 B）。
+  两个 `messages.json` 落在扩展根，包体 3.74 MB（+617 B）。
 - **2026-09-16** —— 全文改为中文优先并重排结构：开头的六段「Revised 2026-09-XX」流水账挪到这里、压成条目；
   原来散在各节的「为什么要这样写」并进各自字段；GitHub 仓库元数据整节移出到 [`.github/repo-metadata.md`](.github/repo-metadata.md)；
   加目录。七个粘贴字段与两张推广图相关的取值**逐字节未动**（改前后由 `pnpm verify:listing` 与字段抽取脚本双向校验）。

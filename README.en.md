@@ -31,7 +31,7 @@ A Chrome extension (Manifest V3) that does every conversion inside a tab on your
 [![CWS users](https://img.shields.io/chrome-web-store/users/ITEM_ID?label=Users&logo=googlechrome&logoColor=white&color=4285F4)](https://chrome.google.com/webstore/detail/ITEM_ID)
 [![CWS rating](https://img.shields.io/chrome-web-store/rating/ITEM_ID?label=Rating&color=4285F4)](https://chrome.google.com/webstore/detail/ITEM_ID) -->
 
-[Core advantages](#-core-advantages) · [In action](#-in-action) · [How it works](#-how-it-works) · [Supported formats](#-supported-conversions) · [How it compares](#-how-it-compares) · [Feature overview](#-feature-overview) · [Privacy](#-privacy) · [Installation and usage](#-installation-and-usage) · [FAQ](#-faq) · [Contributing](#-contributing) · [Contact](#-contact) · [Product page](https://liaolongdong.github.io/transfer-any-file/)
+[Core advantages](#-core-advantages) · [In action](#-in-action) · [How it works](#-how-it-works) · [Supported formats](#-supported-conversions) · [How it compares](#-how-it-compares) · [Feature overview](#-feature-overview) · [Privacy](#-privacy) · [Installation and usage](#-installation-and-usage) · [FAQ](#-faq) · [Contributing](#-contributing) · [Contact](#-contact) · [Product page](https://liaolongdong.github.io/transfer-any-file/) · [Conversions](https://liaolongdong.github.io/transfer-any-file/convert/) · [Blog](https://liaolongdong.github.io/transfer-any-file/blog/)
 
 </div>
 
@@ -132,7 +132,9 @@ _Reachable in the graph but meaningless, so greyed out with the reason instead o
 
 Image → TXT / CSV / JSON / Excel (that needs OCR, which this offline extension does not bundle), PDF → CSV / JSON / Excel (tabular structure cannot be recovered reliably).
 
-> Notes: PDF output is rendered as images (text is not selectable). PDF input extracts text only (layout and images are not preserved). PDF → image renders each page, and a multi-page document downloads as a ZIP of per-page images in the chosen format (PNG / JPEG / WebP). BMP, GIF and SVG are input-only — browsers cannot encode them. Multi-sheet XLSX → CSV downloads a ZIP with one CSV per worksheet. How the three groups above count up: the 48 registered routes make 143 source→target combinations reachable through BFS, 27 of them are blocked as semantically invalid (24 image → TXT / CSV / JSON / XLSX, 3 PDF → CSV / JSON / XLSX), so the target picker offers 116.
+> Notes: PDF output is rendered as images (there is no text layer — the "text" is pixels). PDF input extracts text only (layout and images are not preserved). PDF → image renders each page, and a multi-page document downloads as a ZIP of per-page images in the chosen format (PNG / JPEG / WebP). BMP, GIF and SVG are input-only — browsers cannot encode them, and a GIF converted to an image or a PDF keeps only its first frame, which the result card says too once the source really has more than one. An inline SVG in Markdown, or an SVG converted to Word or Markdown, is rasterized into an embedded PNG — the drawing survives, but it is a bitmap, not a vector, and the result card says so too. Multi-sheet XLSX → CSV downloads a ZIP with one CSV per worksheet. How the three groups above count up: the 48 registered routes make 143 source→target combinations reachable through BFS, 27 of them are blocked as semantically invalid (24 image → TXT / CSV / JSON / XLSX, 3 PDF → CSV / JSON / XLSX), so the target picker offers 116.
+
+**Per-route trade-offs, one page each.** Every route has its own page saying how many steps it actually runs, which structures survive, which are dropped and why: [Markdown to Word](https://liaolongdong.github.io/transfer-any-file/convert/markdown-to-word.html) · [Word to Markdown](https://liaolongdong.github.io/transfer-any-file/convert/word-to-markdown.html) · [Word to PDF](https://liaolongdong.github.io/transfer-any-file/convert/word-to-pdf.html) · [Markdown to PDF](https://liaolongdong.github.io/transfer-any-file/convert/markdown-to-pdf.html) · [PDF to plain text](https://liaolongdong.github.io/transfer-any-file/convert/pdf-to-text.html) · [Excel to CSV](https://liaolongdong.github.io/transfer-any-file/convert/excel-to-csv.html) · [CSV to Excel](https://liaolongdong.github.io/transfer-any-file/convert/csv-to-excel.html) · [JSON to CSV](https://liaolongdong.github.io/transfer-any-file/convert/json-to-csv.html) · [PNG to WebP](https://liaolongdong.github.io/transfer-any-file/convert/png-to-webp.html) · [SVG to PNG](https://liaolongdong.github.io/transfer-any-file/convert/svg-to-png.html). There is also a [conversion index](https://liaolongdong.github.io/transfer-any-file/convert/) carrying the full format matrix, and the long-form post [I turned file format conversion into a Chrome extension that never goes online](https://liaolongdong.github.io/transfer-any-file/blog/).
 
 ## 🆚 How it compares
 
@@ -161,16 +163,20 @@ Summarised from the typical behaviour of each class of tool rather than one spec
 ### 📦 Batch and scale
 
 - **Mixed-format batches** — drop 40 files of different types; each resolves its own route to the shared target, and only formats reachable from _every_ selected file are offered
-- **Per-file error isolation** — one broken file never blocks the batch; failures are listed with their reason, and each one expands to show the diagnostic (the conversion path and the step that failed) and copies out as plain text, ready to paste into an issue
+- **Per-file error isolation** — one broken file never blocks the batch; failures are listed with their reason, and each one expands to show the diagnostic (the conversion path and the step that failed) and copies out as plain text, ready to paste into an issue. The failed files alone can be re-run
+- **Step-level progress** — a multi-step route shows "Step 2 of 3" and names the file in flight, on the batch bar and in the single-file progress card alike; a three-step chain used to read identically at step one and at step three
 - **Drop anywhere on the page** — the upload zone is not the only target; releasing files anywhere adds them to the batch. While a conversion is running the drop is ignored and the cursor shows "not allowed"
-- **ZIP download with per-entry compression** — text results (TXT / CSV / JSON / HTML / Markdown) are deflated and come out roughly 10× smaller, while already-compressed targets (PNG / JPEG / PDF / XLSX / DOCX) are stored as-is so no CPU is spent for no gain
+- **ZIP download with per-entry compression** — text results (TXT / CSV / JSON / HTML / Markdown) are deflated and come out roughly 10× smaller, while already-compressed targets (PNG / JPEG / PDF / XLSX / DOCX) are stored as-is so no CPU is spent for no gain. Download-all stays in its loading state while the archive is written
 - **Archive intake** — drop a `.zip` and its supported files are extracted into the batch automatically
-- **Multi-sheet and multi-page aware** — XLSX → CSV exports every worksheet; PDF → image exports every page
+- **Folder intake** — drop a folder and its convertible files are collected recursively, hidden entries and unsupported formats skipped; the batch cap, the size guards and the `.zip` expansion behave exactly as they do for files dropped one by one
+- **Multi-sheet and multi-page aware** — XLSX → CSV exports every worksheet; PDF → image exports every page, or only the pages you name
+- **PDF page range** — when the batch holds a PDF and the target is an image, the parameters panel gains a **Pages** field: `1-3, 5` rasterizes just those pages (it accepts `-`, `–` and `~` as the range dash, and `,` `，` `、` `;` `；` as separators; empty means the whole document). It states which pages _this file_ has in mind rather than what the output should look like, so it is **never written to storage and never part of a preset** — a remembered range would quietly truncate the next, unrelated PDF. A range that matches no page fails the file outright instead of handing back every page as if nothing had been set, and ZIP entries keep their original page numbers, so converting pages 2 and 4 gives you `page-2.png` and `page-4.png`
 - **Size guards at the boundary** — warns above 20 MB, rejects above 100 MB per file, caps a batch at 200 files
 
 ### 👀 Preview and edit
 
 - **Split view** — source and result side by side with a draggable divider, plus Source-only / Result-only modes and sync scrolling; <kbd>1</kbd> / <kbd>2</kbd> / <kbd>3</kbd> switch between the three modes and <kbd>←</kbd> / <kbd>→</kbd> nudge the divider by 5%
+- **Narrow windows stack the pair** — at ≤720 px (browser split-screen, for instance) the panes stack top over bottom, the divider becomes horizontal, and both the drag axis and <kbd>↑</kbd> / <kbd>↓</kbd> follow; crossing the breakpoint needs no reload
 - **Inline editing** — text results (Markdown / HTML / TXT / CSV / JSON) can be corrected before you download them
 - **Copy to clipboard** — text results copy out with one click, so a conversion does not have to round-trip through a download
 - **Paste to convert** — <kbd>⌘V</kbd> / <kbd>Ctrl+V</kbd> drops in a clipboard image or text snippet
@@ -182,17 +188,20 @@ Summarised from the typical behaviour of each class of tool rather than one spec
 - **Confirm before big batches** — a summary dialog once a batch exceeds 5 files or 20 MB (fixed thresholds), switchable off in Preferences or from the dialog's own **Don't ask again** box
 - **Custom shortcuts** — <kbd>Ctrl/⌘</kbd> + <kbd>Enter</kbd> starts a conversion and is rebindable; reserved browser combos (<kbd>Ctrl+T/W/N/L</kbd>, <kbd>Tab</kbd>, <kbd>Esc</kbd>, …) are rejected
 - **Completion notifications** — optional desktop notification when a batch finishes while the tab is in the background, built on the web `Notification` API so no extra permission is needed
+- **A signal for a tab you switched away from** — when the page is not in the foreground as a batch ends, the tab title gains a "[Done] " prefix that clears when you come back; no permission, and no dependence on the toggle above, which ships off
 - **Cancellation** — a long batch can be stopped mid-run; finished files are kept, and the result panel says the batch was cancelled rather than showing it as a failure
+- **Adding or removing files keeps unrelated results** — appending a file, or deleting one row, only affects that file's own result: everything already converted for the other files stays on screen, target included. The batch is only wiped when the edited list contains a file that cannot reach the current target — a mixed batch offers no target that is invalid for some of its files — and that wipe says so out loud. Switching the target is still a full reset: those rows are products of the target you just left
 - **Image output parameters** — when the target is PNG / JPEG / WebP, cap the longest edge, pick an encoder quality, set a best-effort file-size ceiling, and choose the render density a PDF source is rasterized at. Every one is opt-in: with nothing set the encoders run exactly as they did before. On a multi-step route the geometric settings apply at every step while quality and size apply only to the file you download — chasing a size ceiling through an intermediate encode would just throw away detail the last step would have needed
+- **Output file name template** — a result is called `original_20260914_153012.pdf` by default: date plus time to the second, so two batches on the same day cannot overwrite each other. Preferences takes a pattern of your own built from `{name}` (the source name without its extension), `{date}`, `{time}`, `{index}` (position in this batch, from 1) and `{target}` (the output format), with a live example under the field. A placeholder you mis-typed — `{tile}` — stays literal in the name and gets pointed out on the spot, instead of the file quietly losing a piece; `/`, `\`, `:`, `*`, `?`, `"`, `<`, `>`, `|` and control characters are stripped, so no pattern can produce a path; a rendered name longer than 120 characters is cut at 120 (filesystems count bytes, and a CJK name spends three of them per character, so 120 stays inside the limit for any script). The extension is never the template's to decide: it stays whatever the artifact actually is (the last step of a multi-step route, `.zip` for the archive). Clearing the field restores the default
 
 ### 🕘 History and personalization
 
-- **Conversion history** — the last 50 conversions (metadata only) with one-click "reuse this format", search by file name, filter by source/target format, per-record delete, a size-trend sparkline, and JSON export/import (merged by record ID). A multi-file batch is labelled `"<first file> +N"`; new records also keep the full file list, so every file in the batch is searchable and all of them show on hover. Records saved by earlier versions can only match that label
+- **Conversion history** — the last 50 conversions (metadata only) with one-click "reuse this format", search by file name, filter by source/target format, per-record delete, a size-trend sparkline, and JSON export/import (merged by record ID). A multi-file batch is labelled `"<first file> +N"`; new records also keep the full file list, so every file in the batch is searchable and all of them show on hover. Records saved by earlier versions can only match that label. Deleting one record, or clearing all of them, can be undone for the next 5 seconds from the **Undo** button in the toast
 - **Recently used targets** — the target dropdown leads with a "recently used" group holding up to 6 of the formats you convert to most often, kept only while they remain selectable for the current source; everything else stays in the document / image / data groups
 - **Conversion presets** — save a target format together with its image output parameters as a one-click card (up to 12), and one click restores both. Unlike "recently used", which only remembers a format, a preset remembers the whole recipe — "JPEG, 1280 px, under 200 KB". A preset chosen before any file is added is remembered and applied to the next batch that can take it; one the current batch cannot reach is refused with a reason. An untitled preset names itself after what it does
 - **Remembered UI state** — the split-view divider position and the collapsed/expanded state of the history and preset cards are persisted and restored the next time the workbench opens
-- **Keyboard accessible** — skip link to the main content, visible focus rings, and full `prefers-reduced-motion` support
-- **Measured contrast** — the end-to-end suite asserts three WCAG contrast pairs (topbar text, focus ring, and the primary button label in its rest / hover / pressed states) across all 6 themes × light/dark, 12 combinations, and separately asserts that the first Tab lands on the skip link with a visible ring; thresholds, measured readings and the known limitation live in [CONTRIBUTING.en.md](CONTRIBUTING.en.md#accessibility-and-contrast-assertions) · [简体中文](CONTRIBUTING.md#无障碍与对比度断言)
+- **Keyboard and screen reader accessible** — skip link to the main content, visible focus rings, and full `prefers-reduced-motion` support: that setting collapses displacement and scale alongside every duration, so nothing on screen is left moving for a single frame — Element Plus dialogs and dropdowns included, whose entrance offsets are rewritten rather than merely sped up; conversion progress, result counts and the file list's load/clear all land in a `role="status"` region, and the comparison view's divider exposes `role="separator"` with its current ratio
+- **Measured contrast** — the end-to-end suite asserts four WCAG contrast pairs (topbar text, focus ring, the primary button label in its rest / hover / pressed states, and informational text) across all 6 themes × light/dark, 12 combinations, and separately asserts that the first Tab lands on the skip link with a visible ring; thresholds, measured readings and the known limitation live in [CONTRIBUTING.en.md](CONTRIBUTING.en.md#accessibility-and-contrast-assertions) · [简体中文](CONTRIBUTING.md#无障碍与对比度断言)
 - **Personalization** — 6 theme colors × light / dark / system, Chinese/English interface
 
 ## 🔒 Privacy
@@ -224,12 +233,12 @@ There is no store listing yet; `CHROMEWEBSTORE.md` holds the publish-ready listi
 ### Usage
 
 1. Click the extension icon — the conversion workbench opens in a new tab
-2. Drop files anywhere on the page (no need to hit the upload zone), click to select, or paste from the clipboard
+2. Drop files — or a whole folder — anywhere on the page (no need to hit the upload zone), click to select, or paste from the clipboard
 3. Pick a target format — only formats reachable from _all_ selected files are offered, and a multi-step conversion shows the path it will take (e.g. `MD → HTML → PDF`)
-4. Converting to an image? Set the **output parameters** that appeared under the picker — longest edge, quality, a size ceiling, PDF render density — or leave every one alone for the encoder's own defaults
+4. Converting to an image? Set the **output parameters** that appeared under the picker — longest edge, quality, a size ceiling, PDF render density, and a page range when the batch holds a PDF — or leave every one alone for the encoder's own defaults
 5. Click **Convert**, then download a single file or the whole batch as a ZIP
 6. Do this often? Save the format plus its parameters as a **preset** in the preset card and one click restores the whole recipe next time
-7. Open **Preferences** (top right) to switch theme / language / dark mode, toggle completion notifications and the large-batch confirmation, or rebind the convert shortcut
+7. Open **Preferences** (top right) to switch theme / language / dark mode, toggle completion notifications and the large-batch confirmation, set the pattern result files are named by, or rebind the convert shortcut
 
 ## ❓ FAQ
 
@@ -237,10 +246,13 @@ There is no store listing yet; `CHROMEWEBSTORE.md` holds the publish-ready listi
 No. The converters are JavaScript bundled into the extension, and the manifest requests only `storage`. There is no server to upload to and no first-party code that calls a request API; with no host permission and no content script, the request paths left unused inside those libraries cannot read a response either.
 
 **Can it convert PDF to editable Word or Excel?**
-Not losslessly. PDF input extracts text, and PDF output is rendered page-by-page as images, so converted PDFs are not text-selectable. Word and Excel go through HTML as the hub format.
+Not losslessly. PDF input extracts text, and PDF output is rendered page-by-page as images, so converted PDFs carry no text layer. Word and Excel go through HTML as the hub format.
 
 **Why can't I turn a screenshot into a text file?**
 That requires OCR, and no OCR engine is bundled — it would add tens of megabytes and a model download, which the offline guarantee rules out. Image → TXT/CSV is greyed out with that reason instead of failing later.
+
+**I converted an image to PDF and could still select and copy text — how?**
+That is the PDF viewer talking, not this extension. The PDF we write is a page image: it has no text layer and no real characters in it. Some viewers recognise the text on a page as they display it, so the characters you copied came from the viewer, and the recognition result is not stored in the file either. This extension bundles no OCR and can neither read nor write those characters, which is why image → TXT / CSV stays greyed out. When a batch contains a PDF, the result card says the same thing.
 
 **Does it work without internet?**
 Yes. Once installed the UI and every converter run locally, and the text is set in system fonts rather than a downloaded webfont, so nothing has to be fetched; airplane mode changes nothing.
@@ -257,8 +269,11 @@ Yes. The project is MIT-licensed, with no account, no paid tier, no advertising 
 **Which browsers does it run in?**
 The build produces a Chrome Manifest V3 package, which also loads in Edge, Brave and other Chromium browsers. There is no Firefox build in this repository.
 
+**Can I drop the timestamp from the downloaded names?**
+Yes. The **Output file names** field in Preferences ships as `{name}_{date}_{time}`; write `{name}` instead and you get `report.pdf`. The cost is that two files in one batch can now want the same name — the later one automatically takes a `_2` or `_3` suffix, and that backstop holds whether or not the pattern contains `{date}`. Only downloads made afterwards change: history records source file names, so renaming outputs never leaves an old record unsearchable.
+
 **Where is the conversion history kept, and how do I clear it?**
-In `chrome.storage.local` on your own machine, holding file names, formats and sizes only — never file contents. The history panel can delete a single record, clear everything, and export or import the list as JSON. Removing the extension removes that local storage with it, because there is no copy anywhere else.
+In `chrome.storage.local` on your own machine, holding file names, formats and sizes only — never file contents. The history panel can delete a single record, clear everything, and export or import the list as JSON. A mistake is recoverable: after either delete action the toast offers **Undo** for 5 seconds. Removing the extension removes that local storage with it, because there is no copy anywhere else.
 
 ## 🤝 Contributing
 

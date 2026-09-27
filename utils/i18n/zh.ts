@@ -2,23 +2,23 @@ export default {
   // Common
   common: {
     close: '关闭',
+    cancel: '取消',
   },
 
-  // App / brand
-  appName: 'Transfer Any File',
-  appTagline: '本地文件格式转换工具',
+  // App / brand — the Chinese half of `_locales/zh_CN`'s extensionName, so the header, the tab title
+  // and what Chrome itself shows a Chinese user all read the same way.
+  appName: '文件格式任意转换助手',
 
   // Options / workbench
   options: {
     title: '转换工作台',
     subtitle: '批量转换、预览与编辑，全部在本地完成',
-    history: '转换历史',
     preferences: '偏好设置',
   },
 
   // Upload
   upload: {
-    drop: '拖拽文件到此处，或点击选择文件',
+    drop: '拖拽文件或文件夹到此处，或点击选择文件',
     replace: '点击或拖拽以替换文件',
     pasteHint: '也可以直接 {key} 粘贴图片或文本',
     selectedCount: '已选择 {count} 个文件',
@@ -30,6 +30,9 @@ export default {
     zipNoFiles: '"{name}" 中没有可转换的文件',
     zipBudget: '"{name}" 解压体积或文件数超出上限，部分文件未导入',
     zipReadFail: '无法读取压缩包 "{name}"，文件可能已损坏',
+    folderImported: '从文件夹导入 {count} 个文件',
+    folderEmpty: '拖入的文件夹里没有可转换的文件',
+    folderTruncated: '文件夹层级过深或条目过多，部分文件未导入',
     addMore: '追加文件',
     clearAll: '清空',
     batchCap: '一次最多处理 {max} 个文件，超出部分已忽略',
@@ -45,27 +48,14 @@ export default {
 
   // Preview
   preview: {
-    fileTitle: '文件预览',
-    resultTitle: '结果预览',
     reading: '读取中...',
-    truncated: '(内容已截断)',
-    readFileFail: '无法读取文件内容',
-    readResultFail: '无法读取结果内容',
     resultPlaceholder: '结果内容',
     renderedTab: '预览',
     sourceTab: '源码',
-    copy: '复制',
     copied: '已复制到剪贴板',
-    fileName: '文件名',
-    size: '大小',
-    format: '格式',
     docxHint: '文件大小: {size}，请下载后用 Word 打开查看。',
     xlsxHint: '文件大小: {size}，请下载后用 Excel 打开查看。',
-    fileSize: '文件大小: {size}',
-    openPreview: '预览',
-    dialogTitle: '文件预览',
     download: '下载',
-    docxPlaceholder: '[DOCX] {filename}\n文件大小: {size}\n请下载后用 Word 打开。',
     renderFailed: '预览渲染失败，请下载后查看',
     zoomIn: '放大',
     zoomOut: '缩小',
@@ -83,8 +73,6 @@ export default {
     copy: '复制',
     copied: '已复制到剪贴板',
     noPreview: '当前格式不支持预览',
-    collapse: '收起',
-    expand: '展开',
     sourceOnly: '仅显示原文件',
     splitView: '并排视图',
     resultOnly: '仅显示结果',
@@ -95,6 +83,7 @@ export default {
     selectTarget: '请选择目标格式',
     noMatch: '没有匹配的目标格式',
     noTarget: '当前格式没有可用的转换目标',
+    noRecognizedSource: '这批文件里没有可识别的格式，请换用支持的类型',
     mixedSource: '{count} 种格式',
     categoryDocument: '文档',
     categoryImage: '图片',
@@ -124,6 +113,10 @@ export default {
     pixels: '{value} px',
     kilobytes: '{value} KB',
     reset: '恢复默认',
+    // 这一项不是输出参数，而是「源文件读多少」，所以面板顶部那句提示覆盖不到它——
+    // 「留空 = 全部页」这条默认规则只能写进占位符本身。
+    pageRange: '页码范围',
+    pageRangePlaceholder: '如 1-3, 5；留空为全部页',
   },
 
   // Conversion presets
@@ -146,10 +139,15 @@ export default {
     start: '开始转换',
     startMulti: '开始转换 ({count} 个文件)',
     converting: '转换中 ({done}/{total})...',
+    retrying: '重试失败项 ({done}/{total})...',
     cancelling: '正在取消...',
     cancel: '取消转换',
     inProgress: '正在转换中，请稍候...',
     currentFile: '正在处理: {name}',
+    stepProgress: '步骤 {current} / {total}',
+    // 批次结束而标签页不在前台时的标题标记（~/utils/core/tab-attention），前缀位置保证不被截掉。
+    // 纯文本而非符号图形：界面文案全站没有 emoji，离线包也不带头像字体，装了反倒在别的系统上渲染成方框
+    tabDone: '[完成] {title}',
     reconvert: '重新转换',
     undo: '撤销',
     undone: '已撤销最近一次结果',
@@ -161,9 +159,10 @@ export default {
     confirmSummaryMultiStep:
       '即将转换 {count} 个文件（共 {size}）至 {target} 格式。\n部分文件需要多步转换，可能耗时较久。',
     confirmOk: '继续转换',
-    confirmCancel: '取消',
     confirmDontAsk: '下次不再询问',
     confirmCancelled: '已取消本次转换',
+    // 增删文件后当前目标不再可达时才触发：混批只提供对所有文件有效的目标，留着等于让人点一次必失败
+    targetDropped: '调整后的文件里有无法转换为当前目标的，已重置目标与结果',
   },
 
   // Result / download
@@ -174,12 +173,18 @@ export default {
     doneNone: '转换失败',
     cancelledPartial: '转换已取消，已完成 {done} / {total} 个文件',
     cancelledNone: '转换已取消，未转换任何文件',
-    failed: '失败',
     download: '下载文件',
     downloadZip: '打包下载 ZIP ({count})',
+    retryFailed: '重试失败项 ({count})',
+    retrySummary: '重试完成：{ok} 个已恢复，{fail} 个仍失败',
     preview: '预览',
     copy: '复制',
     copyUnavailable: '当前结果为非文本格式，无法复制',
+    gifFirstFrame: 'GIF 动图转成图片或 PDF 时只保留第一帧，动画不会写进结果文件；需要动画请继续使用原来的 GIF 文件。',
+    svgRasterized:
+      '文档里的内联 SVG 矢量图已转成位图写进结果文件，放大后不再保持矢量清晰度；需要矢量图请保留原始 SVG 文件。',
+    pdfNoTextLayer:
+      '转出的 PDF 是逐页位图，不含文字层；需要图中的文字时，可在 PDF 查看器里试试选中复制——部分查看器会自行识别，这一步不由本扩展完成。',
     // F19 — failure diagnostic panel
     failureSummary: '{file} 转换失败',
     expandDetails: '查看诊断详情',
@@ -188,8 +193,6 @@ export default {
     failureAtStep: '失败步骤',
     failureCause: '底层错误',
     failureStepOf: '第 {current} / {total} 步',
-    failureNoPath: '未找到可用的转换路径',
-    failurePathArrow: ' → ',
     copyDiagnostic: '复制诊断信息',
     diagnosticCopied: '诊断信息已复制',
     diagnosticCopyFail: '复制失败，请手动选择文本',
@@ -203,8 +206,11 @@ export default {
     reuseUnavailable: '当前文件无法转换为该格式',
     reusePending: '已记住目标格式，上传匹配文件后自动应用',
     clear: '清空历史',
-    clearConfirm: '确定要清空所有转换历史吗？此操作不可撤销。',
+    clearConfirm: '确定要清空所有转换历史吗？清空后 5 秒内可以撤销。',
     delete: '删除',
+    undo: '撤销',
+    removed: '已删除 {count} 条历史记录',
+    restored: '已恢复 {count} 条历史记录',
     trend: '大小趋势',
     searchPlaceholder: '按文件名搜索',
     filterAll: '全部',
@@ -222,12 +228,12 @@ export default {
     importErrPayload: '文件内容不是有效的历史数据',
     importErrVersion: '历史文件版本不匹配，请选择由当前版本导出的 JSON',
     importErrRecords: '文件中未找到历史记录列表',
+    importTooLarge: '历史文件超过 {size} 上限，已取消导入',
     importFailed: '导入失败：{error}',
   },
 
   // Preferences
   prefs: {
-    title: '偏好设置',
     theme: '主题色',
     language: '界面语言',
     mode: '显示模式',
@@ -236,6 +242,9 @@ export default {
     modeSystem: '跟随系统',
     notifyOnComplete: '转换完成后发送桌面通知',
     confirmConvert: '大批量转换前显示确认对话框',
+    nameTemplate: '输出文件名',
+    nameTemplateHint: '占位符 {name} {date} {time} {index} {target}，留空恢复默认。示例：',
+    nameTemplateUnknown: '未识别的占位符 {tokens}，会按普通文字保留',
     shortcutsTitle: '快捷键',
     shortcutAction: {
       convert: '开始转换',
@@ -254,7 +263,6 @@ export default {
     notificationBodyAllOk: '{count} 个文件已成功转换',
     notificationBodyPartial: '{ok} 个成功，{fail} 个失败',
     notificationBodyAllFail: '全部 {count} 个文件转换失败',
-    notificationClickHint: '点击查看',
     themeNames: {
       blue: '经典蓝',
       green: '森林绿',
@@ -275,6 +283,8 @@ export default {
     docxGen: 'DOCX 生成失败',
     docxEmpty: 'DOCX 文档内容为空，无法转换',
     pdfParse: 'PDF 解析失败，文件可能已损坏',
+    // 文件本身没问题，是用户填的那串页码在这份文档里一页都没命中——所以指向输入框，而不是文件。
+    pdfPageRange: '页码范围在本文件中没有匹配到任何页面，请检查它是否超出文档页数',
     xlsxEmpty: 'XLSX 文件中没有工作表',
     csvDecode: 'CSV 解码失败，请检查文件编码',
     imageDecode: '图片解码失败，文件可能已损坏',
@@ -299,12 +309,6 @@ export default {
     copy: '复制',
     download: '下载',
     import: '导入',
-    export: '导出',
-    clear: '清空',
-    collapse: '收起',
-    expand: '展开',
-    cancel: '取消',
-    close: '关闭',
     // Toggle buttons (aria-pressed)
     theme: '主题色：{name}',
     language: '界面语言：{name}',
@@ -313,22 +317,19 @@ export default {
     sourceOnly: '仅显示原文件',
     splitView: '并排视图',
     resultOnly: '仅显示结果',
+    splitDivider: '调整原文件与结果的分栏宽度',
     // Live region announcements
     converting: '正在转换第 {current} 个，共 {total} 个',
-    convertStarted: '开始转换 {count} 个文件',
     convertCompleted: '转换完成：成功 {ok} 个，失败 {fail} 个',
     convertAllOk: '全部 {count} 个文件转换成功',
     convertAllFail: '全部 {count} 个文件转换失败',
     convertCancelled: '转换已取消',
     convertCancelledPartial: '转换已取消：已完成 {done} / {total} 个文件',
-    fileAdded: '已添加文件：{name}',
-    fileRemoved: '已移除文件',
+    filesLoaded: '已载入 {count} 个文件',
     filesCleared: '已清空文件列表',
-    targetChanged: '目标格式已切换为 {name}',
-    historyDeleted: '已删除历史记录',
-    historyCleared: '已清空历史记录',
-    historyExported: '已导出 {count} 条历史',
-    historyImported: '已导入 {count} 条历史',
+    // Accessible names for controls with no visible label (el-select, etc.)
+    targetFormat: '目标格式',
+    historyFormatFilter: '按格式筛选历史记录',
   },
 
   // Footer

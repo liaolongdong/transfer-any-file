@@ -30,6 +30,26 @@ export interface ConvertResult {
    * remains only as the fallback for converters that do not declare it.
    */
   containerExt?: string;
+  /**
+   * Set by the converters that decode an animated source onto a canvas (`gif→png / jpg / webp`,
+   * `gif→pdf`) after counting the frames in the bytes, and hoisted across the chain by the
+   * orchestrator so the step that really dropped frames is the one that reports it.
+   *
+   * The UI cannot recover this from the result — output names are rebuilt from the source basename
+   * plus the new extension, so nothing on a `sample_png_….png` says it started life as a GIF. It
+   * cannot recover it from the route either: `gif→png` only loses an animation when the GIF has one,
+   * and a single-frame GIF loses nothing, which is why this used to be a static per-edge flag.
+   */
+  lostFrames?: boolean;
+  /**
+   * Set by the converters that run inline SVG through `replaceInlineSvgWithPng` (`html→docx`,
+   * `html→md`), and hoisted across the chain by the orchestrator so a `md→html→docx` route reports it
+   * from the step that actually did the work.
+   *
+   * Measured off the content for the same reason as `lostFrames`: whether a document loses vector
+   * artwork depends on whether it contains an `<svg>` at all, which only the converter can see.
+   */
+  svgRasterized?: boolean;
 }
 
 /**
@@ -110,12 +130,33 @@ export interface ConvertContext {
    * a PDF→JPG batch applies `dpi` at the PDF→PNG step and `quality` at the PNG→JPG one.
    */
   options?: ImageOutputOptions;
+  /**
+   * Which pages of a PDF source to read, as the user typed them (`"1-3, 5"`); absent means every
+   * page.
+   *
+   * A raw spec rather than a resolved list, because only the converter has the page count to clamp
+   * against. It sits beside {@link options} instead of inside it on purpose: that object is what a
+   * preset remembers about an *output*, and a preset that quietly converted only pages 1–3 of the
+   * next, unrelated document would be throwing the user's pages away.
+   */
+  pageRange?: string;
 }
 
 // A single converter plugin interface
 export interface Converter {
   from: FileFormat;
   to: FileFormat;
+  /**
+   * Tie-breaker among equal-length conversion routes, lower winning.
+   *
+   * `findConversionPath` is a BFS over an adjacency list and returns the FIRST shortest path, so
+   * when two routes tie — `html→pdf→jpg` vs `html→png→jpg` — the winner was decided by which
+   * `register()` call happened earlier in `initConverters()`. That made source-file order an
+   * undeclared input to which artifact a user receives. This field makes the choice a property of
+   * the edge. Absent means 0, i.e. "no declared preference", and ties among equals still fall back
+   * to registration order — declared, not accidental.
+   */
+  edgePreference?: number;
   convert(input: Blob, ctx?: ConvertContext): Promise<ConvertResult>;
 }
 

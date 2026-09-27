@@ -30,8 +30,7 @@ const reasonText = computed(() => {
 const pathSegments = computed(() => {
   if (!hasPath.value) return [];
   return props.failure.path.map((format, idx) => {
-    const isFailedStep =
-      hasStep.value && props.failure.failedStep === idx;
+    const isFailedStep = hasStep.value && props.failure.failedStep === idx;
     return {
       format,
       label: getFormatLabel(format),
@@ -122,7 +121,8 @@ function toggle(): void {
       <span
         class="failure-name"
         :title="failure.fileName"
-      >{{ failure.fileName }}</span>
+        >{{ failure.fileName }}</span
+      >
       <span class="failure-reason">{{ reasonText }}</span>
       <el-button
         v-if="hasDetails"
@@ -143,64 +143,69 @@ function toggle(): void {
       </el-button>
     </div>
 
-    <div
-      v-if="expanded && hasDetails"
-      class="failure-details"
-    >
+    <Transition name="fat-expand">
       <div
-        v-if="hasPath"
-        class="failure-path-row"
+        v-if="expanded && hasDetails"
+        class="fat-expand"
       >
-        <span class="failure-path-label">{{ t('result.failurePath') }}</span>
-        <span class="failure-path">
-          <template
-            v-for="(seg, idx) in pathSegments"
-            :key="idx"
+        <div class="failure-details">
+          <div
+            v-if="hasPath"
+            class="failure-path-row"
           >
-            <span
-              class="path-segment"
-              :class="{
-                'is-source': seg.isSource,
-                'is-target': seg.isTarget,
-                'is-failed': seg.isFailedStep,
-              }"
-            >{{ seg.label }}</span>
-            <el-icon
-              v-if="idx < pathSegments.length - 1"
-              :size="12"
-              class="path-arrow"
+            <span class="failure-path-label">{{ t('result.failurePath') }}</span>
+            <span class="failure-path">
+              <template
+                v-for="(seg, idx) in pathSegments"
+                :key="idx"
+              >
+                <span
+                  class="path-segment"
+                  :class="{
+                    'is-source': seg.isSource,
+                    'is-target': seg.isTarget,
+                    'is-failed': seg.isFailedStep,
+                  }"
+                  >{{ seg.label }}</span
+                >
+                <el-icon
+                  v-if="idx < pathSegments.length - 1"
+                  :size="12"
+                  class="path-arrow"
+                >
+                  <ArrowRight />
+                </el-icon>
+              </template>
+            </span>
+          </div>
+          <div
+            v-if="hasStep"
+            class="failure-step-row"
+          >
+            <span class="failure-step-label">{{ t('result.failureAtStep') }}</span>
+            <span class="failure-step">{{ stepText }}</span>
+          </div>
+          <div
+            v-if="hasDetail"
+            class="failure-cause-row"
+          >
+            <span class="failure-cause-label">{{ t('result.failureCause') }}</span>
+            <span class="failure-cause">{{ failure.detail }}</span>
+          </div>
+          <div class="failure-actions">
+            <el-button
+              :icon="CopyDocument"
+              size="small"
+              text
+              type="primary"
+              @click="copyDiagnostic"
             >
-              <ArrowRight />
-            </el-icon>
-          </template>
-        </span>
+              {{ t('result.copyDiagnostic') }}
+            </el-button>
+          </div>
+        </div>
       </div>
-      <div
-        v-if="hasStep"
-        class="failure-step-row"
-      >
-        <span class="failure-step-label">{{ t('result.failureAtStep') }}</span>
-        <span class="failure-step">{{ stepText }}</span>
-      </div>
-      <div
-        v-if="hasDetail"
-        class="failure-cause-row"
-      >
-        <span class="failure-cause-label">{{ t('result.failureCause') }}</span>
-        <span class="failure-cause">{{ failure.detail }}</span>
-      </div>
-      <div class="failure-actions">
-        <el-button
-          :icon="CopyDocument"
-          size="small"
-          text
-          type="primary"
-          @click="copyDiagnostic"
-        >
-          {{ t('result.copyDiagnostic') }}
-        </el-button>
-      </div>
-    </div>
+    </Transition>
   </div>
 </template>
 
@@ -249,14 +254,17 @@ function toggle(): void {
   margin-left: var(--fat-space-xs);
 }
 
+/* One gesture with the panel it reveals, which the shared `fat-expand` vocabulary runs at
+   `--fat-duration-slow`; at 0.18s the arrow settled while the details were still opening. */
 .failure-chevron {
-  transition: transform 0.18s ease;
+  transition: transform var(--fat-duration-slow) var(--fat-ease-standard);
 }
 
 .failure-item.expanded .failure-chevron {
   transform: rotate(180deg);
 }
 
+/* The `.fat-expand` wrapper above is the clipping grid item, so this is the content box it grows. */
 .failure-details {
   display: flex;
   flex-direction: column;
@@ -324,7 +332,7 @@ function toggle(): void {
 }
 
 .path-arrow {
-  color: var(--fat-text-placeholder);
+  color: var(--fat-text-secondary);
   flex-shrink: 0;
 }
 

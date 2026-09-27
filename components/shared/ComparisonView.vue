@@ -43,6 +43,19 @@ const panelsContainer = ref<HTMLElement | null>(null);
 const splitPercent = ref(50);
 const isDragging = ref(false);
 
+/**
+ * Below this width the panes stack (see the `@media` block at the end of this file), so the divider
+ * becomes a horizontal bar and drags vertically. CSS cannot read this constant; the two must move
+ * together.
+ */
+const STACK_MAX_WIDTH = 720;
+const isStacked = ref(false);
+let stackQuery: MediaQueryList | undefined;
+
+function handleStackChange(event: MediaQueryListEvent): void {
+  isStacked.value = event.matches;
+}
+
 // TEXT_FORMATS is shared via ~/utils/core/format.
 
 const isSourceImage = computed(() => props.sourceFormat !== null && getFormatCategory(props.sourceFormat) === 'image');
@@ -93,13 +106,13 @@ watch(
       sourcePdfUrl.value = URL.createObjectURL(file);
     } else if (format === FileFormat.DOCX) {
       try {
-        sourceDocHtml.value = stripRemoteResources(await docxToPreviewHtml(file));
+        sourceDocHtml.value = await docxToPreviewHtml(file);
       } catch {
         /* preview is best-effort */
       }
     } else if (format === FileFormat.XLSX) {
       try {
-        sourceDocHtml.value = stripRemoteResources(await xlsxToPreviewHtml(file));
+        sourceDocHtml.value = await xlsxToPreviewHtml(file);
       } catch {
         /* preview is best-effort */
       }
@@ -136,13 +149,13 @@ watch(
       resultPdfUrl.value = URL.createObjectURL(result.blob);
     } else if (format === FileFormat.DOCX) {
       try {
-        resultDocHtml.value = stripRemoteResources(await docxToPreviewHtml(result.blob));
+        resultDocHtml.value = await docxToPreviewHtml(result.blob);
       } catch {
         /* preview is best-effort */
       }
     } else if (format === FileFormat.XLSX) {
       try {
-        resultDocHtml.value = stripRemoteResources(await xlsxToPreviewHtml(result.blob));
+        resultDocHtml.value = await xlsxToPreviewHtml(result.blob);
       } catch {
         /* preview is best-effort */
       }
@@ -165,6 +178,8 @@ onUnmounted(() => {
   if (editDebounce !== undefined) clearTimeout(editDebounce);
   if (persistDebounce !== undefined) clearTimeout(persistDebounce);
   document.removeEventListener('keydown', handleKeydown);
+  document.removeEventListener('pointerup', endDrag);
+  stackQuery?.removeEventListener('change', handleStackChange);
 });
 
 onBeforeUnmount(() => {
@@ -186,13 +201,14 @@ function handleDragStart(e: PointerEvent): void {
   activePointerId = e.pointerId;
   isDragging.value = true;
   dragContainerRect = panelsContainer.value?.getBoundingClientRect() ?? null;
-  document.body.style.cursor = 'col-resize';
+  document.body.style.cursor = isStacked.value ? 'row-resize' : 'col-resize';
   document.body.style.userSelect = 'none';
 }
 
 function handleDragMove(e: PointerEvent): void {
   if (!isDragging.value || !dragContainerRect || e.pointerId !== activePointerId) return;
-  const percent = ((e.clientX - dragContainerRect.left) / dragContainerRect.width) * 100;
+  const { left, top, width, height } = dragContainerRect;
+  const percent = isStacked.value ? ((e.clientY - top) / height) * 100 : ((e.clientX - left) / width) * 100;
   splitPercent.value = Math.max(5, Math.min(95, percent));
 }
 
@@ -200,15 +216,24 @@ function handleDragEnd(e: PointerEvent): void {
   if (e.pointerId !== activePointerId) return;
   const divider = e.currentTarget as HTMLElement;
   divider.releasePointerCapture(e.pointerId);
+  endDrag();
+  // Snap to center when close to 50%
+  if (splitPercent.value > 47 && splitPercent.value < 53) {
+    splitPercent.value = 50;
+  }
+}
+
+/**
+ * Leave drag mode. Idempotent so it can be called both by the divider's own `pointerup` and by the
+ * document-level safety net below.
+ */
+function endDrag(): void {
+  if (!isDragging.value) return;
   isDragging.value = false;
   activePointerId = null;
   dragContainerRect = null;
   document.body.style.cursor = '';
   document.body.style.userSelect = '';
-  // Snap to center when close to 50%
-  if (splitPercent.value > 47 && splitPercent.value < 53) {
-    splitPercent.value = 50;
-  }
 }
 
 // --- View mode shortcuts ---
@@ -231,14 +256,16 @@ function handleKeydown(e: KeyboardEvent): void {
   if (e.ctrlKey || e.metaKey || e.altKey) return;
 
   // Don't intercept when user is typing in an input/textarea/contenteditable,
-  // or interacting with Element Plus combobox/listbox widgets (el-select, dropdown menus).
+  // or interacting with Element Plus combobox/listbox widgets (el-select, dropdown menus),
+  // or while a modal dialog is open — this component is mounted behind the preview dialog,
+  // so an unguarded ArrowLeft here steals the key from the preview it cannot see.
   const target = e.target as HTMLElement | null;
   if (!target) return;
   const tag = target.tagName;
   if (tag === 'INPUT' || tag === 'TEXTAREA' || target.isContentEditable) return;
   const role = target.getAttribute('role');
   if (role === 'combobox' || role === 'listbox' || role === 'menu' || role === 'menuitem') return;
-  if (target.closest('.el-select, .el-dropdown, .el-popper')) return;
+  if (target.closest('.el-select, .el-dropdown, .el-popper, .el-overlay, .el-dialog')) return;
 
   switch (e.key) {
     case '1':
@@ -257,6 +284,15 @@ function handleKeydown(e: KeyboardEvent): void {
     case 'ArrowRight':
       e.preventDefault();
       splitPercent.value = Math.min(100, splitPercent.value + 5);
+      break;
+    // Only while stacked, and only for whoever focused the divider: Up/Down scrolls the page
+    // everywhere else, and taking it page-wide for a bar that is horizontal only in a narrow
+    // window would break that for everyone on a wide one.
+    case 'ArrowUp':
+    case 'ArrowDown':
+      if (!isStacked.value || role !== 'separator') return;
+      e.preventDefault();
+      splitPercent.value = Math.max(0, Math.min(100, splitPercent.value + (e.key === 'ArrowDown' ? 5 : -5)));
       break;
     default:
       return;
@@ -278,6 +314,12 @@ onMounted(() => {
   // would let a quick unmount run the removal before the add — leaking a handler that then
   // stacks once more on every remount.
   document.addEventListener('keydown', handleKeydown);
+  // Backstop for the drag shield: a release that never reaches the divider (pointer leaving the
+  // window, pointercancel routed elsewhere) would otherwise leave the panels covered.
+  document.addEventListener('pointerup', endDrag);
+  stackQuery = window.matchMedia(`(max-width: ${STACK_MAX_WIDTH}px)`);
+  isStacked.value = stackQuery.matches;
+  stackQuery.addEventListener('change', handleStackChange);
   void storageGet<number>(STORAGE_KEYS.splitPosition, 50).then(saved => {
     if (saved >= 0 && saved <= 100) {
       splitPercent.value = saved;
@@ -324,7 +366,10 @@ function handleResultEdit(value: string): void {
     if (!props.result) return;
     const newBlob = new Blob([value], { type: props.result.blob.type });
     lastEmittedBlob = newBlob;
-    emit('update:result', { blob: newBlob, filename: props.result.filename });
+    // Carry the whole result, not just what the editor can see: `lostFrames` and `svgRasterized` are
+    // facts about how the bytes were made, and the receiver replaces the entry wholesale, so listing
+    // only two fields here silently deletes the rest of them — including the disclosures' triggers.
+    emit('update:result', { ...props.result, blob: newBlob });
   }, 300);
 }
 
@@ -423,6 +468,14 @@ function toggleEdit(): void {
       <div
         class="panel-divider"
         :class="{ dragging: isDragging }"
+        role="separator"
+        :aria-orientation="isStacked ? 'horizontal' : 'vertical'"
+        tabindex="0"
+        :aria-label="t('a11y.splitDivider')"
+        :aria-valuenow="Math.round(splitPercent)"
+        aria-valuemin="0"
+        aria-valuemax="100"
+        :aria-valuetext="`${Math.round(splitPercent)}%`"
         @pointerdown="handleDragStart"
         @pointermove="handleDragMove"
         @pointerup="handleDragEnd"
@@ -618,6 +671,19 @@ function toggleEdit(): void {
           </div>
         </div>
       </div>
+
+      <!--
+        A preview pane is a sandboxed `<iframe>`, and Chrome hands the rest of a pressed gesture to
+        the frame the cursor enters: mid-drag the divider stopped tracking and the `pointerup` never
+        came back. While a drag is live this sheet covers the row so every event of the gesture
+        stays in this document — pointer capture still retargets them to the separator.
+      -->
+      <div
+        v-if="isDragging"
+        class="drag-shield"
+        :class="{ stacked: isStacked }"
+        aria-hidden="true"
+      />
     </div>
 
     <!-- Footer toolbar -->
@@ -716,12 +782,23 @@ function toggleEdit(): void {
   position: relative;
 }
 
+.drag-shield {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  cursor: col-resize;
+}
+
+.drag-shield.stacked {
+  cursor: row-resize;
+}
+
 .panel {
   min-width: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  transition: flex-basis 0.2s ease;
+  transition: flex-basis var(--fat-duration-base) var(--fat-ease-standard);
 }
 
 .comparison-panels.is-dragging .panel {
@@ -744,12 +821,23 @@ function toggleEdit(): void {
   position: relative;
   user-select: none;
   touch-action: none;
-  transition: background 0.15s ease;
+  transition: background var(--fat-duration-fast) var(--fat-ease-standard);
 }
 
 .panel-divider:hover,
 .panel-divider.dragging {
   background: var(--fat-surface-hover);
+}
+
+/* WCAG 2.5.8 wants a >= 24 px pointer target, and the visible band is only 12 px wide.
+   Growing the box itself would widen the gap between the panels, so the hit area is what
+   grows: an out-of-flow overlay that reaches 6 px into each panel. It paints above static
+   panel content — a drag is the useful gesture there anyway — while the mode buttons below
+   carry `position: relative` so they stay clickable on top of it. */
+.panel-divider::before {
+  content: '';
+  position: absolute;
+  inset: 0 -6px;
 }
 
 .panel-divider.dragging {
@@ -768,7 +856,7 @@ function toggleEdit(): void {
   height: 3px;
   border-radius: 50%;
   background: var(--fat-text-placeholder);
-  transition: background 0.15s ease;
+  transition: background var(--fat-duration-fast) var(--fat-ease-standard);
 }
 
 .panel-divider:hover .grip-dot,
@@ -777,6 +865,7 @@ function toggleEdit(): void {
 }
 
 .divider-btn {
+  position: relative;
   width: 20px;
   height: 20px;
   border-radius: var(--fat-radius-sm);
@@ -800,7 +889,11 @@ function toggleEdit(): void {
 .divider-btn.active {
   border-color: var(--fat-primary);
   background: var(--fat-primary);
-  color: #fff;
+
+  /* Not #fff: the label has to follow whichever ink the theme declares readable on its
+     own primary fill — white only reaches 2.54:1 on light-green and 1.69:1 on the
+     dark-mode pastels, while --fat-on-btn-solid is the page ink there. */
+  color: var(--fat-on-btn-solid);
 }
 
 .panel-header {
@@ -904,7 +997,7 @@ function toggleEdit(): void {
 
 .docx-size {
   font-size: 12px;
-  color: var(--fat-text-placeholder);
+  color: var(--fat-text-secondary);
   margin: 0 0 var(--fat-space-md);
 }
 
@@ -944,7 +1037,7 @@ function toggleEdit(): void {
   align-items: center;
   justify-content: center;
   min-height: 200px;
-  color: var(--fat-text-placeholder);
+  color: var(--fat-text-secondary);
   font-size: 13px;
 }
 
@@ -1041,5 +1134,58 @@ function toggleEdit(): void {
 
 .result-panel .panel-body {
   background: var(--fat-bg-card);
+}
+
+/* Two panes side by side at ~300px each is not a comparison anyone can read, and the result
+   header was already losing its 编辑 / 复制 buttons to `.panel { overflow: hidden }`. So the pair
+   stacks here and the divider drags vertically — `STACK_MAX_WIDTH` above is the same number. */
+@media (width <= 720px) {
+  .comparison-panels {
+    flex-direction: column;
+    height: 72vh;
+    min-height: 460px;
+    max-height: none;
+  }
+
+  .panel {
+    min-height: 0;
+  }
+
+  /* Each pane now gets about half of that height, so the floors that keep a preview readable in a
+     400px-tall row pane would push the pair back out of its own container. */
+  .html-frame,
+  .pdf-frame,
+  .doc-frame,
+  .edit-content,
+  .edit-textarea {
+    min-height: 0;
+  }
+
+  .panel-divider {
+    width: auto;
+    height: 12px;
+    flex-direction: row;
+    border-top: 1px solid var(--fat-border);
+    border-right: none;
+    border-bottom: 1px solid var(--fat-border);
+    border-left: none;
+    cursor: row-resize;
+    padding: 0 var(--fat-space-sm);
+  }
+
+  /* Same >= 24px pointer target as the vertical bar, grown across the short axis instead. */
+  .panel-divider::before {
+    inset: -6px 0;
+  }
+
+  .divider-handle {
+    flex-direction: row;
+    padding: 0 var(--fat-space-sm);
+  }
+
+  /* Rotated, 只看源 points up at the pane on top and 只看结果 down at the one below. */
+  .divider-btn svg {
+    transform: rotate(90deg);
+  }
 }
 </style>

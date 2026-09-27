@@ -1,16 +1,15 @@
-import js from '@eslint/js'
-import tsPlugin from '@typescript-eslint/eslint-plugin'
-import tsParser from '@typescript-eslint/parser'
-import vuePlugin from 'eslint-plugin-vue'
-import eslintConfigPrettier from 'eslint-config-prettier'
+import js from '@eslint/js';
+import tsPlugin from '@typescript-eslint/eslint-plugin';
+import tsParser from '@typescript-eslint/parser';
+import vuePlugin from 'eslint-plugin-vue';
+import eslintConfigPrettier from 'eslint-config-prettier';
 
 // typescript-eslint exposes its preset as a flat-config array; flatten the
 // rule objects so we can reuse them (the eslintrc-style `.rules` only carries
 // a few rules because it relies on `extends`).
-const flattenRules = configArray =>
-  configArray.reduce((acc, config) => ({ ...acc, ...(config.rules || {}) }), {})
+const flattenRules = configArray => configArray.reduce((acc, config) => ({ ...acc, ...(config.rules || {}) }), {});
 
-const tsRules = flattenRules(tsPlugin.configs['flat/recommended'])
+const tsRules = flattenRules(tsPlugin.configs['flat/recommended']);
 
 export default [
   // Global ignores
@@ -21,7 +20,13 @@ export default [
       'dist/**',
       '.output/**',
       '.wxt/**',
+      // The scratch areas `.gitignore` already excludes. ESLint walks the filesystem rather than
+      // git's index, so "untracked" is not the same as "not linted": a temporary probe left in
+      // `.test-screenshots/`, or the partial-staging patches under `.tmp-staging/`, fails
+      // `pnpm lint` — and therefore `lint:all` and CI — exactly as committed source would.
       '.test-files/**',
+      '.test-screenshots/**',
+      '.tmp-staging/**',
       '*.js',
       'auto-imports.d.ts',
       'components.d.ts',
@@ -104,12 +109,16 @@ export default [
         clearTimeout: 'readonly',
         URL: 'readonly',
         document: 'readonly',
+        performance: 'readonly',
+        window: 'readonly',
         getComputedStyle: 'readonly',
         HTMLElement: 'readonly',
+        File: 'readonly',
+        Event: 'readonly',
       },
     },
   },
 
   // Prettier config (must be last to override)
   eslintConfigPrettier,
-]
+];

@@ -4,7 +4,7 @@ import { Download, View, CopyDocument } from '@element-plus/icons-vue';
 import type { ConvertResult } from '~/utils/core/types';
 import type { ConversionFailure } from '~/composables/useConversion';
 import { useI18n } from '~/composables/useI18n';
-import { useFileDetect } from '~/composables/useFileDetect';
+import { formatFromFilename } from '~/utils/core/file-detect';
 import { formatSize, TEXT_FORMATS } from '~/utils/core/format';
 import { FileFormat } from '~/utils/core/types';
 import PreviewDialog from '~/components/shared/PreviewDialog.vue';
@@ -18,8 +18,10 @@ const props = withDefaults(
     cancelled?: boolean;
     /** Files the batch planned to process; only meaningful together with `cancelled`. */
     totalCount?: number;
+    /** True while the ZIP is being assembled — blocking CPU work that otherwise looks like a dead button. */
+    packaging?: boolean;
   }>(),
-  { cancelled: false, totalCount: 0 },
+  { cancelled: false, totalCount: 0, packaging: false },
 );
 
 const emit = defineEmits<{
@@ -28,7 +30,6 @@ const emit = defineEmits<{
 }>();
 
 const { t } = useI18n();
-const { detectFormat } = useFileDetect();
 
 const hasFailures = computed(() => props.failures.length > 0);
 const alertType = computed(() => {
@@ -55,8 +56,6 @@ const downloadButtonText = computed(() => {
   return t('result.downloadZip', { count: props.results.length });
 });
 
-/** Text-readable result formats are defined in ~/utils/core/format. */
-
 function handleDownload(): void {
   if (props.results.length === 1) {
     emit('download', 0);
@@ -65,14 +64,31 @@ function handleDownload(): void {
   }
 }
 
-function detectFormatFromFilename(name: string): FileFormat | null {
-  return detectFormat(new File([], name));
-}
-
 function isTextResult(result: ConvertResult): boolean {
-  const format = detectFormatFromFilename(result.filename);
+  const format = formatFromFilename(result.filename);
   return format !== null && TEXT_FORMATS.has(format);
 }
+
+/**
+ * Every PDF this app writes is a page image (`addImage`, never text operators), so the
+ * "no text layer" disclosure keys off the result format rather than off how it was made.
+ */
+const hasPdfResult = computed(() => props.results.some(r => formatFromFilename(r.filename) === FileFormat.PDF));
+
+/**
+ * Which route a file took is invisible from the result: the name is rebuilt from the source basename
+ * plus the new extension. The orchestrator therefore marks the files whose chain decoded an animated
+ * source onto a canvas, and this discloses it — a GIF that went to HTML kept moving, one that went to
+ * PNG did not.
+ */
+const lostFrames = computed(() => props.results.some(r => r.lostFrames));
+
+/**
+ * Whether a document loses its vector artwork is a fact about that document, not about the route —
+ * an HTML→DOCX batch with no `<svg>` in it keeps everything — so only the converter can report it.
+ * The orchestrator carries that up from whichever step did the rasterizing.
+ */
+const svgRasterized = computed(() => props.results.some(r => r.svgRasterized));
 
 async function copyResult(result: ConvertResult): Promise<void> {
   if (!isTextResult(result)) {
@@ -94,7 +110,7 @@ const previewFormat = ref(FileFormat.HTML);
 const previewFilename = ref('');
 
 function openPreview(result: ConvertResult): void {
-  const format = detectFormatFromFilename(result.filename);
+  const format = formatFromFilename(result.filename);
   if (!format) return;
   previewBlob.value = result.blob;
   previewFormat.value = format;
@@ -123,7 +139,7 @@ function openPreview(result: ConvertResult): void {
           <span class="result-name">{{ result.filename }}</span>
           <span class="result-size">{{ formatSize(result.blob.size) }}</span>
           <el-button
-            v-if="detectFormatFromFilename(result.filename)"
+            v-if="formatFromFilename(result.filename)"
             :icon="View"
             size="small"
             text
@@ -159,6 +175,24 @@ function openPreview(result: ConvertResult): void {
         >
           <FailureDiagnosticItem :failure="failure" />
         </template>
+        <p
+          v-if="lostFrames"
+          class="result-note"
+        >
+          {{ t('result.gifFirstFrame') }}
+        </p>
+        <p
+          v-if="svgRasterized"
+          class="result-note"
+        >
+          {{ t('result.svgRasterized') }}
+        </p>
+        <p
+          v-if="hasPdfResult"
+          class="result-note"
+        >
+          {{ t('result.pdfNoTextLayer') }}
+        </p>
       </div>
     </el-alert>
 
@@ -169,6 +203,8 @@ function openPreview(result: ConvertResult): void {
       <el-button
         type="primary"
         :icon="Download"
+        :loading="packaging"
+        :disabled="packaging"
         style="width: 100%"
         @click="handleDownload"
       >
@@ -199,11 +235,24 @@ function openPreview(result: ConvertResult): void {
   gap: var(--fat-space-xs);
 }
 
+/* The alert's content box is a flex item, and its default `min-width: auto` let the file row set a
+   floor the whole card had to obey — from ~460px down the download buttons hung past the right edge
+   of the tab, clipped rather than scrollable. `0` hands shrinking to `.result-name`, which already
+   ellipsizes, and changes nothing while there is room. */
+.result-download :deep(.el-alert__content) {
+  min-width: 0;
+}
+
 .result-item {
   display: flex;
   align-items: center;
   gap: var(--fat-space-sm);
   font-size: 12px;
+
+  /* Without this the filename inherits the alert's semantic hue — `is-light` paints
+     --el-color-success as text on its own 10 % tint, which measures 2.04–2.80:1.
+     The type and the icon already carry the state; the text only has to be readable. */
+  color: var(--fat-text-primary);
 }
 
 .result-name {
@@ -217,6 +266,15 @@ function openPreview(result: ConvertResult): void {
 .result-size {
   flex-shrink: 0;
   color: var(--fat-text-secondary);
+}
+
+/* Same reason as `.result-item`: the alert paints its own 10 % semantic tint behind this,
+   so the secondary ink would sit on a backdrop the contrast gate has never measured. */
+.result-note {
+  margin: var(--fat-space-xs) 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--fat-text-primary);
 }
 
 .download-actions {

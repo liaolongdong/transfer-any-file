@@ -15,7 +15,19 @@ export class ConverterRegistry {
     const targets = this.adjacency.get(converter.from);
     if (targets) {
       if (!targets.includes(converter.to)) {
-        targets.push(converter.to);
+        // Insert by declared preference, keeping equal preferences in registration order. The BFS
+        // in findConversionPath iterates this array and returns the first shortest path it meets,
+        // so this position IS the route choice for tied lengths.
+        const preference = converter.edgePreference ?? 0;
+        let insertAt = targets.length;
+        for (let i = 0; i < targets.length; i++) {
+          const other = this.getConverter(converter.from, targets[i]);
+          if ((other?.edgePreference ?? 0) > preference) {
+            insertAt = i;
+            break;
+          }
+        }
+        targets.splice(insertAt, 0, converter.to);
       }
     } else {
       this.adjacency.set(converter.from, [converter.to]);

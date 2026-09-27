@@ -12,9 +12,11 @@
     <!-- Resolve the UI language before first paint so the page never flashes the wrong language.
          All copy ships in BOTH languages in the HTML (see the [lang] rules in the stylesheet),
          so crawlers that do not run JavaScript still read every fact in either language.
-         `setLang()` at the end of this document narrows <title>, the description and the
-         og: / twitter: metadata to the language being shown; the bilingual values baked into
-         the markup below stay as the no-JavaScript fallback. -->
+         The script under the `twitter:` block narrows <title>, the description and the
+         og: / twitter: metadata to that language while the head is still being parsed — a reader
+         never sees the bilingual string in the tab. The bilingual values baked into the markup
+         stay as the no-JavaScript fallback, and `setLang()` at the end of the document reuses the
+         same table for the toggle. -->
     <script>
       (function () {
         var KEY = 'fat-docs-lang';
@@ -148,6 +150,52 @@
       name="twitter:image:alt"
       content='Transfer Any File brand mark and the headline "Convert 14 file formats without uploading a byte" beside a screenshot of the workbench converting a Markdown file to HTML.'
     />
+    <script>
+      (function () {
+        /**
+         * Metadata per language, applied while the head is still being parsed: the tab title a reader
+         * lands on is already theirs, not the bilingual fallback. `setLang()` at the end of this
+         * document reads the same object, so the strings exist once. A crawler that never runs the
+         * page still reads the bilingual values baked into the markup above.
+         */
+        var META = {
+          'zh-CN': {
+            title: 'Transfer Any File｜离线文件格式转换扩展 · 14 种格式本地互转，零上传',
+            description:
+              '开源 Chrome 离线文件格式转换扩展——14 种文档、表格与图片格式在你自己的电脑本地互转。不上传、无账号、零网络请求。',
+            ogTitle: 'Transfer Any File｜离线文件格式转换扩展（Chrome）',
+            ogDescription:
+              '在浏览器本地完成 14 种格式互转：批量、多步链路、预览编辑与 ZIP 打包，不上传一个字节，只申请 storage 权限。',
+            twitterDescription: '14 种格式、48 条直接路径、116 个可选组合、0 次网络请求，全部在你自己的浏览器里完成。',
+          },
+          en: {
+            title: 'Transfer Any File — Offline File Format Converter for Chrome',
+            description:
+              'Offline file format converter for Chrome — convert 14 document, data and image formats in your browser. No uploads, no account, zero network requests.',
+            ogTitle: 'Transfer Any File — offline file format converter for Chrome',
+            ogDescription:
+              'Convert 14 file formats inside your browser. Batch, multi-step, preview and edit — without uploading a byte.',
+            twitterDescription:
+              '14 formats, 48 direct routes, 116 selectable combinations, zero network requests. Runs entirely in your browser.',
+          },
+        };
+        window.__FAT_DOCS_META__ = META;
+        var copy = META[document.documentElement.getAttribute('lang')] || META.en;
+        if (copy) {
+          document.title = copy.title;
+          [
+            ['meta[name="description"]', copy.description],
+            ['meta[property="og:title"]', copy.ogTitle],
+            ['meta[property="og:description"]', copy.ogDescription],
+            ['meta[name="twitter:title"]', copy.ogTitle],
+            ['meta[name="twitter:description"]', copy.twitterDescription],
+          ].forEach(function (pair) {
+            var el = document.querySelector(pair[0]);
+            if (el) el.setAttribute('content', pair[1]);
+          });
+        }
+      })();
+    </script>
 
     <!--
       Structured data. Every number here is derived from the code, not from prose:
@@ -156,7 +204,7 @@
       · 143 combinations -> BFS closure over the same graph (utils/core/registry.ts)
       · 116 selectable   -> 143 minus the 27 pairs utils/core/conversion-policy.ts greys out
                             (24 image -> text/data + 3 PDF -> data)
-      · 3.73 MB          -> `pnpm build` total output size
+      · 3.78 MB          -> `pnpm build` total output size
     -->
     <script type="application/ld+json">
       {
@@ -169,7 +217,7 @@
             "alternateName": "Transfer Any File — Offline File Format Converter",
             "softwareVersion": "1.0.0",
             "datePublished": "2026-09-07",
-            "dateModified": "2026-09-18",
+            "dateModified": "2026-09-26",
             "applicationCategory": "UtilitiesApplication",
             "applicationSubCategory": "File Format Converter",
             "keywords": "offline file format converter, file converter chrome extension, markdown to pdf, word to pdf, csv to excel, json to csv, png to webp, svg to png, html to docx, batch file conversion, convert files without uploading, local-first, privacy",
@@ -228,9 +276,10 @@
               "Recently used target formats grouped at the top of the picker",
               "Remembered view state: split-divider position and the collapsed history card",
               "Rebindable convert shortcut and optional desktop notification for background batches",
+              "Output file names built from a pattern you write — {name}, {date}, {time}, {index}, {target} — with the extension always taken from the real artifact",
               "6 accent colours, light / dark / system appearance",
               "Chinese and English interface (follows the browser language until you pick one)",
-              "Keyboard-accessible UI, with topbar, button and focus-ring contrast measured per theme",
+              "Keyboard-accessible UI, with topbar, button, focus-ring and informational-text contrast measured per theme",
               "Only one permission: storage"
             ]
           },
@@ -291,7 +340,7 @@
                 "name": "Which file formats can it convert?",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "Fourteen formats across three families: documents (Markdown, HTML, Word .docx, PDF, TXT), data (CSV, Excel .xlsx, JSON) and images (PNG, JPEG, WebP, BMP, GIF, SVG). Eleven of them can be written; the registry holds 48 direct routes and BFS over that graph makes 143 combinations reachable. The picker offers 116 of them — the other 27 (image→text/data and PDF→data) are greyed out with a reason. The format table above lists the reachable and selectable counts for every source format row by row."
+                  "text": "Fourteen formats across three families: documents (Markdown, HTML, Word .docx, PDF, TXT), data (CSV, Excel .xlsx, JSON) and images (PNG, JPEG, WebP, BMP, GIF, SVG). Eleven of them can be written; the registry holds 48 direct routes and BFS over that graph makes 143 combinations reachable. The picker offers 116 of them — the other 27 (image→text/data and PDF→data) are greyed out with a reason. The format table above lists the reachable and selectable counts for every source format row by row. An inline SVG converted into Word or Markdown is rasterized into an embedded PNG: the drawing survives, but it is a bitmap, not a vector."
                 }
               },
               {
@@ -299,7 +348,7 @@
                 "name": "它能转换哪些文件格式？",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "三大类共 14 种：文档（Markdown、HTML、Word .docx、PDF、TXT）、数据（CSV、Excel .xlsx、JSON）与图片（PNG、JPEG、WebP、BMP、GIF、SVG）。其中 11 种可写出；注册表里有 48 条直接路径，经广度优先搜索可到达 143 个组合，格式下拉实际提供 116 个——另外 27 个（图片→文本/数据、PDF→数据）会置灰并说明原因。上面的格式表逐行列出了每种源格式的可达与可选目标数。"
+                  "text": "三大类共 14 种：文档（Markdown、HTML、Word .docx、PDF、TXT）、数据（CSV、Excel .xlsx、JSON）与图片（PNG、JPEG、WebP、BMP、GIF、SVG）。其中 11 种可写出；注册表里有 48 条直接路径，经广度优先搜索可到达 143 个组合，格式下拉实际提供 116 个——另外 27 个（图片→文本/数据、PDF→数据）会置灰并说明原因。上面的格式表逐行列出了每种源格式的可达与可选目标数。内联 SVG 进入 Word 或 Markdown 时会栅格成 PNG 嵌进结果文件——图形不丢，但它是位图不是矢量。"
                 }
               },
               {
@@ -323,7 +372,7 @@
                 "name": "Can it convert a PDF into an editable Word document?",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "Not losslessly. PDF input extracts text only, dropping layout and embedded images; conversely PDF output is rendered page by page as images, so its text is not selectable. Word and Excel convert through HTML as the hub format. If you need layout-faithful PDF conversion, reach for a dedicated desktop tool or an online service."
+                  "text": "Not losslessly. PDF input extracts text only, dropping layout and embedded images; conversely PDF output is rendered page by page as images, so it carries no text layer. Word and Excel convert through HTML as the hub format. If you need layout-faithful PDF conversion, reach for a dedicated desktop tool or an online service."
                 }
               },
               {
@@ -331,7 +380,7 @@
                 "name": "能把 PDF 转成可编辑的 Word 吗？",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "不能无损。PDF 输入只提取文本，排版与内嵌图片不保留；反过来，PDF 输出是逐页渲染的图片，文字不可选定。Word 与 Excel 都以 HTML 作为中心格式中转。如果你需要保留排版的 PDF 互转，请选用专业桌面工具或在线服务。"
+                  "text": "不能无损。PDF 输入只提取文本，排版与内嵌图片不保留；反过来，PDF 输出是逐页渲染的图片，不含文字层。Word 与 Excel 都以 HTML 作为中心格式中转。如果你需要保留排版的 PDF 互转，请选用专业桌面工具或在线服务。"
                 }
               },
               {
@@ -352,6 +401,22 @@
               },
               {
                 "@type": "Question",
+                "name": "Why can I copy text out of a PDF converted from an image?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Because the viewer did it, not this extension. A PDF written here is a page image with no text layer and no real characters. Some viewers recognise the text on a page as they display it, so the characters you copied came from the viewer and are not stored in the file. No OCR is bundled, so this extension can neither read nor write them."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "图片转成的 PDF 为什么还能复制出文字？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "那是 PDF 查看器做的，不是本扩展。转出的 PDF 是逐页位图，文件里既没有文字层也没有真实字符；部分查看器会在展示时自行识别图上的文字，所以你复制出的字符来自查看器，识别结果也不在这个文件里。本扩展不内置 OCR，既读不到也写不出这些字符。"
+                }
+              },
+              {
+                "@type": "Question",
                 "name": "Can I convert several different formats in one run?",
                 "acceptedAnswer": {
                   "@type": "Answer",
@@ -364,6 +429,54 @@
                 "acceptedAnswer": {
                   "@type": "Answer",
                   "text": "可以，一次最多 200 个文件。每个文件各自解析自己的转换路径并逐步执行，所以 Markdown、CSV 与 Excel 混在一起投进来、统一转成 HTML 是一条动作。目标格式下拉框只提供对批次内全部文件都可达的格式，因此不会出现选了之后一半文件转不了的组合。"
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "How do I convert Markdown to Word — and what happens to its images?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Drop the .md in and pick Word: the route runs Markdown → HTML → Word in two steps, and the text lands as real Word paragraphs you can select, rewrite and comment on. What happens to an image depends on how it is written in the source — a data URI travels inside the document, a relative path stays relative (so the image files must sit next to the .docx for Word to show them), and an http(s) image is stripped before packing, because Word must not issue a network request while opening your file. Each route page spells out what it keeps and what it drops."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "怎么把 Markdown 转成 Word？图片会跟过去吗？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "把 .md 投进工作台、目标选 Word，会按 Markdown → HTML → Word 两步走完，产出的文字在 Word 里可选中、可改写、可加批注。图片的命运取决于它在源文件里怎么写：以 data URI 内嵌的随文档一起打包；相对路径按相对保留，图片文件要和 .docx 放在同一目录 Word 才显示得出来；指向 http(s) 的外链图片在打包前被剥掉——Word 打开你的文件时不该替你发起网络请求。每条链路各自保留了什么、丢掉了什么，单独写在那条链路的说明页上。"
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Does Word to Markdown keep the images?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Yes, but written into the .md as data URIs, which makes the file noticeably heavier — externalise the images again before committing to a repository. What crosses over is content and hierarchy: headings, lists, emphasis, links and table cells. Whatever Markdown cannot express stays behind, so headers and footers, comments, tracked changes, table-of-contents fields, columns and text boxes do not come, and table merges do not either. Legacy .doc (97-2003 binary) is outside the 14 supported formats, so save it as .docx first."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Word 转 Markdown 会保留图片吗？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "保留，但以 data URI 的形式写进 .md，文件因此明显变大——要提交进 Git 的话，建议转完再把图片外链化。搬过来的是内容与层级：标题、列表、加粗与斜体、链接、表格单元格；Markdown 表达不了的东西不会过来，包括页眉页脚、批注、修订记录、目录域、分栏与文本框，表格的合并信息也不保留。老式 .doc（97-2003 二进制）不在支持的 14 种格式里，先在 Word 里另存为 .docx。"
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Will Excel to CSV turn 00123 into 123, or a date into 45296?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Neither. Cells serialise from the stored value, so a cell formatted \"1,234.50\" still writes 1234.5 and a percentage-displayed 0.25 still writes 0.25. Dates are normalised while reading, to yyyy-mm-dd hh:mm:ss — a date-only cell lands as YYYY-MM-DD — independently of your timezone, which is why a day serial like 45296 never reaches the artifact. Text beginning with = + - @ or a tab is escaped, so Excel cannot re-execute it as a formula on open. A multi-sheet workbook yields one CSV per sheet inside a ZIP."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Excel 转 CSV 会不会把 00123 变成 123、把日期变成 45296？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "既不会输出显示文本，也不会输出序列号。单元格按存储值序列化，所以格式化成 \"1,234.50\" 的那个仍然写 1234.5、按百分比显示的 0.25 仍然写 0.25；日期在读取期统一成 yyyy-mm-dd hh:mm:ss（只含日期的落成 YYYY-MM-DD），不受所在时区影响——这就是 45296 这类日序列不会出现在结果里的原因。以 = + - @ 或制表符开头的文本会加转义，Excel 重新打开时不会把它当公式执行。多个工作表给出每表一份 CSV、一起装进 ZIP。"
                 }
               },
               {
@@ -612,6 +725,9 @@
       /* ============ Tokens ============ */
       :root {
         --brand: #2563eb;
+        /* The same blue as a triplet, because `rgb(… / a)` cannot take a hex variable. Every
+           translucent brand colour below reads this instead of repeating the numbers. */
+        --brand-rgb: 37 99 235;
         --brand-dark: #1d4ed8;
         --brand-soft: #eef4ff;
         --brand-line: #d6e4ff;
@@ -925,7 +1041,7 @@
       .btn-primary {
         background: var(--brand);
         color: #fff;
-        box-shadow: 0 8px 20px -10px rgb(37 99 235 / 70%);
+        box-shadow: 0 8px 20px -10px rgb(var(--brand-rgb) / 70%);
       }
 
       .btn-primary:hover {
@@ -1361,6 +1477,43 @@
         margin-left: 6px;
       }
 
+      /* ============ Pair pages ============ */
+      /* Links to the per-pair pages under `convert/`, which `scripts/render-site-pages.mjs` generates
+         from `scripts/conversion-pages/pairs.mjs`. Only route names live here — every claim about what
+         a route keeps or drops belongs on the page that the generator can check against the code. */
+      .pairs {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(min(100%, 214px), 1fr));
+        gap: 12px;
+      }
+
+      .pair {
+        display: block;
+        padding: 14px 16px;
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        color: var(--ink);
+        font-size: 15px;
+        font-weight: 650;
+        transition:
+          border-color var(--dur-fast) var(--ease-out),
+          box-shadow var(--dur-fast) var(--ease-out);
+      }
+
+      .pair:hover {
+        border-color: var(--brand-line);
+        box-shadow: var(--shadow-md);
+      }
+
+      .pair small {
+        display: block;
+        margin-top: 3px;
+        color: var(--ink-faint);
+        font-size: 12.5px;
+        font-weight: 500;
+      }
+
       /* ============ Sibling tools ============ */
       .sibling-card {
         display: flex;
@@ -1734,6 +1887,25 @@
         color: var(--ink-faint);
         font-variant-numeric: tabular-nums;
         font-size: 13.5px;
+      }
+
+      /* With JavaScript off the carousel is not a carousel: the track is positioned only by the script's
+         `transform`, the dots are created by it, and the counter is frozen at "1 / 7" in the markup. An
+         `overflow: hidden` flex row then shows exactly one of the seven figures and leaves no way to
+         reach the other six. So hand the strip to the scroller and remove the chrome that cannot act —
+         gated on the same `.js` class the head script adds, which is already what arms the scroll
+         reveals for the same reason. */
+      html:not(.js) .carousel {
+        overflow-x: auto;
+        scroll-snap-type: x mandatory;
+      }
+
+      html:not(.js) .carousel-track > figure {
+        scroll-snap-align: start;
+      }
+
+      html:not(.js) .carousel-ctl {
+        display: none;
       }
 
       /* Screenshots are worth a closer look: the slide opens the lightbox below, and the track only
@@ -2112,14 +2284,19 @@
         display: none;
       }
 
+      /* The chevron is the panel's own gesture, not a separate one: it takes the opening duration and the
+         curve the ladder reserves for leaving on the way back, so the two never read as two movements.
+         Before this it ran on a hard-coded 0.18s ease, which is why a fast flick of the arrow used to
+         finish while the answer was still growing. */
       details.faq-item > summary .chev {
         margin-left: auto;
         color: var(--ink-faint);
-        transition: transform 0.18s ease;
+        transition: transform var(--dur-fast) var(--ease-in);
       }
 
       details.faq-item[open] > summary .chev {
         transform: rotate(90deg);
+        transition: transform var(--dur-mid) var(--ease-out);
       }
 
       details.faq-item .faq-a {
@@ -2487,10 +2664,12 @@
           opacity: 1;
         }
 
-        /* Closing is the short end of the pair: a panel that collapses at opening speed feels like it
-           is waiting for you. */
+        /* Closing is the short end of the pair, and it takes the curve the ladder reserves for leaving:
+           a panel that collapses at opening speed, easing out as if it were arriving, feels like it is
+           waiting for you. */
         details.faq-item:not([open])::details-content {
           transition-duration: var(--dur-fast);
+          transition-timing-function: var(--ease-in);
         }
       }
 
@@ -2517,8 +2696,9 @@
         animation: plate-in var(--dur-mid) var(--ease-out);
       }
 
-      /* The arrow leans the way it will take you — the one hover state on this page that can carry
-         information rather than only decorate. */
+      /* The arrow leans the way it will take you. The lean is reinforcement, not the carrier: the glyph
+         already points, the accessible name already says where, and the hover state above already lights
+         colour and background — which is why the reduce block can drop this transform and lose nothing. */
       .scroll-rail button svg {
         transition: transform var(--dur-fast) var(--ease-out);
       }
@@ -2641,6 +2821,39 @@
         .card:hover .icon {
           transform: rotate(-6deg) scale(1.06);
         }
+
+        /* The one surface on this page the pointer lights rather than pulls. `--mx` and `--my` are written
+           by the script at the foot of the page as percentages of the card's own box, so the highlight sits
+           under the cursor and nowhere else; `isolation` is what lets the glow tuck under the text without
+           falling behind the card's own white background, and `opacity` is the only thing that animates — a
+           card at rest costs one composited layer and no layout at all. The blue is `--brand-rgb` at 9% —
+           the channel triple rather than `--brand`, because that one holds a hex literal and `/ 9%` needs
+           the components to themselves. Faint enough that the effect reads as lit from the page rather than
+           as a coloured box. */
+        .card {
+          position: relative;
+          isolation: isolate;
+        }
+
+        .card::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          z-index: -1;
+          border-radius: inherit;
+          background: radial-gradient(
+            240px circle at var(--mx, 50%) var(--my, 50%),
+            rgb(var(--brand-rgb) / 9%),
+            rgb(var(--brand-rgb) / 0%) 70%
+          );
+          opacity: 0;
+          pointer-events: none;
+          transition: opacity var(--dur-mid) var(--ease-out);
+        }
+
+        .card:hover::before {
+          opacity: 1;
+        }
       }
 
       /* The comparison table tells the reader to scan down the Transfer Any File column; once, as
@@ -2677,6 +2890,39 @@
         animation: shine 1.2s ease-in-out 0.25s forwards;
       }
 
+      /* How far into a page this long you have read is a question the scroll bar answers in browser-chrome
+         terms. A hairline across the top answers it in the page's own colours, and it is driven by the
+         scroll offset rather than by a timer, so it can never run ahead of the reader and needs no script —
+         the same rail the conversion pages carry, so the two pages are one system. Below the lightbox in
+         the stacking order on purpose: a reading position is not something you need while a screenshot is
+         filling the screen. */
+      @supports (animation-timeline: scroll()) {
+        body::after {
+          content: '';
+          position: fixed;
+          top: 0;
+          right: 0;
+          left: 0;
+          z-index: 60;
+          height: 2px;
+          background: linear-gradient(90deg, var(--brand-line), var(--brand));
+          transform: scaleX(0);
+          transform-origin: 0 50%;
+          pointer-events: none;
+          animation-name: read-progress;
+          animation-duration: auto;
+          animation-timing-function: linear;
+          animation-fill-mode: both;
+          animation-timeline: scroll(root block);
+        }
+
+        @keyframes read-progress {
+          to {
+            transform: scaleX(1);
+          }
+        }
+      }
+
       @media (prefers-reduced-motion: reduce) {
         html {
           scroll-behavior: auto;
@@ -2684,11 +2930,15 @@
 
         /* A blanket stop rather than a per-component opt-out, so motion added later cannot slip past
            it. Durations collapse instead of the properties being removed, which keeps every element
-           at the state it was animating *to*. */
+           at the state it was animating *to*, and the iteration count is capped so a loop added later
+           gets one pass rather than a 0.01ms strobe — none of today's loops depend on that cap, it is
+           the part of the claim that covers code not written yet. `::details-content` is the one
+           exception the selector list cannot include: see its own rule below. */
         *,
         *::before,
         *::after {
           animation-duration: 0.01ms !important;
+          animation-iteration-count: 1 !important;
           animation-delay: 0ms !important;
           transition-duration: 0.01ms !important;
           transition-delay: 0ms !important;
@@ -2704,14 +2954,45 @@
           transform: none;
         }
 
-        /* The blanket stop collapses finite entrances to their end frame, but an infinite loop at
-           0.01ms keeps sampling a different phase every frame — that is flicker, not stillness.
-           The three perpetual loops are therefore switched off by name; the caret stays visible,
-           it just stops blinking. */
+        /* The three perpetual loops go further than the cap above, which would already leave each of
+           them still: one 0.01ms pass is technically stillness, but the badge would spend that pass
+           travelling and the caret would spend it blinking once. Switching them off by name means the
+           element simply shows the state its own rule describes — the badge un-bobbed, the wire in its
+           settled colour, the caret visible and not blinking. */
         .js .float-badge,
         .js .flow-node::before,
         .js #installCode > code::after {
           animation: none;
+        }
+
+        /* A progress-driven animation has no duration to collapse — its clock is the scroll offset — so
+           the reading rail is removed rather than shortened. */
+        body::after {
+          content: none;
+        }
+
+        /* `::details-content` is not covered by the blanket above (it is neither `*` nor one of the two
+           marker pseudos), and its growth is the only motion on this page that moves layout. It gets a rule
+           of its own rather than a place in that selector list because an engine that cannot parse the
+           pseudo-element would then drop the entire blanket, silently and everywhere at once. */
+        details::details-content {
+          transition-duration: 0.01ms !important;
+          transition-delay: 0ms !important;
+        }
+
+        /* Hover carries motion in two places here — the section arrows lean 2px, a feature icon tips and
+           grows 6% — and collapsing a duration removes none of it, it only turns the move into a jump. So
+           the transforms go too. Neither is the only thing a hover says: the arrows also change colour and
+           background just above, and the card behind the icon still lights, because the glow animates
+           `opacity` alone and the cap above makes that an instant change. It reads at `--mx/--my` defaults
+           (the card's own centre) rather than under the cursor, since the script that writes those two is
+           gated on `!reduced` as well. The workbench settles the same question the same way, by collapsing
+           `--fat-swatch-scale` to 1, and these rules sit after both originals in document order — which is
+           what decides it now that no `!important` is involved. */
+        .rail-top:hover svg,
+        .rail-bottom:hover svg,
+        .card:hover .icon {
+          transform: none;
         }
       }
 
@@ -2980,6 +3261,7 @@
         }
 
         .js .reveal,
+        .js .flow .flow-node,
         .js .hero-copy > *,
         .js .hero-visual,
         section:target .section-head h2 {
@@ -3269,6 +3551,7 @@
           <a href="#install"><span lang="zh-CN">安装</span><span lang="en">Install</span></a>
           <a href="#compare"><span lang="zh-CN">对比</span><span lang="en">Compare</span></a>
           <a href="#faq"><span lang="zh-CN">问答</span><span lang="en">FAQ</span></a>
+          <a href="convert/"><span lang="zh-CN">配对详情</span><span lang="en">Conversions</span></a>
           <div class="lang-toggle">
             <button
               type="button"
@@ -3486,7 +3769,7 @@
               class="metric metric-size"
               data-onview="in"
             >
-              <b>3.73&nbsp;MB</b>
+              <b>3.78&nbsp;MB</b>
               <span class="label"><span lang="zh-CN">完整包体</span><span lang="en">whole bundle</span></span>
               <span
                 class="size-bar"
@@ -3717,7 +4000,8 @@
               种可写目标在图上都<strong>可达</strong>，合计 <strong>143 个可达组合</strong>；其中 27 个（24
               个图片→文本/数据、3 个 PDF→数据）必然失败或只产出占位内容，被格式下拉置灰并写明原因，因此真正
               <strong>可选的是 116 个</strong
-              >。下表的「直接」列是已注册转换器数，「可达」列是含自动多步后能到达的目标数，「可选」列是置灰之后仍然能选的数量。</span
+              >。下表的「直接」列是已注册转换器数，「可达」列是含自动多步后能到达的目标数，「可选」列是置灰之后仍然能选的数量。内联
+              SVG 进入 Word 或 Markdown 时会栅格成 PNG 嵌进结果文件——图形不丢，但它是位图不是矢量。</span
             >
             <span lang="en"
               ><strong>Short answer:</strong> it reads 14 formats and writes 11 — SVG, BMP and GIF are input-only
@@ -3727,7 +4011,9 @@
               27 of them (24 image→text/data and 3 PDF→data) would always fail or produce a placeholder, so the picker
               greys them out with a reason and <strong>116 remain selectable</strong>. In the table below, "Direct"
               counts registered converters, "Reachable" counts the targets a source can reach including automatic
-              multi-step chains, and "Selectable" counts what stays enabled after that policy.</span
+              multi-step chains, and "Selectable" counts what stays enabled after that policy. An inline SVG converted
+              into Word or Markdown is rasterized into an embedded PNG: the drawing survives, but it is a bitmap, not a
+              vector.</span
             >
           </div>
           <div
@@ -4320,10 +4606,14 @@
               </svg>
               <p>
                 <b><span lang="zh-CN">PDF 输出是图片。</span><span lang="en">PDF output is image-based.</span></b>
-                <span lang="zh-CN">转出的 PDF 逐页渲染为图片，文字不可选定、不可搜索。</span>
+                <span lang="zh-CN"
+                  >转出的 PDF
+                  逐页渲染为图片，不含文字层，里面没有可被搜索或提取的真实字符。你在查看器里选中复制出的文字，是那个查看器自己识别的，不在这个文件里。</span
+                >
                 <span lang="en"
-                  >Converted PDFs are rendered page by page as images, so their text is neither selectable nor
-                  searchable.</span
+                  >Converted PDFs are rendered page by page as images, so they carry no text layer and hold no real
+                  characters to search or extract. Text you manage to select and copy in a viewer was recognised by that
+                  viewer — it is not in the file.</span
                 >
               </p>
             </div>
@@ -4408,6 +4698,104 @@
               </p>
             </div>
           </div>
+        </div>
+      </section>
+
+      <!-- ================= PAIR PAGES ================= -->
+      <section id="pairs">
+        <div class="wrap">
+          <div class="section-head">
+            <span class="eyebrow-sm">
+              <svg
+                class="sec-ico"
+                aria-hidden="true"
+              >
+                <use href="#i-grid" />
+              </svg>
+              <span lang="zh-CN">按配对查</span><span lang="en">Pair by pair</span>
+            </span>
+            <h2>
+              <span lang="zh-CN">同样是「能转」，每个配对的差别写在各自的页面上</span>
+              <span lang="en">Two pairs can both be "supported" and still differ — each one has its own page</span>
+            </h2>
+            <p class="sub">
+              <span lang="zh-CN"
+                >这些页面不是把上面的话再说一遍：每条链路给出「会保留什么」「不做什么」「实操提示」和该配对特有的问题。页面由
+                <code>scripts/render-site-pages.mjs</code> 从代码里的注册表与
+                <code>scripts/__baseline__/conversion-paths.json</code>
+                生成，链路对不上时生成脚本会直接失败——页面上画的走法就是工作台真正会执行的走法。</span
+              >
+              <span lang="en"
+                >These pages do not repeat the section above: every route gets "what carries over", "what it does not
+                do", working notes and the questions specific to that pair. They are generated by
+                <code>scripts/render-site-pages.mjs</code> from the registry in the code and
+                <code>scripts/__baseline__/conversion-paths.json</code>, and the generator fails when the two disagree —
+                so the chain drawn on a page is the chain the workbench actually runs.</span
+              >
+            </p>
+          </div>
+          <div class="pairs">
+            <a
+              class="pair"
+              href="convert/markdown-to-word.html"
+              >Markdown → Word<small>.md → .docx</small></a
+            >
+            <a
+              class="pair"
+              href="convert/word-to-markdown.html"
+              >Word → Markdown<small>.docx → .md</small></a
+            >
+            <a
+              class="pair"
+              href="convert/markdown-to-pdf.html"
+              >Markdown → PDF<small>.md → .pdf</small></a
+            >
+            <a
+              class="pair"
+              href="convert/word-to-pdf.html"
+              >Word → PDF<small>.docx → .pdf</small></a
+            >
+            <a
+              class="pair"
+              href="convert/pdf-to-text.html"
+              >PDF → Text<small>.pdf → .txt</small></a
+            >
+            <a
+              class="pair"
+              href="convert/excel-to-csv.html"
+              >Excel → CSV<small>.xlsx → .csv</small></a
+            >
+            <a
+              class="pair"
+              href="convert/csv-to-excel.html"
+              >CSV → Excel<small>.csv → .xlsx</small></a
+            >
+            <a
+              class="pair"
+              href="convert/json-to-csv.html"
+              >JSON → CSV<small>.json → .csv</small></a
+            >
+            <a
+              class="pair"
+              href="convert/png-to-webp.html"
+              >PNG → WebP<small>.png → .webp</small></a
+            >
+            <a
+              class="pair"
+              href="convert/svg-to-png.html"
+              >SVG → PNG<small>.svg → .png</small></a
+            >
+          </div>
+          <p class="sub">
+            <a href="convert/"><span lang="zh-CN">看完整转换一览</span><span lang="en">Browse all conversions</span></a>
+            ·
+            <a href="blog/"
+              ><span lang="zh-CN">设计手记：为什么把转换器做成一张图，以及批量场景踩过的坑</span>
+              <span lang="en"
+                >Design notes: why the converters became a graph, and the batch pitfalls that followed</span
+              ></a
+            >
+          </p>
         </div>
       </section>
 
@@ -4804,17 +5192,22 @@
                   <path d="M9 13h6M9 17h4" />
                 </svg>
               </div>
-              <h3><span lang="zh-CN">粘贴与压缩包入口</span><span lang="en">Paste and archive intake</span></h3>
+              <h3>
+                <span lang="zh-CN">粘贴、文件夹与压缩包入口</span
+                ><span lang="en">Paste, folder and archive intake</span>
+              </h3>
               <p>
                 <span lang="zh-CN"
                   ><kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>V</kbd>
-                  直接粘剪贴板里的图片或文本开始转换；文件也能丢到工作台任意位置，不必命中上传区；拖一个
+                  直接粘剪贴板里的图片或文本开始转换；文件也能丢到工作台任意位置，不必命中上传区，丢一个文件夹进来
+                  会把里面能转换的文件一起收进批次；拖一个
                   <code>.zip</code> 进来会自动展开，把其中支持的条目加入批次。</span
                 >
                 <span lang="en"
                   ><kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>V</kbd> converts a clipboard image or text block; files can be
-                  dropped anywhere on the workbench rather than only on the upload zone; and dropping a
-                  <code>.zip</code> expands it and adds every supported entry to the batch.</span
+                  dropped anywhere on the workbench rather than only on the upload zone, a dropped folder contributes
+                  the convertible files inside it, and dropping a <code>.zip</code> expands it and adds every supported
+                  entry to the batch.</span
                 >
               </p>
             </article>
@@ -4881,13 +5274,16 @@
                 <span lang="zh-CN"
                   >目标是 PNG / JPEG / WebP 时，面板给出真正的编码器旋钮：质量 40–90%、最长边 800–4096 px、目标体积 20
                   KB–2 MB（质量与目标体积仅 JPEG / WebP），源里有 PDF 时还能选 96–300
-                  DPI。目标体积靠质量阶梯反复编码逼近。每一项默认「不动」，一键恢复默认，参数本身持久化到本机。</span
+                  DPI。目标体积靠质量阶梯反复编码逼近。每一项默认「不动」，一键恢复默认，参数本身持久化到本机。同一行的「页码范围」是另一回事：它只栅格化你点名的那几页（如
+                  1-3, 5），说的是这份文件的哪几页，因此不出本机、也不进预设。</span
                 >
                 <span lang="en"
                   >A PNG / JPEG / WebP target exposes the real encoder knobs: quality 40–90% and a target size of 20
                   KB–2 MB for JPEG and WebP, longest edge 800–4096 px for all three, plus 96–300 DPI when a PDF is in
                   the batch. The size ceiling is met by walking a quality ladder. Every knob starts untouched, one
-                  control restores the defaults, and the settings persist on your machine.</span
+                  control restores the defaults, and the settings persist on your machine. The Pages field beside them
+                  is a different kind of thing: it rasterizes only the pages you name (1-3, 5), and because it states
+                  which pages this file means it is never stored and never part of a preset.</span
                 >
               </p>
             </article>
@@ -4920,6 +5316,46 @@
                   works for a batch arriving from PDF, HTML or SVG alike; with no files loaded yet it is remembered and
                   applied the moment the next batch lands. Only the format and its parameters are stored, never file
                   content.</span
+                >
+              </p>
+            </article>
+            <article class="card reveal">
+              <div class="icon teal">
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5c0 1.1.9 2 2 2h1" />
+                  <path d="M16 21h1a2 2 0 0 0 2-2v-5c0-1.1.9-2 2-2a2 2 0 0 1-2-2V5a2 2 0 0 0-2-2h-1" />
+                </svg>
+              </div>
+              <h3><span lang="zh-CN">输出文件名由你定</span><span lang="en">Names you can write yourself</span></h3>
+              <p>
+                <span lang="zh-CN"
+                  >结果默认叫
+                  <code>原名_20260914_153012.pdf</code
+                  >：日期加时间精确到秒，同一天转两批不会互相覆盖。偏好设置里这一串可以改写，<code>{name}</code>
+                  （源文件名去掉后缀）、<code>{date}</code>、<code>{time}</code>、<code>{index}</code>（本批序号）、<code
+                    >{target}</code
+                  >
+                  （目标格式）任意组合，输入框下方实时给出示例。路径分隔符与控制字符会被清掉，扩展名始终由实际产物决定，所以再离谱的模板也写不出路径、写不出说谎的后缀；写错的占位符按普通文字保留并当场提示。这套写法只存在扩展自己的本地存储里。</span
+                >
+                <span lang="en"
+                  >A result is called <code>original_20260914_153012.pdf</code> by default — date plus time to the
+                  second, so two batches on one day never overwrite each other. Preferences lets you rewrite that string
+                  from any mix of <code>{name}</code> (the source name without its extension), <code>{date}</code>,
+                  <code>{time}</code>, <code>{index}</code> (position in the batch) and <code>{target}</code> (the
+                  output format), with a live example under the field. Path separators and control characters get
+                  stripped and the extension always comes from the artifact itself, so no pattern can produce a path or
+                  a suffix that is not true; a mis-typed placeholder stays literal and is pointed out on the spot. The
+                  pattern is written only to the extension's own local storage.</span
                 >
               </p>
             </article>
@@ -5114,17 +5550,20 @@
               <h3><span lang="zh-CN">键盘可达与无障碍</span><span lang="en">Keyboard and accessibility</span></h3>
               <p>
                 <span lang="zh-CN"
-                  >跳转主内容链接、可见焦点环、<code>prefers-reduced-motion</code> 降级。端到端套件在 6 主题 × 浅/深共
-                  12 种组合下逐项实测三组承担对比度契约的颜色：顶栏品牌文字对顶栏背景 ≥ 4.5:1，主按钮文字在常态 / 悬停 /
+                  >跳转主内容链接、可见焦点环、<code>prefers-reduced-motion</code> 降级；转换进度与文件列表的增减通过
+                  <code>role="status"</code>
+                  区域播报，删除历史后 5 秒内还可以撤销。端到端套件在 6 主题 × 浅/深共 12
+                  种组合下逐项实测四组承担对比度契约的颜色：顶栏品牌文字对顶栏背景 ≥ 4.5:1，主按钮文字在常态 / 悬停 /
                   按下三种状态下均 ≥ 4.5:1（读数取自确实可点击的按钮，文本规则豁免禁用控件），焦点环对卡片背景 ≥
-                  3:1。</span
+                  3:1，拖放提示与文件大小这类正文信息文字对各自底色 ≥ 4.5:1。</span
                 >
                 <span lang="en"
                   >Skip link to the main content, visible focus rings and a
-                  <code>prefers-reduced-motion</code> fallback. The end-to-end suite measures the three colour pairs
-                  that carry the contrast contract — brand text on the topbar at 4.5:1 or better, the primary button's
-                  label in its rest, hover and pressed states at 4.5:1 or better (read off the enabled button, because
-                  the text rule exempts disabled controls), focus ring on a card at 3:1 or better — in all 12 theme ×
+                  <code>prefers-reduced-motion</code> fallback. The end-to-end suite measures the four colour pairs that
+                  carry the contrast contract — brand text on the topbar at 4.5:1 or better, the primary button's label
+                  in its rest, hover and pressed states at 4.5:1 or better (read off the enabled button, because the
+                  text rule exempts disabled controls), focus ring on a card at 3:1 or better, and informational text
+                  such as the drop hint and file sizes at 4.5:1 or better on their own backdrop — in all 12 theme ×
                   light/dark combinations.</span
                 >
               </p>
@@ -5296,12 +5735,12 @@
                 />
                 <figcaption>
                   <span lang="zh-CN"
-                    >深色外观：6 种主题色 × 浅 / 深 / 跟随系统，顶栏文字、主按钮文字与焦点环的对比度在全部 12
-                    种组合下逐项实测。</span
+                    >深色外观：6 种主题色 × 浅 / 深 / 跟随系统，顶栏文字、主按钮文字、焦点环与正文信息文字的对比度在全部
+                    12 种组合下逐项实测。</span
                   >
                   <span lang="en"
                     >Dark appearance: 6 accent colours × light / dark / system, with the topbar text, primary button
-                    label and focus-ring contrast measured in all 12 combinations.</span
+                    label, focus-ring and informational-text contrast measured in all 12 combinations.</span
                   >
                 </figcaption>
               </figure>
@@ -5409,15 +5848,13 @@
                 >It is not on the Chrome Web Store yet, so today it is a load-unpacked install: Node.js 20.12 or later
                 and pnpm. This section will be updated once it is listed.</span
               >
-              <div class="cws-notice">
-                <span lang="zh-CN"
-                  >上架后将在 Chrome 应用商店提供一键安装，商店页面链接：<a href="https://chrome.google.com/webstore/detail/ITEM_ID" target="_blank" rel="noopener">CWS 商店页面</a></span
-                >
-                <span lang="en"
-                  >Once published, one-click install will be available via Chrome Web Store: <a href="https://chrome.google.com/webstore/detail/ITEM_ID" target="_blank" rel="noopener">CWS store page</a></span
-                >
-              </div>
             </p>
+            <!-- Outside the <p> on purpose: a <div> inside a <p> is not allowed, and the parser
+                 ends the paragraph before it anyway — this is just what actually happens. -->
+            <div class="cws-notice">
+              <span lang="zh-CN">商店页面链接与一键安装入口上架后出现在此处。</span>
+              <span lang="en">The one-click install link and the listing URL will appear here once published.</span>
+            </div>
           </div>
           <div class="steps-grid">
             <article class="step reveal">
@@ -6106,14 +6543,14 @@ pnpm build</code><button
               <div class="faq-a">
                 <span lang="zh-CN"
                   >不能无损。PDF 输入只提取文本，排版与内嵌图片不保留；反过来，PDF
-                  输出是逐页渲染的图片，文字不可选定。Word 与 Excel 都以 HTML 作为中心格式中转。如果你需要保留排版的 PDF
+                  输出是逐页渲染的图片，不含文字层。Word 与 Excel 都以 HTML 作为中心格式中转。如果你需要保留排版的 PDF
                   互转，请选用专业桌面工具或在线服务。</span
                 >
                 <span lang="en"
                   >Not losslessly. PDF input extracts text only, dropping layout and embedded images; conversely PDF
-                  output is rendered page by page as images, so its text is not selectable. Word and Excel convert
-                  through HTML as the hub format. If you need layout-faithful PDF conversion, reach for a dedicated
-                  desktop tool or an online service.</span
+                  output is rendered page by page as images, so it carries no text layer. Word and Excel convert through
+                  HTML as the hub format. If you need layout-faithful PDF conversion, reach for a dedicated desktop tool
+                  or an online service.</span
                 >
               </div>
             </details>
@@ -6150,6 +6587,39 @@ pnpm build</code><button
             </details>
             <details class="faq-item">
               <summary>
+                <span lang="zh-CN">图片转成的 PDF 为什么还能复制出文字？</span>
+                <span lang="en">Why can I copy text out of a PDF converted from an image?</span>
+                <svg
+                  class="chev"
+                  width="17"
+                  height="17"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.4"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="m9 6 6 6-6 6" />
+                </svg>
+              </summary>
+              <div class="faq-a">
+                <span lang="zh-CN"
+                  >那是 PDF 查看器做的，不是本扩展。转出的 PDF
+                  是逐页位图，文件里既没有文字层也没有真实字符；部分查看器会在展示时自行识别图上的文字，所以你复制出的字符来自查看器，识别结果也不在这个文件里。本扩展不内置
+                  OCR，既读不到也写不出这些字符，所以图片 → TXT / CSV 照旧置灰。</span
+                >
+                <span lang="en"
+                  >Because the viewer did it, not this extension. A PDF written here is a page image with no text layer
+                  and no real characters. Some viewers recognise the text on a page as they display it, so the
+                  characters you copied came from the viewer and are not stored in the file. No OCR is bundled, so this
+                  extension can neither read nor write them — which is why image → TXT / CSV stays greyed out.</span
+                >
+              </div>
+            </details>
+            <details class="faq-item">
+              <summary>
                 <span lang="zh-CN">多个不同格式的文件能一次转换吗？</span>
                 <span lang="en">Can I convert several different formats in one run?</span>
                 <svg
@@ -6178,6 +6648,120 @@ pnpm build</code><button
                   dropping Markdown, CSV and Excel together and converting them all to HTML is a single action. The
                   target picker lists only formats reachable from <em>every</em> file in the batch, so you can never
                   pick a target that half the batch cannot reach.</span
+                >
+              </div>
+            </details>
+            <details class="faq-item">
+              <summary>
+                <span lang="zh-CN">怎么把 Markdown 转成 Word？图片会跟过去吗？</span>
+                <span lang="en">How do I convert Markdown to Word — and what happens to its images?</span>
+                <svg
+                  class="chev"
+                  width="17"
+                  height="17"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.4"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="m9 6 6 6-6 6" />
+                </svg>
+              </summary>
+              <div class="faq-a">
+                <span lang="zh-CN"
+                  >把 .md 投进工作台、目标选 Word，会按 Markdown → HTML → Word 两步走完，产出的文字在 Word
+                  里可选中、可改写、可加批注。图片的命运取决于它在源文件里怎么写：以 data URI
+                  内嵌的随文档一起打包；相对路径按相对保留，图片文件要和 .docx 放在同一目录 Word 才显示得出来；指向
+                  http(s) 的外链图片在打包前被剥掉——Word
+                  打开你的文件时不该替你发起网络请求。每条链路各自保留了什么、丢掉了什么，单独写在
+                  <a href="convert/markdown-to-word.html">Markdown 转 Word</a> 那一页。</span
+                >
+                <span lang="en"
+                  >Drop the .md in and pick Word: the route runs Markdown → HTML → Word in two steps, and the text lands
+                  as real Word paragraphs you can select, rewrite and comment on. What happens to an image depends on
+                  how it is written in the source — a data URI travels inside the document, a relative path stays
+                  relative (so the image files must sit next to the .docx for Word to show them), and an http(s) image
+                  is stripped before packing, because Word must not issue a network request while opening your file.
+                  What each route keeps and drops is spelled out on its own page, here
+                  <a href="convert/markdown-to-word.html">Markdown to Word</a>.</span
+                >
+              </div>
+            </details>
+            <details class="faq-item">
+              <summary>
+                <span lang="zh-CN">Word 转 Markdown 会保留图片吗？</span>
+                <span lang="en">Does Word to Markdown keep the images?</span>
+                <svg
+                  class="chev"
+                  width="17"
+                  height="17"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.4"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="m9 6 6 6-6 6" />
+                </svg>
+              </summary>
+              <div class="faq-a">
+                <span lang="zh-CN"
+                  >保留，但以 data URI 的形式写进 .md，文件因此明显变大——要提交进 Git
+                  的话，建议转完再把图片外链化。搬过来的是内容与层级：标题、列表、加粗与斜体、链接、表格单元格；Markdown
+                  表达不了的东西不会过来，包括页眉页脚、批注、修订记录、目录域、分栏与文本框，表格的合并信息也不保留。老式
+                  .doc（97-2003 二进制）不在支持的 14 种格式里，先在 Word 里另存为 .docx。细节见
+                  <a href="convert/word-to-markdown.html">Word 转 Markdown</a>。</span
+                >
+                <span lang="en"
+                  >Yes, but written into the .md as data URIs, which makes the file noticeably heavier — externalise the
+                  images again before committing to a repository. What crosses over is content and hierarchy: headings,
+                  lists, emphasis, links and table cells. Whatever Markdown cannot express stays behind, so headers and
+                  footers, comments, tracked changes, table-of-contents fields, columns and text boxes do not come, and
+                  table merges do not either. Legacy .doc (97-2003 binary) is outside the 14 supported formats, so save
+                  it as .docx first. Details on the
+                  <a href="convert/word-to-markdown.html">Word to Markdown</a> page.</span
+                >
+              </div>
+            </details>
+            <details class="faq-item">
+              <summary>
+                <span lang="zh-CN">Excel 转 CSV 会不会把 00123 变成 123、把日期变成 45296？</span>
+                <span lang="en">Will Excel to CSV turn 00123 into 123, or a date into 45296?</span>
+                <svg
+                  class="chev"
+                  width="17"
+                  height="17"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.4"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="m9 6 6 6-6 6" />
+                </svg>
+              </summary>
+              <div class="faq-a">
+                <span lang="zh-CN"
+                  >既不会输出显示文本，也不会输出序列号。单元格按存储值序列化，所以格式化成 "1,234.50" 的那个仍然写
+                  1234.5、按百分比显示的 0.25 仍然写 0.25；日期在读取期统一成 yyyy-mm-dd hh:mm:ss（只含日期的落成
+                  YYYY-MM-DD），不受所在时区影响——这就是 45296 这类日序列不会出现在结果里的原因。以 = + - @
+                  或制表符开头的文本会加转义，Excel 重新打开时不会把它当公式执行。多个工作表给出每表一份 CSV、一起装进
+                  ZIP。见 <a href="convert/excel-to-csv.html">Excel 转 CSV</a>。</span
+                >
+                <span lang="en"
+                  >Neither. Cells serialise from the stored value, so a cell formatted "1,234.50" still writes 1234.5
+                  and a percentage-displayed 0.25 still writes 0.25. Dates are normalised while reading, to yyyy-mm-dd
+                  hh:mm:ss (a date-only cell lands as YYYY-MM-DD), independent of your timezone — which is why a day
+                  serial like 45296 never reaches the artifact. Text beginning with = + - @ or a tab is escaped, so
+                  Excel cannot re-execute it as a formula on open. A multi-sheet workbook yields one CSV per sheet
+                  inside a ZIP. See <a href="convert/excel-to-csv.html">Excel to CSV</a>.</span
                 >
               </div>
             </details>
@@ -6544,13 +7128,14 @@ pnpm build</code><button
               <p>
                 <span lang="zh-CN"
                   >WXT · Vue 3 · TypeScript · Element Plus ·
-                  Vite。重型转换库（marked、turndown、mammoth、pdf.js、SheetJS、jsPDF、html-to-image、DOMPurify、fflate）按转换器动态引入，首屏包体保持精简；Element
-                  Plus 按需引入，不整包导入。</span
+                  Vite。重型转换库（marked、turndown、mammoth、pdf.js、SheetJS、jsPDF、html-to-image、DOMPurify）按转换器动态引入，打包用的
+                  fflate 也一样在真正要用的那一刻才加载，首屏不背着它；Element Plus 按需引入，不整包导入。</span
                 >
                 <span lang="en"
                   >WXT · Vue 3 · TypeScript · Element Plus · Vite. Heavy conversion libraries (marked, turndown,
-                  mammoth, pdf.js, SheetJS, jsPDF, html-to-image, DOMPurify, fflate) are dynamically imported per
-                  converter so the first paint stays small; Element Plus is tree-shaken rather than imported
+                  mammoth, pdf.js, SheetJS, jsPDF, html-to-image, DOMPurify) are dynamically imported per converter, and
+                  the ZIP packer (fflate) loads the same way at the call site that needs it rather than with the
+                  workbench, so the first paint stays small; Element Plus is tree-shaken rather than imported
                   whole.</span
                 >
               </p>
@@ -6573,18 +7158,19 @@ pnpm build</code><button
               <p>
                 <span lang="zh-CN"
                   >一套 Playwright 端到端套件加载真正的构建产物，用仓库内的夹具跑完各类转换场景、批量与
-                  ZIP、取消与改键、预览与编辑、图片输出参数与转换预设、历史与偏好，共 208 项断言全部通过（1.0.0
-                  之后的未发布构建，2026-09-14 实测）；另在 6 主题 × 浅/深共 12
-                  种组合下逐项校验三组对比度：顶栏文字、主按钮文字（常态 / 悬停 / 按下）与焦点环。CI 每次推送跑 lint +
-                  build + e2e。</span
+                  ZIP、取消与改键、预览与编辑、图片输出参数与转换预设、PDF 选页、输出文件名模板、历史与偏好，共 317
+                  项断言全部通过（1.0.0 之后的未发布构建，2026-09-24 实测）；另在 6 主题 × 浅/深共 12
+                  种组合下逐项校验四组对比度：顶栏文字、主按钮文字（常态 / 悬停 / 按下）、焦点环与正文信息文字。CI
+                  每次推送跑 lint + build + e2e。</span
                 >
                 <span lang="en"
                   >A Playwright end-to-end suite drives the actual build output over the repository fixtures — every
                   conversion scenario, batching and ZIP handling, cancellation and shortcut rebinding, preview and
-                  editing, image output parameters and conversion presets, history and preferences — with 208/208
-                  assertions passing (the unreleased build after 1.0.0, measured 2026-09-14). It also checks three
-                  contrast pairs — topbar text, the primary button's label in its rest, hover and pressed states, and
-                  the focus ring — in all 12 theme × light/dark combinations. CI runs lint, build and e2e on every
+                  editing, image output parameters and conversion presets, PDF page selection, output file-name
+                  patterns, history and preferences — with 317/317 assertions passing (the unreleased build after 1.0.0,
+                  measured 2026-09-24). It also checks four contrast pairs — topbar text, the primary button's label in
+                  its rest, hover and pressed states, the focus ring, and informational text such as the drop hint and
+                  file sizes — in all 12 theme × light/dark combinations. CI runs lint, build and e2e on every
                   push.</span
                 >
               </p>
@@ -6607,19 +7193,21 @@ pnpm build</code><button
           </div>
           <p class="updated">
             <span lang="zh-CN"
-              ><strong>版本 1.0.0 · 本页最后更新 2026-09-18。</strong>文中全部数字从代码取证：14 种格式来自
+              ><strong>版本 1.0.0 · 本页最后更新 2026-09-26。</strong>文中全部数字从代码取证：14 种格式来自
               <code>FileFormat</code> 枚举，48 条路径与 143 个可达组合来自转换器注册表的邻接图，116 个可选组合是 143
-              减去 <code>utils/core/conversion-policy.ts</code> 置灰的 27 个，3.73 MB 来自
+              减去 <code>utils/core/conversion-policy.ts</code> 置灰的 27 个，3.78 MB 来自
               <code>pnpm build</code> 输出，权限与上限来自 manifest 与源码常量。截图与推广图由
-              <code>pnpm assets:capture</code> 从构建产物生成。</span
+              <code>pnpm assets:capture</code> 从构建产物生成；配对详情页由
+              <code>pnpm pages:render</code> 生成，这一批共 11 个页面，与 <code>docs/sitemap.xml</code> 同步。</span
             >
             <span lang="en"
-              ><strong>Version 1.0.0 · page last updated 2026-09-18.</strong> Every number on this page is taken from
+              ><strong>Version 1.0.0 · page last updated 2026-09-26.</strong> Every number on this page is taken from
               the code: 14 formats from the <code>FileFormat</code> enum, 48 routes and 143 reachable combinations from
               the converter registry's adjacency graph, and 116 selectable combinations — that is 143 minus the 27 pairs
-              <code>utils/core/conversion-policy.ts</code> greys out. 3.73 MB comes from <code>pnpm build</code> output,
+              <code>utils/core/conversion-policy.ts</code> greys out. 3.78 MB comes from <code>pnpm build</code> output,
               permissions and limits from the manifest and source constants. Screenshots are generated from the built
-              bundle by <code>pnpm assets:capture</code>.</span
+              bundle by <code>pnpm assets:capture</code>, and the per-pair pages — 11 pages in this batch — come from
+              <code>pnpm pages:render</code>, which writes the sitemap they are listed in.</span
             >
           </p>
         </div>
@@ -6875,6 +7463,8 @@ pnpm build</code><button
             <a href="#compare"><span lang="zh-CN">横向对比</span><span lang="en">Comparison</span></a>
             <a href="#privacy"><span lang="zh-CN">隐私与权限</span><span lang="en">Privacy &amp; permissions</span></a>
             <a href="#faq"><span lang="zh-CN">常见问题</span><span lang="en">FAQ</span></a>
+            <a href="convert/"><span lang="zh-CN">配对详情</span><span lang="en">Conversions</span></a>
+            <a href="blog/"><span lang="zh-CN">设计手记</span><span lang="en">Design notes</span></a>
             <a href="#details"><span lang="zh-CN">技术细节</span><span lang="en">Technical details</span></a>
             <a href="#more"><span lang="zh-CN">同作者工具</span><span lang="en">More by the author</span></a>
             <a href="#contact"><span lang="zh-CN">联系</span><span lang="en">Contact</span></a>
@@ -6925,7 +7515,7 @@ pnpm build</code><button
               </a>
             </span>
             <span>
-              <span lang="zh-CN">最后更新 2026-09-18 · </span><span lang="en">Last updated 2026-09-18 · </span
+              <span lang="zh-CN">最后更新 2026-09-26 · </span><span lang="en">Last updated 2026-09-26 · </span
               ><a
                 href="https://github.com/liaolongdong/transfer-any-file/blob/main/CHANGELOG.md"
                 rel="noopener"
@@ -7107,32 +7697,10 @@ pnpm build</code><button
         var root = document.documentElement;
 
         /**
-         * Metadata per language. The markup ships bilingual `<title>` / description values as the
-         * no-JavaScript fallback, so a crawler that never runs the page still reads both languages;
-         * once the language is known these are narrowed to the one being displayed, which is what
-         * search results and social cards quote verbatim.
+         * The same per-language table the head script applied before first paint. Kept in one object so
+         * switching language in the page cannot quote strings that differ from the ones already indexed.
          */
-        var META = {
-          'zh-CN': {
-            title: 'Transfer Any File｜离线文件格式转换扩展 · 14 种格式本地互转，零上传',
-            description:
-              '开源 Chrome 离线文件格式转换扩展——14 种文档、表格与图片格式在你自己的电脑本地互转。不上传、无账号、零网络请求。',
-            ogTitle: 'Transfer Any File｜离线文件格式转换扩展（Chrome）',
-            ogDescription:
-              '在浏览器本地完成 14 种格式互转：批量、多步链路、预览编辑与 ZIP 打包，不上传一个字节，只申请 storage 权限。',
-            twitterDescription: '14 种格式、48 条直接路径、116 个可选组合、0 次网络请求，全部在你自己的浏览器里完成。',
-          },
-          en: {
-            title: 'Transfer Any File — Offline File Format Converter for Chrome',
-            description:
-              'Offline file format converter for Chrome — convert 14 document, data and image formats in your browser. No uploads, no account, zero network requests.',
-            ogTitle: 'Transfer Any File — offline file format converter for Chrome',
-            ogDescription:
-              'Convert 14 file formats inside your browser. Batch, multi-step, preview and edit — without uploading a byte.',
-            twitterDescription:
-              '14 formats, 48 direct routes, 116 selectable combinations, zero network requests. Runs entirely in your browser.',
-          },
-        };
+        var META = window.__FAT_DOCS_META__;
 
         function setMeta(selector, value) {
           var el = document.querySelector(selector);
@@ -7319,6 +7887,16 @@ pnpm build</code><button
                 if (entry.isIntersecting) {
                   entry.target.classList.add('in');
                   io.unobserve(entry.target);
+                  return;
+                }
+                // A jump — an in-page anchor, a deep link straight to #install, a restored scroll position —
+                // never lets the observer see the sections in between, and a section whose only report is
+                // "not intersecting" while it sits above the viewport would stay at opacity 0 until the
+                // reader scrolled back up. Anything already past the top edge is shown on the spot: no
+                // movement is owed for a section nobody watched arrive.
+                if (entry.boundingClientRect.top < 0) {
+                  entry.target.classList.add('in');
+                  io.unobserve(entry.target);
                 }
               });
             },
@@ -7330,7 +7908,7 @@ pnpm build</code><button
         }
 
         // ---- Roll the metric band up, once, as it comes into view ----------
-        // Only bare integers are touched: "3.73 MB" is a measurement with a unit, not a tally, and
+        // Only bare integers are touched: "3.78 MB" is a measurement with a unit, not a tally, and
         // rolling it would advertise a precision the build does not have. The real value stays in the
         // HTML, so crawlers, no-JS readers and reduced-motion readers all see the answer immediately.
         var metricNums = Array.prototype.slice.call(document.querySelectorAll('.metric b')).filter(function (el) {
@@ -7455,9 +8033,47 @@ pnpm build</code><button
           window.addEventListener('resize', measure);
         }
 
+        // ---- Cursor light over the cards ---------------------------------------
+        // The pointer's position is written into the hovered card as two percentages, which is all the
+        // stylesheet needs: the gradient is painted wherever those numbers say, so nothing moves and no
+        // class is toggled — the only thing that changes on hover is an `opacity` the CSS owns. One rAF is
+        // in flight at a time, and it reads the *latest* sample rather than the one that scheduled it.
+        // Storing the coordinates beside the card is what keeps the pair honest: one card crossing into
+        // the next inside a frame would otherwise apply the scheduling event's `clientX` against a
+        // different card's box, which puts the light somewhere other than under the pointer — and off the
+        // edge, where the percentages run past 100 and the highlight lands on a neighbour. Cost is one
+        // `getBoundingClientRect()` per frame while the pointer is inside a card; movement outside every
+        // card returns before that, and that is most of it. Reduced motion leaves both properties unset, so
+        // the CSS fallback keeps the light centred and the hover state is a card that brightens without
+        // anything tracking the cursor.
+        if (!reduced && window.matchMedia('(hover: hover) and (pointer: fine)').matches) {
+          var glowFrame = 0;
+          var glowCard = null;
+          var glowX = 0;
+          var glowY = 0;
+          document.addEventListener(
+            'pointermove',
+            function (e) {
+              var card = e.target.closest ? e.target.closest('.card') : null;
+              if (!card) return;
+              glowCard = card;
+              glowX = e.clientX;
+              glowY = e.clientY;
+              if (glowFrame) return;
+              glowFrame = requestAnimationFrame(function () {
+                glowFrame = 0;
+                var r = glowCard.getBoundingClientRect();
+                glowCard.style.setProperty('--mx', (((glowX - r.left) / r.width) * 100).toFixed(2) + '%');
+                glowCard.style.setProperty('--my', (((glowY - r.top) / r.height) * 100).toFixed(2) + '%');
+              });
+            },
+            { passive: true },
+          );
+        }
+
         // ---- One-pass scroll reveals declared in the markup -------------------
         // data-onview names the class an element gains the first time it is 35% in view:
-        // the size bar under "3.73 MB" (in) and the light sweep over the comparison column
+        // the size bar under "3.78 MB" (in) and the light sweep over the comparison column
         // (shine). Both classes only arm finite animations, so reduced-motion readers get
         // the end state directly and there is nothing to unsee.
         var onView = Array.prototype.slice.call(document.querySelectorAll('[data-onview]'));

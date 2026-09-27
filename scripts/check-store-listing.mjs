@@ -158,8 +158,13 @@ const sync = [
     `manifest.default_locale === '${DEFAULT_LOCALE}'`,
     new RegExp(`default_locale:\\s*(['"])${DEFAULT_LOCALE}\\1`).test(wxtConfig),
   ],
-  ['manifest.name is __MSG_extensionName__', wxtConfig.includes('"__MSG_extensionName__"')],
-  ['manifest.description is __MSG_extensionDescription__', wxtConfig.includes('"__MSG_extensionDescription__"')],
+  // Quote-agnostic on purpose: `wxt.config.ts` is Prettier-managed now, so pinning the
+  // assertion to a double quote would fail on a formatting change rather than a real drift.
+  ['manifest.name is __MSG_extensionName__', /name:\s*(['"])__MSG_extensionName__\1/.test(wxtConfig)],
+  [
+    'manifest.description is __MSG_extensionDescription__',
+    /description:\s*(['"])__MSG_extensionDescription__\1/.test(wxtConfig),
+  ],
   ['_locales key sets are identical across ' + LOCALE_CODES.join(' / '), sameKeys],
   ...LOCALE_CODES.flatMap(code =>
     Object.entries(MESSAGE_KEYS).map(([field, messageKey]) => {

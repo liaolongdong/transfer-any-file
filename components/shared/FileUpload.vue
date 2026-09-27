@@ -1,13 +1,14 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, defineAsyncComponent } from 'vue';
+import { ref, computed, toRaw, onMounted, onUnmounted, defineAsyncComponent } from 'vue';
 import type { Component } from 'vue';
 import { UploadFilled, Delete, Plus, Picture, Document, Grid, View } from '@element-plus/icons-vue';
-import { unzip } from 'fflate';
 import { FileFormat } from '~/utils/core/types';
 import { getFormatLabel, getFormatCategory } from '~/utils/core/format-labels';
 import { formatSize } from '~/utils/core/format';
+import { loadFflate, declaredEntryCount, MAX_ZIP_ENTRIES } from '~/utils/core/zip';
 import { isMac } from '~/utils/core/platform';
-import { useFileDetect, SUPPORTED_EXTENSIONS } from '~/composables/useFileDetect';
+import { detectFormat, SUPPORTED_EXTENSIONS } from '~/utils/core/file-detect';
+import { collectDropped, snapshotDrop } from '~/utils/core/folder-drop';
 import { useI18n } from '~/composables/useI18n';
 
 // Heavy component — only loaded when the user actually opens a source preview,
@@ -27,7 +28,6 @@ const emit = defineEmits<{
   (e: 'update:files', files: File[]): void;
 }>();
 
-const { detectFormat } = useFileDetect();
 const { t } = useI18n();
 
 const fileInput = ref<HTMLInputElement | null>(null);
@@ -42,6 +42,32 @@ const acceptExtensions = [...SUPPORTED_EXTENSIONS, '.zip'].join(',');
 const pasteKey = isMac ? '⌘V' : 'Ctrl+V';
 
 const dropText = computed(() => (selectedFiles.value.length === 0 ? t('upload.drop') : t('upload.replace')));
+
+/**
+ * Stable v-for key for the staged-file list.
+ *
+ * The key used to be `file.name + index`, which re-keys every row below a removal: deleting the
+ * first of five files unmounted four and mounted four again, and because the list is wrapped in a
+ * `<TransitionGroup>` that played as the whole tail flickering out and back in rather than as one
+ * row leaving. The `File` instance is the only identity this list has — `removeFile()` rebuilds the
+ * array but carries the same objects through `selectFiles()` — so the key is minted once per object.
+ *
+ * `toRaw()` guards the lookup: `selectedFiles` is a `ref` array, and Vue does not proxy a `File`
+ * (its `getTargetType` only reacts on Object/Array/collection tags), but if that ever changes the
+ * map would otherwise key on a fresh proxy per render and hand out a new id every frame.
+ */
+const rowKeys = new WeakMap<File, string>();
+let rowKeySeq = 0;
+
+function rowKey(file: File): string {
+  const target = toRaw(file);
+  let key = rowKeys.get(target);
+  if (key === undefined) {
+    key = `file-${++rowKeySeq}`;
+    rowKeys.set(target, key);
+  }
+  return key;
+}
 
 /** Map clipboard image MIME to a filename extension for correct detection */
 const PASTE_EXTENSIONS: Record<string, string> = {
@@ -121,13 +147,49 @@ function clearAll(): void {
   emit('update:files', []);
 }
 
+/** The `DataTransfer` already consumed by {@link intakeDrop}, see the deduplication note there. */
+let takenDrop: DataTransfer | null = null;
+
+/**
+ * Take everything a drop offers through the one intake pipeline.
+ *
+ * **Must be entered synchronously from the `drop` handler**: the folder entries `snapshotDrop`
+ * reads are revoked as soon as the handler returns, so they are captured here, before the first
+ * await, and the walk continues afterwards.
+ *
+ * One physical drop reaches this function twice — the drop zone's own handler runs first and the
+ * event then bubbles to the page-wide overlay in `entrypoints/options/App.vue`. For loose files
+ * that was invisible (both calls ended in the same list), but a folder is a directory walk with
+ * messages of its own, so the `DataTransfer` already taken this dispatch is refused. Those objects
+ * are created per drag and never reused, and a `File` is a disk handle rather than file contents, so
+ * holding the last one costs nothing.
+ */
+async function intakeDrop(dataTransfer: DataTransfer | null): Promise<void> {
+  if (props.disabled || !dataTransfer || dataTransfer === takenDrop) return;
+  takenDrop = dataTransfer;
+  const items = snapshotDrop(dataTransfer);
+  if (items.length === 0) return;
+
+  const collected = await collectDropped(items, MAX_BATCH_FILES);
+  // A truncated walk always says which limit it hit: `{max}` is interpolated by the batch-cap
+  // message and simply ignored by the depth/scan one. `folderEmpty` is kept for the case where the
+  // folder really did hold nothing convertible — claiming that after refusing entries for a limit
+  // would name the wrong reason.
+  if (collected.truncated) {
+    const key = collected.truncated === 'cap' ? 'upload.batchCap' : 'upload.folderTruncated';
+    ElMessage.warning(t(key, { max: MAX_BATCH_FILES }));
+  }
+  if (collected.files.length === 0) {
+    if (!collected.truncated) ElMessage.warning(t('upload.folderEmpty'));
+    return;
+  }
+  if (collected.fromFolders > 0) ElMessage.success(t('upload.folderImported', { count: collected.fromFolders }));
+  selectFiles(collected.files);
+}
+
 function handleDrop(event: DragEvent): void {
   isDragging.value = false;
-  if (props.disabled) return;
-  const files = Array.from(event.dataTransfer?.files ?? []);
-  if (files.length > 0) {
-    selectFiles(files);
-  }
+  void intakeDrop(event.dataTransfer);
 }
 
 function handleDragOver(): void {
@@ -158,6 +220,10 @@ const ZIP_TOTAL_BUDGET = 200 * 1024 * 1024; // 200MB
  */
 async function readArchive(file: File): Promise<{ entries: Record<string, Uint8Array>; truncated: boolean }> {
   const buffer = new Uint8Array(await file.arrayBuffer());
+  // The entry count comes from the archive's own footer and `unzip` walks it in one synchronous
+  // loop no filter can interrupt, so a claim that is not true is checked here rather than discovered there.
+  if ((declaredEntryCount(buffer) ?? 0) > MAX_ZIP_ENTRIES) throw new Error('archive claims too many entries');
+  const { unzip } = await loadFflate();
   let declaredTotal = 0;
   let kept = 0;
   let truncated = false;
@@ -171,15 +237,19 @@ async function readArchive(file: File): Promise<{ entries: Record<string, Uint8A
           const dot = base.lastIndexOf('.');
           const ext = dot === -1 ? '' : base.slice(dot).toLowerCase();
           if (!SUPPORTED_EXTENSIONS.includes(ext)) return false;
-          if (
-            info.originalSize > MAX_REJECT_SIZE ||
-            declaredTotal + info.originalSize > ZIP_TOTAL_BUDGET ||
-            kept >= MAX_BATCH_FILES
-          ) {
+          // Charged against both declared fields, not just the uncompressed one: a *stored* entry is
+          // copied out of the buffer at its compressed length (`slc` clamps to the archive, so a
+          // large claim yields a large allocation without any inflate), and every entry is free to
+          // point at the same bytes. Measured on the real page with 400 entries each declaring
+          // `originalSize` 1 against one shared 2 MiB blob: charging `originalSize` let the batch run
+          // to the 200-entry cap, materialising 400 MiB out of a 2 MiB archive. Charging both fields
+          // stops it at 100 entries — the 200 MiB budget, reached by real bytes this time.
+          const charge = Math.max(info.size, info.originalSize);
+          if (charge > MAX_REJECT_SIZE || declaredTotal + charge > ZIP_TOTAL_BUDGET || kept >= MAX_BATCH_FILES) {
             truncated = true;
             return false;
           }
-          declaredTotal += info.originalSize;
+          declaredTotal += charge;
           kept++;
           return true;
         },
@@ -249,6 +319,13 @@ async function applyFiles(files: File[]): Promise<void> {
   const generation = ++applyGeneration;
   const expanded = await expandArchives(files);
   if (generation !== applyGeneration) return;
+  // The entry guards above all refuse while a batch is running; `expandArchives` is the one await
+  // between the refusal and the write, and a folder or ZIP still inflating when the user pressed
+  // 开始转换 would otherwise land here and replace the list under the running batch. The batch keeps
+  // converting its own snapshot, so what breaks is everything that reads the list by position: the
+  // name in the progress row, and the file a failure row blames. Refusing late costs the user the
+  // drop they could not make while the panel was disabled anyway.
+  if (props.disabled) return;
   const validFiles: File[] = [];
   for (const file of expanded) {
     if (file.size > MAX_REJECT_SIZE) {
@@ -296,6 +373,46 @@ const previewBlob = ref<Blob | null>(null);
 const previewFormat = ref<FileFormat>(FileFormat.TXT);
 const previewFilename = ref('');
 
+/**
+ * Whether the preview dialog exists yet.
+ *
+ * `defineAsyncComponent` defers the component, not its chunks: mounted under a plain
+ * `v-model:visible` it resolved during this component's first render, so four requests — three
+ * scripts and the stylesheet the dialog injects, which makes them render-blocking — landed inside
+ * the workbench's first-paint window even though an empty workbench has nothing to preview. This
+ * flag is what makes the comment above the import true. The first preview click arms it, so no
+ * click can be the reason a dialog did not open — the dialog fills itself from an `immediate`
+ * watcher precisely so that being created by that same click still renders it; otherwise the
+ * first contentful paint does, which is the only moment that is actually late enough — an idle
+ * callback proved to fire inside that same window.
+ */
+const previewMounted = ref(false);
+let paintObserver: PerformanceObserver | null = null;
+
+onMounted(() => {
+  try {
+    paintObserver = new PerformanceObserver(entries => {
+      // `first-paint` is not good enough: on this page it can land while `#app` is still empty, and
+      // arming then puts the four requests back inside the window they were meant to leave.
+      if (!entries.getEntries().some(entry => entry.name === 'first-contentful-paint')) return;
+      previewMounted.value = true;
+      paintObserver?.disconnect();
+      paintObserver = null;
+    });
+    // `buffered` is what makes this correct in the remount case: the paint has usually already
+    // happened by now, and the entry still arrives. A tab that never paints never warms the dialog
+    // up, which costs nothing — nothing is being looked at.
+    paintObserver.observe({ type: 'paint', buffered: true });
+  } catch {
+    // A warm-up that cannot arm must not take the upload card down with it. Left false, the gate
+    // simply keeps every dialog request out of the boot until a click arms it.
+    paintObserver?.disconnect();
+    paintObserver = null;
+  }
+});
+
+onUnmounted(() => paintObserver?.disconnect());
+
 function previewFile(index: number): void {
   const file = selectedFiles.value[index];
   const format = detectedFormats.value[index];
@@ -303,6 +420,7 @@ function previewFile(index: number): void {
     ElMessage.warning(t('upload.previewUnsupported'));
     return;
   }
+  previewMounted.value = true;
   previewBlob.value = file;
   previewFormat.value = format;
   previewFilename.value = file.name;
@@ -322,13 +440,10 @@ function getFormatLabelSafe(format: FileFormat | null): string {
   return getFormatLabel(format);
 }
 
-/** Public entry point: let parents hand us files from a global drop without
- *  bypassing the archive-expand / size-validate / batch-cap pipeline. */
+/** Public entry point: let the parent hand us a whole drop — the folder walk, the archive-expand,
+ *  size-validate and batch-cap pipeline and the duplicate-drop guard all live behind this call. */
 defineExpose({
-  addFiles(files: File[]): void {
-    if (props.disabled) return;
-    selectFiles(files);
-  },
+  intakeDrop,
 });
 </script>
 
@@ -367,99 +482,106 @@ defineExpose({
       @change="handleFileSelect"
     />
 
-    <TransitionGroup
-      v-if="selectedFiles.length > 0"
-      name="file-list"
-      tag="div"
-      class="file-list"
-    >
+    <Transition name="fat-expand">
       <div
-        key="header"
-        class="file-list-header"
+        v-if="selectedFiles.length > 0"
+        class="fat-expand file-list-expand"
       >
-        <span>{{ t('upload.selectedCount', { count: selectedFiles.length }) }}</span>
-        <span class="header-actions">
-          <el-button
-            v-if="multiple"
-            class="add-files-btn"
-            size="small"
-            text
-            type="primary"
-            :icon="Plus"
-            :disabled="disabled"
-            @click.stop="triggerFileInput(true)"
-          >
-            {{ t('upload.addMore') }}
-          </el-button>
-          <el-button
-            class="clear-files-btn"
-            size="small"
-            text
-            type="danger"
-            :icon="Delete"
-            :disabled="disabled"
-            @click.stop="clearAll"
-          >
-            {{ t('upload.clearAll') }}
-          </el-button>
-        </span>
-      </div>
-      <div
-        v-for="(file, index) in selectedFiles"
-        :key="file.name + index"
-        class="file-item"
-      >
-        <el-icon
-          class="file-icon"
-          :size="18"
-          color="var(--fat-text-secondary)"
+        <TransitionGroup
+          name="file-list"
+          tag="div"
+          class="file-list"
         >
-          <component :is="getFileIcon(detectedFormats[index])" />
-        </el-icon>
-        <div class="file-details">
-          <span class="file-name">{{ file.name }}</span>
-          <span class="file-meta">
-            {{ formatSize(file.size) }}
-            <el-tag
+          <div
+            key="header"
+            class="file-list-header"
+          >
+            <span>{{ t('upload.selectedCount', { count: selectedFiles.length }) }}</span>
+            <span class="header-actions">
+              <el-button
+                v-if="multiple"
+                class="add-files-btn"
+                size="small"
+                text
+                type="primary"
+                :icon="Plus"
+                :disabled="disabled"
+                @click.stop="triggerFileInput(true)"
+              >
+                {{ t('upload.addMore') }}
+              </el-button>
+              <el-button
+                class="clear-files-btn"
+                size="small"
+                text
+                type="danger"
+                :icon="Delete"
+                :disabled="disabled"
+                @click.stop="clearAll"
+              >
+                {{ t('upload.clearAll') }}
+              </el-button>
+            </span>
+          </div>
+          <div
+            v-for="(file, index) in selectedFiles"
+            :key="rowKey(file)"
+            class="file-item"
+          >
+            <el-icon
+              class="file-icon"
+              :size="18"
+              color="var(--fat-text-secondary)"
+            >
+              <component :is="getFileIcon(detectedFormats[index])" />
+            </el-icon>
+            <div class="file-details">
+              <span class="file-name">{{ file.name }}</span>
+              <span class="file-meta">
+                {{ formatSize(file.size) }}
+                <el-tag
+                  v-if="detectedFormats[index]"
+                  size="small"
+                  type="primary"
+                  style="margin-left: var(--fat-space-xs)"
+                >
+                  {{ getFormatLabelSafe(detectedFormats[index]) }}
+                </el-tag>
+                <el-tag
+                  v-else
+                  size="small"
+                  type="danger"
+                  style="margin-left: var(--fat-space-xs)"
+                >
+                  {{ t('upload.unknownFormat') }}
+                </el-tag>
+              </span>
+            </div>
+            <el-button
               v-if="detectedFormats[index]"
+              :icon="View"
               size="small"
+              text
               type="primary"
-              style="margin-left: var(--fat-space-xs)"
-            >
-              {{ getFormatLabelSafe(detectedFormats[index]) }}
-            </el-tag>
-            <el-tag
-              v-else
+              :title="t('upload.preview')"
+              :aria-label="t('a11y.preview')"
+              @click.stop="previewFile(index)"
+            />
+            <el-button
+              :icon="Delete"
               size="small"
+              text
               type="danger"
-              style="margin-left: var(--fat-space-xs)"
-            >
-              {{ t('upload.unknownFormat') }}
-            </el-tag>
-          </span>
-        </div>
-        <el-button
-          v-if="detectedFormats[index]"
-          :icon="View"
-          size="small"
-          text
-          type="primary"
-          :title="t('upload.preview')"
-          :aria-label="t('a11y.preview')"
-          @click.stop="previewFile(index)"
-        />
-        <el-button
-          :icon="Delete"
-          size="small"
-          text
-          type="danger"
-          :aria-label="t('a11y.remove')"
-          @click.stop="removeFile(index)"
-        />
+              :aria-label="t('a11y.remove')"
+              @click.stop="removeFile(index)"
+            />
+          </div>
+        </TransitionGroup>
       </div>
-    </TransitionGroup>
+    </Transition>
 
     <PreviewDialog
+      v-if="previewMounted"
       v-model:visible="previewVisible"
       :blob="previewBlob"
       :format="previewFormat"
@@ -473,21 +595,36 @@ defineExpose({
   width: 100%;
 }
 
+/* The shared list names the eight properties that actually change on hover, focus, press or
+   selection anywhere in this UI, and `all` used to cover a ninth by accident: this zone is the only
+   surface whose *state* is also a change of size, and `.drop-zone.has-file` tightening the plate from
+   24px to 16px used to tween because `all` tweened whatever else happened to change. Appending the
+   one property keeps that movement; restoring `all` would put every future property back up for
+   grabs, and a layout property in the list costs a reflow per frame. */
 .drop-zone {
   border: 2px dashed var(--fat-border);
   border-radius: var(--fat-radius-md);
   padding: var(--fat-space-xl);
   text-align: center;
   cursor: pointer;
-  transition: var(--fat-transition);
+  transition:
+    padding var(--fat-duration-base) var(--fat-ease-standard),
+    var(--fat-transition);
   background: var(--fat-surface-2);
 }
 
+/* The border/background shift is the *hover* affordance, and it doubled as the focus affordance
+   only while the zone was empty: `.drop-zone.has-file` below has the same specificity and comes
+   later, so with files loaded it overrode both declarations back to their already-applied values.
+   Measured on the built page with real Tab focus, in blue/light, green/light, green/dark and
+   slate/dark: the focused zone computed the same border, background and outline as the unfocused
+   one, because the `outline: none` that used to sit here cancelled the global `:focus-visible`
+   ring. That left the common state — anything loaded — with no focus indicator, which WCAG 2.4.7
+   does not allow. Only the ring is added back; the hover colors are untouched. */
 .drop-zone:hover,
 .drop-zone:focus-visible {
   border-color: var(--fat-primary);
   background: var(--fat-primary-bg);
-  outline: none;
 }
 
 .drop-zone.dragging {
@@ -509,7 +646,7 @@ defineExpose({
 }
 
 .paste-hint {
-  color: var(--fat-text-placeholder);
+  color: var(--fat-text-secondary);
   margin: var(--fat-space-xs) 0 0;
   font-size: 12px;
 }
@@ -525,8 +662,20 @@ defineExpose({
   pointer-events: none;
 }
 
-.file-list {
+/* The 8px gap lives on the expanding wrapper: `fat-expand` clamps its child's row to zero, and a
+   margin on that child would survive the collapse as a strip above an empty list. */
+.file-list-expand {
   margin-top: var(--fat-space-sm);
+}
+
+/* Deliberately `hidden`, which outranks the `clip` that `.fat-expand > *` asks for (a scoped class
+   beats that selector) and so leaves `overflow-clip-margin` inert on this one box. It has to stay
+   `hidden` because the rows are full-bleed inside a rounded border — `clip` plus a clip margin would
+   let them paint over the corner. Nothing is lost to the focus ring either: the header pads its
+   content by `--fat-space-xs` and the rows by `--fat-space-sm`, both at least the ring's own extent
+   (`--fat-focus-ring-inset`, 4px = 2px outline + 2px offset), so a ring reaches the padding box —
+   which is the clip edge — and no farther. */
+.file-list {
   border: 1px solid var(--fat-border);
   border-radius: var(--fat-radius-md);
   overflow: hidden;
@@ -589,27 +738,37 @@ defineExpose({
 
 .file-meta {
   font-size: 11px;
-  color: var(--fat-text-placeholder);
+  color: var(--fat-text-secondary);
   display: flex;
   align-items: center;
 }
 
-.file-list-enter-active,
-.file-list-leave-active {
-  transition: all 0.2s ease;
+/* Rows animate in only. A departing row has nowhere honest to go: held in flow it doubles the
+   list's height against the batch that replaces it, and lifted out of flow it overlaps the rows
+   that took its place. Removing it on the spot while `-move` carries the gap closed reads as
+   "this file is gone" and cannot tear the layout — and it is the case that used to flicker,
+   because the index-bearing key remounted every row below the removed one. */
+.file-list-enter-active {
+  transition:
+    opacity var(--fat-duration-base) var(--fat-ease-enter),
+    transform var(--fat-duration-base) var(--fat-ease-enter);
 }
 
 .file-list-enter-from {
   opacity: 0;
-  transform: translateX(-12px);
+  transform: translateY(calc(var(--fat-slide-md) * -1));
 }
 
-.file-list-leave-to {
-  opacity: 0;
-  transform: translateX(12px);
+/* Declared so the comment above is literally true rather than merely intended. Without a leave
+   transition of its own, the row would still inherit `.file-item`'s `--fat-transition-fast`, and
+   <TransitionGroup> reads the *element's* computed duration before it unmounts — so a deleted row
+   would sit unchanged for one duration and the list would re-flow twice. A zeroed duration takes it
+   out on the spot, leaving `-move` as the only motion. */
+.file-list-leave-active {
+  transition: none;
 }
 
 .file-list-move {
-  transition: transform 0.2s ease;
+  transition: transform var(--fat-duration-base) var(--fat-ease-standard);
 }
 </style>

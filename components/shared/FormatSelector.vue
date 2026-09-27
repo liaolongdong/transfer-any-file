@@ -88,6 +88,13 @@ const conversionPathLabels = computed(() => {
 function handleChange(format: FileFormat): void {
   emit('update:targetFormat', format);
 }
+
+/**
+ * Why there is nothing to pick. The parent only mounts this component once a batch exists, so an
+ * empty `sourceFormats` means none of those files was recognized — a different dead end from
+ * "recognized, but no target they all share", and the fix differs too.
+ */
+const noTargetTitle = computed(() => (hasSource.value ? t('format.noTarget') : t('format.noRecognizedSource')));
 </script>
 
 <template>
@@ -120,7 +127,7 @@ function handleChange(format: FileFormat): void {
       </div>
       <el-icon
         :size="14"
-        color="var(--fat-text-placeholder)"
+        color="var(--fat-text-secondary)"
       >
         <Right />
       </el-icon>
@@ -128,6 +135,7 @@ function handleChange(format: FileFormat): void {
         <el-select
           :model-value="targetFormat"
           :placeholder="t('format.selectTarget')"
+          :aria-label="t('a11y.targetFormat')"
           filterable
           :disabled="disabled"
           :no-match-text="t('format.noMatch')"
@@ -174,20 +182,26 @@ function handleChange(format: FileFormat): void {
         </el-select>
       </div>
     </div>
-    <div
-      v-if="conversionPathLabels.length > 0"
-      class="path-hint"
-    >
-      <span class="path-label">{{ t('format.conversionPath') }}</span>
-      <span class="path-steps"> {{ getFormatLabel(sourceFormats[0]) }} → {{ conversionPathLabels.join(' → ') }} </span>
-    </div>
+    <Transition name="fat-expand">
+      <div
+        v-if="conversionPathLabels.length > 0"
+        class="fat-expand path-hint-expand"
+      >
+        <div class="path-hint">
+          <span class="path-label">{{ t('format.conversionPath') }}</span>
+          <span class="path-steps">
+            {{ getFormatLabel(sourceFormats[0]) }} → {{ conversionPathLabels.join(' → ') }}
+          </span>
+        </div>
+      </div>
+    </Transition>
   </div>
   <div
-    v-else-if="hasSource"
+    v-else
     class="format-selector"
   >
     <el-alert
-      :title="t('format.noTarget')"
+      :title="noTargetTitle"
       type="warning"
       :closable="false"
       show-icon
@@ -215,11 +229,17 @@ function handleChange(format: FileFormat): void {
   min-width: 0;
 }
 
+/* The gap belongs to the expanding wrapper, not to `.path-hint`: `fat-expand` clamps the row to
+   zero, but an item's own margin still displaces its clipped box, which would leave a 8px strip
+   where the closed hint sits. See the note on `.fat-expand` in global.css. */
+.path-hint-expand {
+  margin-top: var(--fat-space-sm);
+}
+
 .path-hint {
   display: flex;
   align-items: center;
   gap: var(--fat-space-xs);
-  margin-top: var(--fat-space-sm);
   padding: var(--fat-space-xs) var(--fat-space-sm);
   background: var(--fat-primary-bg);
   border: 1px solid var(--fat-primary-border);

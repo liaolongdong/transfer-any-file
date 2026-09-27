@@ -1,11 +1,17 @@
 <script setup lang="ts">
 import { useI18n } from '~/composables/useI18n';
+import CurrentFileHint from '~/components/shared/CurrentFileHint.vue';
+import StepProgressHint from '~/components/shared/StepProgressHint.vue';
 
 defineProps<{
   isConverting: boolean;
   error: string | null;
   /** Name of the file currently being processed (batch progress hint). */
   currentFileName?: string | null;
+  /** 1-indexed position inside the current file's conversion chain; 0 when unknown. */
+  currentStep?: number;
+  /** Steps in the resolved chain; ≤ 1 hides the line, so single-step routes look unchanged. */
+  stepTotal?: number;
 }>();
 
 const { t } = useI18n();
@@ -36,13 +42,15 @@ const { t } = useI18n();
         </svg>
       </el-icon>
       <p>{{ t('convert.inProgress') }}</p>
-      <p
+      <CurrentFileHint
         v-if="currentFileName"
-        class="current-file"
-        :title="currentFileName"
-      >
-        {{ t('convert.currentFile', { name: currentFileName }) }}
-      </p>
+        :name="currentFileName"
+      />
+      <StepProgressHint
+        v-if="(stepTotal ?? 0) > 1"
+        :current="currentStep ?? 0"
+        :total="stepTotal ?? 0"
+      />
     </div>
     <el-alert
       v-if="error"
@@ -69,18 +77,14 @@ const { t } = useI18n();
   font-size: 13px;
 }
 
+/* The one loop in the workbench, and the one place where collapsing the duration ladder is not
+   enough on its own: `infinite` survives a 0.01ms duration as a near-stroboscopic spin, so the
+   blanket's `animation-iteration-count: 1` is what actually stops it. Routing the period through
+   `--fat-duration-spin` instead of a literal is what makes the two spinners agree — Element Plus
+   hardcodes 2s for `.el-icon.is-loading` (ruled at the bottom of global.css), so a loading icon
+   inside a dialog used to turn at half the speed of the one on this card, two thirds of a second
+   apart on every revolution. */
 .loading-state .is-loading {
-  animation: fat-spin 1s linear infinite;
-}
-
-.current-file {
-  margin: 0;
-  max-width: 100%;
-  font-size: 12px;
-  color: var(--fat-text-placeholder);
-  font-family: var(--fat-font-mono);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  animation: fat-spin var(--fat-duration-spin) linear infinite;
 }
 </style>

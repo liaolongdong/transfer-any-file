@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { computed, ref, watch, defineAsyncComponent, onMounted, onUnmounted } from 'vue';
+import { computed, ref, watch, nextTick, defineAsyncComponent, onMounted, onUnmounted } from 'vue';
 import { Setting, RefreshRight, CircleClose, UploadFilled } from '@element-plus/icons-vue';
+import zhCn from 'element-plus/es/locale/lang/zh-cn';
+import enUs from 'element-plus/es/locale/lang/en';
 import { initConverters } from '~/utils/converters';
 import { useConversion } from '~/composables/useConversion';
 import { CONVERSION_ERROR_KEYS } from '~/utils/core/error-keys';
@@ -9,10 +11,13 @@ import { useRecentTargets } from '~/composables/useRecentTargets';
 import { useOutputOptions } from '~/composables/useOutputOptions';
 import { useShortcuts } from '~/composables/useShortcuts';
 import { converterRegistry } from '~/utils/core/registry';
+import { isImageOutputFormat } from '~/utils/core/output-options';
 import { FileFormat } from '~/utils/core/types';
 import type { ConversionPreset, ConvertResult, ImageOutputOptions } from '~/utils/core/types';
 import FileUpload from '~/components/shared/FileUpload.vue';
 import ConversionProgress from '~/components/shared/ConversionProgress.vue';
+import CurrentFileHint from '~/components/shared/CurrentFileHint.vue';
+import StepProgressHint from '~/components/shared/StepProgressHint.vue';
 import CollapsibleCard from '~/components/shared/CollapsibleCard.vue';
 import PreferencesMenu from '~/components/shared/PreferencesMenu.vue';
 import PresetBar from '~/components/shared/PresetBar.vue';
@@ -27,10 +32,17 @@ const ComparisonView = defineAsyncComponent(() => import('~/components/shared/Co
 
 initConverters();
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
 const { recent: recentTargets } = useRecentTargets();
 const { setOptions } = useOutputOptions();
 const { matches: shortcutMatches, formatAction: formatConvertShortcut } = useShortcuts();
+
+/**
+ * Element Plus carries its own string table, and its default is English — so without this
+ * the dialog close button reads "Close this dialog" and the clearable input's button reads
+ * "Clear" inside a Chinese UI. ElConfigProvider renders no wrapper element, only the slot.
+ */
+const epLocale = computed(() => (locale.value === 'zh' ? zhCn : enUs));
 
 const fileUploadRef = ref<InstanceType<typeof FileUpload> | null>(null);
 
@@ -49,12 +61,17 @@ const {
   completedCount,
   totalCount,
   currentIndex,
+  currentStep,
+  stepTotal,
+  isPackaging,
+  isRetrying,
   setFiles,
   setTargetFormat,
   convert,
   cancelConversion,
   downloadResult,
   downloadAllZip,
+  retryFailedFiles,
   updateResult,
   clearResults,
   reset,
@@ -76,10 +93,12 @@ const pathCount = registeredPairs.length;
  * with it.
  *
  * Both entry points that preselect a target — reusing a history record and applying a preset — can
- * fire before any file is uploaded, and `setFiles` clears the target on every upload, so the choice
- * has to survive in here until the files land. `options` is `null` for a history record, which
- * remembers a format only and must leave the live output parameters alone; a preset always carries
- * an object, and an empty one means "these are the defaults for this workflow".
+ * fire before any file is uploaded, when there is no batch yet to judge the target against, so the
+ * choice has to survive in here until the files land. `options` is `null` wherever the entry point carried
+ * no output parameters at all — a history record remembers a format only, and a preset whose target
+ * is not an image never captured any (the same rule `PresetBar` applies when it stores) — and `null`
+ * means "leave the live parameters alone". An image preset always carries an object, and an empty
+ * one is that preset speaking: "these are the defaults for this workflow".
  */
 interface PendingApplication {
   target: FileFormat;
@@ -102,13 +121,21 @@ const batchProgressPercent = computed(() => {
   if (totalCount.value === 0) return 0;
   return Math.round((completedCount.value / totalCount.value) * 100);
 });
-/** Name of the file currently being processed, for the F6 single-file progress hint. */
+/** Name of the file currently being processed, shown on whichever progress host is on screen. */
 const currentFileName = computed(() => {
   if (!isConverting.value) return null;
   const idx = currentIndex.value;
   if (idx < 0 || idx >= sourceFiles.value.length) return null;
   return sourceFiles.value[idx]?.name ?? null;
 });
+/**
+ * Whether the running file sits on a multi-step chain.
+ *
+ * Gated on `> 1` so a single-step route renders exactly what it rendered before — the extra line is
+ * only worth its space when the per-file counter above it cannot move, which is precisely the case
+ * `MD→PDF` and the rest of the multi-step routes used to leave as a static spinner.
+ */
+const showStepProgress = computed(() => isConverting.value && stepTotal.value > 1);
 // At least one recognizable file is enough; unknown ones fail per-file
 const canConvert = computed(
   () => !isConverting.value && uniqueSourceFormats.value.length > 0 && targetFormat.value !== null,
@@ -148,9 +175,11 @@ watch(isConverting, running => {
 
 const convertButtonText = computed(() => {
   if (isConverting.value) {
-    return cancelRequested.value
-      ? t('convert.cancelling')
-      : t('convert.converting', { done: completedCount.value, total: totalCount.value });
+    if (cancelRequested.value) return t('convert.cancelling');
+    // A retry counts against the failed subset, not the original batch, and says so — otherwise
+    // "(1/1)" over a five-file workspace reads like the other four vanished.
+    const counts = { done: completedCount.value, total: totalCount.value };
+    return isRetrying.value ? t('convert.retrying', counts) : t('convert.converting', counts);
   }
   if (sourceFiles.value.length > 1) return t('convert.startMulti', { count: sourceFiles.value.length });
   return t('convert.start');
@@ -187,6 +216,24 @@ const statusAnnouncement = computed<string | null>(() => {
   return null;
 });
 
+/**
+ * Status for changes outside the conversion lifecycle. The file list is what the workbench
+ * revolves around, yet its count changes silently — a screen-reader user who dropped or removed
+ * a file has no way to tell the action took effect (WCAG 4.1.3). Conversion state keeps priority
+ * while a batch is in flight, which is why this is the fallback of one region, not a second one.
+ */
+const listAnnouncement = ref<string | null>(null);
+
+/** Clear before writing: a live region only speaks on DOM change, so a repeated message needs the gap. */
+function announce(text: string): void {
+  listAnnouncement.value = null;
+  void nextTick(() => {
+    listAnnouncement.value = text;
+  });
+}
+
+const liveRegionText = computed(() => statusAnnouncement.value ?? listAnnouncement.value);
+
 function progressFormat(): string {
   return `${completedCount.value}/${totalCount.value}`;
 }
@@ -196,8 +243,10 @@ function handleFilesUpdate(files: File[]): void {
   if (isConverting.value) return;
   if (files.length === 0) {
     reset();
+    announce(t('a11y.filesCleared'));
   } else {
     setFiles(files);
+    announce(t('a11y.filesLoaded', { count: files.length }));
   }
   if (pendingApplication.value && hasFiles.value) {
     const pending = pendingApplication.value;
@@ -239,7 +288,11 @@ function handleReuse(payload: { sourceFormat: FileFormat; targetFormat: FileForm
 function handleApplyPreset(preset: ConversionPreset): void {
   const pending: PendingApplication = {
     target: preset.target,
-    options: { ...preset.options },
+    // The predicate `PresetBar` stores with: a non-image preset captured no parameters, and
+    // `setOptions` replaces the whole set, so applying its stored `{}` wiped the maxEdge/quality
+    // the user was working with. Parameters a hand-edited store attaches to a non-image target are
+    // ignored here for the same reason the capture rule never writes them.
+    options: isImageOutputFormat(preset.target) ? { ...preset.options } : null,
     unavailableKey: 'preset.unavailable',
   };
   if (hasFiles.value) {
@@ -256,6 +309,22 @@ function handleUndo(): void {
   } else {
     ElMessage.info(t('convert.undoUnavailable'));
   }
+}
+
+/**
+ * Re-run only the files that failed, then say what came back.
+ *
+ * The results panel updates itself, but it sits below the fold on a tall batch and does not scroll
+ * into view — so a retry that recovered one file out of two hundred could easily finish unseen. The
+ * summary is also the only place the *retry* outcome reads as its own event: the panel's headline
+ * counts the merged batch, which cannot show "the one you just retried worked".
+ */
+async function handleRetryFailed(): Promise<void> {
+  const outcome = await retryFailedFiles();
+  if (!outcome.ran) return;
+  const message = t('result.retrySummary', { ok: outcome.recovered, fail: outcome.stillFailing });
+  if (outcome.recovered > 0) ElMessage.success(message);
+  else ElMessage.warning(message);
 }
 
 function handleGlobalKeydown(event: KeyboardEvent): void {
@@ -310,9 +379,10 @@ function handleWorkspaceDrop(event: DragEvent): void {
   dragCounter = 0;
   isWorkspaceDragging.value = false;
   if (isConverting.value) return;
-  const files = Array.from(event.dataTransfer?.files ?? []);
-  if (files.length === 0) return;
-  fileUploadRef.value?.addFiles(files);
+  // The drop zone's own handler has already seen this event if the drop landed on it; the guard
+  // inside `intakeDrop` is what makes the second visit a no-op. Folders are read through the
+  // `DataTransfer`, so the object itself — not a file list — is what has to travel.
+  void fileUploadRef.value?.intakeDrop(event.dataTransfer);
 }
 
 onMounted(() => {
@@ -334,233 +404,271 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="workbench">
-    <a
-      href="#main-content"
-      class="skip-link"
-      >{{ t('a11y.skipToContent') }}</a
-    >
+  <ElConfigProvider :locale="epLocale">
+    <div class="workbench">
+      <a
+        href="#main-content"
+        class="skip-link"
+        >{{ t('a11y.skipToContent') }}</a
+      >
 
-    <header class="topbar">
-      <div class="topbar-inner">
-        <div class="brand">
-          <span class="brand-name">{{ t('appName') }}</span>
-          <span class="brand-tag">{{ t('options.subtitle') }}</span>
-        </div>
-        <!-- persistent=false: the default keeps the content mounted after the first open,
+      <header class="topbar">
+        <div class="topbar-inner">
+          <div class="brand">
+            <span class="brand-name">{{ t('appName') }}</span>
+            <span class="brand-tag">{{ t('options.subtitle') }}</span>
+          </div>
+          <!-- persistent=false: the default keeps the content mounted after the first open,
              which would leave PreferencesMenu's shortcut-recording state (and its document
              keydown listener) alive while the popover is closed. -->
-        <el-popover
-          :width="260"
-          trigger="click"
-          placement="bottom-end"
-          :persistent="false"
-        >
-          <template #reference>
-            <el-button
-              :icon="Setting"
-              circle
-              :title="t('options.preferences')"
-              :aria-label="t('options.preferences')"
-            />
-          </template>
-          <PreferencesMenu />
-        </el-popover>
-      </div>
-    </header>
-
-    <main
-      id="main-content"
-      class="content"
-      tabindex="-1"
-    >
-      <div class="col col-main">
-        <div class="card">
-          <FileUpload
-            ref="fileUploadRef"
-            :disabled="isConverting"
-            @update:files="handleFilesUpdate"
-          />
-        </div>
-
-        <!-- F10 — live region for conversion status. Visually hidden, but
-             announced by screen readers whenever statusAnnouncement changes. -->
-        <div
-          class="sr-only"
-          role="status"
-          aria-live="polite"
-          aria-atomic="true"
-        >
-          {{ statusAnnouncement ?? '' }}
-        </div>
-
-        <Transition
-          name="card"
-          mode="out-in"
-        >
-          <div
-            v-if="hasFiles"
-            key="action-bar"
-            class="card action-bar"
+          <el-popover
+            :width="260"
+            trigger="click"
+            placement="bottom-end"
+            :persistent="false"
           >
-            <div class="action-row">
-              <FormatSelector
-                :source-formats="uniqueSourceFormats"
-                :available-targets="availableTargets"
-                :target-format="targetFormat"
-                :recent-targets="recentTargets"
-                :disabled="isConverting"
-                @update:target-format="setTargetFormat"
+            <template #reference>
+              <el-button
+                :icon="Setting"
+                circle
+                :title="t('options.preferences')"
+                :aria-label="t('options.preferences')"
               />
-              <el-button
-                type="primary"
-                :icon="RefreshRight"
-                :loading="isConverting"
-                :disabled="!canConvert"
-                class="convert-btn"
-                :title="t('convert.shortcutHint', { shortcut: formatConvertShortcut('convert') })"
-                @click="convert"
-              >
-                {{ convertButtonText }}
-              </el-button>
-              <el-button
-                v-if="isConverting"
-                :icon="CircleClose"
-                type="danger"
-                plain
-                class="cancel-btn"
-                :disabled="cancelRequested"
-                @click="handleCancelConversion"
-              >
-                {{ t('convert.cancel') }}
-              </el-button>
+            </template>
+            <PreferencesMenu />
+          </el-popover>
+        </div>
+      </header>
+
+      <main
+        id="main-content"
+        class="content"
+        tabindex="-1"
+      >
+        <div class="col col-main">
+          <div class="card">
+            <FileUpload
+              ref="fileUploadRef"
+              :disabled="isConverting"
+              @update:files="handleFilesUpdate"
+            />
+          </div>
+
+          <!-- F10 — live region for status. Visually hidden, but announced by screen readers
+             whenever statusAnnouncement (conversion) or listAnnouncement (file list) changes. -->
+          <div
+            class="sr-only"
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
+          >
+            {{ liveRegionText ?? '' }}
+          </div>
+
+          <Transition
+            name="card"
+            mode="out-in"
+          >
+            <div
+              v-if="hasFiles"
+              key="action-bar"
+              class="card action-bar"
+            >
+              <div class="action-row">
+                <FormatSelector
+                  :source-formats="uniqueSourceFormats"
+                  :available-targets="availableTargets"
+                  :target-format="targetFormat"
+                  :recent-targets="recentTargets"
+                  :disabled="isConverting"
+                  @update:target-format="setTargetFormat"
+                />
+                <el-button
+                  type="primary"
+                  :icon="RefreshRight"
+                  :loading="isConverting"
+                  :disabled="!canConvert"
+                  class="convert-btn"
+                  :title="t('convert.shortcutHint', { shortcut: formatConvertShortcut('convert') })"
+                  @click="convert"
+                >
+                  {{ convertButtonText }}
+                </el-button>
+                <Transition name="chip">
+                  <el-button
+                    v-if="isConverting"
+                    :icon="CircleClose"
+                    type="danger"
+                    plain
+                    class="cancel-btn"
+                    :disabled="cancelRequested"
+                    @click="handleCancelConversion"
+                  >
+                    {{ t('convert.cancel') }}
+                  </el-button>
+                </Transition>
+              </div>
+              <OutputOptions
+                :source-formats="uniqueSourceFormats"
+                :target-format="targetFormat"
+                :disabled="isConverting"
+              />
+              <Transition name="reveal">
+                <div
+                  v-if="showBatchProgress"
+                  class="batch-progress"
+                >
+                  <el-progress
+                    :percentage="batchProgressPercent"
+                    :stroke-width="6"
+                    :format="progressFormat"
+                  />
+                  <CurrentFileHint
+                    v-if="currentFileName"
+                    :name="currentFileName"
+                  />
+                  <StepProgressHint
+                    v-if="showStepProgress"
+                    :current="currentStep"
+                    :total="stepTotal"
+                  />
+                </div>
+              </Transition>
             </div>
-            <OutputOptions
-              :source-formats="uniqueSourceFormats"
+          </Transition>
+
+          <CollapsibleCard
+            card-id="presets"
+            :title="t('preset.title')"
+            :default-open="false"
+          >
+            <PresetBar
               :target-format="targetFormat"
               :disabled="isConverting"
+              @apply="handleApplyPreset"
             />
+          </CollapsibleCard>
+
+          <Transition
+            name="card"
+            mode="out-in"
+          >
             <div
-              v-if="showBatchProgress"
-              class="batch-progress"
+              v-if="(isConverting && !showBatchProgress) || displayError"
+              key="conversion-progress"
+              class="card"
             >
-              <el-progress
-                :percentage="batchProgressPercent"
-                :stroke-width="6"
-                :format="progressFormat"
+              <ConversionProgress
+                :is-converting="isConverting"
+                :error="displayError"
+                :current-file-name="currentFileName"
+                :current-step="currentStep"
+                :step-total="stepTotal"
               />
             </div>
-          </div>
-        </Transition>
+          </Transition>
 
-        <CollapsibleCard
-          card-id="presets"
-          :title="t('preset.title')"
-          :default-open="false"
-        >
-          <PresetBar
-            :target-format="targetFormat"
-            :disabled="isConverting"
-            @apply="handleApplyPreset"
-          />
-        </CollapsibleCard>
-
-        <Transition
-          name="card"
-          mode="out-in"
-        >
-          <div
-            v-if="(isConverting && !showBatchProgress) || displayError"
-            key="conversion-progress"
-            class="card"
+          <Transition
+            name="card"
+            mode="out-in"
           >
-            <ConversionProgress
-              :is-converting="isConverting"
-              :error="displayError"
-              :current-file-name="currentFileName"
-            />
-          </div>
-        </Transition>
-
-        <Transition
-          name="card"
-          mode="out-in"
-        >
-          <div
-            v-if="isDone"
-            key="result-download"
-            class="card"
-          >
-            <ResultDownload
-              :results="batchResults"
-              :failures="batchFailures"
-              :cancelled="cancelled"
-              :total-count="totalCount"
-              @download="downloadResult"
-              @download-all="downloadAllZip"
-            />
-            <div class="result-actions">
-              <el-button
-                text
-                type="info"
-                class="reset-btn"
-                @click="clearResults"
-              >
-                {{ t('convert.reconvert') }}
-              </el-button>
-              <el-button
-                v-if="hasUndo"
-                text
-                type="warning"
-                class="undo-btn"
-                @click="handleUndo"
-              >
-                {{ t('convert.undo') }}
-              </el-button>
+            <div
+              v-if="isDone"
+              key="result-download"
+              class="card"
+            >
+              <ResultDownload
+                :results="batchResults"
+                :failures="batchFailures"
+                :cancelled="cancelled"
+                :total-count="totalCount"
+                :packaging="isPackaging"
+                @download="downloadResult"
+                @download-all="downloadAllZip"
+              />
+              <div class="result-actions">
+                <el-button
+                  text
+                  type="info"
+                  class="reset-btn"
+                  @click="clearResults"
+                >
+                  {{ t('convert.reconvert') }}
+                </el-button>
+                <!--
+                  The alternative until now was 重新转换, which drops the results that worked and
+                  converts every file again — so recovering one file out of a large batch cost the
+                  whole batch. Placed between the two actions it sits alongside rather than in front
+                  of them: 重新转换 keeps the left slot and 撤销 the right one, so a batch with no
+                  failures lays this row out exactly as it did before.
+                  No `:disabled` guard on purpose — this whole card is unmounted while `isConverting`,
+                  so a retry is already in flight whenever the button cannot be seen, and
+                  `retryFailedFiles()` refuses a second call regardless.
+                -->
+                <el-button
+                  v-if="hasFailures"
+                  text
+                  type="primary"
+                  :icon="RefreshRight"
+                  class="retry-btn"
+                  @click="handleRetryFailed"
+                >
+                  {{ t('result.retryFailed', { count: batchFailures.length }) }}
+                </el-button>
+                <el-button
+                  v-if="hasUndo"
+                  text
+                  type="warning"
+                  class="undo-btn"
+                  @click="handleUndo"
+                >
+                  {{ t('convert.undo') }}
+                </el-button>
+              </div>
             </div>
-          </div>
-        </Transition>
+          </Transition>
 
-        <Transition name="card">
-          <ComparisonView
-            v-if="showComparison"
-            key="comparison"
-            :source-file="sourceFile"
-            :source-format="sourceFormat"
-            :result="batchResults[0]"
-            :target-format="targetFormat"
-            @update:result="handleResultUpdate"
-          />
-        </Transition>
+          <Transition name="card">
+            <ComparisonView
+              v-if="showComparison"
+              key="comparison"
+              :source-file="sourceFile"
+              :source-format="sourceFormat"
+              :result="batchResults[0]"
+              :target-format="targetFormat"
+              @update:result="handleResultUpdate"
+            />
+          </Transition>
 
-        <CollapsibleCard
-          card-id="history"
-          :title="t('history.title')"
-        >
-          <HistoryPanel @reuse="handleReuse" />
-        </CollapsibleCard>
-      </div>
-    </main>
-
-    <footer class="footer">
-      {{ t('footer.stats', { formats: formatCount, paths: pathCount }) }}
-    </footer>
-
-    <Transition name="fade">
-      <div
-        v-if="isWorkspaceDragging"
-        class="drop-overlay"
-        aria-hidden="true"
-      >
-        <div class="drop-overlay-inner">
-          <el-icon :size="64">
-            <UploadFilled />
-          </el-icon>
-          <p>{{ t('workspace.dropHint') }}</p>
+          <CollapsibleCard
+            card-id="history"
+            :title="t('history.title')"
+          >
+            <HistoryPanel @reuse="handleReuse" />
+          </CollapsibleCard>
         </div>
-      </div>
-    </Transition>
-  </div>
+      </main>
+
+      <footer class="footer">
+        {{ t('footer.stats', { formats: formatCount, paths: pathCount }) }}
+      </footer>
+
+      <Transition name="fat-fade">
+        <div
+          v-if="isWorkspaceDragging"
+          class="drop-overlay"
+          aria-hidden="true"
+        >
+          <div class="drop-overlay-inner">
+            <el-icon :size="64">
+              <UploadFilled />
+            </el-icon>
+            <p>{{ t('workspace.dropHint') }}</p>
+          </div>
+        </div>
+      </Transition>
+    </div>
+  </ElConfigProvider>
 </template>
 
 <style scoped>
@@ -593,7 +701,7 @@ onUnmounted(() => {
   text-decoration: none;
   font-weight: 600;
   transform: translateY(-200%);
-  transition: transform 0.15s ease;
+  transition: transform var(--fat-duration-fast) var(--fat-ease-standard);
 }
 
 /* Double ring. The chip can land on the coloured topbar OR on the page, and no single
@@ -607,21 +715,6 @@ onUnmounted(() => {
   box-shadow:
     0 0 0 2px var(--fat-bg-card),
     var(--fat-shadow-lg);
-}
-
-/* Visually hidden but exposed to assistive tech (live region, screen-reader-only
-   labels, etc.). Standard 1px clip pattern — display:none / visibility:hidden
-   would actually hide the content from screen readers as well. */
-.sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
-  border: 0;
 }
 
 .topbar {
@@ -698,6 +791,31 @@ onUnmounted(() => {
   min-width: 140px;
 }
 
+/* The one moment this button has no signal for is the moment it becomes usable: `canConvert` flips
+   the instant a target is picked and the only thing that changes is a colour. A ring that collapses
+   into the button once says "this is now the thing to press" without leaving anything on screen —
+   deliberately a `from`-only keyframe, so it ends on the resting style rather than on a state it has
+   to hold.
+   Written as an animation on `:not([disabled])` because that is the condition, not a class we would
+   have to manage: a CSS animation starts when an element begins matching, so this fires on the
+   disabled→enabled edge and on nothing else. Element Plus puts the real `disabled` attribute on the
+   `<button>` for both `:disabled` and `:loading`, which covers the second case that matters — the
+   button becoming usable again once a batch ends, or once `undo` puts its target back. What it never
+   does is play over a button that cannot be pressed, because the card it lives in only exists once
+   files are staged. Where that card mounts with a target already chosen — the previous batch kept
+   one — the ring plays at mount instead of on an edge, which is the same announcement either way.
+   No `all`, and no transform: the flat-design rule for `.el-button` is colour shift only, and a
+   lifting or shrinking primary button would contradict the note above that rule in global.css. */
+@keyframes fat-ready {
+  from {
+    box-shadow: 0 0 0 3px rgb(var(--fat-primary-rgb) / 32%);
+  }
+}
+
+.convert-btn:not([disabled]) {
+  animation: fat-ready var(--fat-duration-slow) var(--fat-ease-leave);
+}
+
 .cancel-btn {
   flex-shrink: 0;
 }
@@ -713,7 +831,12 @@ onUnmounted(() => {
   margin-top: var(--fat-space-sm);
 }
 
+/* Three slots when a batch lost a file, two when it did not; `flex: 1` on all of them keeps 重新转换
+   and 撤销 in the same place either way. Element Plus buttons are `white-space: nowrap`, so the labels
+   set the row's minimum width and the short Chinese strings leave room to spare at the ≤640px
+   breakpoint — no wrap rule needed, and none of the existing buttons moved. */
 .result-actions .reset-btn,
+.result-actions .retry-btn,
 .result-actions .undo-btn {
   flex: 1;
   margin-top: 0;
@@ -723,28 +846,114 @@ onUnmounted(() => {
   padding: var(--fat-space-sm) 0 0;
 }
 
+/* The new step line carries its own offset instead of the container switching to a gap layout, so
+   the bar and the file name above it keep exactly the spacing they had before. Matches the
+   `--fat-space-xs` rhythm the file name itself uses inside the other progress host. */
+.batch-progress .step-progress {
+  margin-top: var(--fat-space-xs);
+}
+
 .footer {
   max-width: 1200px;
   margin: 0 auto;
   text-align: center;
   padding: var(--fat-space-lg);
   font-size: 12px;
-  color: var(--fat-text-placeholder);
+  color: var(--fat-text-secondary);
 }
 
-.card-enter-active,
+/* Theme and light/dark switching rewrite every `--fat-*` colour in one frame. The interactive
+   surfaces already tween their colours, so a theme change visibly fell apart into two groups: the
+   buttons, chips and inputs slid over 0.18s while the page, the topbar, the cards and the footer
+   snapped instantly. These are the permanently-painted surfaces that carry the theme, and they were
+   the ones left out.
+   Three named properties rather than `--fat-transition`: that shorthand also carries `transform`,
+   and `.card` is the element the `card` transition below animates — a competing transform transition
+   here would be resolved by source order, which is not a thing to leave to chance. 0.25s is one rung
+   above the buttons because a whole-page recolour is one event, not a per-control reaction, and it
+   stays inside the settle window the contrast measurements in `scripts/e2e-test.mjs` wait out. */
+.workbench,
+.topbar,
+.card,
+.footer {
+  transition:
+    background-color var(--fat-duration-slow) var(--fat-ease-standard),
+    border-color var(--fat-duration-slow) var(--fat-ease-standard),
+    color var(--fat-duration-slow) var(--fat-ease-standard);
+}
+
+/* Enter and leave used to share one shorthand — `all`, one duration, one easing — so a card leaving
+   decelerated like a card arriving. A departure should accelerate: the eye is already tracking where
+   the new content will be, and an ease-out removal reads as the card hesitating. The split also buys
+   back time — with `mode="out-in"` the three cards in this column hand off sequentially, so total
+   swap cost is leave + enter, and fast + slow is a fifth less dead air than the two slow rungs it
+   replaced were.
+   `all` named nothing it needed to: this transition only ever carries opacity and transform, and
+   `all` on a card also tweened the border and background that `--fat-ease-*` cannot express. */
+.card-enter-active {
+  transition:
+    opacity var(--fat-duration-slow) var(--fat-ease-enter),
+    transform var(--fat-duration-slow) var(--fat-ease-enter);
+}
+
 .card-leave-active {
-  transition: all 0.25s ease;
+  transition:
+    opacity var(--fat-duration-fast) var(--fat-ease-leave),
+    transform var(--fat-duration-fast) var(--fat-ease-leave);
 }
 
 .card-enter-from {
   opacity: 0;
-  transform: translateY(8px);
+  transform: translateY(var(--fat-lift-md));
 }
 
 .card-leave-to {
   opacity: 0;
-  transform: translateY(-8px);
+  transform: translateY(calc(var(--fat-lift-md) * -1));
+}
+
+/* Small surfaces that appear inside an already-mounted card — the cancel button is the one here.
+   They used to pop in at zero duration and shove their row apart. Scale rather than translate,
+   because a control arriving inside a flex row has nowhere honest to slide from, and the arrival
+   takes the entry's own vocabulary: `--fat-ease-enter` and `--fat-enter-scale`, the same pair
+   `PresetBar.vue` sizes its chips with. */
+.chip-enter-active {
+  transition:
+    opacity var(--fat-duration-base) var(--fat-ease-enter),
+    transform var(--fat-duration-base) var(--fat-ease-enter);
+}
+
+.chip-leave-active {
+  transition:
+    opacity var(--fat-duration-fast) var(--fat-ease-leave),
+    transform var(--fat-duration-fast) var(--fat-ease-leave);
+}
+
+.chip-enter-from,
+.chip-leave-to {
+  opacity: 0;
+  transform: scale(var(--fat-enter-scale));
+}
+
+/* A block that reveals below its trigger: the batch-progress region and the multi-step path hint.
+   The displacement is upward and small so the block reads as unfolding from the control that
+   caused it rather than falling into place. */
+.reveal-enter-active {
+  transition:
+    opacity var(--fat-duration-slow) var(--fat-ease-enter),
+    transform var(--fat-duration-slow) var(--fat-ease-enter);
+}
+
+.reveal-leave-active {
+  transition:
+    opacity var(--fat-duration-fast) var(--fat-ease-leave),
+    transform var(--fat-duration-fast) var(--fat-ease-leave);
+}
+
+.reveal-enter-from,
+.reveal-leave-to {
+  opacity: 0;
+  transform: translateY(calc(var(--fat-lift-sm) * -1));
 }
 
 /* Workspace-wide drag-and-drop hint. The wrapper is pointer-events: none so
@@ -761,6 +970,18 @@ onUnmounted(() => {
   pointer-events: none;
 }
 
+/* The plate settles into place while the veil behind it fades. It needs no class management: the
+   element mounts with the overlay, and a mount is when a CSS animation starts. Both distances come
+   from tokens rather than literals, because the reduce block collapses a duration to 0.01ms without
+   removing a displacement — a hard-coded 0.96 here would put the plate on screen two frames' worth
+   of scale short, which is the one-frame artifact that block exists to prevent. */
+@keyframes fat-place {
+  from {
+    opacity: 0;
+    transform: scale(var(--fat-enter-scale)) translateY(var(--fat-lift-sm));
+  }
+}
+
 .drop-overlay-inner {
   display: flex;
   flex-direction: column;
@@ -773,16 +994,7 @@ onUnmounted(() => {
   color: var(--fat-primary);
   font-size: 18px;
   font-weight: 600;
-}
-
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.15s ease;
-}
-
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
+  animation: fat-place var(--fat-duration-slow) var(--fat-ease-enter);
 }
 
 @media (width <= 640px) {

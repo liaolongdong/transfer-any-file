@@ -22,9 +22,12 @@ common categories do not apply to this project.
 | History               | File names, formats and sizes only, in `chrome.storage.local`, on the device.                                                                                                         |
 | Untrusted input       | Uploaded files, clipboard content, ZIP entries and stored values are validated at the boundary; HTML / SVG / Markdown derived from them is sanitised with DOMPurify before rendering. |
 
-Verify it with `pnpm verify:offline` (the same assertion CI runs): it greps the four first-party
+Verify it with `pnpm verify:offline:source` for the source layer: it greps the four first-party
 directories for those entry points and checks that `wxt.config.ts` still declares `storage` with
-no `host_permissions`. A grep over `.output/chrome-mv3` is not the right check: the bundled
+no `host_permissions`. `pnpm verify:offline` — what CI runs after `pnpm build`, and what needs a
+local build too — adds the assertion on the manifest the browser actually loads
+(`.output/chrome-mv3/manifest.json` stays `storage`-only) and fails outright when that artifact is
+missing instead of skipping. A grep over `.output/chrome-mv3` is not the right check: the bundled
 converters carry request code on paths this extension never enters. Those paths cannot do anything useful even if one
 were reached: with no host permission and no content script, a request from the extension page is an ordinary
 CORS-restricted web call that cannot read a response or touch any website's data. The guarantee that actually carries

@@ -137,6 +137,7 @@ async function recordFlow(context, locale) {
       const alert = document.querySelector('.el-alert__title');
       return alert && alert.textContent.length > 0;
     },
+    undefined,
     { timeout: 30000 },
   );
   await wait(1800);

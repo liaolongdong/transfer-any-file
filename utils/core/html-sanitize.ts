@@ -23,7 +23,26 @@ const SUBRESOURCE_ATTRS: Record<string, string[]> = {
   object: ['data'],
   input: ['src'],
   image: ['href', 'xlink:href'],
+  // SVG's other "this element draws an external resource" cases. `stripElement` looks the tag up as
+  // `tagName.toLowerCase()`, so `feImage` is reached by the lowercase key however the parser cased
+  // it. Both survive a profile sanitize: `feImage` is in DOMPurify's `svgFilters` tag set and
+  // `href` in its `svg` attribute set, while `use` is on its disallowed list and therefore only
+  // reaches this pass through the paths that sanitize nothing at all — a user's own `.html` file.
+  feimage: ['href', 'xlink:href'],
+  use: ['href', 'xlink:href'],
 };
+
+/**
+ * URL-bearing attributes that fetch on whatever element carries them, so the per-tag table above
+ * cannot reach them.
+ *
+ * `background` is the legacy image attribute of `<body>` and the table cells. It is in DOMPurify's
+ * `html` attribute allow-list, so a sanitized document hands it over intact while `body` and `td`
+ * have no row in the table to look it up in. Measured in Chrome on the exact profile
+ * `html-raster` uses: after sanitize + strip, a sandboxed `srcdoc` iframe requested every
+ * `background` URL it was given and none of the `src` / inline-`url()` ones.
+ */
+const GLOBAL_SUBRESOURCE_ATTRS = ['background'];
 
 /** Schemes the browser resolves locally; nothing here can reach the network. */
 function isLocalUrl(value: string): boolean {
@@ -38,8 +57,8 @@ function isLocalUrl(value: string): boolean {
 function stripRemoteSrcset(value: string): string | null {
   const kept = value
     .split(',')
-    .map((candidate) => candidate.trim())
-    .filter((candidate) => candidate && isLocalUrl(candidate.split(/\s+/)[0]));
+    .map(candidate => candidate.trim())
+    .filter(candidate => candidate && isLocalUrl(candidate.split(/\s+/)[0]));
   return kept.length > 0 ? kept.join(', ') : null;
 }
 
@@ -53,6 +72,12 @@ export function stripRemoteCss(css: string): string {
     .replace(CSS_IMPORT_PATTERN, (match, _quote: string, inner: string) => (isLocalUrl(inner) ? match : ''));
 }
 
+/** Drops `attr` when it carries a reference that can reach the network. */
+function stripRemoteAttr(el: Element, attr: string): void {
+  const value = el.getAttribute(attr);
+  if (value && !isLocalUrl(value)) el.removeAttribute(attr);
+}
+
 function stripElement(el: Element): void {
   const tag = el.tagName.toLowerCase();
 
@@ -61,10 +86,11 @@ function stripElement(el: Element): void {
     return;
   }
 
-  for (const attr of SUBRESOURCE_ATTRS[tag] ?? []) {
-    const value = el.getAttribute(attr);
-    if (value && !isLocalUrl(value)) el.removeAttribute(attr);
-  }
+  // Two passes rather than one concatenated array: this runs once per element of a document that can
+  // hold hundreds of thousands of them, and the spread would allocate on every one just to append a
+  // single attribute name.
+  for (const attr of SUBRESOURCE_ATTRS[tag] ?? []) stripRemoteAttr(el, attr);
+  for (const attr of GLOBAL_SUBRESOURCE_ATTRS) stripRemoteAttr(el, attr);
 
   const srcset = el.getAttribute('srcset');
   if (srcset) {
@@ -87,8 +113,9 @@ function stripElement(el: Element): void {
 
 /**
  * Returns the given HTML (whole document or fragment) with every network-reachable
- * resource reference removed: subresource attributes, srcset candidates, `<base>`,
- * meta-refresh, remote `url()` / `@import` in styles, and remote SVG image hrefs.
+ * resource reference removed: subresource attributes (per-tag, plus the `background`
+ * attribute any element may carry), srcset candidates, `<base>`, meta-refresh,
+ * remote `url()` / `@import` in styles, and remote SVG image hrefs.
  *
  * Uses `DOMParser`, which is inert — parsing never loads resources or runs scripts —
  * and preserves the leading doctype so standards-mode rendering is unchanged.

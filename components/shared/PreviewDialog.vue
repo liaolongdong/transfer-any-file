@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { computed, ref, watch, onUnmounted } from 'vue';
 import { ZoomIn, ZoomOut, Download, Loading } from '@element-plus/icons-vue';
-import { marked } from 'marked';
 import { FileFormat } from '~/utils/core/types';
 import { getFormatLabel } from '~/utils/core/format-labels';
 import { formatSize } from '~/utils/core/format';
+import { asErrorKey } from '~/utils/core/error-keys';
 import { docxToPreviewHtml, xlsxToPreviewHtml } from '~/utils/core/preview';
 import { DOCUMENT_CSS } from '~/utils/core/html-document';
 import { stripRemoteResources } from '~/utils/core/html-sanitize';
@@ -29,7 +29,10 @@ const imageUrl = ref('');
 const pdfUrl = ref('');
 const renderedHtml = ref('');
 const htmlView = ref<'rendered' | 'source'>('rendered');
-const renderError = ref(false);
+/** Holds the key to translate once the body is in its error state: a converter's own
+ *  `errors.*` key when the failure carries one (so an empty workbook says so, in both languages),
+ *  and `preview.renderFailed` for everything else — a library message has no translation to show. */
+const renderError = ref<string | null>(null);
 
 const isText = computed(() => [FileFormat.TXT, FileFormat.CSV, FileFormat.JSON].includes(props.format));
 const isMarkdown = computed(() => props.format === FileFormat.MD);
@@ -44,79 +47,89 @@ const isDocx = computed(() => props.format === FileFormat.DOCX);
 const isXlsx = computed(() => props.format === FileFormat.XLSX);
 const isRenderedDoc = computed(() => isHtml.value || isMarkdown.value || isDocx.value || isXlsx.value);
 
-watch([() => props.visible, () => props.blob], async ([vis, blob], _prev, onCleanup) => {
-  if (!vis || !blob) return;
-  if (imageUrl.value) URL.revokeObjectURL(imageUrl.value);
-  if (pdfUrl.value) URL.revokeObjectURL(pdfUrl.value);
-  imageUrl.value = '';
-  pdfUrl.value = '';
-  textContent.value = '';
-  renderedHtml.value = '';
-  renderError.value = false;
-  htmlView.value = 'rendered';
+watch(
+  [() => props.visible, () => props.blob],
+  async ([vis, blob], _prev, onCleanup) => {
+    if (!vis || !blob) return;
+    if (imageUrl.value) URL.revokeObjectURL(imageUrl.value);
+    if (pdfUrl.value) URL.revokeObjectURL(pdfUrl.value);
+    imageUrl.value = '';
+    pdfUrl.value = '';
+    textContent.value = '';
+    renderedHtml.value = '';
+    renderError.value = null;
+    htmlView.value = 'rendered';
 
-  // Drop the result of this watch run if a newer run starts or the component
-  // is torn down before the async pipeline finishes.
-  let cancelled = false;
-  onCleanup(() => {
-    cancelled = true;
-  });
+    // Drop the result of this watch run if a newer run starts or the component
+    // is torn down before the async pipeline finishes.
+    let cancelled = false;
+    onCleanup(() => {
+      cancelled = true;
+    });
 
-  if (isText.value) {
-    const raw = await blob.text();
-    if (cancelled) return;
-    if (props.format === FileFormat.JSON) {
-      try {
-        textContent.value = JSON.stringify(JSON.parse(raw), null, 2);
-      } catch {
+    if (isText.value) {
+      const raw = await blob.text();
+      if (cancelled) return;
+      if (props.format === FileFormat.JSON) {
+        try {
+          textContent.value = JSON.stringify(JSON.parse(raw), null, 2);
+        } catch {
+          textContent.value = raw;
+        }
+      } else {
         textContent.value = raw;
       }
-    } else {
-      textContent.value = raw;
+    } else if (isMarkdown.value || isHtml.value) {
+      try {
+        textContent.value = await blob.text();
+        if (cancelled) return;
+        const purifyModule = await import('dompurify');
+        const DOMPurify = purifyModule.default;
+        let source = textContent.value;
+        if (isMarkdown.value) {
+          // The dialog mounts with the file list, so a static import here would put 41 KB of
+          // `marked` on every boot; only the markdown tab needs the parser.
+          const { marked } = await import('marked');
+          source = await marked(textContent.value);
+        }
+        const htmlBody = DOMPurify.sanitize(source, { USE_PROFILES: { html: true } });
+        if (cancelled) return;
+        renderedHtml.value = stripRemoteResources(
+          `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>${DOCUMENT_CSS}</style></head><body>${htmlBody}</body></html>`,
+        );
+      } catch {
+        // Same shape as the docx/xlsx branches: a markdown or HTML file the parser chokes on
+        // has to end in the error state, not in a watcher rejection and a permanent spinner.
+        if (!cancelled) renderError.value = 'preview.renderFailed';
+      }
+    } else if (isImage.value) {
+      imageUrl.value = URL.createObjectURL(blob);
+      scale.value = 1;
+    } else if (isPdf.value) {
+      pdfUrl.value = URL.createObjectURL(blob);
+    } else if (isDocx.value) {
+      try {
+        const html = await docxToPreviewHtml(blob);
+        if (cancelled) return;
+        renderedHtml.value = html;
+      } catch (error) {
+        if (!cancelled) renderError.value = asErrorKey(error) ?? 'preview.renderFailed';
+      }
+    } else if (isXlsx.value) {
+      try {
+        const html = await xlsxToPreviewHtml(blob);
+        if (cancelled) return;
+        renderedHtml.value = html;
+      } catch (error) {
+        if (!cancelled) renderError.value = asErrorKey(error) ?? 'preview.renderFailed';
+      }
     }
-  } else if (isMarkdown.value) {
-    textContent.value = await blob.text();
-    if (cancelled) return;
-    const purifyModule = await import('dompurify');
-    const DOMPurify = purifyModule.default;
-    const htmlBody = DOMPurify.sanitize(await marked(textContent.value), { USE_PROFILES: { html: true } });
-    if (cancelled) return;
-    renderedHtml.value = stripRemoteResources(
-      `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>${DOCUMENT_CSS}</style></head><body>${htmlBody}</body></html>`,
-    );
-  } else if (isHtml.value) {
-    textContent.value = await blob.text();
-    if (cancelled) return;
-    const purifyModule = await import('dompurify');
-    const DOMPurify = purifyModule.default;
-    const htmlBody = DOMPurify.sanitize(textContent.value, { USE_PROFILES: { html: true } });
-    if (cancelled) return;
-    renderedHtml.value = stripRemoteResources(
-      `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>${DOCUMENT_CSS}</style></head><body>${htmlBody}</body></html>`,
-    );
-  } else if (isImage.value) {
-    imageUrl.value = URL.createObjectURL(blob);
-    scale.value = 1;
-  } else if (isPdf.value) {
-    pdfUrl.value = URL.createObjectURL(blob);
-  } else if (isDocx.value) {
-    try {
-      const html = await docxToPreviewHtml(blob);
-      if (cancelled) return;
-      renderedHtml.value = stripRemoteResources(html);
-    } catch {
-      if (!cancelled) renderError.value = true;
-    }
-  } else if (isXlsx.value) {
-    try {
-      const html = await xlsxToPreviewHtml(blob);
-      if (cancelled) return;
-      renderedHtml.value = stripRemoteResources(html);
-    } catch {
-      if (!cancelled) renderError.value = true;
-    }
-  }
-});
+  },
+  { immediate: true },
+);
+// `immediate` is what lets the dialog be created already open: FileUpload mounts this component on
+// the same click that sets `visible`, and without the initial run a watcher would see no change to
+// react to and the body would stay empty. The run on a closed mount returns at the guard above.
 
 onUnmounted(() => {
   if (imageUrl.value) URL.revokeObjectURL(imageUrl.value);
@@ -152,10 +165,17 @@ function download(): void {
     @update:model-value="emit('update:visible', $event)"
     @close="close"
   >
-    <template #header>
+    <template #header="{ titleId }">
       <div class="preview-header">
         <div class="preview-title">
-          <span class="filename">{{ filename }}</span>
+          <!-- EP leaves `aria-labelledby` pointing at this id whenever no `title` prop is
+               passed, which is the case here — a custom #header that ignores titleId
+               renders a dialog with no accessible name. -->
+          <span
+            :id="titleId"
+            class="filename"
+            >{{ filename }}</span
+          >
           <ElTag
             size="small"
             type="primary"
@@ -240,14 +260,16 @@ function download(): void {
         :title="filename"
       ></iframe>
       <div
-        v-else-if="(isDocx || isXlsx) && renderError"
+        v-else-if="renderError"
         class="render-error"
       >
-        {{ t('preview.renderFailed') }}
+        {{ t(renderError ?? 'preview.renderFailed') }}
       </div>
       <div
         v-else-if="isRenderedDoc"
         class="render-loading"
+        role="status"
+        :aria-label="t('preview.reading')"
       >
         <ElIcon class="is-loading"><Loading /></ElIcon>
       </div>
@@ -348,7 +370,7 @@ function download(): void {
   align-items: center;
   justify-content: center;
   min-height: 240px;
-  color: var(--fat-text-placeholder, #909399);
+  color: var(--fat-text-secondary);
   font-size: 13px;
 }
 
@@ -364,7 +386,7 @@ function download(): void {
 .preview-image {
   max-width: 100%;
   transform-origin: top center;
-  transition: transform 0.2s ease;
+  transition: transform var(--fat-duration-base) var(--fat-ease-standard);
   border-radius: var(--fat-radius-md, 8px);
   box-shadow: 0 2px 12px rgb(0 0 0 / 10%);
 }
@@ -385,6 +407,6 @@ function download(): void {
 
 .file-size {
   font-size: 12px;
-  color: var(--fat-text-placeholder, #909399);
+  color: var(--fat-text-secondary);
 }
 </style>

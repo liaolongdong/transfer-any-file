@@ -1,7 +1,7 @@
 import { createApp } from 'vue';
 import '~/assets/styles/global.css';
-import { STORAGE_KEYS, storageGet } from '~/utils/storage';
-import { applyDocumentLang, resolveLocale } from '~/composables/useI18n';
+import { STORAGE_KEYS, storageGetMany } from '~/utils/storage';
+import { applyDocumentLocale, resolveLocale, seedLocale } from '~/composables/useI18n';
 import {
   DEFAULT_MODE,
   DEFAULT_THEME,
@@ -9,39 +9,50 @@ import {
   VALID_THEMES,
   applyMode,
   applyTheme,
+  seedTheme,
   type ColorMode,
   type ThemeName,
 } from '~/composables/useTheme';
 import App from './App.vue';
 
 /**
- * Apply the persisted theme before the app mounts so the first paint already carries
- * the right tokens instead of flashing the default theme.
+ * Paint in the theme, colour mode and language the user left behind.
  *
- * Storage is untrusted input and `storageGet` only casts without verifying, so both
- * values are re-validated here with the same whitelists `useTheme` uses. Divergent
- * fallbacks would be re-applied by `initTheme` after mount as a visible flash.
- */
-async function applyStoredTheme(): Promise<void> {
-  const [theme, mode] = await Promise.all([
-    storageGet<ThemeName>(STORAGE_KEYS.theme, DEFAULT_THEME),
-    storageGet<ColorMode>(STORAGE_KEYS.colorMode, DEFAULT_MODE),
-  ]);
-
-  applyTheme(VALID_THEMES.has(theme) ? theme : DEFAULT_THEME);
-  applyMode(VALID_MODES.has(mode) ? mode : DEFAULT_MODE);
-}
-
-/**
- * Tag the document with the language `useI18n` is about to resolve to, before the first paint.
+ * All three have to be applied before `mount()` — a token or `<html lang>` that corrects itself
+ * afterwards is a visible flash for a theme, and a first frame announced in the wrong language for
+ * the locale, which is what `seedLocale` exists to prevent. Storage is untrusted input and the
+ * reads only cast, so both theme values are re-validated here with the same whitelists `useTheme`
+ * uses — and because they are seeded into that module's state below, an unvalidated value would no
+ * longer be corrected by a later read, it would just be the theme.
  *
- * Same resolution order as `initLocale` — stored choice, then the browser language — so the two
- * cannot disagree, and running it pre-mount avoids a first frame announced in the wrong language.
+ * One round trip, not three: this top-level await is the workbench's mount gate, and each
+ * `storageGet` is its own `storage.local.get`. All three keys are seeded onward, so nothing reads
+ * them a second time; the language resolution order — stored choice, then browser language — is
+ * shared with `initLocale` through `resolveLocale`, so the two cannot disagree, and seeding from
+ * this one value keeps the markup, the tab title and every rendered string in agreement instead of
+ * letting only two of the three be early.
  */
-async function applyDocumentLanguage(): Promise<void> {
-  const stored = await storageGet<unknown>(STORAGE_KEYS.locale, null);
-  applyDocumentLang(resolveLocale(stored));
-}
+const stored = await storageGetMany<{
+  [STORAGE_KEYS.theme]: ThemeName;
+  [STORAGE_KEYS.colorMode]: ColorMode;
+  [STORAGE_KEYS.locale]: unknown;
+}>({
+  [STORAGE_KEYS.theme]: DEFAULT_THEME,
+  [STORAGE_KEYS.colorMode]: DEFAULT_MODE,
+  [STORAGE_KEYS.locale]: null,
+});
 
-await Promise.all([applyStoredTheme(), applyDocumentLanguage()]);
+const theme = VALID_THEMES.has(stored[STORAGE_KEYS.theme]) ? stored[STORAGE_KEYS.theme] : DEFAULT_THEME;
+const mode = VALID_MODES.has(stored[STORAGE_KEYS.colorMode]) ? stored[STORAGE_KEYS.colorMode] : DEFAULT_MODE;
+applyTheme(theme);
+applyMode(mode);
+// The same two values, handed to the module that owns the reactive state: without this seed
+// `initTheme` reads both keys again — when the preferences popover first opens, on the way to
+// reproducing what is already on `<html>`.
+seedTheme(theme, mode);
+
+const locale = resolveLocale(stored[STORAGE_KEYS.locale]);
+seedLocale(locale);
+applyDocumentLocale(locale);
+
 createApp(App).mount('#app');

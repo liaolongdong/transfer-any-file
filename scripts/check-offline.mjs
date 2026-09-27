@@ -11,10 +11,12 @@
  * absence of `host_permissions` is what makes the leftover library paths unreachable: the
  * browser refuses cross-origin requests from an extension page that holds no grant.
  *
- * The manifest is checked where it is defined (`wxt.config.ts`) and, whenever a build exists,
- * again in the artifact the browser loads (`.output/chrome-mv3/manifest.json`).
+ * The manifest is checked twice: where it is defined (`wxt.config.ts`) on every run, and in the
+ * artifact the browser actually loads (`.output/chrome-mv3/manifest.json`) unless `--source-only`
+ * is passed; a missing artifact fails the default run instead of skipping quietly.
  *
- * Invoked as `pnpm verify:offline` and by the CI lint job.
+ * Invoked as `pnpm verify:offline:source` from the CI lint job (runs before any build) and as
+ * `pnpm verify:offline` from the build and release jobs (against `.output/chrome-mv3`).
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -25,8 +27,19 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 /** Directories that ship into the bundle as first-party code. */
 const SOURCE_DIRS = ['entrypoints', 'components', 'composables', 'utils'];
 
-/** File extensions that can carry executable first-party code. */
-const SOURCE_EXTENSIONS = ['.ts', '.mts', '.vue'];
+/** File extensions that can carry executable first-party code.
+ *
+ * `.js` / `.mjs` are listed because a plain-JS module under `utils/` would otherwise be the one
+ * place a `fetch()` could hide from a guard whose entire claim is about source text.
+ */
+const SOURCE_EXTENSIONS = ['.ts', '.mts', '.js', '.mjs', '.vue'];
+
+/**
+ * Directories whose `.html` files are executable too: an entrypoint's HTML carries inline scripts
+ * that run before the bundle does (`entrypoints/options/index.html` applies the theme pre-paint), so
+ * the extension-less walk below would leave that surface unguarded.
+ */
+const HTML_SOURCE_DIRS = ['entrypoints'];
 
 /**
  * Network entry points, with the reason each one would break the guarantee.
@@ -42,33 +55,44 @@ const FORBIDDEN = [
 ];
 
 /**
- * Collect source files under a directory, recursively.
+ * Collect files under a directory, recursively.
+ *
+ * A directory the scan list names must exist: this claim is about *all* first-party code, and
+ * silently scanning one layer less used to print OK either way. `verify:offline` already refuses to
+ * run without its artifact for the same reason — a guard that quietly skipped is the bug it was
+ * written to catch.
  *
  * @param {string} dir Directory relative to the repository root.
- * @returns {string[]} Absolute file paths with an executable first-party extension.
+ * @param {string[]} extensions Suffixes to keep.
+ * @returns {string[]} Absolute file paths with one of those extensions.
  */
-function collectSourceFiles(dir) {
+function collectFiles(dir, extensions) {
   const absolute = path.join(ROOT, dir);
-  if (!fs.existsSync(absolute)) return [];
+  if (!fs.existsSync(absolute)) {
+    throw new Error(`source directory "${dir}" is missing — the scan list names it, so it cannot be skipped`);
+  }
   return fs.readdirSync(absolute, { withFileTypes: true }).flatMap(entry => {
     const target = path.join(absolute, entry.name);
-    if (entry.isDirectory()) return collectSourceFiles(path.relative(ROOT, target));
-    return SOURCE_EXTENSIONS.some(ext => entry.name.endsWith(ext)) ? [target] : [];
+    if (entry.isDirectory()) return collectFiles(path.relative(ROOT, target), extensions);
+    return extensions.some(ext => entry.name.endsWith(ext)) ? [target] : [];
   });
 }
 
+const scannedFiles = [
+  ...SOURCE_DIRS.flatMap(dir => collectFiles(dir, SOURCE_EXTENSIONS)),
+  ...HTML_SOURCE_DIRS.flatMap(dir => collectFiles(dir, ['.html'])),
+];
+
 const failures = [];
 
-for (const dir of SOURCE_DIRS) {
-  for (const file of collectSourceFiles(dir)) {
-    const lines = fs.readFileSync(file, 'utf8').split(/\r?\n/);
-    lines.forEach((line, index) => {
-      const hit = FORBIDDEN.find(({ pattern }) => pattern.test(line));
-      if (hit) {
-        failures.push(`${path.relative(ROOT, file)}:${String(index + 1)} — ${hit.pattern} (${hit.why})`);
-      }
-    });
-  }
+for (const file of scannedFiles) {
+  const lines = fs.readFileSync(file, 'utf8').split(/\r?\n/);
+  lines.forEach((line, index) => {
+    const hit = FORBIDDEN.find(({ pattern }) => pattern.test(line));
+    if (hit) {
+      failures.push(`${path.relative(ROOT, file)}:${String(index + 1)} — ${hit.pattern} (${hit.why})`);
+    }
+  });
 }
 
 // The manifest is the second half of the claim: `storage` alone, and no host_permissions. Both
@@ -86,9 +110,23 @@ if (!declaredPermissions || declaredPermissions[1].replace(/[\s"']/g, '') !== 's
 }
 
 // When the bundle is present, assert on the artifact the browser actually loads: a WXT module or a
-// manifest transform can add permissions that the source config never mentions.
+// manifest transform can add permissions that the source config never mentions. This is the only
+// guard for that, and until now it was gated on the artifact merely existing — so on a fresh CI
+// checkout (.output is gitignored, and the lint job runs before any build) it silently skipped and
+// the suite still printed OK. A guard that never ran is the bug it was written to catch, hence:
+// missing artifact is a failure unless the caller asked for the source-only pass.
+const sourceOnly = process.argv.includes('--source-only');
 const builtManifest = path.join(ROOT, '.output', 'chrome-mv3', 'manifest.json');
-if (fs.existsSync(builtManifest)) {
+
+if (sourceOnly) {
+  console.log('(source-only pass: artifact manifest check skipped by design)');
+} else if (!fs.existsSync(builtManifest)) {
+  failures.push(
+    '.output/chrome-mv3/manifest.json not found — the manifest permission check runs against the ' +
+      'artifact the browser loads. Run "pnpm build" first, or pass --source-only for the ' +
+      'source-only pass used by the CI lint job.',
+  );
+} else {
   const manifest = JSON.parse(fs.readFileSync(builtManifest, 'utf8'));
   const granted = Array.isArray(manifest.permissions) ? manifest.permissions : [];
   if (granted.length !== 1 || granted[0] !== 'storage') {
@@ -99,8 +137,6 @@ if (fs.existsSync(builtManifest)) {
   if (manifest.host_permissions !== undefined || manifest.optional_permissions !== undefined) {
     failures.push('.output/chrome-mv3/manifest.json carries host_permissions or optional_permissions');
   }
-} else {
-  console.log('(no .output/chrome-mv3 build found — checked the manifest source only)');
 }
 
 if (failures.length > 0) {
@@ -111,5 +147,6 @@ if (failures.length > 0) {
 }
 
 console.log(
-  `Offline guarantee OK — no network call in ${SOURCE_DIRS.join(', ')}; manifest permissions: storage only, no host_permissions.`,
+  `Offline guarantee OK — no network call in ${scannedFiles.length} first-party files across ` +
+    `${SOURCE_DIRS.join(', ')} (+ entrypoint HTML); manifest permissions: storage only, no host_permissions.`,
 );

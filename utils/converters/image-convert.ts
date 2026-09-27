@@ -1,6 +1,7 @@
 import { FileFormat } from '~/utils/core/types';
 import type { Converter, ConvertContext, ConvertResult } from '~/utils/core/types';
 import { loadImage, encodeCanvas, releaseCanvas, MAX_DIM } from '~/utils/core/image-utils';
+import { hasMultipleFrames } from '~/utils/core/animated-image';
 
 const MIME_TYPES: Record<string, string> = {
   [FileFormat.PNG]: 'image/png',
@@ -13,6 +14,12 @@ function createImageConverter(from: FileFormat, to: FileFormat, mimeType: string
     from,
     to,
     async convert(input: Blob, ctx?: ConvertContext): Promise<ConvertResult> {
+      // The `drawImage` below keeps one frame, which is only a loss when the source had more than
+      // one. GIF is the format the reader answers for: a plain PNG or JPEG has nothing to lose, and
+      // `image-to-html` never comes through here because it embeds the original bytes with the
+      // animation intact. Animated WebP and APNG inputs lose frames too — see the scope note in
+      // `utils/core/animated-image.ts` for why that one is not measured yet.
+      const lostFrames = from === FileFormat.GIF && (await hasMultipleFrames(input));
       // Object URLs avoid the base64 memory overhead of data URLs
       const objectUrl = URL.createObjectURL(input);
       let img: HTMLImageElement;
@@ -50,7 +57,7 @@ function createImageConverter(from: FileFormat, to: FileFormat, mimeType: string
 
       try {
         const blob = await encodeCanvas(canvas, mimeType, ctx?.options);
-        return { blob, filename: `converted.${to}` };
+        return { blob, filename: `converted.${to}`, lostFrames };
       } finally {
         releaseCanvas(canvas);
       }
