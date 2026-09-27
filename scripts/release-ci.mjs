@@ -2,14 +2,15 @@
 /**
  * GitHub Actions adapter for `scripts/release.mjs`.
  *
- * Four commands: three turn one plan document into the things a workflow step needs, the last answers
- * the question a *merged* release asks when nobody ran a plan (which version on this branch is still
- * untagged).
+ * Five commands: three turn one plan document into the things a workflow step needs, one answers the
+ * question a *merged* release asks when nobody ran a plan (which version on this branch is still
+ * untagged), and one reads the Chrome Web Store's own answer back to the workflow.
  *
- *     node scripts/release-ci.mjs output      plan.json   # -> $GITHUB_OUTPUT
- *     node scripts/release-ci.mjs summary     plan.json   # -> $GITHUB_STEP_SUMMARY
- *     node scripts/release-ci.mjs pr-body     plan.json pr-body.md
- *     node scripts/release-ci.mjs pending-tag             # -> vX.Y.Z on stdout, or nothing
+ *     node scripts/release-ci.mjs output        plan.json   # -> $GITHUB_OUTPUT
+ *     node scripts/release-ci.mjs summary       plan.json   # -> $GITHUB_STEP_SUMMARY
+ *     node scripts/release-ci.mjs pr-body       plan.json pr-body.md
+ *     node scripts/release-ci.mjs pending-tag               # -> vX.Y.Z on stdout, or nothing
+ *     node scripts/release-ci.mjs item-version  item.json   # -> the live version, or nothing
  *
  * ## Why this is a file and not `node -e '…'` in the workflow
  *
@@ -26,6 +27,8 @@
  * them recomputes a version or re-reads git, so the plan and the prose in the PR cannot disagree.
  * `pending-tag` is the one command that reads the repository directly, because it runs on a commit
  * where no plan was produced (the merge of a release PR) and it must not trust the branch name alone.
+ * `item-version` reads neither: it parses a response body `release.yml` just downloaded from the store,
+ * which is the only way to know what version that store is serving.
  *
  * The plan path is resolved against the current directory (Actions runs steps from the workspace
  * root), which is where `release.mjs --json` writes it.
@@ -51,12 +54,13 @@ const GROUP_LABELS = {
 /** Emission order matters: it is the order the changelog sections use. */
 const GROUP_ORDER = ['breaking', 'added', 'changed', 'fixed', 'performance', 'security', 'other'];
 
-const [, , command, planFile, outputFile] = process.argv;
+const [, , command, inputFile, outputFile] = process.argv;
 
 if (!command) {
   process.stderr.write(
     'usage: node scripts/release-ci.mjs <output|summary|pr-body> <plan.json> [out.md]\n' +
-      '   or: node scripts/release-ci.mjs pending-tag\n',
+      '   or: node scripts/release-ci.mjs pending-tag\n' +
+      '   or: node scripts/release-ci.mjs item-version <item.json>\n',
   );
   process.exit(2);
 }
@@ -268,24 +272,97 @@ function compare(a, b) {
   return 0;
 }
 
+/** Chrome Web Store version strings are `X.Y` to `X.Y.Z.W`; anything else is not a version. */
+const STORE_VERSION_RE = /^\d+(\.\d+){1,3}$/;
+
+/**
+ * The version the store is serving, or nothing.
+ *
+ * `release.yml` asks `GET /chromewebstore/v1.1/items/{id}` before uploading, because the store accepts only
+ * a package whose version is strictly higher than the live one — and the only place it says so is Google's
+ * response body, after a multi-megabyte upload, in a step whose status fields we deliberately refuse to
+ * interpret (see the comment above the upload call). A number printed here turns that into a one-line
+ * "线上已是 1.2.0".
+ *
+ * **Silence is the answer whenever the shape is not recognised, and that is deliberate.** The field name
+ * cannot be verified from this repository: the item does not exist yet, so no live response has ever been
+ * captured here, and the two names in circulation (`current_version`, `version`) are not documented as
+ * interchangeable. A guess would be worse than abstaining — reading a non-version string as the live
+ * version would fail a release that the store would have accepted. So this exits 0 with nothing on stdout
+ * for every case it is unsure about (unreadable file, non-JSON body, no plausible field, two fields that
+ * disagree), and the workflow's matching branch is "skip the pre-flight", leaving the upload's own response
+ * body as the source of truth. This command never fails a step.
+ */
+function itemVersion(file) {
+  if (!file) {
+    process.stderr.write('release-ci: item-version 需要 GET 响应体的路径，例如 item-version item.json\n');
+    process.exit(0);
+    return;
+  }
+  const target = path.resolve(process.cwd(), file);
+
+  let item;
+  try {
+    item = JSON.parse(fs.readFileSync(target, 'utf8'));
+  } catch (error) {
+    // HTTP 200 from a proxy or a login page is JSON-parse failure, not a store answer.
+    process.stderr.write(`release-ci: ${target} 不是可解析的 JSON，跳过版本预检：${error.message}\n`);
+    process.exit(0);
+    return;
+  }
+  if (!item || typeof item !== 'object' || Array.isArray(item)) {
+    process.stderr.write('release-ci: 商店响应不是一个对象，跳过版本预检\n');
+    process.exit(0);
+    return;
+  }
+
+  const found = [];
+  for (const key of ['current_version', 'version']) {
+    const value = typeof item[key] === 'string' ? item[key].trim() : '';
+    if (STORE_VERSION_RE.test(value)) found.push([key, value]);
+  }
+
+  if (!found.length) {
+    process.stderr.write(
+      `release-ci: 响应里没有像版本号的 current_version / version（实际字段：${Object.keys(item).join(', ') || '无'}），` +
+        '跳过版本预检\n',
+    );
+    process.exit(0);
+    return;
+  }
+  if (found.length > 1 && found.some(([, value]) => value !== found[0][1])) {
+    process.stderr.write(
+      `release-ci: ${found.map(([key, value]) => `${key}=${value}`).join(' 与 ')} 不一致，跳过版本预检\n`,
+    );
+    process.exit(0);
+    return;
+  }
+  process.stdout.write(`${found[0][1]}\n`);
+}
+
 switch (command) {
   case 'output':
-    writeOutputs(['releasable', 'version', 'tag', 'subject'], readPlan(planFile));
+    writeOutputs(['releasable', 'version', 'tag', 'subject'], readPlan(inputFile));
     break;
   case 'summary':
-    appendSummary(summaryLines(readPlan(planFile)));
+    appendSummary(summaryLines(readPlan(inputFile)));
     break;
   case 'pr-body':
     if (!outputFile) {
       process.stderr.write('release-ci: pr-body 需要第三个参数作为输出文件\n');
       process.exit(2);
     }
-    fs.writeFileSync(path.resolve(process.cwd(), outputFile), prBody(readPlan(planFile)), 'utf8');
+    fs.writeFileSync(path.resolve(process.cwd(), outputFile), prBody(readPlan(inputFile)), 'utf8');
     break;
   case 'pending-tag':
     pendingTag();
     break;
+  case 'item-version':
+    itemVersion(inputFile);
+    break;
   default:
-    process.stderr.write(`release-ci: 未知命令 ${command}（可用：output / summary / pr-body / pending-tag）\n`);
+    process.stderr.write(
+      `release-ci: 未知命令 ${command}（可用：output / summary / pr-body / pending-tag / item-version）\n`,
+    );
     process.exit(2);
 }

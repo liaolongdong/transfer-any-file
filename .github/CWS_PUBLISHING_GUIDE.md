@@ -190,23 +190,34 @@ CHROME_EXTENSION_ID_TAF  # Transfer Any File 扩展 ID（从 CWS Dashboard 获�
 
 当前配置用 runner 自带的 `curl` 直接打 Chrome Web Store 的上传 / 发布 API，**不引入第三方 npm 包或 action**：
 
-1. **打 Tag**：
+1. **准备版本**（推荐路径，全自动见 `.github/RELEASE_AUTOMATION.md`）：合并到 `main` 之后，
+   `release-prepare.yml` 会算出版本号、提升双语 changelog 的「未发布」区块，并开一个 Release PR。
+   **合并那个 PR 就是批准发布**，标签由同一条工作流在合并之后打上。手工做法同样有效：
 
    ```bash
    git tag v1.0.0
    git push origin v1.0.0
    ```
 
-2. **自动触发**：`.github/workflows/release.yml` 会自动执行：
+2. **自动触发**：`.github/workflows/release.yml` 被标签触发后自动执行：
    - 验证 tag 与 package.json 版本一致
    - 运行源码层检查（`verify:meta`、`verify:offline:source`、`verify:numbers`、`verify:listing`）
-   - 构建扩展，随后对产物再跑一次 `verify:offline`（断言浏览器实际加载的那份 manifest 只有 `storage` 权限），最后打包
+   - 构建扩展，随后对产物再跑一次 `verify:offline`（断言浏览器实际加载的那份 manifest 只有 `storage` 权限）与 `verify:remote-code`，最后打包
    - 验证包内容（manifest.json 在根目录，无仓库文件）
    - 创建 GitHub Release
-   - 校验 OAuth 凭据
-   - 提交到 Chrome Web Store
+   - 校验 OAuth 凭据与扩展 ID 格式
+   - **版本预检**：先读商店现在挂着的版本号，本次要传的不严格高于它就直接停下（商店只接受更高的版本；
+     这条判断放在上传之前，失败原因是我们自己写的一句话，不必去猜 Google 响应体里那套没有稳定文档的状态字段）
+   - 上传包，然后**默认到此为止**：不调用提审接口
 
-3. **Dry Run 测试**（可选）：
+3. **要提审有两个入口**，默认那条工作流不会替你做：
+   - **开发者后台**（首选）：Dashboard → 该商品 → Package 页点 **"提交审核"**，见「第二步 · 5. 点击
+     "提交审核" (Submit for Review)」。它只发提审请求，不再动包。
+   - **重跑工作流**：Actions → Release → Run workflow，填同一个 tag、`dry_run` 取消勾选、勾上
+     `submit_for_review`。这一次是「上传 + 提审」连着做完，所以同一个包会重新传一遍；如果上次上传之后
+     条目已能读到这个版本号，版本预检会先把这次运行拦下——那是正常保护，改走后台那个按钮即可。
+
+4. **Dry Run 测试**（可选）：
    ```bash
    # 在 GitHub Actions 页面手动触发 workflow_dispatch
    # 勾选 dry_run 选项进行预演，不实际发布
@@ -228,20 +239,29 @@ CHROME_EXTENSION_ID_TAF  # Transfer Any File 扩展 ID（从 CWS Dashboard 获�
 
 ### 5.1 版本升级流程
 
-1. 修改 `package.json` 中的版本号
-2. 更新 `CHANGELOG.md` 和 `CHANGELOG.en.md`
-3. 提交并打新 tag：
+1. 改动合进 `main`，`release-prepare.yml` 会开出一个 Release PR（版本自动定为 `1.1.0`，
+   依据是提交类型），核对它的正文并合并进去，就是批准发布 —— 细节见 `.github/RELEASE_AUTOMATION.md`
+2. 想在本机先看一眼计划：
+
+   ```bash
+   pnpm release:plan          # 只算版本与 changelog，不写任何文件
+   pnpm release:cut           # 本机落地：写双语文档 + 提交 + 打标签（不会推送）
+   ```
+
+3. 手工路径也仍然有效——改 `package.json` 版本号、补 `CHANGELOG.md` 与 `CHANGELOG.en.md`、再打标签：
 
    ```bash
    git tag v1.1.0
    git push origin v1.1.0
    ```
 
-4. **重要**：新版本必须高于商店线上已发布的版本，否则会被拒绝
+4. **重要**：新版本必须高于商店线上已发布的版本，否则会被拒绝。`release.yml` 在上传之前会把这条
+   规则自己查一遍（见 3.3 的「版本预检」），不再依赖商店的报错来告知
 
 ### 5.2 注意事项
 
 - ✅ **每次更新都要升版本号**：版本号等于或低于已上线版本的更新会被直接拒
+- ✅ **上传不等于提审**：默认那一步只把包传上去，审核要人显式要求（3.3 第 3 条）
 - ✅ **保持文案一致性**：所有商店字段必须与 `_locales` 文件逐字一致
 - ✅ **重新运行验证**：`pnpm verify:meta`、`pnpm verify:offline`、`pnpm verify:numbers`、`pnpm verify:listing`（离线那条含产物层，本地要先 `pnpm build`；`verify:numbers` 比对对外文档里的数字与代码里的数字；推 tag 时由 `release.yml` 按构建前/后两层跑齐）
 
@@ -282,6 +302,13 @@ A: 使用 dry run 模式：
 dry_run: true # 只验证，不实际发布
 ```
 
+### Q5: 包上传成功了，商店那边怎么没开始审核？
+
+A: 这是默认行为，不是故障。`release.yml` 默认只把包传上去，提审要人显式发起。首选到开发者后台的
+Package 页点 **"提交审核"**，它只发请求、不再动包；也可以用 `workflow_dispatch` 再跑一次 Release
+工作流（填同一个 tag、取消勾选 `dry_run`、勾上 `submit_for_review`），差别是这一次会把同一个包重新
+传一遍——若条目已能读到那个版本号，版本预检会先把这次运行拦下。两条路的区别与前提见 3.3 第 3 条。
+
 ---
 
 ## 相关文档
@@ -289,6 +316,7 @@ dry_run: true # 只验证，不实际发布
 - **商店文案完整模板**：`CHROMEWEBSTORE.md`
 - **权限与隐私申报**：`CHROMEWEBSTORE.md` → "权限与隐私申报"
 - **拒审记录与应对**：`CHROMEWEBSTORE.md` → "拒审记录与政策口径"
+- **发版自动化（Release PR、标签、secrets 清单）**：`.github/RELEASE_AUTOMATION.md`
 - **产品说明页**：https://liaolongdong.github.io/transfer-any-file/
 - **隐私政策**：https://liaolongdong.github.io/transfer-any-file/privacy.html
 
@@ -298,7 +326,7 @@ dry_run: true # 只验证，不实际发布
 
 发布前请确保：
 
-- [ ] GitHub Secrets 配置齐全（3 个共用凭据 + 1 个本扩展专用 ID）
+- [ ] GitHub Secrets 配置齐全（3 个共用凭据 + 1 个本扩展专用 ID；要让标签自动触发发版，再加 `RELEASE_PAT`）
 - [ ] OAuth 应用状态正常（In production 或 token 未过期）
 - [ ] 扩展 ID 格式正确（32 位 a-p 字母，`CHROME_EXTENSION_ID_TAF`）
 - [ ] 所有验证通过（`pnpm lint:all && pnpm verify:meta && pnpm verify:listing && pnpm build && pnpm verify:offline`）

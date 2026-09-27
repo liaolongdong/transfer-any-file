@@ -193,7 +193,10 @@ CHROME_EXTENSION_ID_TAF  # Transfer Any File extension ID (from CWS Dashboard, 3
 Current configuration uses the runner's own `curl` against the Chrome Web Store upload / publish APIs —
 **no third-party npm package or action**:
 
-1. **Create Tag**:
+1. **Prepare the version** (recommended path; the full automation is in `.github/RELEASE_AUTOMATION.md`):
+   once changes land on `main`, `release-prepare.yml` computes the version, promotes the `Unreleased`
+   sections of both changelogs and opens a Release PR. **Merging that PR is the approval to release**; the
+   same workflow then creates the tag. The manual route still works:
 
    ```bash
    git tag v1.0.0
@@ -203,13 +206,25 @@ Current configuration uses the runner's own `curl` against the Chrome Web Store 
 2. **Auto-trigger**: `.github/workflows/release.yml` automatically executes:
    - Verify tag matches package.json version
    - Run the source-layer checks (`verify:meta`, `verify:offline:source`, `verify:numbers`, `verify:listing`)
-   - Build the extension, run `verify:offline` again against the artifact (asserting the manifest the browser loads holds only `storage`), then package it
+   - Build the extension, run `verify:offline` and `verify:remote-code` again against the artifact (asserting the manifest the browser loads holds only `storage`, and that the bundle carries no remotely hosted code), then package it
    - Validate package contents (manifest.json at root, no repo files)
    - Create GitHub Release
-   - Verify OAuth credentials
-   - Submit to Chrome Web Store
+   - Verify OAuth credentials and the extension ID format
+   - **Version pre-flight**: read the version the store currently carries and stop unless this package is
+     strictly higher (the store only accepts higher versions; deciding this _before_ the upload means the
+     failure reason is a sentence we wrote, rather than a guess at Google's status fields, which have no
+     stable documentation)
+   - Upload the package, and **stop there by default**: the submit-for-review call is not made
 
-3. **Dry Run Test** (optional):
+3. **Two ways to submit for review** — the workflow above will not do it for you:
+   - **Developer dashboard** (preferred): on the item's Package page click **"Submit for review"**,
+     see item 5 of Step 2. It only sends the request and does not touch the package.
+   - **Run the workflow again**: Actions → Release → Run workflow, same tag, uncheck `dry_run`, check
+     `submit_for_review`. That run does upload _and_ submit back to back, so the same package is uploaded a
+     second time; if the item already reports that version, the version pre-flight stops the run first — that
+     is the guard working, so use the dashboard button instead.
+
+4. **Dry Run Test** (optional):
    ```yaml
    # Manually trigger workflow_dispatch from GitHub Actions page
    dry_run: true # Verification only, no actual publishing
@@ -231,21 +246,33 @@ After approval, obtain the 32-character extension ID from Chrome Web Store Dashb
 
 ### 5.1 Version Upgrade Process
 
-1. Modify version number in `package.json`
-2. Update `CHANGELOG.md` and `CHANGELOG.en.md`
-3. Commit and create new tag:
+1. Land the changes on `main` and let `release-prepare.yml` open a Release PR (the version comes out as
+   `1.1.0` on its own, derived from the commit types) — reviewing and merging that PR is the approval to
+   release. Details in `.github/RELEASE_AUTOMATION.md`
+2. To look at the plan locally first:
+
+   ```bash
+   pnpm release:plan          # compute version and changelog, write nothing
+   pnpm release:cut           # apply locally: bilingual docs + commit + tag (never pushes)
+   ```
+
+3. The manual route is still available — edit the `package.json` version, update `CHANGELOG.md` and
+   `CHANGELOG.en.md`, then tag:
 
    ```bash
    git tag v1.1.0
    git push origin v1.1.0
    ```
 
-4. **Important**: New version must be higher than the published version on store, otherwise will be rejected
+4. **Important**: the new version must be higher than the one already published on the store, otherwise it is
+   rejected. `release.yml` now checks that rule itself before uploading (the "version pre-flight" in 3.3)
+   instead of waiting for the store to report it
 
 ### 5.2 Notes
 
 - ✅ **Increment version for each update**: Versions equal to or lower than already published will be directly rejected
-- ✅ **Maintain文案consistency**: All store fields must match `_locales` files verbatim
+- ✅ **Uploading is not submitting for review**: by default that step only pushes the package up; the review request needs an explicit human decision (item 3 of 3.3)
+- ✅ **Maintain copy consistency**: All store fields must match `_locales` files verbatim
 - ✅ **Re-run validations**: `pnpm verify:meta`, `pnpm verify:offline`, `pnpm verify:numbers`, `pnpm verify:listing` (the offline one includes the artifact layer, so build locally first with `pnpm build`; `verify:numbers` reconciles the figures in the outward prose against the code; on a tag push `release.yml` runs both layers, before and after the build)
 
 ---
@@ -285,6 +312,14 @@ A: Use dry run mode:
 dry_run: true # Verify only, no actual publishing
 ```
 
+### Q5: The package uploaded but review has not started?
+
+A: That is the default, not a failure. `release.yml` only pushes the package up; the review request has to be
+started by a person. Prefer the developer dashboard's Package page and click **"Submit for review"** — it sends
+the request without touching the package. Alternatively run the Release workflow again via `workflow_dispatch`
+(same tag, uncheck `dry_run`, check `submit_for_review`), which uploads the same package a second time and may
+therefore be stopped by the version pre-flight. Item 3 of 3.3 spells out both routes.
+
 ---
 
 ## Related Documentation
@@ -295,6 +330,7 @@ so its section names are quoted verbatim below:
 - **Complete store copy template**: `CHROMEWEBSTORE.md`
 - **Permissions and privacy disclosure**: `CHROMEWEBSTORE.md` → "权限与隐私申报"
 - **Rejection records and responses**: `CHROMEWEBSTORE.md` → "拒审记录与政策口径"
+- **Release automation (Release PR, tags, secrets list)**: `.github/RELEASE_AUTOMATION.md`
 - **Product page**: https://liaolongdong.github.io/transfer-any-file/
 - **Privacy policy**: https://liaolongdong.github.io/transfer-any-file/privacy.html
 
@@ -304,7 +340,7 @@ so its section names are quoted verbatim below:
 
 Before publishing, ensure:
 
-- [ ] GitHub Secrets configured completely (3 shared credentials + 1 extension-specific ID)
+- [ ] GitHub Secrets configured completely (3 shared credentials + 1 extension-specific ID; add `RELEASE_PAT` too if the tag should start the release on its own)
 - [ ] OAuth app status normal (In production or token not expired)
 - [ ] Extension ID format correct (32 a-p lowercase letters, `CHROME_EXTENSION_ID_TAF`)
 - [ ] All validations passed (`pnpm lint:all && pnpm verify:meta && pnpm verify:listing && pnpm build && pnpm verify:offline`)
