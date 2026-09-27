@@ -489,7 +489,7 @@ function chrome(depth) {
     <div class="wrap">
       <a class="brand" href="${up}">
         <img src="${up}assets/icon-mark.png" width="26" height="26" alt="" />
-        <span>Transfer Any File</span>
+        ${bi('文件格式任意转换助手', 'Transfer Any File')}
       </a>
       <nav class="site-nav" aria-label="Site">
         <a href="${up}">${bi('产品说明', 'Product')}</a>
@@ -503,7 +503,7 @@ function chrome(depth) {
     <div class="wrap">
       <p>
         ${bi(
-          'Transfer Any File —— 完全离线的 Chrome 文件格式转换扩展。文件不出本机，无遥测，只申请 storage 权限。',
+          '文件格式任意转换助手 —— 完全离线的 Chrome 文件格式转换扩展。文件不出本机，无遥测，只申请 storage 权限。',
           'Transfer Any File — an offline Chrome file format converter. Files never leave the machine, no telemetry, and the storage permission is all it asks for.',
         )}
       </p>
@@ -848,7 +848,7 @@ ${items}
   const meta = {
     zh: {
       t: '转换一览｜14 种格式可用的转换组合',
-      d: 'Transfer Any File 的转换配对一览：14 种格式、48 条注册路径、界面提供 116 个可选组合。每条链路给出保留什么与不做什么。',
+      d: '文件格式任意转换助手的转换配对一览：14 种格式、48 条注册路径、界面提供 116 个可选组合。每条链路给出保留什么与不做什么。',
     },
     en: {
       t: 'Conversion index for 14 file formats',

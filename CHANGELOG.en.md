@@ -335,15 +335,32 @@ always name the same release.
 
 ### Changed
 
+- **Chinese readers meet the Chinese name on the outward pages too.** The bullet below only reached the
+  interface, so a Chinese user read 「文件格式任意转换助手」 in Chrome's extension manager and
+  `Transfer Any File` one click later on the product page — two names for one thing, which reads like two
+  products. This one separates the two questions: the copy a Chinese reader reads, and the identity of the site.
+  Changed on the Chinese side: the page title, the brand mark in the header and the footer, the hero paragraph,
+  the capability-matrix caption, this extension's own column in the comparison table, the FAQ question (with its
+  JSON-LD twin, which has to match the visible text), the Chinese summary of the privacy policy, the blog body
+  and its footer — plus `README.md`'s H1 and icon alt. Four places keep the English brand on purpose:
+  `og:site_name`, the JSON-LD primary `name`, the canonical and repository URLs, which are one value across both
+  languages and the site's identity, and the WeChat note `taf`, whose abbreviation comes from the English name —
+  rename it and that stops making sense. First mentions on the Chinese side carry the English name in
+  parentheses (the README's opening paragraph, the privacy summary); the English side is untouched, character for
+  character. The brand mark went from one `<span>` to a paired Chinese and English two, still shown and hidden by
+  the `[lang]` rules already in the page, so a reader or crawler that runs no JavaScript gets the
+  `<html lang="zh-CN">` half. The 11 conversion pages and their index were regenerated with
+  `pnpm pages:render` from the renderer's Chinese halves; no generated file was hand-edited. Below ~480px the
+  Chinese brand wraps onto two lines — the English brand wraps at the same width, so that shape is not new here.
 - **The Chinese interface now names the extension in Chinese.** The brand in the workbench header and in
   the tab title used to read `Transfer Any File` in both languages; under Chinese it reads
   「文件格式任意转换助手」 now, which is the brand half of the Chinese `extensionName` already sitting in
   `_locales/zh_CN` (its second half, "离线转换无上传", is the store and management-page slot, and this side of
   the product has its own subtitle). So the three names a Chinese user meets — the Chrome extensions page,
   the toolbar tooltip and the page itself — say the same thing for the first time. The English side is
-  untouched, character for character. The interface is all this reaches: the repository, README, landing
-  pages and store assets still carry `Transfer Any File` as the outward brand, and `package.json` and the
-  manifest version are unchanged.
+  untouched, character for character. The interface is all this reaches: the repository and the store assets
+  still carry `Transfer Any File` as the outward brand, and `package.json` and the manifest version are
+  unchanged; the Chinese side of the outward copy is handled by the bullet above.
 - **The archive you download is named by the same rule as everything else.** It used to be
   `converted-<date_time>.zip`; with the built-in pattern it is now `converted_<date_time>.zip`, a
   one-character drift from hyphen to underscore. The old spelling was not kept as a special case:
