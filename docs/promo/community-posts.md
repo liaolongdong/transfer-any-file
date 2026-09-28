@@ -20,7 +20,7 @@
 - 端到端断言：跑 317 条断言 | 出处 `scripts/__baseline__/e2e-assertions.json`（一轮完整绿灯运行记录）
 - 主题：6 种主题色，浅色 / 深色两组共 12 组配置逐组断言对比度 | 出处 `composables/useTheme.ts`
 - 许可 / 作者：MIT，单一作者 Better（[@liaolongdong](https://github.com/liaolongdong)） | 出处 `LICENSE`、`package.json`
-- 商店状态：**尚未上架**，只能自己构建后「加载已解压的扩展程序」 | 出处 `CHROMEWEBSTORE.md`
+- 商店状态：**尚未上架**，只能自己构建后「加载已解压的扩展程序」 | 出处 `.github/CHROMEWEBSTORE.md`
 
 链接（按渠道决定放几个，能放链接就优先这几条）：
 

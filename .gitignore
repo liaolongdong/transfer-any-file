@@ -43,16 +43,16 @@ docs/promo/*.html
 # plans. They deliberately live here rather than in `docs/`, because `docs/` is the GitHub Pages
 # source root (`static.yml` publishes everything in it except `promo/`) — see `.qoder/rules/wxt-rules.md`
 # §10. Nothing builds on them: no script or workflow opens these paths. `verify:numbers` checks a
-# hardcoded prose list (`docs/**`, `CHROMEWEBSTORE.md`, the two `.github/` runbooks, both CHANGELOGs)
-# that never names `.qoder/`, and `release.mjs` puts `:(exclude).qoder/**` on the commit range it
-# summarizes. The only mention from outside this directory is the historical note about
-# `popup-verify.png` further up in this file, which reads the same either way.
+# hardcoded prose list (`docs/**`, the four `.github/` docs — store sheet, both publishing guides, the
+# visibility runbook — and both CHANGELOGs) that never names `.qoder/`, and `release.mjs` puts
+# `:(exclude).qoder/**` on the commit range it summarizes. The only mention from outside this directory
+# is the historical note about `popup-verify.png` further up in this file, which reads the same either way.
 # `.qoder/rules/` is NOT in this group — that directory is the project's coding contract and must
 # stay tracked, so do not "tidy" these two lines into a blanket `.qoder/`. And note that
-# `.github/visibility-checklist.md` / `CWS_PUBLISHING_GUIDE*.md` are in `verify:numbers`' list: those
-# operational docs are tracked on purpose and untracking them turns CI red.
+# `.github/visibility-checklist.md` / `CWS_PUBLISHING_GUIDE*.md` / `CHROMEWEBSTORE.md` are in
+# `verify:numbers`' list: those operational docs are tracked on purpose and untracking them turns CI red.
 .qoder/specs/
 .qoder/plans/
-# What the two rules above do NOT do: `.gitignore` cannot untrack. The specs and plans that were
-# committed before this rule existed stay on the remote until someone runs
-# `git rm --cached` on them (local copies survive; history does not get rewritten).
+# 2026-09-28: the four specs and the one plan committed before the two rules above existed are now
+# untracked (`git rm --cached`), so the ignore rules finally bite. Local copies survive; history is not
+# rewritten, so those paths still appear in old commits and simply do not exist on `main`.

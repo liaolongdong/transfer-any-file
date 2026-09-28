@@ -67,11 +67,11 @@ export default defineConfig({
     // a Chinese system gets the Chinese name everywhere Chrome shows it (extension manager, install
     // prompt, Chrome Web Store default listing) while English keeps its own localized copy from
     // `_locales/en/`. The wording rationale for each sentence lives with the copy in
-    // `public/_locales/{zh_CN,en}/messages.json`, mirrored in `CHROMEWEBSTORE.md`.
+    // `public/_locales/{zh_CN,en}/messages.json`, mirrored in `.github/CHROMEWEBSTORE.md`.
     default_locale: 'zh_CN',
     name: '__MSG_extensionName__',
     // Store caps this at 132 characters and matches searches against it. Both locales are measured by
-    // `pnpm verify:listing`, which also asserts each one equals its `CHROMEWEBSTORE.md` paste block;
+    // `pnpm verify:listing`, which also asserts each one equals its `.github/CHROMEWEBSTORE.md` paste block;
     // `_locales/en` is additionally compared against `package.json#description` by `pnpm verify:meta`.
     description: '__MSG_extensionDescription__',
     // Only storage is used (history/preferences); no tab access needed

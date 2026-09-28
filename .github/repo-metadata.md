@@ -3,7 +3,7 @@
 > 仓库的 About 块（描述、网站、topics）与社交预览图。**事实源是
 > [`.github/repo-metadata.json`](repo-metadata.json)**，由
 > [`workflows/repo-meta.yml`](workflows/repo-meta.yml) 推送到 GitHub 上；本文件只解释每个值**为什么**这么写，
-> 以及怎么落地。商店侧的文案与披露申报不在这里，见 [`CHROMEWEBSTORE.md`](../CHROMEWEBSTORE.md)。
+> 以及怎么落地。商店侧的文案与披露申报不在这里，见 [`CHROMEWEBSTORE.md`](CHROMEWEBSTORE.md)。
 
 ## 当前落地状态：只剩 topics 没落地
 
@@ -121,7 +121,7 @@ curl -sS https://api.github.com/repos/liaolongdong/transfer-any-file | grep -E '
 
 ## 相关文档
 
-- [`CHROMEWEBSTORE.md`](../CHROMEWEBSTORE.md) —— Chrome 应用商店文案、权限与隐私申报、拒审口径
+- [`CHROMEWEBSTORE.md`](CHROMEWEBSTORE.md) —— Chrome 应用商店文案、权限与隐私申报、拒审口径
 - [`visibility-checklist.md`](visibility-checklist.md) —— 收下改动之后那一半：Pages 上线、GitHub 曝光、搜索收录、商店与社区分发
 - [`CONTRIBUTING.md`](../CONTRIBUTING.md) —— 贡献流程与全部编码规则
 - [`AGENTS.md`](../AGENTS.md) —— 架构、命令与常见陷阱

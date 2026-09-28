@@ -86,7 +86,7 @@ Sole author: Better ([github.com/liaolongdong](https://github.com/liaolongdong))
 - [Changelog](https://github.com/liaolongdong/transfer-any-file/blob/main/CHANGELOG.en.md): release notes per version ([简体中文](https://github.com/liaolongdong/transfer-any-file/blob/main/CHANGELOG.md))
 - [Security policy](https://github.com/liaolongdong/transfer-any-file/blob/main/SECURITY.en.md): how to report a vulnerability, and the offline attack-surface claims you can verify ([简体中文](https://github.com/liaolongdong/transfer-any-file/blob/main/SECURITY.md))
 - [Contributing guide](https://github.com/liaolongdong/transfer-any-file/blob/main/CONTRIBUTING.en.md): the offline-only rule, how to add a converter, and which docs must move together ([简体中文](https://github.com/liaolongdong/transfer-any-file/blob/main/CONTRIBUTING.md))
-- [Chrome Web Store listing copy and disclosures](https://github.com/liaolongdong/transfer-any-file/blob/main/CHROMEWEBSTORE.md)
+- [Chrome Web Store listing copy and disclosures](https://github.com/liaolongdong/transfer-any-file/blob/main/.github/CHROMEWEBSTORE.md)
 
 ## Tech stack
 

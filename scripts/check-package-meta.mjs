@@ -13,7 +13,7 @@
  * dashboard copy.
  *
  * Two more copies exist and are deliberately out of reach of this check: the text pasted into the
- * dashboard (`CHROMEWEBSTORE.md`, kept in sync by `verify:listing`) and the repository's About
+ * dashboard (`.github/CHROMEWEBSTORE.md`, kept in sync by `verify:listing`) and the repository's About
  * description (`.github/repo-metadata.json`), which is a **different sentence** about the same product
  * — so only its `homepage` is compared here.
  *
@@ -168,7 +168,7 @@ check(
 
 check(
   pkg.description === enDescription,
-  'package.json#description and _locales/en extensionDescription must match exactly — edit both, then CHROMEWEBSTORE.md',
+  'package.json#description and _locales/en extensionDescription must match exactly — edit both, then .github/CHROMEWEBSTORE.md',
 );
 check(
   [...enDescription].length <= STORE_DESCRIPTION_LIMIT,

@@ -225,7 +225,7 @@ function prBody(plan) {
     `2. 已有的 \`release.yml\` 被该标签触发：五道守卫 → 构建 → \`wxt zip\` → 包内容校验 → ` +
       `GitHub Release（发布说明取本次的 \`## [${plan.version}]\` 区块）。`,
   );
-  out.push('3. 商店那一步**默认只上传包、不提交审核**（`CHROMEWEBSTORE.md` 三次被拒之后定的默认值）。');
+  out.push('3. 商店那一步**默认只上传包、不提交审核**（`.github/CHROMEWEBSTORE.md` 三次被拒之后定的默认值）。');
   out.push('');
   out.push('详细说明见 `.github/RELEASE_AUTOMATION.md`。');
   out.push('');

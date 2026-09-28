@@ -2,7 +2,7 @@
 #
 # 产物根是 `docs/`，**不是仓库根**：本项目对外发布的每一个 URL 都是按「站点根」写的——
 # docs/index.html 里的 canonical / OG / JSON-LD 区块、docs/sitemap.xml、docs/robots.txt、
-# docs/llms.txt，以及 CHROMEWEBSTORE.md 里的隐私政策 URL。若改成发布仓库根，`<site>/` 与
+# docs/llms.txt，以及 .github/CHROMEWEBSTORE.md 里的隐私政策 URL。若改成发布仓库根，`<site>/` 与
 # `<site>/privacy.html` 会一起变 404，而这会直接卡住 Chrome 应用商店提交——后台要求一个
 # 可访问的政策 URL。
 name: Deploy GitHub Pages

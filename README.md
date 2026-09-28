@@ -220,7 +220,7 @@ _图上可达但语义不成立，因此置灰并说明原因，而不是等你�
 - 所有转换 **100% 在本地** 的扩展页面内完成——这是可验证的核心事实：第一方源码中没有任何一处发起请求（`entrypoints/`、`components/`、`composables/`、`utils/` 里找不到 `fetch`、`XMLHttpRequest`、`WebSocket`、`EventSource`、`sendBeacon`，由 `pnpm verify:offline` 断言）。在此之上，manifest 不声明任何 host 权限、也不注册 content script，因此第三方转换库里那些从未被调用的请求路径即使被走到，也读不到任何响应、碰不到任何网站的数据
 - 仅申请 `storage` 一项权限，用于保存历史（文件名、格式、体积——绝不含文件内容）与偏好设置
 - 无统计埋点、无追踪、无账号、无广告、无付费版
-- 完整文本：[隐私政策（在线，中英双语）](https://liaolongdong.github.io/transfer-any-file/privacy.html)（仓库源文件 `docs/privacy.html`） · 面向商店的披露答复：[`CHROMEWEBSTORE.md`](CHROMEWEBSTORE.md)
+- 完整文本：[隐私政策（在线，中英双语）](https://liaolongdong.github.io/transfer-any-file/privacy.html)（仓库源文件 `docs/privacy.html`） · 面向商店的披露答复：[`CHROMEWEBSTORE.md`](.github/CHROMEWEBSTORE.md)
 
 ## 📥 安装与上手
 
@@ -239,7 +239,7 @@ pnpm build
 3. 点击 **加载已解压的扩展程序**，选择 `.output/chrome-mv3` 目录
 4. 点击工具栏图标——转换工作台在新标签页打开
 
-目前尚未上架应用商店；`CHROMEWEBSTORE.md` 保存了随时可提交的商品文案、素材与披露答复。
+目前尚未上架应用商店；`.github/CHROMEWEBSTORE.md` 保存了随时可提交的商品文案、素材与披露答复。
 
 ### 使用步骤
 

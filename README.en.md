@@ -209,7 +209,7 @@ Summarised from the typical behaviour of each class of tool rather than one spec
 - All conversions run **100% locally** in the extension page — the load-bearing fact is that no first-party source file issues a request (`fetch`, `XMLHttpRequest`, `WebSocket`, `EventSource` and `sendBeacon` appear nowhere in `entrypoints/`, `components/`, `composables/` or `utils/`, asserted by `pnpm verify:offline`). On top of that, the manifest declares no host permissions and registers no content scripts, so the request paths sitting unused inside third-party converter libraries can neither read a response nor reach any site's data
 - The only permission requested is `storage`, used for history (file names, formats, sizes — never contents) and preferences
 - No analytics, no tracking, no account, no ads, no paid tier
-- Full text: [privacy policy (online, bilingual)](https://liaolongdong.github.io/transfer-any-file/privacy.html) (repository source `docs/privacy.html`) · store-facing answers: [`CHROMEWEBSTORE.md`](CHROMEWEBSTORE.md)
+- Full text: [privacy policy (online, bilingual)](https://liaolongdong.github.io/transfer-any-file/privacy.html) (repository source `docs/privacy.html`) · store-facing answers: [`CHROMEWEBSTORE.md`](.github/CHROMEWEBSTORE.md)
 
 ## 📥 Installation and usage
 
@@ -228,7 +228,7 @@ Then in Chrome:
 3. Click **Load unpacked** and select `.output/chrome-mv3`
 4. Click the toolbar icon — the workbench opens in a new tab
 
-There is no store listing yet; `CHROMEWEBSTORE.md` holds the publish-ready listing copy, graphics and disclosure answers for when there is.
+There is no store listing yet; `.github/CHROMEWEBSTORE.md` holds the publish-ready listing copy, graphics and disclosure answers for when there is.
 
 ### Usage
 
