@@ -10,6 +10,7 @@ import { useI18n } from '~/composables/useI18n';
 import { useRecentTargets } from '~/composables/useRecentTargets';
 import { useOutputOptions } from '~/composables/useOutputOptions';
 import { useShortcuts } from '~/composables/useShortcuts';
+import { useWorkspaceFileDrop } from '~/composables/useWorkspaceFileDrop';
 import { converterRegistry } from '~/utils/core/registry';
 import { isImageOutputFormat } from '~/utils/core/output-options';
 import { FileFormat } from '~/utils/core/types';
@@ -337,69 +338,20 @@ function handleGlobalKeydown(event: KeyboardEvent): void {
   convert();
 }
 
-// --- Workspace-level drag-and-drop ---------------------------------------
-// The FileUpload's own drop zone works, but users often miss it on a tall
-// page. A page-wide overlay lets them drop anywhere. The counter pattern
-// tolerates nested enter/leave events fired on every child element.
-const isWorkspaceDragging = ref(false);
-let dragCounter = 0;
-
-function isFileDrag(event: DragEvent): boolean {
-  const types = event.dataTransfer?.types;
-  if (!types) return false;
-  // DataTransferItemList is array-like, DataTransfer.types is DOMStringList in
-  // some engines; Array.from covers both.
-  return Array.from(types).includes('Files');
-}
-
-function handleWorkspaceDragEnter(event: DragEvent): void {
-  if (!isFileDrag(event)) return;
-  event.preventDefault();
-  dragCounter += 1;
-  if (!isConverting.value) isWorkspaceDragging.value = true;
-}
-
-function handleWorkspaceDragOver(event: DragEvent): void {
-  if (!isFileDrag(event)) return;
-  // Without preventDefault the browser refuses the drop
-  event.preventDefault();
-  if (event.dataTransfer) event.dataTransfer.dropEffect = isConverting.value ? 'none' : 'copy';
-}
-
-function handleWorkspaceDragLeave(event: DragEvent): void {
-  if (!isFileDrag(event)) return;
-  event.preventDefault();
-  dragCounter = Math.max(0, dragCounter - 1);
-  if (dragCounter === 0) isWorkspaceDragging.value = false;
-}
-
-function handleWorkspaceDrop(event: DragEvent): void {
-  if (!isFileDrag(event)) return;
-  event.preventDefault();
-  dragCounter = 0;
-  isWorkspaceDragging.value = false;
-  if (isConverting.value) return;
-  // The drop zone's own handler has already seen this event if the drop landed on it; the guard
-  // inside `intakeDrop` is what makes the second visit a no-op. Folders are read through the
-  // `DataTransfer`, so the object itself — not a file list — is what has to travel.
-  void fileUploadRef.value?.intakeDrop(event.dataTransfer);
-}
+// The overlay markup lives with this state below; the counter, the `Files`-type guard and the
+// four document-level listeners are all in the composable.
+const { isWorkspaceDragging } = useWorkspaceFileDrop({
+  isLocked: isConverting,
+  onFilesDropped: dataTransfer => void fileUploadRef.value?.intakeDrop(dataTransfer),
+});
 
 onMounted(() => {
   document.addEventListener('keydown', handleGlobalKeydown);
-  document.addEventListener('dragenter', handleWorkspaceDragEnter);
-  document.addEventListener('dragover', handleWorkspaceDragOver);
-  document.addEventListener('dragleave', handleWorkspaceDragLeave);
-  document.addEventListener('drop', handleWorkspaceDrop);
 });
 
 onUnmounted(() => {
   window.removeEventListener('beforeunload', warnBeforeLeave);
   document.removeEventListener('keydown', handleGlobalKeydown);
-  document.removeEventListener('dragenter', handleWorkspaceDragEnter);
-  document.removeEventListener('dragover', handleWorkspaceDragOver);
-  document.removeEventListener('dragleave', handleWorkspaceDragLeave);
-  document.removeEventListener('drop', handleWorkspaceDrop);
 });
 </script>
 
