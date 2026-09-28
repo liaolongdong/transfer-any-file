@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, computed, onMounted, onUnmounted, onBeforeUnmount, nextTick } from 'vue';
+import { ref, watch, computed, onMounted, onUnmounted, onBeforeUnmount } from 'vue';
 import { Edit, View, CopyDocument, ArrowLeft, ArrowRight } from '@element-plus/icons-vue';
 import { FileFormat } from '~/utils/core/types';
 import type { ConvertResult } from '~/utils/core/types';
@@ -8,6 +8,7 @@ import { formatSize, TEXT_FORMATS } from '~/utils/core/format';
 import { docxToPreviewHtml, xlsxToPreviewHtml } from '~/utils/core/preview';
 import { stripRemoteResources } from '~/utils/core/html-sanitize';
 import { useI18n } from '~/composables/useI18n';
+import { useSyncedScroll } from '~/composables/useSyncedScroll';
 import { STORAGE_KEYS, storageGet, storageSet } from '~/utils/storage';
 
 const props = defineProps<{
@@ -33,7 +34,6 @@ const sourceDocHtml = ref('');
 const resultDocHtml = ref('');
 const isEditing = ref(false);
 const syncScroll = ref(true);
-const isSyncing = ref(false);
 
 const sourcePanel = ref<HTMLElement | null>(null);
 const resultPanel = ref<HTMLElement | null>(null);
@@ -328,35 +328,9 @@ onMounted(() => {
 });
 
 // --- Scroll sync ---
-function handleSourceScroll(): void {
-  if (!syncScroll.value || isSyncing.value || !sourcePanel.value || !resultPanel.value) return;
-  isSyncing.value = true;
-  const src = sourcePanel.value;
-  const dst = resultPanel.value;
-  const maxSrc = src.scrollHeight - src.clientHeight;
-  const maxDst = dst.scrollHeight - dst.clientHeight;
-  if (maxSrc > 0 && maxDst > 0) {
-    dst.scrollTop = (src.scrollTop / maxSrc) * maxDst;
-  }
-  nextTick(() => {
-    isSyncing.value = false;
-  });
-}
-
-function handleResultScroll(): void {
-  if (!syncScroll.value || isSyncing.value || !sourcePanel.value || !resultPanel.value) return;
-  isSyncing.value = true;
-  const src = resultPanel.value;
-  const dst = sourcePanel.value;
-  const maxSrc = src.scrollHeight - src.clientHeight;
-  const maxDst = dst.scrollHeight - dst.clientHeight;
-  if (maxSrc > 0 && maxDst > 0) {
-    dst.scrollTop = (src.scrollTop / maxSrc) * maxDst;
-  }
-  nextTick(() => {
-    isSyncing.value = false;
-  });
-}
+// Both panes share one latch rather than each having its own, and the null guards are what keep a
+// `v-if`-unmounted panel from throwing — see ~/composables/useSyncedScroll.
+const { handleSourceScroll, handleResultScroll } = useSyncedScroll(sourcePanel, resultPanel, syncScroll);
 
 function handleResultEdit(value: string): void {
   resultText.value = value;

@@ -1003,7 +1003,7 @@ ${lists}
 const STATIC_PAGES = {
   home: {
     path: '/',
-    updated: '2026-09-26',
+    updated: '2026-09-28',
     changefreq: 'monthly',
     priority: '1.0',
     file: 'docs/index.html',
@@ -1071,6 +1071,118 @@ function validateStaticDates() {
 }
 
 /**
+ * Cross-check the FAQ rail of `docs/index.html` against the question list it indexes.
+ *
+ * The rail is a table of contents for a list living in the same file, so every row of it is a claim the
+ * document can answer by itself: the anchor must name a real category, the rows must be those categories in
+ * that order, the words on a row must be the words of the heading it points at, and the number must be how
+ * many questions that category actually holds. Adding a question is a one-line edit and nothing else on the
+ * page would ever notice, which is exactly the drift this pins.
+ */
+function validateFaqRail() {
+  const file = 'docs/index.html';
+  const source = fs.existsSync(path.join(ROOT, file)) ? fs.readFileSync(path.join(ROOT, file), 'utf8') : null;
+  if (source === null) {
+    fail(`${file} is missing, so its FAQ rail cannot be cross-checked`);
+    return;
+  }
+
+  // `<details class="faq-item">` is the only shape a question takes here, but the matcher tolerates an added
+  // attribute: a count that dropped a question for having become `open`, or for carrying a `data-*`, would
+  // report the rail as wrong at the moment the rail is most nearly right.
+  const QUESTION = /<details\b[^>]*\bclass="[^"]*\bfaq-item\b[^"]*"/g;
+  const countQuestions = text => (text.match(QUESTION) ?? []).length;
+  // Both sides carry the same two `<span lang="…">` halves of one label; collapsing whitespace compares the
+  // words without making the check care how Prettier chose to hang the tags.
+  const label = markup => (markup ?? '').replace(/\s+/g, '');
+
+  // A category is the stretch of document from its own heading to the next one, or to the end of the
+  // section for the last.
+  const headings = [...source.matchAll(/<h3\s+id="(faq-[a-z-]+)"\s+class="faq-cat"[^>]*>([\s\S]*?)<\/h3>/g)];
+  if (headings.length === 0) {
+    fail(`${file}: no FAQ category heading matched — the rail check has gone blind`);
+    return;
+  }
+  // The last category needs somewhere to stop, and the bound is taken from the *first* heading rather than
+  // the last: the first `</section>` after the categories begin is the one that closes their own section, so
+  // the spans below tile that section and nothing else. That is what makes the total-vs-tiled comparison
+  // meaningful — a question added to a later section then falls outside every span and shows up as a
+  // shortfall, instead of being quietly counted into whichever category happens to be last.
+  const sectionEnd = source.indexOf('</section>', headings[0].index);
+  if (sectionEnd === -1) {
+    fail(`${file}: no </section> after the FAQ categories begin, so the rail cannot be bounded`);
+    return;
+  }
+  const outside = headings.filter(heading => heading.index > sectionEnd).map(heading => heading[1]);
+  if (outside.length > 0) {
+    fail(
+      `${file}: ${outside.join(', ')} sit past the </section> that closes the FAQ, so the categories are no ` +
+        'longer one contiguous block and their spans would overlap other sections',
+    );
+    return;
+  }
+  const categories = headings.map((heading, i) => {
+    const from = heading.index + heading[0].length;
+    const to = i + 1 < headings.length ? headings[i + 1].index : sectionEnd;
+    return { id: heading[1], text: label(heading[2]), count: countQuestions(source.slice(from, to)) };
+  });
+
+  // Those spans tile the section, which is only a useful statement if they also cover the file: a question
+  // left outside them — below the section, or above the first heading — would belong to no category and be
+  // missing from one row, while every row still agreed with the span it was measured against.
+  const tiled = categories.reduce((sum, category) => sum + category.count, 0);
+  const total = countQuestions(source);
+  if (total !== tiled) {
+    fail(
+      `${file}: ${total} questions in the file but only ${tiled} fall inside a category — ` +
+        'a question outside the spans belongs to no row, so no row can count it',
+    );
+  }
+
+  // The `(?:(?!<\/a>)[\s\S])*?` keeps a row inside its own anchor: a lazy `[\s\S]*?` would happily reach
+  // past a row that lost its count span and read the next row's number instead.
+  const rows = [
+    ...source.matchAll(/<a href="#(faq-[a-z-]+)"[^>]*>((?:(?!<\/a>)[\s\S])*?)<span class="faq-toc-n">(\d+)<\/span>/g),
+  ];
+  if (rows.length === 0) {
+    fail(`${file}: the FAQ rail carries no category row — the check has gone blind`);
+    return;
+  }
+  if (rows.length !== categories.length) {
+    fail(
+      `${file}: the FAQ rail lists ${rows.length} categories, the question list has ${categories.length} ` +
+        `(${categories.map(c => c.id).join(', ')}) — every heading needs one row, and one row needs one heading`,
+    );
+  }
+  rows.forEach((row, i) => {
+    const category = categories[i];
+    if (!category) return;
+    if (row[1] !== category.id) {
+      fail(
+        `${file}: FAQ rail row ${i + 1} points at #${row[1]}, but that position in the question list is ` +
+          `#${category.id} — the rail has to follow the list's own order`,
+      );
+      return;
+    }
+    // The words are checked against the heading the row points at, not against a list of expected strings:
+    // rename a category and the row that still says the old name fails here, which is the only place on this
+    // page a stale label could be caught.
+    if (label(row[2]) !== category.text) {
+      fail(
+        `${file}: FAQ rail row ${i + 1} reads "${label(row[2])}", but #${category.id} reads ` +
+          `"${category.text}" — the row and its heading are the same name in two places`,
+      );
+    }
+    if (Number(row[3]) !== category.count) {
+      fail(
+        `${file}: the rail says #${category.id} holds ${row[3]} questions, it holds ${category.count} — ` +
+          'count the <details class="faq-item"> blocks under that heading',
+      );
+    }
+  });
+}
+
+/**
  * The site's discoverable URL set: the hand-written pages above plus every generated pair page.
  * @returns {string} `docs/sitemap.xml`
  */
@@ -1110,6 +1222,7 @@ ${urls}
 const files = new Map();
 validateScreenshots();
 validateStaticDates();
+validateFaqRail();
 for (const pair of PAIRS) {
   const chain = validatePair(pair);
   // A pair whose shot key is unknown is skipped for the same reason a pair without a route is: writing

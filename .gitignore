@@ -14,6 +14,12 @@ _site/
 .env.submit
 .test-files
 .test-screenshots
+# Measurement scratch: baseline logs, size snapshots, one-off CDP probe output. Same category as the
+# two above — a per-machine work area, whose contents describe one worktree at one moment. Nothing
+# in `scripts/` or `.github/workflows/` reads this path, so ignoring it costs no verification step.
+# It does need the two companions this line cannot supply: `.test-tmp/` is in `eslint.config.mjs`'s
+# global ignores and in `.prettierignore`, because both tools walk the filesystem rather than git.
+.test-tmp/
 .tmp-e2e-profile
 # Partial-staging scratch (`git apply --cached` patches plus the 33-line helper that builds them).
 # A per-machine work area like the three above: the 18 `.diff` files are byte snapshots of one
@@ -33,3 +39,20 @@ docs/promo/*.html
 .DS_Store
 # Qoder agent local settings (per-machine approvals); `.qoder/rules/` stays tracked
 .qoder/settings.local.json
+# Working notes, not repo deliverables: per-round design specs, audit reports and agent execution
+# plans. They deliberately live here rather than in `docs/`, because `docs/` is the GitHub Pages
+# source root (`static.yml` publishes everything in it except `promo/`) — see `.qoder/rules/wxt-rules.md`
+# §10. Nothing builds on them: no script or workflow opens these paths. `verify:numbers` checks a
+# hardcoded prose list (`docs/**`, `CHROMEWEBSTORE.md`, the two `.github/` runbooks, both CHANGELOGs)
+# that never names `.qoder/`, and `release.mjs` puts `:(exclude).qoder/**` on the commit range it
+# summarizes. The only mention from outside this directory is the historical note about
+# `popup-verify.png` further up in this file, which reads the same either way.
+# `.qoder/rules/` is NOT in this group — that directory is the project's coding contract and must
+# stay tracked, so do not "tidy" these two lines into a blanket `.qoder/`. And note that
+# `.github/visibility-checklist.md` / `CWS_PUBLISHING_GUIDE*.md` are in `verify:numbers`' list: those
+# operational docs are tracked on purpose and untracking them turns CI red.
+.qoder/specs/
+.qoder/plans/
+# What the two rules above do NOT do: `.gitignore` cannot untrack. The specs and plans that were
+# committed before this rule existed stay on the remote until someone runs
+# `git rm --cached` on them (local copies survive; history does not get rewritten).

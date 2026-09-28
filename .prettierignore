@@ -7,6 +7,10 @@ components.d.ts
 dist/
 node_modules/
 .test-screenshots/
+# Same class as the screenshots above: measurement scratch (baseline logs, size snapshots, one-off
+# probes). Its files are throwaway, so a probe left here should not have to be prettier-clean for
+# `format:check` — and therefore `lint:all` and CI — to stay green.
+.test-tmp/
 
 # Test fixtures are byte-exact conversion inputs; the e2e suite asserts on their
 # sizes and contents, so reformatting them changes the measurements, not the style.
