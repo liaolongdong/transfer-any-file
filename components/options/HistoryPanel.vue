@@ -318,8 +318,10 @@ async function handleImportChange(e: Event): Promise<void> {
       </el-button>
     </div>
 
-    <ul
+    <TransitionGroup
       v-else
+      tag="ul"
+      name="fat-list"
       class="history-list"
     >
       <li
@@ -373,7 +375,7 @@ async function handleImportChange(e: Event): Promise<void> {
           />
         </div>
       </li>
-    </ul>
+    </TransitionGroup>
 
     <input
       ref="importInput"
