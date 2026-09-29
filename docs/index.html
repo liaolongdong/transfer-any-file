@@ -82,6 +82,7 @@
     />
     <link
       rel="apple-touch-icon"
+      sizes="512x512"
       href="assets/icon.png"
     />
     <meta
@@ -212,7 +213,10 @@
                             (24 image -> text/data + 3 PDF -> data)
       · 3.82 MB          -> `pnpm build` total output size
     -->
-    <script type="application/ld+json">
+    <script
+      type="application/ld+json"
+      id="fat-ld"
+    >
       {
         "@context": "https://schema.org",
         "@graph": [
@@ -242,16 +246,8 @@
             "url": "https://liaolongdong.github.io/transfer-any-file/",
             "image": "https://liaolongdong.github.io/transfer-any-file/assets/icon.png",
             "logo": "https://liaolongdong.github.io/transfer-any-file/assets/icon.png",
-            "author": {
-              "@type": "Person",
-              "name": "Better",
-              "url": "https://github.com/liaolongdong"
-            },
-            "publisher": {
-              "@type": "Person",
-              "name": "Better",
-              "url": "https://github.com/liaolongdong"
-            },
+            "author": { "@type": "Person", "name": "Better", "url": "https://github.com/liaolongdong" },
+            "publisher": { "@type": "Person", "name": "Better", "url": "https://github.com/liaolongdong" },
             "support": {
               "@type": "ContactPoint",
               "contactType": "support",
@@ -263,11 +259,7 @@
             "issueTracker": "https://github.com/liaolongdong/transfer-any-file/issues",
             "license": "https://spdx.org/licenses/MIT.html",
             "isAccessibleForFree": true,
-            "offers": {
-              "@type": "Offer",
-              "price": "0",
-              "priceCurrency": "USD"
-            },
+            "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
             "featureList": [
               "14 file formats and 48 direct conversion routes (143 combinations reachable, 116 selectable)",
               "Batch conversion of mixed source formats, up to 200 files",
@@ -287,7 +279,8 @@
               "Chinese and English interface (follows the browser language until you pick one)",
               "Keyboard-accessible UI, with topbar, button, focus-ring and informational-text contrast measured per theme",
               "Only one permission: storage"
-            ]
+            ],
+            "sameAs": ["https://github.com/liaolongdong/transfer-any-file"]
           },
           {
             "@type": "FAQPage",
@@ -295,26 +288,10 @@
             "mainEntity": [
               {
                 "@type": "Question",
-                "name": "Does Transfer Any File upload my files?",
-                "acceptedAnswer": {
-                  "@type": "Answer",
-                  "text": "No. Every converter is JavaScript bundled into the extension, the manifest declares only the storage permission with no host_permissions, and the first-party source in entrypoints/, components/, composables/ and utils/ contains no fetch, XMLHttpRequest, WebSocket, EventSource or sendBeacon call — CI re-checks that assertion on every push. Bundled third-party conversion libraries keep some request paths they never call, but with no host permission the browser blocks those calls outright. There is no server to upload to, and the extension works with networking disabled."
-                }
-              },
-              {
-                "@type": "Question",
                 "name": "文件格式任意转换助手会把我的文件上传到服务器吗？",
                 "acceptedAnswer": {
                   "@type": "Answer",
                   "text": "不会。所有转换器都是打包进扩展的 JavaScript，清单只声明 storage 权限且没有 host_permissions，entrypoints/、components/、composables/ 与 utils/ 下的第一方源码不存在 fetch、XMLHttpRequest、WebSocket、EventSource 或 sendBeacon 调用——CI 会在每次推送时重新校验这一断言。打包进来的第三方转换库保留了一些从不被调用的请求路径，但没有 host 权限时浏览器会直接拦下这些调用。没有可供上传的服务器，关闭网络也能正常使用。"
-                }
-              },
-              {
-                "@type": "Question",
-                "name": "Why does it ask for only one permission?",
-                "acceptedAnswer": {
-                  "@type": "Answer",
-                  "text": "Because nothing else is needed. History and preferences need storage; conversion itself uses the file picker and the in-page File/Blob APIs, so it needs no tab access, no background scripts and no host permissions. Unused permissions are simply not requested."
                 }
               },
               {
@@ -327,26 +304,10 @@
               },
               {
                 "@type": "Question",
-                "name": "What exactly does the history store?",
-                "acceptedAnswer": {
-                  "@type": "Answer",
-                  "text": "Metadata for the last 50 successful conversions: file name, source format, target format, size and timestamp. No file contents and no results are stored. Writing history is best-effort — a storage failure never blocks a conversion. You can search, filter, reuse, or export it as JSON to read and delete it yourself."
-                }
-              },
-              {
-                "@type": "Question",
                 "name": "历史记录里到底存了什么？",
                 "acceptedAnswer": {
                   "@type": "Answer",
                   "text": "最近 50 次成功转换的元数据：文件名、源格式、目标格式、体积与时间。不存文件内容，也不存转换结果。写入是尽力而为的：保存失败不会阻断转换流程；你可以搜索、筛选、复用，或导出 JSON 自行查看与删除。"
-                }
-              },
-              {
-                "@type": "Question",
-                "name": "Which file formats can it convert?",
-                "acceptedAnswer": {
-                  "@type": "Answer",
-                  "text": "Fourteen formats across three families: documents (Markdown, HTML, Word .docx, PDF, TXT), data (CSV, Excel .xlsx, JSON) and images (PNG, JPEG, WebP, BMP, GIF, SVG). Eleven of them can be written; the registry holds 48 direct routes and BFS over that graph makes 143 combinations reachable. The picker offers 116 of them — the other 27 (image→text/data and PDF→data) are greyed out with a reason. The format table above lists the reachable and selectable counts for every source format row by row. An inline SVG converted into Word or Markdown is rasterized into an embedded PNG: the drawing survives, but it is a bitmap, not a vector."
                 }
               },
               {
@@ -359,26 +320,10 @@
               },
               {
                 "@type": "Question",
-                "name": "Why does Markdown to PDF show two steps?",
-                "acceptedAnswer": {
-                  "@type": "Answer",
-                  "text": "Because there is no Markdown-to-PDF converter. Each conversion is an edge in a graph, and the workbench finds the shortest chain with breadth-first search and runs it step by step, so Markdown → PDF executes as Markdown → HTML → PDF. The route is printed under the picker; you never chain it by hand, and routes through a newly added format are discovered automatically without code changes."
-                }
-              },
-              {
-                "@type": "Question",
                 "name": "为什么 Markdown 转 PDF 会显示两步？",
                 "acceptedAnswer": {
                   "@type": "Answer",
                   "text": "因为不存在 Markdown 直达 PDF 的转换器。每种转换是图上的一条边，工作台用广度优先搜索求最短链路并逐步执行，所以 Markdown → PDF 实际按 Markdown → HTML → PDF 两步完成。路径会显示在选择框下方，不需要你手工串联；经过新格式的路径会自动被发现，无需改代码。"
-                }
-              },
-              {
-                "@type": "Question",
-                "name": "Can it convert a PDF into an editable Word document?",
-                "acceptedAnswer": {
-                  "@type": "Answer",
-                  "text": "Not losslessly. PDF input extracts text only, dropping layout and embedded images; conversely PDF output is rendered page by page as images, so it carries no text layer. Word and Excel convert through HTML as the hub format. If you need layout-faithful PDF conversion, reach for a dedicated desktop tool or an online service."
                 }
               },
               {
@@ -391,26 +336,10 @@
               },
               {
                 "@type": "Question",
-                "name": "Why can't I convert an image to text or CSV?",
-                "acceptedAnswer": {
-                  "@type": "Answer",
-                  "text": "That requires OCR. Bundling an OCR model would add tens of megabytes and a model download, which conflicts with the offline guarantee, so it is not included. Those targets are greyed out in the format picker with the reason shown, rather than failing after you press Convert."
-                }
-              },
-              {
-                "@type": "Question",
                 "name": "为什么图片不能转成 TXT 或 CSV？",
                 "acceptedAnswer": {
                   "@type": "Answer",
                   "text": "那需要 OCR。内置 OCR 模型会多出几十 MB 体量并引入模型下载，与离线承诺冲突，因此没做。这些目标在格式选择器里直接置灰并写明原因，而不是你点了转换才发现不行。"
-                }
-              },
-              {
-                "@type": "Question",
-                "name": "Why can I copy text out of a PDF converted from an image?",
-                "acceptedAnswer": {
-                  "@type": "Answer",
-                  "text": "Because the viewer did it, not this extension. A PDF written here is a page image with no text layer and no real characters. Some viewers recognise the text on a page as they display it, so the characters you copied came from the viewer and are not stored in the file. No OCR is bundled, so this extension can neither read nor write them."
                 }
               },
               {
@@ -423,26 +352,10 @@
               },
               {
                 "@type": "Question",
-                "name": "Can I convert several different formats in one run?",
-                "acceptedAnswer": {
-                  "@type": "Answer",
-                  "text": "Yes — up to 200 files in one run. Each file resolves and walks its own route step by step, so dropping Markdown, CSV and Excel together and converting them all to HTML is a single action. The target picker lists only formats reachable from every file in the batch, so you can never pick a target that half the batch cannot reach."
-                }
-              },
-              {
-                "@type": "Question",
                 "name": "多个不同格式的文件能一次转换吗？",
                 "acceptedAnswer": {
                   "@type": "Answer",
                   "text": "可以，一次最多 200 个文件。每个文件各自解析自己的转换路径并逐步执行，所以 Markdown、CSV 与 Excel 混在一起投进来、统一转成 HTML 是一条动作。目标格式下拉框只提供对批次内全部文件都可达的格式，因此不会出现选了之后一半文件转不了的组合。"
-                }
-              },
-              {
-                "@type": "Question",
-                "name": "How do I convert Markdown to Word — and what happens to its images?",
-                "acceptedAnswer": {
-                  "@type": "Answer",
-                  "text": "Drop the .md in and pick Word: the route runs Markdown → HTML → Word in two steps, and the text lands as real Word paragraphs you can select, rewrite and comment on. What happens to an image depends on how it is written in the source — a data URI travels inside the document, a relative path stays relative (so the image files must sit next to the .docx for Word to show them), and an http(s) image is stripped before packing, because Word must not issue a network request while opening your file. Each route page spells out what it keeps and what it drops."
                 }
               },
               {
@@ -455,26 +368,10 @@
               },
               {
                 "@type": "Question",
-                "name": "Does Word to Markdown keep the images?",
-                "acceptedAnswer": {
-                  "@type": "Answer",
-                  "text": "Yes, but written into the .md as data URIs, which makes the file noticeably heavier — externalise the images again before committing to a repository. What crosses over is content and hierarchy: headings, lists, emphasis, links and table cells. Whatever Markdown cannot express stays behind, so headers and footers, comments, tracked changes, table-of-contents fields, columns and text boxes do not come, and table merges do not either. Legacy .doc (97-2003 binary) is outside the 14 supported formats, so save it as .docx first."
-                }
-              },
-              {
-                "@type": "Question",
                 "name": "Word 转 Markdown 会保留图片吗？",
                 "acceptedAnswer": {
                   "@type": "Answer",
                   "text": "保留，但以 data URI 的形式写进 .md，文件因此明显变大——要提交进 Git 的话，建议转完再把图片外链化。搬过来的是内容与层级：标题、列表、加粗与斜体、链接、表格单元格；Markdown 表达不了的东西不会过来，包括页眉页脚、批注、修订记录、目录域、分栏与文本框，表格的合并信息也不保留。老式 .doc（97-2003 二进制）不在支持的 14 种格式里，先在 Word 里另存为 .docx。"
-                }
-              },
-              {
-                "@type": "Question",
-                "name": "Will Excel to CSV turn 00123 into 123, or a date into 45296?",
-                "acceptedAnswer": {
-                  "@type": "Answer",
-                  "text": "Neither. Cells serialise from the stored value, so a cell formatted \"1,234.50\" still writes 1234.5 and a percentage-displayed 0.25 still writes 0.25. Dates are normalised while reading, to yyyy-mm-dd hh:mm:ss — a date-only cell lands as YYYY-MM-DD — independently of your timezone, which is why a day serial like 45296 never reaches the artifact. Text beginning with = + - @ or a tab is escaped, so Excel cannot re-execute it as a formula on open. A multi-sheet workbook yields one CSV per sheet inside a ZIP."
                 }
               },
               {
@@ -487,26 +384,10 @@
               },
               {
                 "@type": "Question",
-                "name": "What are the file size and batch limits?",
-                "acceptedAnswer": {
-                  "@type": "Answer",
-                  "text": "A single file up to 100 MB is accepted (the UI warns above 20 MB), and a batch is capped at 200 files. Batches larger than 5 files or 20 MB in total ask for confirmation first, and you can switch that prompt off in Preferences."
-                }
-              },
-              {
-                "@type": "Question",
                 "name": "单文件与批次的大小上限是多少？",
                 "acceptedAnswer": {
                   "@type": "Answer",
                   "text": "单文件最大 100 MB（超过 20 MB 时界面会提醒可能较慢），单批最多 200 个文件。超过 5 个文件或总计 20 MB 时，会先弹一次确认；这个开关可在偏好设置里关掉。"
-                }
-              },
-              {
-                "@type": "Question",
-                "name": "What happens when a multi-sheet Excel file becomes CSV?",
-                "acceptedAnswer": {
-                  "@type": "Answer",
-                  "text": "CSV holds one sheet, so each worksheet becomes its own CSV and the result arrives as a ZIP. For the same reason a multi-page PDF turned into images yields one file per page inside a ZIP; a GIF uses its first frame, and an SVG is flattened before rasterising."
                 }
               },
               {
@@ -519,26 +400,10 @@
               },
               {
                 "@type": "Question",
-                "name": "Why did one file fail without stopping the batch?",
-                "acceptedAnswer": {
-                  "@type": "Answer",
-                  "text": "On purpose. Each file resolves and runs its own path in isolation, so a failure never propagates; failures are listed per file with reasons while successful files stay previewable and downloadable. A long batch can be cancelled midway, finished results are kept, and the most recent result can be undone."
-                }
-              },
-              {
-                "@type": "Question",
                 "name": "为什么某个文件转换失败，整批却没停？",
                 "acceptedAnswer": {
                   "@type": "Answer",
                   "text": "故意的。每个文件独立解析路径并执行，失败不传播；失败清单会逐文件列出原因，已成功的文件照常可预览与下载。长批次中途可取消，已完成的保留，最近一轮结果还能撤销。"
-                }
-              },
-              {
-                "@type": "Question",
-                "name": "Does a Chinese CSV open correctly in Excel?",
-                "acceptedAnswer": {
-                  "@type": "Answer",
-                  "text": "Both directions are handled: reading tries UTF-8 first and then falls back to GB18030 and GBK in order — GB18030 covers characters GBK cannot represent, while GBK stays last for the single byte the two disagree on — so exports from domestic Chinese software open correctly; writing emits a BOM, so a converted CSV opens in Excel without mojibake."
                 }
               },
               {
@@ -551,26 +416,10 @@
               },
               {
                 "@type": "Question",
-                "name": "Can I shrink an image to a target size, or save a conversion setup for reuse?",
-                "acceptedAnswer": {
-                  "@type": "Answer",
-                  "text": "Both. A PNG / JPEG / WebP target gains output parameters: quality 40–90%, longest edge 800–4096 px, and a target size of 20 KB–2 MB (quality and target size are JPEG and WebP only, the size met by walking a quality ladder), plus 96–300 DPI when a PDF is in the batch. Every knob starts untouched, which is the browser's default encoding behaviour. A tuned format-and-parameters pair can be saved as one of up to 12 named presets and restored in one click; a preset is not bound to a source format, so the same \"PNG at 1280 px\" chip works for a batch arriving from PDF, HTML or SVG. Parameters and presets live in the extension's local storage and issue no network request."
-                }
-              },
-              {
-                "@type": "Question",
                 "name": "能把图片压到指定体积，或者保存常用的转换组合吗？",
                 "acceptedAnswer": {
                   "@type": "Answer",
                   "text": "都能。目标为 PNG / JPEG / WebP 时会多出输出参数：质量 40–90%、最长边 800–4096 px、目标体积 20 KB–2 MB（质量与目标体积仅 JPEG / WebP，后者靠质量阶梯反复编码逼近），批次里有 PDF 时还能选 96–300 DPI。每一项默认「不动」，此时就是浏览器的默认编码行为。调好的「目标格式 + 参数」可以存成最多 12 个命名预设，一键恢复；预设不绑定源格式，所以同一张「1280 px 的 PNG」对来自 PDF、HTML 或 SVG 的批次都成立。参数与预设只写在扩展的本地存储里，不产生任何网络请求。"
-                }
-              },
-              {
-                "@type": "Question",
-                "name": "It is not on the Store yet — how do I install it today?",
-                "acceptedAnswer": {
-                  "@type": "Answer",
-                  "text": "Build from source with Node.js 20.12 or later and pnpm: run pnpm install then pnpm build, open chrome://extensions, enable Developer mode, click Load unpacked and select the .output/chrome-mv3 folder. Clicking the toolbar icon opens the workbench in a new tab."
                 }
               },
               {
@@ -583,26 +432,10 @@
               },
               {
                 "@type": "Question",
-                "name": "Does it work in Edge or Firefox?",
-                "acceptedAnswer": {
-                  "@type": "Answer",
-                  "text": "The build targets Chrome Manifest V3, so it runs in Chrome and other Chromium browsers such as Edge. Firefox is not a supported target today, although beyond the standard storage and action APIs the extension uses no Chrome-only ones."
-                }
-              },
-              {
-                "@type": "Question",
                 "name": "它在 Edge / Firefox 上能跑吗？",
                 "acceptedAnswer": {
                   "@type": "Answer",
                   "text": "构建目标是 Chrome Manifest V3，所以在 Chrome 与其他 Chromium 浏览器（如 Edge）上可跑。Firefox 目前不是支持目标——尽管除了标准的 storage 与 action 之外，扩展并未使用 Chrome 专有 API。"
-                }
-              },
-              {
-                "@type": "Question",
-                "name": "Can I use it on mobile?",
-                "acceptedAnswer": {
-                  "@type": "Answer",
-                  "text": "No. Chrome on Android does not support extensions, and Chrome on iOS supports only a handful. There is no web version either — a web version would mean uploading files, which is precisely what this project exists to avoid."
                 }
               },
               {
@@ -615,26 +448,10 @@
               },
               {
                 "@type": "Question",
-                "name": "Can I ask for a new format?",
-                "acceptedAnswer": {
-                  "@type": "Answer",
-                  "text": "Yes — open an issue. Adding a converter means one module implementing the Converter interface (from / to / convert(blob), with heavy dependencies dynamically imported); as long as a browser can decode it, it joins the graph and every new route through it is discovered by BFS automatically. A genuinely new input format also extends the enum, the format metadata, the extension and MIME maps, plus the Chinese and English copy."
-                }
-              },
-              {
-                "@type": "Question",
                 "name": "我能要求加一种格式吗？",
                 "acceptedAnswer": {
                   "@type": "Answer",
                   "text": "可以，开 issue 提需求即可。新增一个转换器就是一个实现 Converter 接口的模块（from / to / convert(blob)，重型依赖内部动态引入）；只要浏览器能解码，它就能进入图，所有经过它的新链路会自动由 BFS 发现。若涉及新的输入格式，还需扩展枚举、格式元数据、后缀与 MIME 映射，并补中英双语文案。"
-                }
-              },
-              {
-                "@type": "Question",
-                "name": "Is it free, and is there a paid version?",
-                "acceptedAnswer": {
-                  "@type": "Answer",
-                  "text": "It is free, with no paid tier. The project is open source under the MIT licence: no account, no subscription, no advertising, and no feature gated behind anything. There is also no code path that could report usage — first-party source contains no network call at all."
                 }
               },
               {
@@ -650,28 +467,17 @@
           {
             "@type": "HowTo",
             "@id": "https://liaolongdong.github.io/transfer-any-file/#install",
-            "about": {
-              "@id": "https://liaolongdong.github.io/transfer-any-file/#app"
-            },
+            "about": { "@id": "https://liaolongdong.github.io/transfer-any-file/#app" },
             "name": [
-              {
-                "@language": "en",
-                "@value": "Install Transfer Any File from source"
-              },
-              {
-                "@language": "zh-CN",
-                "@value": "从源码安装文件格式任意转换助手"
-              }
+              { "@language": "en", "@value": "Install Transfer Any File from source" },
+              { "@language": "zh-CN", "@value": "从源码安装文件格式任意转换助手" }
             ],
             "description": [
               {
                 "@language": "en",
                 "@value": "Build the extension and load it unpacked, then open the conversion workbench."
               },
-              {
-                "@language": "zh-CN",
-                "@value": "构建扩展并以「加载未打包的扩展」方式安装，随后打开转换工作台。"
-              }
+              { "@language": "zh-CN", "@value": "构建扩展并以「加载未打包的扩展」方式安装，随后打开转换工作台。" }
             ],
             "step": [
               {
@@ -707,11 +513,7 @@
             "name": "Transfer Any File",
             "inLanguage": ["zh-CN", "en"],
             "about": { "@id": "https://liaolongdong.github.io/transfer-any-file/#app" },
-            "publisher": {
-              "@type": "Person",
-              "name": "Better",
-              "url": "https://github.com/liaolongdong"
-            }
+            "publisher": { "@type": "Person", "name": "Better", "url": "https://github.com/liaolongdong" }
           },
           {
             "@type": "SoftwareSourceCode",
@@ -725,6 +527,235 @@
           }
         ]
       }
+    </script>
+    <script>
+      /* The FAQ node is the only one whose values are per-language prose: the page renders 22
+         questions in the reader’s language, so the graph has to hold exactly those 22. Shipping both
+         languages inside one FAQPage lets an answer get quoted back in a language the page never
+         displays, and doubles the question count a reader sees. Only the other language travels —
+         the shipped graph already answers for Chinese, and the payload below carries the English list.
+         Failure-safe by the same rule as the generated pages: a throw leaves the shipped graph in
+         place rather than emptying the tag. */
+      window.__FAT_FAQ__ = {
+        en: [
+          {
+            '@type': 'Question',
+            name: 'Does Transfer Any File upload my files?',
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: 'No. Every converter is JavaScript bundled into the extension, the manifest declares only the storage permission with no host_permissions, and the first-party source in entrypoints/, components/, composables/ and utils/ contains no fetch, XMLHttpRequest, WebSocket, EventSource or sendBeacon call — CI re-checks that assertion on every push. Bundled third-party conversion libraries keep some request paths they never call, but with no host permission the browser blocks those calls outright. There is no server to upload to, and the extension works with networking disabled.',
+            },
+          },
+          {
+            '@type': 'Question',
+            name: 'Why does it ask for only one permission?',
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: 'Because nothing else is needed. History and preferences need storage; conversion itself uses the file picker and the in-page File/Blob APIs, so it needs no tab access, no background scripts and no host permissions. Unused permissions are simply not requested.',
+            },
+          },
+          {
+            '@type': 'Question',
+            name: 'What exactly does the history store?',
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: 'Metadata for the last 50 successful conversions: file name, source format, target format, size and timestamp. No file contents and no results are stored. Writing history is best-effort — a storage failure never blocks a conversion. You can search, filter, reuse, or export it as JSON to read and delete it yourself.',
+            },
+          },
+          {
+            '@type': 'Question',
+            name: 'Which file formats can it convert?',
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: 'Fourteen formats across three families: documents (Markdown, HTML, Word .docx, PDF, TXT), data (CSV, Excel .xlsx, JSON) and images (PNG, JPEG, WebP, BMP, GIF, SVG). Eleven of them can be written; the registry holds 48 direct routes and BFS over that graph makes 143 combinations reachable. The picker offers 116 of them — the other 27 (image→text/data and PDF→data) are greyed out with a reason. The format table above lists the reachable and selectable counts for every source format row by row. An inline SVG converted into Word or Markdown is rasterized into an embedded PNG: the drawing survives, but it is a bitmap, not a vector.',
+            },
+          },
+          {
+            '@type': 'Question',
+            name: 'Why does Markdown to PDF show two steps?',
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: 'Because there is no Markdown-to-PDF converter. Each conversion is an edge in a graph, and the workbench finds the shortest chain with breadth-first search and runs it step by step, so Markdown → PDF executes as Markdown → HTML → PDF. The route is printed under the picker; you never chain it by hand, and routes through a newly added format are discovered automatically without code changes.',
+            },
+          },
+          {
+            '@type': 'Question',
+            name: 'Can it convert a PDF into an editable Word document?',
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: 'Not losslessly. PDF input extracts text only, dropping layout and embedded images; conversely PDF output is rendered page by page as images, so it carries no text layer. Word and Excel convert through HTML as the hub format. If you need layout-faithful PDF conversion, reach for a dedicated desktop tool or an online service.',
+            },
+          },
+          {
+            '@type': 'Question',
+            name: "Why can't I convert an image to text or CSV?",
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: 'That requires OCR. Bundling an OCR model would add tens of megabytes and a model download, which conflicts with the offline guarantee, so it is not included. Those targets are greyed out in the format picker with the reason shown, rather than failing after you press Convert.',
+            },
+          },
+          {
+            '@type': 'Question',
+            name: 'Why can I copy text out of a PDF converted from an image?',
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: 'Because the viewer did it, not this extension. A PDF written here is a page image with no text layer and no real characters. Some viewers recognise the text on a page as they display it, so the characters you copied came from the viewer and are not stored in the file. No OCR is bundled, so this extension can neither read nor write them.',
+            },
+          },
+          {
+            '@type': 'Question',
+            name: 'Can I convert several different formats in one run?',
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: 'Yes — up to 200 files in one run. Each file resolves and walks its own route step by step, so dropping Markdown, CSV and Excel together and converting them all to HTML is a single action. The target picker lists only formats reachable from every file in the batch, so you can never pick a target that half the batch cannot reach.',
+            },
+          },
+          {
+            '@type': 'Question',
+            name: 'How do I convert Markdown to Word — and what happens to its images?',
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: 'Drop the .md in and pick Word: the route runs Markdown → HTML → Word in two steps, and the text lands as real Word paragraphs you can select, rewrite and comment on. What happens to an image depends on how it is written in the source — a data URI travels inside the document, a relative path stays relative (so the image files must sit next to the .docx for Word to show them), and an http(s) image is stripped before packing, because Word must not issue a network request while opening your file. Each route page spells out what it keeps and what it drops.',
+            },
+          },
+          {
+            '@type': 'Question',
+            name: 'Does Word to Markdown keep the images?',
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: 'Yes, but written into the .md as data URIs, which makes the file noticeably heavier — externalise the images again before committing to a repository. What crosses over is content and hierarchy: headings, lists, emphasis, links and table cells. Whatever Markdown cannot express stays behind, so headers and footers, comments, tracked changes, table-of-contents fields, columns and text boxes do not come, and table merges do not either. Legacy .doc (97-2003 binary) is outside the 14 supported formats, so save it as .docx first.',
+            },
+          },
+          {
+            '@type': 'Question',
+            name: 'Will Excel to CSV turn 00123 into 123, or a date into 45296?',
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: 'Neither. Cells serialise from the stored value, so a cell formatted "1,234.50" still writes 1234.5 and a percentage-displayed 0.25 still writes 0.25. Dates are normalised while reading, to yyyy-mm-dd hh:mm:ss — a date-only cell lands as YYYY-MM-DD — independently of your timezone, which is why a day serial like 45296 never reaches the artifact. Text beginning with = + - @ or a tab is escaped, so Excel cannot re-execute it as a formula on open. A multi-sheet workbook yields one CSV per sheet inside a ZIP.',
+            },
+          },
+          {
+            '@type': 'Question',
+            name: 'What are the file size and batch limits?',
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: 'A single file up to 100 MB is accepted (the UI warns above 20 MB), and a batch is capped at 200 files. Batches larger than 5 files or 20 MB in total ask for confirmation first, and you can switch that prompt off in Preferences.',
+            },
+          },
+          {
+            '@type': 'Question',
+            name: 'What happens when a multi-sheet Excel file becomes CSV?',
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: 'CSV holds one sheet, so each worksheet becomes its own CSV and the result arrives as a ZIP. For the same reason a multi-page PDF turned into images yields one file per page inside a ZIP; a GIF uses its first frame, and an SVG is flattened before rasterising.',
+            },
+          },
+          {
+            '@type': 'Question',
+            name: 'Why did one file fail without stopping the batch?',
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: 'On purpose. Each file resolves and runs its own path in isolation, so a failure never propagates; failures are listed per file with reasons while successful files stay previewable and downloadable. A long batch can be cancelled midway, finished results are kept, and the most recent result can be undone.',
+            },
+          },
+          {
+            '@type': 'Question',
+            name: 'Does a Chinese CSV open correctly in Excel?',
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: 'Both directions are handled: reading tries UTF-8 first and then falls back to GB18030 and GBK in order — GB18030 covers characters GBK cannot represent, while GBK stays last for the single byte the two disagree on — so exports from domestic Chinese software open correctly; writing emits a BOM, so a converted CSV opens in Excel without mojibake.',
+            },
+          },
+          {
+            '@type': 'Question',
+            name: 'Can I shrink an image to a target size, or save a conversion setup for reuse?',
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: 'Both. A PNG / JPEG / WebP target gains output parameters: quality 40–90%, longest edge 800–4096 px, and a target size of 20 KB–2 MB (quality and target size are JPEG and WebP only, the size met by walking a quality ladder), plus 96–300 DPI when a PDF is in the batch. Every knob starts untouched, which is the browser\'s default encoding behaviour. A tuned format-and-parameters pair can be saved as one of up to 12 named presets and restored in one click; a preset is not bound to a source format, so the same "PNG at 1280 px" chip works for a batch arriving from PDF, HTML or SVG. Parameters and presets live in the extension\'s local storage and issue no network request.',
+            },
+          },
+          {
+            '@type': 'Question',
+            name: 'It is not on the Store yet — how do I install it today?',
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: 'Build from source with Node.js 20.12 or later and pnpm: run pnpm install then pnpm build, open chrome://extensions, enable Developer mode, click Load unpacked and select the .output/chrome-mv3 folder. Clicking the toolbar icon opens the workbench in a new tab.',
+            },
+          },
+          {
+            '@type': 'Question',
+            name: 'Does it work in Edge or Firefox?',
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: 'The build targets Chrome Manifest V3, so it runs in Chrome and other Chromium browsers such as Edge. Firefox is not a supported target today, although beyond the standard storage and action APIs the extension uses no Chrome-only ones.',
+            },
+          },
+          {
+            '@type': 'Question',
+            name: 'Can I use it on mobile?',
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: 'No. Chrome on Android does not support extensions, and Chrome on iOS supports only a handful. There is no web version either — a web version would mean uploading files, which is precisely what this project exists to avoid.',
+            },
+          },
+          {
+            '@type': 'Question',
+            name: 'Can I ask for a new format?',
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: 'Yes — open an issue. Adding a converter means one module implementing the Converter interface (from / to / convert(blob), with heavy dependencies dynamically imported); as long as a browser can decode it, it joins the graph and every new route through it is discovered by BFS automatically. A genuinely new input format also extends the enum, the format metadata, the extension and MIME maps, plus the Chinese and English copy.',
+            },
+          },
+          {
+            '@type': 'Question',
+            name: 'Is it free, and is there a paid version?',
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: 'It is free, with no paid tier. The project is open source under the MIT licence: no account, no subscription, no advertising, and no feature gated behind anything. There is also no code path that could report usage — first-party source contains no network call at all.',
+            },
+          },
+        ],
+      };
+    </script>
+    <script>
+      (function () {
+        var box = document.getElementById('fat-ld');
+        if (!box) return;
+        /** The graph as it shipped: Chinese, the `lang` the document arrives with. */
+        var shipped = box.textContent;
+
+        /**
+         * Point the FAQ node at the 22 questions the reader is actually shown.
+         *
+         * The page renders 22 questions per language, so a graph holding all 44 would state questions in
+         * a language the reader never sees and double the count an answer gets quoted from. Only the other
+         * language travels — the payload above carries the English list and Chinese is the shipped graph,
+         * restored byte for byte. `setLang()` calls this too, or switching language inside the page would
+         * leave the graph quoting the previous one. Failure-safe: a throw leaves the shipped graph in place
+         * rather than emptying the tag.
+         * @param {'zh-CN' | 'en'} lang
+         */
+        window.__FAT_FAQ_APPLY__ = function (lang) {
+          if (lang !== 'en') {
+            box.textContent = shipped;
+            return;
+          }
+          try {
+            var faq = window.__FAT_FAQ__;
+            if (!faq) return;
+            var parsed = JSON.parse(shipped);
+            var node = parsed['@graph'].filter(function (item) {
+              return item['@type'] === 'FAQPage';
+            })[0];
+            if (!node) return;
+            node.mainEntity = faq.en;
+            box.textContent = JSON.stringify(parsed);
+          } catch (e) {
+            /* keep the shipped graph */
+          }
+        };
+        window.__FAT_FAQ_APPLY__(document.documentElement.getAttribute('lang'));
+      })();
     </script>
 
     <style>
@@ -7993,6 +8024,10 @@ pnpm build</code><button
 
           var copy = META[lang] || META.en;
           document.title = copy.title;
+          /* The graph's FAQ node is per-language prose, so it flips with the visible language; the
+             function is undefined only if the structured-data tag is gone, in which case there is
+             nothing to keep in sync. */
+          if (window.__FAT_FAQ_APPLY__) window.__FAT_FAQ_APPLY__(lang);
           setMeta('meta[name="description"]', copy.description);
           setMeta('meta[property="og:title"]', copy.ogTitle);
           setMeta('meta[property="og:description"]', copy.ogDescription);
