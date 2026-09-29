@@ -11,17 +11,19 @@ This is not a list of promises — it is the judgement already being applied, wr
 - **Recoverable failures**: retry only the items that failed, instead of rerunning the whole batch.
 - **Visible progress**: multi-step chains report which step they are on, ZIP packaging shows a loading state, and completion is perceivable inside the page (not only as a desktop notification).
 - **One less round trip before first paint**: theme, colour mode and language now share a single storage read.
+- **Controllable output file names**: a placeholder template set in preferences (`{name}` `{date}` `{time}` `{index}` `{target}`); leaving it empty falls back to "source name + target extension". Batches and multi-step chains no longer collide.
+- **Drop a folder in**: drag a directory into the workbench and only the convertible files inside it are read, with no new permissions. Depth and entry counts are capped, and the part that got cut off is stated in the interface instead of silently dropped.
 
 All of that exists only on `main`: the repository has never been tagged, and the GitHub Releases page is empty, because a release first has to get through the Chrome Web Store queue (see the rejection log in `CHROMEWEBSTORE.md`). `1.0.0` is the manifest version, not a version that has shipped.
 
 ## Next
 
 1. **A batch of images → one multi-page PDF.** Today it is one image per PDF. This one needs a design first: what it touches is the "one independent result per file" data model and how the results area renders, not the converter.
-2. **Controllable output file names.** Names are currently derived as "source name + target extension", which collides in batches and in multi-step chains.
-3. **Drop a folder in.** Read-only directory traversal, with no new permissions.
-4. **Keep existing results when the target changes; reuse parameters from a history entry; allow renaming and editing presets.** Three instances of one friction: the interface discards things unrelated to the choice you just made.
-5. **List performance with a hundred-plus files.** The current list was designed for a handful.
-6. **Animated WebP / APNG as input, with the frame-loss disclosure that comes with it.** Blocked on a precondition: an offline decodable test fixture. Reading the container without decoding it would be a speculative code path.
+2. **Keep existing results when the target changes; reuse parameters from a history entry; allow renaming and editing presets.** Three instances of one friction: the interface discards things unrelated to the choice you just made.
+3. **List performance with a hundred-plus files.** The current list was designed for a handful.
+4. **Animated WebP / APNG as input, with the frame-loss disclosure that comes with it.** Blocked on a precondition: an offline decodable test fixture. Reading the container without decoding it would be a speculative code path.
+
+> Two more items used to sit in this section: "controllable output file names" and "drop a folder in". Both shipped and moved to the section above, so the numbering here restarts — the direction wasn't dropped, the work finished. Keeping the old numbers would make "item N" point at the wrong thing somewhere else, and that costs more than a renumber.
 
 ## Deliberately not happening
 
