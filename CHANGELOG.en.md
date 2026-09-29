@@ -11,6 +11,33 @@ always name the same release.
 
 ### Added
 
+- **The product page's structured data now answers in the reader's language.** The `FAQPage` node in `docs/index.html`
+  carried both languages inside one `mainEntity` — 22 questions each — while the page shows only the reader's language at a
+  time. That is not a formatting question: `Question.name` and the answers land verbatim in rich results and in what an AI
+  reads back, so the sentence a machine quotes for us was one the page never displayed, and the graph held twice as many
+  questions as a reader can see. `#fat-ld` now holds the Chinese set alone (the language the document is authored with), the
+  English set travels in the script immediately after it, and switching to English replaces `FAQPage.mainEntity` by itself —
+  switching back restores the shipped bytes, so the page carries the other language rather than both. This is the "one graph
+  per language" convention `docs/convert/` already uses, brought to the product page, with the same failure rule: a throw
+  leaves the shipped graph in place instead of emptying the tag. The same batch gives `SoftwareApplication` a `sameAs`
+  pointing at the repository, so "this extension" and "that repository" resolve to one entity in the graph, and aligns
+  `docs/privacy.html`'s `<head>` with the other public pages (`max-image-preview` and `max-snippet` on `robots`, `author`,
+  `theme-color`, `color-scheme`, and `sizes` on the `apple-touch-icon`); the product page's `apple-touch-icon` declares its
+  size too — the PNG it points at measures 512×512 in its IHDR, so a client does not have to guess.
+- **History rows enter and leave.** Deleting an entry, undoing that delete, or changing the filter no longer rearranges the
+  list in one cut: new rows fade in and settle down from above, rows that stay slide into their new place, and the removed
+  row disappears where it stands instead of sliding away behind a gap. The upload area's file list already animated, with a
+  private copy of these transitions and its own durations and easing; both now share one set of `.fat-list-*` rules in
+  `assets/styles/global.css`. Two constraints are written into that CSS's comment, because they are the kind that looks
+  cleaner deleted and is only correct kept: **the leaving row's `transition` must be `none`** — `<TransitionGroup>` reads the
+  element's own computed duration before unmounting it, so leaving a transition there tells the group the row is still
+  animating and it waits in the DOM for a `transitionend` that never arrives; **the keys are each row's own identity, not an
+  index** — both lists already did (file rows by `rowKey(file)`, history rows by `record.id`), and it is written down because
+  an index key remounts every row below a removed one, which is exactly where the file list's old flicker came from: no
+  transition smooths a remount. The preset chips were not folded in: they replace a whole row of chips in place and need a
+  fade with no displacement, which is a different gesture from items entering and leaving individually, and merging the two
+  would make one of them change feel. The layer spends only duration and distance tokens, so `prefers-reduced-motion: reduce`
+  collapses it on its own — no rule written for it.
 - **JSON previews now have a structure.** Opening a JSON preview — an uploaded source file or a converted
   result, both count — is no longer one wall of text: a tree that expands level by level, an array table
   that lays an array of objects out as rows and columns, and a raw view with the indentation kept, switchable
@@ -427,6 +454,11 @@ always name the same release.
   products of the target just abandoned, and keeping them would mix PNG and PDF rows into one list. The undo
   snapshot is retired by any change to the file list, exactly as before — otherwise it would restore a
   workspace that no longer exists.
+- **Stacking order for overlays moved into design tokens.** The drop overlay and the skip link each carried a hardcoded
+  `z-index` inside `entrypoints/options/App.vue`; both now read `--fat-z-*`, added to `assets/theme/tokens.css`. No computed
+  value changed — the two numbers moved over verbatim — what changed is whether there is a single place where "what sits on
+  top of what" can be reasoned about: which slot a third overlay should take used to mean reading those two rules inside a
+  component, and stacking order is a site-wide question rather than one overlay's.
 - **Transition durations moved into design tokens, and reduced motion clears delays too.** The 11 scattered
   `0.15s` / `0.18s` / `0.2s` / `0.25s` values settle on `--fat-duration-fast|base|slow`; under
   `prefers-reduced-motion` the stagger delays are zeroed along with the durations, and four `0.2s` uses become
