@@ -643,7 +643,7 @@ onUnmounted(() => {
   position: absolute;
   top: var(--fat-space-sm);
   left: var(--fat-space-sm);
-  z-index: 10000;
+  z-index: var(--fat-z-skip-link);
   padding: var(--fat-space-xs) var(--fat-space-sm);
   background: var(--fat-bg-card);
   color: var(--fat-text-primary);
@@ -913,7 +913,7 @@ onUnmounted(() => {
 .drop-overlay {
   position: fixed;
   inset: 0;
-  z-index: 9999;
+  z-index: var(--fat-z-drop-overlay);
   display: flex;
   align-items: center;
   justify-content: center;
