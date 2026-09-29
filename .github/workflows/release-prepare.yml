@@ -61,7 +61,7 @@ jobs:
     steps:
       # fetch-depth: 0 是必需的而不是「顺手」：release.mjs 用 `git describe --tags` 与
       # `<起点>..HEAD` 求区间，浅克隆会让它把起点认成仓库根，然后交出一份重数历史的 changelog。
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -186,7 +186,7 @@ jobs:
     steps:
       # 标签必须打在 main 上而不是 PR 头上：合并可能产生 squash 或 rebase，
       # 那个 commit 只存在于分支里，而 release.yml 检出的是标签指向的对象。
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           ref: refs/heads/main
