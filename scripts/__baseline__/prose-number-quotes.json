@@ -1,6 +1,6 @@
 {
   "formats": {
-    "CHROMEWEBSTORE.md": 3,
+    ".github/CHROMEWEBSTORE.md": 3,
     "docs/blog/index.html": 19,
     "docs/convert/index.html": 18,
     "docs/convert/word-to-markdown.html": 1,
@@ -17,10 +17,10 @@
     "README.md": 2
   },
   "imageReadable": {
-    "CHROMEWEBSTORE.md": 1
+    ".github/CHROMEWEBSTORE.md": 1
   },
   "imageWritable": {
-    "CHROMEWEBSTORE.md": 1,
+    ".github/CHROMEWEBSTORE.md": 1,
     "docs/blog/index.html": 1
   },
   "writable": {
@@ -36,7 +36,7 @@
   },
   "routes": {
     "AGENTS.md": 1,
-    "CHROMEWEBSTORE.md": 3,
+    ".github/CHROMEWEBSTORE.md": 3,
     "CONTRIBUTING.md": 1,
     "docs/blog/index.html": 13,
     "docs/convert/index.html": 12,
@@ -99,7 +99,7 @@
     "README.md": 1
   },
   "batchFiles": {
-    "CHROMEWEBSTORE.md": 4,
+    ".github/CHROMEWEBSTORE.md": 4,
     "CONTRIBUTING.en.md": 1,
     "CONTRIBUTING.md": 1,
     "docs/convert/csv-to-excel.html": 2,
@@ -118,7 +118,7 @@
     "README.md": 4
   },
   "rejectSize": {
-    "CHROMEWEBSTORE.md": 4,
+    ".github/CHROMEWEBSTORE.md": 4,
     "docs/convert/excel-to-csv.html": 1,
     "docs/convert/markdown-to-word.html": 1,
     "docs/convert/pdf-to-text.html": 1,
@@ -137,7 +137,7 @@
     "README.md": 4
   },
   "confirmFiles": {
-    "CHROMEWEBSTORE.md": 3,
+    ".github/CHROMEWEBSTORE.md": 3,
     "docs/index.html": 4,
     "docs/promo/community-posts.en.md": 2,
     "docs/promo/community-posts.md": 1,
@@ -163,7 +163,7 @@
   },
   "themes": {
     "AGENTS.md": 2,
-    "CHROMEWEBSTORE.md": 5,
+    ".github/CHROMEWEBSTORE.md": 5,
     "CONTRIBUTING.en.md": 1,
     "CONTRIBUTING.md": 1,
     "docs/blog/index.html": 1,
@@ -174,7 +174,7 @@
     "README.md": 4
   },
   "themeCombos": {
-    "CHROMEWEBSTORE.md": 2,
+    ".github/CHROMEWEBSTORE.md": 2,
     "CONTRIBUTING.en.md": 3,
     "CONTRIBUTING.md": 1,
     "docs/blog/index.html": 1,
@@ -195,11 +195,11 @@
   "descEn": {
     ".github/CWS_PUBLISHING_GUIDE.en.md": 1,
     ".github/CWS_PUBLISHING_GUIDE.md": 1,
-    "CHROMEWEBSTORE.md": 2
+    ".github/CHROMEWEBSTORE.md": 2
   },
   "descZh": {
     ".github/CWS_PUBLISHING_GUIDE.en.md": 1,
     ".github/CWS_PUBLISHING_GUIDE.md": 1,
-    "CHROMEWEBSTORE.md": 2
+    ".github/CHROMEWEBSTORE.md": 2
   }
 }

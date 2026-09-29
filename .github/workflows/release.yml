@@ -1,6 +1,6 @@
 # 从版本 tag 构建一次发布：扩展产物 → 商店 zip → 包内容校验 → 附带该 zip 的 GitHub Release。
 # 最后一步把同一个 zip 交给 Chrome 应用商店，但只在 CHROME_* 四项 secrets 齐备之后——第一个商店
-# 条目必须在开发者后台手工创建（见 CHROMEWEBSTORE.md），在那之前这一步只报告跳过原因，不让发布失败。
+# 条目必须在开发者后台手工创建（见 .github/CHROMEWEBSTORE.md），在那之前这一步只报告跳过原因，不让发布失败。
 #
 # 商店那一步默认**只上传、不提审**（2026-09-27 定）。理由不是保守，是这条链路已经付过学费：
 # 1.0.0 被拒三次，每一次都需要人先看一眼产物与文案再决定要不要惊动审核。把「提审」做成一个
@@ -128,7 +128,7 @@ jobs:
         run: pnpm verify:remote-code
 
       # zip 必须能作为「加载未打包的扩展」直接载入：manifest.json 位于压缩包根目录，
-      # 且不许有仓库文档或测试夹具混进来（CHROMEWEBSTORE.md 的检查清单）。
+      # 且不许有仓库文档或测试夹具混进来（.github/CHROMEWEBSTORE.md 的检查清单）。
       - name: Verify package contents
         env:
           ZIP: ${{ steps.package.outputs.zip }}
@@ -138,7 +138,7 @@ jobs:
           echo "$entries" | grep -qx 'manifest.json' || {
             echo "::error::manifest.json 必须位于 $ZIP 的根目录"; exit 1;
           }
-          if echo "$entries" | grep -qE '^(docs/|fixtures/|scripts/|components/|composables/|utils/|entrypoints/|CHROMEWEBSTORE\.md|README|AGENTS\.md|CLAUDE\.md|\.test-)'; then
+          if echo "$entries" | grep -qE '^(docs/|fixtures/|scripts/|components/|composables/|utils/|entrypoints/|\.github/|README|AGENTS\.md|CLAUDE\.md|\.test-)'; then
             echo "::error::商店包里只能有构建产物，上面列出了混入的仓库文件"
             exit 1
           fi
@@ -211,7 +211,7 @@ jobs:
               echo '`CHROME_EXTENSION_ID_TAF`（本扩展专用）、`CWS_CLIENT_ID`、`CWS_CLIENT_SECRET`、`CWS_REFRESH_TOKEN`。'
               echo
               echo '第一个版本同样要手工创建并手工提交——API 建不了条目，也填不了商品文案、截图和隐私申报。'
-              echo '手工步骤见 CHROMEWEBSTORE.md。'
+              echo '手工步骤见 .github/CHROMEWEBSTORE.md。'
             } >> "$GITHUB_STEP_SUMMARY"
           fi
 

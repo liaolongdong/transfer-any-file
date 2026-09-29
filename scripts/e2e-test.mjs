@@ -1996,7 +1996,7 @@ async function run() {
   }
 
   // ═══════════════════════════════════════════
-  //  JSON RESULT PREVIEW (regression: was blank)
+  //  JSON RESULT PREVIEW (regression: was blank; now tree / array table / raw)
   // ═══════════════════════════════════════════
 
   section('JSON Result Preview');
@@ -2009,12 +2009,71 @@ async function run() {
     await previewBtn.click();
     await page.waitForTimeout(800);
 
+    // The dialog used to show one wall of text for JSON; the claim "not blank" is now carried by the
+    // tree having rows, and the raw text stays reachable as its own view (asserted last).
+    const rows = await page.$$eval('.preview-dialog .json-row', els => els.length).catch(() => 0);
+    if (rows > 0) {
+      ok(`JSON preview opens on the tree (${String(rows)} rows)`);
+    } else {
+      fail('JSON result preview', 'tree painted no rows');
+    }
+    // A projection exists for the document's biggest array even while the tree is up, so "one pane at
+    // a time" is not a property of the model — it is the radio group's, and it is the first thing a
+    // reader would notice broken. Recorded here and judged after the table view is opened.
+    const gridsWhileTreeUp = await page.$$eval('.preview-dialog .json-grid', els => els.length).catch(() => -1);
+
+    // Search is the reason the tree exists: a key in a fixture row must highlight, and the counter
+    // must agree with how many runs got marked.
+    await page.fill('.preview-dialog .json-search input', '名称');
+    await page.waitForTimeout(400);
+    const marked = await page.$$eval('.preview-dialog .json-row mark', els => els.length).catch(() => 0);
+    const counter = await page.$eval('.preview-dialog .json-count', el => el.textContent).catch(() => '');
+    if (marked > 0 && /共/.test(counter ?? '')) {
+      ok(`Tree search highlights the key (${String(marked)} marks, counter "${String(counter).trim()}")`);
+    } else {
+      fail('JSON tree search', `no highlight (${String(marked)} marks, counter "${String(counter).trim()}")`);
+    }
+
+    // An array of row objects is exactly the shape the table view is for: three columns, one row each.
+    await page.click('.preview-dialog .el-radio-button__inner:has-text("数组表")');
+    await page.waitForTimeout(400);
+    const grid = await page
+      .$eval('.preview-dialog .json-grid', el => ({
+        cols: el.querySelectorAll('thead th').length,
+        body: el.querySelectorAll('tbody tr').length,
+      }))
+      .catch(() => null);
+    if (grid && grid.cols >= 3 && grid.body > 0) {
+      ok(`Array table projects the rows (${String(grid.cols)} columns, ${String(grid.body)} rows)`);
+    } else {
+      fail('JSON array table', `table did not project (${JSON.stringify(grid)})`);
+    }
+    // The other half of the same claim: the tree that stayed behind is hidden, not stacked under the
+    // grid. It is `v-show` rather than `v-if` on purpose — expansion and the query survive the jump —
+    // so the observable form of "hidden" is its computed display, not its absence from the DOM. The
+    // component root is what `v-show` toggles, and `display` does not inherit, so measuring a
+    // descendant would read `block` no matter what the pane looks like.
+    const treeDisplay = await page
+      .$eval('.preview-dialog .json-tree', el => getComputedStyle(el).display)
+      .catch(() => 'missing');
+    if (gridsWhileTreeUp === 0 && treeDisplay === 'none') {
+      ok(
+        `The two JSON panes never paint together (grid ${String(gridsWhileTreeUp)} in tree view, tree ${treeDisplay} in table view)`,
+      );
+    } else {
+      fail('JSON views exclusive', `gridsWhileTreeUp=${String(gridsWhileTreeUp)} treeDisplay=${treeDisplay}`);
+    }
+
+    // And the text the dialog always showed is still there, unchanged, as the third view.
+    await page.click('.preview-dialog .el-radio-button__inner:has-text("原文")');
+    await page.waitForTimeout(400);
     const text = await page.$eval('.preview-dialog .text-preview', el => el.textContent).catch(() => '');
     if (text && text.trim().length > 0) {
-      ok(`JSON preview shows content (${text.trim().length} chars)`);
+      ok(`Raw view keeps the pretty-printed JSON (${text.trim().length} chars)`);
     } else {
-      fail('JSON result preview', 'preview content is blank');
+      fail('JSON raw view', 'preview content is blank');
     }
+
     await page.screenshot({ path: shot(`${String(shotIdx++).padStart(2, '0')}-json-preview.png`), fullPage: true });
 
     // Close the dialog

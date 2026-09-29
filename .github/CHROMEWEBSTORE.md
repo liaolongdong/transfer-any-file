@@ -17,7 +17,7 @@
 > **2026-09-08 复核**：GitHub Pages **已上线**（`https://liaolongdong.github.io/transfer-any-file/` 与
 > `/privacy.html` 都返回 `HTTP/2 200`），仓库 `liaolongdong/transfer-any-file` 也已存在——但它的 About 仍然是空的
 > （`description: null`、`homepage: null`、`topics: []`），说明 `repo-meta.yml` 从未跑过。剩下要手工做的是商店账号
-> 本身和那个 About 块（后者见 [`.github/repo-metadata.md`](.github/repo-metadata.md)）。
+> 本身和那个 About 块（后者见 [`repo-metadata.md`](repo-metadata.md)）。
 
 **怎么用这份文件**
 
@@ -799,9 +799,9 @@ workflow_dispatch 时勾 `dry_run`（只做认证与校验，不上传、不提�
 - [x] 商店名称已改成「品牌 + 关键词」形态（2026-09-06）；`manifest.name` 与它一致
 - [x] 仓库已建成 `liaolongdong/transfer-any-file`（默认分支 `main`）
 - [ ] 上面的 About 描述 + 20 个 topics 尚未应用（GitHub 搜索覆盖在这里，不在 slug）——见
-      [`.github/repo-metadata.md`](.github/repo-metadata.md)（本机没装 `gh`）
+      [`repo-metadata.md`](repo-metadata.md)（本机没装 `gh`）
 - [ ] GitHub 社交预览图尚未上传（`docs/assets/store/github-social-preview.png`）——只能后台操作，没有 API
-- [x] `pnpm package` 的 zip 已检查：不含 `.git/`、`node_modules/`、`.test-*`、`CHROMEWEBSTORE.md`、`docs/`、
+- [x] `pnpm package` 的 zip 已检查：不含 `.git/`、`node_modules/`、`.test-*`、`.github/`、`docs/`、
       `fixtures/` —— 由 `.github/workflows/release.yml` 断言
 - [ ] 在被打包的那个 commit 上 `pnpm lint:all`、`pnpm verify:meta`、`pnpm verify:offline`、`pnpm verify:remote-code`、
       `pnpm verify:listing`、`pnpm test:e2e` 全绿
@@ -955,6 +955,14 @@ PDF → ZIP 解码）。跑这一步的纪律：**`.output/chrome-mv3` 在被测
 
 > 这些是关于**本文件**的修订记录，不是产品发布说明（产品在 `CHANGELOG.md`）。数字全部由 `pnpm verify:listing` 实测。
 
+- **2026-09-28（本文件搬进 `.github/`）** —— 位置从仓库根改为 `.github/`，与其余运营文档同一归宿：`docs/` 是 GitHub
+  Pages 的站点源目录，`static.yml` 把除 `promo/` 外的全部内容发到公网并按扩展名拒绝 `.md`，所以内部手册不能放那儿，而
+  仓库根留给 GitHub 会自动识别的那几份。**七个粘贴字段与全部小节标题逐字节未动**，锚点链接改为同目录相对路径。同批跟着
+  改的是：`scripts/check-store-listing.mjs` 的 `SHEET`、`scripts/check-prose-numbers.mjs` 的文档清单与其基线 key、
+  `release.yml` 包内容正则里的那一格（换成 `\.github/`）、`static.yml` 的注释、README 与 `repo-metadata.md` 的链接、
+  `wxt.config.ts` 的说明。**代价**：`docs/llms.txt` 指向 `blob/main/CHROMEWEBSTORE.md` 的那条公开链接改到新路径，
+  而 GitHub 不为移动的文件重定向 blob 路径——旧地址从此 404。同日 `ROADMAP.md` / `ROADMAP.en.md` 双语对搬来同目录。
+  `pnpm verify:listing`、`pnpm verify:numbers` 与 `pnpm lint:all` 已复核。
 - **2026-09-24（输出文件名进 listing）** —— 两份详细介绍的「面向真实工作负载 / BUILT FOR REAL WORKLOADS」各加一条
   bullet，位置同为「转换预设 / Conversion presets」之后。**副作用**：两个粘贴块变长，速查表、字段标签与上架手册
   （中英两份）里被引用的四处字符数按 `pnpm verify:listing` 重测为英文 8,581 / 中文 3,039。名称、简介、单一目的与
@@ -988,7 +996,7 @@ PDF → ZIP 解码）。跑这一步的纪律：**`.output/chrome-mv3` 在被测
   末尾那条归因说明。构建产物已复核：`.output/chrome-mv3/manifest.json` 带 `"default_locale":"zh_CN"`，
   两个 `messages.json` 落在扩展根，包体 3.74 MB（+617 B）。
 - **2026-09-16** —— 全文改为中文优先并重排结构：开头的六段「Revised 2026-09-XX」流水账挪到这里、压成条目；
-  原来散在各节的「为什么要这样写」并进各自字段；GitHub 仓库元数据整节移出到 [`.github/repo-metadata.md`](.github/repo-metadata.md)；
+  原来散在各节的「为什么要这样写」并进各自字段；GitHub 仓库元数据整节移出到 [`repo-metadata.md`](repo-metadata.md)；
   加目录。七个粘贴字段与两张推广图相关的取值**逐字节未动**（改前后由 `pnpm verify:listing` 与字段抽取脚本双向校验）。
   章节标题与字段标签中文化时，`scripts/check-store-listing.mjs` 的字面量锚点同步改了，所以 `verify:listing` 与 CI 不断。
   同日稍后：「语言闸门」与「数据处理」两个小节标题去掉 emoji 与破折号——标题文字会进 GitHub 的锚点 slug，
@@ -1034,7 +1042,7 @@ PDF → ZIP 解码）。跑这一步的纪律：**`.output/chrome-mv3` 在被测
 
 ## 相关文档
 
-- **仓库与 About 元数据**：[`.github/repo-metadata.md`](.github/repo-metadata.md)（About 描述、20 个 topics、社交预览图怎么落地）
+- **仓库与 About 元数据**：[`repo-metadata.md`](repo-metadata.md)（About 描述、20 个 topics、社交预览图怎么落地）
 - **产品说明页与隐私政策**：`docs/index.html`、`docs/privacy.html`（对外文案，含逐格式转换矩阵）
 - **编码规则与架构**：`.qoder/rules/wxt-rules.md`、`AGENTS.md`
 - **贡献须知与安全策略**：`CONTRIBUTING.md`、`SECURITY.md`（中英成对，英文用 `.en.md`）

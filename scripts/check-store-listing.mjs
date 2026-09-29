@@ -2,7 +2,7 @@
 /**
  * Length and sync guard for the Chrome Web Store listing copy.
  *
- * `CHROMEWEBSTORE.md` is the asset pack a human pastes into the developer dashboard, and the store
+ * `.github/CHROMEWEBSTORE.md` is the asset pack a human pastes into the developer dashboard, and the store
  * enforces its limits by **truncating silently** rather than rejecting the submission — so an edit
  * that runs 3 characters long can reach production as a cut-off sentence. Two of those fields also
  * exist in machine-readable form: the packaged `name` / `description` are message keys
@@ -30,7 +30,8 @@ import { Buffer } from 'node:buffer';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const SHEET = 'CHROMEWEBSTORE.md';
+/** The sheet lives in `.github/` with the rest of the operational docs — `docs/` is the Pages source root. */
+const SHEET = '.github/CHROMEWEBSTORE.md';
 
 /**
  * The dashboard paste fields, in fill order.
@@ -179,7 +180,7 @@ const sync = [
   ['repo About is a distinct sentence', repoMeta.description !== values.short],
 ];
 for (const [label, ok] of sync)
-  if (!ok) failures.push(`${label} — out of sync between CHROMEWEBSTORE.md, _locales and the manifest`);
+  if (!ok) failures.push(`${label} — out of sync between ${SHEET}, _locales and the manifest`);
 
 console.log(
   `\nPackaged locales — default ${DEFAULT_LOCALE}, ${LOCALE_CODES.length - 1} additional; messages: ${localizedNames}\n`,
@@ -196,7 +197,7 @@ if (worksheetStart === -1 || worksheetEnd === -1 || worksheetEnd < worksheetStar
   const worksheet = sheetText.slice(worksheetStart, worksheetEnd);
   for (const key of ['name', 'short', 'singlePurpose']) {
     const echoed = worksheet.includes('```\n' + values[key] + '\n```');
-    if (!echoed) failures.push(`worksheet: ${key} echo differs from its canonical block in CHROMEWEBSTORE.md`);
+    if (!echoed) failures.push(`worksheet: ${key} echo differs from its canonical block in ${SHEET}`);
   }
 }
 

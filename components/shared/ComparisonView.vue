@@ -6,6 +6,7 @@ import type { ConvertResult } from '~/utils/core/types';
 import { getFormatLabel, getFormatCategory } from '~/utils/core/format-labels';
 import { formatSize, TEXT_FORMATS } from '~/utils/core/format';
 import { docxToPreviewHtml, xlsxToPreviewHtml } from '~/utils/core/preview';
+import { copyText } from '~/utils/core/clipboard';
 import { stripRemoteResources } from '~/utils/core/html-sanitize';
 import { useI18n } from '~/composables/useI18n';
 import { useSyncedScroll } from '~/composables/useSyncedScroll';
@@ -349,12 +350,9 @@ function handleResultEdit(value: string): void {
 
 async function copyResult(): Promise<void> {
   if (!resultText.value) return;
-  try {
-    await navigator.clipboard.writeText(resultText.value);
-    ElMessage.success(t('comparison.copied'));
-  } catch {
-    /* ignore */
-  }
+  // Failure stays silent, as it was: this button is a convenience next to a panel the text is
+  // already visible in, so a refused clipboard has nothing to say about it.
+  if (await copyText(resultText.value)) ElMessage.success(t('comparison.copied'));
 }
 
 function toggleEdit(): void {

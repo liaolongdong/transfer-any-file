@@ -3,6 +3,7 @@ import { computed, ref } from 'vue';
 import { ArrowDown, ArrowRight, CircleCloseFilled, CopyDocument } from '@element-plus/icons-vue';
 import type { ConversionFailure } from '~/composables/useConversion';
 import { CONVERSION_ERROR_KEYS } from '~/utils/core/error-keys';
+import { copyText } from '~/utils/core/clipboard';
 import { useI18n } from '~/composables/useI18n';
 import { getFormatLabel } from '~/utils/core/format-labels';
 
@@ -75,25 +76,10 @@ function buildDiagnosticText(): string {
 }
 
 async function copyDiagnostic(): Promise<void> {
-  const text = buildDiagnosticText();
-  try {
-    await navigator.clipboard.writeText(text);
+  if (await copyText(buildDiagnosticText())) {
     ElMessage.success(t('result.diagnosticCopied'));
-  } catch {
-    // Clipboard API can be denied in some contexts; fall back to legacy execCommand
-    try {
-      const ta = document.createElement('textarea');
-      ta.value = text;
-      ta.style.position = 'fixed';
-      ta.style.opacity = '0';
-      document.body.appendChild(ta);
-      ta.select();
-      document.execCommand('copy');
-      document.body.removeChild(ta);
-      ElMessage.success(t('result.diagnosticCopied'));
-    } catch {
-      ElMessage.error(t('result.diagnosticCopyFail'));
-    }
+  } else {
+    ElMessage.error(t('result.diagnosticCopyFail'));
   }
 }
 

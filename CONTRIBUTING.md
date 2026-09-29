@@ -42,7 +42,7 @@ pnpm lint:all         # typecheck + eslint + stylelint + format:check
 pnpm verify:meta      # package.json / wxt.config.ts / public/_locales/en / .github/repo-metadata.json 保持一致
 pnpm verify:offline   # 源码层检查 + 产物 manifest 断言（须先 pnpm build；缺 .output/chrome-mv3 时直接失败，不再静默跳过）
 pnpm verify:offline:source # 只跑源码层：第一方源码无网络调用，wxt.config.ts 仅声明 storage 权限（无需先构建）
-pnpm verify:listing   # CHROMEWEBSTORE.md 每个粘贴字段不超限、与 manifest 一致、速查区块未漂移
+pnpm verify:listing   # .github/CHROMEWEBSTORE.md 每个粘贴字段不超限、与 manifest 一致、速查区块未漂移
 pnpm verify:paths     # 转换器注册顺序与 48 条路径的快照一致（改路由须显式 --update 基线）
 pnpm verify:numbers   # 对外散文里的数字等于代码里的那一个（格式数 / 路径数 / 组合数 / 各阈值，全从源码现推）
 pnpm test:e2e         # 构建 + 基于 fixtures/ 的 Playwright 套件
@@ -103,7 +103,8 @@ scripts/               # e2e 套件、素材生成、图标渲染、元数据与
   workflows/           # ci.yml · static.yml（Pages）· release.yml · repo-meta.yml
   ISSUE_TEMPLATE/      # 问题反馈与新格式请求表单
   repo-metadata.md     # 仓库 About 描述、20 个 topics、社交预览图为什么这么写与怎么落地
-CHROMEWEBSTORE.md      # 商店文案、权限说明、隐私披露
+  CHROMEWEBSTORE.md    # 商店文案、权限说明、隐私披露（运营文档，中文单语）
+  ROADMAP.md           # 路线图（.en.md 为英文对照）
 CHANGELOG.md           # 发布说明（.en.md 为英文对照）
 CONTRIBUTING.md        # 一页说完全部贡献规则（.en.md 为英文对照）
 SECURITY.md            # 漏洞披露渠道与离线攻击面说明（.en.md 为英文对照）
@@ -118,7 +119,7 @@ SECURITY.md            # 漏洞披露渠道与离线攻击面说明（.en.md 为
 - **动效**：时长、缓动、位移与缩放一律取 `assets/theme/tokens.css` 的动效令牌（`--fat-duration-*`、`--fat-ease-*`、`--fat-lift-*` / `--fat-slide-md` / `--fat-enter-scale` / `--fat-swatch-scale`），不写 `0.18s` / `ease` / `translateY(8px)` 这类字面量。理由不是整齐，是**可达性**：`prefers-reduced-motion` 那一档压的是令牌值，写成字面量的规则它够不着——时长归零后仍会留一帧位移，而「一帧的跳动」正是那段媒体查询要防的东西。唯一不必进阶梯的是**循环的节拍**：blanket 是按选择器命中的，`animation-duration` 与 `animation-iteration-count: 1` 一起写，任何循环——令牌化的也好、字面量也好——都会在一次之内停下来，所以今天那处 `shortcut-pulse`（`PreferencesMenu.vue`，录制中的快捷键标记，1.4s、只动 opacity）留得下来；需要令牌的始终是 blanket 消不掉的东西，也就是位移与缩放。曲线按方向选：到场用 `enter`、离场用 `leave`（离场不要 ease-out）、原地改状态用 `standard`。Element Plus 不走我们令牌、自己硬编码时长的三处由 `assets/styles/global.css` 末尾按名点掉，再遇到一处要在同一处补；它的入场姿态（弹窗与确认框的 `@keyframes`、选择框 `el-zoom-in-top`）写在组件 CSS 而非 `--el-*` 里，只能重写、不能压时长。所有动效手写 CSS + Vue 原生 `<Transition>` / `<TransitionGroup>`：本项目完全离线，不引入动画库。
 - **国际化**：每一处用户可见文案都要同时存在于 `utils/i18n/zh.ts`（源）与 `en.ts`；组件里不写字面量。
 - **日志**：`entrypoints/`、`components/`、`composables/`、`utils/` 中不得出现 `console`——错误通过 UI 反馈给用户。`scripts/` 下的脚本除外。
-- **文档**：面向用户的改动要同时更新 `README.md`（中文）**和** `README.en.md`（英文）；商店文案在 `CHROMEWEBSTORE.md`；产品说明页是 `docs/index.html`。值得发布的改动要进 `CHANGELOG.md`（中文）与 `CHANGELOG.en.md`（英文）**各**一条，但**写在哪一格由你决定**：直接写进 `## [未发布]` / `## [Unreleased]` 区块（发版时逐字带过去，见下一条），或者只写进提交信息、让发版链路按提交生成那一条。无论哪种，版本号都等于 `package.json#version`（发布 tag 也必须与之一致）。仓库的 GitHub About 描述改在 `.github/repo-metadata.json` 里，**不要**只在页面上手改，这样它才受版本管理并被 `pnpm verify:meta` 校验；每个值为什么这么写、本机没装 `gh` 时怎么一次性落地，见 `.github/repo-metadata.md`。安全漏洞走 `SECURITY.md`，不是 issue。仓库根的双语文档一律成对：中文是主文件，英文版用 `.en.md` 后缀（`CONTRIBUTING.md` / `CONTRIBUTING.en.md`、`SECURITY.md` / `SECURITY.en.md`、`CHANGELOG.md` / `CHANGELOG.en.md`），H1 下第一行是互指的语言切换行，改一边必须同步另一边。UI 变更后跑 `pnpm assets:capture` 重新生成截图，避免素材与实际界面漂移。
+- **文档**：面向用户的改动要同时更新 `README.md`（中文）**和** `README.en.md`（英文）；商店文案在 `.github/CHROMEWEBSTORE.md`；产品说明页是 `docs/index.html`。值得发布的改动要进 `CHANGELOG.md`（中文）与 `CHANGELOG.en.md`（英文）**各**一条，但**写在哪一格由你决定**：直接写进 `## [未发布]` / `## [Unreleased]` 区块（发版时逐字带过去，见下一条），或者只写进提交信息、让发版链路按提交生成那一条。无论哪种，版本号都等于 `package.json#version`（发布 tag 也必须与之一致）。仓库的 GitHub About 描述改在 `.github/repo-metadata.json` 里，**不要**只在页面上手改，这样它才受版本管理并被 `pnpm verify:meta` 校验；每个值为什么这么写、本机没装 `gh` 时怎么一次性落地，见 `.github/repo-metadata.md`。安全漏洞走 `SECURITY.md`，不是 issue。仓库根的双语文档一律成对：中文是主文件，英文版用 `.en.md` 后缀（`CONTRIBUTING.md` / `CONTRIBUTING.en.md`、`SECURITY.md` / `SECURITY.en.md`、`CHANGELOG.md` / `CHANGELOG.en.md`），H1 下第一行是互指的语言切换行，改一边必须同步另一边。UI 变更后跑 `pnpm assets:capture` 重新生成截图，避免素材与实际界面漂移。
 - **提交信息就是发布说明的数据源**：`main` 上的 Conventional Commit 主题决定 `CHANGELOG*` 里出现什么、版本抬到哪一格。会收录的类型是 `feat` / `fix` / `perf` / `refactor` / `revert` / `security`（外加不带前缀的普通提交归入「其他」）；`build` / `chore` / `ci` / `deps` / `docs` / `release` / `style` / `test` 视为噪声略过。类型带 `!`、正文有 `BREAKING CHANGE:` 或 `不兼容变更:` → 主版本；`feat` → 次版本；其余 → 修订号。英文那份**不会**从中文主题自动产出——要在 `CHANGELOG.en.md` 里有英文行，就在提交正文末尾加一行 `Changelog-En: <一句话英文>`。若 `## [未发布]` 里已有手写 prose，发版时以那份为准、原样带过去，生成的清单只出现在计划输出里（要强行附索引就加 `--with-commit-list`）。链路的配置、批准动作与失败读法见 `.github/RELEASE_AUTOMATION.md`。
 - **图标**：两份 SVG 母版对应两档尺寸——`assets/icon.svg`（文档 + 环形转换徽章）用于 48px 及以上，`assets/icon-small.svg`（加粗双向箭头）用于更小的位置，因为详细版的 5px 线条在 48px 以下会糊成一团。用 `node scripts/render-icons.mjs` 重新生成两档。
 - 不要为了让检查通过而弱化 ESLint / Stylelint / TypeScript 配置。确实需要绕过某条规则时，把抑制范围限制到单独一行，并在 diff 里说明原因。

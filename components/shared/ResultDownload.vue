@@ -6,6 +6,7 @@ import type { ConversionFailure } from '~/composables/useConversion';
 import { useI18n } from '~/composables/useI18n';
 import { formatFromFilename } from '~/utils/core/file-detect';
 import { formatSize, TEXT_FORMATS } from '~/utils/core/format';
+import { copyText } from '~/utils/core/clipboard';
 import { FileFormat } from '~/utils/core/types';
 import PreviewDialog from '~/components/shared/PreviewDialog.vue';
 import FailureDiagnosticItem from '~/components/shared/FailureDiagnosticItem.vue';
@@ -97,8 +98,13 @@ async function copyResult(result: ConvertResult): Promise<void> {
   }
   try {
     const text = await result.blob.text();
-    await navigator.clipboard.writeText(text);
-    ElMessage.success(t('preview.copied'));
+    // `copyText` keeps the legacy `execCommand` route, so a denied Clipboard API now copies the text
+    // instead of landing in the error branch below — the same two toasts, reached less often.
+    if (await copyText(text)) {
+      ElMessage.success(t('preview.copied'));
+    } else {
+      ElMessage.error(t('errors.unknown'));
+    }
   } catch {
     ElMessage.error(t('errors.unknown'));
   }

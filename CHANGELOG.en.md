@@ -11,6 +11,32 @@ always name the same release.
 
 ### Added
 
+- **JSON previews now have a structure.** Opening a JSON preview — an uploaded source file or a converted
+  result, both count — is no longer one wall of text: a tree that expands level by level, an array table
+  that lays an array of objects out as rows and columns, and a raw view with the indentation kept, switchable
+  at any moment without changing what is on screen. Inside the tree you can search keys, paths, or values
+  (any combination, case sensitivity optional); hits highlight, previous / next steps through them, the branch
+  a hit lives in opens on its own, and any row copies its JSONPath with one click. Three things that are not
+  obvious: **the raw view is byte-for-byte the screen that existed before this change** — the same
+  two-space `JSON.stringify` — so a user who never finds the new controls gets exactly what they got
+  yesterday; **the array table is a projection of the same tree, not a second model**, so a `{3}`-style
+  container cell click opens that node in the tree instead of copying its subtree into a grid, and
+  two models disagreeing is the one mistake this pane could make; **every budget is announced when it bites**
+  — 100 000 nodes, 128 levels, 5 000 painted rows, a 2 000-row table capped at 20 000 cells, 5 000 matches —
+  because a half-parsed tree that reads as the whole document is the only failure this view cannot have.
+  Content that is not valid JSON still shows as text, with the reason stated. The model and its budgets are
+  pure logic in `utils/core/json-view.ts`, the interface is `JsonTreeView.vue` / `JsonTableView.vue`, and all
+  of it sits in the lazily loaded preview chunk: the first screen pays nothing for it, measured as 2 806
+  bytes of new Chinese and English UI strings being the only boot-reachable growth.
+- **The repository ships an offline diff page.** `tools/file-diff.html` is a single-file, zero-dependency,
+  zero-network viewer for the difference between two files: line and word-level changes, split and unified
+  views, collapsible runs of identical context, a copyable patch, bilingual Chinese/English text and a
+  light/dark theme that follows the browser and can also be pinned. It is **deliberately not an extension
+  feature** — "compare these two files" and "convert this spreadsheet" are not the same product, and folding
+  it into the workbench would compress two unrelated task flows onto one screen. It is also not part of the
+  extension package (`tools/` is not under `public/`, so `.output/chrome-mv3` never sees it); open the local
+  file in a browser. Both offline guards cover it at the source layer, which is why it must not contain a
+  network call or a remotely hosted code shape either.
 - **You can write the names your results come back with.** Preferences gained an **Output file names**
   field, and its built-in pattern `{name}_{date}_{time}` renders exactly the string that used to be hard
   coded in the orchestration layer (`report_20260914_153012.pdf`), so anyone who never touches the field

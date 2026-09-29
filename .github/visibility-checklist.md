@@ -49,8 +49,36 @@
 以后再补跑的成本（本机需要手动装过 ffmpeg 与 chromium 二进制）：
 
 ```bash
-pnpm test:e2e        # = pnpm build + node scripts/e2e-test.mjs，断言基线 317 条
+pnpm test:e2e        # = pnpm build + node scripts/e2e-test.mjs，断言基线 321 条
 ```
+
+**2026-09-29 这一轮（JSON 预览的树 / 数组表 / 搜索 + 仓库外的对比页）跑满了 e2e，改在 `E2E_HEADLESS=true` 下跑**：
+321/321 通过，87 张截图照旧落 `.test-screenshots/`。断言总数从 317 涨到 321 全在「JSON Result Preview」那一节——
+原先只有一条「能打开预览」，现在多了树行数、搜索高亮与计数器、数组表投影、两个面板互斥、原文视图保真。
+上面那张表是 09-26 的实测，记录照旧成立，只是**基线数字以这里为准**。
+
+同一轮另有两个非交互事实：整包 **3,823,982 B / 65 个文件**，首屏 JS **442,958 B / 19 个 chunk**
+（新增的两个 JSON 组件与 `utils/core/json-view.ts` 全在 PreviewDialog 的懒加载 chunk 里，首屏那 19 个 chunk
+只多了 34 条 i18n 文案）；两道离线守卫的口径同步扩到 `tools/`——源码层扫 **94** 个第一方文件，
+产物层 **44** 个文件。本机还有一个环境坑值得记着：**有头**模式下从第二张 `fullPage` 截图开始会 30 s 超时，
+连带把后面的小节拖成「option not available」假红；同一个页面在无头模式与最小单标签探针里都是 150 ms 级。
+判红之前先用无头复跑确认，别急着改产品代码。
+
+同一轮还有一支**不进契约**的真 Chrome 探针（`.test-tmp/verify-json-ui.mjs`，gitignore 内）：交互半段 20 项，
+对比度半段 6 主题 × 深浅 = 12 组 × 27 个面。它抓到一个会被下一次「顺手改回 `ref`」复活的缺陷：
+`PreviewDialog` 用 `ref` 存 JSON 模型，Vue 的深响应把那 2.6 万个节点逐个包成代理，`buildJsonTable` 里
+`byColumn.get(col)?.find(id => tree.nodes[id].parentId === rowId)` 这种内层读全都走代理链——有头实测
+**384 KiB 的 JSON 点开预览要冻 21 s 才画出第一行**（Playwright 的 `evaluate` 也被堵在同一段里）。机制单独取证：
+同一份夹具在 Node 侧跑五个模型入口（`node --experimental-strip-types .test-tmp/probe-reactivity.mjs`，
+26 136 个节点，裸对象 vs 同一对象过 `reactive()`），`buildJsonTable` 72.8 ms → 17 681 ms（**243×**），
+`defaultExpanded` 4.0 → 47.9 ms，`visibleRows` 3.7 → 38.9 ms，`searchJson` 4.9 → 19.6 ms，五者合计
+**123 ms 对 18 774 ms** ——和浏览器里那 21 s 是同一件事。换成 `shallowRef` 之后同一份夹具实测
+upload→按钮 757 ms、**点击预览→首行画出 477 ms**，展开全部 859 ms 画满 5 000 行、重置展开 83 ms；
+模型语义一点没动，因为 `inspectJson` 返回之后本来就没有人改它。这条写进 `PreviewDialog.vue` 的注释里，
+别只留在这里。对比度半段顺带把 `tokens.css` 那段纸面算式变成了页面实测：12 组 × 27 个面全部清过各自声明的
+底线，五种色墨亮色最差 4.95:1（rose 激活行的 `null`）、暗色最差 7.37:1，落到 4.5:1 以下的只有悬停才出现的两个
+图标面（3.25 与 3.56:1，它们欠的是 WCAG 1.4.11 的 3:1），另外两处占位灰语义文本与一处下划线色因此改成了
+`--fat-text-secondary` 与 `--fat-focus-ring`。
 
 **包这一层本轮没有动**（未跑 `pnpm package`）：`.output/transfer-any-file-1.0.0-chrome.zip` 仍是
 2026-09-23 00:39 那一次构建的产物，1,146,773 B，sha256 `db83fe65…12f05`。而被当成「只改了一个变量」样本

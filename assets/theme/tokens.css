@@ -71,6 +71,47 @@
   --fat-text-placeholder: #94a3b8;
   --fat-text-disabled: #cbd5e1;
 
+  /* JSON preview inks (tree rows and array-table cells).
+     Each of these five is painted on every surface the pane can show — the card, the row hover, the
+     table's zebra stripe, and all six themes' active-row tint — so the number quoted is against the
+     *worst* of those, which is the rose theme's --fat-primary-bg #fff1f2 (WCAG 2.x contrast on sRGB):
+     #953800 6.72:1, #0a3069 11.66:1, #0550ae 6.91:1, #6d28d9 6.47:1, #5b6b80 4.95:1.
+     Against --fat-surface-line #e2e8f0 the same five are 5.99 / 10.39 / 6.16 / 5.76 / 4.41 — that one
+     is only ever a border these rows sit beside, never a backdrop under them, and the last figure is
+     the reason --fat-json-null takes --fat-text-secondary instead of a hue of its own: `null` is the
+     one value whose colour carries no information a muted ink would not already give it, and that
+     token is the ink this file already certifies at 4.95–5.44:1 light. Because the reference is
+     substituted at computed-value time, the dark block's lighter --fat-text-secondary is picked up
+     with no second declaration here.
+     All of it is now measured on the built page rather than asserted on paper: 6 themes × light/dark,
+     27 surfaces each — the card, a hovered row, the active-row tint reached through a real match, the
+     table's zebra stripe and sticky header, a `<mark>` run, an absent-cell `–`, a drill cell under the
+     pointer, and the two copy icons under the pointer. The five inks measure 4.95:1 at their worst in
+     light and 7.37:1 in dark, and the light figure is `null` on rose's #fff1f2 active row — the same
+     surface, and the same number, as the line computed above without opening a browser. The pane's muted
+     text takes --fat-text-secondary for the same reason --fat-json-null does — the node count, the `+`
+     that admits a depth cap, the row ordinals and the `–` that says "this row has no such field" are
+     information, and --fat-text-placeholder measures 2.56:1 light / 3.36:1 dark, which this file reserves
+     for placeholders, disabled controls and ARIA-carried decoration. Where an icon takes an accent on
+     hover it takes --fat-focus-ring, the accent this file already certifies at 3:1 against the card, and
+     3:1 is the floor an icon owes rather than a concession: the worst measured is 3.25:1, orange's hovered
+     row action, and no text surface in the pane sits below 4.5:1. The drill cell instead keeps its kind's
+     ink and turns its dotted underline solid, because 12px text owes 4.5:1 and no theme accent pays that
+     in both modes. */
+  --fat-json-key: #953800;
+  --fat-json-string: #0a3069;
+  --fat-json-number: #0550ae;
+  --fat-json-boolean: #6d28d9;
+  --fat-json-null: var(--fat-text-secondary);
+
+  /* Search hits. Amber in both modes because a hit has to read as "this one" on top of a row that may
+     already be tinted by the theme or by the active-match highlight. The ink is the darkest value the
+     mode has, so a marked run is dark-on-amber rather than pale-on-pale in both: --fat-text-primary
+     #0f172a on #fde68a is 14.33:1 here, and the dark block's --fat-bg-page #11111b on #ca8a04 is
+     6.38:1 there. */
+  --fat-mark-bg: #fde68a;
+  --fat-mark-text: var(--fat-text-primary);
+
   /* Borders */
   --fat-border: #e2e8f0;
   --fat-border-light: #f1f5f9;
@@ -356,6 +397,19 @@
   --fat-text-secondary: #a6adc8;
   --fat-text-placeholder: #6c7086;
   --fat-text-disabled: #45475a;
+
+  /* The JSON inks flip to the light end of the same hues. The worst backdrop the pane can paint in
+     this mode is the row hover --fat-surface-hover #2a2a3c — lighter than the page (#11111b), the
+     card (#1e1e2e), the zebra stripe (#181825) and all six themes' active-row tints — and against it
+     the set holds 7.25 / 9.14 / 9.14 / 7.21, with --fat-json-null following --fat-text-secondary at
+     6.31:1. Against --fat-surface-line #313244, which in this mode is only ever a border and never a
+     backdrop, the same five are 6.49 / 8.18 / 8.18 / 6.46 / 5.65. */
+  --fat-json-key: #ffa657;
+  --fat-json-string: #a5d6ff;
+  --fat-json-number: #7ee787;
+  --fat-json-boolean: #d2a8ff;
+  --fat-mark-bg: #ca8a04;
+  --fat-mark-text: var(--fat-bg-page);
   --fat-border: #313244;
   --fat-border-light: #1e1e2e;
   --fat-bg-page: #11111b;

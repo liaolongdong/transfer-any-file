@@ -1,0 +1,2865 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1"
+    />
+    <meta
+      name="color-scheme"
+      content="light dark"
+    />
+    <title>文件对比 · 离线差异查看器</title>
+    <meta
+      name="description"
+      content="完全离线的两个文件差异对比：行级与词级差异、并排与 unified 视图、折叠相同内容、复制补丁。文件只在本机处理。"
+    />
+    <script>
+      // Resolved before first paint so the page never flashes the wrong language or theme. Both are
+      // preferences read from localStorage when it is available; under file:// some browsers refuse
+      // storage access, which is why every read and write below is wrapped.
+      (function () {
+        /** @param {string} key @returns {string | null} */
+        function read(key) {
+          try {
+            return localStorage.getItem('filediff:' + key);
+          } catch {
+            return null;
+          }
+        }
+        var stored = read('locale');
+        var auto = (navigator.language || 'zh-CN').toLowerCase().startsWith('zh') ? 'zh' : 'en';
+        var locale = stored === 'zh' || stored === 'en' ? stored : auto;
+        document.documentElement.lang = locale === 'zh' ? 'zh-CN' : 'en';
+        document.documentElement.dataset.locale = locale;
+        var theme = read('theme');
+        if (theme !== 'light' && theme !== 'dark') {
+          theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        }
+        document.documentElement.dataset.theme = theme;
+      })();
+    </script>
+    <style>
+      :root {
+        --fd-primary: #2563eb;
+        --fd-surface: #f8fafc;
+        --fd-card: #fff;
+        --fd-surface-2: #f1f5f9;
+        --fd-border: #e2e8f0;
+        --fd-text-primary: #0f172a;
+        --fd-text-regular: #1e293b;
+        --fd-text-secondary: #5b6b80;
+        --fd-radius: 8px;
+        --fd-radius-sm: 6px;
+        --fd-line-h: 20px;
+        --fd-font-mono: ui-monospace, 'SF Mono', Monaco, Consolas, 'Liberation Mono', monospace;
+        --fd-add-bg: #e6f6ea;
+        --fd-add-ink: #0d6a24;
+        --fd-add-mark: #a6e2ba;
+        --fd-del-bg: #ffe8e6;
+        --fd-del-ink: #96200f;
+        --fd-del-mark: #ffc3bc;
+        --fd-gutter: #64748b;
+        --fd-fold-bg: #eff6ff;
+        --fd-fold-ink: #1d4ed8;
+        --fd-shadow: 0 1px 2px rgb(15 23 42 / 6%), 0 8px 24px rgb(15 23 42 / 8%);
+      }
+
+      html[data-theme='dark'] {
+        --fd-primary: #60a5fa;
+        --fd-surface: #0f172a;
+        --fd-card: #16233b;
+        --fd-surface-2: #1c2b45;
+        --fd-border: #2b3c58;
+        --fd-text-primary: #e6edf7;
+        --fd-text-regular: #cdd8e8;
+        --fd-text-secondary: #94a7c4;
+        --fd-add-bg: #10301c;
+        --fd-add-ink: #8ee6ab;
+        --fd-add-mark: #1e5230;
+        --fd-del-bg: #361415;
+        --fd-del-ink: #ffb4ac;
+        --fd-del-mark: #5e2522;
+        --fd-gutter: #8598b8;
+        --fd-fold-bg: #16263f;
+        --fd-fold-ink: #93c5fd;
+        --fd-shadow: 0 1px 2px rgb(0 0 0 / 30%), 0 10px 28px rgb(0 0 0 / 35%);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background: var(--fd-surface);
+        color: var(--fd-text-primary);
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+        font-size: 14px;
+        line-height: 1.5;
+        -webkit-text-size-adjust: 100%;
+      }
+
+      button,
+      input,
+      select,
+      textarea {
+        font: inherit;
+        color: inherit;
+      }
+
+      .wrap {
+        max-width: 1560px;
+        margin: 0 auto;
+        padding: 20px 18px 48px;
+      }
+
+      header.masthead {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: flex-end;
+        justify-content: space-between;
+        margin-bottom: 18px;
+      }
+
+      h1 {
+        margin: 0 0 4px;
+        font-size: 20px;
+        letter-spacing: 0.2px;
+      }
+
+      .tagline {
+        margin: 0;
+        color: var(--fd-text-secondary);
+        font-size: 13px;
+      }
+
+      .masthead-tools {
+        display: flex;
+        gap: 8px;
+      }
+
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 7px 12px;
+        border: 1px solid var(--fd-border);
+        border-radius: var(--fd-radius-sm);
+        background: var(--fd-card);
+        color: var(--fd-text-regular);
+        cursor: pointer;
+        transition:
+          background-color 0.18s ease,
+          border-color 0.18s ease,
+          color 0.18s ease;
+        white-space: nowrap;
+      }
+
+      .btn:hover:not(:disabled) {
+        border-color: var(--fd-primary);
+        color: var(--fd-primary);
+      }
+
+      .btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      .btn.primary {
+        border-color: var(--fd-primary);
+        background: var(--fd-primary);
+        color: #fff;
+      }
+
+      html[data-theme='dark'] .btn.primary {
+        color: #0b1220;
+      }
+
+      .btn.small {
+        padding: 4px 9px;
+        font-size: 12px;
+      }
+
+      :where(button, input, a, [tabindex]):focus-visible {
+        outline: 2px solid var(--fd-primary);
+        outline-offset: 2px;
+      }
+
+      .card {
+        padding: 14px;
+        border: 1px solid var(--fd-border);
+        border-radius: var(--fd-radius);
+        background: var(--fd-card);
+        box-shadow: var(--fd-shadow);
+      }
+
+      .panes {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 12px;
+        margin-bottom: 12px;
+      }
+
+      .pane {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        min-height: 118px;
+        padding: 12px;
+        border: 1px dashed var(--fd-border);
+        border-radius: var(--fd-radius);
+        background: var(--fd-card);
+        transition: border-color 0.18s ease;
+      }
+
+      .pane.filled {
+        border-style: solid;
+      }
+
+      .pane.hot {
+        border-color: var(--fd-primary);
+        background: var(--fd-fold-bg);
+      }
+
+      .pane-head {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .pane-title {
+        display: inline-flex;
+        gap: 6px;
+        align-items: center;
+        font-weight: 600;
+      }
+
+      .pane-title .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+      }
+
+      .pane-a .dot {
+        background: var(--fd-del-ink);
+      }
+
+      .pane-b .dot {
+        background: var(--fd-add-ink);
+      }
+
+      .pane-meta {
+        color: var(--fd-text-secondary);
+        font-size: 12px;
+        overflow-wrap: anywhere;
+      }
+
+      .pane-hint {
+        color: var(--fd-text-secondary);
+        font-size: 12px;
+      }
+
+      /* The inline editor a paste button opens: same typeface as the diff, so what you type lines up
+         with how it will be drawn once it is compared. */
+      .paste-box {
+        width: 100%;
+        min-height: 72px;
+        padding: 8px;
+        border: 1px solid var(--fd-border);
+        border-radius: 6px;
+        background: var(--fd-surface-2);
+        color: var(--fd-text-regular);
+        font-family: var(--fd-font-mono);
+        font-size: 12px;
+        resize: vertical;
+      }
+
+      .pane-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: auto;
+      }
+
+      .file-input {
+        display: none;
+      }
+
+      .toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 14px 18px;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 10px;
+      }
+
+      .opt-group {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px 16px;
+        align-items: center;
+      }
+
+      .opt {
+        display: inline-flex;
+        gap: 6px;
+        align-items: center;
+        font-size: 13px;
+        cursor: pointer;
+        user-select: none;
+      }
+
+      .opt input {
+        accent-color: var(--fd-primary);
+        width: 15px;
+        height: 15px;
+      }
+
+      .segmented {
+        display: inline-flex;
+        padding: 2px;
+        border: 1px solid var(--fd-border);
+        border-radius: var(--fd-radius-sm);
+        background: var(--fd-surface-2);
+      }
+
+      .segmented label {
+        padding: 4px 12px;
+        border-radius: 4px;
+        font-size: 13px;
+        cursor: pointer;
+        color: var(--fd-text-secondary);
+      }
+
+      .segmented input {
+        position: absolute;
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      .segmented label:has(input:checked) {
+        background: var(--fd-card);
+        color: var(--fd-primary);
+        box-shadow: 0 1px 2px rgb(15 23 42 / 10%);
+      }
+
+      .stats {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px 20px;
+        align-items: center;
+        margin-bottom: 10px;
+        padding: 10px 14px;
+        border: 1px solid var(--fd-border);
+        border-radius: var(--fd-radius);
+        background: var(--fd-card);
+        font-size: 13px;
+      }
+
+      .stat b {
+        font-variant-numeric: tabular-nums;
+        font-weight: 600;
+      }
+
+      .stat.add b {
+        color: var(--fd-add-ink);
+      }
+
+      .stat.del b {
+        color: var(--fd-del-ink);
+      }
+
+      .stat-hint {
+        color: var(--fd-text-secondary);
+        font-size: 12px;
+      }
+
+      .notice {
+        display: none;
+        gap: 10px;
+        align-items: flex-start;
+        margin-bottom: 10px;
+        padding: 10px 14px;
+        border: 1px solid var(--fd-border);
+        border-left-width: 3px;
+        border-radius: var(--fd-radius);
+        background: var(--fd-card);
+        font-size: 13px;
+      }
+
+      .notice.show {
+        display: flex;
+      }
+
+      .notice.error {
+        border-left-color: var(--fd-del-ink);
+      }
+
+      .notice.warn {
+        border-left-color: #b45309;
+      }
+
+      html[data-theme='dark'] .notice.warn {
+        border-left-color: #f0b429;
+      }
+
+      .diff-shell {
+        padding: 0;
+        overflow: hidden;
+      }
+
+      .diff-scroll {
+        position: relative;
+        height: min(72vh, 760px);
+        overflow: auto;
+        background: var(--fd-card);
+      }
+
+      .diff-spacer {
+        position: relative;
+      }
+
+      .row {
+        position: absolute;
+        left: 0;
+        right: 0;
+        display: grid;
+        grid-template-columns: 52px minmax(0, 1fr) 52px minmax(0, 1fr);
+        font-family: var(--fd-font-mono);
+        font-size: 12.5px;
+        line-height: var(--fd-line-h);
+      }
+
+      html[data-view='unified'] .row {
+        grid-template-columns: 46px 46px minmax(0, 1fr);
+      }
+
+      .ln {
+        padding: 0 8px;
+        text-align: right;
+        color: var(--fd-gutter);
+        background: var(--fd-surface-2);
+        border-right: 1px solid var(--fd-border);
+        user-select: none;
+        font-variant-numeric: tabular-nums;
+        overflow: hidden;
+      }
+
+      .txt {
+        padding: 0 10px;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+        color: var(--fd-text-regular);
+      }
+
+      .row.eq .txt {
+        background: var(--fd-card);
+      }
+
+      /* The side that changed is carried by a per-cell class, not by `.row.del .txtA` selectors:
+         pooled nodes are reused across rows *and* across modes, and in unified view the single text
+         column is `.txtA` while showing an insertion. Selectors keyed on the column's identity
+         cannot express "this side changed" once the same class means both sides. */
+      .ln.mark-del,
+      .txt.mark-del {
+        background: var(--fd-del-bg);
+      }
+
+      .ln.mark-del {
+        color: var(--fd-del-ink);
+      }
+
+      .ln.mark-add,
+      .txt.mark-add {
+        background: var(--fd-add-bg);
+      }
+
+      .ln.mark-add {
+        color: var(--fd-add-ink);
+      }
+
+      .row .empty-side {
+        background: repeating-linear-gradient(
+          45deg,
+          var(--fd-surface-2),
+          var(--fd-surface-2) 6px,
+          var(--fd-card) 6px,
+          var(--fd-card) 12px
+        );
+      }
+
+      .wmark-del {
+        background: var(--fd-del-mark);
+        border-radius: 2px;
+      }
+
+      .wmark-add {
+        background: var(--fd-add-mark);
+        border-radius: 2px;
+      }
+
+      .word-skip {
+        color: var(--fd-text-secondary);
+        font-size: 11px;
+        font-style: italic;
+      }
+
+      .row.fold {
+        grid-template-columns: 1fr;
+      }
+
+      html[data-view='unified'] .row.fold {
+        grid-template-columns: 1fr;
+      }
+
+      .fold-btn {
+        display: block;
+        width: 100%;
+        padding: 0 12px;
+        border: 0;
+        border-block: 1px solid var(--fd-border);
+        background: var(--fd-fold-bg);
+        color: var(--fd-fold-ink);
+        font-family: inherit;
+        font-size: 12px;
+        text-align: left;
+        cursor: pointer;
+      }
+
+      .fold-btn:hover {
+        text-decoration: underline;
+      }
+
+      .empty {
+        padding: 40px 20px;
+        text-align: center;
+        color: var(--fd-text-secondary);
+      }
+
+      .patch {
+        margin-top: 12px;
+      }
+
+      .patch textarea {
+        display: block;
+        width: 100%;
+        min-height: 140px;
+        margin-top: 8px;
+        padding: 10px;
+        border: 1px solid var(--fd-border);
+        border-radius: var(--fd-radius-sm);
+        background: var(--fd-surface-2);
+        font-family: var(--fd-font-mono);
+        font-size: 12px;
+        white-space: pre;
+        overflow: auto;
+        resize: vertical;
+      }
+
+      .patch textarea[hidden] {
+        display: none;
+      }
+
+      details.help {
+        margin-top: 16px;
+        padding: 12px 14px;
+        border: 1px solid var(--fd-border);
+        border-radius: var(--fd-radius);
+        background: var(--fd-card);
+      }
+
+      details.help summary {
+        cursor: pointer;
+        font-weight: 600;
+      }
+
+      .help-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+        gap: 6px 24px;
+        margin-top: 10px;
+      }
+
+      .help-row {
+        display: flex;
+        gap: 10px;
+        align-items: baseline;
+        font-size: 13px;
+      }
+
+      kbd {
+        padding: 1px 6px;
+        border: 1px solid var(--fd-border);
+        border-bottom-width: 2px;
+        border-radius: 4px;
+        background: var(--fd-surface-2);
+        font-family: var(--fd-font-mono);
+        font-size: 11.5px;
+      }
+
+      footer.foot {
+        margin-top: 16px;
+        color: var(--fd-text-secondary);
+        font-size: 12px;
+      }
+
+      footer.foot a {
+        color: var(--fd-primary);
+      }
+
+      .dropveil {
+        position: fixed;
+        inset: 0;
+        display: none;
+        z-index: 20;
+        place-items: center;
+        background: rgb(37 99 235 / 12%);
+        border: 2px dashed var(--fd-primary);
+        font-size: 16px;
+        color: var(--fd-primary);
+        pointer-events: none;
+      }
+
+      .dropveil.show {
+        display: grid;
+      }
+
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
+        border: 0;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        * {
+          transition-duration: 0.01ms !important;
+          animation-duration: 0.01ms !important;
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="wrap">
+      <header class="masthead">
+        <div>
+          <h1 data-i18n="appTitle"></h1>
+          <p
+            class="tagline"
+            data-i18n="appTagline"
+          ></p>
+        </div>
+        <div class="masthead-tools">
+          <button
+            type="button"
+            class="btn small"
+            id="langBtn"
+            data-i18n-aria="langToggle"
+          ></button>
+          <button
+            type="button"
+            class="btn small"
+            id="themeBtn"
+            data-i18n-aria="themeToggle"
+          ></button>
+        </div>
+      </header>
+
+      <section
+        class="panes"
+        aria-labelledby="panesHeading"
+      >
+        <h2
+          id="panesHeading"
+          class="sr-only"
+          data-i18n="panesHeading"
+        ></h2>
+        <div
+          class="pane pane-a"
+          id="paneA"
+          tabindex="0"
+          data-i18n-aria="paneAAria"
+        >
+          <div class="pane-head">
+            <span class="pane-title"><span class="dot"></span><span data-i18n="paneA"></span></span>
+            <span
+              class="pane-meta"
+              id="metaA"
+            ></span>
+          </div>
+          <p
+            class="pane-hint"
+            id="hintA"
+            data-i18n="dropHint"
+          ></p>
+          <div class="pane-actions">
+            <button
+              type="button"
+              class="btn small"
+              data-pick="A"
+              data-i18n="chooseFile"
+            ></button>
+            <input
+              type="file"
+              class="file-input"
+              id="fileA"
+              data-i18n-aria="chooseFile"
+            />
+            <button
+              type="button"
+              class="btn small"
+              data-paste="A"
+              data-i18n="pasteText"
+            ></button>
+            <button
+              type="button"
+              class="btn small"
+              data-clear="A"
+              data-i18n="clearPane"
+              hidden
+            ></button>
+          </div>
+        </div>
+
+        <div
+          class="pane pane-b"
+          id="paneB"
+          tabindex="0"
+          data-i18n-aria="paneBAria"
+        >
+          <div class="pane-head">
+            <span class="pane-title"><span class="dot"></span><span data-i18n="paneB"></span></span>
+            <span
+              class="pane-meta"
+              id="metaB"
+            ></span>
+          </div>
+          <p
+            class="pane-hint"
+            id="hintB"
+            data-i18n="dropHint"
+          ></p>
+          <div class="pane-actions">
+            <button
+              type="button"
+              class="btn small"
+              data-pick="B"
+              data-i18n="chooseFile"
+            ></button>
+            <input
+              type="file"
+              class="file-input"
+              id="fileB"
+              data-i18n-aria="chooseFile"
+            />
+            <button
+              type="button"
+              class="btn small"
+              data-paste="B"
+              data-i18n="pasteText"
+            ></button>
+            <button
+              type="button"
+              class="btn small"
+              data-clear="B"
+              data-i18n="clearPane"
+              hidden
+            ></button>
+          </div>
+        </div>
+      </section>
+
+      <div class="toolbar">
+        <div class="opt-group">
+          <span
+            class="stat-hint"
+            data-i18n="viewLabel"
+          ></span>
+          <div class="segmented">
+            <label
+              ><input
+                type="radio"
+                name="view"
+                value="split"
+                checked />
+              <span data-i18n="viewSplit"></span
+            ></label>
+            <label
+              ><input
+                type="radio"
+                name="view"
+                value="unified" />
+              <span data-i18n="viewUnified"></span
+            ></label>
+          </div>
+        </div>
+        <div class="opt-group">
+          <label class="opt"
+            ><input
+              type="checkbox"
+              id="optIgnoreCase" />
+            <span data-i18n="optIgnoreCase"></span
+          ></label>
+          <label class="opt"
+            ><input
+              type="checkbox"
+              id="optTrimEol" />
+            <span data-i18n="optTrimEol"></span
+          ></label>
+          <label class="opt"
+            ><input
+              type="checkbox"
+              id="optIgnoreWs" />
+            <span data-i18n="optIgnoreWs"></span
+          ></label>
+          <label class="opt"
+            ><input
+              type="checkbox"
+              id="optWord"
+              checked />
+            <span data-i18n="optWord"></span
+          ></label>
+          <label class="opt"
+            ><input
+              type="checkbox"
+              id="optFold"
+              checked />
+            <span data-i18n="optFold"></span
+          ></label>
+        </div>
+        <div class="opt-group">
+          <button
+            type="button"
+            class="btn small"
+            id="btnSample"
+            data-i18n="loadSample"
+          ></button>
+          <button
+            type="button"
+            class="btn small"
+            id="btnSwap"
+            data-i18n="swap"
+          ></button>
+          <button
+            type="button"
+            class="btn small"
+            id="btnClearAll"
+            data-i18n="clearAll"
+          ></button>
+        </div>
+      </div>
+
+      <div
+        class="notice"
+        id="notice"
+        role="status"
+        aria-live="polite"
+      ></div>
+
+      <div
+        class="stats"
+        id="statsBar"
+        hidden
+      >
+        <span class="stat hunk"><span data-i18n="statHunks"></span> <b id="statHunks">0</b></span>
+        <span class="stat add"><span data-i18n="statAdded"></span> <b id="statAdded">0</b></span>
+        <span class="stat del"><span data-i18n="statRemoved"></span> <b id="statRemoved">0</b></span>
+        <span class="stat same"><span data-i18n="statUnchanged"></span> <b id="statSame">0</b></span>
+        <span class="stat"><span data-i18n="statSimilarity"></span> <b id="statSim">0%</b></span>
+        <span class="stat"><span data-i18n="statElapsed"></span> <b id="statMs">0</b> ms</span>
+        <span
+          class="stat-hint"
+          id="statBusy"
+        ></span>
+        <span style="margin-left: auto; display: inline-flex; gap: 8px">
+          <button
+            type="button"
+            class="btn small"
+            id="btnPrev"
+            data-i18n="prevHunk"
+          ></button>
+          <button
+            type="button"
+            class="btn small"
+            id="btnNext"
+            data-i18n="nextHunk"
+          ></button>
+          <button
+            type="button"
+            class="btn small"
+            id="btnExpandAll"
+            data-i18n="expandAll"
+          ></button>
+          <button
+            type="button"
+            class="btn small"
+            id="btnCopyPatch"
+            data-i18n="copyPatch"
+          ></button>
+          <button
+            type="button"
+            class="btn small"
+            id="btnDownloadPatch"
+            data-i18n="downloadPatch"
+          ></button>
+        </span>
+      </div>
+
+      <section
+        class="card diff-shell"
+        aria-labelledby="diffHeading"
+      >
+        <h2
+          id="diffHeading"
+          class="sr-only"
+          data-i18n="diffHeading"
+        ></h2>
+        <div
+          class="diff-scroll"
+          id="diffScroll"
+          tabindex="0"
+          data-i18n-aria="diffScrollAria"
+        >
+          <div
+            class="diff-spacer"
+            id="diffSpacer"
+          ></div>
+          <p
+            class="empty"
+            id="emptyState"
+            data-i18n="emptyState"
+          ></p>
+        </div>
+      </section>
+
+      <div
+        class="patch"
+        id="patchBox"
+        hidden
+      >
+        <label
+          class="stat-hint"
+          for="patchText"
+          data-i18n="patchHint"
+        ></label>
+        <textarea
+          id="patchText"
+          readonly
+          spellcheck="false"
+          data-i18n-aria="patchAria"
+        ></textarea>
+      </div>
+
+      <details class="help">
+        <summary data-i18n="helpTitle"></summary>
+        <div
+          class="help-grid"
+          id="helpGrid"
+        ></div>
+      </details>
+
+      <footer class="foot">
+        <p data-i18n="footPrivacy"></p>
+        <p data-i18n="footNote"></p>
+      </footer>
+    </div>
+
+    <div
+      class="dropveil"
+      id="dropVeil"
+      data-i18n="dropVeil"
+    ></div>
+
+    <script>
+      (function () {
+        'use strict';
+
+        /* ------------------------------------------------------------------ *
+         * Budgets. Every number here is measured, see the notes on each one.
+         * ------------------------------------------------------------------ */
+        var LIMITS = {
+          // A single exact-LCS dynamic-programming table costs 4 bytes per cell and was measured at
+          // 41–54 ms and 16 MB at 4,000,000 cells; above the product the algorithm switches to
+          // patience anchors and, failing those, a whole-segment replace.
+          cellBudget: 4000000,
+          // Beyond this depth the recursion stops splitting and finishes the segment exactly, so a
+          // pathological input cannot recurse forever.
+          maxDepth: 40,
+          // 400,000 source lines per side cost 639 ms to diff and 50 ms to turn into rows.
+          maxLinesPerFile: 400000,
+          // 32 MiB keeps the read path (decode 124 ms + split 231 ms at 65 MB) and the row model
+          // inside what a foreground tab handles without an unresponsive dialog.
+          maxBytesPerFile: 33554432,
+          // A changed line pair above this many tokens loses its minimality (measured: 3,000
+          // tokens/side collapses to a whole-segment replace), so inline refinement stops there.
+          wordTokenCap: 2000,
+          // Equal runs of at least this length start a collapse row.
+          foldMin: 8,
+          // Lines of surrounding context kept on screen when a run collapses, and the context the
+          // exported patch carries — one number, because a hunk jumped to should show what the change
+          // sits in both on screen and in the file handed to `git apply`.
+          contextLines: 3,
+          // Rows rendered outside the visible band in each direction, so scrolling feels continuous.
+          overscanRows: 40,
+        };
+
+        var LINE_H = 20;
+
+        /* ------------------------------------------------------------------ *
+         * Text
+         * ------------------------------------------------------------------ */
+        var DICT = {
+          appTitle: ['文件差异对比 · 离线', 'File Diff · offline'],
+          appTagline: [
+            '两个文件、两段文本的行级与词级差异，全部在你本机完成。',
+            'Line and word differences between two files or two texts, computed entirely on your machine.',
+          ],
+          langToggle: ['切换到 English', 'Switch to 简体中文'],
+          themeToggle: ['切换深色 / 浅色', 'Toggle dark / light'],
+          panesHeading: ['待对比的两个输入', 'The two inputs to compare'],
+          paneA: ['A · 原始', 'A · original'],
+          paneB: ['B · 修改后', 'B · modified'],
+          paneAAria: ['文件 A 的投放区', 'Drop zone for file A'],
+          paneBAria: ['文件 B 的投放区', 'Drop zone for file B'],
+          dropHint: ['拖入文件、选择文件，或点“粘贴文本”直接输入。', 'Drop a file, pick one, or paste text directly.'],
+          chooseFile: ['选择文件', 'Choose file'],
+          pasteText: ['粘贴文本', 'Paste text'],
+          clearPane: ['清除', 'Clear'],
+          pastedName: ['粘贴的文本', 'Pasted text'],
+          viewLabel: ['视图', 'View'],
+          viewSplit: ['并排', 'Split'],
+          viewUnified: ['统一', 'Unified'],
+          optIgnoreCase: ['忽略大小写', 'Ignore case'],
+          optTrimEol: ['忽略行尾空白', 'Ignore trailing space'],
+          optIgnoreWs: ['忽略所有空白', 'Ignore all whitespace'],
+          optWord: ['词级高亮', 'Word-level highlight'],
+          optFold: ['折叠相同内容', 'Collapse unchanged blocks'],
+          loadSample: ['载入示例', 'Load sample'],
+          swap: ['交换 A / B', 'Swap A / B'],
+          clearAll: ['全部清空', 'Clear all'],
+          statHunks: ['差异处', 'Changes'],
+          statAdded: ['新增行', 'Added'],
+          statRemoved: ['删除行', 'Removed'],
+          statUnchanged: ['未变行', 'Unchanged'],
+          statSimilarity: ['相似度', 'Similarity'],
+          statElapsed: ['耗时', 'Took'],
+          prevHunk: ['↑ 上一处', '↑ Previous'],
+          nextHunk: ['↓ 下一处', '↓ Next'],
+          expandAll: ['展开全部', 'Expand all'],
+          collapseAll: ['全部折叠', 'Collapse all'],
+          copyPatch: ['复制补丁', 'Copy patch'],
+          downloadPatch: ['下载 .patch', 'Download .patch'],
+          diffHeading: ['差异结果', 'Differences'],
+          diffScrollAria: ['差异列表，可滚动', 'Scrollable list of differences'],
+          emptyState: [
+            '准备好两个输入后会自动开始对比。也可以直接按 Ctrl / ⌘ + V 粘贴。',
+            'Comparison starts as soon as both inputs are ready. You can also press Ctrl / ⌘ + V to paste.',
+          ],
+          dropVeil: ['松手即可放入', 'Drop to load'],
+          foldLabel: ['{n} 行相同内容 · 点击展开', '{n} unchanged lines · click to expand'],
+          metaTemplate: ['{size} · {lines} 行 · {encoding}', '{size} · {lines} lines · {encoding}'],
+          patchHint: [
+            '统一差异补丁（3 行上下文）·只读，可全选复制，或用「下载补丁」存为文件',
+            'Unified diff (3 lines of context) · read-only; select all to copy, or use Download patch',
+          ],
+          patchAria: ['统一差异补丁文本', 'Unified diff patch text'],
+          busyComparing: ['正在对比…', 'Comparing…'],
+          errBothNeeded: ['需要两个输入才能对比。', 'Two inputs are needed to compare.'],
+          errBinary: [
+            '这个文件里含有二进制字节，看起来不是文本，已停止读取。',
+            'This file contains binary bytes and does not look like text, so reading stopped.',
+          ],
+          errTooLarge: [
+            '文件超过 {max} 上限（当前 {size}）。差异对比需要把两个文件同时放在内存里。',
+            'The file exceeds the {max} limit (received {size}). A diff keeps both inputs in memory at once.',
+          ],
+          errTooManyLines: [
+            '行数超过 {max} 上限（当前 {lines} 行）。可以按格式拆分后再对比，或减少范围。',
+            'More than {max} lines (received {lines}). Split the file or compare a smaller range.',
+          ],
+          errReadFailed: [
+            '读取「{name}」失败：{msg}。文件可能被移动、重命名，或拖入的不是单个文件。',
+            'Could not read “{name}”: {msg}. The file may have moved or been renamed, or the drop was not a single file.',
+          ],
+          warnEncoding: [
+            '无法确认这个文件的编码，已按 UTF-8 宽松解码，中文可能出现乱码。',
+            'The encoding of this file could not be confirmed; it was decoded as UTF-8 with replacement, so some characters may look wrong.',
+          ],
+          warnCrlf: [
+            '两边换行符不一致（一边 CRLF、一边 LF）：对比只看行内容，行尾差异不计入差异，导出的补丁统一用 LF。',
+            'The two sides use different line endings (one CRLF, one LF): lines are compared by content, so that difference is not counted as a change, and the exported patch uses LF.',
+          ],
+          sameBoth: ['两个内容完全相同，没有差异。', 'The two inputs are identical — nothing to show.'],
+          sameButLineEndings: [
+            '每一行的内容都相同，但两边换行符不一致（一边 CRLF、一边 LF），导出的补丁统一用 LF。',
+            'Every line matches by content, but the sides use different line endings (one CRLF, one LF); the exported patch uses LF.',
+          ],
+          noPanes: ['没有可粘贴的输入位。', 'No input slot available for pasting.'],
+          clipboardFailed: [
+            '浏览器拒绝了剪贴板写入，补丁已经在下面选中，按 Ctrl / ⌘ + C 复制。',
+            'The browser refused clipboard access, so the patch below is selected — press Ctrl / ⌘ + C to copy.',
+          ],
+          clipboardCopied: ['补丁已复制到剪贴板。', 'Patch copied to the clipboard.'],
+          helpTitle: ['用法与快捷键', 'Usage and shortcuts'],
+          footPrivacy: [
+            '隐私：文件只读入本页内存，不上传、不写盘、不记录；关闭标签页即消失。',
+            'Privacy: files are read into this page’s memory only — no upload, no disk write, no history. Closing the tab discards them.',
+          ],
+          footNote: [
+            '本页是仓库自带的离线小工具（tools/file-diff.html），不随浏览器扩展发布，也不需要联网。项目见 README。',
+            'This page is a repository-bundled offline utility (tools/file-diff.html). It is not part of the browser extension and needs no network. See the README for the project.',
+          ],
+          wordSkipped: ['（超长行：仅行级差异）', '(very long line: line-level diff only)'],
+          unexpectedError: [
+            '页面出现异常：{msg}。输入仍然保留，可重试或清空。',
+            'Unexpected error: {msg}. Your inputs are still here — retry or clear them.',
+          ],
+          errorUnknown: ['未知错误', 'unknown error'],
+          helpItems: [
+            [
+              ['拖放 / 选择文件', '两个输入位各放一个；一次放两个会同时填上。'],
+              ['Ctrl / ⌘ + V', '把剪贴板文本粘贴到空的输入位（都为空时贴入 A）。'],
+              ['n / p', '跳到下一处 / 上一处差异。'],
+              ['Alt + ↓ / Alt + ↑', '与 n / p 等价，方便键盘滚动。'],
+              ['v', '在并排与统一视图之间切换。'],
+              ['c', '折叠 / 展开相同内容。'],
+            ],
+            [
+              ['选项如何影响结果', '忽略空白类选项只改变“是否相等”的判断，显示与导出的补丁仍是原文。'],
+              ['折叠的块', '点击折叠条只展开那一块；“展开全部”一次性放开。'],
+              ['补丁', '复制 / 下载的是标准 unified diff（含 3 行上下文与 @@ 区间），可直接给 git apply。'],
+              ['规模上限', '超过上限会明确拒绝并说明原因，不会静默截断成半截结果。'],
+              ['编码', '按 UTF-8 → GB18030 → GBK 严格尝试，全部失败才宽松按 UTF-8 并提示。'],
+              ['离线', '本页无任何网络调用，可在断网与 file:// 下直接使用。'],
+            ],
+          ],
+        };
+
+        var locale = document.documentElement.dataset.locale === 'en' ? 'en' : 'zh';
+
+        /**
+         * Look a key up for the active language.
+         *
+         * @param {string} key
+         * @param {Record<string, string | number>=} params
+         * @returns {string}
+         */
+        function t(key, params) {
+          var entry = DICT[key];
+          var text = entry ? String(entry[locale === 'zh' ? 0 : 1]) : key;
+          if (params) {
+            for (var name in params) {
+              text = text.split('{' + name + '}').join(String(params[name]));
+            }
+          }
+          return text;
+        }
+
+        /**
+         * Group an integer for reading (12,345 / 12.345 depending on the page's own language).
+         *
+         * Every count on the page goes through this so the stats bar, a fold label and the side meta
+         * never disagree about grouping.
+         *
+         * @param {number} value @returns {string}
+         */
+        function formatCount(value) {
+          return value.toLocaleString(locale === 'zh' ? 'zh-CN' : 'en-US');
+        }
+
+        /** Every element carrying a `data-i18n*` attribute is re-labelled from the dictionary. */
+        function applyStaticText() {
+          document.querySelectorAll('[data-i18n]').forEach(function (node) {
+            node.textContent = t(node.getAttribute('data-i18n'));
+          });
+          document.querySelectorAll('[data-i18n-aria]').forEach(function (node) {
+            node.setAttribute('aria-label', t(node.getAttribute('data-i18n-aria')));
+          });
+          var grid = document.getElementById('helpGrid');
+          grid.replaceChildren();
+          DICT.helpItems[locale === 'zh' ? 0 : 1].forEach(function (pair) {
+            var row = document.createElement('div');
+            row.className = 'help-row';
+            var term = document.createElement('kbd');
+            term.textContent = pair[0];
+            var body = document.createElement('span');
+            body.textContent = pair[1];
+            row.append(term, body);
+            grid.append(row);
+          });
+          document.getElementById('langBtn').textContent = t('langToggle');
+          document.getElementById('themeBtn').textContent = t('themeToggle');
+          document.title = t('appTitle');
+          renderPanes();
+          syncExpandAllLabel();
+        }
+
+        /**
+         * Re-label the expand button from the actual state.
+         *
+         * `data-i18n` writes the static "expand all" caption; this runs after it, because the button
+         * reads "collapse all" whenever every run is already open — and a language switch alone would
+         * otherwise repaint the caption back while the runs stayed expanded.
+         */
+        function syncExpandAllLabel() {
+          el('btnExpandAll').textContent = t(state.opt.expandAll ? 'collapseAll' : 'expandAll');
+        }
+
+        /* ------------------------------------------------------------------ *
+         * Storage helpers — every call site must survive storage being denied.
+         * ------------------------------------------------------------------ */
+        /** @param {string} key @param {string} value */
+        function remember(key, value) {
+          try {
+            localStorage.setItem('filediff:' + key, value);
+          } catch {
+            /* private mode or file:// without storage grant: the preference simply does not persist */
+          }
+        }
+
+        /** @param {string} key @returns {string | null} the stored value, or null when storage is unavailable */
+        function recall(key) {
+          try {
+            return localStorage.getItem('filediff:' + key);
+          } catch {
+            return null;
+          }
+        }
+
+        /* ------------------------------------------------------------------ *
+         * Size formatting (same 1024 ladder and decimal rules as the extension's formatSize)
+         * ------------------------------------------------------------------ */
+        /** @param {number} bytes @returns {string} */
+        function formatSize(bytes) {
+          if (!Number.isFinite(bytes) || bytes < 0) return '0 B';
+          var units = ['B', 'KB', 'MB', 'GB'];
+          var i = 0;
+          var value = bytes;
+          while (value >= 1024 && i < units.length - 1) {
+            value /= 1024;
+            i += 1;
+          }
+          var digits = i === 0 || value >= 100 ? 0 : value >= 10 ? 1 : 2;
+          return value.toFixed(digits) + ' ' + units[i];
+        }
+
+        /* ------------------------------------------------------------------ *
+         * Diff core.
+         *
+         * Indices, not text: `a`/`b` are key arrays (normalized for comparison) and every operation
+         * carries the line index on each side, so display and patch export always read the original
+         * bytes even when the user asked to ignore case or whitespace.
+         * ------------------------------------------------------------------ */
+        /**
+         * @param {string[]} ka @param {string[]} kb
+         * @returns {Array<{t: 0 | 1 | 2, i: number, j: number}>} 0 equal, 1 delete, 2 insert
+         */
+        function diffKeys(ka, kb) {
+          var out = [];
+          walk(ka, kb, 0, ka.length, 0, kb.length, out, 0);
+          return out;
+        }
+
+        function walk(ka, kb, lo1, hi1, lo2, hi2, out, depth) {
+          while (lo1 < hi1 && lo2 < hi2 && ka[lo1] === kb[lo2]) {
+            out.push({ t: 0, i: lo1, j: lo2 });
+            lo1 += 1;
+            lo2 += 1;
+          }
+          var suffix = [];
+          while (lo1 < hi1 && lo2 < hi2 && ka[hi1 - 1] === kb[hi2 - 1]) {
+            suffix.push({ t: 0, i: hi1 - 1, j: hi2 - 1 });
+            hi1 -= 1;
+            hi2 -= 1;
+          }
+          function flush() {
+            for (var s = suffix.length - 1; s >= 0; s -= 1) out.push(suffix[s]);
+          }
+          var n = hi1 - lo1;
+          var m = hi2 - lo2;
+          if (n === 0 || m === 0) {
+            for (var i = lo1; i < hi1; i += 1) out.push({ t: 1, i: i, j: -1 });
+            for (var j = lo2; j < hi2; j += 1) out.push({ t: 2, i: -1, j: j });
+            flush();
+            return;
+          }
+          if (n * m <= LIMITS.cellBudget || depth >= LIMITS.maxDepth) {
+            exactLcs(ka, kb, lo1, hi1, lo2, hi2, out);
+            flush();
+            return;
+          }
+          var anchors = patienceAnchors(ka, kb, lo1, hi1, lo2, hi2);
+          if (anchors.length === 0) {
+            // Nothing provable in order: the honest fallback is "this whole stretch was replaced".
+            // The result still reconstructs both files exactly — it just names more changed lines
+            // than a full quadratic diff would, which is the trade the cell budget buys.
+            for (var i2 = lo1; i2 < hi1; i2 += 1) out.push({ t: 1, i: i2, j: -1 });
+            for (var j2 = lo2; j2 < hi2; j2 += 1) out.push({ t: 2, i: -1, j: j2 });
+            flush();
+            return;
+          }
+          var pi = lo1;
+          var pj = lo2;
+          for (var k = 0; k < anchors.length; k += 1) {
+            var ai = anchors[k][0];
+            var aj = anchors[k][1];
+            walk(ka, kb, pi, ai, pj, aj, out, depth + 1);
+            out.push({ t: 0, i: ai, j: aj });
+            pi = ai + 1;
+            pj = aj + 1;
+          }
+          walk(ka, kb, pi, hi1, pj, hi2, out, depth + 1);
+          flush();
+        }
+
+        /** Exact LCS backtracking over ka[lo1..hi1) x kb[lo2..hi2), appended in reading order. */
+        function exactLcs(ka, kb, lo1, hi1, lo2, hi2, out) {
+          var n = hi1 - lo1;
+          var m = hi2 - lo2;
+          var table = new Uint32Array((n + 1) * (m + 1));
+          for (var i = n - 1; i >= 0; i -= 1) {
+            var rowAt = i * (m + 1);
+            var nextAt = (i + 1) * (m + 1);
+            for (var j = m - 1; j >= 0; j -= 1) {
+              table[rowAt + j] =
+                ka[lo1 + i] === kb[lo2 + j]
+                  ? table[nextAt + j + 1] + 1
+                  : Math.max(table[nextAt + j], table[rowAt + j + 1]);
+            }
+          }
+          var x = 0;
+          var y = 0;
+          while (x < n && y < m) {
+            if (ka[lo1 + x] === kb[lo2 + y]) {
+              out.push({ t: 0, i: lo1 + x, j: lo2 + y });
+              x += 1;
+              y += 1;
+            } else if (table[(x + 1) * (m + 1) + y] >= table[x * (m + 1) + y + 1]) {
+              out.push({ t: 1, i: lo1 + x, j: -1 });
+              x += 1;
+            } else {
+              out.push({ t: 2, i: -1, j: lo2 + y });
+              y += 1;
+            }
+          }
+          while (x < n) out.push({ t: 1, i: lo1 + x++, j: -1 });
+          while (y < m) out.push({ t: 2, i: -1, j: lo2 + y++ });
+        }
+
+        /**
+         * Lines that appear exactly once on both sides, reduced to a monotone chain: the anchors a
+         * divide-and-conquer step may cut on. Returns `[i, j]` pairs in increasing order on both axes.
+         */
+        function patienceAnchors(ka, kb, lo1, hi1, lo2, hi2) {
+          var countA = new Map();
+          var i;
+          for (i = lo1; i < hi1; i += 1) countA.set(ka[i], (countA.get(ka[i]) || 0) + 1);
+          var posA = new Map();
+          for (i = lo1; i < hi1; i += 1) if (countA.get(ka[i]) === 1) posA.set(ka[i], i);
+          var countB = new Map();
+          for (var j = lo2; j < hi2; j += 1) countB.set(kb[j], (countB.get(kb[j]) || 0) + 1);
+
+          var pairs = [];
+          for (j = lo2; j < hi2; j += 1) {
+            if (countB.get(kb[j]) !== 1) continue;
+            var at = posA.get(kb[j]);
+            if (at !== undefined) pairs.push([at, j]);
+          }
+          if (pairs.length === 0) return [];
+          pairs.sort(function (p, q) {
+            return p[0] - q[0];
+          });
+
+          var tails = [];
+          var tailAt = [];
+          var prev = new Int32Array(pairs.length);
+          prev.fill(-1);
+          for (var p = 0; p < pairs.length; p += 1) {
+            var y = pairs[p][1];
+            var low = 0;
+            var high = tails.length;
+            while (low < high) {
+              var mid = (low + high) >> 1;
+              if (tails[mid] < y) low = mid + 1;
+              else high = mid;
+            }
+            if (low > 0) prev[p] = tailAt[low - 1];
+            tails[low] = y;
+            tailAt[low] = p;
+          }
+          var chain = [];
+          var cursor = tailAt.length ? tailAt[tailAt.length - 1] : -1;
+          while (cursor !== -1) {
+            chain.push(pairs[cursor]);
+            cursor = prev[cursor];
+          }
+          chain.reverse();
+          return chain;
+        }
+
+        /* ------------------------------------------------------------------ *
+         * Row model
+         * ------------------------------------------------------------------ */
+        /**
+         * Turn the operation list into display rows: delete runs and insert runs are paired into
+         * `ch` rows so a changed line reads as one row with two sides.
+         */
+        function buildRows(ops, aLines, bLines) {
+          var rows = [];
+          var dels = [];
+          var adds = [];
+          function drain() {
+            var paired = Math.min(dels.length, adds.length);
+            for (var k = 0; k < paired; k += 1) {
+              rows.push({ kind: 'ch', ai: dels[k], bi: adds[k], a: aLines[dels[k]], b: bLines[adds[k]] });
+            }
+            for (var d = paired; d < dels.length; d += 1) {
+              rows.push({ kind: 'del', ai: dels[d], bi: -1, a: aLines[dels[d]], b: '' });
+            }
+            for (var i = paired; i < adds.length; i += 1) {
+              rows.push({ kind: 'add', ai: -1, bi: adds[i], a: '', b: bLines[adds[i]] });
+            }
+            dels = [];
+            adds = [];
+          }
+          for (var o = 0; o < ops.length; o += 1) {
+            var op = ops[o];
+            if (op.t === 0) {
+              drain();
+              rows.push({ kind: 'eq', ai: op.i, bi: op.j, a: aLines[op.i], b: bLines[op.j] });
+            } else if (op.t === 1) dels.push(op.i);
+            else adds.push(op.j);
+          }
+          drain();
+          return rows;
+        }
+
+        /**
+         * Collapse equal runs into fold rows and adapt the paired rows to the chosen view.
+         *
+         * Fold ids are per equal run, which is what makes "expand this one block" and "expand all"
+         * one mechanism: the first stores an id, the second simply stops collapsing. `expanded` keeps
+         * the ids the user opened, so the derived list is rebuilt instead of mutated. In unified view
+         * a paired change row is split back into its `-` and `+` lines, because a unified diff has one
+         * text column and showing only one side of the pair would silently drop content.
+         *
+         * `hunks` holds the display index each contiguous run of changed rows starts at — the jump
+         * targets for ↑/↓ and the number in the stats bar. It counts *change groups*, not patch hunks:
+         * `buildPatch` merges groups whose context windows overlap, so a 3-group diff can export as 2.
+         */
+        function buildDisplayRows(baseRows, expanded, opt) {
+          var out = [];
+          var hunks = [];
+          var foldId = 0;
+          var i = 0;
+          while (i < baseRows.length) {
+            if (baseRows[i].kind === 'eq') {
+              var runEnd = i;
+              while (runEnd < baseRows.length && baseRows[runEnd].kind === 'eq') runEnd += 1;
+              var runLen = runEnd - i;
+              // A collapse row hides the middle of the run and leaves the surrounding lines on screen,
+              // so a change is still readable in the code it sits in — the same three lines the
+              // exported patch carries. Only runs that really have that much to hide are collapsed.
+              var hidden = runLen - LIMITS.contextLines * 2;
+              var collapsible = opt.fold && hidden >= LIMITS.foldMin && !opt.expandAll;
+              if (collapsible && !expanded.has(foldId)) {
+                for (var h = i; h < i + LIMITS.contextLines; h += 1) out.push(baseRows[h]);
+                out.push({ kind: 'fold', count: hidden, foldId: foldId });
+                for (var f = runEnd - LIMITS.contextLines; f < runEnd; f += 1) out.push(baseRows[f]);
+              } else {
+                for (var k = i; k < runEnd; k += 1) out.push(baseRows[k]);
+              }
+              if (collapsible) foldId += 1;
+              i = runEnd;
+              continue;
+            }
+            hunks.push(out.length);
+            while (i < baseRows.length && baseRows[i].kind !== 'eq') {
+              var row = baseRows[i];
+              if (opt.view === 'unified' && row.kind === 'ch') {
+                out.push({ kind: 'del', ai: row.ai, bi: -1, a: row.a, b: '' });
+                out.push({ kind: 'add', ai: -1, bi: row.bi, a: '', b: row.b });
+              } else out.push(row);
+              i += 1;
+            }
+          }
+          return { rows: out, hunks: hunks };
+        }
+
+        /* ------------------------------------------------------------------ *
+         * Normalization + line splitting
+         * ------------------------------------------------------------------ */
+        // Code points a monospace grid draws two cells wide, which is what decides how many
+        // visual lines a wrapped row needs. Expressed as \u escapes on purpose: the boundaries are
+        // numeric ranges, and literal CJK characters in a character class cannot be reviewed.
+        var WIDE_TEST =
+          /[\u1100-\u115f\u2e80-\u303e\u3040-\u33ff\u3400-\u4dbf\u4e00-\u9fff\ua000-\ua4cf\uac00-\ud7a3\uf900-\ufaff\ufe10-\ufe19\ufe30-\ufe6f\uff00-\uff60\uffe0-\uffe6]/;
+        var WIDE_COUNT =
+          /[\u1100-\u115f\u2e80-\u303e\u3040-\u33ff\u3400-\u4dbf\u4e00-\u9fff\ua000-\ua4cf\uac00-\ud7a3\uf900-\ufaff\ufe10-\ufe19\ufe30-\ufe6f\uff00-\uff60\uffe0-\uffe6]/g;
+
+        /** Comparison key for a line: whatever the user asked to ignore stops distinguishing it. */
+        function normalize(text, opt) {
+          var value = text;
+          if (opt.ignoreWs) value = value.replace(/\s+/g, '');
+          else if (opt.trimEol) value = value.replace(/[ \t]+$/g, '');
+          if (opt.ignoreCase) value = value.toLowerCase();
+          return value;
+        }
+
+        /**
+         * Split into lines while remembering whether the source ended with a newline, because a
+         * trailing newline is content: `\ No newline at end of file` in the exported patch depends
+         * on it, and `"".split("\n")` would otherwise invent a phantom line.
+         *
+         * The phantom line is removed *after* the split, not by chopping the last character off the
+         * text first: on a CRLF file ending in `\r\n` the chop leaves a bare `\r` glued to the final
+         * line, which the split cannot reach any more — the file then looks different from its own LF
+         * twin, shows an invisible character, and exports it into the patch.
+         *
+         * `crlf` records the *presence* of `\r\n` rather than counting it, because line endings are
+         * dropped by the split: a CRLF file compared against an LF file would otherwise look silently
+         * identical. One `indexOf` costs nothing even at the line budget.
+         */
+        function splitLines(text) {
+          if (text === '') return { lines: [], endsWithNewline: false, crlf: false };
+          var ends = text.charAt(text.length - 1) === '\n';
+          var lines = text.split(/\r?\n/);
+          if (ends) lines.pop();
+          return { lines: lines, endsWithNewline: ends, crlf: text.indexOf('\r\n') !== -1 };
+        }
+
+        /** Cells a monospace string occupies: CJK and fullwidth forms count as two. */
+        function displayCells(text) {
+          if (text.length === 0) return 0;
+          // Fast path: with no double-width character one code unit is one cell, and the non-global
+          // test regex stops at the first hit. Only CJK-heavy lines pay for the counting pass.
+          if (!WIDE_TEST.test(text)) return text.length;
+          var found = text.match(WIDE_COUNT);
+          return text.length + (found ? found.length : 0);
+        }
+
+        /* ------------------------------------------------------------------ *
+         * Word-level refinement for a paired change row
+         * ------------------------------------------------------------------ */
+        var TOKEN = /[A-Za-z0-9_$]+|\s+|[^\sA-Za-z0-9_$]/g;
+
+        /** @param {string} text @returns {string[]} */
+        function tokenize(text) {
+          return text.match(TOKEN) || [];
+        }
+
+        /**
+         * @param {string} a @param {string} b @param {boolean} ignoreCase
+         * @returns {{a: Array<{text: string, changed: boolean}>, b: Array<{text: string, changed: boolean}>} | null}
+         */
+        function wordDiff(a, b, ignoreCase) {
+          var ta = tokenize(a);
+          var tb = tokenize(b);
+          if (ta.length > LIMITS.wordTokenCap || tb.length > LIMITS.wordTokenCap) return null;
+          var ka = ta;
+          var kb = tb;
+          if (ignoreCase) {
+            ka = ta.map(function (x) {
+              return x.toLowerCase();
+            });
+            kb = tb.map(function (x) {
+              return x.toLowerCase();
+            });
+          }
+          var ops = diffKeys(ka, kb);
+          var segsA = [];
+          var segsB = [];
+          for (var o = 0; o < ops.length; o += 1) {
+            var op = ops[o];
+            if (op.t === 0) {
+              segsA.push({ text: ta[op.i], changed: false });
+              segsB.push({ text: tb[op.j], changed: false });
+            } else if (op.t === 1) segsA.push({ text: ta[op.i], changed: true });
+            else segsB.push({ text: tb[op.j], changed: true });
+          }
+          return { a: segsA, b: segsB };
+        }
+
+        /* ------------------------------------------------------------------ *
+         * Patch export
+         * ------------------------------------------------------------------ */
+        /**
+         * Standard unified diff with the given number of context lines. Line numbers are 1-based
+         * positions in the original files, so `git apply` can read the result.
+         */
+        function buildPatch(ops, aLines, bLines, nameA, nameB, endsA, endsB, context) {
+          var head = ['--- ' + nameA, '+++ ' + nameB];
+          // "Nothing changed" has to mean the bytes as well: two files whose only difference is that
+          // one of them ends with a newline still need the hunk emitted below, or the patch would
+          // apply to the wrong ending.
+          var endingsDiffer = endsA !== endsB;
+          if (
+            !endingsDiffer &&
+            ops.every(function (o) {
+              return o.t === 0;
+            })
+          )
+            return head.join('\n') + '\n';
+          var marks = ops.map(function (o) {
+            return o.t !== 0;
+          });
+          if (endingsDiffer && marks.length) marks[marks.length - 1] = true;
+          var keep = new Uint8Array(ops.length);
+          for (var m = 0; m < ops.length; m += 1) {
+            if (!marks[m]) continue;
+            for (var c = Math.max(0, m - context); c <= Math.min(ops.length - 1, m + context); c += 1) {
+              keep[c] = 1;
+            }
+          }
+          var chunks = [];
+          var i = 0;
+          while (i < ops.length) {
+            if (!keep[i]) {
+              i += 1;
+              continue;
+            }
+            var start = i;
+            while (i < ops.length && keep[i]) i += 1;
+            chunks.push([start, i]);
+          }
+          var lines = [];
+          var noEol = '\\ No newline at end of file';
+          for (var ch = 0; ch < chunks.length; ch += 1) {
+            var chunk = chunks[ch];
+            var aStart = -1;
+            var bStart = -1;
+            var aCount = 0;
+            var bCount = 0;
+            var entries = [];
+            for (var k = chunk[0]; k < chunk[1]; k += 1) {
+              var op = ops[k];
+              if (op.t !== 2 && aStart < 0) aStart = op.i;
+              if (op.t !== 1 && bStart < 0) bStart = op.j;
+              // Only a file's last line can fail to end with a newline, so `endsXHere` answers for
+              // exactly one position. A trailing newline is content, and a context line can only
+              // speak for one ending — which is why the last line goes out as a same-text change
+              // pair when the two sides disagree (`-b` with the marker, then `+b` without), and
+              // stays context carrying the marker once when *both* sides end without one.
+              if (op.t === 0) {
+                aCount += 1;
+                bCount += 1;
+                var endsAHere = op.i !== aLines.length - 1 || endsA;
+                var endsBHere = op.j !== bLines.length - 1 || endsB;
+                if (endsAHere !== endsBHere) {
+                  entries.push({ s: '-', t: aLines[op.i], m: !endsAHere });
+                  entries.push({ s: '+', t: bLines[op.j], m: !endsBHere });
+                } else {
+                  entries.push({ s: ' ', t: aLines[op.i], m: !endsAHere });
+                }
+              } else if (op.t === 1) {
+                aCount += 1;
+                entries.push({ s: '-', t: aLines[op.i], m: op.i === aLines.length - 1 && !endsA });
+              } else {
+                bCount += 1;
+                entries.push({ s: '+', t: bLines[op.j], m: op.j === bLines.length - 1 && !endsB });
+              }
+            }
+            // One contiguous change is written as all the removals and then all the additions — the
+            // order `git diff` emits and the order `git apply` assumes. The op stream itself
+            // interleaves the two sides, because the split view pairs a removed line with the added
+            // line it became in order to show the word-level mark, so the grouping belongs here.
+            var body = [];
+            var w = 0;
+            while (w < entries.length) {
+              if (entries[w].s === ' ') {
+                body.push(' ' + entries[w].t);
+                if (entries[w].m) body.push(noEol);
+                w += 1;
+                continue;
+              }
+              var runStart = w;
+              while (w < entries.length && entries[w].s !== ' ') w += 1;
+              for (var pass = 0; pass < 2; pass += 1) {
+                var want = pass === 0 ? '-' : '+';
+                for (var e = runStart; e < w; e += 1) {
+                  if (entries[e].s !== want) continue;
+                  body.push(entries[e].s + entries[e].t);
+                  if (entries[e].m) body.push(noEol);
+                }
+              }
+            }
+            // An empty range starts at 0, not at 1: `@@ -0,0 +1,3 @@` is how `git diff` writes an
+            // added-to-empty-file hunk, and `git apply` reads that line number as the insertion point.
+            var from = aCount === 0 ? 0 : (aStart < 0 ? aLines.length : aStart) + 1;
+            var to = bCount === 0 ? 0 : (bStart < 0 ? bLines.length : bStart) + 1;
+            lines.push('@@ -' + from + ',' + aCount + ' +' + to + ',' + bCount + ' @@');
+            for (var b = 0; b < body.length; b += 1) lines.push(body[b]);
+          }
+          return head.concat(lines).join('\n') + '\n';
+        }
+
+        /* ------------------------------------------------------------------ *
+         * Page state
+         * ------------------------------------------------------------------ */
+        var state = {
+          a: null,
+          b: null,
+          ops: [],
+          baseRows: [],
+          displayRows: [],
+          hunks: [],
+          expanded: new Set(),
+          /** How many collapsed equal runs the current layout shows — drives the expand-all button. */
+          foldCount: 0,
+          offsets: new Float64Array(1),
+          cellsPerLine: 80,
+          activePane: 'A',
+          /**
+           * The option set as read at the last change.
+           *
+           * `rowLines` and `paintRow` run once per visible row on every scroll frame, so reading five
+           * DOM checkboxes from them would turn scrolling into dozens of layout queries. `refreshOptions`
+           * is called from every control that changes a preference, and `expandAll` lives here because
+           * "expand all" is a collapse switch, not a set of ids.
+           */
+          opt: {
+            ignoreCase: false,
+            trimEol: false,
+            ignoreWs: false,
+            word: true,
+            fold: true,
+            view: 'split',
+            expandAll: false,
+          },
+        };
+
+        var el = function (id) {
+          return document.getElementById(id);
+        };
+        var scroller = el('diffScroll');
+        var spacer = el('diffSpacer');
+        var pool = [];
+
+        /** @param {'A'|'B'} which @param {object | null} side */
+        function setPane(which, side) {
+          state[which.toLowerCase()] = side;
+        }
+
+        /**
+         * The name a side answers to.
+         *
+         * Pasted text has no name of its own, and the label for it belongs to the *page's* language,
+         * so it is resolved here rather than frozen into the record when the input arrives — switching
+         * language then renames it, the pane meta and the patch header together.
+         */
+        function sideName(side) {
+          return side.pasted ? t('pastedName') : side.name;
+        }
+
+        function renderPanes() {
+          ['a', 'b'].forEach(function (key) {
+            var which = key.toUpperCase();
+            var side = state[key];
+            var meta = el('meta' + which);
+            var hint = el('hint' + which);
+            var pane = el('pane' + which);
+            var clear = document.querySelector('[data-clear="' + which + '"]');
+            if (!side) {
+              pane.classList.remove('filled');
+              meta.textContent = '';
+              hint.textContent = t('dropHint');
+              hint.hidden = false;
+              clear.hidden = true;
+              return;
+            }
+            pane.classList.add('filled');
+            // "CRLF" is a format identifier, not a caption, so it reads the same in both languages.
+            meta.textContent =
+              t('metaTemplate', {
+                size: formatSize(side.bytes),
+                lines: formatCount(side.lines.length),
+                encoding: side.encoding,
+              }) + (side.crlf ? ' · CRLF' : '');
+            hint.textContent = sideName(side);
+            hint.hidden = false;
+            clear.hidden = false;
+          });
+          updateButtonAvailability();
+        }
+
+        function updateButtonAvailability() {
+          var ready = !!state.a && !!state.b;
+          el('btnSwap').disabled = !ready;
+          el('btnCopyPatch').disabled = !ready;
+          el('btnDownloadPatch').disabled = !ready;
+          el('btnPrev').disabled = state.hunks.length === 0;
+          el('btnNext').disabled = state.hunks.length === 0;
+          // Nothing to expand while every run is already open, so the button goes back to the
+          // "collapse all" meaning instead of sitting there as a no-op.
+          el('btnExpandAll').disabled = state.foldCount === 0 && !state.opt.expandAll;
+        }
+
+        var noticeTimer = 0;
+        /**
+         * The notice currently owed to the most recent input read.
+         *
+         * Loading a file and comparing it are two steps — the compare is debounced — so a warning
+         * raised at load time would be cleared by that compare ~120 ms later, before it was ever read.
+         * Recording it here lets the pane that produced it keep its message; the encoding badge in the
+         * pane meta stays the durable signal.
+         */
+        var pendingNotice = null;
+        /**
+         * @param {'error'|'warn'|'info'} kind
+         * @param {string} message
+         */
+        function showNotice(kind, message) {
+          var box = el('notice');
+          window.clearTimeout(noticeTimer);
+          if (!message) {
+            box.className = 'notice';
+            box.textContent = '';
+            return;
+          }
+          box.className = 'notice show ' + kind;
+          box.textContent = message;
+          if (kind === 'info') {
+            noticeTimer = window.setTimeout(function () {
+              box.className = 'notice';
+              box.textContent = '';
+            }, 4000);
+          }
+        }
+
+        /**
+         * Report something about the input just read, and remember it as that input's message.
+         *
+         * @param {'error'|'warn'} kind
+         * @param {string} message
+         */
+        function noticeForInput(kind, message) {
+          pendingNotice = { kind: kind, message: message };
+          showNotice(kind, message);
+        }
+
+        /** Drop both the visible notice and the one recorded for the current input. */
+        function clearNotice() {
+          pendingNotice = null;
+          showNotice('');
+        }
+
+        /* ------------------------------------------------------------------ *
+         * Reading a file: sniff, decode, split, bound.
+         * ------------------------------------------------------------------ */
+        var DECODERS = ['utf-8', 'gb18030', 'gbk'];
+
+        /**
+         * @param {Uint8Array} bytes
+         * @returns {{text: string, encoding: string, guessed: boolean} | null} null means "not text"
+         */
+        function decodeBytes(bytes) {
+          // A NUL in the opening stretch is the cheap, reliable binary signal — UTF-16 text, PNG and
+          // ZIP all trip it. Real UTF-16 with a BOM is handled before this by label detection.
+          if (bytes.length >= 2 && bytes[0] === 0xff && bytes[1] === 0xfe) {
+            return {
+              text: new TextDecoder('utf-16le').decode(bytes.subarray(2)),
+              encoding: 'UTF-16LE',
+              guessed: false,
+            };
+          }
+          if (bytes.length >= 2 && bytes[0] === 0xfe && bytes[1] === 0xff) {
+            return {
+              text: new TextDecoder('utf-16be').decode(bytes.subarray(2)),
+              encoding: 'UTF-16BE',
+              guessed: false,
+            };
+          }
+          var sniffEnd = Math.min(bytes.length, 8000);
+          for (var i = 0; i < sniffEnd; i += 1) {
+            if (bytes[i] === 0) return null;
+          }
+          var buffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+          for (var d = 0; d < DECODERS.length; d += 1) {
+            try {
+              return {
+                text: new TextDecoder(DECODERS[d], { fatal: true }).decode(buffer),
+                encoding: DECODERS[d].toUpperCase(),
+                guessed: false,
+              };
+            } catch {
+              /* this encoding cannot represent the bytes; try the next one */
+            }
+          }
+          return {
+            text: new TextDecoder('utf-8').decode(buffer),
+            encoding: 'UTF-8 (?)',
+            guessed: true,
+          };
+        }
+
+        /**
+         * @param {File | string} source
+         * @param {'A' | 'B'} which
+         */
+        function loadSource(source, which) {
+          // Each read owns the notice: whatever the previous input complained about is not this one's
+          // story, and a successful read with nothing to report must leave the box empty.
+          pendingNotice = null;
+          var done = function (side) {
+            setPane(which, side);
+            renderPanes();
+            if (!pendingNotice) showNotice('');
+            scheduleCompare();
+          };
+          if (typeof source === 'string') {
+            var built = buildSide('', new TextEncoder().encode(source).length, source, 'UTF-8', false, true);
+            if (built) done(built);
+            return;
+          }
+          // `File.size` is known before reading, so the byte budget is checked without loading a
+          // 2 GB log into memory just to be told about it.
+          if (source.size > LIMITS.maxBytesPerFile) {
+            noticeForInput(
+              'error',
+              t('errTooLarge', {
+                max: formatSize(LIMITS.maxBytesPerFile),
+                size: formatSize(source.size),
+              }),
+            );
+            return;
+          }
+          readsInFlight += 1;
+          source
+            .arrayBuffer()
+            .then(function (buffer) {
+              var bytes = new Uint8Array(buffer);
+              var decoded = decodeBytes(bytes);
+              if (!decoded) {
+                noticeForInput('error', t('errBinary'));
+                return;
+              }
+              var side = buildSide(source.name, bytes.length, decoded.text, decoded.encoding, decoded.guessed, false);
+              if (!side) return;
+              done(side);
+            })
+            .catch(function (error) {
+              // Reading can fail on the file itself (moved, revoked, a directory dropped): name the
+              // failure without pretending the page is broken.
+              noticeForInput(
+                'error',
+                t('errReadFailed', {
+                  name: source.name || which,
+                  msg: String(error && error.message ? error.message : error),
+                }),
+              );
+            })
+            .then(function () {
+              // Released after whichever of the two branches ran — including the refusal paths, which
+              // return early. Nothing downstream of here may leave the count hanging, or the compare
+              // would wait forever.
+              readsInFlight -= 1;
+            });
+        }
+
+        /**
+         * Turn decoded text into the side record, refusing anything past the line budget.
+         *
+         * @param {string} name @param {number} bytes @param {string} text
+         * @param {string} encoding @param {boolean} guessed @param {boolean} pasted
+         */ function buildSide(name, bytes, text, encoding, guessed, pasted) {
+          var split = splitLines(text);
+          if (split.lines.length > LIMITS.maxLinesPerFile) {
+            noticeForInput(
+              'error',
+              t('errTooManyLines', {
+                max: formatCount(LIMITS.maxLinesPerFile),
+                lines: formatCount(split.lines.length),
+              }),
+            );
+            return null;
+          }
+          if (guessed) noticeForInput('warn', t('warnEncoding'));
+          return {
+            name: name,
+            bytes: bytes,
+            text: text,
+            encoding: encoding,
+            guessed: guessed,
+            pasted: pasted,
+            lines: split.lines,
+            endsWithNewline: split.endsWithNewline,
+            crlf: split.crlf,
+          };
+        }
+
+        /** @param {{crlf: boolean} | null} a @param {{crlf: boolean} | null} b */
+        function endingsDiffer(a, b) {
+          return !!a && !!b && a.crlf !== b.crlf;
+        }
+
+        /* ------------------------------------------------------------------ *
+         * Compare + layout
+         * ------------------------------------------------------------------ */
+        var compareQueued = 0;
+        /**
+         * Reads still in flight.
+         *
+         * A file is decoded asynchronously, so the compare that the *first* finished read schedules
+         * would otherwise run against the other pane's *previous* file: the user watches a bogus
+         * whole-file diff flash by — at 60,000 lines that is a real 1.2 MB layout — before the honest
+         * result lands a moment later. While any read is open the compare simply waits; the read that
+         * settles last schedules it again.
+         */
+        var readsInFlight = 0;
+        function scheduleCompare() {
+          if (compareQueued) return;
+          compareQueued = window.setTimeout(function () {
+            compareQueued = 0;
+            runCompare();
+          }, 120);
+        }
+
+        function readOptions() {
+          return {
+            ignoreCase: el('optIgnoreCase').checked,
+            trimEol: el('optTrimEol').checked,
+            ignoreWs: el('optIgnoreWs').checked,
+            word: el('optWord').checked,
+            fold: el('optFold').checked,
+            view: document.querySelector('input[name="view"]:checked').value,
+            expandAll: state.opt.expandAll,
+          };
+        }
+
+        /** Re-read the controls into `state.opt`, keeping "expand all" unless collapsing. */
+        function refreshOptions() {
+          state.opt = readOptions();
+          return state.opt;
+        }
+
+        function runCompare() {
+          var opt = refreshOptions();
+          if (readsInFlight) return;
+          if (!state.a || !state.b) {
+            el('statsBar').hidden = true;
+            el('patchBox').hidden = true;
+            state.ops = [];
+            state.baseRows = [];
+            state.hunks = [];
+            if (state.a || state.b) showNotice('info', t('errBothNeeded'));
+            else clearNotice();
+            layout([]);
+            updateButtonAvailability();
+            return;
+          }
+          el('statBusy').textContent = t('busyComparing');
+          // Let the busy label paint before the synchronous diff takes the main thread.
+          window.requestAnimationFrame(function () {
+            var started = window.performance.now();
+            var aLines = state.a.lines;
+            var bLines = state.b.lines;
+            var ka = aLines.map(function (line) {
+              return normalize(line, opt);
+            });
+            var kb = bLines.map(function (line) {
+              return normalize(line, opt);
+            });
+            var ops = diffKeys(ka, kb);
+            var baseRows = buildRows(ops, aLines, bLines);
+            var ms = window.performance.now() - started;
+            state.ops = ops;
+            state.baseRows = baseRows;
+            state.expanded.clear();
+            state.opt.expandAll = false;
+            syncExpandAllLabel();
+            el('statBusy').textContent = '';
+            reportStats(baseRows, aLines.length, bLines.length, ms);
+            layout(baseRows);
+            if (baseRows.length > 0 && baseRows.every(isUnchanged)) {
+              // "Identical" would be a lie for a CRLF file against an LF file: the *lines* match, the
+              // bytes do not. Say which part is equal and which part the comparison gave up on.
+              showNotice('info', endingsDiffer(state.a, state.b) ? t('sameButLineEndings') : t('sameBoth'));
+            } else if (pendingNotice) showNotice(pendingNotice.kind, pendingNotice.message);
+            else if (endingsDiffer(state.a, state.b)) showNotice('warn', t('warnCrlf'));
+          });
+        }
+
+        /** @param {{kind: string}} row */
+        function isUnchanged(row) {
+          return row.kind === 'eq';
+        }
+
+        function reportStats(rows, totalA, totalB, ms) {
+          var added = 0;
+          var removed = 0;
+          var same = 0;
+          for (var i = 0; i < rows.length; i += 1) {
+            var kind = rows[i].kind;
+            if (kind === 'eq') same += 1;
+            else if (kind === 'add' || kind === 'ch') added += 1;
+            if (kind === 'del' || kind === 'ch') removed += 1;
+          }
+          var maxLines = Math.max(totalA, totalB, 1);
+          el('statsBar').hidden = false;
+          el('statAdded').textContent = formatCount(added);
+          el('statRemoved').textContent = formatCount(removed);
+          el('statSame').textContent = formatCount(same);
+          el('statSim').textContent = Math.round((same / maxLines) * 100) + '%';
+          el('statMs').textContent = ms < 10 ? ms.toFixed(1) : formatCount(Math.round(ms));
+        }
+
+        /**
+         * Measure how many monospace cells fit one text column.
+         *
+         * The probe carries the same font declarations as a row's text cell and nothing else — using
+         * the `.txt` class would fold its 10 px padding into the advance width and under-report the
+         * column by two characters.
+         */
+        function measureCells() {
+          var probe = el('cellProbe');
+          if (!probe) {
+            probe = document.createElement('span');
+            probe.id = 'cellProbe';
+            probe.setAttribute('aria-hidden', 'true');
+            probe.style.position = 'absolute';
+            probe.style.visibility = 'hidden';
+            probe.style.whiteSpace = 'pre';
+            probe.style.padding = '0';
+            probe.style.fontFamily = 'var(--fd-font-mono)';
+            probe.style.fontSize = '12.5px';
+            probe.style.lineHeight = LINE_H + 'px';
+            probe.textContent = '0000000000000000000000000000000000000000000000000000000000000000';
+            document.body.append(probe);
+          }
+          var charWidth = probe.getBoundingClientRect().width / 60;
+          if (!(charWidth > 0)) charWidth = 7.5;
+          var split = state.opt.view === 'split';
+          var gutters = split ? 52 * 2 : 46 * 2;
+          var available = split ? (scroller.clientWidth - gutters) / 2 - 20 : scroller.clientWidth - gutters - 20;
+          state.cellsPerLine = Math.max(12, Math.floor(available / charWidth));
+        }
+
+        /** Visual lines a row occupies under the current column width. */
+        function rowLines(row) {
+          if (row.kind === 'fold') return 1;
+          if (row._lines !== undefined) return row._lines;
+          var cells;
+          if (state.opt.view === 'split') {
+            cells = Math.max(
+              displayCells(row.a === undefined ? '' : row.a),
+              displayCells(row.b === undefined ? '' : row.b),
+            );
+          } else {
+            cells = displayCells(row.kind === 'add' ? row.b : row.a);
+          }
+          var lines = Math.max(1, Math.ceil(cells / state.cellsPerLine));
+          row._lines = lines;
+          return lines;
+        }
+
+        function layout(baseRows) {
+          var opt = refreshOptions();
+          measureCells();
+          for (var i = 0; i < baseRows.length; i += 1) {
+            delete baseRows[i]._lines;
+          }
+          var built = buildDisplayRows(baseRows, state.expanded, opt);
+          state.displayRows = built.rows;
+          state.hunks = built.hunks;
+          var rows = state.displayRows;
+          var offsets = new Float64Array(rows.length + 1);
+          var folds = 0;
+          for (var r = 0; r < rows.length; r += 1) {
+            if (rows[r].kind === 'fold') folds += 1;
+            offsets[r + 1] = offsets[r] + rowLines(rows[r]) * LINE_H;
+          }
+          state.foldCount = folds;
+          state.offsets = offsets;
+          spacer.style.height = offsets[rows.length] + 'px';
+          el('emptyState').hidden = rows.length > 0;
+          document.documentElement.dataset.view = opt.view;
+          el('statHunks').textContent = String(state.hunks.length);
+          ensurePool();
+          renderWindow(true);
+          updateButtonAvailability();
+        }
+
+        function ensurePool() {
+          var needed = Math.ceil(scroller.clientHeight / LINE_H) + LIMITS.overscanRows * 2 + 8;
+          var unified = state.opt.view === 'unified';
+          if (pool.length && pool[0].dataset.mode === (unified ? 'u' : 's')) {
+            while (pool.length < needed) pool.push(makeRow(unified));
+            return;
+          }
+          pool.forEach(function (node) {
+            node.remove();
+          });
+          pool = [];
+          for (var i = 0; i < needed; i += 1) pool.push(makeRow(unified));
+        }
+
+        function makeRow(unified) {
+          var row = document.createElement('div');
+          row.className = 'row';
+          row.dataset.mode = unified ? 'u' : 's';
+          if (unified) {
+            row.append(span('ln lnA'), span('ln lnB'), span('txt txtA'));
+          } else {
+            row.append(span('ln lnA'), span('txt txtA'), span('ln lnB'), span('txt txtB'));
+          }
+          spacer.append(row);
+          return row;
+        }
+
+        function span(className) {
+          var node = document.createElement('span');
+          node.className = className;
+          return node;
+        }
+
+        /** Binary search for the first row whose bottom edge is past `y`. */
+        function firstVisible(offsets, y) {
+          var low = 0;
+          var high = offsets.length - 2;
+          while (low < high) {
+            var mid = (low + high) >> 1;
+            if (offsets[mid + 1] <= y) low = mid + 1;
+            else high = mid;
+          }
+          return Math.min(low, Math.max(0, offsets.length - 2));
+        }
+
+        var pendingPaint = 0;
+        function renderWindow(force) {
+          if (pendingPaint && !force) return;
+          pendingPaint = window.requestAnimationFrame(function () {
+            pendingPaint = 0;
+            paint();
+          });
+        }
+
+        function paint() {
+          var rows = state.displayRows;
+          var offsets = state.offsets;
+          var top = scroller.scrollTop;
+          var bottom = top + scroller.clientHeight;
+          var start = Math.max(0, firstVisible(offsets, top) - LIMITS.overscanRows);
+          var y = offsets[start];
+          var idx = start;
+          var poolIndex = 0;
+          while (idx < rows.length && y < bottom + LIMITS.overscanRows * LINE_H) {
+            var node = pool[poolIndex++];
+            if (!node) break;
+            paintRow(node, rows[idx], y);
+            y = offsets[idx + 1];
+            idx += 1;
+          }
+          for (var rest = poolIndex; rest < pool.length; rest += 1) {
+            pool[rest].style.transform = 'translateY(-99999px)';
+          }
+        }
+
+        /**
+         * Paint one pooled row.
+         *
+         * The node may arrive holding anything: a fold button, a deleted line, a `+` side in unified
+         * view. Every branch therefore rewrites the whole class list and clears the leftovers the fold
+         * branch leaves behind (`display: none` and a spanning `grid-column`), so reuse cannot leak
+         * styling from the previous owner of the node.
+         */
+        function paintRow(node, row, yPos) {
+          var cells = node.children;
+          var unified = node.dataset.mode === 'u';
+          node.style.transform = 'translateY(' + yPos + 'px)';
+          node.style.height = rowLines(row) * LINE_H + 'px';
+
+          if (row.kind === 'fold') {
+            node.className = 'row fold';
+            var labelIndex = unified ? 2 : 1;
+            for (var f = 0; f < cells.length; f += 1) {
+              cells[f].style.display = f === labelIndex ? '' : 'none';
+              cells[f].className = f === labelIndex ? 'txt' : 'ln';
+              cells[f].style.gridColumn = f === labelIndex ? '1 / -1' : '';
+            }
+            cells[labelIndex].replaceChildren(makeFoldButton(row));
+            return;
+          }
+
+          for (var s = 0; s < cells.length; s += 1) {
+            cells[s].style.display = '';
+            cells[s].style.gridColumn = '';
+          }
+          node.className = 'row ' + row.kind;
+
+          if (unified) {
+            paintUnifiedRow(row, cells);
+            return;
+          }
+          paintSplitRow(row, cells);
+        }
+
+        /** Unified view: two gutters and one text column, which shows whichever side this row is from. */
+        function paintUnifiedRow(row, cells) {
+          cells[0].className = 'ln lnA';
+          cells[1].className = 'ln lnB';
+          cells[2].className = 'txt txtA';
+          cells[0].textContent = row.ai >= 0 ? String(row.ai + 1) : '';
+          cells[1].textContent = row.bi >= 0 ? String(row.bi + 1) : '';
+          // `buildDisplayRows` splits a paired change into a `-` and a `+` row before layout, so a `ch`
+          // row never reaches here; treating one as the delete side keeps that contract loud rather
+          // than silently rendering only one line of a pair if it ever did.
+          var side = row.kind === 'add' ? 'add' : row.kind === 'eq' ? '' : 'del';
+          markCell(cells[0], side === 'del' ? 'del' : '');
+          markCell(cells[1], side === 'add' ? 'add' : '');
+          markCell(cells[2], side);
+          cells[2].textContent = row.kind === 'add' ? row.b : row.a;
+        }
+
+        /**
+         * Tint a cell for the side of the change it belongs to.
+         *
+         * A pooled node's cells are addressed by class (`.lnA`), but in unified view `.txtA` renders
+         * insertions too, so the tint has to travel with the cell as a class of its own.
+         */
+        function markCell(cell, side) {
+          cell.classList.toggle('mark-del', side === 'del');
+          cell.classList.toggle('mark-add', side === 'add');
+        }
+
+        function paintSplitRow(row, cells) {
+          cells[0].className = 'ln lnA';
+          cells[1].className = 'txt txtA';
+          cells[2].className = 'ln lnB';
+          cells[3].className = 'txt txtB';
+          cells[0].textContent = row.ai >= 0 ? String(row.ai + 1) : '';
+          cells[2].textContent = row.bi >= 0 ? String(row.bi + 1) : '';
+
+          var leftSide = row.kind === 'del' || row.kind === 'ch' ? 'del' : '';
+          var rightSide = row.kind === 'add' || row.kind === 'ch' ? 'add' : '';
+          markCell(cells[0], leftSide);
+          markCell(cells[1], leftSide);
+          markCell(cells[2], rightSide);
+          markCell(cells[3], rightSide);
+          cells[3].classList.toggle('empty-side', row.kind === 'del');
+          cells[1].classList.toggle('empty-side', row.kind === 'add');
+
+          if (row.kind === 'eq') {
+            cells[1].textContent = row.a;
+            cells[3].textContent = row.b;
+            return;
+          }
+          if (row.kind === 'del') {
+            cells[1].textContent = row.a;
+            cells[3].replaceChildren();
+            return;
+          }
+          if (row.kind === 'add') {
+            cells[1].replaceChildren();
+            cells[3].textContent = row.b;
+            return;
+          }
+          renderChangePair(cells[1], cells[3], row);
+        }
+
+        /** A paired change: refine inline when the option is on and both lines are short enough. */
+        function renderChangePair(left, right, row) {
+          var opt = state.opt;
+          if (!opt.word) {
+            left.textContent = row.a;
+            right.textContent = row.b;
+            return;
+          }
+          // Cache `false` for the over-budget case: re-tokenizing a 2,000-token line on every scroll
+          // frame would make scrolling the expensive part, not the diff.
+          if (row._words === undefined) row._words = wordDiff(row.a, row.b, opt.ignoreCase) || false;
+          if (row._words === false) {
+            left.textContent = row.a;
+            right.textContent = row.b;
+            var note = document.createElement('span');
+            note.className = 'word-skip';
+            note.textContent = ' ' + t('wordSkipped');
+            left.append(note);
+            return;
+          }
+          fillSegments(left, row._words.a, 'wmark-del');
+          fillSegments(right, row._words.b, 'wmark-add');
+        }
+
+        /**
+         * @param {HTMLElement} cell
+         * @param {Array<{text: string, changed: boolean}>} segments
+         * @param {string} markClass
+         */
+        function fillSegments(cell, segments, markClass) {
+          cell.replaceChildren();
+          for (var i = 0; i < segments.length; i += 1) {
+            var seg = segments[i];
+            if (!seg.changed) {
+              cell.append(document.createTextNode(seg.text));
+              continue;
+            }
+            var mark = document.createElement('span');
+            mark.className = markClass;
+            mark.textContent = seg.text;
+            cell.append(mark);
+          }
+        }
+
+        function makeFoldButton(row) {
+          var btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'fold-btn';
+          btn.textContent = t('foldLabel', { n: formatCount(row.count) });
+          btn.addEventListener('click', function () {
+            state.expanded.add(row.foldId);
+            layout(state.baseRows);
+          });
+          return btn;
+        }
+
+        /* ------------------------------------------------------------------ *
+         * Navigation
+         */
+        function jumpHunk(dir) {
+          var hunks = state.hunks;
+          if (!hunks.length) return;
+          // A jump lands three rows *above* the change so its context is on screen, which means the
+          // change sits below the topmost visible row right after the jump. Measuring "where am I" from
+          // that same row would therefore resolve to the group just visited and the second press would
+          // do nothing — the anchor is pushed down by the lead-in it was placed with.
+          var anchor = firstVisible(state.offsets, scroller.scrollTop + 1) + LIMITS.contextLines;
+          var target = dir > 0 ? -1 : -2;
+          for (var i = 0; i < hunks.length; i += 1) {
+            if (dir > 0 && hunks[i] > anchor) {
+              target = hunks[i];
+              break;
+            }
+            if (dir < 0 && hunks[i] < anchor) target = hunks[i];
+          }
+          if (target < 0) return;
+          // Land above the change rather than on it: three rows of lead-in is what makes a hunk
+          // readable, and it is the same context the exported patch carries. The scroll stops exactly on
+          // a row boundary — a few pixels of slack would make the topmost row the *fold bar* above the
+          // lead-in, and the anchor above would then resolve to the group this jump already visited.
+          var lead = Math.max(0, target - LIMITS.contextLines);
+          scroller.scrollTo({ top: state.offsets[lead], behavior: 'smooth' });
+        }
+
+        /* ------------------------------------------------------------------ *
+         * Wiring
+         * ------------------------------------------------------------------ */
+        function paneFor(which) {
+          return el('pane' + which);
+        }
+
+        /** The slot a dropped or pasted input should go to. */
+        function nextFreeSlot(prefer) {
+          if (prefer) return prefer;
+          if (!state.a) return 'A';
+          if (!state.b) return 'B';
+          return state.activePane === 'A' ? 'A' : 'B';
+        }
+
+        function bindPane(which) {
+          var pane = paneFor(which);
+          var input = el('file' + which);
+          pane.addEventListener('click', function (event) {
+            // Pick / paste / clear buttons and the inline editor own their own clicks. Opening the
+            // file picker when the user clicks *into* the paste box would steal focus mid-sentence.
+            if (event.target.closest('button, textarea, input, select, label, a')) return;
+            state.activePane = which;
+            input.click();
+          });
+          pane.addEventListener('dragover', function (event) {
+            event.preventDefault();
+            pane.classList.add('hot');
+          });
+          pane.addEventListener('dragleave', function () {
+            pane.classList.remove('hot');
+          });
+          pane.addEventListener('drop', function (event) {
+            event.preventDefault();
+            pane.classList.remove('hot');
+            el('dropVeil').classList.remove('show');
+            var files = event.dataTransfer ? Array.prototype.slice.call(event.dataTransfer.files) : [];
+            if (!files.length) return;
+            acceptFiles(files, which);
+          });
+          pane.addEventListener('focus', function () {
+            state.activePane = which;
+          });
+          input.addEventListener('change', function () {
+            var files = Array.prototype.slice.call(input.files || []);
+            if (files.length) acceptFiles(files, which);
+            input.value = '';
+          });
+        }
+
+        function acceptFiles(files, prefer) {
+          var first = nextFreeSlot(prefer);
+          if (files.length >= 2) {
+            loadSource(files[0], 'A');
+            loadSource(files[1], 'B');
+            return;
+          }
+          loadSource(files[0], first);
+        }
+
+        document.querySelectorAll('[data-pick]').forEach(function (btn) {
+          btn.addEventListener('click', function (event) {
+            event.stopPropagation();
+            el('file' + btn.getAttribute('data-pick')).click();
+          });
+        });
+        document.querySelectorAll('[data-paste]').forEach(function (btn) {
+          btn.addEventListener('click', function (event) {
+            event.stopPropagation();
+            var which = btn.getAttribute('data-paste');
+            var pane = paneFor(which);
+            var hint = el('hint' + which);
+            var meta = el('meta' + which);
+            pane.classList.add('filled');
+            hint.hidden = true;
+            meta.textContent = '';
+            var box = document.createElement('textarea');
+            box.className = 'paste-box';
+            box.placeholder = t('dropHint');
+            box.setAttribute('aria-label', t('pasteText') + ' ' + which);
+            var existing = pane.querySelector('.paste-box');
+            if (existing) existing.remove();
+            pane.append(box);
+            box.focus();
+            var commit = function () {
+              var value = box.value;
+              box.remove();
+              if (!value) {
+                renderPanes();
+                return;
+              }
+              loadSource(value, which);
+            };
+            box.addEventListener('blur', commit);
+            box.addEventListener('keydown', function (event2) {
+              if (event2.key === 'Enter' && (event2.metaKey || event2.ctrlKey)) commit();
+              if (event2.key === 'Escape') {
+                box.remove();
+                renderPanes();
+              }
+            });
+          });
+        });
+        document.querySelectorAll('[data-clear]').forEach(function (btn) {
+          btn.addEventListener('click', function (event) {
+            event.stopPropagation();
+            var which = btn.getAttribute('data-clear');
+            setPane(which, null);
+            var box = paneFor(which).querySelector('.paste-box');
+            if (box) box.remove();
+            renderPanes();
+            scheduleCompare();
+          });
+        });
+
+        bindPane('A');
+        bindPane('B');
+
+        /**
+         * The five check boxes, with the work each one actually drives.
+         *
+         * Three of them change what the two files *are* to the comparer (case, trailing space, all
+         * whitespace), so they re-run the diff. Two only change how an existing result is drawn:
+         * per-line word marking, and whether long equal runs collapse. Re-diffing for the latter would
+         * throw away `state.expanded` and the measured time for nothing, so the two paths stay apart.
+         */
+        var OPTION_DEFAULTS = {
+          optIgnoreCase: false,
+          optTrimEol: false,
+          optIgnoreWs: false,
+          optWord: true,
+          optFold: true,
+        };
+        Object.keys(OPTION_DEFAULTS).forEach(function (id) {
+          var box = el(id);
+          var stored = recall(id);
+          box.checked = stored === '1' || stored === '0' ? stored === '1' : OPTION_DEFAULTS[id];
+          box.addEventListener('change', function () {
+            remember(id, box.checked ? '1' : '0');
+            if (id === 'optFold') {
+              state.expanded.clear();
+              state.opt.expandAll = false;
+              syncExpandAllLabel();
+              layout(state.baseRows);
+              return;
+            }
+            if (id === 'optWord') {
+              layout(state.baseRows);
+              return;
+            }
+            scheduleCompare();
+          });
+        });
+        var storedView = recall('view');
+        if (storedView === 'unified' || storedView === 'split') {
+          document.querySelector('input[name="view"][value="' + storedView + '"]').checked = true;
+        }
+        document.querySelectorAll('input[name="view"]').forEach(function (radio) {
+          radio.addEventListener('change', function () {
+            remember('view', radio.value);
+            layout(state.baseRows);
+          });
+        });
+
+        el('btnSample').addEventListener('click', function () {
+          var common = [];
+          for (var i = 1; i <= 14; i += 1) common.push('  {"id": ' + i + ', "name": "item-' + i + '"},');
+          var a = [
+            '{',
+            '  "version": "1.0.0",',
+            '  "name": "transfer-any-file",',
+            '  "offline": true,',
+            '  "items": [',
+            common.join('\n'),
+            '    {"id": 15, "name": "legacy-row"}',
+            '  ],',
+            '  "limits": {"maxFiles": 200, "maxBytes": 104857600}',
+            '}',
+          ].join('\n');
+          var b = [
+            '{',
+            '  "version": "1.1.0",',
+            '  "name": "transfer-any-file",',
+            '  "offline": true,',
+            '  "items": [',
+            common
+              .map(function (line, k) {
+                return k === 3 ? line.replace('item-4', 'item-4-renamed') : line;
+              })
+              .join('\n'),
+            '    {"id": 16, "name": "new-row"}',
+            '  ],',
+            '  "limits": {"maxFiles": 200, "maxBytes": 33554432}',
+            '}',
+          ].join('\n');
+          loadSource(a, 'A');
+          loadSource(b, 'B');
+        });
+
+        el('btnSwap').addEventListener('click', function () {
+          var tmp = state.a;
+          state.a = state.b;
+          state.b = tmp;
+          renderPanes();
+          runCompare();
+        });
+
+        el('btnClearAll').addEventListener('click', function () {
+          state.a = null;
+          state.b = null;
+          state.expanded.clear();
+          document.querySelectorAll('.paste-box').forEach(function (n) {
+            n.remove();
+          });
+          renderPanes();
+          runCompare();
+        });
+
+        el('btnPrev').addEventListener('click', function () {
+          jumpHunk(-1);
+        });
+        el('btnNext').addEventListener('click', function () {
+          jumpHunk(1);
+        });
+
+        el('btnExpandAll').addEventListener('click', function () {
+          state.opt.expandAll = !state.opt.expandAll;
+          // Switching back off *is* "collapse all", so the individually opened blocks go with it.
+          if (!state.opt.expandAll) state.expanded.clear();
+          syncExpandAllLabel();
+          layout(state.baseRows);
+        });
+
+        /**
+         * The patch is built when it is asked for, not on every comparison: most reads never leave
+         * the screen, and its two file names are page text that has to follow the current language.
+         */
+        function patchText() {
+          if (!state.a || !state.b || !state.ops.length) return '';
+          return buildPatch(
+            state.ops,
+            state.a.lines,
+            state.b.lines,
+            sideName(state.a),
+            sideName(state.b),
+            state.a.endsWithNewline,
+            state.b.endsWithNewline,
+            LIMITS.contextLines,
+          );
+        }
+
+        el('btnCopyPatch').addEventListener('click', function () {
+          var text = patchText();
+          if (!text) return;
+          var reveal = function () {
+            el('patchBox').hidden = false;
+            var area = el('patchText');
+            area.value = text;
+            area.focus();
+            area.select();
+            showNotice('info', t('clipboardFailed'));
+          };
+          if (!navigator.clipboard || !navigator.clipboard.writeText) {
+            reveal();
+            return;
+          }
+          navigator.clipboard.writeText(text).then(
+            function () {
+              showNotice('info', t('clipboardCopied'));
+            },
+            function () {
+              reveal();
+            },
+          );
+        });
+
+        el('btnDownloadPatch').addEventListener('click', function () {
+          var text = patchText();
+          if (!text) return;
+          var url = URL.createObjectURL(new Blob([text], { type: 'text/plain;charset=utf-8' }));
+          var link = document.createElement('a');
+          link.href = url;
+          link.download = 'file-diff.patch';
+          document.body.append(link);
+          link.click();
+          link.remove();
+          window.setTimeout(function () {
+            URL.revokeObjectURL(url);
+          }, 1000);
+        });
+
+        el('langBtn').addEventListener('click', function () {
+          locale = locale === 'zh' ? 'en' : 'zh';
+          document.documentElement.lang = locale === 'zh' ? 'zh-CN' : 'en';
+          document.documentElement.dataset.locale = locale;
+          remember('locale', locale);
+          // Every caption on the page is derived — including the patch and the "pasted text" name — so
+          // a language switch re-labels and re-paints without touching the comparison itself.
+          applyStaticText();
+          layout(state.baseRows);
+        });
+
+        el('themeBtn').addEventListener('click', function () {
+          var next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+          document.documentElement.dataset.theme = next;
+          remember('theme', next);
+        });
+
+        document.addEventListener('paste', function (event) {
+          if (event.target && event.target.classList && event.target.classList.contains('paste-box')) return;
+          var data = event.clipboardData;
+          if (!data) return;
+          var files = Array.prototype.slice.call(data.files || []);
+          if (files.length) {
+            acceptFiles(files);
+            event.preventDefault();
+            return;
+          }
+          var text = data.getData('text/plain');
+          if (!text) return;
+          var slot = !state.a ? 'A' : !state.b ? 'B' : state.activePane;
+          if (!slot) {
+            showNotice('info', t('noPanes'));
+            return;
+          }
+          loadSource(text, slot);
+          event.preventDefault();
+        });
+
+        var veilCount = 0;
+        document.addEventListener('dragenter', function (event) {
+          if (!event.dataTransfer || Array.prototype.indexOf.call(event.dataTransfer.types || [], 'Files') < 0) return;
+          veilCount += 1;
+          el('dropVeil').classList.add('show');
+        });
+        document.addEventListener('dragover', function (event) {
+          if (event.dataTransfer && Array.prototype.indexOf.call(event.dataTransfer.types || [], 'Files') >= 0) {
+            event.preventDefault();
+          }
+        });
+        document.addEventListener('dragleave', function () {
+          veilCount = Math.max(0, veilCount - 1);
+          if (veilCount === 0) el('dropVeil').classList.remove('show');
+        });
+        document.addEventListener('drop', function (event) {
+          veilCount = 0;
+          el('dropVeil').classList.remove('show');
+          // A file dropped outside a pane must not navigate the page away from this tool.
+          event.preventDefault();
+          if (event.target && event.target.closest && event.target.closest('.pane')) return;
+          var files = event.dataTransfer ? Array.prototype.slice.call(event.dataTransfer.files) : [];
+          if (files.length) acceptFiles(files);
+        });
+
+        document.addEventListener('keydown', function (event) {
+          if (event.metaKey || event.ctrlKey || event.altKey) {
+            if (event.altKey && (event.key === 'ArrowDown' || event.key === 'n')) {
+              jumpHunk(1);
+              event.preventDefault();
+            } else if (event.altKey && (event.key === 'ArrowUp' || event.key === 'p')) {
+              jumpHunk(-1);
+              event.preventDefault();
+            }
+            return;
+          }
+          var tag = event.target && event.target.tagName;
+          if (tag === 'TEXTAREA' || tag === 'INPUT') return;
+          if (event.key === 'n') jumpHunk(1);
+          else if (event.key === 'p') jumpHunk(-1);
+          else if (event.key === 'v') {
+            var next = readOptions().view === 'split' ? 'unified' : 'split';
+            document.querySelector('input[name="view"][value="' + next + '"]').checked = true;
+            remember('view', next);
+            layout(state.baseRows);
+          } else if (event.key === 'c') {
+            el('optFold').checked = !el('optFold').checked;
+            state.expanded.clear();
+            layout(state.baseRows);
+          }
+        });
+
+        scroller.addEventListener('scroll', function () {
+          renderWindow(false);
+        });
+
+        var resizeTimer = 0;
+        window.addEventListener('resize', function () {
+          window.clearTimeout(resizeTimer);
+          resizeTimer = window.setTimeout(function () {
+            ensurePool();
+            layout(state.baseRows);
+          }, 200);
+        });
+
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function (event) {
+          var stored = recall('theme');
+          if (stored === 'light' || stored === 'dark') return;
+          document.documentElement.dataset.theme = event.matches ? 'dark' : 'light';
+        });
+
+        applyStaticText();
+        layout([]);
+
+        // A throw inside the diff or the renderer must not leave the page silently blank with the
+        // inputs still in place — say what happened, and keep both panes so the user can retry.
+        window.addEventListener('error', function (event) {
+          showNotice('error', t('unexpectedError', { msg: event.message || t('errorUnknown') }));
+        });
+      })();
+    </script>
+  </body>
+</html>

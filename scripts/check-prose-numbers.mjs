@@ -30,7 +30,7 @@
  * than as a green check.
  *
  * Historical prose is out of scope, excluded per file: the 1.0.0 section of the changelogs records
- * what was true (and what was *said*) then, and the dated log in `CHROMEWEBSTORE.md` records what
+ * what was true (and what was *said*) then, and the dated log in `.github/CHROMEWEBSTORE.md` records what
  * was submitted to the store console — including 「14 种格式 / 46 条直接路径」, which is now 48.
  * A guard that flattens history is worse than none, because the next reader could not tell a stale
  * claim from a deliberate record.
@@ -151,10 +151,10 @@ function readThemeCount() {
  * when the block was trimmed for a store rejection.
  */
 function storeDescriptionChars(marker) {
-  const sheetLines = read('CHROMEWEBSTORE.md').split('\n');
+  const sheetLines = read('.github/CHROMEWEBSTORE.md').split('\n');
   const start = sheetLines.findIndex(line => line.includes(marker));
   if (start === -1) {
-    console.error(`prose numbers: heading not found in CHROMEWEBSTORE.md — ${marker}`);
+    console.error(`prose numbers: heading not found in .github/CHROMEWEBSTORE.md — ${marker}`);
     process.exit(1);
   }
   let i = start + 1;
@@ -527,7 +527,9 @@ const DOCS = [
   // table rather than from the code — exactly the situation these numbers age in.
   'docs/promo/community-posts.md',
   'docs/promo/community-posts.en.md',
-  { file: 'CHROMEWEBSTORE.md', skipFrom: /^## 版本历史/m },
+  // The store sheet sits in `.github/` with the rest of the operational docs — `docs/` is the public site
+  // source and `static.yml` refuses `.md` in staging. From 「## 版本历史」 down it is a record, not a claim.
+  { file: '.github/CHROMEWEBSTORE.md', skipFrom: /^## 版本历史/m },
   // The publishing runbook quotes the same store field lengths and the same release-layer facts, so it
   // drifts the same way; it lives in `.github/` because `docs/` is the public site source.
   '.github/CWS_PUBLISHING_GUIDE.md',

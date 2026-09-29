@@ -189,6 +189,9 @@ _图上可达但语义不成立，因此置灰并说明原因，而不是等你�
 - **左右对照视图** — 源文件与结果并排，可拖动分隔条，支持仅看源 / 仅看结果与同步滚动；<kbd>1</kbd> / <kbd>2</kbd> / <kbd>3</kbd> 切换三种视图，<kbd>←</kbd> / <kbd>→</kbd> 每次移动分隔条 5%
 - **窄窗口自动上下堆叠** — 窗口 ≤720 px（比如浏览器分屏）时两栏改为上下排列，分隔条随之变横向、可拖方向与 <kbd>↑</kbd> / <kbd>↓</kbd> 一起换向；跨过断点不需要刷新页面
 - **内联编辑** — 文本类结果（Markdown / HTML / TXT / CSV / JSON）可在下载前直接改
+- **JSON 三视图** — JSON 文件的预览不再只是一屏文本：**树**按层展开、**数组表**把对象数组摊成行列（表里点 `{3}` 之类的单元格会在树里展开并定位那一项）、**原文**保留缩进后的 JSON；三者随时切换，互不改动内容
+- **JSON 按字段搜索** — 在树里可只搜「键名 / 路径 / 值」（三项可任意组合、可区分大小写），命中处高亮并带「上一处 / 下一处」跳转，命中的分支自动展开；任意一行都能一键复制它的 JSONPath 路径
+- **JSON 大文件说得清** — 解析预算为 10 万节点 / 128 层嵌套，树一屏最多渲染 5 000 行，数组表最多 2 000 行且行列乘积上限 2 万，匹配数上限 5 000 处；任何一项触顶都会在界面上写明「只解析/只显示了多少」，不会让半棵树看起来像整个文档。不是合法 JSON 的内容按原文显示并说明原因
 - **复制到剪贴板** — 文本类结果可一键复制，无需先下载再打开
 - **粘贴即转换** — <kbd>⌘V</kbd> / <kbd>Ctrl+V</kbd> 直接粘贴剪贴板中的图片或文本
 - **CSV 编码友好** — 读取时 UTF-8 失败依次回退 GB18030 与 GBK，输出带 UTF-8 BOM，Excel 打开不乱码
@@ -220,7 +223,7 @@ _图上可达但语义不成立，因此置灰并说明原因，而不是等你�
 - 所有转换 **100% 在本地** 的扩展页面内完成——这是可验证的核心事实：第一方源码中没有任何一处发起请求（`entrypoints/`、`components/`、`composables/`、`utils/` 里找不到 `fetch`、`XMLHttpRequest`、`WebSocket`、`EventSource`、`sendBeacon`，由 `pnpm verify:offline` 断言）。在此之上，manifest 不声明任何 host 权限、也不注册 content script，因此第三方转换库里那些从未被调用的请求路径即使被走到，也读不到任何响应、碰不到任何网站的数据
 - 仅申请 `storage` 一项权限，用于保存历史（文件名、格式、体积——绝不含文件内容）与偏好设置
 - 无统计埋点、无追踪、无账号、无广告、无付费版
-- 完整文本：[隐私政策（在线，中英双语）](https://liaolongdong.github.io/transfer-any-file/privacy.html)（仓库源文件 `docs/privacy.html`） · 面向商店的披露答复：[`CHROMEWEBSTORE.md`](CHROMEWEBSTORE.md)
+- 完整文本：[隐私政策（在线，中英双语）](https://liaolongdong.github.io/transfer-any-file/privacy.html)（仓库源文件 `docs/privacy.html`） · 面向商店的披露答复：[`CHROMEWEBSTORE.md`](.github/CHROMEWEBSTORE.md)
 
 ## 📥 安装与上手
 
@@ -239,7 +242,7 @@ pnpm build
 3. 点击 **加载已解压的扩展程序**，选择 `.output/chrome-mv3` 目录
 4. 点击工具栏图标——转换工作台在新标签页打开
 
-目前尚未上架应用商店；`CHROMEWEBSTORE.md` 保存了随时可提交的商品文案、素材与披露答复。
+目前尚未上架应用商店；`.github/CHROMEWEBSTORE.md` 保存了随时可提交的商品文案、素材与披露答复。
 
 ### 使用步骤
 

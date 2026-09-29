@@ -34,8 +34,15 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 /** Built extension the browser loads; the store scans exactly this. */
 const BUNDLE_DIR = path.join(ROOT, '.output', 'chrome-mv3');
 
-/** Directories that ship into the bundle as first-party code. */
-const SOURCE_DIRS = ['entrypoints', 'components', 'composables', 'utils'];
+/**
+ * First-party directories that can carry executable code.
+ *
+ * `tools/` never enters the bundle, but it is first-party code with inline scripts, and the shape this
+ * guard looks for — a remote URL that becomes executable — is exactly what a reviewer would find there
+ * if one were ever written. Listing it costs nothing; leaving it out means printing OK about a file the
+ * scan never opened.
+ */
+const SOURCE_DIRS = ['entrypoints', 'components', 'composables', 'utils', 'tools'];
 
 /**
  * File types that can carry executable code. CSS and JSON are excluded on purpose: a documentation
