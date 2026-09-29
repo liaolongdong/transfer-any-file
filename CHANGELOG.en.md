@@ -11,6 +11,15 @@ always name the same release.
 
 ### Added
 
+- **The repository ships an offline diff page.** `tools/file-diff.html` is a single-file, zero-dependency,
+  zero-network viewer for the difference between two files: line and word-level changes, split and unified
+  views, collapsible runs of identical context, a copyable patch, bilingual Chinese/English text and a
+  light/dark theme that follows the browser and can also be pinned. It is **deliberately not an extension
+  feature** — "compare these two files" and "convert this spreadsheet" are not the same product, and folding
+  it into the workbench would compress two unrelated task flows onto one screen. It is also not part of the
+  extension package (`tools/` is not under `public/`, so `.output/chrome-mv3` never sees it); open the local
+  file in a browser. Both offline guards cover it at the source layer, which is why it must not contain a
+  network call or a remotely hosted code shape either.
 - **You can write the names your results come back with.** Preferences gained an **Output file names**
   field, and its built-in pattern `{name}_{date}_{time}` renders exactly the string that used to be hard
   coded in the orchestration layer (`report_20260914_153012.pdf`), so anyone who never touches the field

@@ -24,8 +24,15 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
-/** Directories that ship into the bundle as first-party code. */
-const SOURCE_DIRS = ['entrypoints', 'components', 'composables', 'utils'];
+/**
+ * First-party directories that can carry executable code.
+ *
+ * `tools/` ships nothing — see `HTML_SOURCE_DIRS` below for why it is still in scope — and a `.js`
+ * file added there would otherwise be scanned for remotely hosted code by `check-remote-code.mjs`
+ * but not for network calls by this one. The two guards have to agree about which directories they
+ * claim to have opened.
+ */
+const SOURCE_DIRS = ['entrypoints', 'components', 'composables', 'utils', 'tools'];
 
 /** File extensions that can carry executable first-party code.
  *
@@ -38,8 +45,13 @@ const SOURCE_EXTENSIONS = ['.ts', '.mts', '.js', '.mjs', '.vue'];
  * Directories whose `.html` files are executable too: an entrypoint's HTML carries inline scripts
  * that run before the bundle does (`entrypoints/options/index.html` applies the theme pre-paint), so
  * the extension-less walk below would leave that surface unguarded.
+ *
+ * `tools/` is listed alongside it even though nothing there ships in the bundle. `tools/file-diff.html`
+ * is a standalone offline page, and "offline" is a claim about the code we hand out, not about which
+ * artifact it ends up in — a `fetch()` written there would be as true a breach as one written in
+ * `utils/`, and a guard that skipped the directory would report OK over a file it never opened.
  */
-const HTML_SOURCE_DIRS = ['entrypoints'];
+const HTML_SOURCE_DIRS = ['entrypoints', 'tools'];
 
 /**
  * Network entry points, with the reason each one would break the guarantee.
@@ -148,5 +160,6 @@ if (failures.length > 0) {
 
 console.log(
   `Offline guarantee OK — no network call in ${scannedFiles.length} first-party files across ` +
-    `${SOURCE_DIRS.join(', ')} (+ entrypoint HTML); manifest permissions: storage only, no host_permissions.`,
+    `${SOURCE_DIRS.join(', ')} (+ HTML under ${HTML_SOURCE_DIRS.join(', ')}); ` +
+    'manifest permissions: storage only, no host_permissions.',
 );

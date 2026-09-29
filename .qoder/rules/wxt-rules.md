@@ -57,6 +57,7 @@ trigger: always_on
 
 - 保持完全离线：无网络请求、无遥测、无数据收集；权限仅 `storage`。新增任何权限、`host_permissions` 或数据外传前，必须停下说明并获用户确认。
 - 「离线」与「包里没有远程托管代码」是两条主张：后者由商店按**产物内容**判定，与代码是否可达无关，所以第三方依赖里的远程取码死路径也算违规，只能在构建期把它从产物里删掉（详见 §12），运行期加判断不是修法。
+- 这两条主张说的是**发出去的代码**，不是「哪个文件进了扩展产物」。`tools/` 下的独立离线页面（如 `file-diff.html`）永远不进 `.output/chrome-mv3`，但它们的内联脚本同样不许出现网络调用与远程取码形状，所以两道**源码层**守卫都把 `tools/` 列进扫描范围（`check-offline.mjs` 的 `HTML_SOURCE_DIRS`、`check-remote-code.mjs` 的 `SOURCE_DIRS`）。新增这类页面必须同批加进那两个列表——否则守卫会对一个它从没打开过的文件报 OK。
 - 上传文件、剪贴板内容、ZIP 条目、storage 数据均视为**不可信输入**：边界处校验类型/大小/格式，失败安全降级。
 - 渲染或转换不可信的 HTML/SVG/Markdown 前必须用 **DOMPurify 净化**；禁止对不可信内容使用 `v-html`、向实时 DOM 写 `innerHTML`、`eval` 或 `new Function`。
 
