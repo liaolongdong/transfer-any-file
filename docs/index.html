@@ -210,7 +210,7 @@
       · 143 combinations -> BFS closure over the same graph (utils/core/registry.ts)
       · 116 selectable   -> 143 minus the 27 pairs utils/core/conversion-policy.ts greys out
                             (24 image -> text/data + 3 PDF -> data)
-      · 3.78 MB          -> `pnpm build` total output size
+      · 3.82 MB          -> `pnpm build` total output size
     -->
     <script type="application/ld+json">
       {
@@ -223,7 +223,7 @@
             "alternateName": ["Transfer Any File — Offline File Format Converter", "文件格式任意转换助手"],
             "softwareVersion": "1.0.0",
             "datePublished": "2026-09-07",
-            "dateModified": "2026-09-28",
+            "dateModified": "2026-09-29",
             "applicationCategory": "UtilitiesApplication",
             "applicationSubCategory": "File Format Converter",
             "keywords": "offline file format converter, file converter chrome extension, markdown to pdf, word to pdf, csv to excel, json to csv, png to webp, svg to png, html to docx, batch file conversion, convert files without uploading, local-first, privacy",
@@ -3907,7 +3907,7 @@
               class="metric metric-size"
               data-onview="in"
             >
-              <b>3.78&nbsp;MB</b>
+              <b>3.82&nbsp;MB</b>
               <span class="label"><span lang="zh-CN">完整包体</span><span lang="en">whole bundle</span></span>
               <span
                 class="size-bar"
@@ -5303,6 +5303,60 @@
                 <span lang="en"
                   >Text results (Markdown, HTML, TXT, JSON, CSV) are editable inline in the comparison view, so a small
                   fix never sends you back to another editor.</span
+                >
+              </p>
+            </article>
+            <article class="card reveal">
+              <div class="icon amber">
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M5 4h6M5 4v16M11 4v6" />
+                  <rect
+                    x="14"
+                    y="2"
+                    width="7"
+                    height="5"
+                    rx="1"
+                  />
+                  <rect
+                    x="14"
+                    y="12"
+                    width="7"
+                    height="5"
+                    rx="1"
+                  />
+                  <path d="M11 15h3" />
+                </svg>
+              </div>
+              <h3>
+                <span lang="zh-CN">JSON 按结构看，不按字符看</span
+                ><span lang="en">JSON read as a structure, not as characters</span>
+              </h3>
+              <p>
+                <span lang="zh-CN"
+                  >JSON
+                  的预览有树、数组表与原文三个视图：树逐层展开，数组表把对象数组摊成行列并可点单元格在树里展开定位，原文保留缩进。树内可按键名、路径或值搜索（三项任意组合、可区分大小写），命中处高亮并支持上一处
+                  / 下一处跳转，任意一行都能复制它的 JSONPath。解析预算为 10 万节点 / 128 层嵌套，单屏最多渲染 5 000
+                  行、数组表最多 2 000 行且单元格上限 2 万、匹配上限 5 000
+                  处——任何一项触顶都会在界面上写明实际读了多少，半棵树不会冒充整个文档。</span
+                >
+                <span lang="en"
+                  >JSON previews in three views — a tree that expands level by level, an array table that lays objects
+                  out as rows and columns (a cell click opens that node in the tree), and the raw indented text. Inside
+                  the tree you can search keys, paths, or values (any combination, case sensitivity optional); hits
+                  highlight, previous / next steps through them, and any row copies its JSONPath with one click. The
+                  budget is 100 000 nodes and 128 levels, 5 000 painted rows, a 2 000-row table capped at 20 000 cells,
+                  and 5 000 matches — and when any budget is reached the interface says how much of the document it
+                  actually read, so a half-parsed tree never passes itself off as the whole file.</span
                 >
               </p>
             </article>
@@ -7373,8 +7427,8 @@ pnpm build</code><button
               <p>
                 <span lang="zh-CN"
                   >一套 Playwright 端到端套件加载真正的构建产物，用仓库内的夹具跑完各类转换场景、批量与
-                  ZIP、取消与改键、预览与编辑、图片输出参数与转换预设、PDF 选页、输出文件名模板、历史与偏好，共 317
-                  项断言全部通过（1.0.0 之后的未发布构建，2026-09-24 实测）；另在 6 主题 × 浅/深共 12
+                  ZIP、取消与改键、预览与编辑、图片输出参数与转换预设、PDF 选页、输出文件名模板、历史与偏好，共 321
+                  项断言全部通过（1.0.0 之后的未发布构建，2026-09-29 实测）；另在 6 主题 × 浅/深共 12
                   种组合下逐项校验四组对比度：顶栏文字、主按钮文字（常态 / 悬停 / 按下）、焦点环与正文信息文字。CI
                   每次推送跑 lint + build + e2e。</span
                 >
@@ -7382,8 +7436,8 @@ pnpm build</code><button
                   >A Playwright end-to-end suite drives the actual build output over the repository fixtures — every
                   conversion scenario, batching and ZIP handling, cancellation and shortcut rebinding, preview and
                   editing, image output parameters and conversion presets, PDF page selection, output file-name
-                  patterns, history and preferences — with 317/317 assertions passing (the unreleased build after 1.0.0,
-                  measured 2026-09-24). It also checks four contrast pairs — topbar text, the primary button's label in
+                  patterns, history and preferences — with 321/321 assertions passing (the unreleased build after 1.0.0,
+                  measured 2026-09-29). It also checks four contrast pairs — topbar text, the primary button's label in
                   its rest, hover and pressed states, the focus ring, and informational text such as the drop hint and
                   file sizes — in all 12 theme × light/dark combinations. CI runs lint, build and e2e on every
                   push.</span
@@ -7408,18 +7462,18 @@ pnpm build</code><button
           </div>
           <p class="updated">
             <span lang="zh-CN"
-              ><strong>版本 1.0.0 · 本页最后更新 2026-09-28。</strong>文中全部数字从代码取证：14 种格式来自
+              ><strong>版本 1.0.0 · 本页最后更新 2026-09-29。</strong>文中全部数字从代码取证：14 种格式来自
               <code>FileFormat</code> 枚举，48 条路径与 143 个可达组合来自转换器注册表的邻接图，116 个可选组合是 143
-              减去 <code>utils/core/conversion-policy.ts</code> 置灰的 27 个，3.78 MB 来自
+              减去 <code>utils/core/conversion-policy.ts</code> 置灰的 27 个，3.82 MB 来自
               <code>pnpm build</code> 输出，权限与上限来自 manifest 与源码常量。截图与推广图由
               <code>pnpm assets:capture</code> 从构建产物生成；配对详情页由
               <code>pnpm pages:render</code> 生成，这一批共 11 个页面，与 <code>docs/sitemap.xml</code> 同步。</span
             >
             <span lang="en"
-              ><strong>Version 1.0.0 · page last updated 2026-09-28.</strong> Every number on this page is taken from
+              ><strong>Version 1.0.0 · page last updated 2026-09-29.</strong> Every number on this page is taken from
               the code: 14 formats from the <code>FileFormat</code> enum, 48 routes and 143 reachable combinations from
               the converter registry's adjacency graph, and 116 selectable combinations — that is 143 minus the 27 pairs
-              <code>utils/core/conversion-policy.ts</code> greys out. 3.78 MB comes from <code>pnpm build</code> output,
+              <code>utils/core/conversion-policy.ts</code> greys out. 3.82 MB comes from <code>pnpm build</code> output,
               permissions and limits from the manifest and source constants. Screenshots are generated from the built
               bundle by <code>pnpm assets:capture</code>, and the per-pair pages — 11 pages in this batch — come from
               <code>pnpm pages:render</code>, which writes the sitemap they are listed in.</span
@@ -7732,7 +7786,7 @@ pnpm build</code><button
               </a>
             </span>
             <span>
-              <span lang="zh-CN">最后更新 2026-09-28 · </span><span lang="en">Last updated 2026-09-28 · </span
+              <span lang="zh-CN">最后更新 2026-09-29 · </span><span lang="en">Last updated 2026-09-29 · </span
               ><a
                 href="https://github.com/liaolongdong/transfer-any-file/blob/main/CHANGELOG.md"
                 rel="noopener"
@@ -8125,7 +8179,7 @@ pnpm build</code><button
         }
 
         // ---- Roll the metric band up, once, as it comes into view ----------
-        // Only bare integers are touched: "3.78 MB" is a measurement with a unit, not a tally, and
+        // Only bare integers are touched: "3.82 MB" is a measurement with a unit, not a tally, and
         // rolling it would advertise a precision the build does not have. The real value stays in the
         // HTML, so crawlers, no-JS readers and reduced-motion readers all see the answer immediately.
         var metricNums = Array.prototype.slice.call(document.querySelectorAll('.metric b')).filter(function (el) {
@@ -8290,7 +8344,7 @@ pnpm build</code><button
 
         // ---- One-pass scroll reveals declared in the markup -------------------
         // data-onview names the class an element gains the first time it is 35% in view:
-        // the size bar under "3.78 MB" (in) and the light sweep over the comparison column
+        // the size bar under "3.82 MB" (in) and the light sweep over the comparison column
         // (shine). Both classes only arm finite animations, so reduced-motion readers get
         // the end state directly and there is nothing to unsee.
         var onView = Array.prototype.slice.call(document.querySelectorAll('[data-onview]'));

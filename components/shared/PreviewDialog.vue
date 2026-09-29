@@ -1,13 +1,16 @@
 <script setup lang="ts">
-import { computed, ref, watch, onUnmounted } from 'vue';
+import { computed, nextTick, ref, shallowRef, watch, onUnmounted } from 'vue';
 import { ZoomIn, ZoomOut, Download, Loading } from '@element-plus/icons-vue';
 import { FileFormat } from '~/utils/core/types';
 import { getFormatLabel } from '~/utils/core/format-labels';
 import { formatSize } from '~/utils/core/format';
 import { asErrorKey } from '~/utils/core/error-keys';
 import { docxToPreviewHtml, xlsxToPreviewHtml } from '~/utils/core/preview';
+import { buildJsonTable, inspectJson, pickTableSource, type JsonPreview } from '~/utils/core/json-view';
 import { DOCUMENT_CSS } from '~/utils/core/html-document';
 import { stripRemoteResources } from '~/utils/core/html-sanitize';
+import JsonTreeView from '~/components/shared/JsonTreeView.vue';
+import JsonTableView from '~/components/shared/JsonTableView.vue';
 import { useI18n } from '~/composables/useI18n';
 
 const props = defineProps<{
@@ -34,7 +37,27 @@ const htmlView = ref<'rendered' | 'source'>('rendered');
  *  and `preview.renderFailed` for everything else — a library message has no translation to show. */
 const renderError = ref<string | null>(null);
 
+/**
+ * JSON preview state. `jsonPreview` is the model (`inspectJson` runs once per file, in the watcher
+ * below); `tableTarget` is the array the table view was asked to project, `null` meaning "whatever
+ * the document's own biggest array is"; `treeRef` exists only so a `{ 3 }` cell in the table can
+ * hand its node id to the view that owns expansion.
+ *
+ * `shallowRef`, deliberately: the model is a flat array of up to 100 000 node objects that is written
+ * once and read in tight loops, and `ref` would deep-wrap it — every `tree.nodes[id].parentId` in
+ * `buildJsonTable`, `visibleRows` and `searchJson` then goes through a reactive proxy that also
+ * registers a dependency. Measured on a 384 KiB / 26 000-node document in headed Chrome, opening the
+ * dialog that way took 21 s of blocked main thread; the model never changes after `inspectJson`
+ * returns, so there is nothing for that deep tracking to be worth. Replacement is the only mutation,
+ * and `shallowRef` fires on exactly that.
+ */
+const jsonPreview = shallowRef<JsonPreview | null>(null);
+const jsonView = ref<'tree' | 'table' | 'raw'>('tree');
+const tableTarget = ref<number | null>(null);
+const treeRef = ref<InstanceType<typeof JsonTreeView> | null>(null);
+
 const isText = computed(() => [FileFormat.TXT, FileFormat.CSV, FileFormat.JSON].includes(props.format));
+const isJson = computed(() => props.format === FileFormat.JSON);
 const isMarkdown = computed(() => props.format === FileFormat.MD);
 const isHtml = computed(() => props.format === FileFormat.HTML);
 const isImage = computed(() =>
@@ -46,6 +69,46 @@ const isPdf = computed(() => props.format === FileFormat.PDF);
 const isDocx = computed(() => props.format === FileFormat.DOCX);
 const isXlsx = computed(() => props.format === FileFormat.XLSX);
 const isRenderedDoc = computed(() => isHtml.value || isMarkdown.value || isDocx.value || isXlsx.value);
+
+const jsonTree = computed(() => jsonPreview.value?.tree ?? null);
+
+/**
+ * The projected table: the array the user picked from the tree, else the document's own best
+ * candidate. Derived rather than stored so a file switch cannot leave a table built from the
+ * previous document's node ids on screen.
+ */
+const jsonTable = computed(() => {
+  const tree = jsonTree.value;
+  if (!tree) return null;
+  const id = tableTarget.value ?? pickTableSource(tree);
+  return id === null ? null : buildJsonTable(tree, id);
+});
+
+/** True when the body is one of the two structured JSON panes, which need a fixed-height frame. */
+const jsonPane = computed(() => isJson.value && jsonTree.value !== null && jsonView.value !== 'raw');
+
+/** A table request the projection refused (a mixed or over-wide array) shows the tree, and the
+ *  notice above it says why — the radio would otherwise read as a control that does nothing. */
+const effectiveView = computed(() =>
+  jsonView.value === 'table' && jsonTable.value === null ? 'tree' : jsonView.value,
+);
+
+/** The table tab is selectable once there is something to project: the document's own best array, or
+ *  one the user pointed at from the tree. A payload of scalars has neither, so the tab stays out of
+ *  reach instead of being a button that changes nothing. */
+const tableSelectable = computed(() => jsonTable.value !== null || tableTarget.value !== null);
+
+function openTable(arrayId: number): void {
+  tableTarget.value = arrayId;
+  jsonView.value = 'table';
+}
+
+/** The tree is kept mounted with `v-show` precisely so this jump can arrive with the expansion
+ *  state and the search query still intact; `nextTick` because the pane is hidden until this frame. */
+function openNode(id: number): void {
+  jsonView.value = 'tree';
+  void nextTick(() => treeRef.value?.revealId(id));
+}
 
 watch(
   [() => props.visible, () => props.blob],
@@ -59,6 +122,9 @@ watch(
     renderedHtml.value = '';
     renderError.value = null;
     htmlView.value = 'rendered';
+    jsonPreview.value = null;
+    jsonView.value = 'tree';
+    tableTarget.value = null;
 
     // Drop the result of this watch run if a newer run starts or the component
     // is torn down before the async pipeline finishes.
@@ -71,11 +137,13 @@ watch(
       const raw = await blob.text();
       if (cancelled) return;
       if (props.format === FileFormat.JSON) {
-        try {
-          textContent.value = JSON.stringify(JSON.parse(raw), null, 2);
-        } catch {
-          textContent.value = raw;
-        }
+        // One synchronous, bounded pass (`inspectJson` caps its walk at `JSON_VIEW_LIMITS`) yields
+        // both the model and the pretty text, so the raw view is byte-identical to what this branch
+        // printed before the tree existed. Invalid JSON keeps the original text, exactly as before.
+        // No `cancelled` check follows it: the call cannot yield, so nothing can interleave here.
+        const preview = inspectJson(raw);
+        jsonPreview.value = preview;
+        textContent.value = preview ? preview.pretty : raw;
       } else {
         textContent.value = raw;
       }
@@ -185,6 +253,28 @@ function download(): void {
         </div>
         <div class="preview-actions">
           <ElRadioGroup
+            v-if="isJson && jsonTree"
+            v-model="jsonView"
+            size="small"
+          >
+            <ElRadioButton value="tree">{{ t('preview.treeTab') }}</ElRadioButton>
+            <ElRadioButton
+              value="table"
+              :disabled="!tableSelectable"
+            >
+              {{ t('preview.tableTab') }}
+            </ElRadioButton>
+            <ElRadioButton value="raw">{{ t('preview.rawTab') }}</ElRadioButton>
+          </ElRadioGroup>
+          <!-- A payload that does not parse keeps the plain text body it always had; saying so is
+               what stops the missing tree from reading as a broken preview. -->
+          <span
+            v-else-if="isJson && textContent"
+            class="json-hint"
+            role="status"
+            >{{ t('preview.jsonNotJson') }}</span
+          >
+          <ElRadioGroup
             v-if="(isHtml || isMarkdown) && textContent"
             v-model="htmlView"
             size="small"
@@ -221,10 +311,40 @@ function download(): void {
       </div>
     </template>
 
-    <div class="preview-content">
+    <div
+      class="preview-content"
+      :class="{ 'is-json-pane': jsonPane }"
+    >
+      <!-- JSON: tree, array table, or the same pretty-printed text the dialog always showed. The
+           tree is the guard here rather than `jsonPane`, because `v-if` on a `<template>` is what
+           lets the two children below take `jsonTree` / `jsonTable` as their required props. -->
+      <template v-if="isJson && jsonTree && jsonView !== 'raw'">
+        <p
+          v-if="jsonView === 'table' && !jsonTable"
+          class="json-note"
+          role="status"
+        >
+          {{ t('preview.jsonNoTable') }}
+        </p>
+        <JsonTreeView
+          v-show="effectiveView === 'tree'"
+          ref="treeRef"
+          :tree="jsonTree"
+          @open-table="openTable"
+        />
+        <!-- Exactly one pane paints at a time, and the conditions say why they are written
+           differently: the tree is `v-show` because it owns expansion and the search query, which a
+           jump from the table must not lose; the table has no state of its own, so it is `v-if` and
+           pays for nothing while the tree is up. -->
+        <JsonTableView
+          v-if="jsonTable && effectiveView === 'table'"
+          :table="jsonTable"
+          @open-node="openNode"
+        />
+      </template>
       <!-- Plain text / csv source -->
       <pre
-        v-if="isText"
+        v-else-if="isText"
         class="text-preview"
         >{{ textContent }}</pre>
       <!-- Markdown: rendered iframe or raw source -->
@@ -340,6 +460,42 @@ function download(): void {
   min-height: 400px;
   max-height: 70vh;
   overflow: auto;
+}
+
+/* The structured JSON panes scroll inside themselves so the toolbar and the notices stay put while
+   the rows move — the same reason `.doc-frame` takes a fixed height instead of growing the dialog.
+   `min-height` from the rule above still wins on a short viewport, and the panes flex to whatever
+   the frame actually is. */
+.preview-content.is-json-pane {
+  display: flex;
+  flex-direction: column;
+  height: 70vh;
+  overflow: hidden;
+}
+
+.preview-content.is-json-pane > * {
+  flex: 1;
+  min-height: 0;
+}
+
+.preview-content.is-json-pane > .json-note {
+  flex: none;
+}
+
+.json-note {
+  margin: 0 0 var(--fat-space-sm);
+  padding: var(--fat-space-xs) var(--fat-space-sm);
+  border-radius: var(--fat-radius-sm);
+  background: var(--fat-surface-2);
+  font-size: 12px;
+  color: var(--fat-text-secondary);
+}
+
+/* The "this file is not JSON" line sits in the header row, where the view switcher would otherwise
+   be; it has to be readable as a status, not as a control that went missing. */
+.json-hint {
+  font-size: 12px;
+  color: var(--fat-text-secondary);
 }
 
 .text-preview {
