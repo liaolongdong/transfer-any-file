@@ -24,6 +24,7 @@
   --line: #e4e7ec;
   --ok: #067647;
   --warn: #b54708;
+  --warn-soft: #fff7ed;
   --radius: 16px;
   --radius-sm: 10px;
   --container: 900px;
@@ -478,6 +479,169 @@ details p {
   font-weight: 650;
 }
 
+/* ============ The format matrix (conversions index) ============ */
+/* Fourteen rows by eleven columns cannot fit a 900px column without shrinking the digits below what they
+   are, so the grid scrolls sideways instead — a matrix nobody can read is a wall of glyphs. The row
+   header stays pinned to the left edge while it scrolls, because a cell that has lost its format name is
+   no longer an answer. `overflow-x` also makes the container the sticky root, which is why nothing here
+   sticks to the *top*: a header that cannot move vertically would only pretend to. */
+.matrix-scroll {
+  overflow-x: auto;
+  margin: 18px 0 4px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--paper);
+  box-shadow: var(--shadow-sm);
+}
+
+table.matrix {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.matrix caption {
+  padding: 10px 12px 0;
+  caption-side: bottom;
+  color: var(--ink-faint);
+  font-size: 12.5px;
+  text-align: left;
+}
+
+.matrix th,
+.matrix td {
+  padding: 6px 8px;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  text-align: center;
+  white-space: nowrap;
+}
+
+.matrix thead th {
+  background: var(--paper-alt);
+  color: var(--ink-soft);
+  font-weight: 650;
+}
+
+.matrix thead th:last-child,
+.matrix tbody tr:last-child th,
+.matrix tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.matrix th:last-child,
+.matrix td:last-child {
+  border-right: 0;
+}
+
+.matrix .mx-corner {
+  left: 0;
+  z-index: 3;
+  color: var(--ink-faint);
+  font-weight: 500;
+}
+
+.matrix tbody th {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--paper);
+  font-weight: 600;
+  text-align: left;
+}
+
+.matrix td {
+  min-width: 48px;
+  transition:
+    box-shadow var(--dur-fast) var(--ease-out),
+    background-color var(--dur-fast) var(--ease-out);
+}
+
+.matrix .mx-open {
+  background: var(--brand-soft);
+}
+
+.matrix .mx-block {
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+
+.matrix .mx-self {
+  background: var(--paper-alt);
+  color: var(--ink-faint);
+}
+
+.matrix .mx-page,
+.matrix .mx-step {
+  font-weight: 700;
+}
+
+/* The 21 cells with a page of their own are the only links in the grid, and the tint behind a cell means
+   "reachable", not "clickable" — so the link cannot rely on colour alone. An underline says it on its own,
+   and it survives both colour-blind readers and a screen that renders `--brand-dark` next to `--ink`. */
+.matrix .mx-page {
+  display: block;
+  color: var(--brand-dark);
+  text-decoration: underline;
+  text-decoration-color: var(--brand);
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 3px;
+}
+
+.matrix .mx-page:hover {
+  text-decoration-thickness: 2px;
+}
+
+/* A cell the reader is looking at, and the two headers that say what it is. Keyboard focus and hover
+   arrive at the same state on purpose: the answer a reader is after does not depend on which they used. */
+.matrix td.mx-on {
+  box-shadow: inset 0 0 0 2px var(--brand);
+}
+
+.matrix th.mx-on {
+  background: var(--brand-soft);
+  color: var(--brand-dark);
+}
+
+.matrix td:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: -2px;
+}
+
+.mx-legend {
+  margin: 12px 0 0;
+  color: var(--ink-soft);
+  font-size: 13.5px;
+}
+
+/* The readout reserves two lines: it is a live region, and a sentence that changes height while the
+   reader steps through the grid moves everything under it. */
+.mx-readout {
+  min-height: 3.5em;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--paper-alt);
+  color: var(--ink);
+  font-size: 14px;
+}
+
+/* The glyph in a cell is not the whole answer — each one carries a phrase only an assistive technology
+   or a parser reads. Hidden by clipping, never by `display: none`, which would take it out of the
+   accessible name the link is built from. */
+.mx-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
 .site-foot {
   border-top: 1px solid var(--line);
   background: var(--paper-alt);
@@ -784,6 +948,13 @@ details p {
     opacity: 1;
     transform: none;
     transition: none;
+  }
+
+  /* A scroll container on paper clips to its box and prints the columns that happened to be in view.
+     Printing shows the whole grid, which is the one thing a reader might actually want on paper. */
+  .matrix-scroll {
+    overflow: visible;
+    box-shadow: none;
   }
 
   body::after {

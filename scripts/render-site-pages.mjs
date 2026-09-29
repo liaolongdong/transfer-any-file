@@ -117,15 +117,32 @@ for (const routes of Object.values(baseline.paths)) {
 }
 
 /**
- * Mirror of `getBlockedReason()` for the two sets read out of the policy source.
+ * The two reasons `conversion-policy.ts` greys a reachable pair out, worded by reading the picker's own
+ * strings out of `utils/i18n/`.
+ *
+ * Not copied here on purpose: the sentence a reader sees in the matrix has to stay the sentence the
+ * extension shows for the same pair, and a second copy of it would drift the first time the interface
+ * wording moved — with nothing left to notice, because the page would still read like English.
+ *
+ * @param {string} from source format value
+ * @param {string} to target format value
+ * @returns {'image' | 'pdf' | null} which reason applies, or null when the pair is offered
+ */
+function blockReason(from, to) {
+  if (IMAGE_FORMATS.has(from) && (to === 'txt' || DATA_FORMATS.has(to))) return 'image';
+  if (from === 'pdf' && DATA_FORMATS.has(to)) return 'pdf';
+  return null;
+}
+
+/**
+ * Mirror of `getBlockedReason()` reduced to the yes/no the pair pages need: a greyed-out pair must never
+ * be advertised, and the reason only matters once it is a cell in the matrix.
  * @param {string} from source format value
  * @param {string} to target format value
  * @returns {boolean} true when the UI greys this pair out
  */
 function isBlocked(from, to) {
-  if (IMAGE_FORMATS.has(from) && (to === 'txt' || DATA_FORMATS.has(to))) return true;
-  if (from === 'pdf' && DATA_FORMATS.has(to)) return true;
-  return false;
+  return blockReason(from, to) !== null;
 }
 
 // A member renamed in `types.ts` would otherwise make a policy set name something that is no longer a
@@ -135,6 +152,131 @@ for (const value of [...IMAGE_FORMATS, ...DATA_FORMATS]) {
     fail(`conversion-policy.ts names a format '${value}' that is not in FileFormat — update this reader`);
   }
 }
+
+/**
+ * One `format.*` message from the interface dictionaries.
+ * @param {string} key the leaf name, e.g. `disabledImageNoText`
+ * @param {'zh' | 'en'} lang which dictionary to read
+ * @returns {string} the value, or an empty string when the key is gone (the run fails either way)
+ */
+function readI18n(key, lang) {
+  const file = `utils/i18n/${lang}.ts`;
+  const found = new RegExp(`${key}:\\s*'((?:[^'\\\\]|\\\\.)*)'`).exec(fs.readFileSync(path.join(ROOT, file), 'utf8'));
+  if (!found) {
+    fail(
+      `${file} no longer declares \`format.${key}\` — the matrix quotes the picker's wording for a greyed-out ` +
+        'pair, so teach this reader the new key rather than editing the page copy by hand',
+    );
+    return '';
+  }
+  return found[1].replace(/\\'/g, "'");
+}
+
+const BLOCK_COPY = {
+  image: { zh: readI18n('disabledImageNoText', 'zh'), en: readI18n('disabledImageNoText', 'en') },
+  pdf: { zh: readI18n('disabledPdfNoData', 'zh'), en: readI18n('disabledPdfNoData', 'en') },
+};
+
+// ---------------------------------------------------------------------------
+// Evidence: the format matrix
+// ---------------------------------------------------------------------------
+
+/**
+ * Rows and columns, both read off the graph: `formats` is the baseline's own vertex list in
+ * `FileFormat`'s declaration order, and a column is a format the registry turns up as some route's
+ * target. Nothing here is a list of formats this file maintains, which is the whole reason the matrix
+ * can be published at all — the product page's 「没有手工维护的转换矩阵」 claim is only true of the
+ * *display* if the display is derived.
+ */
+const MATRIX_ROWS = baseline.formats.filter(value => enumValues.has(value));
+const MATRIX_COLS = MATRIX_ROWS.filter(value => writableTargets.has(value));
+
+for (const value of enumValues) {
+  if (!MATRIX_ROWS.includes(value)) {
+    fail(`FileFormat '${value}' is missing from the baseline's vertex list, so the matrix drops a row`);
+  }
+}
+if (MATRIX_COLS.length !== writableTargets.size) {
+  fail('a format the registry writes is not a FileFormat member, so the matrix drops a column');
+}
+
+/** Which pair page explains a route, keyed `from->to`; null means "no page, the cell stands alone". */
+const PAIR_PAGE = new Map(PAIRS.map(pair => [`${pair.from}->${pair.to}`, pair.slug]));
+if (PAIR_PAGE.size !== PAIRS.length) {
+  fail('two entries in pairs.mjs describe the same from→to route, so the matrix would link one cell twice');
+}
+
+/**
+ * The grid itself: one object per cell, each read off `baseline.paths`.
+ *
+ * Every number the index page then prints is a count taken from here, so the prose and the table cannot
+ * disagree — and the assertions below fail the render rather than printing a grid with a hole in it if
+ * the graph ever grows a state this shape cannot hold (a writable target some source cannot reach, a
+ * pair page for a route the policy greys out, a cell missing from the baseline).
+ */
+const MATRIX = (() => {
+  const reachable = Object.values(baseline.paths).filter(steps => steps !== null).length;
+  const blockedInBaseline = Object.entries(baseline.paths).filter(
+    ([pair, steps]) => steps !== null && blockReason(...pair.split('->')) !== null,
+  ).length;
+
+  const rows = MATRIX_ROWS.map(from =>
+    MATRIX_COLS.map(to => {
+      if (from === to) return { from, to, kind: 'self' };
+      const route = baseline.paths[`${from}->${to}`];
+      if (!route) {
+        fail(
+          `${from} → ${to} is not in the baseline, but '${to}' is written by the registry somewhere — ` +
+            'the matrix has no state for "reachable formats this source cannot reach", so add one rather ' +
+            'than publishing a blank cell',
+        );
+        return { from, to, kind: 'self' };
+      }
+      const reason = blockReason(from, to);
+      const hops = route.map(edge => edge.split('>'));
+      const chain = [from, ...hops.map(([, target]) => target)];
+      const slug = PAIR_PAGE.get(`${from}->${to}`) ?? null;
+      /* Two ways a route key could stop describing a route: its edges no longer join up, or they run from
+         somewhere else to somewhere else. Either would print a digit beside a chain the reader cannot
+         walk, so the render stops rather than publishing the cell. */
+      if (hops.some(([head], i) => i && hops[i - 1][1] !== head)) {
+        fail(`${from} → ${to}: the recorded edges are not consecutive — the baseline shape changed`);
+      }
+      if (hops[0][0] !== from || hops[hops.length - 1][1] !== to) {
+        fail(`${from} → ${to}: its route starts or ends somewhere other than the key says`);
+      }
+      return { from, to, kind: reason ? 'block' : 'open', reason, steps: chain.length - 1, chain, slug };
+    }),
+  );
+
+  const cells = rows.flat();
+  const counts = {
+    cells: cells.length,
+    self: cells.filter(cell => cell.kind === 'self').length,
+    blocked: cells.filter(cell => cell.kind === 'block').length,
+    open: cells.filter(cell => cell.kind === 'open').length,
+    pages: cells.filter(cell => cell.slug).length,
+    maxSteps: Math.max(...cells.map(cell => cell.steps ?? 0)),
+  };
+
+  if (counts.cells !== MATRIX_ROWS.length * MATRIX_COLS.length) {
+    fail(`the matrix grid is ${counts.cells} cells, not ${MATRIX_ROWS.length} × ${MATRIX_COLS.length}`);
+  }
+  // The grid's own arithmetic: the diagonal is the one pair nobody converts, and everything else lands on
+  // exactly one side of the policy line. `blockedInBaseline` is the same count taken through the other
+  // door, so a cell that silently vanished cannot leave both numbers agreeing.
+  if (counts.open + counts.blocked !== reachable) {
+    fail(`the grid routes ${counts.open + counts.blocked} pairs but the baseline records ${reachable}`);
+  }
+  if (counts.blocked !== blockedInBaseline) {
+    fail(`the grid greys out ${counts.blocked} cells, the baseline's own pairs say ${blockedInBaseline}`);
+  }
+  if (counts.pages !== PAIRS.length) {
+    fail(`the matrix links ${counts.pages} pair pages while pairs.mjs defines ${PAIRS.length}`);
+  }
+
+  return { rows, counts, reachable };
+})();
 
 // ---------------------------------------------------------------------------
 // Evidence: the screenshots the pages show
@@ -475,6 +617,261 @@ function shotFigure(shot) {
               if (img) img.setAttribute('alt', ${enAlt});
             })();
           </script>`;
+}
+
+/**
+ * The format matrix on the conversions index: source formats down the side, the writable ones across
+ * the top, and the route between them in the cell.
+ *
+ * Three things this has to hold at once, which is why it is generated rather than drawn:
+ *
+ * - **A crawler that runs no JavaScript reads every fact.** The digit, the greyed-out marker and the
+ *   diagonal each carry a visually-hidden bilingual phrase, so a screen reader or a parser gets
+ *   「3 步」/ "3 steps" rather than a bare glyph, and the two policy reasons are spelled out in the
+ *   legend in both languages. Nothing here is only reachable by interacting.
+ * - **The numbers are counts, not sentences.** The intro interpolates `MATRIX.counts`, so the table and
+ *   the paragraph above it are the same computation; `pnpm verify:numbers` then checks that
+ *   computation against `conversion-policy.ts` and `FileFormat` themselves.
+ * - **A cell is a navigation target, not decoration.** The 21 routes with a page of their own link
+ *   straight to it, which is how the matrix also works as the cluster's internal linking layer.
+ *
+ * The interaction layer lives in {@link matrixScript}; it only adds focus, a readout and arrow-key
+ * movement, and it is written so that the page reads the same without it.
+ * @returns {string} markup for the `<section>`, its table, legend and readout
+ */
+function matrixSection() {
+  const { rows, counts } = MATRIX;
+  /** One visually-hidden bilingual phrase, so the glyph in a cell is never the only answer. */
+  const hidden = (zh, en) =>
+    `<span class="mx-sr" lang="zh-CN">${esc(zh)}</span><span class="mx-sr" lang="en">${esc(en)}</span>`;
+
+  const cellHtml = cell => {
+    if (cell.kind === 'self') {
+      return `<td class="mx-self" data-kind="self"><span aria-hidden="true">–</span>${hidden('同一格式', 'same format')}</td>`;
+    }
+    if (cell.kind === 'block') {
+      const short =
+        cell.reason === 'image'
+          ? hidden('界面置灰：图片没有文字层', 'greyed out: no text layer')
+          : hidden('界面置灰：PDF 没有表格结构', 'greyed out: no table structure');
+      return `<td class="mx-block" data-kind="block" data-reason="${cell.reason}"><span aria-hidden="true">✕</span>${short}</td>`;
+    }
+    const plural = cell.steps === 1 ? 'step' : 'steps';
+    const page = cell.slug ? { zh: '，有说明页', en: ', with its own page' } : { zh: '', en: '' };
+    const said = hidden(`${cell.steps} 步链路${page.zh}`, `${cell.steps} ${plural}${page.en}`);
+    const inner = cell.slug
+      ? `<a class="mx-page" href="${cell.slug}.html"><span aria-hidden="true">${cell.steps}</span>${said}</a>`
+      : `<span class="mx-step" aria-hidden="true">${cell.steps}</span>${said}`;
+    return `<td class="mx-open" data-kind="open" data-steps="${cell.steps}" data-chain="${esc(cell.chain.join('>'))}"${
+      cell.slug ? ` data-page="${esc(cell.slug)}.html"` : ''
+    }>${inner}</td>`;
+  };
+
+  const headRow = `                <tr>
+                  <th scope="col" class="mx-corner">${bi('源 ↓ · 目标 →', 'Source ↓ · Target →')}</th>
+                  ${MATRIX_COLS.map(to => `<th scope="col" data-f="${to}">${bi(FORMAT_LABEL[to].zh, FORMAT_LABEL[to].en)}</th>`).join('\n                  ')}
+                </tr>`;
+
+  const body = rows
+    .map(
+      row => `                <tr>
+                  <th scope="row" data-f="${row[0].from}">${bi(FORMAT_LABEL[row[0].from].zh, FORMAT_LABEL[row[0].from].en)}</th>
+                  ${row.map(cellHtml).join('\n                  ')}
+                </tr>`,
+    )
+    .join('\n');
+
+  return `        <section id="matrix" class="matrix-sec reveal">
+${sectionHeading('格式矩阵', 'The format matrix')}
+          <p>
+            ${bi(
+              `这张表是把上面那段话摊开写：行是 ${MATRIX_ROWS.length} 种格式，列是 ${MATRIX_COLS.length} 种可写格式，一共 ${counts.cells} 个格子，其中 ${counts.self} 格是同一个格式对着自己。剩下的 ${MATRIX.reachable} 个可达组合里，${counts.blocked} 个语义无效，所以界面对用户实际提供 ${counts.open} 个。格子里写的是这条链路实际走的步数——它不是「我们支持 N 种转换」的另一种说法，而是那张「没有手工维护的转换矩阵」被现推出来给你看：${baseline.edgeCount} 条注册路径，闭包自己算出这些格子。`,
+              `The grid is that sentence spread out: ${MATRIX_ROWS.length} formats down the side, the ${MATRIX_COLS.length} writable ones across the top, ${counts.cells} cells in all, of which ${counts.self} are a format meeting itself. Of the remaining ${MATRIX.reachable} reachable combinations, ${counts.blocked} of them are blocked by the policy as semantically invalid, so the picker offers ${counts.open}. What a cell holds is the number of steps that route actually runs — not another way of saying “we support N conversions”, but the matrix nobody maintains worked out in front of you: ${baseline.edgeCount} registered routes, and these cells are their closure.`,
+            )}
+          </p>
+          <div class="matrix-scroll">
+            <table class="matrix" id="mx-table">
+              <caption>
+                ${bi(
+                  `行 = 源格式，列 = 目标格式；数字是步数，✕ 是界面置灰的组合，– 是同格式。${counts.pages} 个格子链到对应的说明页。`,
+                  `Rows are source formats, columns the writable ones; a digit counts steps, ✕ is a pair the picker greys out, – is the same format. ${counts.pages} cells link to the page that route has.`,
+                )}
+              </caption>
+              <thead>
+${headRow}
+              </thead>
+              <tbody>
+${body}
+              </tbody>
+            </table>
+          </div>
+          <p class="mx-legend">
+            ${bi(
+              `图例：数字 = 这条链路走的步数（${counts.maxSteps} 是今天最长的一条，中间产物不落盘）；✕ = 图上可达但语义无效，工作台会置灰并给出原因 —— 「${BLOCK_COPY.image.zh}」「${BLOCK_COPY.pdf.zh}」；– = 源与目标是同一个格式。带下划线的数字有自己的一页说明，点进去是那条路的保留项与丢弃项；没下划线的格子能转，只是今天还没有专页。`,
+              `Legend: a digit is how many steps that route runs (${counts.maxSteps} is the longest one today, and no intermediate ever touches the disk); ✕ is reachable in the graph but semantically invalid, so the workbench greys it out and says why — “${BLOCK_COPY.image.en}” and “${BLOCK_COPY.pdf.en}”; – is a format meeting itself. An underlined digit has its own page, which spells out what that route keeps and what it drops; a plain one converts, it just has no page yet.`,
+            )}
+          </p>
+          <p class="mx-readout" id="mx-readout" role="status">
+            ${bi(
+              '把指针移到任一格，或用 Tab 聚焦矩阵后按方向键逐格走，这里会读出这条链路的完整走法。',
+              'Hover a cell, or press Tab and walk the grid with the arrow keys, and the full route is read out here.',
+            )}
+          </p>
+        </section>`;
+}
+
+/**
+ * The matrix's interaction layer: roving focus, arrow-key walking, and a live readout of the route under
+ * the cursor.
+ *
+ * Everything it prints already exists on the page in both languages — the format names come from the row
+ * and column headers' own `<span lang>` pair, and the greyed-out wording from `BLOCK_COPY` — so the
+ * script adds no claim the markup does not already make. It builds its sentences with `createElement` and
+ * `textContent` rather than `innerHTML`, and touches nothing outside the table.
+ *
+ * One tab stop, not one hundred and fifty-four: the cells keep `tabindex="-1"` except the current one, the
+ * arrow keys move that one, and Enter follows the page it points at. The 21 links in the grid are folded
+ * into that stop rather than adding 21 more of their own — in markup, where they are ordinary links a
+ * reader without JavaScript can tab to and open like anything else on the page. `role="status"` makes the
+ * readout a polite live region, so a screen reader announces the route a keyboard user steps onto without
+ * interrupting whatever it was reading.
+ * @returns {string} markup for the script tag
+ */
+function matrixScript() {
+  const copy = JSON.stringify({
+    block: BLOCK_COPY,
+    self: { zh: '源与目标是同一格式，没有转换这回事。', en: 'A format meeting itself — there is no conversion here.' },
+    route: { zh: '步链路', en: 'step' },
+    via: { zh: '经过', en: 'via' },
+    page: { zh: '· 有说明页', en: '· has its own page' },
+    nopage: { zh: '· 暂无专页', en: '· no page yet' },
+  }).replace(/</g, '\\u003c');
+
+  return `<script>
+    (function () {
+      var table = document.getElementById('mx-table');
+      var readout = document.getElementById('mx-readout');
+      if (!table || !readout) return;
+      var COPY = ${copy};
+      var head = [].slice.call(table.querySelectorAll('thead th[data-f]'));
+      /* sectionRowIndex on the body rows, not rowIndex: the header row is row 0 of the table, but it
+         is not in this list, and reading one off the other puts every readout a row out of place. */
+      var rows = [].slice.call(table.querySelectorAll('tbody tr'));
+      var cells = [].slice.call(table.querySelectorAll('tbody td'));
+      if (!head.length || !cells.length) return;
+      /** Both languages a header carries, exactly as the page ships them. */
+      function pair(node) {
+        var zh = node.querySelector('span[lang="zh-CN"]');
+        var en = node.querySelector('span[lang="en"]');
+        return { zh: zh ? zh.textContent : '', en: en ? en.textContent : '' };
+      }
+      var LABELS = {};
+      rows.forEach(function (row) {
+        var th = row.querySelector('th[data-f]');
+        if (th) LABELS[th.getAttribute('data-f')] = pair(th);
+      });
+      /** The formats a route passes through between the two ends, in both languages. */
+      function middle(cell) {
+        var codes = (cell.getAttribute('data-chain') || '').split('>');
+        return codes.slice(1, -1).map(function (code) {
+          return LABELS[code] || { zh: code, en: code };
+        });
+      }
+      function sentence(cell) {
+        var kind = cell.getAttribute('data-kind');
+        var row = rows[cell.parentNode.sectionRowIndex];
+        var from = row ? pair(row.querySelector('th')) : { zh: '', en: '' };
+        var col = head[cell.cellIndex - 1];
+        var to = col ? pair(col) : { zh: '', en: '' };
+        var both = function (zhJoin, enJoin) {
+          return { zh: from.zh + ' → ' + to.zh + zhJoin, en: from.en + ' → ' + to.en + enJoin };
+        };
+        if (kind === 'self') return both('：' + COPY.self.zh, ' — ' + COPY.self.en);
+        if (kind === 'block') {
+          var why = COPY.block[cell.getAttribute('data-reason')] || { zh: '', en: '' };
+          return both('：' + why.zh, ' — ' + why.en);
+        }
+        var steps = Number(cell.getAttribute('data-steps')) || 1;
+        var hasPage = !!cell.getAttribute('data-page');
+        var mid = middle(cell);
+        return both(
+          '：' + steps + ' ' + COPY.route.zh + (hasPage ? ' ' + COPY.page.zh : ' ' + COPY.nopage.zh) +
+            (mid.length ? ' · ' + COPY.via.zh + ' ' + mid.map(function (m) { return m.zh; }).join('、') : ''),
+          ' — ' + steps + ' ' + COPY.route.en + (steps === 1 ? '' : 's') + ' ' +
+            (hasPage ? COPY.page.en : COPY.nopage.en) +
+            (mid.length ? ' · ' + COPY.via.en + ' ' + mid.map(function (m) { return m.en; }).join(', ') : ''),
+        );
+      }
+      function show(text) {
+        while (readout.firstChild) readout.removeChild(readout.firstChild);
+        ['zh-CN', 'en'].forEach(function (lang) {
+          var span = document.createElement('span');
+          span.setAttribute('lang', lang);
+          span.textContent = lang === 'zh-CN' ? text.zh : text.en;
+          readout.appendChild(span);
+        });
+      }
+      var on = [];
+      var active = null;
+      function clear() {
+        on.forEach(function (node) { if (node) node.classList.remove('mx-on'); });
+        on = [];
+      }
+      function activate(cell) {
+        if (!cell || cell === active) return;
+        active = cell;
+        clear();
+        var row = rows[cell.parentNode.sectionRowIndex];
+        var col = head[cell.cellIndex - 1];
+        [cell, row ? row.querySelector('th') : null, col].forEach(function (node) {
+          if (node) { node.classList.add('mx-on'); on.push(node); }
+        });
+        show(sentence(cell));
+      }
+      /* The 21 links stay real links — no-JS readers tab through them like any other page. Once this
+         script runs the grid is the tab stop instead: the arrows already move between cells, so a second
+         stop per linked cell would only make Tab disagree with the arrow keys. Enter follows wherever
+         the current cell points. */
+      cells.forEach(function (cell, i) {
+        cell.setAttribute('tabindex', i === 0 ? '0' : '-1');
+        var link = cell.querySelector('a.mx-page');
+        if (link) link.setAttribute('tabindex', '-1');
+      });
+      var current = 0;
+      var width = head.length;
+      table.addEventListener('focusin', function (event) {
+        var cell = event.target.closest ? event.target.closest('td') : null;
+        if (!cell || !table.contains(cell)) return;
+        current = cells.indexOf(cell);
+        if (current >= 0) { cells.forEach(function (c, i) { c.setAttribute('tabindex', i === current ? '0' : '-1'); }); }
+        activate(cell);
+      });
+      table.addEventListener('mouseover', function (event) {
+        var cell = event.target.closest ? event.target.closest('td') : null;
+        if (cell && table.contains(cell)) activate(cell);
+      });
+      table.addEventListener('keydown', function (event) {
+        if (current < 0) return;
+        if (event.key === 'Enter') {
+          var page = cells[current].getAttribute('data-page');
+          if (page) window.location.href = page;
+          return;
+        }
+        var step = { ArrowRight: 1, ArrowLeft: -1, ArrowDown: width, ArrowUp: -width }[event.key];
+        var target = current;
+        if (event.key === 'Home') target = Math.floor(current / width) * width;
+        else if (event.key === 'End') target = Math.floor(current / width) * width + width - 1;
+        else if (step === undefined) return;
+        else target = current + step;
+        if (target < 0 || target >= cells.length) return;
+        event.preventDefault();
+        cells[current].setAttribute('tabindex', '-1');
+        current = target;
+        cells[current].setAttribute('tabindex', '0');
+        cells[current].focus();
+      });
+    })();
+  </script>`;
 }
 
 /**
@@ -960,6 +1357,7 @@ ${items}
             )}
           </p>
 ${shotFigure(shot)}
+${matrixSection()}
 ${lists}
           <p class="fine reveal">
             ${bi(
@@ -975,6 +1373,7 @@ ${lists}
       </div>
     </main>
     ${foot}
+    ${matrixScript()}
     ${revealScript()}
   </body>
 </html>

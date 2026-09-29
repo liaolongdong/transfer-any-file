@@ -2,7 +2,7 @@
   "formats": {
     ".github/CHROMEWEBSTORE.md": 3,
     "docs/blog/index.html": 19,
-    "docs/convert/index.html": 18,
+    "docs/convert/index.html": 20,
     "docs/convert/word-to-markdown.html": 1,
     "docs/convert/word-to-pdf.html": 2,
     "docs/index.html": 31,
@@ -26,7 +26,7 @@
   "writable": {
     "AGENTS.md": 1,
     "docs/blog/index.html": 1,
-    "docs/convert/index.html": 2,
+    "docs/convert/index.html": 4,
     "docs/index.html": 7,
     "docs/llms.txt": 1
   },
@@ -39,7 +39,7 @@
     "AGENTS.md": 1,
     "CONTRIBUTING.md": 1,
     "docs/blog/index.html": 13,
-    "docs/convert/index.html": 12,
+    "docs/convert/index.html": 14,
     "docs/index.html": 15,
     "docs/llms.txt": 2,
     "docs/promo/blog-article.en.md": 1,
@@ -52,7 +52,7 @@
   },
   "reachable": {
     "docs/blog/index.html": 4,
-    "docs/convert/index.html": 4,
+    "docs/convert/index.html": 6,
     "docs/index.html": 22,
     "docs/llms.txt": 3,
     "docs/promo/community-posts.en.md": 3,
@@ -62,7 +62,7 @@
   },
   "selectable": {
     "docs/blog/index.html": 5,
-    "docs/convert/index.html": 22,
+    "docs/convert/index.html": 24,
     "docs/index.html": 18,
     "docs/llms.txt": 1,
     "docs/promo/community-posts.en.md": 1,
@@ -74,6 +74,7 @@
   "blocked": {
     "AGENTS.md": 1,
     "docs/blog/index.html": 4,
+    "docs/convert/index.html": 2,
     "docs/index.html": 9,
     "docs/promo/community-posts.en.md": 1,
     "docs/promo/community-posts.md": 2,

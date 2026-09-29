@@ -55,6 +55,30 @@ always name the same release.
   pure logic in `utils/core/json-view.ts`, the interface is `JsonTreeView.vue` / `JsonTableView.vue`, and all
   of it sits in the lazily loaded preview chunk: the first screen pays nothing for it, measured as 2 806
   bytes of new Chinese and English UI strings being the only boot-reachable growth.
+- **The conversions index now spreads itself into a format matrix.** `README.md`, `README.en.md` and
+  `docs/llms.txt` had been promising "the full format matrix" for a while without showing one; the grid is
+  there now, 14 rows by 11 columns, each cell carrying the number of steps that route actually runs. It is
+  derived rather than drawn: rows come from the baseline's own vertex list (which is `FileFormat`'s
+  declaration order), columns from every format the registry turns up as some route's target, steps and
+  intermediates from the same file's BFS closure, and the two greyed-out reasons are read straight out of
+  `utils/i18n/zh.ts` and `en.ts` — the sentence the site prints for a blocked pair is the sentence the
+  workbench prints, so the two cannot drift, and a key that goes away fails the render instead of quietly
+  blanking the copy. Ten assertions guard the table at build time: cells against rows × columns, the routed
+  pair count against the baseline, the blocked count measured through two different doors, linked pages
+  against `PAIRS`, edges that no longer join up, a route whose ends disagree with the key it is filed under,
+  a `FileFormat` member with no row. Any one of them stops the render rather than publishing a grid with a
+  hole in it. This does not contradict the product page's "no hand-maintained matrix" — the page says so out
+  loud: nobody maintains the matrix, the cells are its closure.
+- **The matrix's keyboard and no-JS layer only adds.** One tab stop for the whole grid, arrow keys to walk
+  it, Enter to follow wherever the current cell points, and the 21 links folded into that single stop once
+  the script runs — in the markup they stay ordinary links, so a reader with JavaScript off can still tab to
+  them and open them. The readout builds its sentences with `createElement` and `textContent`, never
+  `innerHTML`, and without any script at all the page has already stated every cell's fact twice, once per
+  language: 308 hidden phrases, so neither a parser nor a screen reader is handed a bare digit or a lone ✕.
+  Narrow screens scroll sideways with the row header pinned to the left edge; the readout reserves two lines
+  so stepping through the grid moves nothing beneath it; print lifts the clip so paper gets the whole table.
+  An underline, not colour alone, marks the cells that have a page of their own (WCAG 1.4.1). The index goes
+  from 36,795 to 90,694 bytes, and from 10,057 to 15,883 gzipped.
 - **The per-route pages go from 10 to 21.** Coverage, not copy quality, was the limit here: the picker offers
   116 selectable pairs and the previous batch documented 10 of them. This batch adds eleven — JPEG ⇄ PNG,
   JPEG ⇄ WebP, WebP → JPEG, PNG → PDF, JPEG → PDF, Excel → JSON, CSV → JSON, JSON → Excel, Markdown → HTML,

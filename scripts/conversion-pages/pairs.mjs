@@ -124,6 +124,11 @@ export const FORMAT_LABEL = {
   // because people search for both.
   jpg: { zh: 'JPEG', en: 'JPEG', ext: '.jpg' },
   webp: { zh: 'WebP', en: 'WebP', ext: '.webp' },
+  // BMP and GIF have no page of their own — a browser writes neither, so they are rows in the index's
+  // matrix and never columns. The two entries exist so that matrix labels every `FileFormat` from data
+  // rather than from a fallback string that would read `bmp`.
+  bmp: { zh: 'BMP', en: 'BMP', ext: '.bmp' },
+  gif: { zh: 'GIF', en: 'GIF', ext: '.gif' },
   svg: { zh: 'SVG', en: 'SVG', ext: '.svg' },
 };
 

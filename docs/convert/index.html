@@ -129,6 +129,239 @@
               if (img) img.setAttribute('alt', "The empty workbench: the drop zone and the format picker");
             })();
           </script>
+        <section id="matrix" class="matrix-sec reveal">
+      <h2><span lang="zh-CN">格式矩阵</span><span lang="en">The format matrix</span></h2>
+          <p>
+            <span lang="zh-CN">这张表是把上面那段话摊开写：行是 14 种格式，列是 11 种可写格式，一共 154 个格子，其中 11 格是同一个格式对着自己。剩下的 143 个可达组合里，27 个语义无效，所以界面对用户实际提供 116 个。格子里写的是这条链路实际走的步数——它不是「我们支持 N 种转换」的另一种说法，而是那张「没有手工维护的转换矩阵」被现推出来给你看：48 条注册路径，闭包自己算出这些格子。</span><span lang="en">The grid is that sentence spread out: 14 formats down the side, the 11 writable ones across the top, 154 cells in all, of which 11 are a format meeting itself. Of the remaining 143 reachable combinations, 27 of them are blocked by the policy as semantically invalid, so the picker offers 116. What a cell holds is the number of steps that route actually runs — not another way of saying “we support N conversions”, but the matrix nobody maintains worked out in front of you: 48 registered routes, and these cells are their closure.</span>
+          </p>
+          <div class="matrix-scroll">
+            <table class="matrix" id="mx-table">
+              <caption>
+                <span lang="zh-CN">行 = 源格式，列 = 目标格式；数字是步数，✕ 是界面置灰的组合，– 是同格式。21 个格子链到对应的说明页。</span><span lang="en">Rows are source formats, columns the writable ones; a digit counts steps, ✕ is a pair the picker greys out, – is the same format. 21 cells link to the page that route has.</span>
+              </caption>
+              <thead>
+                <tr>
+                  <th scope="col" class="mx-corner"><span lang="zh-CN">源 ↓ · 目标 →</span><span lang="en">Source ↓ · Target →</span></th>
+                  <th scope="col" data-f="md"><span lang="zh-CN">Markdown</span><span lang="en">Markdown</span></th>
+                  <th scope="col" data-f="html"><span lang="zh-CN">HTML</span><span lang="en">HTML</span></th>
+                  <th scope="col" data-f="docx"><span lang="zh-CN">Word (.docx)</span><span lang="en">Word (.docx)</span></th>
+                  <th scope="col" data-f="pdf"><span lang="zh-CN">PDF</span><span lang="en">PDF</span></th>
+                  <th scope="col" data-f="xlsx"><span lang="zh-CN">Excel (.xlsx)</span><span lang="en">Excel (.xlsx)</span></th>
+                  <th scope="col" data-f="csv"><span lang="zh-CN">CSV</span><span lang="en">CSV</span></th>
+                  <th scope="col" data-f="txt"><span lang="zh-CN">纯文本 (TXT)</span><span lang="en">plain text (TXT)</span></th>
+                  <th scope="col" data-f="json"><span lang="zh-CN">JSON</span><span lang="en">JSON</span></th>
+                  <th scope="col" data-f="png"><span lang="zh-CN">PNG</span><span lang="en">PNG</span></th>
+                  <th scope="col" data-f="jpg"><span lang="zh-CN">JPEG</span><span lang="en">JPEG</span></th>
+                  <th scope="col" data-f="webp"><span lang="zh-CN">WebP</span><span lang="en">WebP</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <th scope="row" data-f="md"><span lang="zh-CN">Markdown</span><span lang="en">Markdown</span></th>
+                  <td class="mx-self" data-kind="self"><span aria-hidden="true">–</span><span class="mx-sr" lang="zh-CN">同一格式</span><span class="mx-sr" lang="en">same format</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="1" data-chain="md&gt;html" data-page="markdown-to-html.html"><a class="mx-page" href="markdown-to-html.html"><span aria-hidden="true">1</span><span class="mx-sr" lang="zh-CN">1 步链路，有说明页</span><span class="mx-sr" lang="en">1 step, with its own page</span></a></td>
+                  <td class="mx-open" data-kind="open" data-steps="2" data-chain="md&gt;html&gt;docx" data-page="markdown-to-word.html"><a class="mx-page" href="markdown-to-word.html"><span aria-hidden="true">2</span><span class="mx-sr" lang="zh-CN">2 步链路，有说明页</span><span class="mx-sr" lang="en">2 steps, with its own page</span></a></td>
+                  <td class="mx-open" data-kind="open" data-steps="2" data-chain="md&gt;html&gt;pdf" data-page="markdown-to-pdf.html"><a class="mx-page" href="markdown-to-pdf.html"><span aria-hidden="true">2</span><span class="mx-sr" lang="zh-CN">2 步链路，有说明页</span><span class="mx-sr" lang="en">2 steps, with its own page</span></a></td>
+                  <td class="mx-open" data-kind="open" data-steps="4" data-chain="md&gt;html&gt;json&gt;csv&gt;xlsx"><span class="mx-step" aria-hidden="true">4</span><span class="mx-sr" lang="zh-CN">4 步链路</span><span class="mx-sr" lang="en">4 steps</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="3" data-chain="md&gt;html&gt;json&gt;csv"><span class="mx-step" aria-hidden="true">3</span><span class="mx-sr" lang="zh-CN">3 步链路</span><span class="mx-sr" lang="en">3 steps</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="2" data-chain="md&gt;html&gt;txt"><span class="mx-step" aria-hidden="true">2</span><span class="mx-sr" lang="zh-CN">2 步链路</span><span class="mx-sr" lang="en">2 steps</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="2" data-chain="md&gt;html&gt;json"><span class="mx-step" aria-hidden="true">2</span><span class="mx-sr" lang="zh-CN">2 步链路</span><span class="mx-sr" lang="en">2 steps</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="2" data-chain="md&gt;html&gt;png"><span class="mx-step" aria-hidden="true">2</span><span class="mx-sr" lang="zh-CN">2 步链路</span><span class="mx-sr" lang="en">2 steps</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="3" data-chain="md&gt;html&gt;pdf&gt;jpg"><span class="mx-step" aria-hidden="true">3</span><span class="mx-sr" lang="zh-CN">3 步链路</span><span class="mx-sr" lang="en">3 steps</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="3" data-chain="md&gt;html&gt;pdf&gt;webp"><span class="mx-step" aria-hidden="true">3</span><span class="mx-sr" lang="zh-CN">3 步链路</span><span class="mx-sr" lang="en">3 steps</span></td>
+                </tr>
+                <tr>
+                  <th scope="row" data-f="html"><span lang="zh-CN">HTML</span><span lang="en">HTML</span></th>
+                  <td class="mx-open" data-kind="open" data-steps="1" data-chain="html&gt;md"><span class="mx-step" aria-hidden="true">1</span><span class="mx-sr" lang="zh-CN">1 步链路</span><span class="mx-sr" lang="en">1 step</span></td>
+                  <td class="mx-self" data-kind="self"><span aria-hidden="true">–</span><span class="mx-sr" lang="zh-CN">同一格式</span><span class="mx-sr" lang="en">same format</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="1" data-chain="html&gt;docx"><span class="mx-step" aria-hidden="true">1</span><span class="mx-sr" lang="zh-CN">1 步链路</span><span class="mx-sr" lang="en">1 step</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="1" data-chain="html&gt;pdf" data-page="html-to-pdf.html"><a class="mx-page" href="html-to-pdf.html"><span aria-hidden="true">1</span><span class="mx-sr" lang="zh-CN">1 步链路，有说明页</span><span class="mx-sr" lang="en">1 step, with its own page</span></a></td>
+                  <td class="mx-open" data-kind="open" data-steps="3" data-chain="html&gt;json&gt;csv&gt;xlsx"><span class="mx-step" aria-hidden="true">3</span><span class="mx-sr" lang="zh-CN">3 步链路</span><span class="mx-sr" lang="en">3 steps</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="2" data-chain="html&gt;json&gt;csv"><span class="mx-step" aria-hidden="true">2</span><span class="mx-sr" lang="zh-CN">2 步链路</span><span class="mx-sr" lang="en">2 steps</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="1" data-chain="html&gt;txt"><span class="mx-step" aria-hidden="true">1</span><span class="mx-sr" lang="zh-CN">1 步链路</span><span class="mx-sr" lang="en">1 step</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="1" data-chain="html&gt;json"><span class="mx-step" aria-hidden="true">1</span><span class="mx-sr" lang="zh-CN">1 步链路</span><span class="mx-sr" lang="en">1 step</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="1" data-chain="html&gt;png"><span class="mx-step" aria-hidden="true">1</span><span class="mx-sr" lang="zh-CN">1 步链路</span><span class="mx-sr" lang="en">1 step</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="2" data-chain="html&gt;pdf&gt;jpg"><span class="mx-step" aria-hidden="true">2</span><span class="mx-sr" lang="zh-CN">2 步链路</span><span class="mx-sr" lang="en">2 steps</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="2" data-chain="html&gt;pdf&gt;webp"><span class="mx-step" aria-hidden="true">2</span><span class="mx-sr" lang="zh-CN">2 步链路</span><span class="mx-sr" lang="en">2 steps</span></td>
+                </tr>
+                <tr>
+                  <th scope="row" data-f="docx"><span lang="zh-CN">Word (.docx)</span><span lang="en">Word (.docx)</span></th>
+                  <td class="mx-open" data-kind="open" data-steps="2" data-chain="docx&gt;html&gt;md" data-page="word-to-markdown.html"><a class="mx-page" href="word-to-markdown.html"><span aria-hidden="true">2</span><span class="mx-sr" lang="zh-CN">2 步链路，有说明页</span><span class="mx-sr" lang="en">2 steps, with its own page</span></a></td>
+                  <td class="mx-open" data-kind="open" data-steps="1" data-chain="docx&gt;html"><span class="mx-step" aria-hidden="true">1</span><span class="mx-sr" lang="zh-CN">1 步链路</span><span class="mx-sr" lang="en">1 step</span></td>
+                  <td class="mx-self" data-kind="self"><span aria-hidden="true">–</span><span class="mx-sr" lang="zh-CN">同一格式</span><span class="mx-sr" lang="en">same format</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="2" data-chain="docx&gt;html&gt;pdf" data-page="word-to-pdf.html"><a class="mx-page" href="word-to-pdf.html"><span aria-hidden="true">2</span><span class="mx-sr" lang="zh-CN">2 步链路，有说明页</span><span class="mx-sr" lang="en">2 steps, with its own page</span></a></td>
+                  <td class="mx-open" data-kind="open" data-steps="4" data-chain="docx&gt;html&gt;json&gt;csv&gt;xlsx"><span class="mx-step" aria-hidden="true">4</span><span class="mx-sr" lang="zh-CN">4 步链路</span><span class="mx-sr" lang="en">4 steps</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="3" data-chain="docx&gt;html&gt;json&gt;csv"><span class="mx-step" aria-hidden="true">3</span><span class="mx-sr" lang="zh-CN">3 步链路</span><span class="mx-sr" lang="en">3 steps</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="2" data-chain="docx&gt;html&gt;txt"><span class="mx-step" aria-hidden="true">2</span><span class="mx-sr" lang="zh-CN">2 步链路</span><span class="mx-sr" lang="en">2 steps</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="2" data-chain="docx&gt;html&gt;json"><span class="mx-step" aria-hidden="true">2</span><span class="mx-sr" lang="zh-CN">2 步链路</span><span class="mx-sr" lang="en">2 steps</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="2" data-chain="docx&gt;html&gt;png"><span class="mx-step" aria-hidden="true">2</span><span class="mx-sr" lang="zh-CN">2 步链路</span><span class="mx-sr" lang="en">2 steps</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="3" data-chain="docx&gt;html&gt;pdf&gt;jpg"><span class="mx-step" aria-hidden="true">3</span><span class="mx-sr" lang="zh-CN">3 步链路</span><span class="mx-sr" lang="en">3 steps</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="3" data-chain="docx&gt;html&gt;pdf&gt;webp"><span class="mx-step" aria-hidden="true">3</span><span class="mx-sr" lang="zh-CN">3 步链路</span><span class="mx-sr" lang="en">3 steps</span></td>
+                </tr>
+                <tr>
+                  <th scope="row" data-f="pdf"><span lang="zh-CN">PDF</span><span lang="en">PDF</span></th>
+                  <td class="mx-open" data-kind="open" data-steps="2" data-chain="pdf&gt;html&gt;md"><span class="mx-step" aria-hidden="true">2</span><span class="mx-sr" lang="zh-CN">2 步链路</span><span class="mx-sr" lang="en">2 steps</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="1" data-chain="pdf&gt;html"><span class="mx-step" aria-hidden="true">1</span><span class="mx-sr" lang="zh-CN">1 步链路</span><span class="mx-sr" lang="en">1 step</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="2" data-chain="pdf&gt;html&gt;docx"><span class="mx-step" aria-hidden="true">2</span><span class="mx-sr" lang="zh-CN">2 步链路</span><span class="mx-sr" lang="en">2 steps</span></td>
+                  <td class="mx-self" data-kind="self"><span aria-hidden="true">–</span><span class="mx-sr" lang="zh-CN">同一格式</span><span class="mx-sr" lang="en">same format</span></td>
+                  <td class="mx-block" data-kind="block" data-reason="pdf"><span aria-hidden="true">✕</span><span class="mx-sr" lang="zh-CN">界面置灰：PDF 没有表格结构</span><span class="mx-sr" lang="en">greyed out: no table structure</span></td>
+                  <td class="mx-block" data-kind="block" data-reason="pdf"><span aria-hidden="true">✕</span><span class="mx-sr" lang="zh-CN">界面置灰：PDF 没有表格结构</span><span class="mx-sr" lang="en">greyed out: no table structure</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="2" data-chain="pdf&gt;html&gt;txt" data-page="pdf-to-text.html"><a class="mx-page" href="pdf-to-text.html"><span aria-hidden="true">2</span><span class="mx-sr" lang="zh-CN">2 步链路，有说明页</span><span class="mx-sr" lang="en">2 steps, with its own page</span></a></td>
+                  <td class="mx-block" data-kind="block" data-reason="pdf"><span aria-hidden="true">✕</span><span class="mx-sr" lang="zh-CN">界面置灰：PDF 没有表格结构</span><span class="mx-sr" lang="en">greyed out: no table structure</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="1" data-chain="pdf&gt;png"><span class="mx-step" aria-hidden="true">1</span><span class="mx-sr" lang="zh-CN">1 步链路</span><span class="mx-sr" lang="en">1 step</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="1" data-chain="pdf&gt;jpg"><span class="mx-step" aria-hidden="true">1</span><span class="mx-sr" lang="zh-CN">1 步链路</span><span class="mx-sr" lang="en">1 step</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="1" data-chain="pdf&gt;webp"><span class="mx-step" aria-hidden="true">1</span><span class="mx-sr" lang="zh-CN">1 步链路</span><span class="mx-sr" lang="en">1 step</span></td>
+                </tr>
+                <tr>
+                  <th scope="row" data-f="xlsx"><span lang="zh-CN">Excel (.xlsx)</span><span lang="en">Excel (.xlsx)</span></th>
+                  <td class="mx-open" data-kind="open" data-steps="2" data-chain="xlsx&gt;html&gt;md"><span class="mx-step" aria-hidden="true">2</span><span class="mx-sr" lang="zh-CN">2 步链路</span><span class="mx-sr" lang="en">2 steps</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="1" data-chain="xlsx&gt;html"><span class="mx-step" aria-hidden="true">1</span><span class="mx-sr" lang="zh-CN">1 步链路</span><span class="mx-sr" lang="en">1 step</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="2" data-chain="xlsx&gt;html&gt;docx"><span class="mx-step" aria-hidden="true">2</span><span class="mx-sr" lang="zh-CN">2 步链路</span><span class="mx-sr" lang="en">2 steps</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="2" data-chain="xlsx&gt;html&gt;pdf"><span class="mx-step" aria-hidden="true">2</span><span class="mx-sr" lang="zh-CN">2 步链路</span><span class="mx-sr" lang="en">2 steps</span></td>
+                  <td class="mx-self" data-kind="self"><span aria-hidden="true">–</span><span class="mx-sr" lang="zh-CN">同一格式</span><span class="mx-sr" lang="en">same format</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="1" data-chain="xlsx&gt;csv" data-page="excel-to-csv.html"><a class="mx-page" href="excel-to-csv.html"><span aria-hidden="true">1</span><span class="mx-sr" lang="zh-CN">1 步链路，有说明页</span><span class="mx-sr" lang="en">1 step, with its own page</span></a></td>
+                  <td class="mx-open" data-kind="open" data-steps="2" data-chain="xlsx&gt;html&gt;txt"><span class="mx-step" aria-hidden="true">2</span><span class="mx-sr" lang="zh-CN">2 步链路</span><span class="mx-sr" lang="en">2 steps</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="1" data-chain="xlsx&gt;json" data-page="excel-to-json.html"><a class="mx-page" href="excel-to-json.html"><span aria-hidden="true">1</span><span class="mx-sr" lang="zh-CN">1 步链路，有说明页</span><span class="mx-sr" lang="en">1 step, with its own page</span></a></td>
+                  <td class="mx-open" data-kind="open" data-steps="2" data-chain="xlsx&gt;html&gt;png"><span class="mx-step" aria-hidden="true">2</span><span class="mx-sr" lang="zh-CN">2 步链路</span><span class="mx-sr" lang="en">2 steps</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="3" data-chain="xlsx&gt;html&gt;pdf&gt;jpg"><span class="mx-step" aria-hidden="true">3</span><span class="mx-sr" lang="zh-CN">3 步链路</span><span class="mx-sr" lang="en">3 steps</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="3" data-chain="xlsx&gt;html&gt;pdf&gt;webp"><span class="mx-step" aria-hidden="true">3</span><span class="mx-sr" lang="zh-CN">3 步链路</span><span class="mx-sr" lang="en">3 steps</span></td>
+                </tr>
+                <tr>
+                  <th scope="row" data-f="csv"><span lang="zh-CN">CSV</span><span lang="en">CSV</span></th>
+                  <td class="mx-open" data-kind="open" data-steps="2" data-chain="csv&gt;html&gt;md"><span class="mx-step" aria-hidden="true">2</span><span class="mx-sr" lang="zh-CN">2 步链路</span><span class="mx-sr" lang="en">2 steps</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="1" data-chain="csv&gt;html"><span class="mx-step" aria-hidden="true">1</span><span class="mx-sr" lang="zh-CN">1 步链路</span><span class="mx-sr" lang="en">1 step</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="2" data-chain="csv&gt;html&gt;docx"><span class="mx-step" aria-hidden="true">2</span><span class="mx-sr" lang="zh-CN">2 步链路</span><span class="mx-sr" lang="en">2 steps</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="2" data-chain="csv&gt;html&gt;pdf"><span class="mx-step" aria-hidden="true">2</span><span class="mx-sr" lang="zh-CN">2 步链路</span><span class="mx-sr" lang="en">2 steps</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="1" data-chain="csv&gt;xlsx" data-page="csv-to-excel.html"><a class="mx-page" href="csv-to-excel.html"><span aria-hidden="true">1</span><span class="mx-sr" lang="zh-CN">1 步链路，有说明页</span><span class="mx-sr" lang="en">1 step, with its own page</span></a></td>
+                  <td class="mx-self" data-kind="self"><span aria-hidden="true">–</span><span class="mx-sr" lang="zh-CN">同一格式</span><span class="mx-sr" lang="en">same format</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="2" data-chain="csv&gt;html&gt;txt"><span class="mx-step" aria-hidden="true">2</span><span class="mx-sr" lang="zh-CN">2 步链路</span><span class="mx-sr" lang="en">2 steps</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="1" data-chain="csv&gt;json" data-page="csv-to-json.html"><a class="mx-page" href="csv-to-json.html"><span aria-hidden="true">1</span><span class="mx-sr" lang="zh-CN">1 步链路，有说明页</span><span class="mx-sr" lang="en">1 step, with its own page</span></a></td>
+                  <td class="mx-open" data-kind="open" data-steps="2" data-chain="csv&gt;html&gt;png"><span class="mx-step" aria-hidden="true">2</span><span class="mx-sr" lang="zh-CN">2 步链路</span><span class="mx-sr" lang="en">2 steps</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="3" data-chain="csv&gt;html&gt;pdf&gt;jpg"><span class="mx-step" aria-hidden="true">3</span><span class="mx-sr" lang="zh-CN">3 步链路</span><span class="mx-sr" lang="en">3 steps</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="3" data-chain="csv&gt;html&gt;pdf&gt;webp"><span class="mx-step" aria-hidden="true">3</span><span class="mx-sr" lang="zh-CN">3 步链路</span><span class="mx-sr" lang="en">3 steps</span></td>
+                </tr>
+                <tr>
+                  <th scope="row" data-f="txt"><span lang="zh-CN">纯文本 (TXT)</span><span lang="en">plain text (TXT)</span></th>
+                  <td class="mx-open" data-kind="open" data-steps="1" data-chain="txt&gt;md"><span class="mx-step" aria-hidden="true">1</span><span class="mx-sr" lang="zh-CN">1 步链路</span><span class="mx-sr" lang="en">1 step</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="1" data-chain="txt&gt;html"><span class="mx-step" aria-hidden="true">1</span><span class="mx-sr" lang="zh-CN">1 步链路</span><span class="mx-sr" lang="en">1 step</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="2" data-chain="txt&gt;html&gt;docx"><span class="mx-step" aria-hidden="true">2</span><span class="mx-sr" lang="zh-CN">2 步链路</span><span class="mx-sr" lang="en">2 steps</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="2" data-chain="txt&gt;html&gt;pdf"><span class="mx-step" aria-hidden="true">2</span><span class="mx-sr" lang="zh-CN">2 步链路</span><span class="mx-sr" lang="en">2 steps</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="4" data-chain="txt&gt;html&gt;json&gt;csv&gt;xlsx"><span class="mx-step" aria-hidden="true">4</span><span class="mx-sr" lang="zh-CN">4 步链路</span><span class="mx-sr" lang="en">4 steps</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="3" data-chain="txt&gt;html&gt;json&gt;csv"><span class="mx-step" aria-hidden="true">3</span><span class="mx-sr" lang="zh-CN">3 步链路</span><span class="mx-sr" lang="en">3 steps</span></td>
+                  <td class="mx-self" data-kind="self"><span aria-hidden="true">–</span><span class="mx-sr" lang="zh-CN">同一格式</span><span class="mx-sr" lang="en">same format</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="2" data-chain="txt&gt;html&gt;json"><span class="mx-step" aria-hidden="true">2</span><span class="mx-sr" lang="zh-CN">2 步链路</span><span class="mx-sr" lang="en">2 steps</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="2" data-chain="txt&gt;html&gt;png"><span class="mx-step" aria-hidden="true">2</span><span class="mx-sr" lang="zh-CN">2 步链路</span><span class="mx-sr" lang="en">2 steps</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="3" data-chain="txt&gt;html&gt;pdf&gt;jpg"><span class="mx-step" aria-hidden="true">3</span><span class="mx-sr" lang="zh-CN">3 步链路</span><span class="mx-sr" lang="en">3 steps</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="3" data-chain="txt&gt;html&gt;pdf&gt;webp"><span class="mx-step" aria-hidden="true">3</span><span class="mx-sr" lang="zh-CN">3 步链路</span><span class="mx-sr" lang="en">3 steps</span></td>
+                </tr>
+                <tr>
+                  <th scope="row" data-f="json"><span lang="zh-CN">JSON</span><span lang="en">JSON</span></th>
+                  <td class="mx-open" data-kind="open" data-steps="2" data-chain="json&gt;html&gt;md"><span class="mx-step" aria-hidden="true">2</span><span class="mx-sr" lang="zh-CN">2 步链路</span><span class="mx-sr" lang="en">2 steps</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="1" data-chain="json&gt;html"><span class="mx-step" aria-hidden="true">1</span><span class="mx-sr" lang="zh-CN">1 步链路</span><span class="mx-sr" lang="en">1 step</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="2" data-chain="json&gt;html&gt;docx"><span class="mx-step" aria-hidden="true">2</span><span class="mx-sr" lang="zh-CN">2 步链路</span><span class="mx-sr" lang="en">2 steps</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="2" data-chain="json&gt;html&gt;pdf"><span class="mx-step" aria-hidden="true">2</span><span class="mx-sr" lang="zh-CN">2 步链路</span><span class="mx-sr" lang="en">2 steps</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="2" data-chain="json&gt;csv&gt;xlsx" data-page="json-to-excel.html"><a class="mx-page" href="json-to-excel.html"><span aria-hidden="true">2</span><span class="mx-sr" lang="zh-CN">2 步链路，有说明页</span><span class="mx-sr" lang="en">2 steps, with its own page</span></a></td>
+                  <td class="mx-open" data-kind="open" data-steps="1" data-chain="json&gt;csv" data-page="json-to-csv.html"><a class="mx-page" href="json-to-csv.html"><span aria-hidden="true">1</span><span class="mx-sr" lang="zh-CN">1 步链路，有说明页</span><span class="mx-sr" lang="en">1 step, with its own page</span></a></td>
+                  <td class="mx-open" data-kind="open" data-steps="2" data-chain="json&gt;html&gt;txt"><span class="mx-step" aria-hidden="true">2</span><span class="mx-sr" lang="zh-CN">2 步链路</span><span class="mx-sr" lang="en">2 steps</span></td>
+                  <td class="mx-self" data-kind="self"><span aria-hidden="true">–</span><span class="mx-sr" lang="zh-CN">同一格式</span><span class="mx-sr" lang="en">same format</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="2" data-chain="json&gt;html&gt;png"><span class="mx-step" aria-hidden="true">2</span><span class="mx-sr" lang="zh-CN">2 步链路</span><span class="mx-sr" lang="en">2 steps</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="3" data-chain="json&gt;html&gt;pdf&gt;jpg"><span class="mx-step" aria-hidden="true">3</span><span class="mx-sr" lang="zh-CN">3 步链路</span><span class="mx-sr" lang="en">3 steps</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="3" data-chain="json&gt;html&gt;pdf&gt;webp"><span class="mx-step" aria-hidden="true">3</span><span class="mx-sr" lang="zh-CN">3 步链路</span><span class="mx-sr" lang="en">3 steps</span></td>
+                </tr>
+                <tr>
+                  <th scope="row" data-f="png"><span lang="zh-CN">PNG</span><span lang="en">PNG</span></th>
+                  <td class="mx-open" data-kind="open" data-steps="2" data-chain="png&gt;html&gt;md"><span class="mx-step" aria-hidden="true">2</span><span class="mx-sr" lang="zh-CN">2 步链路</span><span class="mx-sr" lang="en">2 steps</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="1" data-chain="png&gt;html"><span class="mx-step" aria-hidden="true">1</span><span class="mx-sr" lang="zh-CN">1 步链路</span><span class="mx-sr" lang="en">1 step</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="2" data-chain="png&gt;html&gt;docx"><span class="mx-step" aria-hidden="true">2</span><span class="mx-sr" lang="zh-CN">2 步链路</span><span class="mx-sr" lang="en">2 steps</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="1" data-chain="png&gt;pdf" data-page="png-to-pdf.html"><a class="mx-page" href="png-to-pdf.html"><span aria-hidden="true">1</span><span class="mx-sr" lang="zh-CN">1 步链路，有说明页</span><span class="mx-sr" lang="en">1 step, with its own page</span></a></td>
+                  <td class="mx-block" data-kind="block" data-reason="image"><span aria-hidden="true">✕</span><span class="mx-sr" lang="zh-CN">界面置灰：图片没有文字层</span><span class="mx-sr" lang="en">greyed out: no text layer</span></td>
+                  <td class="mx-block" data-kind="block" data-reason="image"><span aria-hidden="true">✕</span><span class="mx-sr" lang="zh-CN">界面置灰：图片没有文字层</span><span class="mx-sr" lang="en">greyed out: no text layer</span></td>
+                  <td class="mx-block" data-kind="block" data-reason="image"><span aria-hidden="true">✕</span><span class="mx-sr" lang="zh-CN">界面置灰：图片没有文字层</span><span class="mx-sr" lang="en">greyed out: no text layer</span></td>
+                  <td class="mx-block" data-kind="block" data-reason="image"><span aria-hidden="true">✕</span><span class="mx-sr" lang="zh-CN">界面置灰：图片没有文字层</span><span class="mx-sr" lang="en">greyed out: no text layer</span></td>
+                  <td class="mx-self" data-kind="self"><span aria-hidden="true">–</span><span class="mx-sr" lang="zh-CN">同一格式</span><span class="mx-sr" lang="en">same format</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="1" data-chain="png&gt;jpg" data-page="png-to-jpg.html"><a class="mx-page" href="png-to-jpg.html"><span aria-hidden="true">1</span><span class="mx-sr" lang="zh-CN">1 步链路，有说明页</span><span class="mx-sr" lang="en">1 step, with its own page</span></a></td>
+                  <td class="mx-open" data-kind="open" data-steps="1" data-chain="png&gt;webp" data-page="png-to-webp.html"><a class="mx-page" href="png-to-webp.html"><span aria-hidden="true">1</span><span class="mx-sr" lang="zh-CN">1 步链路，有说明页</span><span class="mx-sr" lang="en">1 step, with its own page</span></a></td>
+                </tr>
+                <tr>
+                  <th scope="row" data-f="jpg"><span lang="zh-CN">JPEG</span><span lang="en">JPEG</span></th>
+                  <td class="mx-open" data-kind="open" data-steps="2" data-chain="jpg&gt;html&gt;md"><span class="mx-step" aria-hidden="true">2</span><span class="mx-sr" lang="zh-CN">2 步链路</span><span class="mx-sr" lang="en">2 steps</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="1" data-chain="jpg&gt;html"><span class="mx-step" aria-hidden="true">1</span><span class="mx-sr" lang="zh-CN">1 步链路</span><span class="mx-sr" lang="en">1 step</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="2" data-chain="jpg&gt;html&gt;docx"><span class="mx-step" aria-hidden="true">2</span><span class="mx-sr" lang="zh-CN">2 步链路</span><span class="mx-sr" lang="en">2 steps</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="1" data-chain="jpg&gt;pdf" data-page="jpg-to-pdf.html"><a class="mx-page" href="jpg-to-pdf.html"><span aria-hidden="true">1</span><span class="mx-sr" lang="zh-CN">1 步链路，有说明页</span><span class="mx-sr" lang="en">1 step, with its own page</span></a></td>
+                  <td class="mx-block" data-kind="block" data-reason="image"><span aria-hidden="true">✕</span><span class="mx-sr" lang="zh-CN">界面置灰：图片没有文字层</span><span class="mx-sr" lang="en">greyed out: no text layer</span></td>
+                  <td class="mx-block" data-kind="block" data-reason="image"><span aria-hidden="true">✕</span><span class="mx-sr" lang="zh-CN">界面置灰：图片没有文字层</span><span class="mx-sr" lang="en">greyed out: no text layer</span></td>
+                  <td class="mx-block" data-kind="block" data-reason="image"><span aria-hidden="true">✕</span><span class="mx-sr" lang="zh-CN">界面置灰：图片没有文字层</span><span class="mx-sr" lang="en">greyed out: no text layer</span></td>
+                  <td class="mx-block" data-kind="block" data-reason="image"><span aria-hidden="true">✕</span><span class="mx-sr" lang="zh-CN">界面置灰：图片没有文字层</span><span class="mx-sr" lang="en">greyed out: no text layer</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="1" data-chain="jpg&gt;png" data-page="jpg-to-png.html"><a class="mx-page" href="jpg-to-png.html"><span aria-hidden="true">1</span><span class="mx-sr" lang="zh-CN">1 步链路，有说明页</span><span class="mx-sr" lang="en">1 step, with its own page</span></a></td>
+                  <td class="mx-self" data-kind="self"><span aria-hidden="true">–</span><span class="mx-sr" lang="zh-CN">同一格式</span><span class="mx-sr" lang="en">same format</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="1" data-chain="jpg&gt;webp" data-page="jpg-to-webp.html"><a class="mx-page" href="jpg-to-webp.html"><span aria-hidden="true">1</span><span class="mx-sr" lang="zh-CN">1 步链路，有说明页</span><span class="mx-sr" lang="en">1 step, with its own page</span></a></td>
+                </tr>
+                <tr>
+                  <th scope="row" data-f="webp"><span lang="zh-CN">WebP</span><span lang="en">WebP</span></th>
+                  <td class="mx-open" data-kind="open" data-steps="2" data-chain="webp&gt;html&gt;md"><span class="mx-step" aria-hidden="true">2</span><span class="mx-sr" lang="zh-CN">2 步链路</span><span class="mx-sr" lang="en">2 steps</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="1" data-chain="webp&gt;html"><span class="mx-step" aria-hidden="true">1</span><span class="mx-sr" lang="zh-CN">1 步链路</span><span class="mx-sr" lang="en">1 step</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="2" data-chain="webp&gt;html&gt;docx"><span class="mx-step" aria-hidden="true">2</span><span class="mx-sr" lang="zh-CN">2 步链路</span><span class="mx-sr" lang="en">2 steps</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="1" data-chain="webp&gt;pdf"><span class="mx-step" aria-hidden="true">1</span><span class="mx-sr" lang="zh-CN">1 步链路</span><span class="mx-sr" lang="en">1 step</span></td>
+                  <td class="mx-block" data-kind="block" data-reason="image"><span aria-hidden="true">✕</span><span class="mx-sr" lang="zh-CN">界面置灰：图片没有文字层</span><span class="mx-sr" lang="en">greyed out: no text layer</span></td>
+                  <td class="mx-block" data-kind="block" data-reason="image"><span aria-hidden="true">✕</span><span class="mx-sr" lang="zh-CN">界面置灰：图片没有文字层</span><span class="mx-sr" lang="en">greyed out: no text layer</span></td>
+                  <td class="mx-block" data-kind="block" data-reason="image"><span aria-hidden="true">✕</span><span class="mx-sr" lang="zh-CN">界面置灰：图片没有文字层</span><span class="mx-sr" lang="en">greyed out: no text layer</span></td>
+                  <td class="mx-block" data-kind="block" data-reason="image"><span aria-hidden="true">✕</span><span class="mx-sr" lang="zh-CN">界面置灰：图片没有文字层</span><span class="mx-sr" lang="en">greyed out: no text layer</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="1" data-chain="webp&gt;png"><span class="mx-step" aria-hidden="true">1</span><span class="mx-sr" lang="zh-CN">1 步链路</span><span class="mx-sr" lang="en">1 step</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="1" data-chain="webp&gt;jpg" data-page="webp-to-jpg.html"><a class="mx-page" href="webp-to-jpg.html"><span aria-hidden="true">1</span><span class="mx-sr" lang="zh-CN">1 步链路，有说明页</span><span class="mx-sr" lang="en">1 step, with its own page</span></a></td>
+                  <td class="mx-self" data-kind="self"><span aria-hidden="true">–</span><span class="mx-sr" lang="zh-CN">同一格式</span><span class="mx-sr" lang="en">same format</span></td>
+                </tr>
+                <tr>
+                  <th scope="row" data-f="bmp"><span lang="zh-CN">BMP</span><span lang="en">BMP</span></th>
+                  <td class="mx-open" data-kind="open" data-steps="2" data-chain="bmp&gt;html&gt;md"><span class="mx-step" aria-hidden="true">2</span><span class="mx-sr" lang="zh-CN">2 步链路</span><span class="mx-sr" lang="en">2 steps</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="1" data-chain="bmp&gt;html"><span class="mx-step" aria-hidden="true">1</span><span class="mx-sr" lang="zh-CN">1 步链路</span><span class="mx-sr" lang="en">1 step</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="2" data-chain="bmp&gt;html&gt;docx"><span class="mx-step" aria-hidden="true">2</span><span class="mx-sr" lang="zh-CN">2 步链路</span><span class="mx-sr" lang="en">2 steps</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="1" data-chain="bmp&gt;pdf"><span class="mx-step" aria-hidden="true">1</span><span class="mx-sr" lang="zh-CN">1 步链路</span><span class="mx-sr" lang="en">1 step</span></td>
+                  <td class="mx-block" data-kind="block" data-reason="image"><span aria-hidden="true">✕</span><span class="mx-sr" lang="zh-CN">界面置灰：图片没有文字层</span><span class="mx-sr" lang="en">greyed out: no text layer</span></td>
+                  <td class="mx-block" data-kind="block" data-reason="image"><span aria-hidden="true">✕</span><span class="mx-sr" lang="zh-CN">界面置灰：图片没有文字层</span><span class="mx-sr" lang="en">greyed out: no text layer</span></td>
+                  <td class="mx-block" data-kind="block" data-reason="image"><span aria-hidden="true">✕</span><span class="mx-sr" lang="zh-CN">界面置灰：图片没有文字层</span><span class="mx-sr" lang="en">greyed out: no text layer</span></td>
+                  <td class="mx-block" data-kind="block" data-reason="image"><span aria-hidden="true">✕</span><span class="mx-sr" lang="zh-CN">界面置灰：图片没有文字层</span><span class="mx-sr" lang="en">greyed out: no text layer</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="1" data-chain="bmp&gt;png"><span class="mx-step" aria-hidden="true">1</span><span class="mx-sr" lang="zh-CN">1 步链路</span><span class="mx-sr" lang="en">1 step</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="1" data-chain="bmp&gt;jpg"><span class="mx-step" aria-hidden="true">1</span><span class="mx-sr" lang="zh-CN">1 步链路</span><span class="mx-sr" lang="en">1 step</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="1" data-chain="bmp&gt;webp"><span class="mx-step" aria-hidden="true">1</span><span class="mx-sr" lang="zh-CN">1 步链路</span><span class="mx-sr" lang="en">1 step</span></td>
+                </tr>
+                <tr>
+                  <th scope="row" data-f="gif"><span lang="zh-CN">GIF</span><span lang="en">GIF</span></th>
+                  <td class="mx-open" data-kind="open" data-steps="2" data-chain="gif&gt;html&gt;md"><span class="mx-step" aria-hidden="true">2</span><span class="mx-sr" lang="zh-CN">2 步链路</span><span class="mx-sr" lang="en">2 steps</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="1" data-chain="gif&gt;html"><span class="mx-step" aria-hidden="true">1</span><span class="mx-sr" lang="zh-CN">1 步链路</span><span class="mx-sr" lang="en">1 step</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="2" data-chain="gif&gt;html&gt;docx"><span class="mx-step" aria-hidden="true">2</span><span class="mx-sr" lang="zh-CN">2 步链路</span><span class="mx-sr" lang="en">2 steps</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="1" data-chain="gif&gt;pdf"><span class="mx-step" aria-hidden="true">1</span><span class="mx-sr" lang="zh-CN">1 步链路</span><span class="mx-sr" lang="en">1 step</span></td>
+                  <td class="mx-block" data-kind="block" data-reason="image"><span aria-hidden="true">✕</span><span class="mx-sr" lang="zh-CN">界面置灰：图片没有文字层</span><span class="mx-sr" lang="en">greyed out: no text layer</span></td>
+                  <td class="mx-block" data-kind="block" data-reason="image"><span aria-hidden="true">✕</span><span class="mx-sr" lang="zh-CN">界面置灰：图片没有文字层</span><span class="mx-sr" lang="en">greyed out: no text layer</span></td>
+                  <td class="mx-block" data-kind="block" data-reason="image"><span aria-hidden="true">✕</span><span class="mx-sr" lang="zh-CN">界面置灰：图片没有文字层</span><span class="mx-sr" lang="en">greyed out: no text layer</span></td>
+                  <td class="mx-block" data-kind="block" data-reason="image"><span aria-hidden="true">✕</span><span class="mx-sr" lang="zh-CN">界面置灰：图片没有文字层</span><span class="mx-sr" lang="en">greyed out: no text layer</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="1" data-chain="gif&gt;png"><span class="mx-step" aria-hidden="true">1</span><span class="mx-sr" lang="zh-CN">1 步链路</span><span class="mx-sr" lang="en">1 step</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="1" data-chain="gif&gt;jpg"><span class="mx-step" aria-hidden="true">1</span><span class="mx-sr" lang="zh-CN">1 步链路</span><span class="mx-sr" lang="en">1 step</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="1" data-chain="gif&gt;webp"><span class="mx-step" aria-hidden="true">1</span><span class="mx-sr" lang="zh-CN">1 步链路</span><span class="mx-sr" lang="en">1 step</span></td>
+                </tr>
+                <tr>
+                  <th scope="row" data-f="svg"><span lang="zh-CN">SVG</span><span lang="en">SVG</span></th>
+                  <td class="mx-open" data-kind="open" data-steps="2" data-chain="svg&gt;html&gt;md"><span class="mx-step" aria-hidden="true">2</span><span class="mx-sr" lang="zh-CN">2 步链路</span><span class="mx-sr" lang="en">2 steps</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="1" data-chain="svg&gt;html"><span class="mx-step" aria-hidden="true">1</span><span class="mx-sr" lang="zh-CN">1 步链路</span><span class="mx-sr" lang="en">1 step</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="2" data-chain="svg&gt;html&gt;docx"><span class="mx-step" aria-hidden="true">2</span><span class="mx-sr" lang="zh-CN">2 步链路</span><span class="mx-sr" lang="en">2 steps</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="2" data-chain="svg&gt;png&gt;pdf"><span class="mx-step" aria-hidden="true">2</span><span class="mx-sr" lang="zh-CN">2 步链路</span><span class="mx-sr" lang="en">2 steps</span></td>
+                  <td class="mx-block" data-kind="block" data-reason="image"><span aria-hidden="true">✕</span><span class="mx-sr" lang="zh-CN">界面置灰：图片没有文字层</span><span class="mx-sr" lang="en">greyed out: no text layer</span></td>
+                  <td class="mx-block" data-kind="block" data-reason="image"><span aria-hidden="true">✕</span><span class="mx-sr" lang="zh-CN">界面置灰：图片没有文字层</span><span class="mx-sr" lang="en">greyed out: no text layer</span></td>
+                  <td class="mx-block" data-kind="block" data-reason="image"><span aria-hidden="true">✕</span><span class="mx-sr" lang="zh-CN">界面置灰：图片没有文字层</span><span class="mx-sr" lang="en">greyed out: no text layer</span></td>
+                  <td class="mx-block" data-kind="block" data-reason="image"><span aria-hidden="true">✕</span><span class="mx-sr" lang="zh-CN">界面置灰：图片没有文字层</span><span class="mx-sr" lang="en">greyed out: no text layer</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="1" data-chain="svg&gt;png" data-page="svg-to-png.html"><a class="mx-page" href="svg-to-png.html"><span aria-hidden="true">1</span><span class="mx-sr" lang="zh-CN">1 步链路，有说明页</span><span class="mx-sr" lang="en">1 step, with its own page</span></a></td>
+                  <td class="mx-open" data-kind="open" data-steps="1" data-chain="svg&gt;jpg"><span class="mx-step" aria-hidden="true">1</span><span class="mx-sr" lang="zh-CN">1 步链路</span><span class="mx-sr" lang="en">1 step</span></td>
+                  <td class="mx-open" data-kind="open" data-steps="1" data-chain="svg&gt;webp"><span class="mx-step" aria-hidden="true">1</span><span class="mx-sr" lang="zh-CN">1 步链路</span><span class="mx-sr" lang="en">1 step</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="mx-legend">
+            <span lang="zh-CN">图例：数字 = 这条链路走的步数（4 是今天最长的一条，中间产物不落盘）；✕ = 图上可达但语义无效，工作台会置灰并给出原因 —— 「图片无法转换为文本或表格数据（需 OCR，暂不支持）」「PDF 无法可靠转换为表格/结构化数据」；– = 源与目标是同一个格式。带下划线的数字有自己的一页说明，点进去是那条路的保留项与丢弃项；没下划线的格子能转，只是今天还没有专页。</span><span lang="en">Legend: a digit is how many steps that route runs (4 is the longest one today, and no intermediate ever touches the disk); ✕ is reachable in the graph but semantically invalid, so the workbench greys it out and says why — “Images cannot become text or tabular data (needs OCR, not supported)” and “PDF cannot be reliably converted to tabular data”; – is a format meeting itself. An underlined digit has its own page, which spells out what that route keeps and what it drops; a plain one converts, it just has no page yet.</span>
+          </p>
+          <p class="mx-readout" id="mx-readout" role="status">
+            <span lang="zh-CN">把指针移到任一格，或用 Tab 聚焦矩阵后按方向键逐格走，这里会读出这条链路的完整走法。</span><span lang="en">Hover a cell, or press Tab and walk the grid with the arrow keys, and the full route is read out here.</span>
+          </p>
+        </section>
         <section class="reveal">
           <h2><span lang="zh-CN">文档</span><span lang="en">Documents</span></h2>
           <p><span lang="zh-CN">Markdown、Word、HTML、PDF 之间互转；文档类产物的差别写在各自页面上，尤其 PDF 是图像还是可编辑文档。</span><span lang="en">Markdown, Word, HTML and PDF. The artifacts differ more than the format names suggest, which is why each page says whether it yields an image or something editable.</span></p>
@@ -254,6 +487,131 @@
       </p>
     </div>
   </footer>
+    <script>
+    (function () {
+      var table = document.getElementById('mx-table');
+      var readout = document.getElementById('mx-readout');
+      if (!table || !readout) return;
+      var COPY = {"block":{"image":{"zh":"图片无法转换为文本或表格数据（需 OCR，暂不支持）","en":"Images cannot become text or tabular data (needs OCR, not supported)"},"pdf":{"zh":"PDF 无法可靠转换为表格/结构化数据","en":"PDF cannot be reliably converted to tabular data"}},"self":{"zh":"源与目标是同一格式，没有转换这回事。","en":"A format meeting itself — there is no conversion here."},"route":{"zh":"步链路","en":"step"},"via":{"zh":"经过","en":"via"},"page":{"zh":"· 有说明页","en":"· has its own page"},"nopage":{"zh":"· 暂无专页","en":"· no page yet"}};
+      var head = [].slice.call(table.querySelectorAll('thead th[data-f]'));
+      /* sectionRowIndex on the body rows, not rowIndex: the header row is row 0 of the table, but it
+         is not in this list, and reading one off the other puts every readout a row out of place. */
+      var rows = [].slice.call(table.querySelectorAll('tbody tr'));
+      var cells = [].slice.call(table.querySelectorAll('tbody td'));
+      if (!head.length || !cells.length) return;
+      /** Both languages a header carries, exactly as the page ships them. */
+      function pair(node) {
+        var zh = node.querySelector('span[lang="zh-CN"]');
+        var en = node.querySelector('span[lang="en"]');
+        return { zh: zh ? zh.textContent : '', en: en ? en.textContent : '' };
+      }
+      var LABELS = {};
+      rows.forEach(function (row) {
+        var th = row.querySelector('th[data-f]');
+        if (th) LABELS[th.getAttribute('data-f')] = pair(th);
+      });
+      /** The formats a route passes through between the two ends, in both languages. */
+      function middle(cell) {
+        var codes = (cell.getAttribute('data-chain') || '').split('>');
+        return codes.slice(1, -1).map(function (code) {
+          return LABELS[code] || { zh: code, en: code };
+        });
+      }
+      function sentence(cell) {
+        var kind = cell.getAttribute('data-kind');
+        var row = rows[cell.parentNode.sectionRowIndex];
+        var from = row ? pair(row.querySelector('th')) : { zh: '', en: '' };
+        var col = head[cell.cellIndex - 1];
+        var to = col ? pair(col) : { zh: '', en: '' };
+        var both = function (zhJoin, enJoin) {
+          return { zh: from.zh + ' → ' + to.zh + zhJoin, en: from.en + ' → ' + to.en + enJoin };
+        };
+        if (kind === 'self') return both('：' + COPY.self.zh, ' — ' + COPY.self.en);
+        if (kind === 'block') {
+          var why = COPY.block[cell.getAttribute('data-reason')] || { zh: '', en: '' };
+          return both('：' + why.zh, ' — ' + why.en);
+        }
+        var steps = Number(cell.getAttribute('data-steps')) || 1;
+        var hasPage = !!cell.getAttribute('data-page');
+        var mid = middle(cell);
+        return both(
+          '：' + steps + ' ' + COPY.route.zh + (hasPage ? ' ' + COPY.page.zh : ' ' + COPY.nopage.zh) +
+            (mid.length ? ' · ' + COPY.via.zh + ' ' + mid.map(function (m) { return m.zh; }).join('、') : ''),
+          ' — ' + steps + ' ' + COPY.route.en + (steps === 1 ? '' : 's') + ' ' +
+            (hasPage ? COPY.page.en : COPY.nopage.en) +
+            (mid.length ? ' · ' + COPY.via.en + ' ' + mid.map(function (m) { return m.en; }).join(', ') : ''),
+        );
+      }
+      function show(text) {
+        while (readout.firstChild) readout.removeChild(readout.firstChild);
+        ['zh-CN', 'en'].forEach(function (lang) {
+          var span = document.createElement('span');
+          span.setAttribute('lang', lang);
+          span.textContent = lang === 'zh-CN' ? text.zh : text.en;
+          readout.appendChild(span);
+        });
+      }
+      var on = [];
+      var active = null;
+      function clear() {
+        on.forEach(function (node) { if (node) node.classList.remove('mx-on'); });
+        on = [];
+      }
+      function activate(cell) {
+        if (!cell || cell === active) return;
+        active = cell;
+        clear();
+        var row = rows[cell.parentNode.sectionRowIndex];
+        var col = head[cell.cellIndex - 1];
+        [cell, row ? row.querySelector('th') : null, col].forEach(function (node) {
+          if (node) { node.classList.add('mx-on'); on.push(node); }
+        });
+        show(sentence(cell));
+      }
+      /* The 21 links stay real links — no-JS readers tab through them like any other page. Once this
+         script runs the grid is the tab stop instead: the arrows already move between cells, so a second
+         stop per linked cell would only make Tab disagree with the arrow keys. Enter follows wherever
+         the current cell points. */
+      cells.forEach(function (cell, i) {
+        cell.setAttribute('tabindex', i === 0 ? '0' : '-1');
+        var link = cell.querySelector('a.mx-page');
+        if (link) link.setAttribute('tabindex', '-1');
+      });
+      var current = 0;
+      var width = head.length;
+      table.addEventListener('focusin', function (event) {
+        var cell = event.target.closest ? event.target.closest('td') : null;
+        if (!cell || !table.contains(cell)) return;
+        current = cells.indexOf(cell);
+        if (current >= 0) { cells.forEach(function (c, i) { c.setAttribute('tabindex', i === current ? '0' : '-1'); }); }
+        activate(cell);
+      });
+      table.addEventListener('mouseover', function (event) {
+        var cell = event.target.closest ? event.target.closest('td') : null;
+        if (cell && table.contains(cell)) activate(cell);
+      });
+      table.addEventListener('keydown', function (event) {
+        if (current < 0) return;
+        if (event.key === 'Enter') {
+          var page = cells[current].getAttribute('data-page');
+          if (page) window.location.href = page;
+          return;
+        }
+        var step = { ArrowRight: 1, ArrowLeft: -1, ArrowDown: width, ArrowUp: -width }[event.key];
+        var target = current;
+        if (event.key === 'Home') target = Math.floor(current / width) * width;
+        else if (event.key === 'End') target = Math.floor(current / width) * width + width - 1;
+        else if (step === undefined) return;
+        else target = current + step;
+        if (target < 0 || target >= cells.length) return;
+        event.preventDefault();
+        cells[current].setAttribute('tabindex', '-1');
+        current = target;
+        cells[current].setAttribute('tabindex', '0');
+        cells[current].focus();
+      });
+    })();
+  </script>
     <script>
     (function () {
       var revealables = document.querySelectorAll('.reveal');
