@@ -134,16 +134,27 @@ _图上可达但语义不成立，因此置灰并说明原因，而不是等你�
 
 > 说明：PDF 输出为图片渲染（不含文字层——所谓文字是像素）；PDF 输入仅提取文本（不保留版式与图片）；PDF → 图片逐页渲染，多页文档下载为按所选格式（PNG / JPEG / WebP）逐页出图的 ZIP 包；BMP、GIF、SVG 仅支持作为输入——浏览器无法编码它们，GIF 转成图片或 PDF 时只保留第一帧（源文件确有多帧时，结果卡片上也会说明）；Markdown 或 SVG 转成 Word / Markdown 时，内联 SVG 会先栅格成 PNG 再嵌入——图形保住了，但它是位图不是矢量（结果卡片上也会说明）；多工作表 XLSX → CSV 会下载包含"每表一个 CSV"的 ZIP 包。上面三组的计数口径：48 条注册路径经 BFS 可到达 143 个源→目标组合，其中 27 个因语义无效被屏蔽（24 个图片 → TXT / CSV / JSON / XLSX，3 个 PDF → CSV / JSON / XLSX），因此目标格式下拉实际提供 116 个组合。
 
-**逐条链路的取舍，各写成一页。** 每条链路单独一页，写清它实际执行几步、哪些结构会保留、哪些会丢以及为什么丢：
+**逐条链路的取舍，各写成一页。** 下面这些链路各自单独一页，写清它实际执行几步、哪些结构会保留、哪些会丢以及为什么丢：
 [Markdown 转 Word](https://liaolongdong.github.io/transfer-any-file/convert/markdown-to-word.html) ·
 [Word 转 Markdown](https://liaolongdong.github.io/transfer-any-file/convert/word-to-markdown.html) ·
-[Word 转 PDF](https://liaolongdong.github.io/transfer-any-file/convert/word-to-pdf.html) ·
+[Markdown 转 HTML](https://liaolongdong.github.io/transfer-any-file/convert/markdown-to-html.html) ·
+[HTML 转 PDF](https://liaolongdong.github.io/transfer-any-file/convert/html-to-pdf.html) ·
 [Markdown 转 PDF](https://liaolongdong.github.io/transfer-any-file/convert/markdown-to-pdf.html) ·
+[Word 转 PDF](https://liaolongdong.github.io/transfer-any-file/convert/word-to-pdf.html) ·
 [PDF 转纯文本](https://liaolongdong.github.io/transfer-any-file/convert/pdf-to-text.html) ·
 [Excel 转 CSV](https://liaolongdong.github.io/transfer-any-file/convert/excel-to-csv.html) ·
 [CSV 转 Excel](https://liaolongdong.github.io/transfer-any-file/convert/csv-to-excel.html) ·
+[Excel 转 JSON](https://liaolongdong.github.io/transfer-any-file/convert/excel-to-json.html) ·
+[CSV 转 JSON](https://liaolongdong.github.io/transfer-any-file/convert/csv-to-json.html) ·
 [JSON 转 CSV](https://liaolongdong.github.io/transfer-any-file/convert/json-to-csv.html) ·
+[JSON 转 Excel](https://liaolongdong.github.io/transfer-any-file/convert/json-to-excel.html) ·
 [PNG 转 WebP](https://liaolongdong.github.io/transfer-any-file/convert/png-to-webp.html) ·
+[PNG 转 JPEG](https://liaolongdong.github.io/transfer-any-file/convert/png-to-jpg.html) ·
+[JPEG 转 PNG](https://liaolongdong.github.io/transfer-any-file/convert/jpg-to-png.html) ·
+[JPEG 转 WebP](https://liaolongdong.github.io/transfer-any-file/convert/jpg-to-webp.html) ·
+[WebP 转 JPEG](https://liaolongdong.github.io/transfer-any-file/convert/webp-to-jpg.html) ·
+[PNG 转 PDF](https://liaolongdong.github.io/transfer-any-file/convert/png-to-pdf.html) ·
+[JPEG 转 PDF](https://liaolongdong.github.io/transfer-any-file/convert/jpg-to-pdf.html) ·
 [SVG 转 PNG](https://liaolongdong.github.io/transfer-any-file/convert/svg-to-png.html)。
 另有[转换总览](https://liaolongdong.github.io/transfer-any-file/convert/)（含完整格式矩阵）与博客长文[我把「文件格式转换」做成了一个不联网的 Chrome 扩展](https://liaolongdong.github.io/transfer-any-file/blog/)。
 

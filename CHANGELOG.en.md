@@ -55,6 +55,22 @@ always name the same release.
   pure logic in `utils/core/json-view.ts`, the interface is `JsonTreeView.vue` / `JsonTableView.vue`, and all
   of it sits in the lazily loaded preview chunk: the first screen pays nothing for it, measured as 2 806
   bytes of new Chinese and English UI strings being the only boot-reachable growth.
+- **The per-route pages go from 10 to 21.** Coverage, not copy quality, was the limit here: the picker offers
+  116 selectable pairs and the previous batch documented 10 of them. This batch adds eleven — JPEG ⇄ PNG,
+  JPEG ⇄ WebP, WebP → JPEG, PNG → PDF, JPEG → PDF, Excel → JSON, CSV → JSON, JSON → Excel, Markdown → HTML,
+  HTML → PDF — picked on two conditions: people search for the pair, and the route really has trade-offs worth
+  its own page. Each new page obeys the same discipline as the old ones: only facts readable in the code, the
+  chain taken from `scripts/__baseline__/conversion-paths.json`, and no page at all for a pair that
+  `utils/core/conversion-policy.ts` blocks — which is why growing the set needed zero new template code and why
+  `pnpm pages:render` still fails outright when the data source and the baseline disagree. Three follow-ons ship
+  with it: `FORMAT_LABEL` gains `jpg` (the enum value and the extension the app writes are `jpg`, the format's
+  name is JPEG, so the label reads JPEG while the URL reads .jpg, and the copy keeps both spellings because
+  searchers use both); the product page's pair rail now lists all 21 instead of 10, so a new page sits one click
+  from the homepage rather than two; and the route-by-route list in `docs/llms.txt` matches. That last item also
+  narrowed one evidence rule — `offers <number>` was written for "the picker offers 116", and a landing page that
+  says "the dial offers 800–4096 px" is not quoting a pair count, so a number carrying a unit or a range no
+  longer fills that slot. Nothing else in the pattern moved, and every document's quote counts are identical
+  before and after: the three false positives are the only thing that disappeared.
 - **The repository ships an offline diff page.** `tools/file-diff.html` is a single-file, zero-dependency,
   zero-network viewer for the difference between two files: line and word-level changes, split and unified
   views, collapsible runs of identical context, a copyable patch, bilingual Chinese/English text and a
@@ -896,6 +912,24 @@ zero network requests`) and the Chinese equivalent never appeared in a search re
 
 ### Fixed
 
+- **A PNG converted to PDF came out 10–95x larger than the image it came from.** Given no compression
+  argument, jsPDF writes the samples it decoded from the PNG into the stream with **no row filter at
+  all**: `checkCompressValue()` maps `undefined` to NONE, and the “fall back to SLOW” branch inside
+  `addImage` only runs when the document declares FlateEncode — which `putImage` strips from an
+  image’s filter list first, so an image never reaches it. A 31 KB screenshot shipped as a 2.9 MB
+  PDF; measured over five repo PNGs the bloat ran 9.5x–95.6x. The call now passes `'FAST'`
+  explicitly, which lands screenshots at 1.1x–1.3x of the source file (up to 1.5x on a finely
+  detailed picture). This level does not touch the pixels: un-filtering the `'FAST'` stream
+  reproduces the uncompressed one byte for byte, so the lossless claim still holds — only the PDF
+  stream filter changed. `'SLOW'` (Paeth + level 9) was not taken: it is genuinely smaller on flat
+  content — 454 KB against 505 KB over those five files, and 2.5x smaller on a flat icon — but the
+  same work costs nearly 4x the time (4.2 s against 1.1 s), this route takes no `ctx`, and the
+  deflate is synchronous, so that time is a frozen tab; on noisy content it hands the savings back
+  (20–35 % _larger_ than `'FAST'`). `image-to-pdf.ts` passes the same argument on its PNG branch (the
+  JPEG branch is a DCT pass-through that never reads it — measured, the two PDFs differ only by the
+  60 bytes of `/ID` in the trailer). `html-to-pdf.ts` keeps `'SLOW'`: its input is text on white,
+  sliced page by page with a cancel point between pages, and the trade there is documented by its own
+  measurements.
 - **Sections a jump skipped over stayed transparent.** `.reveal` on the product page and the 11 generated
   convert pages becomes visible when IntersectionObserver adds a class, and the observer only calls back for elements
   that enter the viewport: opening `…#faq` directly, clicking an in-page anchor, or having the browser restore

@@ -297,7 +297,13 @@ const FACTS = [
       /提供\s*(\d+)\s*个/,
       /(\d+)\s*个可选组合/,
       /(\d+)\s+selectable\s+combinations?/,
-      /offers?\s+(\d+)\b/,
+      // The English side of this claim is 「the format picker offers 116」, so the bare verb has to be
+      // enough. It is also the shape a landing page uses for a control's range: 「the dial offers
+      // 800–4096 px」 and 「the dial offers 90 / 80 / 70 …」 are not pair counts, and requiring the verb
+      // to stand alone would have made every image page a false positive. A number that continues
+      // into a range or a list, or that carries a unit, is a measurement — everything else still has
+      // to equal the derived pair count.
+      /offers?\s+(\d+)\b(?!\s*[–—-]\s*\d|\s*\/|\s*(?:px|dpi|KB|MB|GB|%|×)\b)/,
       /(\d+)\s+(?:of them\s+)?(?:remain\s+)?selectable\b/,
     ],
   },

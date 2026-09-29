@@ -552,9 +552,9 @@ function renderPage(pair, chain) {
     )
     .join('\n');
 
-  // Two of the ten pairs have no same-source / same-target sibling at all. An empty section under a
-  // `相关转换` heading reads to a reader as a page that failed to finish loading, and to a crawler as
-  // thin content, so the heading goes with the list.
+  // A pair with no same-source / same-target sibling would render an empty section under a
+  // `相关转换` heading — which reads to a person as a page that failed to finish loading, and to a
+  // crawler as thin content. The heading therefore goes with the list instead of being kept empty.
   const relatedSection = related
     ? `          <section class="related reveal">
 ${sectionHeading('相关转换', 'Related conversions')}

@@ -216,8 +216,8 @@ curl -sS $base/robots.txt | grep -i '^Sitemap:'
    GSC 给的 `<meta name="google-site-verification" content="…">` 加到 `docs/index.html` 的 `<head>`（其他 meta 之后），
    然后 `pnpm lint:all && pnpm pages:check` → 提交 → 等部署 → 回 GSC 点「验证」。
    这条改动只碰一个 meta 标签，不进任何守卫的射程；把 content 值给我，我可以连这一步一起提交。
-2. **提交 sitemap**：GSC → sitemap → 添加 `https://liaolongdong.github.io/transfer-any-file/sitemap.xml`（14 条）。
-3. **逐条请求收录**，优先级按「新页面 + 有搜索意图」排：首页 → `/convert/` → 10 张配对页 → `/blog/`。
+2. **提交 sitemap**：GSC → sitemap → 添加 `https://liaolongdong.github.io/transfer-any-file/sitemap.xml`（25 条）。
+3. **逐条请求收录**，优先级按「新页面 + 有搜索意图」排：首页 → `/convert/` → 21 张配对页 → `/blog/`。
    `privacy.html` 不必提交。
 4. **Bing Webmaster Tools**：直接从 GSC 导入站点即可。IndexNow 属可做可不做，如果要做得把 key 文件放站点根
    （`docs/`），`static.yml` 只挡 `.md`，一个 `.txt` 能发出去。
