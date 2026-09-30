@@ -1640,10 +1640,14 @@ async function run() {
       }
 
       // The disclosure has to travel with the artifact: nothing on `sample-images_….pdf` says three
-      // pictures became boxes, and a document that lost them quietly reads as the author's own layout.
+      // pictures became placeholders, and a document that lost them quietly reads as the author's own
+      // layout. The number is the part a reader acts on, and both shapes have to be named because they
+      // are two different mechanisms (a reference rewritten before rendering leaves a dashed box, one
+      // that only fails while being cloned leaves that position empty).
       const notes = await page.$$eval('.result-note', els => els.map(el => el.textContent.trim()));
-      if (notes.some(text => text.includes('虚线方框'))) {
-        ok('it discloses the pictures that could not be embedded');
+      const dropped = notes.find(text => text.includes('处位置'));
+      if (dropped?.includes('有 3 处位置') && dropped.includes('留空') && dropped.includes('虚线方框')) {
+        ok('it counts the three pictures that could not come through and names both shapes');
       } else {
         fail('missing-image disclosure', `notes rendered: ${JSON.stringify(notes)}`);
       }
@@ -1679,7 +1683,7 @@ async function run() {
       );
       if (!live.resultName) throw new Error(`image-complete markdown produced no artifact: ${live.alertTitle}`);
       const notes = await page.$$eval('.result-note', els => els.map(el => el.textContent.trim()));
-      if (notes.some(text => text.includes('虚线方框'))) {
+      if (notes.some(text => text.includes('处位置'))) {
         fail('missing-image disclosure on a complete document', `unexpected note: ${JSON.stringify(notes)}`);
       } else {
         ok('a markdown carrying its own picture as a data URI says nothing about missing images');
@@ -4384,8 +4388,8 @@ async function run() {
     // and the shortcut row — this section's own subject — could only be reached by scrolling the page
     // out from under a popover pinned to the topbar. Measured at 500px tall, before the viewport goes
     // back to the size the rest of the section assumes. Scrolled to the top first on purpose: the
-    // topbar is not sticky, so without this the anchor's viewport position — and with it the popover's
-    // bottom edge — depends on wherever the previous section left the scroll.
+    // topbar is not sticky, so without this the anchor's viewport position — and with it where the
+    // panel's last row lands — depends on wherever the previous section left the scroll.
     await page.setViewportSize({ width: 1280, height: 500 });
     await page.waitForTimeout(300);
     await page.evaluate(() => window.scrollTo(0, 0));
@@ -4398,18 +4402,34 @@ async function run() {
       const menu = document.querySelector('.preferences-menu');
       const pop = document.querySelector('.el-popover');
       if (!menu || !pop) return null;
+      const scrollable = menu.scrollHeight > menu.clientHeight;
+      menu.scrollTop = menu.scrollHeight;
+      const last = menu.lastElementChild?.getBoundingClientRect();
       return {
-        bottom: Math.round(pop.getBoundingClientRect().bottom),
-        innerHeight: window.innerHeight,
-        scrollable: menu.scrollHeight > menu.clientHeight,
+        scrollable,
         overflowY: getComputedStyle(menu).overflowY,
+        // Reading `scrollTop` back is what makes "I scrolled it" a fact rather than an intention: a
+        // panel that cannot scroll at all leaves this at 0 and the last item stays wherever it was.
+        atBottom: Math.abs(menu.scrollTop + menu.clientHeight - menu.scrollHeight) < 2,
+        lastBottom: Math.round(last?.bottom ?? -1),
+        popBottom: Math.round(pop.getBoundingClientRect().bottom),
+        innerHeight: window.innerHeight,
       };
     });
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.waitForTimeout(300);
-    if (panel && panel.bottom <= panel.innerHeight && panel.scrollable && panel.overflowY === 'auto') {
+    if (
+      panel &&
+      panel.scrollable &&
+      panel.overflowY === 'auto' &&
+      panel.atBottom &&
+      panel.lastBottom >= 0 &&
+      panel.lastBottom <= panel.innerHeight
+    ) {
       ok(
-        `Preferences panel scrolls inside itself in a short window (bottom ${String(panel.bottom)} ≤ ${String(panel.innerHeight)})`,
+        `Preferences panel scrolls itself to its last row in a short window (last ${String(panel.lastBottom)} ≤ ${String(
+          panel.innerHeight,
+        )}, popover ${String(panel.popBottom)})`,
       );
     } else {
       fail('Preferences panel height', JSON.stringify(panel));
