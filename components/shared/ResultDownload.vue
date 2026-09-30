@@ -93,12 +93,13 @@ const svgRasterized = computed(() => props.results.some(r => r.svgRasterized));
 
 /**
  * A document that references pictures by URL, or by a path next to the file, asked for images this
- * offline conversion does not have. The renderer keeps each position as an outlined box and counts how
- * many it replaced; this card shows the note rather than the count, because without the note those
- * boxes read as part of the author's layout. The orchestrator carries the fact up from whichever step
- * did the rendering, exactly as `svgRasterized`.
+ * offline conversion does not have. The renderer counts them and each replaced reference keeps its
+ * position as an outlined box; a reference that only failed while the clone was being built leaves that
+ * position empty instead. Either way the note has to say how many, because without it the reader takes
+ * the gaps for part of the author's layout. The orchestrator carries the fact up from whichever step did
+ * the rendering, exactly as `svgRasterized`, and a batch adds its files together.
  */
-const imagesDropped = computed(() => props.results.some(r => r.imagesDropped));
+const imagesDroppedCount = computed(() => props.results.reduce((sum, r) => sum + (r.imagesDropped ?? 0), 0));
 
 async function copyResult(result: ConvertResult): Promise<void> {
   if (!isTextResult(result)) {
@@ -203,10 +204,10 @@ function openPreview(result: ConvertResult): void {
           {{ t('result.svgRasterized') }}
         </p>
         <p
-          v-if="imagesDropped"
+          v-if="imagesDroppedCount > 0"
           class="result-note"
         >
-          {{ t('result.imagesDropped') }}
+          {{ t('result.imagesDropped', { count: imagesDroppedCount }) }}
         </p>
         <p
           v-if="hasPdfResult"

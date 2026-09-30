@@ -85,7 +85,7 @@ const htmlToPdfConverter: Converter = {
 
     // Get PDF as blob
     const pdfBlob = pdf.output('blob');
-    return { blob: pdfBlob, filename: 'converted.pdf', imagesDropped: imagesDropped > 0 };
+    return { blob: pdfBlob, filename: 'converted.pdf', imagesDropped };
   },
 };
 

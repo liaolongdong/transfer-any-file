@@ -18,7 +18,7 @@ export const htmlToPngConverter: Converter = {
 
     try {
       const pngBlob = await encodeCanvas(canvas, 'image/png', ctx?.options);
-      return { blob: pngBlob, filename: 'converted.png', imagesDropped: imagesDropped > 0 };
+      return { blob: pngBlob, filename: 'converted.png', imagesDropped };
     } finally {
       releaseCanvas(canvas);
     }

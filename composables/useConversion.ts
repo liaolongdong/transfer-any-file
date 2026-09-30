@@ -519,7 +519,9 @@ export function useConversion() {
           let svgRasterized = false;
           // Whether the document asked for pictures this offline conversion could not have is likewise
           // visible only to the step that rendered it, and `md→pdf` reaches that step as its second leg.
-          let imagesDropped = false;
+          // Counted rather than flagged: a chain has one rendering step, so the sum is that step's number,
+          // and the result card reports how many positions were affected.
+          let imagesDropped = 0;
           for (let stepIndex = 0; stepIndex < steps.length; stepIndex++) {
             if (signal.aborted) break;
             currentStep.value = stepIndex + 1;
@@ -542,7 +544,7 @@ export function useConversion() {
               outExt = stepResult.containerExt ?? extensionOf(stepResult.filename) ?? outExt;
               lostFrames ||= stepResult.lostFrames === true;
               svgRasterized ||= stepResult.svgRasterized === true;
-              imagesDropped ||= stepResult.imagesDropped === true;
+              imagesDropped += stepResult.imagesDropped ?? 0;
             } catch (stepError) {
               stepFailedAt = stepIndex + 1;
               throw stepError;
