@@ -138,6 +138,38 @@ en JS 数组、可见 zh、可见 en）、`.github/CHROMEWEBSTORE.md` 的中英�
 计数），首屏 JS 本轮未重测。跑过的门禁：`lint:all`、`verify:meta`、两道离线守卫（源码层 + 产物层）、
 两道远程代码守卫、`verify:paths`、`verify:numbers`、`verify:listing`、`pages:check`，随后 `build` 与全量 e2e。
 
+**紧接着的素材重拍轮（同一晚，`14767fb`）也重新构建了：65 个文件、3,826,293 B——与上一段逐字节相同，
+因为这一轮一行源码都没改，改的只是 `docs/assets/` 下的图。** 上一段挂着的那句「首屏 JS 本轮未重测」
+在这里补上，档案本身不动：**444,660 B / 19 个 chunk**（口径仍是解析 `options.html` 的 `.js` 引用后逐个
+`stat`，与 09-29 那轮的 442,958 B / 19 个可比；chunk 数没变，多的 1,702 B 是 i18n 与结果卡计数落进首屏块）。
+
+重拍了 24 张：`docs/assets/screenshots/` 七张原始界面图、`docs/assets/store/screens/` 十四张带卖点文案的
+商店图（七状态 × 中英）、`docs/assets/store/` 三张推广图。脚本服务的是 `.output/chrome-mv3` 本体，
+并在日志里把页脚读数打出来自证渲染到的是当前数据，所以「素材与实际界面同源」这句话这次是有据的。
+像素逐张与 `HEAD` 比对：`preview-edit` 变 0.44%（集中在弹窗页头那条 12 px 高的文字带，即新增的整篇复制
+按钮），`batch-results` 变 10.05%（结果卡那 166 px 的带，即按张数披露）。**归因要写清**：这批图上一版
+停在 2026-09-18，中间跨了并发会话的名称模板、JSON 三视图与偏好项，所以这次是「素材追平实际界面」，
+不是「本轮改动的配图」。
+
+同一次构建顺手清掉一笔体积欠账：`Σ` 早已跨过取整边界（3,825,780 B 起就是 3.83），而对外散文还写着
+旧值——`verify:numbers` **不守体积**，这类漂移没有机器兜底。回填 16 处，载体是
+`docs/index.html`（指标卡、中英取证句、取证注释、两处 JS 注释里的字样，共 6 处，3.82→3.83）、
+`docs/llms.txt`、两份 `CONTRIBUTING*`、`docs/blog/index.html` 中英、两份 `docs/promo/community-posts*`
+共 3 处、`docs/promo/wechat-article.md` 与 `blog-article.en.md` 各一处（3.78→3.83）；
+gitignore 的 `docs/promo/wechat-article.html` 跑 `pnpm promo:wechat` 跟上。
+**按档案留下的**：两份 CHANGELOG 的每一条「仍是 3.7x MB」、`.github/CHROMEWEBSTORE.md` 版本历史里的
+3.76 / 3.74、以及本文件表格里 3,784,824 B 那一格——那些是那一天的实测，回填等于造假记录。
+`docs/index.html` 里还有第七个 `3.82`，它是 GitHub octicon 路径上恰好相邻的数字，不是体积，别一起换。
+
+一处**明知未动**的：产品页的「本页最后更新 2026-09-29」四处与 `docs/sitemap.xml` 的 `lastmod` 由
+`scripts/render-site-pages.mjs` 的 `STATIC_PAGES.updated` 成组守着（`pages:check` 比对页内日期主张与
+sitemap），本轮只回填了体积数字、没有推进那组日期，所以「最后更新」指的仍是上一轮的页面文本。
+要推进就是改 `STATIC_PAGES.updated` + 四处页内日期再跑 `pages:render`，不是手改 `docs/sitemap.xml`。
+
+这一轮的十道门禁全 `exit 0`：`lint:all`、`verify:meta`、两道离线守卫、两道远程代码守卫（产物层在这轮
+构建之后重跑过）、`verify:paths`、`verify:numbers`、`verify:listing`、`pages:check`。没有跑 e2e——本轮
+没有源码改动，而 `pnpm test:e2e` 自带一次 build，会把刚验证过的产物换掉。
+
 ## 3. 收下改动：建议分两个提交
 
 按「生成器与站点内容」和「文档与守卫」拆开，将来回看某张落地页为什么这么写时，只需要读第一条。

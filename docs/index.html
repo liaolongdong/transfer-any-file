@@ -211,7 +211,7 @@
       · 143 combinations -> BFS closure over the same graph (utils/core/registry.ts)
       · 116 selectable   -> 143 minus the 27 pairs utils/core/conversion-policy.ts greys out
                             (24 image -> text/data + 3 PDF -> data)
-      · 3.82 MB          -> `pnpm build` total output size
+      · 3.83 MB          -> `pnpm build` total output size
     -->
     <script
       type="application/ld+json"
@@ -4004,7 +4004,7 @@
               class="metric metric-size"
               data-onview="in"
             >
-              <b>3.82&nbsp;MB</b>
+              <b>3.83&nbsp;MB</b>
               <span class="label"><span lang="zh-CN">完整包体</span><span lang="en">whole bundle</span></span>
               <span
                 class="size-bar"
@@ -7621,7 +7621,7 @@ pnpm build</code><button
             <span lang="zh-CN"
               ><strong>版本 1.0.0 · 本页最后更新 2026-09-29。</strong>文中全部数字从代码取证：14 种格式来自
               <code>FileFormat</code> 枚举，48 条路径与 143 个可达组合来自转换器注册表的邻接图，116 个可选组合是 143
-              减去 <code>utils/core/conversion-policy.ts</code> 置灰的 27 个，3.82 MB 来自
+              减去 <code>utils/core/conversion-policy.ts</code> 置灰的 27 个，3.83 MB 来自
               <code>pnpm build</code> 输出，权限与上限来自 manifest 与源码常量。截图与推广图由
               <code>pnpm assets:capture</code> 从构建产物生成；<code>docs/convert/</code> 的 21 张配对页与 1 个索引页由
               <code>pnpm pages:render</code> 生成，与 <code>docs/sitemap.xml</code> 同步。</span
@@ -7630,7 +7630,7 @@ pnpm build</code><button
               ><strong>Version 1.0.0 · page last updated 2026-09-29.</strong> Every number on this page is taken from
               the code: 14 formats from the <code>FileFormat</code> enum, 48 routes and 143 reachable combinations from
               the converter registry's adjacency graph, and 116 selectable combinations — that is 143 minus the 27 pairs
-              <code>utils/core/conversion-policy.ts</code> greys out. 3.82 MB comes from <code>pnpm build</code> output,
+              <code>utils/core/conversion-policy.ts</code> greys out. 3.83 MB comes from <code>pnpm build</code> output,
               permissions and limits from the manifest and source constants. Screenshots are generated from the built
               bundle by <code>pnpm assets:capture</code>, and the per-pair pages — 21 of them, plus an index — come from
               <code>pnpm pages:render</code>, which writes the sitemap they are listed in.</span
@@ -8340,7 +8340,7 @@ pnpm build</code><button
         }
 
         // ---- Roll the metric band up, once, as it comes into view ----------
-        // Only bare integers are touched: "3.82 MB" is a measurement with a unit, not a tally, and
+        // Only bare integers are touched: "3.83 MB" is a measurement with a unit, not a tally, and
         // rolling it would advertise a precision the build does not have. The real value stays in the
         // HTML, so crawlers, no-JS readers and reduced-motion readers all see the answer immediately.
         var metricNums = Array.prototype.slice.call(document.querySelectorAll('.metric b')).filter(function (el) {
@@ -8505,7 +8505,7 @@ pnpm build</code><button
 
         // ---- One-pass scroll reveals declared in the markup -------------------
         // data-onview names the class an element gains the first time it is 35% in view:
-        // the size bar under "3.82 MB" (in) and the light sweep over the comparison column
+        // the size bar under "3.83 MB" (in) and the light sweep over the comparison column
         // (shine). Both classes only arm finite animations, so reduced-motion readers get
         // the end state directly and there is nothing to unsee.
         var onView = Array.prototype.slice.call(document.querySelectorAll('[data-onview]'));

@@ -16,7 +16,7 @@ from a recorded test run, so a number that moved in the code makes the prose fai
 - One permission: `storage`. No host permissions, no upload step, works with networking off
 - 100 MB per file, 200 files per batch; a batch above 5 files or 20 MB asks first
 - Playwright drives the built artifact through 327 assertions
-- The whole extension builds to 3.78 MB
+- The whole extension builds to 3.83 MB
 - MIT, sole author ([github.com/liaolongdong](https://github.com/liaolongdong))
 - **Not on the Chrome Web Store yet.** Installing means building and loading unpacked.
 
