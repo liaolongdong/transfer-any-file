@@ -219,6 +219,8 @@ export default {
     gifFirstFrame: 'GIF 动图转成图片或 PDF 时只保留第一帧，动画不会写进结果文件；需要动画请继续使用原来的 GIF 文件。',
     svgRasterized:
       '文档里的内联 SVG 矢量图已转成位图写进结果文件，放大后不再保持矢量清晰度；需要矢量图请保留原始 SVG 文件。',
+    imagesDropped:
+      '文档引用的网络图片与相对路径图片在离线转换中取不到，结果文件里以虚线方框标出它们的位置；要让图片一起转出，请先把它内嵌为 data URI。',
     pdfNoTextLayer:
       '转出的 PDF 是逐页位图，不含文字层；需要图中的文字时，可在 PDF 查看器里试试选中复制——部分查看器会自行识别，这一步不由本扩展完成。',
     // F19 — failure diagnostic panel

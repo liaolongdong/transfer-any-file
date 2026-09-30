@@ -91,6 +91,14 @@ const lostFrames = computed(() => props.results.some(r => r.lostFrames));
  */
 const svgRasterized = computed(() => props.results.some(r => r.svgRasterized));
 
+/**
+ * A document that references pictures by URL, or by a path next to the file, asked for images this
+ * offline conversion does not have. The renderer keeps each position as an outlined box and reports how
+ * many it replaced — without the note, those boxes read as part of the author's layout. The
+ * orchestrator carries that up from whichever step did the rendering, exactly as `svgRasterized`.
+ */
+const imagesDropped = computed(() => props.results.some(r => r.imagesDropped));
+
 async function copyResult(result: ConvertResult): Promise<void> {
   if (!isTextResult(result)) {
     ElMessage.warning(t('result.copyUnavailable'));
@@ -192,6 +200,12 @@ function openPreview(result: ConvertResult): void {
           class="result-note"
         >
           {{ t('result.svgRasterized') }}
+        </p>
+        <p
+          v-if="imagesDropped"
+          class="result-note"
+        >
+          {{ t('result.imagesDropped') }}
         </p>
         <p
           v-if="hasPdfResult"

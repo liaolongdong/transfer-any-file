@@ -38,6 +38,82 @@ const MOTION_RE = /[{;"']\s*(?:-[a-z]+-)?(?:animation|transition)[-a-z]*\s*:|<an
 const UNWAITED_ASSET_RE = /<(?:image|video)/i;
 
 /**
+ * A neutral box standing in for a picture this extension cannot have.
+ *
+ * An offline conversion never holds the bytes behind `![图 1](https://example.com/a.png)` or
+ * `![图 1](./shot.png)`, so the position is all the result can keep. The colours are literals rather
+ * than `--fat-*` tokens on purpose: this URI is painted inside the sandboxed document, a separate
+ * frame of reference that resolves none of the workbench's custom properties. And it carries no text,
+ * because it is baked into the user's PDF or PNG, where the interface language has no business
+ * appearing — the words about it belong to the result note in the i18n dictionaries.
+ */
+const IMAGE_PLACEHOLDER = `data:image/svg+xml,${encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" width="120" height="80" viewBox="0 0 120 80">' +
+    '<rect x="1" y="1" width="118" height="78" rx="4" fill="#f5f5f5" stroke="#d9d9d9" stroke-width="2" stroke-dasharray="6 5"/>' +
+    '</svg>',
+)}`;
+
+/** Whether the bytes are already inside the document or this page's own memory. */
+function carriesOwnBytes(value: string | null): boolean {
+  return !!value && /^(?:data|blob):/i.test(value.trim());
+}
+
+/**
+ * Point every image reference the rasterizer cannot resolve at {@link IMAGE_PLACEHOLDER}, returning the
+ * rewritten document and how many references were replaced.
+ *
+ * Two shapes reach here, and the first one is why a document with a single remote picture used to
+ * report `errors.renderFailed`. A remote `src` has already lost its attribute to
+ * {@link stripRemoteResources}, and an `<img>` with *no* `src` is the dangerous case: html-to-image
+ * reads `img.src`, gets the empty string, and requests that from the host page — the rasterizer
+ * downloads this extension's own workbench HTML, hands it back as a `data:text/html` URL,
+ * and the clone then fires `onerror`, which rejects the whole `toCanvas` promise. A relative or
+ * root-absolute path is the second shape: the sanitizer keeps it because nothing on the network is
+ * asked for, but inside a `srcdoc` iframe it resolves into the extension package, where the user's
+ * sibling files are not.
+ *
+ * Only `data:` and `blob:` carry bytes this close to the conversion, so everything else becomes the
+ * box. With a `data:` src in place, html-to-image's embed step returns before it reaches its own
+ * request path, which also drops the per-image {@link ASSET_TIMEOUT_MS} wait a src-less `<img>` would
+ * otherwise sit through.
+ *
+ * The rewrite happens on the **string**, before {@link LOAD_TIMEOUT_MS}'s document is ever created, and
+ * not on the live `contentDocument` afterwards: an HTML document's `load` event waits on its images, so
+ * a reference that hangs — a protocol-relative URL pointed at a host that never answers is the case
+ * measured here, and it cost the whole conversion `errors.renderTimeout` — keeps the document from ever
+ * being measured at all. Nothing dead is fetched, briefly or not.
+ *
+ * `doc.images` is HTMLImageElement-only, so an SVG `<image>` gets its own loop: the same empty-href
+ * route rejects the document, and html-to-image embeds it through `href.baseVal`. Writing the
+ * namespace-free `href` is what that reads, and it takes precedence over a legacy `xlink:href`, which is
+ * removed so the clone cannot still point at the dead reference.
+ */
+function replaceUnresolvableImageRefs(html: string): { html: string; imagesDropped: number } {
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  let replaced = 0;
+
+  for (const img of Array.from(doc.images)) {
+    if (carriesOwnBytes(img.getAttribute('src'))) continue;
+    img.setAttribute('src', IMAGE_PLACEHOLDER);
+    img.removeAttribute('srcset');
+    replaced++;
+  }
+
+  for (const node of Array.from(doc.querySelectorAll('image'))) {
+    const href = node.getAttribute('href') || node.getAttribute('xlink:href');
+    if (carriesOwnBytes(href)) continue;
+    node.setAttribute('href', IMAGE_PLACEHOLDER);
+    node.removeAttribute('xlink:href');
+    replaced++;
+  }
+
+  // Same leading-doctype preservation {@link stripRemoteResources} does: standards-mode layout is what
+  // the captured height was measured under, and dropping the doctype here would change it.
+  const doctype = /^\s*(<!doctype[^>]*>)/i.exec(html)?.[1] ?? '';
+  return { html: doctype + doc.documentElement.outerHTML, imagesDropped: replaced };
+}
+
+/**
  * Whether this document is owed the {@link LAYOUT_SETTLE_MS} pause.
  *
  * The sleep covers layout that lands *after* the asset wait returns: an image whose decoded size
@@ -108,6 +184,19 @@ async function waitForAssets(doc: Document, html: string, signal?: AbortSignal):
   if (needsLayoutSettle(doc, html)) await new Promise(resolve => setTimeout(resolve, LAYOUT_SETTLE_MS));
 }
 
+/** What {@link renderHtmlToCanvas} hands back: the picture, and what it could not include. */
+export interface HtmlRasterResult {
+  /** Owned by the caller, which must {@link releaseCanvas} it. */
+  canvas: HTMLCanvasElement;
+  /**
+   * How many image references in this document had no bytes to show, each now standing in as an
+   * {@link IMAGE_PLACEHOLDER} box. Only the document itself knows it asked for pictures the extension
+   * does not have, so this is the fact the result note discloses — the same way `lostFrames` and
+   * `svgRasterized` are reported from the step that actually did the work.
+   */
+  imagesDropped: number;
+}
+
 /**
  * Rasterize an HTML document into a canvas, sized to the document's full height.
  *
@@ -123,7 +212,7 @@ async function waitForAssets(doc: Document, html: string, signal?: AbortSignal):
  * The caller owns the returned canvas and must {@link releaseCanvas} it: the backing store is
  * `width * height * 4` bytes, which for a long document at 2x pixelRatio is well over a GB.
  */
-export async function renderHtmlToCanvas(html: string, signal?: AbortSignal): Promise<HTMLCanvasElement> {
+export async function renderHtmlToCanvas(html: string, signal?: AbortSignal): Promise<HtmlRasterResult> {
   const [purifyModule, htmlToImage] = await Promise.all([import('dompurify'), import('html-to-image')]);
   const DOMPurify = purifyModule.default;
   const { toCanvas } = htmlToImage;
@@ -137,7 +226,10 @@ export async function renderHtmlToCanvas(html: string, signal?: AbortSignal): Pr
   });
   // Sanitizing keeps remote URLs — strip them so rendering this untrusted document
   // cannot make the offline extension issue a single network request.
-  const sanitizedHtml = stripRemoteResources(purified);
+  const strippedHtml = stripRemoteResources(purified);
+  // The strip leaves references it judged local but this package cannot serve; those become boxes
+  // before the document exists, so nothing dead is fetched and nothing can hang the load event.
+  const { html: sanitizedHtml, imagesDropped: replacedRefs } = replaceUnresolvableImageRefs(strippedHtml);
 
   throwIfAborted(signal);
 
@@ -173,16 +265,24 @@ export async function renderHtmlToCanvas(html: string, signal?: AbortSignal): Pr
 
     // Tall documents drop to a lower ratio so the canvas stays inside the browser's size limits.
     const pixelRatio = fullHeight > 4000 ? 1 : fullHeight > 2000 ? 1.5 : 2;
+    let handlerDrops = 0;
     const canvas = await toCanvas(doc.documentElement, {
       width: RENDER_WIDTH,
       height: fullHeight,
       pixelRatio,
       backgroundColor: '#ffffff',
       cacheBust: true,
+      // The backstop for whatever still fails after the rewrite above — a `data:` payload this browser
+      // cannot decode, a `blob:` since revoked. Without a handler, html-to-image routes the clone's
+      // `onerror` straight to `reject`, so one unreadable picture aborts the document and the user
+      // reads "渲染失败" about a file whose text converted perfectly.
+      onImageErrorHandler: () => {
+        handlerDrops++;
+      },
     });
 
     if (canvas.width === 0 || canvas.height === 0) throw new Error('errors.renderFailed');
-    return canvas;
+    return { canvas, imagesDropped: replacedRefs + handlerDrops };
   } catch (error) {
     if (signal?.aborted) throw new Error('errors.cancelled', { cause: error });
     // `renderTimeout` / `renderFailed` are already classified; only foreign errors get relabelled.

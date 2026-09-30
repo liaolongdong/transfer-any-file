@@ -50,6 +50,18 @@ export interface ConvertResult {
    * artwork depends on whether it contains an `<svg>` at all, which only the converter can see.
    */
   svgRasterized?: boolean;
+  /**
+   * Set by the converters that rasterize an HTML document (`html→pdf`, `html→png`) when the document
+   * asked for pictures this offline conversion has no bytes for — a remote reference (stripped before
+   * rendering) or a relative path, which resolves inside the extension package and never to the
+   * directory the user's file came from. Each one comes out as an outlined box in the picture, and only
+   * the rasterizer can see how many there were.
+   *
+   * Same rationale as {@link ConvertResult.svgRasterized}: this is a fact about the content, not about
+   * the route, so a document whose images were already inline `data:` URIs converts with nothing to
+   * disclose.
+   */
+  imagesDropped?: boolean;
 }
 
 /**

@@ -517,6 +517,9 @@ export function useConversion() {
           // `md→html→docx` chain rasterizes inside the `html→docx` step, never the `md→html` one — so
           // the fact has to be carried up from whichever step reported it.
           let svgRasterized = false;
+          // Whether the document asked for pictures this offline conversion could not have is likewise
+          // visible only to the step that rendered it, and `md→pdf` reaches that step as its second leg.
+          let imagesDropped = false;
           for (let stepIndex = 0; stepIndex < steps.length; stepIndex++) {
             if (signal.aborted) break;
             currentStep.value = stepIndex + 1;
@@ -539,6 +542,7 @@ export function useConversion() {
               outExt = stepResult.containerExt ?? extensionOf(stepResult.filename) ?? outExt;
               lostFrames ||= stepResult.lostFrames === true;
               svgRasterized ||= stepResult.svgRasterized === true;
+              imagesDropped ||= stepResult.imagesDropped === true;
             } catch (stepError) {
               stepFailedAt = stepIndex + 1;
               throw stepError;
@@ -551,6 +555,7 @@ export function useConversion() {
             filename: uniqueName(file.name, outExt, i + 1),
             lostFrames,
             svgRasterized,
+            imagesDropped,
           });
           owners.push(file);
           converted.push({ name: file.name, size: file.size, format });
