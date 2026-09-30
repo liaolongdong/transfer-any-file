@@ -37,7 +37,7 @@
 | `pnpm verify:listing`                                        | 通过，7 个粘贴字段在限内且与各事实源一致                                                                                                                                                             |
 | `pnpm verify:paths`                                          | 通过，48 条边 / 182 对                                                                                                                                                                               |
 | `pnpm pages:check`                                           | 通过，12 个文件等于数据源渲染结果（改过 `STATIC_PAGES` 的 `lastmod` 之后重渲染，仍等于提交字节）。同一轮新加的 `validateStaticDates()` 第一次运行就把 `docs/privacy.html` 页脚那两行落后的日期报了红 |
-| `pnpm verify:numbers`                                        | 通过，23 项事实比对 **42 份**对外散文（`docs/privacy.html` 本轮起入列；这份清单也在其中，它引用的数字同样会老化）                                                                                    |
+| `pnpm verify:numbers`                                        | 通过，23 项事实比对 **31 份**对外散文（`docs/privacy.html` 本轮起入列；这份清单也在其中，它引用的数字同样会老化）                                                                                    |
 | `pnpm verify:offline:source` / `pnpm verify:offline`         | 两层都通过，扫描 **87** 个第一方文件（本轮把 `.js` / `.mjs` 与入口 HTML 纳入，目录缺失改为直接失败）；产物 manifest 权限恰为 `["storage"]`，无 host / optional                                       |
 | `pnpm verify:remote-code:source` / `pnpm verify:remote-code` | 两层都通过，产物 **46** 个文件；本轮给这条守卫补了两条形状——拼出来的远程 `import()` 与远程 `Worker`                                                                                                  |
 | `pnpm build`                                                 | 通过，5.4 s，整包 **3,784,824 B**（68 个文件，`Σ` 打印 3.78 MB；首屏 JS 440,057 B / 21 个 chunk）；`.output/chrome-mv3` 内**没有** `docs/`、`CHROMEWEBSTORE.md` 等文档产物                           |
@@ -108,6 +108,10 @@ upload→按钮 757 ms、**点击预览→首行画出 477 ms**，展开全部 8
 掉到 8.35（21:29 重启），量具改动与这轮绿之间的因果还证不了。
 产物是 10:03 那一次构建（65 个文件、**3,826,224 B**，`Σ` 打印 3.83 MB；比上一段多 444 B，本轮之间进源码的是
 复制按钮与面板加宽，未逐项归因），本轮没有重新构建，所以上面那些断言吃的就是这份产物。
+同一轮还修了 `AGENTS.md` 与 `.qoder/rules/wxt-rules.md` 里那句**现状描述**：它们写着守卫比对「31 份对外散文
+（含 `docs/convert/` 的 11 个生成页）」，而今天它打印的是 `23 facts … matched across 42 documents`
+（20 份手写 + 22 个生成页，配对页从 11 张扩到 21 张那一批起就没人跟着改这两句——它不在这 23 个事实的射程内）。
+**上面表格里那格「31 份」照旧不动**，它是 09-26 那轮的实测记录；两处的区别就在这儿：一个是现状主张，一个是档案。
 
 ## 3. 收下改动：建议分两个提交
 
