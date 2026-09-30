@@ -372,9 +372,13 @@ onUnmounted(() => {
           </div>
           <!-- persistent=false: the default keeps the content mounted after the first open,
              which would leave PreferencesMenu's shortcut-recording state (and its document
-             keydown listener) alive while the popover is closed. -->
+             keydown listener) alive while the popover is closed.
+             width=320: at 260 the mode row's longest label (跟随系统) wrapped onto a second line and
+             its siblings stretched with it, which put 18px on a panel already 657 tall — so the
+             popover hung below the fold in any window shorter than ~724px. Measured at 320: 93px per
+             cell, every label on one line, panel 596 tall. The height cap lives in PreferencesMenu. -->
           <el-popover
-            :width="260"
+            :width="320"
             trigger="click"
             placement="bottom-end"
             :persistent="false"
