@@ -1402,7 +1402,7 @@ ${lists}
 const STATIC_PAGES = {
   home: {
     path: '/',
-    updated: '2026-09-29',
+    updated: '2026-10-01',
     changefreq: 'monthly',
     priority: '1.0',
     file: 'docs/index.html',

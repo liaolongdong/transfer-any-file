@@ -225,9 +225,9 @@
             "@id": "https://liaolongdong.github.io/transfer-any-file/#app",
             "name": "Transfer Any File",
             "alternateName": ["Transfer Any File — Offline File Format Converter", "文件格式任意转换助手"],
-            "softwareVersion": "1.0.0",
+            "softwareVersion": "1.1.0",
             "datePublished": "2026-09-07",
-            "dateModified": "2026-09-29",
+            "dateModified": "2026-10-01",
             "applicationCategory": "UtilitiesApplication",
             "applicationSubCategory": "File Format Converter",
             "keywords": "offline file format converter, file converter chrome extension, markdown to pdf, word to pdf, csv to excel, json to csv, png to webp, svg to png, html to docx, batch file conversion, convert files without uploading, local-first, privacy",
@@ -4258,13 +4258,13 @@
             <table class="matrix">
               <caption>
                 <span lang="zh-CN"
-                  >文件格式任意转换助手 1.0.0 的实际转换能力（从 utils/converters/
+                  >文件格式任意转换助手 1.1.0 的实际转换能力（从 utils/converters/
                   注册表直接推导，非估计值）。三个格式列互不重叠，相加正好等于「可达」：「一步直达」是已注册转换器的目标，「经链路到达」只列链路可达且仍然可选的目标，「被置灰」列同样链路可达、但被语义策略禁用的组合（图片
                   → 文本 / 数据：没有文字层，除非接 OCR；PDF → 表格 / JSON：PDF
                   不携带表格结构）。被置灰的全部是多步链路目标，因为没有任何一条已注册的直连转换被策略禁用。去掉「被置灰」即为「可选」。</span
                 >
                 <span lang="en"
-                  >Actual conversion capability in Transfer Any File 1.0.0, derived from the converter registry rather
+                  >Actual conversion capability in Transfer Any File 1.1.0, derived from the converter registry rather
                   than estimated. The three format columns do not overlap, and together they add up to "Reachable":
                   "Direct targets" are registered converters, "Reached via a chain" lists only chain-reachable targets
                   that stay selectable, and "Greyed out" holds the chain-reachable pairs the semantic policy disables
@@ -7619,7 +7619,7 @@ pnpm build</code><button
           </div>
           <p class="updated">
             <span lang="zh-CN"
-              ><strong>版本 1.0.0 · 本页最后更新 2026-09-29。</strong>文中全部数字从代码取证：14 种格式来自
+              ><strong>版本 1.1.0 · 本页最后更新 2026-10-01。</strong>文中全部数字从代码取证：14 种格式来自
               <code>FileFormat</code> 枚举，48 条路径与 143 个可达组合来自转换器注册表的邻接图，116 个可选组合是 143
               减去 <code>utils/core/conversion-policy.ts</code> 置灰的 27 个，3.83 MB 来自
               <code>pnpm build</code> 输出，权限与上限来自 manifest 与源码常量。截图与推广图由
@@ -7627,7 +7627,7 @@ pnpm build</code><button
               <code>pnpm pages:render</code> 生成，与 <code>docs/sitemap.xml</code> 同步。</span
             >
             <span lang="en"
-              ><strong>Version 1.0.0 · page last updated 2026-09-29.</strong> Every number on this page is taken from
+              ><strong>Version 1.1.0 · page last updated 2026-10-01.</strong> Every number on this page is taken from
               the code: 14 formats from the <code>FileFormat</code> enum, 48 routes and 143 reachable combinations from
               the converter registry's adjacency graph, and 116 selectable combinations — that is 143 minus the 27 pairs
               <code>utils/core/conversion-policy.ts</code> greys out. 3.83 MB comes from <code>pnpm build</code> output,
@@ -7943,12 +7943,12 @@ pnpm build</code><button
               </a>
             </span>
             <span>
-              <span lang="zh-CN">最后更新 2026-09-29 · </span><span lang="en">Last updated 2026-09-29 · </span
+              <span lang="zh-CN">最后更新 2026-10-01 · </span><span lang="en">Last updated 2026-10-01 · </span
               ><a
                 href="https://github.com/liaolongdong/transfer-any-file/blob/main/CHANGELOG.md"
                 rel="noopener"
                 target="_blank"
-                >v1.0.0</a
+                >v1.1.0</a
               >
             </span>
           </div>
