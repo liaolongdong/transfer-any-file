@@ -11,6 +11,19 @@ always name the same release.
 
 ### Added
 
+- **The preview header grew a copy button.** For content that already is text (TXT, CSV, JSON, Markdown,
+  HTML), the preview dialog's header now puts a copy button to the left of Download, going through the
+  workbench's own `utils/core/clipboard.ts`: when the Clipboard API is refused or missing it falls back to
+  `execCommand('copy')`, and the two outcomes reuse the existing `preview.copied` and `preview.copyFailed`
+  messages instead of inventing a third. Three edges are deliberate: **the button only appears where the
+  whole document exists as text** — a bitmap, a PDF or a DOCX preview has no "text of this pane", and a
+  button that leaves nothing on the clipboard reads as broken rather than as unavailable; **JSON copies the
+  Raw string** (the two-space `JSON.stringify`), since the tree and the array table are two projections of
+  that same document while the per-row "copy path" button answers a different question, and neither
+  replaces the other; **Markdown and HTML copy the source**, even while the rendered iframe is what you are
+  looking at — the rendering is this conversion's output, not the file's content. There is no "copy this
+  node" or "copy this subtree": that would mean introducing a selection concept into a pane whose state is
+  already taken by expansion and search.
 - **The product page's structured data now answers in the reader's language.** The `FAQPage` node in `docs/index.html`
   carried both languages inside one `mainEntity` — 22 questions each — while the page shows only the reader's language at a
   time. That is not a formatting question: `Question.name` and the answers land verbatim in rich results and in what an AI
@@ -934,8 +947,59 @@ zero network requests`) and the Chinese equivalent never appeared in a search re
   green with the chaining deleted, at 30 ms it loses `presets`. No change to the interface, interaction or
   stored data.
 
+- **The preferences panel is wider and scrolls inside itself.** The entry stays the popover anchored to the
+  header's gear rather than becoming a centred dialog: it edits three unrelated switches and one filename
+  pattern, in and out with one click each, and a modal would add a scrim plus focus handling this pane does
+  not need. Both measurements changed, and both were read off the built artifact's real layout. Width
+  260 → 320: at 260 the longest label in the mode row wrapped onto a second line and its siblings stretched
+  to match, which put 18px on the panel for nothing. Height now carries `max-height: calc(100vh - 110px)`
+  with `overflow-y: auto`: the popover's top edge sits 67px from the top of the viewport and its own padding
+  and border cost 26px, so the cap leaves the bottom edge 17px clear of the fold. Measured before, the
+  panel was 631px tall inside a 657px popover and the last row (the shortcut) fell below the fold in any
+  window shorter than ~724px, where it could only be read by scrolling the page out from under a popover
+  pinned to the header; now the panel is 596px inside 622px and short windows scroll the panel itself.
+  `overscroll-behavior: contain` stops that scroll from handing over to the page at either end. The popover
+  keeps `:persistent="false"`, which is also what tears down the `document` keydown listener the shortcut
+  recorder installs.
+
 ### Fixed
 
+- **Markdown or HTML that references images failed outright when converted to PDF or PNG.** The failure
+  had two faces and one cause: the rasterizer puts the sanitized document into a sandboxed `<iframe>`
+  and screenshots it, and by then not one of the image references can be resolved locally. The first
+  face is `errors.renderFailed` — a remote `src` has already lost its attribute to
+  `stripRemoteResources()`, and an `<img>` with **no** `src` is the dangerous case: `html-to-image`
+  reads `img.src`, gets the empty string, requests that from the host page, downloads this extension’s
+  own workbench HTML, hands it back as a `data:text/html` URL, and the clone fires `onerror` — which
+  rejects the whole `toCanvas`, not just that one picture. The second face is `errors.renderTimeout`:
+  the sanitizer keeps relative and root-absolute paths (nothing on the network was asked for), but
+  inside a `srcdoc` iframe they resolve into the extension package, where the user’s sibling files are
+  not; a protocol-relative reference pointed at a host that never answers is more direct still — an
+  HTML document’s `load` event waits on its images, so the document is never measurable and the
+  conversion sits out the full 10 s of `LOAD_TIMEOUT_MS`. The rewrite now runs over the **string** in
+  `replaceUnresolvableImageRefs()` (`utils/core/html-raster.ts`) before anything is rendered: only
+  `data:` and `blob:` count as “the bytes are already here”, every other `<img>` becomes an inline
+  dashed placeholder box, `srcset` is dropped (it would win back over the replacement), an SVG
+  `<image>` gets its own pass (`doc.images` only collects HTMLImageElement), the namespace-free `href`
+  is written because that is what `href.baseVal` reads, and a legacy `xlink:href` is removed; the
+  doctype is preserved, since the height that gets measured was measured in standards mode. Rewriting
+  the string rather than a live `contentDocument` is precisely the way out of the second face: while a
+  dead reference is still in the document, the `load` event never reaches its end. The placeholder
+  paints inside the sandboxed frame, so its colours are literals rather than `--fat-*` tokens — that
+  scope cannot read the design tokens. `html-to-pdf` and `html-to-png` share this pipeline, so both are
+  fixed.
+- **A dropped image has to be said out loud.** Conversions now carry `ConvertResult.imagesDropped`,
+  measured by the step that does the work (references rewritten, plus whatever `onImageErrorHandler`
+  swallowed during rendering), hoisted up a multi-step chain with `||=` in `useConversion`, and the
+  result card shows a note that those positions appear as outlined boxes — the same place and the same
+  discipline as the dropped-frames and rasterized-SVG disclosures. Inline images (`data:` / `blob:`)
+  are not replaced, not counted, not mentioned, so a document whose pictures were already embedded
+  converts exactly as it did before, and the silence is correct; that is what the e2e control case
+  pins down. A new section, “Markdown With Unresolvable Images Still Renders”, adds 4 assertions, one
+  per claim: the PDF artifact exists, the disclosure note exists, the fixture carrying a remote, a
+  protocol-relative and a sibling-path reference still makes **zero subresource requests** (reusing the
+  existing sentinel), and the inline-image control shows no disclosure. The change was verified with
+  the full suite in headless mode: 325/325.
 - **A PNG converted to PDF came out 10–95x larger than the image it came from.** Given no compression
   argument, jsPDF writes the samples it decoded from the PNG into the stream with **no row filter at
   all**: `checkCompressValue()` maps `undefined` to NONE, and the “fall back to SLOW” branch inside
