@@ -72,7 +72,7 @@ curl -Is https://liaolongdong.github.io/transfer-any-file/privacy.html | head -1
 | ----------------------------- | ----------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
 | 名称 Extension Name           | `Transfer Any File — Offline File Format Converter` (49/75)                                                 | `文件格式任意转换助手 — 离线转换无上传` (20/75)                                                                                        |
 | 简介 Short description        | `Convert between 14 common document, spreadsheet and image file formats right in your browser...` (127/132) | `在本机浏览器内互转 14 种常见的文档、表格与图片格式。支持混合批量、多步链路、预览编辑与 ZIP 打包，全程离线，不上传、无账号。` (66/132) |
-| 详描 Full description         | [英文详细介绍](#英文详细介绍) (8,853 字符)                                                                  | [中文详细介绍](#中文详细介绍) (3,125 字符)                                                                                             |
+| 详描 Full description         | [英文详细介绍](#英文详细介绍) (8,902 字符)                                                                  | [中文详细介绍](#中文详细介绍) (3,142 字符)                                                                                             |
 | 类别 Category                 | `Productivity`                                                                                              | `Productivity`                                                                                                                         |
 | 主要语言 Primary Language     | -                                                                                                           | `Chinese (China)`                                                                                                                      |
 | 附加语言 Additional Languages | `English (United States)`                                                                                   | -                                                                                                                                      |
@@ -86,7 +86,7 @@ Transfer Any File — Offline File Format Converter
 Convert between 14 common document, spreadsheet and image file formats right in your browser — offline, in batches, no uploads.
 ```
 
-**Chinese (China) —— 默认语言标签页，先贴这一套。** 三个字段（名称 20/75、简介 66/132、详描 3,125 字符）在
+**Chinese (China) —— 默认语言标签页，先贴这一套。** 三个字段（名称 20/75、简介 66/132、详描 3,142 字符）在
 [商店文案](#商店文案)里；名称与简介同时活在 `public/_locales/zh_CN/messages.json`，`pnpm verify:listing` 逐字比对两边。
 那个标签页要等**带 `_locales/zh_CN/` 的包上传之后**才出现——先传包再填表，手上那份旧草稿看不到它是正常的。
 
@@ -265,7 +265,7 @@ Convert between 14 common document, spreadsheet and image file formats right in 
 扩展真正具备的能力（混格式批量、多步链路、预览与编辑、ZIP 下载），而不是文件扩展名。依旧不写 PDF 转 Word、PDF 转 Excel，
 因为这个扩展做不到无损的 PDF 转换。
 
-**详细介绍（Detailed Description）** [必填] —— 纯文本，本仓库自设上限 16,000 字符（英文块实测 8,853；下面的中文块实测 3,125）
+**详细介绍（Detailed Description）** [必填] —— 纯文本，本仓库自设上限 16,000 字符（英文块实测 8,902；下面的中文块实测 3,142）
 
 _Google 没有为这个字段公布长度_——75 与 132 是写在文档里的，16,000 不是。把它当成本仓库自己的守卫
 （`pnpm verify:listing`），按后台计数器设定，提交时以那个计数器为准，不要把 16,000 背给审核员。
@@ -330,7 +330,7 @@ PLEASE KNOW BEFORE INSTALLING
 • Reading a PDF in extracts its text; the original layout and embedded images are not preserved
 • Images cannot be turned into text or spreadsheets — that needs OCR, which is not bundled
 • Three of the image formats are input-only, because no browser can encode them; an animated source contributes its first frame, and a vector source is rasterised
-• Pictures a document references over the network or by a path next to the file have no bytes an offline conversion can reach, so converting to PDF or an image marks those positions with a dashed placeholder box — embed the picture as a data URI if it has to come through
+• Pictures a document references over the network or by a path next to the file have no bytes an offline conversion can reach, so converting to PDF or an image leaves those positions empty or marks them with an outlined box, and the result card counts how many — embed the picture as a data URI if it has to come through
 • One file up to 100 MB is accepted, and a batch is limited to 200 files
 
 QUESTIONS
@@ -409,7 +409,7 @@ Version 1.0.0 — first store submission.
 • 读入 PDF 只提取文本，原有版式与内嵌图片不会保留
 • 图片无法转换为文本或表格——那需要 OCR，本扩展未内置
 • 有三种图片格式只能作为输入、不能作为输出，因为浏览器未提供它们的编码器；动图源文件取首帧，矢量源文件先展平
-• 文档里用网络地址或相邻路径引用的图片，离线转换取不到它们的字节，所以转 PDF 或图片时这些位置会以虚线方框标出——想让图片一起转出，请先把它内嵌为 data URI
+• 文档里用网络地址或相邻路径引用的图片，离线转换取不到它们的字节，所以转 PDF 或图片时这些位置会留空或以虚线方框标出，结果卡片按张数说明有多少处——想让图片一起转出，请先把它内嵌为 data URI
 • 单文件最大 100 MB，单批最多 200 个文件
 
 常见问题
@@ -956,6 +956,13 @@ PDF → ZIP 解码）。跑这一步的纪律：**`.output/chrome-mv3` 在被测
 ## 本文件的变更记录
 
 > 这些是关于**本文件**的修订记录，不是产品发布说明（产品在 `CHANGELOG.md`）。数字全部由 `pnpm verify:listing` 实测。
+
+- **2026-09-30（同一条 bullet 改口径：按张数、两种形状）** —— 上一条刚加进去的那条 bullet 当晚被改成实测口径。两处变化：
+  结果卡片现在报出**张数**（`ConvertResult.imagesDropped` 从标志改成计数，由 `utils/core/html-raster.ts` 量出），所以措辞带上
+  「结果卡片按张数说明有多少处」；被占位的位置有两种形状，渲染前替换掉的引用是虚线方框，只在克隆时才失败的（浏览器解不开的
+  `data:`、已经撤销的 `blob:`）那处直接留空，所以两种形状都要写进去，只写方框等于少报一种。**副作用**：两个粘贴块再度变长，
+  速查表、字段标签与上架手册（中英两份）里的四处字符数按 `pnpm verify:listing` 重测为英文 8,902 / 中文 3,142；上一条记录里的
+  8,853 / 3,125 是它那一轮的实测值，照旧不改。名称、简介、单一目的与隐私披露逐字节未动。
 
 - **2026-09-30（取不到的图片引用进 listing）** —— 两份详细介绍的「安装前请了解 / PLEASE KNOW BEFORE INSTALLING」各加同一条
   bullet，位置同为「三种图片格式只能作为输入」之后：文档以网络地址或相邻路径引用的图片，离线转换取不到字节，转 PDF 或图片时

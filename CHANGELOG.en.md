@@ -988,18 +988,22 @@ zero network requests`) and the Chinese equivalent never appeared in a search re
   paints inside the sandboxed frame, so its colours are literals rather than `--fat-*` tokens — that
   scope cannot read the design tokens. `html-to-pdf` and `html-to-png` share this pipeline, so both are
   fixed.
-- **A dropped image has to be said out loud.** Conversions now carry `ConvertResult.imagesDropped`,
-  measured by the step that does the work (references rewritten, plus whatever `onImageErrorHandler`
-  swallowed during rendering), hoisted up a multi-step chain with `||=` in `useConversion`, and the
-  result card shows a note that those positions appear as outlined boxes — the same place and the same
-  discipline as the dropped-frames and rasterized-SVG disclosures. Inline images (`data:` / `blob:`)
-  are not replaced, not counted, not mentioned, so a document whose pictures were already embedded
-  converts exactly as it did before, and the silence is correct; that is what the e2e control case
-  pins down. A new section, “Markdown With Unresolvable Images Still Renders”, adds 4 assertions, one
-  per claim: the PDF artifact exists, the disclosure note exists, the fixture carrying a remote, a
+- **A dropped image has to be said out loud, and counted.** Conversions now carry
+  `ConvertResult.imagesDropped`, measured by the step that does the work (references rewritten before
+  rendering, plus whatever `onImageErrorHandler` swallowed during it), accumulated up a multi-step chain
+  with `+=` in `useConversion`, and the result card shows a note that names how many positions came out
+  that way — the same place and the same discipline as the dropped-frames and rasterized-SVG
+  disclosures. The wording covers both shapes, because there are two: a reference replaced before
+  rendering leaves an outlined box, while one that only fails at clone time — a `data:` the browser
+  cannot decode, a `blob:` already revoked — leaves that position empty, so saying only "box"
+  under-reports one of them. Inline images (`data:` / `blob:`) are not replaced, not counted, not
+  mentioned, so a document whose pictures were already embedded converts exactly as it did before, and
+  the silence is correct; that is what the e2e control case pins down. A new section, “Markdown With
+  Unresolvable Images Still Renders”, adds 4 assertions, one per claim: the PDF artifact exists, the
+  disclosure note exists together with its real count, the fixture carrying a remote, a
   protocol-relative and a sibling-path reference still makes **zero subresource requests** (reusing the
   existing sentinel), and the inline-image control shows no disclosure. The change was verified with
-  the full suite in headless mode: 325/325.
+  the full suite in headless mode: 327/327.
 - **A PNG converted to PDF came out 10–95x larger than the image it came from.** Given no compression
   argument, jsPDF writes the samples it decoded from the PNG into the stream with **no row filter at
   all**: `checkCompressValue()` maps `undefined` to NONE, and the “fall back to SLOW” branch inside

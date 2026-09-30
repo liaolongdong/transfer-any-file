@@ -637,13 +637,13 @@ export const PAIRS = [
         '没有文字层：PDF 里的字选不中、复制不走、无法全文检索、屏幕阅读器读不到——它是一页页图像',
         '文件明显大于同内容的文字型 PDF',
         '页边距与分页位置由渲染高度决定，不能像 Word 那样指定「第 3 页开始」；跨页的表格可能被切成两段',
-        '图片引用只有 data URI 与 blob 能落地：远程与相对路径引用在渲染前就换成虚线方框占位（相对路径在沙箱里指向扩展包，不在你文件所在的目录），转换过程不下载任何东西，结果卡片会说明有位置被占位',
+        '图片引用只有 data URI 与 blob 能落地：远程与相对路径引用在渲染前就换成虚线方框占位（相对路径在沙箱里指向扩展包，不在你文件所在的目录），而解不开的 data: 与已撤销的 blob: 会在那处直接留空，转换过程不下载任何东西，结果卡片按张数说明有多少处',
       ],
       en: [
         'No text layer: the words cannot be selected, copied, full-text searched or read by a screen reader — the pages are images',
         'Noticeably heavier than a text-based PDF of the same content',
         'Margins and page breaks follow the rendered height; you cannot dictate "start on page 3", and a tall table can be cut in two',
-        'Only a data URI or a blob reference survives: a remote or a relative one becomes a dashed placeholder box before rendering (inside the sandbox a relative path points into the extension package, not next to your file), the conversion downloads nothing, and the result card says that positions were replaced',
+        'Only a data URI or a blob reference survives: a remote or a relative one becomes a dashed placeholder box before rendering (inside the sandbox a relative path points into the extension package, not next to your file), one the browser cannot decode any more — a revoked blob:, a data: payload it will not read — leaves that position empty, the conversion downloads nothing, and the result card counts how many positions were affected',
       ],
     },
     notes: {
@@ -1761,13 +1761,13 @@ export const PAIRS = [
     limits: {
       zh: [
         '没有文字层：PDF 里的字是画出来的，搜索、复制、屏幕阅读器都取不到内容',
-        '远程引用在渲染前被剥掉，剥空之后的引用与相对路径引用会换成虚线方框占位；只有 data URI / blob 的图片真能进 PDF，远程图片、远程字体与远程 CSS 一律不下载',
+        '远程引用在渲染前被剥掉，剥空之后的引用与相对路径引用会换成虚线方框占位；只有浏览器真解得开的 data: / blob: 图片能进 PDF，解不开的 data: 与已撤销的 blob: 会在那处留空，远程图片、远程字体与远程 CSS 一律不下载',
         '长文档像素比会降：高度超过 2000 px 用 1.5 倍、超过 4000 px 用 1 倍，超长页的字不如短页锐利',
         '分页只看高度，不懂「章节起新页」；纸张固定 A4 竖版，不能选横版或其它尺寸',
       ],
       en: [
         'There is no text layer: the characters are drawn, so search, copy and screen readers find nothing to work with',
-        'Remote references are stripped before rendering, and what is left of them — the emptied reference, plus any relative path — is replaced by a dashed placeholder box; only data: and blob: pictures actually reach the PDF, and no remote image, font or stylesheet is ever downloaded',
+        'Remote references are stripped before rendering, and what is left of them — the emptied reference, plus any relative path — is replaced by a dashed placeholder box; only a data: or blob: picture the browser can still decode reaches the PDF, one it cannot (a revoked blob:, an unreadable data:) leaves that position empty, and no remote image, font or stylesheet is ever downloaded',
         'Long documents drop resolution: past 2000 px of height the ratio is 1.5× and past 4000 px it is 1×, so very long pages are less crisp than short ones',
         'Pagination only measures height and does not understand “start a new page per chapter”; the paper is fixed portrait A4 with no size or orientation choice',
       ],
@@ -1793,8 +1793,8 @@ export const PAIRS = [
       {
         q: { zh: '为什么图片不见了？', en: 'Why did the images vanish?' },
         a: {
-          zh: '远程引用在渲染前被剥掉，这是离线承诺的必要部分；而相对路径在渲染用的沙箱文档里指向的是扩展自己的包，不是你 HTML 旁边的那个目录。所以这两类引用统一换成虚线方框——位置留着，内容不猜。想让图片进 PDF，把它内联成 data URI；这一轮有图片被占位，结果卡片上也会写明。',
-          en: 'Remote references are stripped before rendering — that is what keeps the offline promise, and a relative path resolves inside the sandboxed document against the extension package, not the folder next to your HTML. Both shapes therefore become a dashed placeholder box: the position is kept, the content is not guessed. Inline a picture as a data URI to get it into the PDF, and the result card says when a conversion had images replaced.',
+          zh: '远程引用在渲染前被剥掉，这是离线承诺的必要部分；而相对路径在渲染用的沙箱文档里指向的是扩展自己的包，不是你 HTML 旁边的那个目录。所以这两类引用统一换成虚线方框——位置留着，内容不猜；只有等克隆到一半才失败的图（浏览器解不开的 data:、已经撤销的 blob:）会在那处直接留空。想让图片进 PDF，把它内联成 data URI；这一轮有图片没拿到，结果卡片上会按张数写明。',
+          en: 'Remote references are stripped before rendering — that is what keeps the offline promise, and a relative path resolves inside the sandboxed document against the extension package, not the folder next to your HTML. Both shapes therefore become a dashed placeholder box: the position is kept, the content is not guessed. Only a picture that fails later, while the clone is being built — a data: the browser will not decode, a blob: already revoked — leaves that position empty. Inline a picture as a data URI to get it into the PDF, and the result card counts how many positions were affected.',
         },
       },
       {
