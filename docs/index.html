@@ -323,7 +323,7 @@
                 "name": "为什么 Markdown 转 PDF 会显示两步？",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "因为不存在 Markdown 直达 PDF 的转换器。每种转换是图上的一条边，工作台用广度优先搜索求最短链路并逐步执行，所以 Markdown → PDF 实际按 Markdown → HTML → PDF 两步完成。路径会显示在选择框下方，不需要你手工串联；经过新格式的路径会自动被发现，无需改代码。"
+                  "text": "因为不存在 Markdown 直达 PDF 的转换器。每种转换是图上的一条边，工作台用广度优先搜索求最短链路并逐步执行，所以 Markdown → PDF 实际按 Markdown → HTML → PDF 两步完成。路径会显示在选择框下方，不需要你手工串联；经过新格式的路径会自动被发现，无需改代码。这条链路上的图片要单独说：文档引用的网络图片与相对路径图片，离线转换取不到它们的字节，结果里那些位置会以虚线方框标出；要让图片一起转出，请先把它内嵌为 data URI。"
                 }
               },
               {
@@ -575,7 +575,7 @@
             name: 'Why does Markdown to PDF show two steps?',
             acceptedAnswer: {
               '@type': 'Answer',
-              text: 'Because there is no Markdown-to-PDF converter. Each conversion is an edge in a graph, and the workbench finds the shortest chain with breadth-first search and runs it step by step, so Markdown → PDF executes as Markdown → HTML → PDF. The route is printed under the picker; you never chain it by hand, and routes through a newly added format are discovered automatically without code changes.',
+              text: 'Because there is no Markdown-to-PDF converter. Each conversion is an edge in a graph, and the workbench finds the shortest chain with breadth-first search and runs it step by step, so Markdown → PDF executes as Markdown → HTML → PDF. The route is printed under the picker; you never chain it by hand, and routes through a newly added format are discovered automatically without code changes. Images on that route need their own note: a picture the document references over the network or by a path next to the file has no bytes an offline conversion can reach, so its position comes out as a dashed placeholder box. Embed it as a data URI if it has to come through.',
             },
           },
           {
@@ -6924,13 +6924,17 @@ pnpm build</code><button
                   >因为不存在 Markdown 直达 PDF
                   的转换器。每种转换是图上的一条边，工作台用广度优先搜索求最短链路并逐步执行，所以 Markdown → PDF 实际按
                   Markdown → HTML → PDF
-                  两步完成。路径会显示在选择框下方，不需要你手工串联；经过新格式的路径会自动被发现，无需改代码。</span
+                  两步完成。路径会显示在选择框下方，不需要你手工串联；经过新格式的路径会自动被发现，无需改代码。这条链路上的图片要单独说：文档引用的网络图片与相对路径图片，离线转换取不到它们的字节，结果里那些位置会以虚线方框标出；要让图片一起转出，请先把它内嵌为
+                  data URI。</span
                 >
                 <span lang="en"
                   >Because there is no Markdown-to-PDF converter. Each conversion is an edge in a graph, and the
                   workbench finds the shortest chain with breadth-first search and runs it step by step, so Markdown →
                   PDF executes as Markdown → HTML → PDF. The route is printed under the picker; you never chain it by
-                  hand, and routes through a newly added format are discovered automatically without code changes.</span
+                  hand, and routes through a newly added format are discovered automatically without code changes. The
+                  pictures on this route are a separate case: an image the document references over the network or by a
+                  path next to the file has no bytes an offline conversion can reach, so those positions come out as
+                  dashed placeholder boxes. Embed the image as a data URI if it has to come through.</span
                 >
               </div>
             </details>

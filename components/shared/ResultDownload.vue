@@ -93,9 +93,10 @@ const svgRasterized = computed(() => props.results.some(r => r.svgRasterized));
 
 /**
  * A document that references pictures by URL, or by a path next to the file, asked for images this
- * offline conversion does not have. The renderer keeps each position as an outlined box and reports how
- * many it replaced — without the note, those boxes read as part of the author's layout. The
- * orchestrator carries that up from whichever step did the rendering, exactly as `svgRasterized`.
+ * offline conversion does not have. The renderer keeps each position as an outlined box and counts how
+ * many it replaced; this card shows the note rather than the count, because without the note those
+ * boxes read as part of the author's layout. The orchestrator carries the fact up from whichever step
+ * did the rendering, exactly as `svgRasterized`.
  */
 const imagesDropped = computed(() => props.results.some(r => r.imagesDropped));
 
