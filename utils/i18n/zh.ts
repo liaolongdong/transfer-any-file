@@ -56,6 +56,7 @@ export default {
     docxHint: '文件大小: {size}，请下载后用 Word 打开查看。',
     xlsxHint: '文件大小: {size}，请下载后用 Excel 打开查看。',
     download: '下载',
+    copy: '复制',
     renderFailed: '预览渲染失败，请下载后查看',
     zoomIn: '放大',
     zoomOut: '缩小',

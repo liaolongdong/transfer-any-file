@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, shallowRef, watch, onUnmounted } from 'vue';
-import { ZoomIn, ZoomOut, Download, Loading } from '@element-plus/icons-vue';
+import { ZoomIn, ZoomOut, Download, Loading, CopyDocument } from '@element-plus/icons-vue';
 import { FileFormat } from '~/utils/core/types';
 import { getFormatLabel } from '~/utils/core/format-labels';
-import { formatSize } from '~/utils/core/format';
+import { formatSize, TEXT_FORMATS } from '~/utils/core/format';
+import { copyText } from '~/utils/core/clipboard';
 import { asErrorKey } from '~/utils/core/error-keys';
 import { docxToPreviewHtml, xlsxToPreviewHtml } from '~/utils/core/preview';
 import { buildJsonTable, inspectJson, pickTableSource, type JsonPreview } from '~/utils/core/json-view';
@@ -69,6 +70,15 @@ const isPdf = computed(() => props.format === FileFormat.PDF);
 const isDocx = computed(() => props.format === FileFormat.DOCX);
 const isXlsx = computed(() => props.format === FileFormat.XLSX);
 const isRenderedDoc = computed(() => isHtml.value || isMarkdown.value || isDocx.value || isXlsx.value);
+
+/**
+ * Whether the header offers a whole-document copy: only when the pane *is* that text. TXT/CSV/JSON
+ * always (for JSON, the pretty text the raw tab shows), MD/HTML in either tab (the source, which is
+ * what `textContent` holds even while the rendered iframe is up), and nothing else — there is no
+ * lossless text to take out of a bitmap, a PDF or a DOCX, and a button that had nothing to put on the
+ * clipboard would read as a broken control rather than an unavailable one.
+ */
+const canCopyText = computed(() => TEXT_FORMATS.has(props.format) && textContent.value.length > 0);
 
 const jsonTree = computed(() => jsonPreview.value?.tree ?? null);
 
@@ -221,6 +231,18 @@ function download(): void {
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
+
+/** Whole-document copy. `copyText` is the one route the rest of the workbench uses: it falls back to
+ *  `execCommand('copy')` when the Clipboard API is unavailable or denied, and reports success rather
+ *  than throwing, so a denial lands on the same hint the JSON path row shows instead of an error. */
+async function copyAll(): Promise<void> {
+  if (!canCopyText.value) return;
+  if (await copyText(textContent.value)) {
+    ElMessage.success(t('preview.copied'));
+  } else {
+    ElMessage.error(t('preview.copyFailed'));
+  }
+}
 </script>
 
 <template>
@@ -299,6 +321,14 @@ function download(): void {
             @click="scale = Math.min(scale + 0.25, 3)"
           >
             <ZoomIn />
+          </ElButton>
+          <ElButton
+            v-if="canCopyText"
+            text
+            :aria-label="t('preview.copy')"
+            @click="copyAll"
+          >
+            <CopyDocument /> {{ t('preview.copy') }}
           </ElButton>
           <ElButton
             text

@@ -52,6 +52,7 @@ const en: typeof zh = {
     docxHint: 'File size: {size}. Please download and open with Word.',
     xlsxHint: 'File size: {size}. Please download and open with Excel.',
     download: 'Download',
+    copy: 'Copy',
     renderFailed: 'Preview rendering failed, please download to view',
     zoomIn: 'Zoom in',
     zoomOut: 'Zoom out',
