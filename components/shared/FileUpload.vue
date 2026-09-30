@@ -488,7 +488,7 @@ defineExpose({
         class="fat-expand file-list-expand"
       >
         <TransitionGroup
-          name="file-list"
+          name="fat-list"
           tag="div"
           class="file-list"
         >
@@ -743,32 +743,8 @@ defineExpose({
   align-items: center;
 }
 
-/* Rows animate in only. A departing row has nowhere honest to go: held in flow it doubles the
-   list's height against the batch that replaces it, and lifted out of flow it overlaps the rows
-   that took its place. Removing it on the spot while `-move` carries the gap closed reads as
-   "this file is gone" and cannot tear the layout — and it is the case that used to flicker,
-   because the index-bearing key remounted every row below the removed one. */
-.file-list-enter-active {
-  transition:
-    opacity var(--fat-duration-base) var(--fat-ease-enter),
-    transform var(--fat-duration-base) var(--fat-ease-enter);
-}
-
-.file-list-enter-from {
-  opacity: 0;
-  transform: translateY(calc(var(--fat-slide-md) * -1));
-}
-
-/* Declared so the comment above is literally true rather than merely intended. Without a leave
-   transition of its own, the row would still inherit `.file-item`'s `--fat-transition-fast`, and
-   <TransitionGroup> reads the *element's* computed duration before it unmounts — so a deleted row
-   would sit unchanged for one duration and the list would re-flow twice. A zeroed duration takes it
-   out on the spot, leaving `-move` as the only motion. */
-.file-list-leave-active {
-  transition: none;
-}
-
-.file-list-move {
-  transition: transform var(--fat-duration-base) var(--fat-ease-standard);
-}
+/* The row motion itself is `name="fat-list"`, declared once in `assets/styles/global.css` next to
+   the history rows that share it. What matters here is the *key*: these rows are keyed by file
+   identity, not by index, because an index key remounts every row below a removed one — that is
+   what used to flicker, and no transition can smooth a remount. */
 </style>

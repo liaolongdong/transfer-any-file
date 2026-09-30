@@ -23,7 +23,7 @@ const htmlToPdfConverter: Converter = {
     // A GBK-exported HTML file is unreadable as UTF-8, and rasterizing the mojibake would
     // produce a PDF of mojibake that looks like a successful conversion.
     const htmlContent = await decodeTextBlobLenient(input);
-    const canvas = await renderHtmlToCanvas(htmlContent, ctx?.signal);
+    const { canvas, imagesDropped } = await renderHtmlToCanvas(htmlContent, ctx?.signal);
 
     // Create PDF from canvas — slice into A4-sized pages
     const imgWidth = 210; // A4 width in mm
@@ -85,7 +85,7 @@ const htmlToPdfConverter: Converter = {
 
     // Get PDF as blob
     const pdfBlob = pdf.output('blob');
-    return { blob: pdfBlob, filename: 'converted.pdf' };
+    return { blob: pdfBlob, filename: 'converted.pdf', imagesDropped };
   },
 };
 

@@ -346,6 +346,15 @@ const notifyStatusKey = computed<string>(() => {
   flex-direction: column;
   gap: var(--fat-space-lg);
   min-width: 200px;
+
+  /* The popover hangs 67px under the viewport's top edge and its own frame costs 26px (12px padding
+     twice, 1px border twice), so 110px leaves the panel bottom 17px clear of the fold. Past that cap
+     the menu scrolls inside itself instead of running below the fold, where it could only be read by
+     scrolling the page out from under a popover anchored to the header. `contain` stops that scroll
+     from chaining to the page once it hits either end. */
+  max-height: calc(100vh - 110px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .pref-section {

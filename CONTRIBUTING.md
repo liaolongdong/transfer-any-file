@@ -79,7 +79,7 @@ git tag vX.Y.Z && git push origin vX.Y.Z   # 推送标签即触发 release.yml�
 
 - [WXT](https://wxt.dev/) + Vue 3 + TypeScript + Element Plus（Manifest V3），Element Plus 通过 `unplugin-vue-components` + `ElementPlusResolver` 按需引入，命令式 API 由 resolver 自动导入
 - 转换器：[marked](https://github.com/markedjs/marked)、[turndown](https://github.com/mixmark-io/turndown)、[mammoth](https://github.com/mwilliamson/mammoth.js)、[html-docx-js-typescript](https://github.com/caiyexiang/html-docx-js-typescript)、[jsPDF](https://github.com/parallax/jsPDF) + [html-to-image](https://github.com/bubkoo/html-to-image)、[pdf.js](https://mozilla.github.io/pdf.js/)、[SheetJS](https://sheetjs.com/)、[fflate](https://github.com/101arrowz/fflate)、[DOMPurify](https://github.com/cure53/DOMPurify)
-- 重型依赖按转换器动态 `import()`，首屏保持精简（完整产物 3.78 MB）；ZIP 引擎 fflate 也走同一条路——五个调用点统一经 `utils/core/zip.ts` 的 `loadFflate()`，转换器由 `initConverters()` 静态注册，顶层 `import 'fflate'` 会把它拉回首屏；重型子组件在 `App.vue` 里用 `defineAsyncComponent` 懒加载
+- 重型依赖按转换器动态 `import()`，首屏保持精简（完整产物 3.83 MB）；ZIP 引擎 fflate 也走同一条路——五个调用点统一经 `utils/core/zip.ts` 的 `loadFflate()`，转换器由 `initConverters()` 静态注册，顶层 `import 'fflate'` 会把它拉回首屏；重型子组件在 `App.vue` 里用 `defineAsyncComponent` 懒加载
 
 ## 项目结构
 

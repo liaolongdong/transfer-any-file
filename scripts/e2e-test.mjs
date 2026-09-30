@@ -64,7 +64,25 @@ function section(name) {
 // WCAG relative-luminance contrast, applied to colours read back from the live page so
 // the theme loops assert what a user actually sees rather than trusting a token name.
 // Accepts `rgb(...)` and `color(srgb ...)` (computed styles, including settled `color-mix()`
-// results) as well as `#hex` (custom-property values).
+// results), `oklab(...)` (an interpolated computed value, see below) and `#hex` (custom-property
+// values). Anything else returns null and the caller reports NaN rather than guessing.
+/** OKLab → 8-bit sRGB, D65 (the white point CSS `oklab()` is defined against), clipped per channel. */
+function oklabToRgb(l, a, b) {
+  const lms = [
+    l + 0.3963377781 * a + 0.2158037573 * b,
+    l - 0.1055613458 * a - 0.0638541728 * b,
+    l - 0.0894841775 * a - 1.291485548 * b,
+  ].map(v => v ** 3);
+  const linear = [
+    4.0767416621 * lms[0] - 3.3077115913 * lms[1] + 0.2309699292 * lms[2],
+    -1.2684380046 * lms[0] + 2.6097574011 * lms[1] - 0.3413193965 * lms[2],
+    -0.0041960863 * lms[0] - 0.7034186147 * lms[1] + 1.707614701 * lms[2],
+  ];
+  // The inverse of the transfer function `contrast()` applies on the way in, so a colour parsed
+  // through here and one parsed from `rgb()` land on the same luminance scale.
+  const encode = v => (12.92 * v <= 0.0031308 ? v * 12.92 : 1.055 * v ** (1 / 2.4) - 0.055);
+  return linear.map(v => Math.round(Math.min(1, Math.max(0, encode(Math.max(0, v)))) * 255));
+}
 function parseColor(input) {
   const s = String(input).trim();
   const fn = /^rgba?\(\s*(\d+)[,\s]+(\d+)[,\s]+(\d+)/.exec(s);
@@ -73,6 +91,12 @@ function parseColor(input) {
   // hover/active tokens resolve to, so leaving it unparsed would silently NaN a gate.
   const sp = /^color\(\s*srgb\s+([\d.]+)[\s/]+([\d.]+)[\s/]+([\d.]+)/.exec(s);
   if (sp) return [1, 2, 3].map(i => Math.round(+sp[i] * 255));
+  // A colour *mid-transition* computes to this form — CSS interpolates colours in OKLab — so it
+  // only ever shows up when a sample beats the animation. `sampleWithoutMotion` exists to stop
+  // that, but a straggler read must still measure something rather than report `NaN:1` as if it
+  // were a colour. Both the percentage and the legacy number notation are accepted.
+  const ok = /^oklab\(\s*([\d.]+)(%?)[\s,]+(-?[\d.]+)(%?)[\s,]+(-?[\d.]+)/.exec(s);
+  if (ok) return oklabToRgb(+ok[1] / (ok[2] ? 100 : 1), +ok[3], +ok[5]);
   const hex = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(s);
   if (!hex) return null;
   let d = hex[1];
@@ -95,33 +119,75 @@ function contrast(a, b) {
   return (x + 0.05) / (y + 0.05);
 }
 
+/**
+ * Collapse the page's motion for the length of one colour sample.
+ *
+ * Every sampler below reads a property the theme switch *animates into*: Element Plus transitions
+ * the button's `all .18s`, and the token-driven surfaces transition their colours too. The defence
+ * until now was a fixed wait after the `dataset` assignment, but wall time is not a synchronisation
+ * point — on a starved main thread the frames that advance an interpolation simply don't arrive, so
+ * the read lands between the old theme and the new one. That is a whole family of false reds: in the
+ * 2026-09-30 runs, `[blue dark] .drop-text: rgb(166,173,200) on rgb(248,250,252)` was the *light*
+ * pairing sampled during the dark pass, and `NaN:1 … oklab(0.801023 -0.159772 0.0858885)` was an
+ * interpolated computed value no authored token ever writes.
+ *
+ * `prefers-reduced-motion: reduce` is the app's own answer rather than a synthetic override: the
+ * global sheet collapses `transition-duration` to 0.01ms on every element under that query (measured
+ * on the built page by a throwaway Playwright probe in the untracked `.test-tmp/`: `.topbar` reports
+ * `1e-05s` under the emulation and `0.25s` without it), so the interpolation is over before the
+ * sample's own wait is, and the read can no longer be scheduled into the animated window by a slow
+ * frame. Restored on every path including a throw, because later sections measure motion of their own.
+ *
+ * What it does NOT do: a `getComputedStyle` issued in the same task as the `dataset` write returns
+ * the transition's start value with or without the emulation (same probe: `rgb(225,29,72)` for the
+ * rose-to-blue move in both modes, `rgb(43,92,184)` once any amount of time has passed). So every
+ * call site still needs its own wait between writing the theme and sampling — the emulation takes the
+ * *duration* out of that wait's budget, it does not remove the wait.
+ */
+async function sampleWithoutMotion(page, read) {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  try {
+    return await read();
+  } finally {
+    await page.emulateMedia({ reducedMotion: null });
+  }
+}
+
 /** The two colours that carry the Option-A contrast contract, read from the page: the
  *  topbar's own background vs the brand text drawn on it, plus the resolved focus ring
  *  against a card. Compared with `contrast()` on the Node side. */
 async function surfaceColors(page) {
-  return page.evaluate(() => {
-    const root = getComputedStyle(document.documentElement);
-    const topbar = document.querySelector('.topbar');
-    const brand = document.querySelector('.brand-name');
-    return {
-      topbar: topbar ? getComputedStyle(topbar).backgroundColor : '',
-      brand: brand ? getComputedStyle(brand).color : '',
-      ring: root.getPropertyValue('--fat-focus-ring').trim(),
-      card: root.getPropertyValue('--fat-bg-card').trim(),
-    };
-  });
+  return sampleWithoutMotion(page, () =>
+    page.evaluate(() => {
+      const root = getComputedStyle(document.documentElement);
+      const topbar = document.querySelector('.topbar');
+      const brand = document.querySelector('.brand-name');
+      return {
+        topbar: topbar ? getComputedStyle(topbar).backgroundColor : '',
+        brand: brand ? getComputedStyle(brand).color : '',
+        ring: root.getPropertyValue('--fat-focus-ring').trim(),
+        card: root.getPropertyValue('--fat-bg-card').trim(),
+      };
+    }),
+  );
 }
 
 /**
  * The label and the three fills an enabled primary button actually paints.
  *
- * `.el-button` transitions `all 0.18s`, so every sample has to wait that out — reading
- * earlier yields an interpolated colour rather than the theme's, which is how an earlier
- * draft of this measurement reported light-green at 6.68:1 instead of its real 7.04:1.
- * The pointer is parked off-element before the resting sample because the previous
+ * `.el-button` transitions `all 0.18s`, so every sample used to wait that out — reading earlier
+ * yields an interpolated colour rather than the theme's, which is how an earlier draft of this
+ * measurement reported light-green at 6.68:1 instead of its real 7.04:1. The wait stays, but it is
+ * no longer the guarantee: the whole rest → hover → active sequence runs inside
+ * `sampleWithoutMotion`, because the state changes themselves animate and only the settled value is
+ * under test. The pointer is parked off-element before the resting sample because the previous
  * iteration leaves it hovering the button.
  */
 async function buttonStateColors(page) {
+  return sampleWithoutMotion(page, () => readButtonStates(page));
+}
+
+async function readButtonStates(page) {
   const read = () =>
     page.evaluate(() => {
       const el = document.querySelector('.convert-btn');
@@ -154,9 +220,15 @@ async function buttonStateColors(page) {
  * file is staged), `--fat-surface-2` and `--fat-bg-hover`, and the first two are re-tinted per
  * theme — so the worst case in the palette (rose #fff1f2) is invisible to a blue-theme screenshot.
  * Selectors that are not rendered come back in `missing` so the caller can refuse a thin sample
- * instead of passing on zero measurements.
+ * instead of passing on zero measurements. Read against the settled theme: like the button samples,
+ * this runs with colour transitions cancelled, because an element caught mid-fade also fails the
+ * `opacity < 0.99` visibility test below and would be reported as "not rendered".
  */
 async function infoTextSamples(page, selectors) {
+  return sampleWithoutMotion(page, () => readInfoTextSamples(page, selectors));
+}
+
+async function readInfoTextSamples(page, selectors) {
   return page.evaluate(sels => {
     const opaque = value => {
       const m = /^rgba?\(\s*(\d+)[,\s]+(\d+)[,\s]+(\d+)(?:[,\s/]+([\d.]+))?\)/.exec(value);
@@ -1536,6 +1608,92 @@ async function run() {
   }
 
   // ═══════════════════════════════════════════
+  //  A picture the document cannot supply must cost the document nothing
+  // ═══════════════════════════════════════════
+
+  // Reported as "带图片引用的 md 转 PDF 报错", and the mechanism was worse than a missing picture: a
+  // reference with no bytes behind it reached the rasterizer, which either requested the extension's own
+  // page for it (an `<img>` stripped down to no `src` at all) or sat behind a request that never answered,
+  // and either way one image aborted the whole document. `sample-images.md` carries the three dead shapes
+  // — absolute, protocol-relative, sibling path — and one `data:` image that must keep working untouched.
+  if (section('Markdown With Unresolvable Images Still Renders')) {
+    /** The fixture with its canary host re-pointed at this run's port, as the sentinel does. */
+    const imagesMarkdown = () =>
+      fs
+        .readFileSync(path.join(FIXTURE_PATH, 'sample-images.md'), 'utf8')
+        .replaceAll('127.0.0.1:9876', `127.0.0.1:${PORT}`);
+
+    try {
+      canaryHits.length = 0;
+      await resetWorkbench(page);
+      const dead = await convertFile(
+        page,
+        { name: 'sample-images.md', mimeType: 'text/markdown', buffer: Buffer.from(imagesMarkdown()) },
+        'PDF (.pdf)',
+        45000,
+      );
+      const pdf = dead.resultName.endsWith('.pdf') ? await downloadBatchArtifact(page) : '';
+      if (pdf.startsWith('%PDF')) {
+        ok('markdown whose images it cannot have still produces a PDF instead of failing');
+      } else {
+        fail('md with dead image refs → PDF', `alert="${dead.alertTitle}" result="${dead.resultName}"`);
+      }
+
+      // The disclosure has to travel with the artifact: nothing on `sample-images_….pdf` says three
+      // pictures became placeholders, and a document that lost them quietly reads as the author's own
+      // layout. The number is the part a reader acts on, and both shapes have to be named because they
+      // are two different mechanisms (a reference rewritten before rendering leaves a dashed box, one
+      // that only fails while being cloned leaves that position empty).
+      const notes = await page.$$eval('.result-note', els => els.map(el => el.textContent.trim()));
+      const dropped = notes.find(text => text.includes('处位置'));
+      if (dropped?.includes('有 3 处位置') && dropped.includes('留空') && dropped.includes('虚线方框')) {
+        ok('it counts the three pictures that could not come through and names both shapes');
+      } else {
+        fail('missing-image disclosure', `notes rendered: ${JSON.stringify(notes)}`);
+      }
+
+      // Give any in-flight request time to land before judging, exactly as the sentinel above does: the
+      // rewrite happens before the document exists, so nothing is asked for even briefly.
+      await page.waitForTimeout(1500);
+      if (canaryHits.length === 0) {
+        ok('Dead img references cost zero requests, the protocol-relative shape included');
+      } else {
+        fail('Rasterizer egress', `canary was fetched: ${[...new Set(canaryHits)].join(', ')}`);
+      }
+    } catch (e) {
+      fail('Markdown With Unresolvable Images', e.message);
+    }
+
+    // The other half, and the half that keeps the note worth reading: a document whose one picture it
+    // already holds must stay silent. The dead references are cut out of the same fixture rather than
+    // replaced by a second file, so the two runs differ only in what cannot be satisfied.
+    try {
+      await resetWorkbench(page);
+      const liveOnly = imagesMarkdown()
+        .split('\n')
+        .filter(line => !['Remote:', 'Protocol relative:', 'Next to the source file:'].some(p => line.startsWith(p)))
+        .join('\n');
+      // Without a live image in the control, "no note" would pass on a document that had nothing to show.
+      if (!liveOnly.includes('![inline](data:image/png')) throw new Error('the control document lost its live image');
+      const live = await convertFile(
+        page,
+        { name: 'sample-live.md', mimeType: 'text/markdown', buffer: Buffer.from(liveOnly) },
+        'PDF (.pdf)',
+        45000,
+      );
+      if (!live.resultName) throw new Error(`image-complete markdown produced no artifact: ${live.alertTitle}`);
+      const notes = await page.$$eval('.result-note', els => els.map(el => el.textContent.trim()));
+      if (notes.some(text => text.includes('处位置'))) {
+        fail('missing-image disclosure on a complete document', `unexpected note: ${JSON.stringify(notes)}`);
+      } else {
+        ok('a markdown carrying its own picture as a data URI says nothing about missing images');
+      }
+    } catch (e) {
+      fail('Markdown With Live Images Stays Silent', e.message);
+    }
+  }
+
+  // ═══════════════════════════════════════════
   //  F-1 — DOCX boundary must not carry remote subresources into a Word document
   // ═══════════════════════════════════════════
 
@@ -2072,6 +2230,31 @@ async function run() {
       ok(`Raw view keeps the pretty-printed JSON (${text.trim().length} chars)`);
     } else {
       fail('JSON raw view', 'preview content is blank');
+    }
+
+    // The header's whole-document copy. `writeText` is replaced rather than granted because the point
+    // of this assertion is the string the button hands over — the pane's exact text, not a truncated
+    // or re-encoded version of it — and a real clipboard write would only say that some text went
+    // somewhere. Existing toasts are removed first so the one below is unambiguously this click's.
+    await page.evaluate(() => {
+      document.querySelectorAll('.el-message').forEach(el => el.remove());
+      window.__tafCopy = null;
+      window.navigator.clipboard.writeText = value => {
+        window.__tafCopy = value;
+        return Promise.resolve();
+      };
+    });
+    await page.click('.preview-dialog button[aria-label="复制"]');
+    await page.waitForTimeout(400);
+    const copied = await page.evaluate(() => window.__tafCopy);
+    const copyToast = await page.$$eval('.el-message', els => els.map(el => (el.textContent || '').trim()));
+    if (copied === text && copyToast.some(m => m.includes('已复制到剪贴板'))) {
+      ok(`Header copy hands the pane's exact text to the clipboard (${String(copied.length)} chars)`);
+    } else {
+      fail(
+        'Preview header copy',
+        `copied=${JSON.stringify(typeof copied === 'string' ? copied.slice(0, 60) : copied)} toasts=${JSON.stringify(copyToast)}`,
+      );
     }
 
     await page.screenshot({ path: shot(`${String(shotIdx++).padStart(2, '0')}-json-preview.png`), fullPage: true });
@@ -4201,10 +4384,56 @@ async function run() {
 
   section('Custom Shortcut Recording');
   try {
+    // The panel is anchored under the header, so an uncapped one ran past the fold in a short window
+    // and the shortcut row — this section's own subject — could only be reached by scrolling the page
+    // out from under a popover pinned to the topbar. Measured at 500px tall, before the viewport goes
+    // back to the size the rest of the section assumes. Scrolled to the top first on purpose: the
+    // topbar is not sticky, so without this the anchor's viewport position — and with it where the
+    // panel's last row lands — depends on wherever the previous section left the scroll.
+    await page.setViewportSize({ width: 1280, height: 500 });
+    await page.waitForTimeout(300);
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.waitForTimeout(200);
     const gear = await page.$('.topbar-inner .el-button');
     if (!gear) throw new Error('settings button not found');
     await gear.click();
     await page.waitForTimeout(800);
+    const panel = await page.evaluate(() => {
+      const menu = document.querySelector('.preferences-menu');
+      const pop = document.querySelector('.el-popover');
+      if (!menu || !pop) return null;
+      const scrollable = menu.scrollHeight > menu.clientHeight;
+      menu.scrollTop = menu.scrollHeight;
+      const last = menu.lastElementChild?.getBoundingClientRect();
+      return {
+        scrollable,
+        overflowY: getComputedStyle(menu).overflowY,
+        // Reading `scrollTop` back is what makes "I scrolled it" a fact rather than an intention: a
+        // panel that cannot scroll at all leaves this at 0 and the last item stays wherever it was.
+        atBottom: Math.abs(menu.scrollTop + menu.clientHeight - menu.scrollHeight) < 2,
+        lastBottom: Math.round(last?.bottom ?? -1),
+        popBottom: Math.round(pop.getBoundingClientRect().bottom),
+        innerHeight: window.innerHeight,
+      };
+    });
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.waitForTimeout(300);
+    if (
+      panel &&
+      panel.scrollable &&
+      panel.overflowY === 'auto' &&
+      panel.atBottom &&
+      panel.lastBottom >= 0 &&
+      panel.lastBottom <= panel.innerHeight
+    ) {
+      ok(
+        `Preferences panel scrolls itself to its last row in a short window (last ${String(panel.lastBottom)} ≤ ${String(
+          panel.innerHeight,
+        )}, popover ${String(panel.popBottom)})`,
+      );
+    } else {
+      fail('Preferences panel height', JSON.stringify(panel));
+    }
 
     // `page.$eval` rejects when the selector is missing; an empty label is a softer
     // failure than aborting the whole section. Two things to get right here: the `.catch`

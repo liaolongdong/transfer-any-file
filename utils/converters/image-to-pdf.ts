@@ -29,8 +29,10 @@ function createImageToPdfConverter(from: FileFormat): Converter {
         h = Math.round(h * scale);
       }
 
-      // jsPDF only understands JPEG/PNG payloads, so WEBP/BMP must be
-      // re-encoded via canvas or the PDF comes out corrupt.
+      // Re-encoding here is a choice, not a limitation: jsPDF 4.2.1 does carry WEBP and BMP decoders
+      // (`processWEBP` / `processBMP`), but both force the pixels through a quality-100 JPEG, which
+      // ignores the white fill added below, leaves no knob for quality, and writes a stream larger
+      // than the source file it came from.
       const canvas = document.createElement('canvas');
       canvas.width = w;
       canvas.height = h;
@@ -57,7 +59,16 @@ function createImageToPdfConverter(from: FileFormat): Converter {
         format: [widthPt, heightPt],
       });
 
-      pdf.addImage(dataUrl, pdfFormat, 0, 0, widthPt, heightPt);
+      // The compression argument is what keeps a PNG payload from being written *uncompressed*:
+      // jsPDF's `putImage` strips FlateEncode from the filter list and `checkCompressValue()` maps an
+      // omitted argument to NONE, so the default stored the decoded samples raw — 9.5x–95.6x the
+      // source in `png-to-pdf.ts`, which makes the same call. 'FAST' rather than 'SLOW' for the
+      // reason spelled out there: a fixed Paeth filter plus a level-9 deflate wins on flat pictures,
+      // loses on busy ones, and costs several times the synchronous encode time at the sizes people
+      // actually convert. Harmless on the JPEG branch, which is a DCT pass-through and never reads the
+      // argument: measured on a real JPEG, the two PDFs differ only in the 60 bytes of the trailer's
+      // `/ID`, image stream included.
+      pdf.addImage(dataUrl, pdfFormat, 0, 0, widthPt, heightPt, undefined, 'FAST');
       const pdfBlob = pdf.output('blob');
       return { blob: pdfBlob, filename: 'converted.pdf', lostFrames };
     },

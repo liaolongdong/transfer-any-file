@@ -157,6 +157,36 @@ async function main() {
     '# Evil\n\n<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10">\n  <script>alert(1)</script>\n  <foreignObject><body xmlns="http://www.w3.org/1999/xhtml"><img src="x" onerror="alert(2)"/></body></foreignObject>\n  <rect width="10" height="10" fill="#00ff00"/>\n</svg>\n',
   );
 
+  // A document that carries pictures it cannot have — the shape every "md→PDF 报错" report turns out
+  // to be. Three dead references and one live one, because each dead shape fails for its own reason
+  // and the live one is what stops the disclosure from being a standing accusation against `html→pdf`:
+  //   · an absolute URL, which the sanitizer strips to an attribute-less `<img>` — and a src-less
+  //     `<img>` is what made html-to-image request the host page and reject the whole document;
+  //   · a protocol-relative URL, which the sanitizer keeps (no scheme to judge) and whose request
+  //     hangs long enough to outlast the rasterizer's own load budget;
+  //   · a sibling path, the ordinary `![](./shot.png)` of a README exported next to its images, which
+  //     resolves inside the extension package and never next to the user's file;
+  //   · a `data:` URI, which must stay untouched — that document has its picture.
+  // The canary host is written at the harness's default port and re-pointed before upload, exactly as
+  // `sample-remote.html` is.
+  fs.writeFileSync(
+    path.join(outDir, 'sample-images.md'),
+    [
+      '# Images',
+      '',
+      'Remote: ![remote](http://127.0.0.1:9876/canary/md-remote.png)',
+      '',
+      'Protocol relative: ![proto](//127.0.0.1:9876/canary/md-proto.png)',
+      '',
+      'Next to the source file: ![sibling](./md-sibling.png)',
+      '',
+      `Already inside this document: ![inline](${TINY_PNG})`,
+      '',
+      'After.',
+      '',
+    ].join('\n'),
+  );
+
   // F-1 fixture: the DOCX boundary is the one untrusted-HTML consumer that had no subresource
   // stripping. The data: image is the control — it must SURVIVE, because mammoth inlines every
   // DOCX image as a data URL and a strip that eats those "passes" the privacy check while

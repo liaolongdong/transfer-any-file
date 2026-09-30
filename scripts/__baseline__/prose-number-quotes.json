@@ -2,7 +2,7 @@
   "formats": {
     ".github/CHROMEWEBSTORE.md": 3,
     "docs/blog/index.html": 19,
-    "docs/convert/index.html": 18,
+    "docs/convert/index.html": 20,
     "docs/convert/word-to-markdown.html": 1,
     "docs/convert/word-to-pdf.html": 2,
     "docs/index.html": 31,
@@ -26,7 +26,7 @@
   "writable": {
     "AGENTS.md": 1,
     "docs/blog/index.html": 1,
-    "docs/convert/index.html": 2,
+    "docs/convert/index.html": 4,
     "docs/index.html": 7,
     "docs/llms.txt": 1
   },
@@ -35,11 +35,11 @@
     "docs/promo/blog-article.en.md": 2
   },
   "routes": {
-    "AGENTS.md": 1,
     ".github/CHROMEWEBSTORE.md": 3,
+    "AGENTS.md": 1,
     "CONTRIBUTING.md": 1,
     "docs/blog/index.html": 13,
-    "docs/convert/index.html": 12,
+    "docs/convert/index.html": 14,
     "docs/index.html": 15,
     "docs/llms.txt": 2,
     "docs/promo/blog-article.en.md": 1,
@@ -52,7 +52,7 @@
   },
   "reachable": {
     "docs/blog/index.html": 4,
-    "docs/convert/index.html": 4,
+    "docs/convert/index.html": 6,
     "docs/index.html": 22,
     "docs/llms.txt": 3,
     "docs/promo/community-posts.en.md": 3,
@@ -62,7 +62,7 @@
   },
   "selectable": {
     "docs/blog/index.html": 5,
-    "docs/convert/index.html": 22,
+    "docs/convert/index.html": 24,
     "docs/index.html": 18,
     "docs/llms.txt": 1,
     "docs/promo/community-posts.en.md": 1,
@@ -74,6 +74,7 @@
   "blocked": {
     "AGENTS.md": 1,
     "docs/blog/index.html": 4,
+    "docs/convert/index.html": 2,
     "docs/index.html": 9,
     "docs/promo/community-posts.en.md": 1,
     "docs/promo/community-posts.md": 2,
@@ -103,10 +104,17 @@
     "CONTRIBUTING.en.md": 1,
     "CONTRIBUTING.md": 1,
     "docs/convert/csv-to-excel.html": 2,
+    "docs/convert/csv-to-json.html": 2,
     "docs/convert/excel-to-csv.html": 1,
+    "docs/convert/excel-to-json.html": 2,
+    "docs/convert/html-to-pdf.html": 1,
+    "docs/convert/index.html": 1,
+    "docs/convert/jpg-to-pdf.html": 2,
     "docs/convert/json-to-csv.html": 1,
+    "docs/convert/json-to-excel.html": 2,
     "docs/convert/markdown-to-pdf.html": 2,
     "docs/convert/markdown-to-word.html": 2,
+    "docs/convert/png-to-pdf.html": 8,
     "docs/convert/svg-to-png.html": 2,
     "docs/convert/word-to-markdown.html": 3,
     "docs/convert/word-to-pdf.html": 2,
@@ -120,6 +128,7 @@
   "rejectSize": {
     ".github/CHROMEWEBSTORE.md": 4,
     "docs/convert/excel-to-csv.html": 1,
+    "docs/convert/html-to-pdf.html": 1,
     "docs/convert/markdown-to-word.html": 1,
     "docs/convert/pdf-to-text.html": 1,
     "docs/index.html": 5,
@@ -162,8 +171,9 @@
     "README.en.md": 1
   },
   "themes": {
-    "AGENTS.md": 2,
     ".github/CHROMEWEBSTORE.md": 5,
+    ".github/visibility-checklist.md": 1,
+    "AGENTS.md": 2,
     "CONTRIBUTING.en.md": 1,
     "CONTRIBUTING.md": 1,
     "docs/blog/index.html": 1,
@@ -193,13 +203,13 @@
     "docs/promo/wechat-article.md": 1
   },
   "descEn": {
+    ".github/CHROMEWEBSTORE.md": 2,
     ".github/CWS_PUBLISHING_GUIDE.en.md": 1,
-    ".github/CWS_PUBLISHING_GUIDE.md": 1,
-    ".github/CHROMEWEBSTORE.md": 2
+    ".github/CWS_PUBLISHING_GUIDE.md": 1
   },
   "descZh": {
+    ".github/CHROMEWEBSTORE.md": 2,
     ".github/CWS_PUBLISHING_GUIDE.en.md": 1,
-    ".github/CWS_PUBLISHING_GUIDE.md": 1,
-    ".github/CHROMEWEBSTORE.md": 2
+    ".github/CWS_PUBLISHING_GUIDE.md": 1
   }
 }

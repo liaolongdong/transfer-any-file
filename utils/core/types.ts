@@ -50,6 +50,22 @@ export interface ConvertResult {
    * artwork depends on whether it contains an `<svg>` at all, which only the converter can see.
    */
   svgRasterized?: boolean;
+  /**
+   * How many pictures the converters that rasterize an HTML document (`html→pdf`, `html→png`) had to give
+   * up on: a reference the document asked for by network address or by a path next to the file, which an
+   * offline conversion has no bytes for. A reference replaced before rendering leaves an outlined box at
+   * its position; one that only failed once the clone was being built (a `data:` payload this browser
+   * cannot decode, a revoked `blob:`) leaves nothing there at all — which is why the disclosure names both
+   * shapes instead of promising a box for every count.
+   *
+   * The count, not a flag, because "有位置被标出" and "有 37 处" are different answers to the user's next
+   * question, and only the rasterizer can see either. `0` and absent both mean nothing to disclose: a
+   * document whose pictures were already inline `data:` URIs converts clean.
+   *
+   * Same rationale as {@link ConvertResult.svgRasterized}: this is a fact about the content, not about the
+   * route.
+   */
+  imagesDropped?: number;
 }
 
 /**

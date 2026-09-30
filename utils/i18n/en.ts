@@ -52,6 +52,7 @@ const en: typeof zh = {
     docxHint: 'File size: {size}. Please download and open with Word.',
     xlsxHint: 'File size: {size}. Please download and open with Excel.',
     download: 'Download',
+    copy: 'Copy',
     renderFailed: 'Preview rendering failed, please download to view',
     zoomIn: 'Zoom in',
     zoomOut: 'Zoom out',
@@ -207,6 +208,8 @@ const en: typeof zh = {
       'A GIF converted to an image or a PDF keeps only its first frame — the animation is not written into the result. Keep the original GIF if you need the animation.',
     svgRasterized:
       'Inline SVG diagrams were written into the result as bitmaps, so they no longer stay sharp when scaled up. Keep the original SVG if you need the vector artwork.',
+    imagesDropped:
+      'Images referenced over the network or by a path next to the file cannot be reached by an offline conversion, so {count} positions in the result come out empty or marked with an outlined box. Embed an image as a data URI if it has to come through.',
     pdfNoTextLayer:
       'The produced PDF is a page image with no text layer. If you need the text on it, try selecting and copying it in a PDF viewer — some recognise the text themselves, and that step is not done by this extension.',
     // F19 — failure diagnostic panel

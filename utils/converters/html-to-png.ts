@@ -14,11 +14,11 @@ export const htmlToPngConverter: Converter = {
     // A GBK-exported HTML file is unreadable as UTF-8, and the rasterizer would happily
     // turn the mojibake into a picture of mojibake.
     const htmlContent = await decodeTextBlobLenient(input);
-    const canvas = await renderHtmlToCanvas(htmlContent, ctx?.signal);
+    const { canvas, imagesDropped } = await renderHtmlToCanvas(htmlContent, ctx?.signal);
 
     try {
       const pngBlob = await encodeCanvas(canvas, 'image/png', ctx?.options);
-      return { blob: pngBlob, filename: 'converted.png' };
+      return { blob: pngBlob, filename: 'converted.png', imagesDropped };
     } finally {
       releaseCanvas(canvas);
     }

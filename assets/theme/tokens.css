@@ -194,6 +194,16 @@
      mode the labels and chips this sizes had before. */
   --fat-enter-scale: 0.96;
 
+  /* ---- Layer ----
+     Only the two surfaces that sit above everything Element Plus manages. The library hands its
+     dialogs, drawers and messages z-indices from 2000 upward, so anything written as a literal here
+     is a claim about that ladder; a rule that says `z-index: 10000` next to a component that happens
+     to use 1 is unreviewable, while these two names say what the layer is for and which one wins.
+     The skip link is above the drop overlay on purpose: a keyboard reader who tabs while a drag is
+     in flight still has to reach the one control that escapes it. */
+  --fat-z-drop-overlay: 9999;
+  --fat-z-skip-link: 10000;
+
   /* The two shorthands most surfaces want.
      These used to say `all`, which silently tweened whatever else happened to change — including
      layout properties, each of which costs a reflow per frame — and left "what moves?" to luck.

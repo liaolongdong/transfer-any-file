@@ -11,6 +11,46 @@ always name the same release.
 
 ### Added
 
+- **The preview header grew a copy button.** For content that already is text (TXT, CSV, JSON, Markdown,
+  HTML), the preview dialog's header now puts a copy button to the left of Download, going through the
+  workbench's own `utils/core/clipboard.ts`: when the Clipboard API is refused or missing it falls back to
+  `execCommand('copy')`, and the two outcomes reuse the existing `preview.copied` and `preview.copyFailed`
+  messages instead of inventing a third. Three edges are deliberate: **the button only appears where the
+  whole document exists as text** — a bitmap, a PDF or a DOCX preview has no "text of this pane", and a
+  button that leaves nothing on the clipboard reads as broken rather than as unavailable; **JSON copies the
+  Raw string** (the two-space `JSON.stringify`), since the tree and the array table are two projections of
+  that same document while the per-row "copy path" button answers a different question, and neither
+  replaces the other; **Markdown and HTML copy the source**, even while the rendered iframe is what you are
+  looking at — the rendering is this conversion's output, not the file's content. There is no "copy this
+  node" or "copy this subtree": that would mean introducing a selection concept into a pane whose state is
+  already taken by expansion and search.
+- **The product page's structured data now answers in the reader's language.** The `FAQPage` node in `docs/index.html`
+  carried both languages inside one `mainEntity` — 22 questions each — while the page shows only the reader's language at a
+  time. That is not a formatting question: `Question.name` and the answers land verbatim in rich results and in what an AI
+  reads back, so the sentence a machine quotes for us was one the page never displayed, and the graph held twice as many
+  questions as a reader can see. `#fat-ld` now holds the Chinese set alone (the language the document is authored with), the
+  English set travels in the script immediately after it, and switching to English replaces `FAQPage.mainEntity` by itself —
+  switching back restores the shipped bytes, so the page carries the other language rather than both. This is the "one graph
+  per language" convention `docs/convert/` already uses, brought to the product page, with the same failure rule: a throw
+  leaves the shipped graph in place instead of emptying the tag. The same batch gives `SoftwareApplication` a `sameAs`
+  pointing at the repository, so "this extension" and "that repository" resolve to one entity in the graph, and aligns
+  `docs/privacy.html`'s `<head>` with the other public pages (`max-image-preview` and `max-snippet` on `robots`, `author`,
+  `theme-color`, `color-scheme`, and `sizes` on the `apple-touch-icon`); the product page's `apple-touch-icon` declares its
+  size too — the PNG it points at measures 512×512 in its IHDR, so a client does not have to guess.
+- **History rows enter and leave.** Deleting an entry, undoing that delete, or changing the filter no longer rearranges the
+  list in one cut: new rows fade in and settle down from above, rows that stay slide into their new place, and the removed
+  row disappears where it stands instead of sliding away behind a gap. The upload area's file list already animated, with a
+  private copy of these transitions and its own durations and easing; both now share one set of `.fat-list-*` rules in
+  `assets/styles/global.css`. Two constraints are written into that CSS's comment, because they are the kind that looks
+  cleaner deleted and is only correct kept: **the leaving row's `transition` must be `none`** — `<TransitionGroup>` reads the
+  element's own computed duration before unmounting it, so leaving a transition there tells the group the row is still
+  animating and it waits in the DOM for a `transitionend` that never arrives; **the keys are each row's own identity, not an
+  index** — both lists already did (file rows by `rowKey(file)`, history rows by `record.id`), and it is written down because
+  an index key remounts every row below a removed one, which is exactly where the file list's old flicker came from: no
+  transition smooths a remount. The preset chips were not folded in: they replace a whole row of chips in place and need a
+  fade with no displacement, which is a different gesture from items entering and leaving individually, and merging the two
+  would make one of them change feel. The layer spends only duration and distance tokens, so `prefers-reduced-motion: reduce`
+  collapses it on its own — no rule written for it.
 - **JSON previews now have a structure.** Opening a JSON preview — an uploaded source file or a converted
   result, both count — is no longer one wall of text: a tree that expands level by level, an array table
   that lays an array of objects out as rows and columns, and a raw view with the indentation kept, switchable
@@ -28,6 +68,46 @@ always name the same release.
   pure logic in `utils/core/json-view.ts`, the interface is `JsonTreeView.vue` / `JsonTableView.vue`, and all
   of it sits in the lazily loaded preview chunk: the first screen pays nothing for it, measured as 2 806
   bytes of new Chinese and English UI strings being the only boot-reachable growth.
+- **The conversions index now spreads itself into a format matrix.** `README.md`, `README.en.md` and
+  `docs/llms.txt` had been promising "the full format matrix" for a while without showing one; the grid is
+  there now, 14 rows by 11 columns, each cell carrying the number of steps that route actually runs. It is
+  derived rather than drawn: rows come from the baseline's own vertex list (which is `FileFormat`'s
+  declaration order), columns from every format the registry turns up as some route's target, steps and
+  intermediates from the same file's BFS closure, and the two greyed-out reasons are read straight out of
+  `utils/i18n/zh.ts` and `en.ts` — the sentence the site prints for a blocked pair is the sentence the
+  workbench prints, so the two cannot drift, and a key that goes away fails the render instead of quietly
+  blanking the copy. Ten assertions guard the table at build time: cells against rows × columns, the routed
+  pair count against the baseline, the blocked count measured through two different doors, linked pages
+  against `PAIRS`, edges that no longer join up, a route whose ends disagree with the key it is filed under,
+  a `FileFormat` member with no row. Any one of them stops the render rather than publishing a grid with a
+  hole in it. This does not contradict the product page's "no hand-maintained matrix" — the page says so out
+  loud: nobody maintains the matrix, the cells are its closure.
+- **The matrix's keyboard and no-JS layer only adds.** One tab stop for the whole grid, arrow keys to walk
+  it, Enter to follow wherever the current cell points, and the 21 links folded into that single stop once
+  the script runs — in the markup they stay ordinary links, so a reader with JavaScript off can still tab to
+  them and open them. The readout builds its sentences with `createElement` and `textContent`, never
+  `innerHTML`, and without any script at all the page has already stated every cell's fact twice, once per
+  language: 308 hidden phrases, so neither a parser nor a screen reader is handed a bare digit or a lone ✕.
+  Narrow screens scroll sideways with the row header pinned to the left edge; the readout reserves two lines
+  so stepping through the grid moves nothing beneath it; print lifts the clip so paper gets the whole table.
+  An underline, not colour alone, marks the cells that have a page of their own (WCAG 1.4.1). The index goes
+  from 36,795 to 90,694 bytes, and from 10,057 to 15,883 gzipped.
+- **The per-route pages go from 10 to 21.** Coverage, not copy quality, was the limit here: the picker offers
+  116 selectable pairs and the previous batch documented 10 of them. This batch adds eleven — JPEG ⇄ PNG,
+  JPEG ⇄ WebP, WebP → JPEG, PNG → PDF, JPEG → PDF, Excel → JSON, CSV → JSON, JSON → Excel, Markdown → HTML,
+  HTML → PDF — picked on two conditions: people search for the pair, and the route really has trade-offs worth
+  its own page. Each new page obeys the same discipline as the old ones: only facts readable in the code, the
+  chain taken from `scripts/__baseline__/conversion-paths.json`, and no page at all for a pair that
+  `utils/core/conversion-policy.ts` blocks — which is why growing the set needed zero new template code and why
+  `pnpm pages:render` still fails outright when the data source and the baseline disagree. Three follow-ons ship
+  with it: `FORMAT_LABEL` gains `jpg` (the enum value and the extension the app writes are `jpg`, the format's
+  name is JPEG, so the label reads JPEG while the URL reads .jpg, and the copy keeps both spellings because
+  searchers use both); the product page's pair rail now lists all 21 instead of 10, so a new page sits one click
+  from the homepage rather than two; and the route-by-route list in `docs/llms.txt` matches. That last item also
+  narrowed one evidence rule — `offers <number>` was written for "the picker offers 116", and a landing page that
+  says "the dial offers 800–4096 px" is not quoting a pair count, so a number carrying a unit or a range no
+  longer fills that slot. Nothing else in the pattern moved, and every document's quote counts are identical
+  before and after: the three false positives are the only thing that disappeared.
 - **The repository ships an offline diff page.** `tools/file-diff.html` is a single-file, zero-dependency,
   zero-network viewer for the difference between two files: line and word-level changes, split and unified
   views, collapsible runs of identical context, a copyable patch, bilingual Chinese/English text and a
@@ -427,6 +507,11 @@ always name the same release.
   products of the target just abandoned, and keeping them would mix PNG and PDF rows into one list. The undo
   snapshot is retired by any change to the file list, exactly as before — otherwise it would restore a
   workspace that no longer exists.
+- **Stacking order for overlays moved into design tokens.** The drop overlay and the skip link each carried a hardcoded
+  `z-index` inside `entrypoints/options/App.vue`; both now read `--fat-z-*`, added to `assets/theme/tokens.css`. No computed
+  value changed — the two numbers moved over verbatim — what changed is whether there is a single place where "what sits on
+  top of what" can be reasoned about: which slot a third overlay should take used to mean reading those two rules inside a
+  component, and stacking order is a site-wide question rather than one overlay's.
 - **Transition durations moved into design tokens, and reduced motion clears delays too.** The 11 scattered
   `0.15s` / `0.18s` / `0.2s` / `0.25s` values settle on `--fat-duration-fast|base|slow`; under
   `prefers-reduced-motion` the stagger delays are zeroed along with the durations, and four `0.2s` uses become
@@ -862,8 +947,81 @@ zero network requests`) and the Chinese equivalent never appeared in a search re
   green with the chaining deleted, at 30 ms it loses `presets`. No change to the interface, interaction or
   stored data.
 
+- **The preferences panel is wider and scrolls inside itself.** The entry stays the popover anchored to the
+  header's gear rather than becoming a centred dialog: it edits three unrelated switches and one filename
+  pattern, in and out with one click each, and a modal would add a scrim plus focus handling this pane does
+  not need. Both measurements changed, and both were read off the built artifact's real layout. Width
+  260 → 320: at 260 the longest label in the mode row wrapped onto a second line and its siblings stretched
+  to match, which put 18px on the panel for nothing. Height now carries `max-height: calc(100vh - 110px)`
+  with `overflow-y: auto`: the popover's top edge sits 67px from the top of the viewport and its own padding
+  and border cost 26px, so the cap leaves the bottom edge 17px clear of the fold. Measured before, the
+  panel was 631px tall inside a 657px popover and the last row (the shortcut) fell below the fold in any
+  window shorter than ~724px, where it could only be read by scrolling the page out from under a popover
+  pinned to the header; now the panel is 596px inside 622px and short windows scroll the panel itself.
+  `overscroll-behavior: contain` stops that scroll from handing over to the page at either end. The popover
+  keeps `:persistent="false"`, which is also what tears down the `document` keydown listener the shortcut
+  recorder installs.
+
 ### Fixed
 
+- **Markdown or HTML that references images failed outright when converted to PDF or PNG.** The failure
+  had two faces and one cause: the rasterizer puts the sanitized document into a sandboxed `<iframe>`
+  and screenshots it, and by then not one of the image references can be resolved locally. The first
+  face is `errors.renderFailed` — a remote `src` has already lost its attribute to
+  `stripRemoteResources()`, and an `<img>` with **no** `src` is the dangerous case: `html-to-image`
+  reads `img.src`, gets the empty string, requests that from the host page, downloads this extension’s
+  own workbench HTML, hands it back as a `data:text/html` URL, and the clone fires `onerror` — which
+  rejects the whole `toCanvas`, not just that one picture. The second face is `errors.renderTimeout`:
+  the sanitizer keeps relative and root-absolute paths (nothing on the network was asked for), but
+  inside a `srcdoc` iframe they resolve into the extension package, where the user’s sibling files are
+  not; a protocol-relative reference pointed at a host that never answers is more direct still — an
+  HTML document’s `load` event waits on its images, so the document is never measurable and the
+  conversion sits out the full 10 s of `LOAD_TIMEOUT_MS`. The rewrite now runs over the **string** in
+  `replaceUnresolvableImageRefs()` (`utils/core/html-raster.ts`) before anything is rendered: only
+  `data:` and `blob:` count as “the bytes are already here”, every other `<img>` becomes an inline
+  dashed placeholder box, `srcset` is dropped (it would win back over the replacement), an SVG
+  `<image>` gets its own pass (`doc.images` only collects HTMLImageElement), the namespace-free `href`
+  is written because that is what `href.baseVal` reads, and a legacy `xlink:href` is removed; the
+  doctype is preserved, since the height that gets measured was measured in standards mode. Rewriting
+  the string rather than a live `contentDocument` is precisely the way out of the second face: while a
+  dead reference is still in the document, the `load` event never reaches its end. The placeholder
+  paints inside the sandboxed frame, so its colours are literals rather than `--fat-*` tokens — that
+  scope cannot read the design tokens. `html-to-pdf` and `html-to-png` share this pipeline, so both are
+  fixed.
+- **A dropped image has to be said out loud, and counted.** Conversions now carry
+  `ConvertResult.imagesDropped`, measured by the step that does the work (references rewritten before
+  rendering, plus whatever `onImageErrorHandler` swallowed during it), accumulated up a multi-step chain
+  with `+=` in `useConversion`, and the result card shows a note that names how many positions came out
+  that way — the same place and the same discipline as the dropped-frames and rasterized-SVG
+  disclosures. The wording covers both shapes, because there are two: a reference replaced before
+  rendering leaves an outlined box, while one that only fails at clone time — a `data:` the browser
+  cannot decode, a `blob:` already revoked — leaves that position empty, so saying only "box"
+  under-reports one of them. Inline images (`data:` / `blob:`) are not replaced, not counted, not
+  mentioned, so a document whose pictures were already embedded converts exactly as it did before, and
+  the silence is correct; that is what the e2e control case pins down. A new section, “Markdown With
+  Unresolvable Images Still Renders”, adds 4 assertions, one per claim: the PDF artifact exists, the
+  disclosure note exists together with its real count, the fixture carrying a remote, a
+  protocol-relative and a sibling-path reference still makes **zero subresource requests** (reusing the
+  existing sentinel), and the inline-image control shows no disclosure. The change was verified with
+  the full suite in headless mode: 327/327.
+- **A PNG converted to PDF came out 10–95x larger than the image it came from.** Given no compression
+  argument, jsPDF writes the samples it decoded from the PNG into the stream with **no row filter at
+  all**: `checkCompressValue()` maps `undefined` to NONE, and the “fall back to SLOW” branch inside
+  `addImage` only runs when the document declares FlateEncode — which `putImage` strips from an
+  image’s filter list first, so an image never reaches it. A 31 KB screenshot shipped as a 2.9 MB
+  PDF; measured over five repo PNGs the bloat ran 9.5x–95.6x. The call now passes `'FAST'`
+  explicitly, which lands screenshots at 1.1x–1.3x of the source file (up to 1.5x on a finely
+  detailed picture). This level does not touch the pixels: un-filtering the `'FAST'` stream
+  reproduces the uncompressed one byte for byte, so the lossless claim still holds — only the PDF
+  stream filter changed. `'SLOW'` (Paeth + level 9) was not taken: it is genuinely smaller on flat
+  content — 454 KB against 505 KB over those five files, and 2.5x smaller on a flat icon — but the
+  same work costs nearly 4x the time (4.2 s against 1.1 s), this route takes no `ctx`, and the
+  deflate is synchronous, so that time is a frozen tab; on noisy content it hands the savings back
+  (20–35 % _larger_ than `'FAST'`). `image-to-pdf.ts` passes the same argument on its PNG branch (the
+  JPEG branch is a DCT pass-through that never reads it — measured, the two PDFs differ only by the
+  60 bytes of `/ID` in the trailer). `html-to-pdf.ts` keeps `'SLOW'`: its input is text on white,
+  sliced page by page with a cancel point between pages, and the trade there is documented by its own
+  measurements.
 - **Sections a jump skipped over stayed transparent.** `.reveal` on the product page and the 11 generated
   convert pages becomes visible when IntersectionObserver adds a class, and the observer only calls back for elements
   that enter the viewport: opening `…#faq` directly, clicking an in-page anchor, or having the browser restore

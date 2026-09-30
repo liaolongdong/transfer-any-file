@@ -40,7 +40,7 @@ export const SITE = {
  * pages it writes, and it lands in `docs/sitemap.xml`; bump it together with a content change so the
  * date a crawler reads is the date the claim was actually edited.
  */
-export const PAGES_UPDATED = '2026-09-26';
+export const PAGES_UPDATED = '2026-09-30';
 
 /**
  * The date the first conversion page entered the repository, used as `datePublished` in the `Article`
@@ -119,7 +119,16 @@ export const FORMAT_LABEL = {
   txt: { zh: '纯文本 (TXT)', en: 'plain text (TXT)', ext: '.txt' },
   html: { zh: 'HTML', en: 'HTML', ext: '.html' },
   png: { zh: 'PNG', en: 'PNG', ext: '.png' },
+  // `jpg` is the FileFormat value (and the extension the app writes), while the format's own name is
+  // JPEG — so the label says JPEG and the URL says .jpg. Both spellings have to appear in the page copy
+  // because people search for both.
+  jpg: { zh: 'JPEG', en: 'JPEG', ext: '.jpg' },
   webp: { zh: 'WebP', en: 'WebP', ext: '.webp' },
+  // BMP and GIF have no page of their own — a browser writes neither, so they are rows in the index's
+  // matrix and never columns. The two entries exist so that matrix labels every `FileFormat` from data
+  // rather than from a fallback string that would read `bmp`.
+  bmp: { zh: 'BMP', en: 'BMP', ext: '.bmp' },
+  gif: { zh: 'GIF', en: 'GIF', ext: '.gif' },
   svg: { zh: 'SVG', en: 'SVG', ext: '.svg' },
 };
 
@@ -405,11 +414,11 @@ export const PAIRS = [
     },
     notes: {
       zh: [
-        '一批最多 200 个文件，单个 100 MB 上限；结果文件名沿用源文件名',
+        '一批最多 200 个文件，单个 100 MB 上限；结果文件名默认在源名后加日期与时间，模板可在偏好设置里改',
         '需要「同一份数据既要 CSV 又要 Excel」时，可以在工作台里连续两步转，不必回到源文件',
       ],
       en: [
-        'Up to 200 files per batch and 100 MB each; output names follow the source file',
+        'Up to 200 files per batch and 100 MB each; names default to the source name plus date and time, and the pattern is editable in preferences',
         'When you need both CSV and Excel from the same data, chain the two conversions in the workbench instead of going back to the source',
       ],
     },
@@ -434,8 +443,8 @@ export const PAIRS = [
           en: 'Is anything other than comma supported (semicolon, tab)?',
         },
         a: {
-          zh: '这条链路按逗号分隔的 CSV 处理。分号或制表符分隔的文件先在 Excel 里另存为标准 CSV，再转。',
-          en: 'This route parses comma-separated CSV. For semicolon- or tab-separated files, save as standard CSV in Excel first.',
+          zh: '支持。分隔符是读的时候自动判断的，逗号、分号、制表符、竖线都能直接转，不用先另存一遍。判断结果不对时（比如正文里逗号特别多），在文件最前面加一行 sep=; 显式告诉它用哪个。',
+          en: 'Yes. The delimiter is sniffed while reading, so comma, semicolon, tab and pipe all convert as they are — no re-save first. When the guess is wrong (a body full of commas, say), put sep=; on the first line to say which one to use.',
         },
       },
     ],
@@ -628,23 +637,23 @@ export const PAIRS = [
         '没有文字层：PDF 里的字选不中、复制不走、无法全文检索、屏幕阅读器读不到——它是一页页图像',
         '文件明显大于同内容的文字型 PDF',
         '页边距与分页位置由渲染高度决定，不能像 Word 那样指定「第 3 页开始」；跨页的表格可能被切成两段',
-        '外链图片不会被去网上取：图片要么以 data URI 内嵌，要么先本地准备好（离线前提）',
+        '图片引用只有 data URI 与 blob 能落地：远程与相对路径引用在渲染前就换成虚线方框占位（相对路径在沙箱里指向扩展包，不在你文件所在的目录），而解不开的 data: 与已撤销的 blob: 会在那处直接留空，转换过程不下载任何东西，结果卡片按张数说明有多少处',
       ],
       en: [
         'No text layer: the words cannot be selected, copied, full-text searched or read by a screen reader — the pages are images',
         'Noticeably heavier than a text-based PDF of the same content',
         'Margins and page breaks follow the rendered height; you cannot dictate "start on page 3", and a tall table can be cut in two',
-        'Remote images are not fetched: embed them as data URIs or have the files on hand locally — that is the offline premise',
+        'Only a data URI or a blob reference survives: a remote or a relative one becomes a dashed placeholder box before rendering (inside the sandbox a relative path points into the extension package, not next to your file), one the browser cannot decode any more — a revoked blob:, a data: payload it will not read — leaves that position empty, the conversion downloads nothing, and the result card counts how many positions were affected',
       ],
     },
     notes: {
       zh: [
         '如果接收方要能改，请走 Markdown → Word，那才是可编辑的产物',
-        '批量最多 200 个文件；多个 PDF 结果一次打包成 ZIP 下载',
+        '批量最多 200 个文件；多个 PDF 结果可一次打包成 ZIP 下载',
       ],
       en: [
         'If the recipient has to edit, take Markdown to Word instead — that is the editable artifact',
-        'Up to 200 files per batch; several PDFs come back in one ZIP',
+        'Up to 200 files per batch; several PDFs can come back in one ZIP',
       ],
     },
     faq: [
@@ -718,7 +727,7 @@ export const PAIRS = [
       zh: ['先转成 HTML 预览，是判断分页与字体是否可接受的最快办法', '批量最多 200 个文件；多个 PDF 一次打包下载'],
       en: [
         'Converting to HTML first is the fastest way to judge whether the breaks and fonts are acceptable',
-        'Up to 200 files per batch; several PDFs arrive in one ZIP',
+        'Up to 200 files per batch; several PDFs can arrive in one ZIP',
       ],
     },
     faq: [
@@ -755,8 +764,8 @@ export const PAIRS = [
       en: 'Convert PNG to WebP locally — batch it, tune quality or aim at a target size',
     },
     desc: {
-      zh: '浏览器里把 PNG 编成 WebP，透明通道保留，质量档与目标体积先走质量阶梯再缩像素。最多 200 张一批，结果打 ZIP。',
-      en: 'Encode PNG to WebP in the browser with alpha preserved; the target-size lever walks the quality ladder before it throws pixels away. Up to 200 images per batch, delivered as a ZIP.',
+      zh: '浏览器里把 PNG 编成 WebP，透明通道保留，质量档与目标体积先走质量阶梯再缩像素。最多 200 张一批，结果可打 ZIP。',
+      en: 'Encode PNG to WebP in the browser with alpha preserved; the target-size lever walks the quality ladder before it throws pixels away. Up to 200 images per batch, with the batch downloadable as one ZIP.',
     },
     lede: {
       zh: '同一张图，WebP 常常比 PNG 小一大截，而透明通道仍在。这里没有上传：解码、重编码、体积控制都发生在你自己的标签页里。质量参数与目标体积的处理顺序是有讲究的——先沿质量阶梯往下试，质量已经到底还够不着目标，才开始缩边；所以「目标 200 KB」是一个追着去的上限，不是保证值，细节写在下面。',
@@ -792,11 +801,11 @@ export const PAIRS = [
     },
     notes: {
       zh: [
-        '一批最多 200 张、单张上限 100 MB；结果一次打包成 ZIP',
+        '一批最多 200 张、单张上限 100 MB；结果可一次打包成 ZIP',
         '输出参数在界面里设置后会被记住，同一批的所有图片共用一次设置',
       ],
       en: [
-        'Up to 200 images per batch and 100 MB each, returned as a single ZIP',
+        'Up to 200 images per batch and 100 MB each, downloadable as one ZIP',
         'The output settings persist between runs and apply to every file in the batch from one read',
       ],
     },
@@ -872,11 +881,11 @@ export const PAIRS = [
     notes: {
       zh: [
         '图标工作流常见用法：一批 SVG 一次转成多尺寸 PNG（先设最长边，再跑第二批）',
-        '一批最多 200 个文件；结果一次打包成 ZIP',
+        '一批最多 200 个文件；结果可一次打包成 ZIP',
       ],
       en: [
         'A common icon workflow: convert a set of SVGs, set the longest edge, then run a second batch at another size',
-        'Up to 200 files per batch, returned in one ZIP',
+        'Up to 200 files per batch, downloadable as one ZIP',
       ],
     },
     faq: [
@@ -899,6 +908,900 @@ export const PAIRS = [
         a: {
           zh: '多半是内容依赖外部取码（远程图片或字体）或宽高无法归一。本项目不会去下载任何东西：把素材内联进 SVG、或为它显式指定宽高，再转一次。',
           en: 'Usually it is content that expected a fetch — a remote image or font — or dimensions that could not be normalised. Nothing is downloaded here: inline the assets into the SVG, or give it an explicit width and height, and convert it again.',
+        },
+      },
+    ],
+  },
+  {
+    slug: 'jpg-to-png',
+    from: 'jpg',
+    to: 'png',
+    shot: 'batch-files',
+    title: {
+      zh: 'JPEG（JPG）转 PNG——本地重编码成无损容器，不上传',
+      en: 'Convert JPEG (JPG) to PNG locally — a lossless container, nothing uploaded',
+    },
+    desc: {
+      zh: '浏览器本地把 .jpg / .jpeg 解码成像素再编为 PNG：尺寸原样，可选最长边，一批最多 200 张可打成一个 ZIP。EXIF 与 GPS 不会跟着走。',
+      en: 'Decode .jpg / .jpeg to pixels in your own browser and re-encode as PNG: dimensions kept, an optional longest edge, up to 200 images downloadable as one ZIP. EXIF and GPS do not travel.',
+    },
+    lede: {
+      zh: '这两者的差别不在「清不清楚」，而在「还能不能再存一次」：JPEG 每被保存一次就再丢一层信息，PNG 不会。所以常见的工作流是把照片从 JPEG 拿出来，放进一个可以反复编辑的容器里。这条链路做的正是这件事——解码到画布、再从画布编码，画布里只有像素，所以原文件里的 EXIF、GPS、拍摄时间、相机型号、缩略图一律不会出现在结果里。这一点对隐私是加分，对「我要留住拍摄信息」是减分，两者都该在转之前知道。另外要说清：无损不等于变小，照片进 PNG 通常是涨的。',
+      en: 'The difference is not about sharpness but about how many times a file can still be saved: every JPEG re-save discards another layer, a PNG does not. So the common workflow takes a photo out of JPEG and puts it in a container that can be edited repeatedly. That is exactly what this route does — decode onto a canvas, encode from it — and a canvas holds pixels and nothing else, so the EXIF, GPS, capture timestamp, camera model and thumbnail in the source never appear in the result. That is a gain for privacy and a loss if you needed the shooting data, and both are worth knowing before you convert. One more thing to say plainly: lossless is not smaller — a photograph in PNG usually gets bigger.',
+    },
+    keeps: {
+      zh: [
+        '重编码进无损容器：此后反复导出 PNG 不会每存一次再掉一层细节',
+        '像素尺寸原样保留，只有你显式设了「最长边」（面板档位 800–4096 px）才缩放',
+        '.jpg 与 .jpeg 两种后缀都认，同一批里混着别的来源格式也行',
+        '单个文件失败只报该文件，批次里其余继续——不会因为一张坏图整批停住',
+        '整条链路在你自己的标签页里跑：不上传、不发请求，断网也一样能转',
+      ],
+      en: [
+        'A re-encode into a lossless container: every later PNG save stops costing you detail',
+        'Pixel dimensions carried over as they are — it only shrinks if you set the longest edge yourself (the dial offers 800–4096 px)',
+        'Both .jpg and .jpeg are recognised, and a batch may mix source formats',
+        'One bad file reports only itself while the rest of the batch continues; a broken picture never halts the run',
+        'The whole route runs in your own tab: nothing is uploaded, no request is made, and it works with the network off',
+      ],
+    },
+    limits: {
+      zh: [
+        '体积通常变大：PNG 对照片这类内容没有魔法，真要「看着一样但更小」请走 WebP 或调 JPEG 质量',
+        'EXIF、GPS、拍摄时间、相机型号、缩略图都不带过去——画布里只有像素，产物里也只有像素',
+        '不修复任何东西：JPEG 的块状伪影与色带都在像素里，转成 PNG 只是把它们无损地保留下来',
+        '画布按每通道 8 位的标准画布处理，源文件的 ICC 与宽色域标记不保证原样写进产物',
+      ],
+      en: [
+        'The file usually gets bigger: PNG has no magic for photographs, so for “looks the same but smaller” take the WebP route or dial the JPEG quality instead',
+        'EXIF, GPS, the capture timestamp, camera model and thumbnail do not travel — a canvas holds pixels, and the artifact holds pixels',
+        'Nothing is repaired: JPEG blocking and banding already live in the pixels, and PNG keeps them losslessly',
+        'The canvas is the standard 8-bit-per-channel one, so an ICC profile or a wide-gamut tag is not promised to survive into the output',
+      ],
+    },
+    notes: {
+      zh: [
+        'PNG 没有质量档，所以这条链路的目标面板只给「最长边」；质量与目标体积是为 JPEG / WebP 准备的',
+        '结果文件名默认在源名后加日期与时间（模板可在偏好设置里改）；一批最多 200 张，产物可一次打包成 ZIP',
+      ],
+      en: [
+        'PNG has no quality dial, so the output panel for this route offers only the longest edge — quality and target size belong to JPEG and WebP',
+        'Names default to the source name plus date and time — the pattern is editable in preferences; up to 200 images per batch, downloadable as one ZIP',
+      ],
+    },
+    faq: [
+      {
+        q: { zh: '为什么转出来的 PNG 比原图大很多？', en: 'Why is the PNG so much bigger than the JPEG?' },
+        a: {
+          zh: '因为容器的职责变了：JPEG 用「丢细节」换体积，PNG 不用。想要体积小、观感接近，请走 WebP（同为有损但压得更紧），或留在 JPEG 并调质量。',
+          en: 'The container changed jobs: JPEG trades detail for size and PNG does not. For a smaller file that still looks close, take WebP (lossy but tighter) or stay on JPEG and dial the quality.',
+        },
+      },
+      {
+        q: { zh: '转换会去掉 EXIF 吗？', en: 'Does the conversion strip EXIF?' },
+        a: {
+          zh: '会，全部去掉，包括 GPS。这条链路是「解码成像素 → 重新编码」，中间没有任何元数据通道。如果你需要拍摄信息，请先自己备份原文件。',
+          en: 'All of it, GPS included: the route is decode-to-pixels-then-re-encode, and there is no metadata channel in between. Back up the original first if you need the shooting data.',
+        },
+      },
+      {
+        q: { zh: '再转回 JPEG 能恢复原样吗？', en: 'Can converting back to JPEG undo it?' },
+        a: {
+          zh: '不能。原 JPEG 的解码结果进了 PNG 是无损的，但「原来那张 JPEG 的字节」已经不存在了，重新编码是一次全新的有损压缩。',
+          en: 'No. The decoded pixels sit in PNG losslessly, but the original JPEG stream is gone, and re-encoding is a fresh lossy pass, not a restore.',
+        },
+      },
+    ],
+  },
+  {
+    slug: 'png-to-jpg',
+    from: 'png',
+    to: 'jpg',
+    shot: 'output-preset',
+    title: {
+      zh: 'PNG 转 JPEG——透明铺白底，质量与目标体积可调',
+      en: 'Convert PNG to JPEG — transparency flattens onto white, quality and target size included',
+    },
+    desc: {
+      zh: '浏览器本地把 PNG 编成 JPEG：透明区域铺纯白展平，质量档 40%–90%、目标体积 20 KB–2 MB，先降质量再缩像素。最多 200 张一批。',
+      en: 'Encode PNG to JPEG in your browser: transparency flattens onto pure white, with a 40%–90% quality step and a 20 KB–2 MB target size — quality is spent before pixels. Up to 200 images per batch.',
+    },
+    lede: {
+      zh: 'JPEG 没有 alpha 通道，所以「PNG 转 JPEG」的第一件事不是压缩，而是替透明区域做一个决定。这里的答案是确定的：画布先铺纯白再把图画上去，透明变成白底，不会出现黑底，也不会留下半透明的边。第二个决定是质量：面板给六档（40%–90%），留空则由编码器自己判断。第三个是目标体积，它的行为有讲究——先沿质量阶梯往下试，质量到底仍够不着才开始缩像素，所以「目标 200 KB」是被追的上限，不是承诺值。',
+      en: 'JPEG has no alpha channel, so converting PNG to JPEG starts with a decision about the transparent areas rather than with compression. The answer here is fixed: the canvas is filled pure white before the picture is drawn, so transparency becomes white — never black, never a half-transparent fringe. The second decision is quality, offered as six steps from 40% to 90%, with an empty setting meaning “let the encoder judge”. The third is a target size, and its order of operations matters: the quality ladder is walked first and only when it bottoms out does the encoder give up pixels, so “target 200 KB” is a ceiling being chased, not a promise.',
+    },
+    keeps: {
+      zh: [
+        '透明按纯白展平：既不是黑底，也没有棋盘格或半透明残留',
+        '质量档 40%–90% 与目标体积 20 KB–2 MB 在输出面板里选，两者只在链路末尾那次编码生效',
+        '目标体积按「先质量、后像素」的顺序追，够不着时给回当前最小的结果而不是报错',
+        '最长边可先缩到 800–4096 px；编码器另有 8192 px 硬上限，超过是先缩而不是静默裁切',
+        '一批最多 200 张，混合来源格式也行，结果可一次打包成 ZIP',
+      ],
+      en: [
+        'Transparency flattens onto pure white — no black background, no checkerboard, no translucent fringe',
+        'Quality steps from 40% to 90% and target sizes from 20 KB to 2 MB, chosen in the output panel and applied only at the final encode of the route',
+        'A target size is chased in that order — quality first, pixels second — and an unreachable target returns the smallest result rather than an error',
+        'A longest edge of 800–4096 px to shrink to, backed by a hard 8192 px encoder ceiling: oversized renders shrink instead of clipping',
+        'Up to 200 images per batch with mixed sources, the batch downloadable as one ZIP',
+      ],
+    },
+    limits: {
+      zh: [
+        'alpha 是丢掉的，而且不可逆——需要透明请留 PNG 或走 WebP',
+        '有损编码每次转手都在丢信息：请从原始 PNG 出发，别把 JPEG 反复转来转去',
+        '画布是每通道 8 位，16 位 PNG 的额外精度与宽色域标记不在这条路的保留范围里',
+        '元数据不进产物：JPEG 装得下 EXIF，但这条链路交给它的只有像素',
+      ],
+      en: [
+        'The alpha channel is gone and there is no way back — keep PNG or take WebP when transparency matters',
+        'Lossy re-encodes subtract: start from the original PNG rather than handing a JPEG through again',
+        'The canvas is 8-bit per channel, so extra precision from a 16-bit PNG and wide-gamut tags do not survive this route',
+        'No metadata is written: JPEG can carry EXIF, but this route hands it pixels only',
+      ],
+    },
+    notes: {
+      zh: [
+        '输出面板里的设置会被记住，同一批的所有图片共用一次设置',
+        '三种可写图片格式（PNG / JPEG / WebP）共享同一套参数语义，换目标再跑一批即可同时出多种格式',
+      ],
+      en: [
+        'The panel settings persist between runs and apply to every image in the batch from one read',
+        'The three writable formats (PNG, JPEG, WebP) share one quality vocabulary, so a second batch with another target gives you both',
+      ],
+    },
+    faq: [
+      {
+        q: { zh: '为什么透明变成白底了？', en: 'Why did transparency turn white?' },
+        a: {
+          zh: 'JPEG 这个格式没有 alpha 通道，必须有一个不透明底色。本项目选择纯白并把它写在实现里，好处是「白」是确定的，而不是各浏览器的默认底色。',
+          en: 'JPEG has no alpha channel, so an opaque background is mandatory. White is chosen and written into the implementation, which makes the result predictably white rather than whatever a browser defaults to.',
+        },
+      },
+      {
+        q: { zh: '质量该选哪一档？', en: 'Which quality step should I pick?' },
+        a: {
+          zh: '面板给的是 90 / 80 / 70 / 60 / 50 / 40%。想少做决定就留空（由浏览器定），想控制观感就从高档往下试；对网页图通常 70%–80% 已经接近原观感。',
+          en: 'The dial offers 90 / 80 / 70 / 60 / 50 / 40%. Leave it empty to let the browser decide, or step down from the top until it looks right; for web images 70%–80% is usually close to the original.',
+        },
+      },
+      {
+        q: { zh: '设了目标大小为什么还是超？', en: 'Why did it still miss my target size?' },
+        a: {
+          zh: '可用的杠杆有尽头：质量降到最低、边长缩到下限以内仍不够时，产物就是当前最小可行结果。想更小只能改图像本身（尺寸、内容复杂度）。',
+          en: 'The levers bottom out: if the lowest quality and the smallest permitted edge still exceed the target, what you get is the smallest thing that still encodes. Below that you have to change the image — its size or how complex the content is.',
+        },
+      },
+    ],
+  },
+  {
+    slug: 'jpg-to-webp',
+    from: 'jpg',
+    to: 'webp',
+    shot: 'output-preset',
+    title: {
+      zh: 'JPEG 转 WebP——本地再压一档体积，质量与目标大小可调',
+      en: 'Convert JPEG to WebP locally — another step down on size, with quality and a target',
+    },
+    desc: {
+      zh: '浏览器本地把 .jpg 编成 WebP：质量档 40%–90%、目标体积 20 KB–2 MB，先走质量阶梯再缩像素。最多 200 张一批，结果可打 ZIP。',
+      en: 'Encode .jpg to WebP in your browser with a 40%–90% quality step and a 20 KB–2 MB target size — the quality ladder first, pixels second. Up to 200 images per batch, with the batch downloadable as one ZIP.',
+    },
+    lede: {
+      zh: 'JPEG 与 WebP 都是有损容器，所以这条路的价值主要在体积：同一张图 WebP 常常比 JPEG 更小，而观感不掉。请把「常常」和「保证」分开——省多少取决于图像内容与两个编码器的判断，本项目不给你写一个百分比。操作上的关键还是顺序：设了目标体积时先沿质量阶梯往下试，质量到底还够不着，才开始缩边。所以目标大小是被追的上限；够不着时你拿到的是当前能做到的最小结果。',
+      en: 'JPEG and WebP are both lossy containers, so this route is about size: the same picture is often smaller as WebP without looking worse. Keep “often” separate from “guaranteed” — how much you save depends on the image and on the two encoders, and this page will not quote you a percentage. The operational point is again the order: with a target size set, the encoder walks the quality ladder and only starts giving up pixels once quality has bottomed out. The target is a chased ceiling, and when it cannot be reached the result is the smallest thing the encoder could make.',
+    },
+    keeps: {
+      zh: [
+        '重编码为 WebP：像素尺寸原样，只有你显式设了最长边（800–4096 px）才缩放',
+        '质量档 40%–90% 与目标体积 20 KB–2 MB 只在链路末尾那次编码生效，中间步骤不吃这两个参数',
+        '目标体积按「先质量、后像素」追，够不着时给回最小结果而不是失败',
+        '8192 px 是编码器侧的硬上限，超过就先缩而不是静默裁切',
+        '一批最多 200 张、单个文件 100 MB 上限，结果可一次打包成 ZIP',
+      ],
+      en: [
+        'A re-encode into WebP: pixel dimensions carry over unless you set a longest edge yourself (800–4096 px)',
+        'Quality steps of 40%–90% and target sizes of 20 KB–2 MB act only at the route’s final encode — intermediate steps ignore both',
+        'A target size is chased quality-first, pixels-second, and an unreachable one returns the smallest result instead of failing',
+        'A hard 8192 px encoder ceiling behind it, so oversized renders shrink rather than clip',
+        'Up to 200 images per batch with a 100 MB per-file ceiling, downloadable as one ZIP',
+      ],
+    },
+    limits: {
+      zh: [
+        'JPEG → WebP 是第二次有损编码：原始文件还在的话，从原始 PNG 出发只损失一次',
+        '源 JPEG 本来就没有透明通道，产物也不会有——需要透明请从 PNG 走',
+        'WebP 能不能被打开由接收方决定；要「任何设备都能开」，JPEG 仍是更安全的答案',
+        'BMP / GIF / SVG 只能作为输入：浏览器不提供它们的编码器',
+      ],
+      en: [
+        'JPEG → WebP is a second lossy pass: if the original is still around, start from the PNG and lose less once',
+        'A JPEG source has no alpha to carry, so the output will not gain one — take the PNG route when transparency matters',
+        'Whether WebP opens is the recipient’s call; where “any device must open it” is the requirement, JPEG remains the safer answer',
+        'BMP, GIF and SVG are input-only: a browser ships no encoder for them',
+      ],
+    },
+    notes: {
+      zh: [
+        '输出参数在界面里设置一次会被记住，同一批的所有图片共用',
+        '同一批也可以把目标换成 PNG 或 JPEG；三种可写格式共享同一套参数语义',
+      ],
+      en: [
+        'The output parameters are read once per batch and remembered between runs',
+        'The same batch can target PNG or JPEG instead — the three writable formats share one parameter vocabulary',
+      ],
+    },
+    faq: [
+      {
+        q: { zh: 'WebP 一定比 JPEG 小吗？', en: 'Is WebP always smaller than JPEG?' },
+        a: {
+          zh: '不保证。多数照片与图形界面截图会明显小一些，但幅度取决于内容；这条页不写具体百分比，因为那是可以实测的东西，不该靠印象。',
+          en: 'Not guaranteed. Most photographs and interface screenshots come out clearly smaller, but the margin is a property of the content, and this page will not quote a percentage that has not been measured.',
+        },
+      },
+      {
+        q: { zh: '目标大小够不着会怎样？', en: 'What if the target size cannot be reached?' },
+        a: {
+          zh: '质量阶梯走完、像素也缩到位之后，产物就是当前最小可行结果——转换不会失败，但也不会为了达标而把图砍坏。',
+          en: 'Once the quality ladder is walked and the pixels have been shrunk, the result is the smallest thing that still encodes: the conversion does not fail, and it does not mangle the picture to hit the number.',
+        },
+      },
+      {
+        q: { zh: '能一次转很多张吗？', en: 'Can I convert many at once?' },
+        a: {
+          zh: '能，一批最多 200 张，来源格式可以混；单个文件失败只报该文件，其余继续，结果可一次打包成 ZIP。',
+          en: 'Yes — up to 200 images per run with mixed sources, one bad file reporting only itself while the batch continues, all downloadable as one ZIP.',
+        },
+      },
+    ],
+  },
+  {
+    slug: 'webp-to-jpg',
+    from: 'webp',
+    to: 'jpg',
+    shot: 'batch-results',
+    title: {
+      zh: 'WebP 转 JPEG——给不收 WebP 的接收方兜底，透明铺白',
+      en: 'Convert WebP to JPEG for recipients that will not take WebP — alpha flattens to white',
+    },
+    desc: {
+      zh: '浏览器本地把 .webp 解码重编为 JPEG：透明铺纯白，质量档与目标体积照旧，一批最多 200 张。动图 WebP 只会留下一帧。',
+      en: 'Decode .webp and re-encode it as JPEG in your browser: transparency flattens onto pure white, the quality and target-size levers apply as usual, up to 200 images per batch. Animated WebP yields one frame.',
+    },
+    lede: {
+      zh: '这条路存在的理由通常不是压缩，而是「对方打不开」：一些邮件客户端、老版本 Office、以及某些 CMS 的上传校验都不接受 WebP。做法是把 WebP 解码到画布、铺白、再交给 JPEG 编码器，于是有两件事一定发生——透明变成白底，以及一次全新的有损编码。原始文件还在的话，交付 JPEG 从原始 PNG 走会更干净；这条适合的是「手里只有 WebP」的情形。',
+      en: 'The reason this route exists is usually not compression but “the other side cannot open it”: some mail clients, older Office builds and certain CMS upload validators will not take WebP. The mechanics are decode onto a canvas, fill white, hand it to the JPEG encoder — which means two things certainly happen: transparency becomes white, and a fresh lossy encode is performed. If the original is still around, shipping JPEG from the PNG is cleaner; this route is for the case where WebP is all you have.',
+    },
+    keeps: {
+      zh: [
+        '透明铺纯白底，不会带出黑底或半透明残留',
+        '像素尺寸原样保留，除非你设了最长边（800–4096 px）',
+        '质量档 40%–90% 与目标体积 20 KB–2 MB 照旧，只在链路末尾那次编码生效',
+        '静态 WebP 正常处理；动图 WebP 得到浏览器解码出的那一帧',
+        '一批最多 200 张、单个 100 MB 上限，结果可一次打包成 ZIP',
+      ],
+      en: [
+        'Transparency flattens onto pure white — never a black background, never a translucent fringe',
+        'Pixel dimensions are kept unless you set a longest edge (800–4096 px)',
+        'Quality steps of 40%–90% and target sizes of 20 KB–2 MB apply as usual, at the route’s final encode only',
+        'A still WebP is handled normally; an animated one yields the frame the browser decoded',
+        'Up to 200 images per batch and 100 MB each, downloadable as one ZIP',
+      ],
+    },
+    limits: {
+      zh: [
+        'WebP → JPEG 是第二次有损编码，只减不加；能回到原始文件请从原始文件走',
+        '无损 WebP 的精确像素回到 JPEG 必然消失',
+        '动图只出一帧，而且「丢帧」这条提示目前只为 GIF 写——实现只对 GIF 数帧',
+        '产物不带元数据：画布里只有像素，编码出来的 JPEG 里也只有像素',
+      ],
+      en: [
+        'WebP → JPEG is a second lossy pass and only subtracts; go back to the original file when you have it',
+        'The exactness of a lossless WebP cannot survive the way back into JPEG',
+        'An animation yields one frame, and the “frames lost” notice is currently written only for GIF — the implementation counts frames only there',
+        'No metadata is carried: the canvas holds pixels and the encoder is handed pixels',
+      ],
+    },
+    notes: {
+      zh: [
+        '如果目的只是「更小」，别在两个有损格式之间转手——从原始文件重新编码才划算',
+        '输出面板的设置会被记住，同一批的所有文件共用一次读取',
+      ],
+      en: [
+        'If the goal is simply “smaller”, do not hand a picture between two lossy formats — re-encoding from the original is the cheaper move',
+        'The panel settings persist and apply to the whole batch from a single read',
+      ],
+    },
+    faq: [
+      {
+        q: { zh: '为什么透明区域变成一大块白？', en: 'Why did the transparent area turn into a white block?' },
+        a: {
+          zh: 'JPEG 没有 alpha 通道，必须铺一个不透明底色，本项目铺的是纯白。若白底不合适，请留 WebP 或输出 PNG。',
+          en: 'JPEG requires an opaque background and has no alpha channel; this route fills pure white. If white is wrong for the picture, keep WebP or output PNG instead.',
+        },
+      },
+      {
+        q: { zh: '为什么图比原来糊了一点？', en: 'Why does it look softer than the original?' },
+        a: {
+          zh: '因为这是第二次有损编码：WebP 那次已经改过像素，JPEG 这次再改一遍。选更高的质量档能减轻，但换不回已经丢掉的信息。',
+          en: 'Because this is the second lossy pass: WebP had already changed the pixels and JPEG changes them again. A higher quality step softens the damage but cannot bring back what was already discarded.',
+        },
+      },
+      {
+        q: { zh: '动图 WebP 怎么办？', en: 'What about animated WebP?' },
+        a: {
+          zh: '栅格化只产出一张静态图，动图会只剩首帧。本项目不能编 GIF，所以「保住动画」这件事不在这条链路的能力范围内。',
+          en: 'Rasterising produces a still, so the animation ends up as its first frame. The extension cannot encode GIF either, so “keep the animation” is outside what this route can do.',
+        },
+      },
+    ],
+  },
+  {
+    slug: 'png-to-pdf',
+    from: 'png',
+    to: 'pdf',
+    shot: 'batch-results',
+    title: {
+      zh: 'PNG 转 PDF——像素不重画，页面就是这张图',
+      en: 'Convert PNG to PDF without redrawing a pixel — the page is the picture',
+    },
+    desc: {
+      zh: '浏览器本地把 PNG 装进单页 PDF：常规路径不重画像素，页面尺寸由图像像素换算，横竖自动。一批最多 200 个，各自一个 PDF。',
+      en: 'Put a PNG into a one-page PDF locally: the normal path never re-draws the pixels, the page is sized from the image’s own pixels and orientation follows. Up to 200 files, one PDF each.',
+    },
+    lede: {
+      zh: '这条链路与别的路不太一样：它是「把这张 PNG 放进 PDF 容器」，不是「重画一遍再塞进去」。像素一个都不丢，产物是无损的。但无损不等于不变大——PDF 用自己的流格式重存这些像素，实测几张截图的产物落在原 PNG 的 1.1–1.3 倍，画面越碎越接近 1.5 倍。要压体积请在图片侧解决（换 WebP、缩最长边），别指望这一转。页面尺寸直接由图像像素按 96 dpi 换算成点（px × 72 ÷ 96），宽大于高就自动横向，于是它不是 A4：一张 2560×1440 的截图进去，出来的 PDF 就是一页 2560×1440 大小的纸。打印时需要选「适合页面」。',
+      en: 'This route is unlike the others: it places the PNG inside a PDF container instead of redrawing it there, so not one pixel is lost and the artifact is lossless. Lossless is not the same as the same size, though — a PDF re-stores those samples in its own stream format, and measured over several screenshots the artifact lands 1.1x–1.3x the source PNG, nearer 1.5x when the picture is finely detailed. Do the shrinking on the image side (WebP, a shorter edge) rather than hoping this hop does it. The page is computed from the image pixels at 96 dpi (px × 72 ÷ 96 points), landscape when it is wider than tall, which means it is not A4: a 2560×1440 screenshot in yields one page the size of that screenshot. Choose “fit to page” when printing.',
+    },
+    keeps: {
+      zh: [
+        '常规路径不重画像素：PNG 解码后按无损流写进 PDF，画质与源文件逐像素一致',
+        '页面尺寸按图像像素在 96 dpi 下换算（px × 72 ÷ 96 点），横图自动横向',
+        '唯一放弃无损的情形是超过 8192 px 的图——那时先等比重采样再嵌入，否则浏览器画不出来',
+        '解码失败或尺寸为 0 的坏图报该文件的错误，而不是给回一张空白 PDF',
+        '一批最多 200 个文件、单个 100 MB 上限，各自一个 PDF，可一起打包成 ZIP',
+      ],
+      en: [
+        'No redraw on the normal path: the PNG is written into the PDF as a lossless stream, pixel-for-pixel the file you gave it',
+        'The page is sized from the image pixels at 96 dpi (px × 72 ÷ 96 points), landscape automatically when it is wider than tall',
+        'The one case that gives up losslessness is a side above 8192 px, which is resampled before embedding — otherwise the browser cannot draw it',
+        'A file that will not decode, or reports zero size, raises its own error instead of handing back a blank PDF',
+        'Up to 200 files per batch and 100 MB each, one PDF per file, downloadable together as one ZIP',
+      ],
+    },
+    limits: {
+      zh: [
+        '页面不是 A4：它就是那张图的尺寸，打印或拼册时要靠「适合页面」',
+        '不做多页合并——一批 20 张得到 20 个 PDF，不是一个 20 页的 PDF',
+        'PDF 里没有文字层：源图本来也只有像素，搜索与复制都无从下手',
+        '目标是 PDF 时输出参数面板不出现（面板只为图片目标显示），所以这里不能设 DPI 或最长边',
+      ],
+      en: [
+        'The page is not A4 — it is the picture’s own size, so printing and imposition rely on “fit to page”',
+        'No merging: a batch of 20 images gives 20 PDFs, not one PDF of 20 pages',
+        'There is no text layer, because the source had only pixels; searching and copying have nothing to work on',
+        'The output panel is not shown for a PDF target (it exists for image targets), so DPI and longest edge are not adjustable here',
+      ],
+    },
+    notes: {
+      zh: [
+        '结果文件名默认在源名后加日期与时间，模板可在偏好设置里改；一批多个文件时可一次打包成 ZIP',
+        '需要「一张图一页 A4」的排法：先转 PDF 再在打印时选适合页面，或把图放进 HTML 走 HTML → PDF（那条按 A4 分页）',
+      ],
+      en: [
+        'Names default to the source name plus date and time, with the pattern editable in preferences; several files can come back as one ZIP',
+        'For a “one image per A4 page” layout: print the PDF with fit-to-page, or place the image in HTML and take the HTML → PDF route, which paginates on A4',
+      ],
+    },
+    faq: [
+      {
+        q: { zh: '能把多张 PNG 合成一个 PDF 吗？', en: 'Can several PNGs become one PDF?' },
+        a: {
+          zh: '不能。转换是逐文件进行的，一个输入对应一个 PDF；本项目没有把多个 PDF 拼成一个的能力。需要合册时请用 PDF 侧的工具，或直接打印 ZIP 里的多个文件。',
+          en: 'No. Conversion is per file — one input, one PDF — and there is no capability here to join PDFs. For a booklet use a PDF-side tool, or print the several files out of the ZIP.',
+        },
+      },
+      {
+        q: { zh: '为什么打开 PDF 是一页超大的纸？', en: 'Why does the PDF open as one enormous page?' },
+        a: {
+          zh: '因为页面尺寸就是图像尺寸（按 96 dpi 换算成点）。这是「不重画」这条路径的必然取舍：保住了像素，也保住了图的物理尺寸。',
+          en: 'Because the page is sized from the image itself (pixels to points at 96 dpi). That is the unavoidable trade of the no-redraw path: the pixels are preserved and so is the picture’s physical size.',
+        },
+      },
+      {
+        q: { zh: '转成 PDF 会变小吗？', en: 'Does the PDF come out smaller than the PNG?' },
+        a: {
+          zh: '不会，通常还会略大：像素是无损重存进 PDF 流的，实测几张截图的产物是原 PNG 的 1.1–1.3 倍。要压体积请先在图片侧处理（换 WebP 或缩边长），再转 PDF。',
+          en: 'No, and it usually grows a little: the pixels go into the PDF stream losslessly, measured at 1.1x–1.3x the source PNG over several screenshots. Do the shrinking on the image side first — WebP or a shorter edge — then convert.',
+        },
+      },
+    ],
+  },
+  {
+    slug: 'jpg-to-pdf',
+    from: 'jpg',
+    to: 'pdf',
+    shot: 'workbench-empty',
+    title: {
+      zh: 'JPEG 转 PDF——一张照片一页，会重编码一次',
+      en: 'Convert JPEG to PDF — one photo per page, through one re-encode',
+    },
+    desc: {
+      zh: '浏览器本地把 .jpg 装进单页 PDF：页面按像素尺寸换算、横竖自动。这条路解码后再编码一次，PNG 那条则不重编码，两者是有损与无损的对照。',
+      en: 'Put a .jpg into a one-page PDF locally, sized from its pixels with orientation handled automatically. This route decodes and re-encodes once; the PNG route does not, which is the lossy/lossless contrast.',
+    },
+    lede: {
+      zh: '同样是图片进 PDF，JPEG 这条与 PNG 这条的区别就在「有没有重画一遍」。这条路把图解码到画布、先铺纯白、再按 JPEG 档编出来交给容器——尺寸上限与统一底色都是在这一步处理的。多数照片在这一步看不太出差别，但它确实是第二次有损编码；要尽量少损失，就先转 PNG、再由 PNG 出 PDF。页面尺寸按像素在 96 dpi 下换算，所以也不是 A4。',
+      en: 'Both put an image into a PDF, and the difference from the PNG route is whether the picture is redrawn. This one decodes the image onto a canvas, fills pure white, re-encodes it as JPEG and hands that to the container — the canvas is also where the size ceiling and a uniform background get handled. Most photographs show little of it, but it is a second lossy pass — for the least possible loss, convert to PNG first and take the PNG route, which embeds. The page is sized from pixels at 96 dpi, so this one is not A4 either.',
+    },
+    keeps: {
+      zh: [
+        '一页一张图：页面尺寸由像素在 96 dpi 下换算，宽大于高自动横向',
+        '重编码按 JPEG 载荷交给容器（质量参数 0.92 由编码器执行），照片类产物体积可控',
+        '画布先铺纯白再画，不会出现黑底或来路不明的底色',
+        '超过 8192 px 的图先等比缩进上限，而不是静默裁切',
+        '一批最多 200 张、单个 100 MB 上限，各自一个 PDF，结果可一次打包成 ZIP',
+      ],
+      en: [
+        'One picture per page: the page is computed from the pixels at 96 dpi and goes landscape when it is wider than tall',
+        'The re-encode is handed to the container as a JPEG stream (the encoder is given 0.92), so photographic output stays a manageable size',
+        'The canvas is filled pure white before the picture is drawn, so there is no black background and no browser-dependent one',
+        'A side above 8192 px is scaled inside the limit first rather than silently clipped',
+        'Up to 200 files per batch and 100 MB each, one PDF per file, downloadable as one ZIP',
+      ],
+    },
+    limits: {
+      zh: [
+        '这是第二次有损编码：追求保真请先转 PNG，再走 PNG → PDF（那条不重编码）',
+        '不合并多页——一批 N 张就是 N 个 PDF，本项目没有拼 PDF 的能力',
+        '没有文字层：PDF 里的图搜不到、也复制不出文字',
+        '页面不是 A4，且目标是 PDF 时输出参数面板不出现（DPI 只对 PDF 来源有意义）',
+      ],
+      en: [
+        'It is a second lossy pass: for fidelity convert to PNG first and take PNG → PDF, which embeds without re-encoding',
+        'No merging — N files are N PDFs, because joining PDFs is not something this extension does',
+        'No text layer, so the picture cannot be searched or copied as text out of the PDF',
+        'The page is not A4, and no output panel is offered for a PDF target (DPI means something only when the source is a PDF)',
+      ],
+    },
+    notes: {
+      zh: [
+        '典型用法是一批照片或截图各自变成一个可直接发送的单页 PDF',
+        '单个文件失败只报该文件的错误，批次里其余继续；结果文件名默认在源名后加日期与时间',
+      ],
+      en: [
+        'The typical use is a set of photos or screenshots, each becoming a one-page PDF you can send on its own',
+        'One bad file reports only itself while the batch continues, and names default to the source name plus date and time',
+      ],
+    },
+    faq: [
+      {
+        q: { zh: 'PDF 和原 JPEG 体积差不多，为什么？', en: 'Why is the PDF about the same size as the JPEG?' },
+        a: {
+          zh: '因为 PDF 里装的就是重编码后的 JPEG 图像流，容器本身只加很少的开销。差多少取决于编码器在 0.92 档上对这张图的判断，不取决于「PDF 会不会压缩」。',
+          en: 'Because the PDF carries a re-encoded JPEG image stream and the container itself adds little. The difference comes from what the encoder decides at 0.92 for this picture, not from any compression PDF performs.',
+        },
+      },
+      {
+        q: { zh: '为什么颜色或细节有一点变化？', en: 'Why did the colour or detail shift slightly?' },
+        a: {
+          zh: '这条链路是「解码 → 铺白 → 重新编码」。半透明边缘会被白底吃掉，细密纹理会被第二次量化影响。想避免就先转 PNG，再从 PNG 出 PDF。',
+          en: 'The route is decode, fill white, re-encode. Translucent edges get absorbed into the white and fine texture is affected by a second quantisation. To avoid both, convert to PNG first and take PNG → PDF.',
+        },
+      },
+      {
+        q: { zh: '能不能一次把 50 张照片装成一个 PDF？', en: 'Can 50 photos go into one PDF at once?' },
+        a: {
+          zh: '不能，转换按文件一对一。要合册就用 PDF 侧的工具；本项目能给你的是 50 个单页 PDF 和一个装它们的 ZIP。',
+          en: 'No — conversion is one-to-one per file. Use a PDF-side tool for a booklet; what this gives you is 50 one-page PDFs and the ZIP that carries them.',
+        },
+      },
+    ],
+  },
+  {
+    slug: 'excel-to-json',
+    from: 'xlsx',
+    to: 'json',
+    shot: 'preview-edit',
+    title: {
+      zh: 'Excel 转 JSON——按单元格值出，多 sheet 一张不丢',
+      en: 'Convert Excel to JSON from cell values — and no worksheet gets dropped',
+    },
+    desc: {
+      zh: '浏览器本地把 .xlsx 转成 JSON：单表给行对象数组，多表按工作表名分组；数字与布尔是真类型，日期是两段式 ISO 文本。',
+      en: 'Convert .xlsx to JSON in your browser: one sheet becomes an array of row objects, several are grouped by sheet name; numbers and booleans stay typed and dates arrive as two-form ISO text.',
+    },
+    lede: {
+      zh: 'Excel 转 JSON 最容易做错的一件事，是取「显示文本」还是取「存储值」。显示文本是格式化之后的结果：1234.5 可能显示为 "1,234.50"，0.25 显示为 25.0%，布尔显示为 TRUE。这条链路取的是值，所以数字在 JSON 里是 number、布尔是 true/false。日期走的是另一条规则：单元格里存的是天数序列号，直接给 JSON 只会得到一个 45296.33 这样的数，所以日期在读取期渲染成 yyyy-mm-dd hh:mm:ss，再剥掉零时间——纯日期就是 YYYY-MM-DD。为什么不用 Date 对象：那条换算带本地时区误差（实测 Asia/Shanghai −43 秒），而解析期渲染出的文本在三个时区逐字节一致。',
+      en: 'The easiest thing to get wrong when turning Excel into JSON is taking the display text instead of the stored value. Display text is what formatting produced: 1234.5 may read "1,234.50", 0.25 reads 25.0%, a boolean reads TRUE. This route takes values, so a number is a JSON number and a boolean is true/false. Dates follow a different rule: what a date cell stores is a day serial, and handing that to JSON gives you 45296.33 — so date cells are rendered at read time into yyyy-mm-dd hh:mm:ss and the zero time is dropped, leaving YYYY-MM-DD for a plain date. Why not a Date object: that conversion carries a local-timezone error (measured at −43 seconds in Asia/Shanghai), while the text rendered during parsing came out byte-identical across three zones.',
+    },
+    keeps: {
+      zh: [
+        '单工作表给「行对象数组」（首行做键）；多工作表按表名分组成一个对象，一张表都不会被丢',
+        '数值与布尔按存储值写成 JSON 的 number / true / false，不是 "1,234.50"、"25.0%"、"TRUE" 这类显示文本',
+        '日期是机器可读的两段式：纯日期 YYYY-MM-DD，带时间 yyyy-mm-dd hh:mm:ss；渲染取自解析期文本，实测跨三个时区逐字节一致',
+        '工作簿作者显式指定的其它日期或时长格式被尊重，不会被两段式覆盖（例如 [h]:mm:ss 时长仍是 124:48:00）',
+        '结果在工作台里可按树 / 数组表 / 原文三种视图预览；单文件批次还会给出左右对照视图，右侧的结果侧可直接编辑后再下载',
+      ],
+      en: [
+        'One sheet gives an array of row objects (first row as keys); several sheets are grouped into an object keyed by worksheet name, so nothing is dropped',
+        'Numbers and booleans are written from the stored value as JSON numbers and true/false, not display text like "1,234.50", "25.0%" or "TRUE"',
+        'Dates are machine-readable in two forms: YYYY-MM-DD for a plain date, yyyy-mm-dd hh:mm:ss with a time, rendered from parse-time text that measured byte-identical across three timezones',
+        'A date or duration format the workbook author set explicitly is respected rather than overwritten, so an [h]:mm:ss duration stays 124:48:00',
+        'The result previews in the workbench as a tree, an array table or the raw text; a single-file batch also opens the side-by-side view, whose result pane can be edited before you download it',
+      ],
+    },
+    limits: {
+      zh: [
+        '公式给的是它上次算出的缓存值；从没被计算过的公式没有缓存可给',
+        '样式、列宽、图表、透视表、条件格式与批注在 JSON 里没有位置',
+        '合并单元格只有左上角那一格带值，被覆盖的其余位置是空的',
+        '午夜时间戳与纯日期同形（都落成 YYYY-MM-DD）——这是两段式规则里写明的取舍',
+      ],
+      en: [
+        'A formula yields its cached result; one never evaluated has no cache to yield',
+        'Styles, column widths, charts, pivot tables, conditional formats and comments have no place in JSON',
+        'A merged range carries its value only in the top-left cell; the covered positions come out empty',
+        'A midnight timestamp is indistinguishable from a plain date, both landing as YYYY-MM-DD — a trade stated in the two-form rule',
+      ],
+    },
+    notes: {
+      zh: [
+        '读不到任何工作表时按该文件的错误处理，不会静默给回一个空数组；单个文件失败不影响批次里其余文件',
+        '一批最多 200 个文件、单个 100 MB 上限；JSON 结果可以继续转成 CSV 或 Excel',
+      ],
+      en: [
+        'A workbook with no readable worksheet reports that file’s error rather than quietly returning an empty array, and one failure never stops the batch',
+        'Up to 200 files per batch and 100 MB each; the JSON result can be converted on to CSV or Excel',
+      ],
+    },
+    faq: [
+      {
+        q: {
+          zh: '为什么多个 sheet 是一个对象而不是数组？',
+          en: 'Why an object rather than an array for multiple sheets?',
+        },
+        a: {
+          zh: '因为数组表达不了「这一组行属于哪张表」。按表名分组是唯一能把工作簿结构完整交出去的形状；只有一个工作表时仍然是朴素的行对象数组。',
+          en: 'Because an array cannot say which worksheet a group of rows came from. Keying by sheet name is the only shape that hands over the workbook intact; with a single sheet you still get the plain array of row objects.',
+        },
+      },
+      {
+        q: { zh: '为什么有的字段是字符串？', en: 'Why are some fields strings?' },
+        a: {
+          zh: '因为那个单元格的存储值本来就是文本——例如带前导零的编号。这是保真，不是漏转：把它猜成数字就会丢掉原值。',
+          en: 'Because the cell’s stored value is text — a zero-padded ID, say. That is fidelity, not a missed conversion: guessing it into a number would destroy the original.',
+        },
+      },
+      {
+        q: { zh: '.xls（97-2003）能转吗？', en: 'Does it take .xls (97-2003)?' },
+        a: {
+          zh: '输入侧支持的是 .xlsx；老的二进制 .xls 请先在 Excel 或 LibreOffice 里另存为 .xlsx 再转。',
+          en: 'The supported input is .xlsx; save the legacy binary .xls as .xlsx in Excel or LibreOffice first.',
+        },
+      },
+    ],
+  },
+  {
+    slug: 'csv-to-json',
+    from: 'csv',
+    to: 'json',
+    shot: 'batch-files',
+    title: {
+      zh: 'CSV 转 JSON——只有能精确回写的字段才是数字',
+      en: 'Convert CSV to JSON — a field is numeric only when it round-trips exactly',
+    },
+    desc: {
+      zh: '浏览器本地把 .csv 转成 JSON 行对象：字段先按原文读入，只在「解析→回写完全一致」时才恢复数字类型；GBK / GB18030 自动兜底。',
+      en: 'Convert .csv to JSON row objects locally: every field is read as text and regains a numeric type only when parse-then-reprint reproduces it exactly; GBK / GB18030 input decodes automatically.',
+    },
+    lede: {
+      zh: '把 CSV 交给 JSON 的常见实现是让解析器猜类型，而猜是有代价的："00424" 变成 424、1e5 变成 100000、16 位卡号变成科学计数、1/2 变成一个日期。这条链路反过来做：先用严格读法把每个字段按原文读进来，再只在一个很严的条件下恢复数字类型——解析成数字、再写回、必须与原文一字不差，并且有效数字不超过 15 位。凡是回写不上的，一律留字符串。日期同理：CSV 里没有日期类型，2024-01-05 就是那串字符，转换不替你造一个。',
+      en: 'The usual way to turn CSV into JSON lets the parser guess types, and guessing has a price: "00424" becomes 424, 1e5 becomes 100000, a 16-digit card number becomes scientific notation and 1/2 becomes a date. This route does the opposite: every field is read verbatim first, and a numeric type is restored only under one strict condition — parse it, print it back, and the characters must be identical, within 15 significant digits. Anything that fails that round trip stays a string. Dates work the same way: CSV has no date type, so 2024-01-05 is those characters, and the conversion will not invent one for you.',
+    },
+    keeps: {
+      zh: [
+        '首行做键、其余行成对象；空单元格不会写成 null，而是那个键直接缺失',
+        '数字类型只在「解析→回写完全一致且有效数字不超过 15 位」时恢复，所以 00424、1e5、16 位卡号原样是字符串',
+        '看起来像日期的内容（2024-01-05、1/2）不会被猜成日期，仍是字符串——值保真优先于类型便利',
+        '输入按 UTF-8 → GB18030 → GBK 依次尝试解码，国内 Excel 另存的 GBK CSV 直接可读',
+        '结果在工作台的 JSON 三视图（树 / 数组表 / 原文）里预览；单文件批次还能在左右对照视图的结果侧编辑后再下载',
+      ],
+      en: [
+        'The first row becomes the keys and the rest become objects; an empty cell is not written as null — that key is simply absent',
+        'A numeric type returns only when parse-then-reprint is exact within 15 significant digits, so 00424, 1e5 and a 16-digit card number stay strings',
+        'Text that looks like a date (2024-01-05, 1/2) is not guessed into one and remains a string — value fidelity before type convenience',
+        'Input is decoded UTF-8 → GB18030 → GBK, so a GBK CSV saved by a Chinese Excel reads correctly straight away',
+        'The result previews as a tree, an array table or raw text in the workbench; a single-file batch also opens the side-by-side view, where the result pane is editable before download',
+      ],
+    },
+    limits: {
+      zh: [
+        '一个 CSV 就是一张平面表，只读第一张表；没有「多 sheet」概念',
+        '这一侧不做 Excel 的公式转义：JSON 不会被 Excel 打开，转义符反而是脏数据。以 = 开头的字段原样进 JSON，别把结果直接喂给会执行公式的东西',
+        '分隔符是读的时候自动判断的（逗号、分号、制表符、竖线都能直接转），所以判断偶尔不合你意——文件最前面加一行 sep=; 就能强制指定',
+        '读不到工作表时按该文件的解码错误处理，而不是静默给回空数组',
+      ],
+      en: [
+        'A CSV is one flat grid and only the first grid is read; there is no multi-sheet concept',
+        'No Excel formula escaping happens on this side: JSON is not opened by Excel, so an apostrophe would be dirt. A field starting with = enters the JSON verbatim — do not feed the result to something that executes formulas',
+        'The delimiter is sniffed while reading (comma, semicolon, tab and pipe all convert as they stand), so the sniff can disagree with you — put sep=; on the first line to force it',
+        'A file whose sheet cannot be read raises its own decode error instead of quietly returning an empty array',
+      ],
+    },
+    notes: {
+      zh: [
+        'JSON 结果不写 BOM——BOM 是为 CSV 那侧的 Excel 准备的，这里不需要',
+        '一批最多 200 个文件、单个 100 MB 上限；结果文件名默认在源名后加日期与时间，模板可在偏好设置里改',
+      ],
+      en: [
+        'No BOM is written for JSON — that affordance belongs to the CSV side, where Excel reads it',
+        'Up to 200 files per batch and 100 MB each; names default to the source name plus date and time, and the pattern is editable in preferences',
+      ],
+    },
+    faq: [
+      {
+        q: { zh: '为什么 "007" 是字符串？', en: 'Why is "007" a string?' },
+        a: {
+          zh: '这正是保护。一旦按数字存，回写就变成 7，前导零再也回不来。判定条件看的是「能不能一字不差地回写」，不是「像不像数字」。',
+          en: 'That is the protection working. Stored as a number it becomes 7 and the leading zero is unrecoverable. The test is “can it be written back character for character”, not “does it look numeric”.',
+        },
+      },
+      {
+        q: { zh: '我想要真的日期类型怎么办？', en: 'What if I want real dates?' },
+        a: {
+          zh: 'JSON 本身没有日期类型，最稳的做法就是保留字符串形状，在使用侧按需解析。想要别的格式，转完在编辑视图里批量替换即可——该视图只在单文件批次的左右对照里出现。',
+          en: 'JSON has no date type, so keeping the string shape and parsing where you use it is the stable answer. For another format, replace it in the editing view after conversion — that view shows up for a single-file batch in the side-by-side pane.',
+        },
+      },
+      {
+        q: { zh: '为什么空值不见了？', en: 'Why did the empty values disappear?' },
+        a: {
+          zh: '这是行对象数组的默认形状：空单元格不给键。需要每行都带齐字段时，在预览编辑里补 null（编辑视图只在单文件批次出现），或改用 CSV / Excel 那条链路。',
+          en: 'That is the default shape of an array of row objects: an empty cell contributes no key. If every row must carry every field, add nulls in the editing view — single-file batches only — or take the CSV / Excel route instead.',
+        },
+      },
+    ],
+  },
+  {
+    slug: 'json-to-excel',
+    from: 'json',
+    to: 'xlsx',
+    shot: 'batch-results',
+    title: {
+      zh: 'JSON 转 Excel——经过 CSV 的两步链，嵌套值写进单元格',
+      en: 'Convert JSON to Excel — two steps through CSV, nested values kept in the cell',
+    },
+    desc: {
+      zh: '浏览器本地把 JSON 数组转成 .xlsx：表头取所有对象键的并集，嵌套对象与数组以 JSON 文本进单元格。链路是 JSON → CSV → Excel，中间不落盘。',
+      en: 'Turn a JSON array into .xlsx in your browser: the header is the union of every object’s keys and nested values go into the cell as JSON text. The route is JSON → CSV → Excel, with nothing written in between.',
+    },
+    lede: {
+      zh: '注册表上没有 JSON 直连 Excel 这条路，走的是两步：JSON → CSV → Excel，由图上的路径搜索自动给出，中间结果只在内存里传递，不落盘也不联网。这条链路真正值得说的两件事都在数据形状上：一是表头不是照第一个对象的键抄，而是取所有对象键的并集——某行缺某个键就留空，不会丢行；二是嵌套对象与数组不会被摊平掉，它们以 JSON 文本写进单元格，信息完整但代价是「往返不对称」：从 Excel 再转回 JSON，得到的是那串文本。',
+      en: 'There is no direct JSON-to-Excel edge in the registry: the route is two steps, JSON → CSV → Excel, discovered by the path search over the converter graph, and the intermediate result lives only in memory — nothing is written to disk and nothing is fetched. The two things worth knowing are about shape. First, the header is not the first object’s keys but the union of every object’s keys — a row missing a key gets an empty cell rather than being dropped. Second, nested objects and arrays are not flattened away: they enter the cell as JSON text, which keeps the information intact at the cost of an asymmetric round trip — turn the sheet back into JSON and you get that text.',
+    },
+    keeps: {
+      zh: [
+        '顶层是非空对象数组即可：表头取所有对象键的并集，某行缺某个键就留空而不是丢行',
+        '嵌套对象与数组以 JSON 文本写进单元格，不会被摊平掉或静默丢弃',
+        'null 与 undefined 落成空单元格，而不是写出 "null" 文本',
+        '数字按数值写；以 = + - @ 或制表符开头的文本被转义，落到 .xlsx 仍是文本单元格并钉住文本格式，Excel 打开不会再执行它',
+        '长编号与前导零这类「回写不一致」的值按文本存，不会变成科学计数',
+      ],
+      en: [
+        'A non-empty array of objects is enough: the header is the union of all keys, and a row missing one gets an empty cell instead of being dropped',
+        'Nested objects and arrays enter the cell as JSON text rather than being flattened away or silently dropped',
+        'null and undefined become empty cells, not the text "null"',
+        'Numbers are written as numbers; text beginning with = + - @ or a tab is escaped, lands as a text cell and is pinned to text format, so Excel cannot re-execute it on open',
+        'Values that fail the round trip — long IDs, leading zeros — are stored as text and never collapse into scientific notation',
+      ],
+    },
+    limits: {
+      zh: [
+        '顶层不是非空对象数组就报错：单独一个对象、或 [1, 2, 3] 这样的标量数组都不会被硬凑成一张表',
+        '一个 JSON 文件只出一张工作表；要多个 sheet 请分别转再在 Excel 里合并',
+        '往返不对称：嵌套值以 JSON 文本进了单元格，从 Excel 转回去得到的是那串文本，不是原来的对象结构',
+        '表格之外的东西不会被造出来：样式、公式、多表结构、批注都不在输出里',
+      ],
+      en: [
+        'Anything that is not a non-empty array of objects raises an error: a single object, or a scalar array like [1, 2, 3], is not forced into a grid',
+        'One JSON file yields one worksheet; for several sheets convert separately and merge in Excel',
+        'The round trip is asymmetric: nested values sat in the cell as JSON text, so reading the sheet back gives you that text, not the original structure',
+        'Nothing beyond the grid is invented: no styles, formulas, multiple sheets or comments appear',
+      ],
+    },
+    notes: {
+      zh: [
+        '界面上的路径提示会画出这两步（JSON → CSV → Excel），两步都在本地完成，中间步骤不落盘、不联网',
+        '一批最多 200 个文件、单个 100 MB 上限；目标是 Excel 时不显示输出参数面板（那是为图片准备的）',
+      ],
+      en: [
+        'The UI shows both hops (JSON → CSV → Excel); each runs locally, and the intermediate neither touches disk nor the network',
+        'Up to 200 files per batch and 100 MB each; no output panel appears for an Excel target, because that panel belongs to images',
+      ],
+    },
+    faq: [
+      {
+        q: { zh: '为什么提示我数据不是数组？', en: 'Why does it say my data is not an array?' },
+        a: {
+          zh: '这条链路要的是「对象数组」。一个单独的对象请写成 [{...}]；一个记录字典（{"a": {...}, "b": {...}}）先用文本编辑器改成数组再上传，或按记录拆成多个文件。',
+          en: 'The route wants an array of objects. Wrap a single object as [{...}]; for a dictionary of records either reshape it into an array in a text editor before uploading, or split it into one file per record.',
+        },
+      },
+      {
+        q: { zh: '嵌套字段能摊成多列吗？', en: 'Can nested fields be spread across columns?' },
+        a: {
+          zh: '不能。摊平必须替每层键猜一个命名规则（user.address.city 还是 user_city？），而写进单元格的 JSON 文本不需要猜。需要摊平时，先在文本编辑器里把 JSON 改扁平再上传——工作台的编辑视图改的是转换结果，不是源文件。',
+          en: 'No. Flattening has to invent a naming rule for every level (user.address.city or user_city?), while JSON text in the cell invents nothing. If you need columns, flatten the JSON in a text editor before uploading — the workbench’s editing view changes the result, not the source file.',
+        },
+      },
+      {
+        q: { zh: '经过 CSV 那一步会不会生成中间文件？', en: 'Does the CSV hop create an intermediate file?' },
+        a: {
+          zh: '不会。中间结果在内存里传给下一步，工作目录不会被写入任何东西，整条链路也没有网络调用。',
+          en: 'It does not. The intermediate passes to the next step in memory, nothing is written to your working directory, and the route makes no network call.',
+        },
+      },
+    ],
+  },
+  {
+    slug: 'markdown-to-html',
+    from: 'md',
+    to: 'html',
+    shot: 'preview-edit',
+    title: {
+      zh: 'Markdown 转 HTML——完整文档、内联样式、脚本被剥掉',
+      en: 'Convert Markdown to HTML — a complete document, inline styles, scripts removed',
+    },
+    desc: {
+      zh: '浏览器本地把 .md 渲染成可直接双击打开的完整 HTML：GFM 表格与任务列表可用，样式内联，脚本与事件属性在净化阶段移除。',
+      en: 'Render .md into a complete, double-clickable HTML document locally: GFM tables and task lists work, styles are inlined, and scripts and event attributes are removed at the sanitise step.',
+    },
+    lede: {
+      zh: '产物不是一段片段，而是从 <!DOCTYPE html> 起头、自带 <style> 的完整文档：系统字体栈、800 px 版心，标题、表格、代码块、引用都排好了样式，<title> 用你自己的文件名（去掉后缀）。渲染前有两道处理：先按 GFM 解析 Markdown，再交净化器过一遍——脚本与 on* 事件属性被移除，同时允许 html 与 svg 两组标签。后者是有原因的：Markdown 里内联的 SVG 图就是内容本身，只开 html 那一档曾把整张图吞掉。',
+      en: 'The output is not a fragment but a complete document starting at <!DOCTYPE html> with its own <style>: a system font stack, an 800 px measure, headings, tables, code blocks and quotes all styled, and a <title> taken from your own file name with the extension dropped. Two passes happen before rendering: Markdown is parsed in GFM mode, then the result goes through a sanitiser that removes scripts and on* event attributes while allowing both the HTML and SVG tag sets. The SVG part is deliberate — an inline SVG diagram inside Markdown is the content itself, and an HTML-only profile used to delete the entire graphic.',
+    },
+    keeps: {
+      zh: [
+        'GitHub 风格扩展可用：表格、任务列表、删除线都按 GFM 解析',
+        '单个换行不会变成 <br>：段落按空行划分，符合 CommonMark 的读法',
+        '内联 SVG 图形被保留（净化同时允许 html 与 svg / svgFilters 两组标签），代码块、引用、表格按内联样式排好',
+        '产物是完整可双击打开的文档：样式内联、无外部依赖，<title> 取你的文件名并且做了转义',
+        '<script> 与 on* 事件属性在净化阶段被移除，输出的 HTML 不带可执行脚本',
+      ],
+      en: [
+        'GitHub-flavoured extensions work: tables, task lists and strikethrough all parse under GFM',
+        'A single line break does not become <br> — paragraphs split on blank lines, the way CommonMark reads them',
+        'Inline SVG diagrams survive (the sanitiser allows the html and svg / svgFilters profiles together), and code blocks, quotes and tables arrive already styled',
+        'The result is a complete document you can double-click: styles inlined, no external dependency, and a <title> taken from your file name and escaped',
+        '<script> elements and on* handler attributes are removed during sanitisation, so the HTML carries no executable script',
+      ],
+    },
+    limits: {
+      zh: [
+        '外链图片只保留引用，转换过程不下载任何素材（这是离线前提）；断网打开时那些位置就是空的',
+        'Markdown 里没有的概念不会被造出来：目录、页眉页脚、脚注回链、代码语法高亮都不在输出里',
+        '版心是写死的 800 px 单栏样式，不随窗口变成多栏；想换就在编辑视图里改那个 <style>',
+        '<html> 上不声明 lang：内容语言是你的，扩展不替你猜（曾经写死英文，屏幕阅读器会把中文按英文规则念）',
+      ],
+      en: [
+        'A remote image stays a reference and nothing is fetched during conversion — that is the offline premise — so those spots are empty when you open the file offline',
+        'Concepts Markdown never carried are not invented: no table of contents, headers and footers, footnote back-links or syntax highlighting',
+        'The measure is a fixed single 800 px column that will not reflow into columns; change it in the editing view, inside the one <style>',
+        'The document declares no lang on <html>: the content language is yours and the extension will not guess — an English default used to make a screen reader pronounce Chinese text with English rules',
+      ],
+    },
+    notes: {
+      zh: [
+        'HTML 属于可编辑文本格式，单文件批次转完可以在工作台的左右对照里直接改再下载',
+        '这一条也是 Markdown → PDF 与 Markdown → Word 的第一步，多步链路由路径搜索自动给出',
+      ],
+      en: [
+        'HTML is an editable text format, so a single-file result can be changed in the workbench’s side-by-side view and then downloaded',
+        'This step is also the first hop of Markdown → PDF and Markdown → Word, where the multi-step route is found automatically',
+      ],
+    },
+    faq: [
+      {
+        q: { zh: '为什么我写的换行没生效？', en: 'Why did my line break not take effect?' },
+        a: {
+          zh: '解析按 CommonMark：单个换行只是源文本的折行。要么空一行分段，要么在行尾留两个空格强制换行。',
+          en: 'Parsing follows CommonMark, where a single newline is a soft break in the source. Leave a blank line to start a new paragraph, or end the line with two spaces to force a break.',
+        },
+      },
+      {
+        q: { zh: '能换成自己的 CSS 吗？', en: 'Can I use my own CSS?' },
+        a: {
+          zh: '输出文档里只有一个内联 <style>。在工作台的编辑视图里替换或追加它即可；本项目不提供主题列表，因为样式跟着产物走，换机器也不会漂移。',
+          en: 'The document carries exactly one inline <style>. Replace or extend it in the editing view; there is no theme picker here, because the style travels with the artifact and cannot drift on another machine.',
+        },
+      },
+      {
+        q: { zh: '图片要怎么处理？', en: 'What should I do about images?' },
+        a: {
+          zh: '三种办法：内联成 data URI（最稳，产物自带图）、用相对路径并把 HTML 放在能解析到这些路径的目录、或接受离线打开时图是空的。转换本身不会去下载任何东西。',
+          en: 'Three options: inline as a data URI (the most robust, the file then carries its own picture), use relative paths and open the HTML where they resolve, or accept that the gaps show offline. The conversion itself downloads nothing.',
+        },
+      },
+    ],
+  },
+  {
+    slug: 'html-to-pdf',
+    from: 'html',
+    to: 'pdf',
+    shot: 'batch-results',
+    title: {
+      zh: 'HTML 转 PDF——按 A4 逐页切片，脚本不执行、外链不下载',
+      en: 'Convert HTML to PDF as A4 page slices — scripts never run, remote assets are never fetched',
+    },
+    desc: {
+      zh: '浏览器本地把 .html 渲染成多页 A4 PDF：800 px 版心按整页高度切片，切片是无损 PNG；脚本被移除，远程资源不会被取回。',
+      en: 'Render .html into a multi-page A4 PDF locally: an 800 px layout sliced down its full height, stored as lossless PNG. Scripts are removed and remote resources are never fetched.',
+    },
+    lede: {
+      zh: '这条路有两层保护和一个取舍。保护一是净化：文档先过 DOMPurify（保留 head 与 <style>，移除脚本），再在隐藏的 iframe 里渲染，而 iframe 的 sandbox 只给 allow-same-origin——脚本没有执行余地。保护二是离线：净化会保留远程 URL，所以渲染前还有一道把远程引用剥掉的步骤，一张远程图不会把「不联网」这条承诺破掉。取舍是产出形态：结果是渲染出来的位图按 A4 切片，页面里没有文字层，所以搜索、复制、朗读都拿不到文字。这一条对本站所有「文档转 PDF」链路都成立。',
+      en: 'This route has two protections and one trade-off. The first is sanitisation: the document passes DOMPurify (keeping head and <style>, removing scripts) and is then rendered inside a hidden iframe whose sandbox grants allow-same-origin only, so a script has nowhere to run. The second is the offline promise: sanitising keeps remote URLs, so a further pass strips remote references before rendering — one remote <img> cannot break the no-network claim. The trade-off is what comes out: rendered pixels sliced onto A4, with no text layer, so search, copy and read-aloud find nothing. That holds for every document-to-PDF route here.',
+    },
+    keeps: {
+      zh: [
+        '整份文档按 800 px 版心排版，高度全部保留并切成 A4（210 × 297 mm）逐页写入，不是一张拉长的单页图',
+        '文档自己的 CSS 生效（head 与 <style> 都留着），同时通过沙箱 iframe 隔离，页面样式不会污染工作台',
+        '切片是 PNG 且用 zlib 9 + Paeth：实测十个文档形状里它每一份都比 FAST 档小 1%–8%，文字与数据页比 JPEG 切片小 13%–31%',
+        '图片与字体落定后才截图：先等加载，必要时再停 100 ms 让布局落定（只在真有图片、字体或动效的文档上等）',
+        '取消以「一页」为粒度：每切一页检查一次中断，两个画布在退出时都会释放',
+      ],
+      en: [
+        'The whole document lays out at an 800 px measure and its full height is kept, sliced onto A4 pages (210 × 297 mm) rather than stretched into one long page',
+        'The document’s own CSS applies (head and <style> are kept) inside a sandboxed iframe, so page styles cannot leak into the workbench',
+        'Slices are PNG at zlib level 9 with a Paeth predictor: across the ten measured document shapes it beat the FAST level every time by 1%–8%, and text and data pages came out 13%–31% smaller than a JPEG slice',
+        'Images and fonts settle before capture: the loader waits, and where a document genuinely has images, fonts or motion it pauses another 100 ms for layout',
+        'Cancellation has page granularity: the abort signal is checked before every slice and both canvases are released on the way out',
+      ],
+    },
+    limits: {
+      zh: [
+        '没有文字层：PDF 里的字是画出来的，搜索、复制、屏幕阅读器都取不到内容',
+        '远程引用在渲染前被剥掉，剥空之后的引用与相对路径引用会换成虚线方框占位；只有浏览器真解得开的 data: / blob: 图片能进 PDF，解不开的 data: 与已撤销的 blob: 会在那处留空，远程图片、远程字体与远程 CSS 一律不下载',
+        '长文档像素比会降：高度超过 2000 px 用 1.5 倍、超过 4000 px 用 1 倍，超长页的字不如短页锐利',
+        '分页只看高度，不懂「章节起新页」；纸张固定 A4 竖版，不能选横版或其它尺寸',
+      ],
+      en: [
+        'There is no text layer: the characters are drawn, so search, copy and screen readers find nothing to work with',
+        'Remote references are stripped before rendering, and what is left of them — the emptied reference, plus any relative path — is replaced by a dashed placeholder box; only a data: or blob: picture the browser can still decode reaches the PDF, one it cannot (a revoked blob:, an unreadable data:) leaves that position empty, and no remote image, font or stylesheet is ever downloaded',
+        'Long documents drop resolution: past 2000 px of height the ratio is 1.5× and past 4000 px it is 1×, so very long pages are less crisp than short ones',
+        'Pagination only measures height and does not understand “start a new page per chapter”; the paper is fixed portrait A4 with no size or orientation choice',
+      ],
+    },
+    notes: {
+      zh: [
+        '目标是 PDF 时输出参数面板不出现（那是为图片准备的），DPI 只在来源是 PDF 时才有意义',
+        '单个文件 100 MB、一批最多 200 个；文档在 10 秒内没加载完只报该文件超时，批次里其余继续',
+      ],
+      en: [
+        'The output panel is not offered for a PDF target (it belongs to image targets), and DPI matters only when the source is a PDF',
+        '100 MB per file and up to 200 files per batch; a document that never finishes loading inside 10 seconds reports its own timeout while the batch continues',
+      ],
+    },
+    faq: [
+      {
+        q: { zh: '为什么 PDF 里选不中文字？', en: 'Why can I not select the text in the PDF?' },
+        a: {
+          zh: '因为产物是渲染出来的位图。本站的所有 PDF 输出都走渲染这条路（HTML 是其中唯一能排版的中间格式），没有文字层生成路径；要可检索的文字，就交付 HTML、Markdown 或 Word。',
+          en: 'Because the artifact is rendered pixels. Every PDF this tool emits goes through that rendering path — HTML is its only typesetting intermediate — and there is no text-layer generator to call. For searchable text, deliver HTML, Markdown or Word instead.',
+        },
+      },
+      {
+        q: { zh: '为什么图片不见了？', en: 'Why did the images vanish?' },
+        a: {
+          zh: '远程引用在渲染前被剥掉，这是离线承诺的必要部分；而相对路径在渲染用的沙箱文档里指向的是扩展自己的包，不是你 HTML 旁边的那个目录。所以这两类引用统一换成虚线方框——位置留着，内容不猜；只有等克隆到一半才失败的图（浏览器解不开的 data:、已经撤销的 blob:）会在那处直接留空。想让图片进 PDF，把它内联成 data URI；这一轮有图片没拿到，结果卡片上会按张数写明。',
+          en: 'Remote references are stripped before rendering — that is what keeps the offline promise, and a relative path resolves inside the sandboxed document against the extension package, not the folder next to your HTML. Both shapes therefore become a dashed placeholder box: the position is kept, the content is not guessed. Only a picture that fails later, while the clone is being built — a data: the browser will not decode, a blob: already revoked — leaves that position empty. Inline a picture as a data URI to get it into the PDF, and the result card counts how many positions were affected.',
+        },
+      },
+      {
+        q: { zh: '能控制纸张大小或分页位置吗？', en: 'Can I choose the paper size or where pages break?' },
+        a: {
+          zh: '不能：A4 竖版、按高度切。需要精确分页位置时，在源 HTML 里控制块的高度与间距（比如给章节留出足够的块），或转成 PDF 后在 PDF 编辑器里重排。',
+          en: 'No: portrait A4, sliced by height. To influence where a break lands, control block heights and spacing in the source HTML (give a section enough vertical mass), or re-impose the PDF afterwards in a PDF editor.',
         },
       },
     ],

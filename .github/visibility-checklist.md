@@ -49,7 +49,7 @@
 以后再补跑的成本（本机需要手动装过 ffmpeg 与 chromium 二进制）：
 
 ```bash
-pnpm test:e2e        # = pnpm build + node scripts/e2e-test.mjs，断言基线 321 条
+pnpm test:e2e        # = pnpm build + node scripts/e2e-test.mjs，断言基线 327 条
 ```
 
 **2026-09-29 这一轮（JSON 预览的树 / 数组表 / 搜索 + 仓库外的对比页）跑满了 e2e，改在 `E2E_HEADLESS=true` 下跑**：
@@ -85,6 +85,90 @@ upload→按钮 757 ms、**点击预览→首行画出 477 ms**，展开全部 8
 记下来的那一份是 `dd8688b2…c0b0b3` / 1,146,878 B——它既不在这个路径上，`/tmp` 里的备份也不在了。换掉它的
 是谁、哪一次操作，仓库里查不到；下一次提交商店之前，需要所有者先在后台核实手上那份对应的是哪个包
 （第 8 节那条「不许重打包」的禁令就是为了这个样本）。
+
+**2026-09-30 这一轮（带图片引用的 Markdown / HTML 转 PDF 报错）也在 `E2E_HEADLESS=true` 下跑满**：
+325/325 通过，87 张截图照旧落 `.test-screenshots/`。新增的 4 条全部落在同一个新小节
+「Markdown With Unresolvable Images Still Renders」——PDF 产物存在、结果卡出现「虚线方框」那条披露、
+零子资源请求哨兵在夹具同时带远程 / 协议相对 / 相对路径三类不可解析引用时仍然为空、以及一条 data URI
+静默对照（同一份文档把图片换成内联的，就**不该**再出现那条披露）。这一轮把基线抬到 **325**，现值见下一段；
+上面几段里的是各轮当时的记录。
+同一轮整包字节 **3,823,982 → 3,825,780 B**（+1,798 B，仍 65 个文件，`Σ` 打印 3.83 MB）；首屏 JS 本轮未重测。
+有头模式再次从第二张 `fullPage` 截图起 30 s 超时，并把后面的小节连带拖成「option not available」假红——
+与上一轮记的是同一个环境坑，判红之前先无头复跑，别急着改产品代码。
+
+**2026-09-30 21:51 这一轮（预览整篇复制 + 偏好面板加宽自滚）也在 `E2E_HEADLESS=true` 下跑满，基线数字以这一段为准**：
+**327/327 通过**，87 张截图，无小节跳过。这一段是当天唯一一条零失败记录——白天三轮全量都在负载形态上假红
+（315/326、317/329，另有 `E2E_ONLY` 子集一次超时），而那两个分母本身是分支量（抛错位置决定还剩几条没跑），
+所以 325 一直守到这一轮才动。**基线 → 327**，十句对外引用同批换数（`docs/index.html` 两句、`docs/blog/index.html`
+两句、四份推广稿四句、本清单第 52 行那句「断言基线 N 条」——最后这句不在 `verify:numbers` 的句式射程内，
+守卫管不到它，只能手工带上）。新增的 2 条：预览页头那枚整篇复制按钮（桩掉 `navigator.clipboard.writeText`，
+断言写进去的字节 == 面板里的全文，外加那条成功提示），以及 500 px 高的视口下偏好面板自己滚而不把最后一项
+顶出屏幕（量到面板底边 483 ≤ 500）。同轮还改了量具本身（采样前仿真 `prefers-reduced-motion`、`contrast()`
+认得 `oklab()` / `color(srgb …)`）——这一轮是它第一次随全绿通过，但**别把它读成因果**：机器同时从 load 300+
+掉到 8.35（21:29 重启），量具改动与这轮绿之间的因果还证不了。
+产物是 10:03 那一次构建（65 个文件、**3,826,224 B**，`Σ` 打印 3.83 MB；比上一段多 444 B，本轮之间进源码的是
+复制按钮与面板加宽，未逐项归因），本轮没有重新构建，所以上面那些断言吃的就是这份产物。
+同一轮还修了 `AGENTS.md` 与 `.qoder/rules/wxt-rules.md` 里那句**现状描述**：它们写着守卫比对「31 份对外散文
+（含 `docs/convert/` 的 11 个生成页）」，而今天它打印的是 `23 facts … matched across 42 documents`
+（20 份手写 + 22 个生成页，配对页从 11 张扩到 21 张那一批起就没人跟着改这两句——它不在这 23 个事实的射程内）。
+**上面表格里那格「31 份」照旧不动**，它是 09-26 那轮的实测记录；两处的区别就在这儿：一个是现状主张，一个是档案。
+
+**2026-09-30 23:19–23:28 这一轮（结果卡按张数披露 + 面板末项可见）也在 `E2E_HEADLESS=true` 下跑满**：
+**327/327 通过**，87 张截图，无小节跳过。这一轮换的是**判据**而不是条数——占位那条从「出现『虚线方框』字样」
+改成「数得出 3 处、且同时说出『留空』与『虚线方框』两种形状」，它的静默对照组（图片已内嵌为 data URI 的同一份
+文档）随之从「不出现方框字样」改成「不出现『处位置』这半句」；偏好面板那条从「popover 底边在视口内」改成
+「面板确实可滚、真的滚到底、末项底边落在视口内」（500 px 视口实测末项 470 ≤ 500、popover 483）。三处都是
+1:1 替换，所以**断言总数一格没动**，`scripts/__baseline__/e2e-assertions.json` 也保持 327（脚本只在数值变化时
+才重写，所以它的 mtime 不会跟着每一轮绿跑走）。契约变更只在增删断言时发生：上一条记的 325 → 327 才是需要把
+十句对外引用同批改数的那种轮次。
+
+同一轮把「丢了几张」这条链路打通了：`utils/core/html-raster.ts` 数出来的是**真数**（渲染前被替换的引用数
+加上克隆时才失败的数目），`ConvertResult.imagesDropped` 因此从布尔改成数字，`composables/useConversion.ts`
+逐文件累加，`ResultDownload.vue` 对整批求和后经 i18n 的 `{count}` 插值渲染——中英文案两处 key 集仍然一致。
+措辞同时覆盖两种形状，因为事实就是两种：渲染前替换掉的会在原位置留一个描边方框，只在克隆时失败的
+（浏览器解不开的 `data:`、已经 revoke 的 `blob:`）在那里什么都不留。落到的对外同族清单：`AGENTS.md` 的
+转换语义边界、两份 README、`scripts/conversion-pages/pairs.mjs` 的六条字符串（再 `pnpm pages:render`，
+`html-to-pdf` 与 `markdown-to-pdf` 两张生成页随之更新）、`docs/index.html` 的同一条 FAQ 四处（zh JSON-LD、
+en JS 数组、可见 zh、可见 en）、`.github/CHROMEWEBSTORE.md` 的中英两块加速查表，以及两份上架手册。
+
+商店详描的实测字符数这轮换完措辞是**英文 8,902 / 中文 3,142**（上一段的 8,853 / 3,125 是它那一轮的档案，
+不动）。这里留一条取证纪律：中文那一度被写成 3,145，**是抄了一段被污染的 `verify:listing` 回显**，
+`pnpm verify:numbers` 立刻在四处报不符——数字要读守卫自己打印的那一行，别读终端回声。
+本轮重新构建过：65 个文件、**3,826,293 B**（比上一段 +69 B，`Σ` 打印 3.83 MB；增的是 i18n 两句与结果卡那枚
+计数），首屏 JS 本轮未重测。跑过的门禁：`lint:all`、`verify:meta`、两道离线守卫（源码层 + 产物层）、
+两道远程代码守卫、`verify:paths`、`verify:numbers`、`verify:listing`、`pages:check`，随后 `build` 与全量 e2e。
+
+**紧接着的素材重拍轮（同一晚，`14767fb`）也重新构建了：65 个文件、3,826,293 B——与上一段逐字节相同，
+因为这一轮一行源码都没改，改的只是 `docs/assets/` 下的图。** 上一段挂着的那句「首屏 JS 本轮未重测」
+在这里补上，档案本身不动：**444,660 B / 19 个 chunk**（口径仍是解析 `options.html` 的 `.js` 引用后逐个
+`stat`，与 09-29 那轮的 442,958 B / 19 个可比；chunk 数没变，多的 1,702 B 是 i18n 与结果卡计数落进首屏块）。
+
+重拍了 24 张：`docs/assets/screenshots/` 七张原始界面图、`docs/assets/store/screens/` 十四张带卖点文案的
+商店图（七状态 × 中英）、`docs/assets/store/` 三张推广图。脚本服务的是 `.output/chrome-mv3` 本体，
+并在日志里把页脚读数打出来自证渲染到的是当前数据，所以「素材与实际界面同源」这句话这次是有据的。
+像素逐张与 `HEAD` 比对：`preview-edit` 变 0.44%（集中在弹窗页头那条 12 px 高的文字带，即新增的整篇复制
+按钮），`batch-results` 变 10.05%（结果卡那 166 px 的带，即按张数披露）。**归因要写清**：这批图上一版
+停在 2026-09-18，中间跨了并发会话的名称模板、JSON 三视图与偏好项，所以这次是「素材追平实际界面」，
+不是「本轮改动的配图」。
+
+同一次构建顺手清掉一笔体积欠账：`Σ` 早已跨过取整边界（3,825,780 B 起就是 3.83），而对外散文还写着
+旧值——`verify:numbers` **不守体积**，这类漂移没有机器兜底。回填 16 处，载体是
+`docs/index.html`（指标卡、中英取证句、取证注释、两处 JS 注释里的字样，共 6 处，3.82→3.83）、
+`docs/llms.txt`、两份 `CONTRIBUTING*`、`docs/blog/index.html` 中英、两份 `docs/promo/community-posts*`
+共 3 处、`docs/promo/wechat-article.md` 与 `blog-article.en.md` 各一处（3.78→3.83）；
+gitignore 的 `docs/promo/wechat-article.html` 跑 `pnpm promo:wechat` 跟上。
+**按档案留下的**：两份 CHANGELOG 的每一条「仍是 3.7x MB」、`.github/CHROMEWEBSTORE.md` 版本历史里的
+3.76 / 3.74、以及本文件表格里 3,784,824 B 那一格——那些是那一天的实测，回填等于造假记录。
+`docs/index.html` 里还有第七个 `3.82`，它是 GitHub octicon 路径上恰好相邻的数字，不是体积，别一起换。
+
+一处**明知未动**的：产品页的「本页最后更新 2026-09-29」四处与 `docs/sitemap.xml` 的 `lastmod` 由
+`scripts/render-site-pages.mjs` 的 `STATIC_PAGES.updated` 成组守着（`pages:check` 比对页内日期主张与
+sitemap），本轮只回填了体积数字、没有推进那组日期，所以「最后更新」指的仍是上一轮的页面文本。
+要推进就是改 `STATIC_PAGES.updated` + 四处页内日期再跑 `pages:render`，不是手改 `docs/sitemap.xml`。
+
+这一轮的十道门禁全 `exit 0`：`lint:all`、`verify:meta`、两道离线守卫、两道远程代码守卫（产物层在这轮
+构建之后重跑过）、`verify:paths`、`verify:numbers`、`verify:listing`、`pages:check`。没有跑 e2e——本轮
+没有源码改动，而 `pnpm test:e2e` 自带一次 build，会把刚验证过的产物换掉。
 
 ## 3. 收下改动：建议分两个提交
 
@@ -216,8 +300,8 @@ curl -sS $base/robots.txt | grep -i '^Sitemap:'
    GSC 给的 `<meta name="google-site-verification" content="…">` 加到 `docs/index.html` 的 `<head>`（其他 meta 之后），
    然后 `pnpm lint:all && pnpm pages:check` → 提交 → 等部署 → 回 GSC 点「验证」。
    这条改动只碰一个 meta 标签，不进任何守卫的射程；把 content 值给我，我可以连这一步一起提交。
-2. **提交 sitemap**：GSC → sitemap → 添加 `https://liaolongdong.github.io/transfer-any-file/sitemap.xml`（14 条）。
-3. **逐条请求收录**，优先级按「新页面 + 有搜索意图」排：首页 → `/convert/` → 10 张配对页 → `/blog/`。
+2. **提交 sitemap**：GSC → sitemap → 添加 `https://liaolongdong.github.io/transfer-any-file/sitemap.xml`（25 条）。
+3. **逐条请求收录**，优先级按「新页面 + 有搜索意图」排：首页 → `/convert/` → 21 张配对页 → `/blog/`。
    `privacy.html` 不必提交。
 4. **Bing Webmaster Tools**：直接从 GSC 导入站点即可。IndexNow 属可做可不做，如果要做得把 key 文件放站点根
    （`docs/`），`static.yml` 只挡 `.md`，一个 `.txt` 能发出去。

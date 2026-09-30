@@ -376,6 +376,40 @@ body {
   opacity: 0;
 }
 
+/* ---- Vertical list rows (`<TransitionGroup name="fat-list">`) ----
+   Two surfaces use this: the staged file rows in `FileUpload` and the history rows in
+   `HistoryPanel`. Both are vertical lists, so the pair that reads correctly for one reads
+   correctly for the other, which is why it lives here instead of in two scoped blocks — the
+   chips in `PresetBar` keep their own vocabulary precisely because they do *not* fit this one:
+   that row wraps, so a departing chip has no left edge to leave toward and its arrival is a
+   scale, not a slide.
+
+   Rows animate in only. A departing row has nowhere honest to go: held in flow it doubles the
+   list's height against the batch that replaces it, and lifted out of flow it overlaps the rows
+   that took its place. Removing it on the spot while `-move` carries the gap closed reads as
+   "this one is gone" and cannot tear the layout. The `transition: none` on leave is not a
+   shortcut — both row types carry their own `--fat-transition-fast`, and `<TransitionGroup>`
+   reads the *element's* computed duration before it unmounts, so without this a deleted row would
+   sit unchanged for one duration and the list would re-flow twice. */
+.fat-list-enter-active {
+  transition:
+    opacity var(--fat-duration-base) var(--fat-ease-enter),
+    transform var(--fat-duration-base) var(--fat-ease-enter);
+}
+
+.fat-list-enter-from {
+  opacity: 0;
+  transform: translateY(calc(var(--fat-slide-md) * -1));
+}
+
+.fat-list-leave-active {
+  transition: none;
+}
+
+.fat-list-move {
+  transition: transform var(--fat-duration-base) var(--fat-ease-standard);
+}
+
 /* ---- Element Plus motion that its own tokens cannot reach ----
    tokens.css retargets `--el-transition-*`, which covers the dialogs, dropdowns, tooltips, selects
    and alerts. Three shipped values name a duration literally instead of using those tokens, which is
