@@ -67,7 +67,7 @@ jobs:
 
       # 这条链路只需要 Node 与 git，不需要任何依赖：把 pnpm install 省掉，
       # 既让这一步在几秒内完成，也让「发布准备」不依赖一次成功的依赖解析。
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
 
