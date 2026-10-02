@@ -5,7 +5,7 @@ import type { ConvertResult } from '~/utils/core/types';
 import type { ConversionFailure } from '~/composables/useConversion';
 import { useI18n } from '~/composables/useI18n';
 import { formatFromFilename } from '~/utils/core/file-detect';
-import { formatSize, TEXT_FORMATS } from '~/utils/core/format';
+import { formatDuration, formatSize, TEXT_FORMATS } from '~/utils/core/format';
 import { copyText } from '~/utils/core/clipboard';
 import { createRowKey } from '~/utils/core/row-key';
 import { FileFormat } from '~/utils/core/types';
@@ -24,8 +24,12 @@ const props = withDefaults(
     totalCount?: number;
     /** True while the ZIP is being assembled — blocking CPU work that otherwise looks like a dead button. */
     packaging?: boolean;
+    /** Milliseconds the batch loop took, or `null` when nothing settled. Reported on the summary
+     *  line for any batch size — unlike the size totals, which a single file already prints on its
+     *  own row, a one-file conversion is exactly the case where "how long did that take" is useful. */
+    elapsedMs?: number | null;
   }>(),
-  { cancelled: false, totalCount: 0, packaging: false },
+  { cancelled: false, totalCount: 0, packaging: false, elapsedMs: null },
 );
 
 const emit = defineEmits<{
@@ -82,6 +86,31 @@ const sizeSummary = computed(() => {
   });
   if (sourceSize === 0 || resultSize === sourceSize) return null;
   return { source: formatSize(sourceSize), result: formatSize(resultSize) };
+});
+
+/**
+ * The elapsed half of the summary line. `formatDuration` returns `''` outside its domain, and a
+ * missing prop means "no batch has settled here" — both print nothing rather than `耗时  s`.
+ */
+const elapsedText = computed(() => {
+  const ms = props.elapsedMs;
+  if (ms === null || typeof ms !== 'number') return '';
+  const time = formatDuration(ms);
+  return time ? t('result.elapsed', { time }) : '';
+});
+
+/**
+ * Size totals and elapsed time as one line, joined here rather than in the template: the separator
+ * only exists when both halves do, and the template stays a single interpolation Prettier never has
+ * to break across lines. A batch that produced neither prints no `<p>` at all — same as today.
+ */
+const summaryLine = computed(() => {
+  const parts: string[] = [];
+  if (sizeSummary.value) {
+    parts.push(t('result.sizeTotals', { source: sizeSummary.value.source, result: sizeSummary.value.result }));
+  }
+  if (elapsedText.value) parts.push(elapsedText.value);
+  return parts.join(' · ');
 });
 
 /**
@@ -231,10 +260,10 @@ function openPreview(result: ConvertResult): void {
           </div>
         </TransitionGroup>
         <p
-          v-if="sizeSummary"
+          v-if="summaryLine"
           class="result-summary"
         >
-          {{ t('result.sizeTotals', { source: sizeSummary.source, result: sizeSummary.result }) }}
+          {{ summaryLine }}
         </p>
         <template
           v-for="(failure, index) in failures"

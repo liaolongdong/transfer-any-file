@@ -60,11 +60,13 @@ const {
   batchResults,
   resultOwners,
   batchFailures,
-  completedCount,
   totalCount,
   currentIndex,
   currentStep,
   stepTotal,
+  plannedSteps,
+  stepsDone,
+  elapsedMs,
   isPackaging,
   isRetrying,
   setFiles,
@@ -118,10 +120,22 @@ const hasFailures = computed(() => batchFailures.value.length > 0);
 // batch counts even with nothing in it, otherwise the cancel leaves no trace on screen.
 const isDone = computed(() => !isConverting.value && (hasResults.value || hasFailures.value || cancelled.value));
 const isSingleFile = computed(() => sourceFiles.value.length === 1);
-const showBatchProgress = computed(() => isConverting.value && sourceFiles.value.length > 1);
+const showBatchProgress = computed(
+  // Two new conjuncts, both about a bar that would be reading nothing:
+  // - `plannedSteps > 1` is the half that lets a single file on a multi-step chain show a bar at all —
+  //   the case that used to be a spinner with nothing to read. A single file on a single step still
+  //   shows no bar, exactly as before.
+  // - `plannedSteps > 0` keeps the bar off screen for a batch whose routes all failed to resolve
+  //   (policy-blocked preset applied to this file set, and nothing else in it). There is no
+  //   denominator to report there, so the spinner card takes the row instead — as it already does
+  //   for every single-file batch today.
+  // `totalCount` is `sourceFiles.length` (`useConversion.ts:227`), so the first half is the same
+  // test this line has always made.
+  () => isConverting.value && plannedSteps.value > 0 && (totalCount.value > 1 || plannedSteps.value > 1),
+);
 const batchProgressPercent = computed(() => {
-  if (totalCount.value === 0) return 0;
-  return Math.round((completedCount.value / totalCount.value) * 100);
+  if (plannedSteps.value === 0) return 0;
+  return Math.round((stepsDone.value / plannedSteps.value) * 100);
 });
 /** Name of the file currently being processed, shown on whichever progress host is on screen. */
 const currentFileName = computed(() => {
@@ -179,8 +193,12 @@ const convertButtonText = computed(() => {
   if (isConverting.value) {
     if (cancelRequested.value) return t('convert.cancelling');
     // A retry counts against the failed subset, not the original batch, and says so — otherwise
-    // "(1/1)" over a five-file workspace reads like the other four vanished.
-    const counts = { done: completedCount.value, total: totalCount.value };
+    // "(1/1)" over a five-file workspace reads like the other four vanished. That still holds with
+    // steps: `retryFailedFiles` calls `convert()`, so the pre-pass ran over exactly that subset.
+    // Both numbers come from the same pair the bar reads, so the label on the button and the bar
+    // above it are never describing different work. A batch whose steps are all one layer deep gives
+    // the identical figures the file count used to give, which is why no unit word is needed here.
+    const counts = { done: stepsDone.value, total: plannedSteps.value };
     return isRetrying.value ? t('convert.retrying', counts) : t('convert.converting', counts);
   }
   if (sourceFiles.value.length > 1) return t('convert.startMulti', { count: sourceFiles.value.length });
@@ -237,7 +255,7 @@ function announce(text: string): void {
 const liveRegionText = computed(() => statusAnnouncement.value ?? listAnnouncement.value);
 
 function progressFormat(): string {
-  return `${completedCount.value}/${totalCount.value}`;
+  return `${stepsDone.value}/${plannedSteps.value}`;
 }
 
 function handleFilesUpdate(files: File[]): void {
@@ -478,6 +496,7 @@ onUnmounted(() => {
                   <el-progress
                     :percentage="batchProgressPercent"
                     :stroke-width="6"
+                    :show-text="totalCount > 1"
                     :format="progressFormat"
                   />
                   <CurrentFileHint
@@ -541,6 +560,7 @@ onUnmounted(() => {
                 :cancelled="cancelled"
                 :total-count="totalCount"
                 :packaging="isPackaging"
+                :elapsed-ms="elapsedMs"
                 @download="downloadResult"
                 @download-all="downloadAllZip"
               />
