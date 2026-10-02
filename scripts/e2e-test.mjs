@@ -3135,6 +3135,75 @@ async function run() {
 
     // Close dropdown by clicking elsewhere
     await page.keyboard.press('Escape');
+
+    // ── The other half of this section: a single file on a multi-step chain has a real bar ──
+    // One claim seen in four places, counted once. What it claims is that a batch reports its own
+    // progress and its own cost, and where that shows up: the bar mounts for a one-file chain at all,
+    // its percentage moves while it is up, the finished batch prints what it cost, and the newest
+    // history row keeps that same figure. Four `ok()` calls would tie the suite total to how many
+    // substrings this block happens to read.
+    //
+    // `json→pdf` is two steps (`json>html` + `html>pdf`), so the denominator here is 2 and the file
+    // count is 1 — the exact case that used to show a spinner and nothing else.
+    const reported = [];
+    await page.evaluate(() => {
+      if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+    });
+    // Both watchers are created before the batch starts and awaited only after it settles. Awaiting
+    // either one in turn would spend its whole timeout on a screen where nothing has begun yet —
+    // `.batch-progress` cannot exist before the keypress, so `barMounted` would be a guaranteed false
+    // plus 10 dead seconds.
+    const barMounted = page
+      .waitForSelector('.batch-progress', { timeout: 10000 })
+      .then(() => true)
+      .catch(() => false);
+    const percentMoved = page
+      .waitForFunction(
+        () => {
+          // The text label is switched off for a single-file batch (a `0/1` that never means anything
+          // is worse than no number), so the percentage is read off the stroke it animates, which is
+          // the same source `batchProgressPercent` feeds. Plain JS here: this file is `.mjs`, a TS cast
+          // inside the callback is a parse error, and the callback runs in the page, not in Node.
+          const inner = document.querySelector('.batch-progress .el-progress-bar__inner');
+          const width = inner ? Number.parseFloat(inner.style.width) : NaN;
+          return Number.isFinite(width) && width > 0;
+        },
+        undefined,
+        { timeout: 15000 },
+      )
+      .then(() => true)
+      .catch(() => false);
+
+    await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Enter' : 'Control+Enter');
+    const settled = await page
+      .waitForSelector('.result-download .el-alert__title', { timeout: 30000 })
+      .catch(() => null);
+    if (!settled) throw new Error('the JSON→PDF batch never settled');
+    if (!(await barMounted)) reported.push('no batch bar for a single file on a multi-step chain');
+    if (!(await percentMoved)) reported.push('the bar never left 0% for a one-file two-step chain');
+
+    // Guarded: today that `<p>` sits behind `v-if="sizeSummary"`, and a one-file batch has no size
+    // summary by design (`ResultDownload.vue:74-85`), so the selector matches nothing and an unguarded
+    // `$eval` would reject into this section's `catch` and report as `fail('Path hints', …)` — the wrong
+    // assertion going red. The `v-if` now reads `summaryLine`, which is what makes this green.
+    const summary = await page
+      .$eval('.result-download .result-summary', el => (el.textContent || '').trim())
+      .catch(() => null);
+    if (summary === null || !/耗时|Elapsed/.test(summary)) {
+      reported.push(`the result card printed no elapsed line: ${JSON.stringify(summary)}`);
+    }
+
+    // Newest row first. The history card is open by default and `HistoryPanel` is mounted from start-up,
+    // so no extra reveal is needed at this point in the suite.
+    const durations = await page
+      .$$eval('.history-item .history-duration', els => els.slice(0, 1).map(el => el.textContent.trim()))
+      .catch(() => []);
+    if (!(durations.length > 0 && /\d/.test(durations[0]))) {
+      reported.push(`the newest history row printed no duration: ${JSON.stringify(durations)}`);
+    }
+
+    if (reported.length === 0) ok('A single-file multi-step batch shows a moving bar and reports what it cost');
+    else fail('Batch progress and cost', reported.join('; '));
   } catch (e) {
     fail('Path hints', e.message);
   }
