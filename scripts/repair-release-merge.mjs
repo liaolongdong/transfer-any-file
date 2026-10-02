@@ -14,14 +14,23 @@
  * 修法不靠人眼：以两份权威输入重建——已发布那侧（默认 `MERGE_HEAD`）给出版本小节的原文，
  * 未发布那侧（默认 `ORIG_HEAD`）给出本轮条目的原文与分组顺序。输出 = 未发布那侧到 `## [未发布]` 为止的
  * 头部 + 「未发布 body 里不属于该版本小节的那些条目（连着所在分组，逐字节搬）」+ 已发布那侧从版本标题
- * 起到文末的尾部。落盘前四条断言必须成立，任何一条不过就直接失败、一个字都不写：
+ * 起到文末的尾部。落盘前五条断言必须成立，任何一条不过就直接失败、一个字都不写：
  *
  * 1. 该版本的每一条都能在分支的未发布区里找到（找不到=两侧不是同一次提升，重建没有依据）；
  * 2. 重建后全文条目总数与分支那份相同（不弄丢、不弄多——开发过程中正是它拦住了「末组之后的旧条目被
  *    当成块间散文整段搬进未发布区」这一版写法）；
  * 3. 版本小节之后的历史区两侧逐字相同（不同=分支上改过已发布版本的正文，那没有确定答案，交给人判——
  *    这种情况下另一份也不写，成对的文件只修一份等于把它们拆成两种形状）；
- * 4. 中英两份的版本条数与未发布条数各自相等（`CHANGELOG.md` / `CHANGELOG.en.md` 成对的约定）。
+ * 4. 中英两份的版本条数与未发布条数各自相等（`CHANGELOG.md` / `CHANGELOG.en.md` 成对的约定）；
+ * 5. 重建结果不比工作树少条目（工作树多出来的那些既不在 `MERGE_HEAD` 也不在 `ORIG_HEAD`，
+ *    是合并现场手写的——这时重建等于把它们抹掉，而前四条都在两份 ref 之间守恒，看不见这一格）。
+ *
+ * 五条守恒的分工：1–4 保证「两份 ref 之间搬得干净」，5 保证「不拿 ref 去覆盖工作树里 ref 没有的东西」。
+ *
+ * 一条前提写在这里，因为断言 2 和断言 5 都建立在它上面：条目是按**首行去空白后的字符串**认的
+ * （`bulletBlocks` 的 `key`），所以同一份未发布区里若存在两条逐字相同的条目，它们会被当成同一条处理。
+ * 那在 `release.mjs` 生成的形状里不会发生（条目来自提交信息，重号即噪声），真出现了也是断言 2 报数不守恒、
+ * 而不是静默合掉——但别把它当成「重复条目也能正确重建」，本脚本对它没有专门的处理路径。
  *
  * 重建出的两份直接通过 `pnpm format:check`：搬运时按 Markdown 的段落间距把接缝补齐，所以修完不必再跑一遍
  * `pnpm format`——「修好了」和「守卫绿了」之间不该留一步给人忘。
@@ -67,6 +76,17 @@ if (!fs.existsSync(FILES[0]) || !fs.existsSync(FILES[1])) {
 }
 
 function gitShow(ref, file) {
+  // 位置参数会整段拼成 `git show` 的一个 arg，前导 `-` 因此会被 git 当成**选项**而不是 rev：
+  // 实测 `git show "--output=<路径>:CHANGELOG.md"` 返回 0 并把内容写到仓库外的任意可写路径。
+  // 这两个参数只有操作者自己填（没有远程输入面），但一条命令能往仓库外写文件这件事
+  // 不该靠「没人会这么敲」来保证，所以在这里按字面拒掉。
+  if (ref.startsWith('-')) {
+    fail(
+      `ref ${ref} 以 - 开头，会被 git 当成选项解析（` +
+        '`--output=`' +
+        ` 一类可以往仓库外写文件）——只接受提交号、分支名或 MERGE_HEAD 这类内置 ref`,
+    );
+  }
   try {
     return execFileSync('git', ['show', `${ref}:${file}`], { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
   } catch {
@@ -156,12 +176,20 @@ function pickUnreleased(lines, from, to, versionKeys) {
     picked.push(...chunk);
   };
   for (const group of groupRanges(lines, from, to)) {
-    const blocks = bulletBlocks(lines, group.start, group.end).filter(block => !versionKeys.has(block.key));
-    if (blocks.length === 0) continue;
+    // 这里**不过滤**：被丢掉的块也要参与推进游标，见循环体里那条注释。
+    const blocks = bulletBlocks(lines, group.start, group.end);
+    if (blocks.every(block => versionKeys.has(block.key))) continue;
+    // 分组标题到第一条条目之间按构造不含条目行，整段抄。
     push(lines.slice(group.start, blocks[0].start));
-    for (let index = 0; index < blocks.length; index += 1) {
-      if (index > 0) push(lines.slice(blocks[index - 1].end, blocks[index].start));
-      push(lines.slice(blocks[index].start, blocks[index].end));
+    let sentTo = blocks[0].start;
+    for (const block of blocks) {
+      // 条目与条目之间的那段同样按构造不含条目行（`bulletBlocks` 只会把条目行切成块），
+      // 所以抄「上一条处理过的条目 → 本条」这段空隙是安全的；被丢掉的条目只推进游标、不进输出。
+      // 早先的空隙是按「上一条**保留**条目」算的，于是一条夹在两条保留条目之间的旧条目
+      // 会跟着空隙被整段抄回未发布区——内容重复、条目总数守恒，ref 侧那四条断言一条都不会红。
+      // 触发条件：同组内某条已提升的条目前面还有本轮新条目（分组标题下的自然追加写法）。
+      if (!versionKeys.has(block.key)) push(lines.slice(sentTo, block.end));
+      sentTo = block.end;
     }
   }
   return trimTrailingBlanks(picked);
@@ -182,7 +210,10 @@ function build(file) {
 
   // 断言 3：历史区两侧逐字相同，否则重建没有依据。
   if (released.slice(relBodyEnd).join('\n') !== unreleased.slice(devBodyEnd).join('\n')) {
-    process.stdout.write(`${file}: 已发布小节之后的历史区两侧不一致——分支上动过旧版本的正文，这一份请手工合并\n`);
+    process.stdout.write(
+      `${file}: 已发布小节之后的历史区两侧不一致——分支上动过旧版本的正文，这一份没有机械答案` +
+        '（本脚本不会改写任何一份，两份要一起手工合）\n',
+    );
     return null;
   }
 
@@ -203,9 +234,14 @@ function build(file) {
   const body = pickUnreleased(unreleased, devAnchor + 1, devBodyEnd, versionKeys);
   const head = unreleased.slice(0, devAnchor + 1);
   const tail = released.slice(versionIdx);
-  // 小节标题与正文之间、正文与版本标题之间，各留恰好一个空行。
-  const middle = body.length === 0 ? [] : ['', ...body, ''];
+  // 小节标题与正文之间、正文与版本标题之间各留恰好一个空行。未发布区被清空时那一格也要留着：
+  // `release.mjs` 生成的形状就是「`## [未发布]` + 空行 + 版本标题」，而相邻两行标题
+  // （`## A` 紧跟 `## B`）过不了 `pnpm format:check`——空 body 是本脚本唯一的非搬运出口，
+  // 它必须与权威那侧同形，否则「这一轮分支上没有新条目」那种合并会被它自己判成错形状。
+  const middle = body.length === 0 ? [''] : ['', ...body, ''];
   const content = [...head, ...middle, ...tail].join('\n');
+
+  const worktreeText = fs.readFileSync(file, 'utf8');
 
   return {
     file,
@@ -215,12 +251,13 @@ function build(file) {
     unreleasedCount: body.filter(line => BULLET_RE.test(line)).length,
     totalBefore: unreleased.filter(line => BULLET_RE.test(line)).length,
     totalAfter: content.split('\n').filter(line => BULLET_RE.test(line)).length,
-    same: fs.readFileSync(file, 'utf8') === content,
+    worktreeBullets: worktreeText.split('\n').filter(line => BULLET_RE.test(line)).length,
+    same: worktreeText === content,
   };
 }
 
 /**
- * 两份都先算完、四条断言全部成立之后才写盘。顺序在这里是要紧的：那两份文件是成对的
+ * 两份都先算完、五条断言全部成立之后才写盘。顺序在这里是要紧的：那两份文件是成对的
  * （`CHANGELOG.md` / `CHANGELOG.en.md` 必须同形），所以「算完一份就写一份」会让中英两份
  * 分裂成两种形状——而断言 4 正是那条只能在**两份都算完之后**才能做的检查。
  */
@@ -257,6 +294,20 @@ if (zh.unreleasedCount !== en.unreleasedCount || zh.versionCount !== en.versionC
     `中英两份不对成：未发布 ${zh.unreleasedCount}/${en.unreleasedCount} 条，` +
       `${zh.versionHeading} ${zh.versionCount}/${en.versionCount} 条`,
   );
+}
+
+for (const report of reports) {
+  // 断言 5：重建结果不许比工作树**少**条目。前四条都只在两份 ref 之间做守恒，而合并现场的工作树
+  // 可以比它们都多——人手工解决冲突时往 `## [未发布]` 里补的那几行，既不在 `MERGE_HEAD` 也不在
+  // `ORIG_HEAD`，重建会连人写的内容一起抹掉，而输出读起来完全正常（`--check` 那句「是合并后的错形状
+  // …确认无误后执行」正是在催这一步）。条目总数守恒在上面的断言 2 里管的是 ref 侧，管不到这里。
+  if (report.worktreeBullets > report.totalAfter) {
+    fail(
+      `${report.file}: 工作树里有 ${report.worktreeBullets} 条，重建结果只有 ${report.totalAfter} 条——` +
+        '多出来的那些不在那两个 ref 里，八成是合并现场手写的，写下去就把它们抹了；' +
+        '请手工合并（本脚本一个字都没写）',
+    );
+  }
 }
 
 for (const report of reports) {
