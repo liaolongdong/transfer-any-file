@@ -50,3 +50,25 @@ export function isZipCompressible(filename: string): boolean {
   if (dot < 0) return false;
   return ZIP_COMPRESSIBLE_EXT.has(filename.slice(dot + 1).toLowerCase());
 }
+
+/**
+ * Milliseconds to a duration label: `0.4 s` / `3.2 s` / `1 min 04 s`.
+ *
+ * Three tiers and nothing above them — a batch that runs for an hour keeps counting minutes
+ * (`72 min 30 s`) because the one question this answers is "how long did this take on this
+ * machine", and reading `1 h 12 m 30 s` costs more than the extra digits. Units stay Latin, exactly
+ * like `formatSize`: the Chinese UI shows `8.7 MB`, so `3.2 s` is the same convention rather than an
+ * untranslated leftover.
+ *
+ * Returns `''` for anything outside its domain (`NaN`, `Infinity`, negatives). Those only arrive from
+ * storage — a hand-edited export or a future writer that forgot to clamp — and an empty string means
+ * the caller prints nothing, which is the honest answer to "we do not know how long this took".
+ */
+export function formatDuration(ms: number): string {
+  if (!Number.isFinite(ms) || ms < 0) return '';
+  const seconds = ms / 1000;
+  if (seconds < 60) return `${seconds.toFixed(1)} s`;
+  const minutes = Math.floor(seconds / 60);
+  const rest = Math.floor(seconds - minutes * 60);
+  return `${minutes} min ${String(rest).padStart(2, '0')} s`;
+}
