@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, toRaw, onMounted, onUnmounted, defineAsyncComponent } from 'vue';
+import { ref, computed, onMounted, onUnmounted, defineAsyncComponent } from 'vue';
 import type { Component } from 'vue';
 import { UploadFilled, Delete, Plus, Picture, Document, Grid, View } from '@element-plus/icons-vue';
 import { FileFormat } from '~/utils/core/types';
@@ -9,6 +9,7 @@ import { loadFflate, declaredEntryCount, MAX_ZIP_ENTRIES } from '~/utils/core/zi
 import { isMac } from '~/utils/core/platform';
 import { detectFormat, SUPPORTED_EXTENSIONS } from '~/utils/core/file-detect';
 import { collectDropped, snapshotDrop } from '~/utils/core/folder-drop';
+import { createRowKey } from '~/utils/core/row-key';
 import { useI18n } from '~/composables/useI18n';
 
 // Heavy component — only loaded when the user actually opens a source preview,
@@ -44,30 +45,11 @@ const pasteKey = isMac ? '⌘V' : 'Ctrl+V';
 const dropText = computed(() => (selectedFiles.value.length === 0 ? t('upload.drop') : t('upload.replace')));
 
 /**
- * Stable v-for key for the staged-file list.
- *
- * The key used to be `file.name + index`, which re-keys every row below a removal: deleting the
- * first of five files unmounted four and mounted four again, and because the list is wrapped in a
- * `<TransitionGroup>` that played as the whole tail flickering out and back in rather than as one
- * row leaving. The `File` instance is the only identity this list has — `removeFile()` rebuilds the
- * array but carries the same objects through `selectFiles()` — so the key is minted once per object.
- *
- * `toRaw()` guards the lookup: `selectedFiles` is a `ref` array, and Vue does not proxy a `File`
- * (its `getTargetType` only reacts on Object/Array/collection tags), but if that ever changes the
- * map would otherwise key on a fresh proxy per render and hand out a new id every frame.
+ * Stable v-for key for the staged-file list. The `File` instance is the only identity these rows have —
+ * `removeFile()` rebuilds the array but carries the same objects through `selectFiles()` — and the reason
+ * a position would not do is written up in `~/utils/core/row-key`.
  */
-const rowKeys = new WeakMap<File, string>();
-let rowKeySeq = 0;
-
-function rowKey(file: File): string {
-  const target = toRaw(file);
-  let key = rowKeys.get(target);
-  if (key === undefined) {
-    key = `file-${++rowKeySeq}`;
-    rowKeys.set(target, key);
-  }
-  return key;
-}
+const rowKey = createRowKey('file');
 
 /** Map clipboard image MIME to a filename extension for correct detection */
 const PASTE_EXTENSIONS: Record<string, string> = {

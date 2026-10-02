@@ -207,6 +207,7 @@ export default {
     doneSingle: '转换完成！',
     doneMulti: '转换完成！共 {count} 个文件',
     donePartial: '完成 {ok} 个，失败 {fail} 个',
+    sizeTotals: '合计 {source} → {result}',
     doneNone: '转换失败',
     cancelledPartial: '转换已取消，已完成 {done} / {total} 个文件',
     cancelledNone: '转换已取消，未转换任何文件',

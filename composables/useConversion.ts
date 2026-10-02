@@ -1,5 +1,5 @@
-import { ref, computed, h } from 'vue';
-import type { Ref, ComputedRef } from 'vue';
+import { ref, shallowRef, computed, h } from 'vue';
+import type { Ref, ShallowRef, ComputedRef } from 'vue';
 import { saveAs } from 'file-saver';
 import { FileFormat } from '~/utils/core/types';
 import type { ConvertContext, ConvertResult } from '~/utils/core/types';
@@ -176,8 +176,14 @@ export function useConversion() {
    * source basename plus the new extension — so once a file leaves the batch nothing is left to say
    * which result was its. Without this array the only honest response to an edit of the file list
    * is to throw every result away; with it, just the orphaned rows go.
+   *
+   * Reactive because the results panel needs that same alignment: it keys its rows on the source
+   * file (output names collide once a retry merges two batches' worth of rows) and reads the
+   * original byte count off it to report how much the batch actually shrank. `shallowRef` because
+   * every write below replaces the whole array — the alternatives would have Vue walk a list of
+   * `File` objects it can never observe anyway.
    */
-  let resultOwners: File[] = [];
+  const resultOwners: ShallowRef<File[]> = shallowRef([]);
 
   let abortController: AbortController | null = null;
   // Re-entrancy lock covering the pre-conversion confirm dialog: `isConverting` only turns true
@@ -239,7 +245,7 @@ export function useConversion() {
     currentStep.value = 0;
     stepTotal.value = 0;
     previousBatch.value = null;
-    resultOwners = [];
+    resultOwners.value = [];
   }
 
   /**
@@ -276,7 +282,7 @@ export function useConversion() {
     const keptResults: ConvertResult[] = [];
     const keptOwners: File[] = [];
     batchResults.value.forEach((result, index) => {
-      const owner = resultOwners[index];
+      const owner = resultOwners.value[index];
       if (owner !== undefined && newIndexByFile.has(owner)) {
         keptResults.push(result);
         keptOwners.push(owner);
@@ -291,7 +297,7 @@ export function useConversion() {
     });
 
     batchResults.value = keptResults;
-    resultOwners = keptOwners;
+    resultOwners.value = keptOwners;
     batchFailures.value = keptFailures;
     // What is left is a finished batch over the surviving files, so the counters follow it. The
     // progress bar itself is gated on `isConverting`, so only the rows and the retry set matter.
@@ -308,7 +314,7 @@ export function useConversion() {
   function setTargetFormat(format: FileFormat): void {
     targetFormat.value = format;
     batchResults.value = [];
-    resultOwners = [];
+    resultOwners.value = [];
     batchFailures.value = [];
     error.value = null;
     cancelled.value = false;
@@ -409,7 +415,7 @@ export function useConversion() {
         completedCount: completedCount.value,
         currentIndex: currentIndex.value,
         target: targetFormat.value,
-        owners: [...resultOwners],
+        owners: [...resultOwners.value],
       };
     } else {
       previousBatch.value = null;
@@ -585,7 +591,7 @@ export function useConversion() {
       // batch's results back would resurrect a results panel for files that are gone.
       if (workspaceEpoch === epochAtConfirm) {
         batchResults.value = results;
-        resultOwners = owners;
+        resultOwners.value = owners;
       }
 
       // Record successful conversions in history (metadata only, no blob); a storage failure
@@ -759,7 +765,7 @@ export function useConversion() {
     if (indexes.length === 0) return { ran: false, recovered: 0, stillFailing: 0 };
 
     const heldResults = [...batchResults.value];
-    const heldOwners = [...resultOwners];
+    const heldOwners = [...resultOwners.value];
     const heldFailures = [...batchFailures.value];
     const heldFiles = [...sourceFiles.value];
     const heldFormats = [...sourceFormats.value];
@@ -796,7 +802,7 @@ export function useConversion() {
           sourceFiles.value = heldFiles;
           sourceFormats.value = heldFormats;
           batchResults.value = heldResults;
-          resultOwners = heldOwners;
+          resultOwners.value = heldOwners;
           batchFailures.value = heldFailures;
           cancelled.value = heldCancelled;
         }
@@ -808,7 +814,7 @@ export function useConversion() {
       sourceFiles.value = heldFiles;
       sourceFormats.value = heldFormats;
       batchResults.value = [...heldResults, ...batchResults.value];
-      resultOwners = [...heldOwners, ...resultOwners];
+      resultOwners.value = [...heldOwners, ...resultOwners.value];
       // `convert()` numbered the failures it just produced against the subset it was handed, and by
       // now the workspace is back to the full list — so those numbers point at the wrong files. A
       // second retry without this would re-run an already-successful file and leave the still-broken
@@ -861,7 +867,7 @@ export function useConversion() {
     const snap = previousBatch.value;
     if (!snap) return false;
     batchResults.value = snap.results;
-    resultOwners = snap.owners;
+    resultOwners.value = snap.owners;
     batchFailures.value = snap.failures;
     completedCount.value = snap.completedCount;
     currentIndex.value = snap.currentIndex;
@@ -890,6 +896,7 @@ export function useConversion() {
     cancelled,
     error,
     batchResults,
+    resultOwners,
     batchFailures,
     currentIndex,
     completedCount,

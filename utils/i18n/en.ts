@@ -194,6 +194,7 @@ const en: typeof zh = {
     doneSingle: 'Conversion complete!',
     doneMulti: 'Conversion complete! {count} files',
     donePartial: '{ok} succeeded, {fail} failed',
+    sizeTotals: 'Combined size: {source} → {result}',
     doneNone: 'Conversion failed',
     cancelledPartial: 'Conversion cancelled — {done} of {total} files completed',
     cancelledNone: 'Conversion cancelled before any file was converted',

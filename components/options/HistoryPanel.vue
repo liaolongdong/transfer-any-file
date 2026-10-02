@@ -347,6 +347,11 @@ async function handleImportChange(e: Event): Promise<void> {
             >
               {{ record.fileName }}
             </span>
+            <!-- The size of what the batch produced, which is the only figure a row like this is
+                 read for. `fileCount` needs no column of its own — the label already carries it as
+                 `name.md + 3` — and the source size would ask the reader to compare two numbers
+                 about a conversion that is already over. -->
+            <span class="history-size">{{ formatSize(record.resultSize) }}</span>
             <time
               class="history-time"
               :datetime="isoTime(record.time)"
@@ -505,6 +510,13 @@ async function handleImportChange(e: Event): Promise<void> {
 }
 
 .history-time {
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Shares `.history-name`'s shrinking budget rather than the time's fixed slot: the size is a short,
+   bounded string, and the only variable-width thing on this line is the filename it sits behind. */
+.history-size {
   flex-shrink: 0;
   font-variant-numeric: tabular-nums;
 }

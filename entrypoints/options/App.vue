@@ -58,6 +58,7 @@ const {
   cancelled,
   error,
   batchResults,
+  resultOwners,
   batchFailures,
   completedCount,
   totalCount,
@@ -535,6 +536,7 @@ onUnmounted(() => {
             >
               <ResultDownload
                 :results="batchResults"
+                :owners="resultOwners"
                 :failures="batchFailures"
                 :cancelled="cancelled"
                 :total-count="totalCount"
