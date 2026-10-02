@@ -50,6 +50,23 @@ const htmlToMdConverter: Converter = {
       filter: (node): boolean => node.nodeName === 'TABLE' && node.parentElement?.nodeName !== 'TABLE',
       replacement: (_content, node) => tableToMarkdown(node as HTMLTableElement),
     });
+    turndown.addRule('taskListCheckbox', {
+      // `<input>` is a void element, so with no rule matching it turndown swallowed the checkbox and
+      // the line it sat on lost the marker *and* its indentation — the nested item then read as a
+      // code block. Taking the `<input>` alone leaves the default `li` rule in charge of the list
+      // structure, which is the part that must not be re-implemented here.
+      //
+      // `parentElement === 'LI'` is deliberate: a `<input type=checkbox>` sitting anywhere else (a
+      // form, a table cell) keeps the byte-for-byte output it had before this rule existed.
+      filter: (node): boolean =>
+        node.nodeName === 'INPUT' &&
+        (node as HTMLInputElement).type === 'checkbox' &&
+        node.parentElement?.nodeName === 'LI',
+      // The trailing space is not cosmetic: without it `<input type=checkbox>Foo` comes back as
+      // `[ ]Foo`, which is not a task list item at all. With it, a source that already had a space
+      // gains one column — measured, and `marked` accepts either width on the way back in.
+      replacement: (_content, node) => ((node as HTMLInputElement).hasAttribute('checked') ? '[x] ' : '[ ] '),
+    });
     const markdown = turndown.turndown(bodyHtml);
     const blob = new Blob([markdown], { type: 'text/markdown' });
     // The flag has to describe the file being handed back, not the one that came in: `gfmTable`
