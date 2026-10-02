@@ -103,7 +103,7 @@ Repository: [github.com/liaolongdong/transfer-any-file](https://github.com/liaol
 
 Everything the store asks for was written down first: name and description copy, 1280×800 screenshots, a line-by-line justification for each permission, the privacy policy, and the data-disclosure answers — all in `.github/CHROMEWEBSTORE.md` and `docs/privacy.html`. Getting there took three rejections: the first two were about the shape of the copy, the third about remotely hosted strings sitting unreachable inside the bundle — fixed in the build, not in the text. To push anything for the next version, open an issue on the repo.
 
-Tech stack: **WXT + Vue 3 + TypeScript + Element Plus**, Manifest V3, `storage` as the only permission, MIT licence. How it's verified is part of the deliverable too: Playwright drives the built artifact through 327 assertions, and the fixtures it converts live in `fixtures/` next to the code.
+Tech stack: **WXT + Vue 3 + TypeScript + Element Plus**, Manifest V3, `storage` as the only permission, MIT licence. How it's verified is part of the deliverable too: Playwright drives the built artifact through 331 assertions, and the fixtures it converts live in `fixtures/` next to the code.
 
 ## 6. Who shouldn't use it
 

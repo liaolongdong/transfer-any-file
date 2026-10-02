@@ -52,7 +52,7 @@
 以后再补跑的成本（本机需要手动装过 ffmpeg 与 chromium 二进制）：
 
 ```bash
-pnpm test:e2e        # = pnpm build + node scripts/e2e-test.mjs，断言基线 327 条
+pnpm test:e2e        # = pnpm build + node scripts/e2e-test.mjs，断言基线 331 条
 ```
 
 **2026-09-29 这一轮（JSON 预览的树 / 数组表 / 搜索 + 仓库外的对比页）跑满了 e2e，改在 `E2E_HEADLESS=true` 下跑**：
@@ -193,6 +193,35 @@ sitemap），本轮只回填了体积数字、没有推进那组日期，所以�
 守卫**有牙**这件事这轮也量过一次：把新加的 14 条 `published` 分别改成 `2027-01-01` 与 `2026/10/02`，
 `pages:render` 都以 `exit=1` 拒绝写盘，`docs/convert` 与 `docs/sitemap.xml` 一个字节没动；从备份还原后
 `diff` 为空、重渲染与还原前的产物逐字节相同。
+
+**2026-10-02 这一轮（任务列表保真 / PDF 书签进标题层 / 批次步进度与耗时）也在 `E2E_HEADLESS=true` 下跑满**：
+331/331 通过，约 11 分钟（21:05:48 首张截图 → 21:16:57 末张），87 张截图照旧落 `.test-screenshots/`。
+断言总数从 327 涨到 331，四条全部落在本批的三个功能上：`Task list round-trip` 一条（`- [x]` 的两态与嵌套
+一起过 `md→html→md` 回环）、`PDF outline headings` 两条（书签按 outline 深度落成 `hN`；另一条钉**没有**书签
+的文档一条标题都不许多出来）、`Multi-step Conversion Path Hints` 里一条（单文件两跳链：条出现、百分比动过、
+结果卡报耗时、历史行同数——同一句主张的四个读数折成一条，否则套件总数就跟着这一段读了几个子串走）。
+这个数是那一跑自己写进 `scripts/__baseline__/e2e-assertions.json` 的，不是 `327 + 4` 算出来的：红运行报出的
+分母是分支量而不是源里的条数，只有零失败、零跳过的整轮才有资格记档。散文里跟着它变的是**十句 / 七份**——
+`docs/index.html` 与 `docs/blog/index.html` 中英各两处（那两句带着「实测」日期，同批从 09-30 改成 10-02）、
+`docs/promo/` 四份共五处，外加这份清单第 55 行那条 bash 注释：它不在 `verify:numbers` 的匹配模式内，
+只能手工带过去。`CHANGELOG.md:753` 与 `CHANGELOG.en.md:1098` 的 `327/327` 是 09-30 那一轮的记录，不动。
+
+顺带记两处几何，和一次被实测推翻的预期：
+
+- **窄窗口里历史行的按钮点不到**，是量 720 px 时撞上的，不在原计划里。折叠卡片的 `.collapsible-body`
+  只有 `min-height: 0`、没有 `min-width: 0`，而 grid 项的自动最小尺寸取 min-content，于是那条
+  `white-space: nowrap` 的长文件名把整张卡片撑得比列宽还宽，卡片自己的 `overflow-x: hidden` 把同一行上的
+  删除按钮裁进了裁剪区。720 px 下删除键的落点失效，640 px 下删除与「复用此格式」两个都失效；补上
+  `min-width: 0` 之后 body 宽度 731 → 686，文件名那一格多让出 45 px，900 px 与 1280 px 逐像素相同。
+- 单文件批次把进度条的文本标签关掉，计划里预计「卡片高度变化 ≤ 2 px」，实测 **8.41 px**（`.el-progress`
+  从 14.41 px 变 6 px，那 6 px 就是描边本身）。它不是批次中途会跳的那种变化——`totalCount` 在进循环之前
+  就是定值——所以设计照原样成立，但那条预期是错的，写在这里免得下次照抄。
+
+产物 **3,829,991 B / 65 个文件**（`Σ` 仍打印 3.83 MB，对外那 16 处体积字样一处不动）。素材按纪律同批重拍：
+12 张变了、12 张没变，变的名单与中英读数见提交 `a7d75cb`。这一轮跑过的门禁：`lint:all`、`verify:meta`、
+`verify:paths`（48 条边 / 182 对，本批 0 个新转换器）、`pages:check`（37 文件）、`verify:numbers`
+（23 项事实 × 56 份散文）、`verify:listing`、两道离线守卫与两道远程代码守卫（源码层 95 文件、产物层扫
+44 文件；产物里唯一的 HTML 仍是它自己的 `options.html`）、`build`，以及上面那轮全量 e2e。
 
 ## 3. 收下改动：建议分两个提交
 

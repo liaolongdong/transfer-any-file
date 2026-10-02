@@ -100,7 +100,7 @@ pnpm install && pnpm build
 
 商店要的东西一开始就写在了仓库里：名称与描述文案、1280×800 截图、权限逐条说明、隐私政策、数据披露答复，都在 `.github/CHROMEWEBSTORE.md` 和 `docs/privacy.html`。走到上架用了三轮拒绝：前两轮是文案的形状，第三轮换了一条轴——包里有远程托管的字符串，代码里走不到也算违规，改的是构建不是文案。后续版本想推动什么，去仓库开个 issue 就行。
 
-技术栈：**WXT + Vue 3 + TypeScript + Element Plus**，Manifest V3，权限只有 `storage`，MIT 协议。代码里的验证方式也一并交代：Playwright 驱动构建产物跑 327 条断言，夹具（`fixtures/`）随仓库走。
+技术栈：**WXT + Vue 3 + TypeScript + Element Plus**，Manifest V3，权限只有 `storage`，MIT 协议。代码里的验证方式也一并交代：Playwright 驱动构建产物跑 331 条断言，夹具（`fixtures/`）随仓库走。
 
 ## 六、谁不该用它
 
