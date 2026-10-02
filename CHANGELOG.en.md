@@ -11,6 +11,29 @@ always name the same release.
 
 ### Added
 
+- **Batch progress is counted in steps, and it says how long it took.** The bar's denominator is the whole batch's
+  step count (every file's route is resolved once before the loop starts — a synchronous BFS, measured at 0.28 µs per
+  call), so a batch of 200 files × 3 steps no longer sits at 0 % until the first file finishes entirely. A single file
+  on a multi-step chain (`docx→html→pdf` and friends) gets a determinate bar for the first time, and it no longer
+  shows a text figure frozen at `0/1` — that screen already carries "Processing" and "Step 1 of 2". The bar, the label
+  on it and the `(n/m)` in the button read one pair of numbers, so a batch whose steps are all one layer deep shows
+  exactly the figures it shows today and needs no unit word. When a batch finishes, the results panel reports
+  "Elapsed: 3.2 s", and each history row carries the same number. The measure is fixed at the field: loop start to
+  loop end, excluding the time the pre-conversion confirmation dialog stays open (human reading time mixed in makes it
+  a fake figure) and the ZIP assembly.
+- **PDF bookmarks become heading levels.** `pdf→html` used to recognise nothing but "a short, all-caps line", so the
+  real titles recorded in the document's bookmarks (its outline) came through as body text. An outline now writes
+  `<h1>`–`<h6>` at its own depth, and the test is that the bookmark text equals the line's text — **a whole line**. One
+  bookmark lights up one line, and a bookmark whose text the document never contains lights up nothing (an invented
+  heading is worse than a missing one). `pdf→md` runs as `pdf→html→md`, so it gains the same thing along the same
+  chain. A PDF with no outline, or with nothing that matches, comes out byte-for-byte unchanged and the all-caps
+  heuristic has not been touched. The `<title>` is still your own file name — a deliberate choice consistent with
+  `wrapHtmlDocument`, not metadata that was overlooked.
+- **`html→md` keeps GFM task-list checkboxes.** Turndown has no `INPUT` rule, so the void element is swallowed whole:
+  `- [x]` came back empty, and the one space the line gains by losing its checkbox pushes a nested item past the
+  four-space code-block threshold, turning it into a code block. A new rule handles only the checkbox inside an `<li>`
+  and leaves indentation to the default `li` rule — taking over `li` would drop the nesting with it. A stray
+  `<input type=checkbox>` in a form serializes exactly as before; `parentElement === 'LI'` is that gate.
 - **A finished batch now says what it weighs.** Multi-file batches print one line under the rows: "Combined size:
   12.3 MB → 8.7 MB", summed from what is on the screen rather than read out of the history record — a retry appends
   its recovered files to the rows already there, and a figure carried up from the batch that ran before it would
