@@ -1028,6 +1028,17 @@ zero network requests`) and the Chinese equivalent never appeared in a search re
 
 ### Fixed
 
+- **In a narrow window the history row's own buttons could not be clicked.** `.collapsible-body` is an item of the
+  `.collapsible-panel` grid, and a grid item's automatic minimum size is its min-content: the block axis already
+  handles that with `min-height: 0`, the inline axis did not. So the `white-space: nowrap` filename in a history row —
+  truncated by an ellipsis on screen, yet still one unbreakable word to min-content — pushed the whole body wider than
+  its card, and the card's own `overflow-x: hidden` cut off the excess, which was exactly where "Reuse this format"
+  and delete sit. Measured headless against the same artifact, once per side of the declaration: at 720px the delete
+  button's centre falls outside the clip and `elementFromPoint` misses it; at 640px both buttons do. With
+  `min-width: 0` the body is the column width, the filename surrenders its remaining characters to the ellipsis instead
+  of the buttons, and both hit-test from 640px up — while at 900px and 1280px every reading is pixel-identical to
+  before. This surfaced while measuring what the new duration cell costs a row: 28px, which moved an existing defect
+  into a width someone would actually sit at.
 - **"Transparency is kept" was false on the PDF and HTML routes.** In the new pages, PDF → JPEG's FAQ told readers to
   take PNG or WebP when they need transparency, and PDF → WebP listed alpha as one of the reasons to pick it — while
   `utils/converters/pdf-to-image.ts` paints **every page white** before the page is drawn, identically for all three
