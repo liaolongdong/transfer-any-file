@@ -456,6 +456,33 @@ export function useConversion() {
       previousBatch.value = null;
     }
 
+    // Resolve every route once, before the first file moves — and before `isConverting` flips, which
+    // is the part that has to stay in this order: the only `await` between here and the loop is
+    // `currentTemplate()`, and on a cold load its `initPromise` has not landed yet, so the frame the
+    // browser paints would carry a converting state with no denominator. The bar is gated on
+    // `plannedSteps > 0` and the button reads `{done}/{total}` off the same pair, so that frame shows
+    // neither a bar nor a meaningful count — `(0/0)`, a reading that describes no batch.
+    // `resolvePath` is a synchronous BFS over the registry (measured 0.28 µs per call, 0.94 ms for the
+    // whole 182-pair matrix), so paying it twice per file buys the only thing the bar cannot get any
+    // other way: a denominator that exists at 0 %. A file with no route throws here, keeps 0 steps, and
+    // still throws exactly `errors.noPath` inside the loop — the pre-pass must not change any file's
+    // outcome, only stay out of the denominator.
+    //
+    // `formats` is the parallel array `sourceFormats` was copied into above, so mapping it is the same
+    // lookup the loop does per file; an unrecognised file is `null` there, which is why the guard below
+    // is a real branch and not defensive noise.
+    const stepsPerFile: number[] = formats.map(format => {
+      if (!format) return 0;
+      try {
+        return converterRegistry.resolvePath(format, target).length;
+      } catch {
+        return 0;
+      }
+    });
+    plannedSteps.value = stepsPerFile.reduce((sum, n) => sum + n, 0);
+    stepsDone.value = 0;
+    elapsedMs.value = null;
+
     isConverting.value = true;
     error.value = null;
     cancelled.value = false;
@@ -498,28 +525,6 @@ export function useConversion() {
     // Typed here rather than read inside `uniqueName`: the closure below cannot see that the guard
     // at the top of `convert()` already ruled out a null target.
     const batchTarget: string = target;
-
-    // Resolve every route once, before the first file moves. `resolvePath` is a synchronous BFS over
-    // the registry (measured 0.28 µs per call, 0.94 ms for the whole 182-pair matrix), so paying it
-    // twice per file buys the only thing the bar cannot get any other way: a denominator that exists
-    // at 0 %. A file with no route throws here, keeps 0 steps, and still throws exactly
-    // `errors.noPath` inside the loop — the pre-pass must not change any file's outcome, only stay
-    // out of the denominator.
-    //
-    // `formats` is the parallel array `sourceFormats` was copied into at the top of this function, so
-    // mapping it is the same lookup the loop does per file; an unrecognised file is `null` there, which
-    // is why the guard below is a real branch and not defensive noise.
-    const stepsPerFile: number[] = formats.map(format => {
-      if (!format) return 0;
-      try {
-        return converterRegistry.resolvePath(format, target).length;
-      } catch {
-        return 0;
-      }
-    });
-    plannedSteps.value = stepsPerFile.reduce((sum, n) => sum + n, 0);
-    stepsDone.value = 0;
-    elapsedMs.value = null;
 
     // Render the name, then suffix only when that name is already taken in this batch — two files
     // can legitimately be called `report.md`, and one of them has to arrive as `report_…_2.md`.

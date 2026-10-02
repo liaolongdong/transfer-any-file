@@ -369,9 +369,12 @@ async function handleImportChange(e: Event): Promise<void> {
                  about a conversion that is already over. -->
             <span class="history-size">{{ formatSize(record.resultSize) }}</span>
             <!-- Presence check, not non-zero: an older record has no field and prints no cell, while a
-                 batch measured at 0 ms prints the same `< 0.1 s` the results panel just showed. -->
+                 batch measured at 0 ms prints the same `< 0.1 s` the results panel just showed. Going
+                 through `durationText` rather than the raw field keeps one more case honest — a value
+                 `formatDuration` refuses (a negative, from a wall clock that moved mid-batch) prints no
+                 cell instead of an empty slot where a reading should be. -->
             <span
-              v-if="record.durationMs !== undefined"
+              v-if="durationText(record)"
               class="history-duration"
               >{{ durationText(record) }}</span
             >
