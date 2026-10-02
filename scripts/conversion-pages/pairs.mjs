@@ -1826,20 +1826,20 @@ export const PAIRS = [
       en: 'pdf.js in your browser extracts the text layer in reading order, keeps link annotations through a scheme allowlist, and puts a page break between pages — one self-contained .html. Nothing is uploaded, and there is no OCR: a scan has no text layer.',
     },
     lede: {
-      zh: '这条是 PDF → 纯文本的「更值得后续加工」版本：同样只吃文字层，但产出的是带段落、标题与超链接的 HTML，而不是一个扁平的 .txt。它比 TXT 多做的那一步很实在——一行全大写、短于 80 字符的文字会被认成标题写成 `<h2>`，其余成段；同一页里落在同一基线上的文字拼回一行，段与段之间靠基线的纵向间距判断。这套判断是几何的，不是语义的，所以下面「丢弃项」里那条关于分栏与旋转文字的说明值得先读。',
-      en: 'This is the "worth keeping as a document" sibling of PDF to plain text: same text layer only, but the output has paragraphs, headings and hyperlinks instead of a flat .txt. The extra step is concrete — a short all-caps line under 80 characters becomes an `<h2>`, everything else becomes a paragraph; characters sitting on the same baseline are joined back into one line, and lines are split by how far apart their baselines are. That test is geometric, not semantic, which is why the column-and-rotated-text limit below is worth reading first.',
+      zh: '这条是 PDF → 纯文本的「更值得后续加工」版本：同样只吃文字层，但产出的是带段落、标题与超链接的 HTML，而不是一个扁平的 .txt。标题有两个来源：PDF 自带的书签（大纲）按层级写成 `<h1>`–`<h6>`，前提是书签的文字与该行的文字「整行相等」；没有书签、或书签对不上的文档退回到几何判断——一行全大写、短于 80 字符的文字会被认成标题写成 `<h2>`，其余成段；同一页里落在同一基线上的文字拼回一行，段与段之间靠基线的纵向间距判断。这套判断是几何的，不是语义的，所以下面「丢弃项」里那条关于分栏与旋转文字的说明值得先读。',
+      en: 'This is the "worth keeping as a document" sibling of PDF to plain text: same text layer only, but the output has paragraphs, headings and hyperlinks instead of a flat .txt. Headings come from two places: the PDF’s own bookmarks (its outline) are written as `<h1>`–`<h6>` at their outline depth, provided the bookmark text equals the line it lands on — a whole line, not a prefix. With no outline, or nothing that matches, the route falls back to the geometric test: a short all-caps line under 80 characters becomes an `<h2>`, everything else becomes a paragraph; characters sitting on the same baseline are joined back into one line, and lines are split by how far apart their baselines are. That test is geometric, not semantic, which is why the column-and-rotated-text limit below is worth reading first.',
     },
     keeps: {
       zh: [
         '文字层按基线拼回行、按阅读顺序成段，pdf.js 在你自己机器上解析',
-        '短而全大写的行升级为 `<h2>` 标题，其余成 `<p>`；同一页的文字不会被打散成单字',
+        '书签按层级写成 `<h1>`–`<h6>`（要求整行文字与书签一致）；没有书签时，短而全大写的行升级为 `<h2>`，其余成 `<p>`；同一页的文字不会被打散成单字',
         '链接标注保留为 `<a>`，并且按协议白名单过滤——只放 https、mailto 与 tel，PDF 自带的 javascript: 与 data: 地址被剔除',
         '每页之间插入一条带 `page-break-after` 的分隔线，转成 Word 或 PDF 时这条边界仍然看得见',
         '产出的 HTML 自包含：内联样式、系统字体栈、`<title>` 用你自己的文件名，没有外部请求',
       ],
       en: [
         'The text layer is rejoined into lines by baseline and into paragraphs in reading order, parsed by pdf.js on your own machine',
-        'A short all-caps line is promoted to an `<h2>` heading and the rest become `<p>`; text on a page is not shattered into single characters',
+        'Bookmarks become `<h1>`–`<h6>` at their outline depth when the line equals the bookmark title; otherwise a short all-caps line is promoted to an `<h2>` and the rest become `<p>`, and text on a page is not shattered into single characters',
         'Link annotations survive as `<a>`, filtered by a scheme allowlist — https, mailto and tel pass, while javascript: and data: targets carried by the PDF are removed',
         'A separator carrying `page-break-after` is placed between pages, so that boundary is still visible when the HTML later goes to Word or back to PDF',
         'The HTML is self-contained: inline styles, a system font stack, a `<title>` taken from your own file name, and no external request',
@@ -2180,7 +2180,7 @@ export const PAIRS = [
     },
     keeps: {
       zh: [
-        '文字层按阅读顺序进正文，短而全大写的行成为标题，其余成段——与 PDF → HTML 同一套判断',
+        '文字层按阅读顺序进正文，书签按层级成为标题、没有书签时短而全大写的行成为标题，其余成段——与 PDF → HTML 同一套判断',
         '链接标注保留为可点击超链接，并按协议白名单过滤（javascript: 与 data: 一律剔除）',
         '每页之间的分隔线保留下来，在 Word 里仍然看得见页面边界',
         '中间那份 HTML 只是内存里的过路产物，不会出现在你的下载里，也就没有"多下一个文件"的意外',
@@ -2536,7 +2536,7 @@ export const PAIRS = [
       en: 'Decode a GIF in your own browser and encode it as PNG: a still gains a lossless container swap, an animation keeps its first frame and says so on the result card. Note the direction is one-way — a browser ships no encoder for BMP, GIF or SVG, so this route has no reverse.',
     },
     lede: {
-      zh: '这条转换最常发生在"我手上只有 .gif，但我要 PNG"的场合：图标、截图、单帧素材。做法很直白——解码、把当前那一帧画到画布、无损编码。真正值得写清楚的是两件事：一是动图在这里必然只剩一帧，二是本项目只在源文件**确实**有多于一个图像块的时候才提示丢帧，静态 .gif 不会收到一句多余的警告。这个判断是走查 GIF 的块结构得出的，不是看文件名。',
+      zh: '这条转换最常发生在"我手上只有 .gif，但我要 PNG"的场合：图标、截图、单帧素材。做法很直白——解码、把当前那一帧画到画布、无损编码。真正值得写清楚的是两件事：一是动图在这里必然只剩一帧，二是本项目只在源文件「确实」有多于一个图像块的时候才提示丢帧，静态 .gif 不会收到一句多余的警告。这个判断是走查 GIF 的块结构得出的，不是看文件名。',
       en: 'This is the "I only have a .gif but I need a PNG" case: icons, screenshots, single-frame assets. The method is blunt — decode, paint the current frame on a canvas, encode losslessly. Two things deserve stating plainly: an animation keeps exactly one frame, and this extension warns about frame loss only when the file genuinely carries more than one image block, which it decides by walking the GIF’s own structure rather than trusting the extension. A still .gif gets no needless warning.',
     },
     keeps: {
