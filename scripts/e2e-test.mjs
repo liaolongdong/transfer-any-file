@@ -2330,6 +2330,50 @@ async function run() {
   }
 
   // ═══════════════════════════════════════════
+  //  TASK LIST ROUND TRIP (regression: turndown swallowed the GFM checkbox)
+  // ═══════════════════════════════════════════
+
+  section('Task list round-trip');
+  try {
+    // One claim seen at two boundaries, counted once: a checkbox the document really carries has to
+    // survive the sanitizer that renders it *and* the serializer that writes it back out. Counting
+    // per substring would make the suite total depend on how many lines this section happens to check.
+    //
+    // The fixture is ASCII on purpose: `downloadBatchArtifact` returns a byte-preserving latin1
+    // string, so the intermediate HTML can be re-uploaded without a decode step and the assertions
+    // below compare against text that never passed through a charset guess.
+    const broken = [];
+    const lineWith = (text, needle) => text.split('\n').find(line => line.includes(needle)) ?? '';
+
+    await resetWorkbench(page);
+    const mid = await convertFile(page, 'sample-tasklist.md', 'HTML (.html)');
+    if (!mid.alertTitle.includes('完成')) throw new Error(`md→html did not finish: ${mid.alertTitle}`);
+    const html = await downloadBatchArtifact(page);
+    // Measured, not assumed: `marked` (gfm) writes `<input checked disabled type="checkbox">` and
+    // the html profile `md-to-html.ts` uses does not drop `<input>`.
+    if (!/type="checkbox"/.test(html)) broken.push('md→html lost the checkbox element');
+    if (!/checked=""/.test(html)) broken.push('md→html lost the checked state');
+
+    await resetWorkbench(page);
+    const carried = { name: 'tasklist.html', mimeType: 'text/html', buffer: Buffer.from(html, 'latin1') };
+    const back = await convertFile(page, carried, 'Markdown (.md)');
+    if (!back.alertTitle.includes('完成')) throw new Error(`html→md did not finish: ${back.alertTitle}`);
+    const md = await downloadBatchArtifact(page);
+    if (!/\[x\]/.test(lineWith(md, 'alpha'))) broken.push(`checked lost on the way out: "${lineWith(md, 'alpha')}"`);
+    if (!/\[ \]/.test(lineWith(md, 'beta'))) broken.push(`unchecked lost on the way out: "${lineWith(md, 'beta')}"`);
+    // Nesting is the second half of the same regression: with the checkbox gone the item's line
+    // began with a space, and that one space pushed the nested item past the four-space code-block
+    // threshold — which is why this round trip used to hand back a fence instead of a list.
+    const nested = lineWith(md, 'gamma');
+    if (!/^ {4}\S.*\[x\]/.test(nested)) broken.push(`nested item is not an indented checkbox: "${nested}"`);
+
+    if (broken.length === 0) ok('Task list keeps both checkbox states and its nesting through md→html→md');
+    else fail('Task list round trip', broken.join('; '));
+  } catch (e) {
+    fail('Task list round trip', e.message);
+  }
+
+  // ═══════════════════════════════════════════
   //  APPEND & CLEAR FILES
   // ═══════════════════════════════════════════
 
@@ -3021,6 +3065,46 @@ async function run() {
     }
   } catch (e) {
     fail('PDF spacing', e.message);
+  }
+
+  // ═══════════════════════════════════════════
+  //  PDF OUTLINE → HEADING LEVELS
+  // ═══════════════════════════════════════════
+
+  section('PDF outline headings');
+  try {
+    await resetWorkbench(page);
+    await convertFile(page, 'sample-outline.pdf', 'HTML (.html)');
+    const outlined = await page.getAttribute('.result-panel iframe.html-frame', 'srcdoc').catch(() => null);
+    if (!outlined) throw new Error('no srcdoc for the outlined PDF');
+    const headings = outlined.match(/<h[1-6]>[^<]*<\/h[1-6]>/g) || [];
+    // Depth is the claim: `Chapter One` and `Chapter Two` are top-level bookmarks, `Section 1.1` is
+    // its child. And `Chapter Two` appears on page 1 as body text while its bookmark points at page 2
+    // — promoting it there too would be inventing a heading the outline never attached to page 1.
+    const wanted = ['<h1>Chapter One</h1>', '<h2>Section 1.1</h2>', '<h1>Chapter Two</h1>'];
+    const missing = wanted.filter(tag => !outlined.includes(tag));
+    const invented = headings.filter(tag => !wanted.includes(tag));
+    if (missing.length === 0 && invented.length === 0) {
+      ok('PDF bookmarks become headings at their outline depth, and nothing else is promoted');
+    } else {
+      fail('PDF outline headings', `missing ${JSON.stringify(missing)}, got ${JSON.stringify(headings)}`);
+    }
+
+    // The control half, and it is the reason this section runs *before* the converter changes: a PDF
+    // with no outline must come back with exactly the headings it came back with before. Measured on
+    // `sample.pdf` (jsPDF, no /Outlines) by reproducing this converter's line loop and its all-caps
+    // heuristic verbatim: it yields ZERO heading tags, because no line in that fixture is all-caps.
+    // `sample-2page.pdf` is the same. So the constant below is 0 tags — written down here rather
+    // than sampled from the post-change build, which would make the control circular.
+    await resetWorkbench(page);
+    await convertFile(page, 'sample.pdf', 'HTML (.html)');
+    const plain = await page.getAttribute('.result-panel iframe.html-frame', 'srcdoc').catch(() => null);
+    if (plain === null) throw new Error('no srcdoc for the plain PDF');
+    const plainHeadings = plain.match(/<h[1-6]>[^<]*<\/h[1-6]>/g) || [];
+    if (plainHeadings.length === 0) ok('A PDF without bookmarks still gets no headings from the outline path');
+    else fail('No-outline control', `expected 0 heading tags, got ${JSON.stringify(plainHeadings)}`);
+  } catch (e) {
+    fail('PDF outline headings', e.message);
   }
 
   // ═══════════════════════════════════════════
