@@ -25,6 +25,9 @@
 
 产品页 FAQ 现在可见条目与结构化数据是 **22 问 × 2 语言 = 44 条 `Question`**，1:1 对应，脚本核对过无差集。
 
+**2026-10-02 复核**（上面那格 404 是 09-22 那一轮的档案，不是今天的现网）：`/convert/`、`/convert/index.html`、
+`/blog/`、`/llms.txt` 都已 200，`/security.txt` 仍 404——它和这轮新加的 14 张配对页一样还没进 `main`。
+
 ## 2. 验证：本机已经全部跑过
 
 下表是 2026-09-26 这一轮（存量代码深度评审 + 安全评审）收口时的实测；上面第 1 节那份清单属于同一分支上
@@ -83,8 +86,9 @@ upload→按钮 757 ms、**点击预览→首行画出 477 ms**，展开全部 8
 **包这一层本轮没有动**（未跑 `pnpm package`）：`.output/transfer-any-file-1.0.0-chrome.zip` 仍是
 2026-09-23 00:39 那一次构建的产物，1,146,773 B，sha256 `db83fe65…12f05`。而被当成「只改了一个变量」样本
 记下来的那一份是 `dd8688b2…c0b0b3` / 1,146,878 B——它既不在这个路径上，`/tmp` 里的备份也不在了。换掉它的
-是谁、哪一次操作，仓库里查不到；下一次提交商店之前，需要所有者先在后台核实手上那份对应的是哪个包
-（第 8 节那条「不许重打包」的禁令就是为了这个样本）。
+是谁、哪一次操作，仓库里查不到。**这条核对动作现在仍然要做**，只是理由变了：条目已上线（2026-10-02 实测详情区版本
+1.0.0、上次更新 2026-09-30），所以下一次提交要防的不再是「换掉待裁决的样本」，而是「不知道商店上挂的是哪个包」
+（第 8 节那条「不许重打包」的禁令是为那个样本设的，随裁决生效已解除）。
 
 **2026-09-30 这一轮（带图片引用的 Markdown / HTML 转 PDF 报错）也在 `E2E_HEADLESS=true` 下跑满**：
 325/325 通过，87 张截图照旧落 `.test-screenshots/`。新增的 4 条全部落在同一个新小节
@@ -169,6 +173,26 @@ sitemap），本轮只回填了体积数字、没有推进那组日期，所以�
 这一轮的十道门禁全 `exit 0`：`lint:all`、`verify:meta`、两道离线守卫、两道远程代码守卫（产物层在这轮
 构建之后重跑过）、`verify:paths`、`verify:numbers`、`verify:listing`、`pages:check`。没有跑 e2e——本轮
 没有源码改动，而 `pnpm test:e2e` 自带一次 build，会把刚验证过的产物换掉。
+
+**10-02 这一轮（配对页 21 → 35 + 扩展层提货）重新构建过**：65 个文件、**3,827,393 B**（比上面那格的
+3,826,293 B 多 1,100 B，`Σ` 仍打印 3.83 MB，所以那 16 处对外体积字样一处都不用动——增的是
+`utils/core/row-key.ts` 这个新模块、批次汇总那一行与历史行的体积列）。首屏 JS 本轮未重测。
+
+素材按纪律同批重拍（`pnpm build && pnpm assets:capture`）：**12 张变了**——`screenshots/` 的
+`batch-results`（汇总那一行）、`history`（结果体积那一列）、`preview-edit`（弹窗背后那张卡多了一行，
+整页截图随之位移），以及把这几张嵌进去的 6 张商店卖点图与 3 张推广图。`workbench-empty` / `batch-files` /
+`output-preset` 一张没变，这本身就是改动面的证据：只落在结果卡、历史行与预览弹窗三处。
+**是在真实构建产物里看过的**：`batch-results.png` 上那行读作 `Combined size: 16.9 KB → 8.9 KB`，
+与三行结果各自的 2.8 / 3.0 / 3.2 KB、三个源文件各自的 151 B / 47 B / 16.7 KB 对得上。
+
+这一轮跑过的门禁：`lint:all`（typecheck + eslint + stylelint + format:check）、`verify:meta`、
+`verify:listing`、`verify:numbers`（23 事实 × 56 份散文）、`verify:paths`、`pages:check`（37 文件）、
+两道离线守卫与两道远程代码守卫（源码层 95 文件、产物层扫 44 文件；产物里唯一的 HTML 是它自己的
+`options.html`，`docs/` 与 `.github/` 没进包）、`build`、全量 e2e **327 / 327**。
+
+守卫**有牙**这件事这轮也量过一次：把新加的 14 条 `published` 分别改成 `2027-01-01` 与 `2026/10/02`，
+`pages:render` 都以 `exit=1` 拒绝写盘，`docs/convert` 与 `docs/sitemap.xml` 一个字节没动；从备份还原后
+`diff` 为空、重渲染与还原前的产物逐字节相同。
 
 ## 3. 收下改动：建议分两个提交
 
@@ -287,8 +311,11 @@ curl -sS $base/robots.txt | grep -i '^Sitemap:'
    2026-09-18 已定稿并同意使用）。这个字段**没有任何 API**，只能在设置页点。它决定分享到 X / Slack / 微信时有没有卡片图。
 3. **README 的可见面**：顶部导航现在多了「转换说明 / Conversions」与「博客 / Blog」两个入口，仓库首页渲染即可看到；
    不需要额外动作，但值得在发布后自己开一次 `https://github.com/liaolongdong/transfer-any-file` 确认锚点不跳空。
-4. **暂时不要打 tag**：仓库当前没有任何 tag，而 `release.yml` 在凭证齐备时会推包到商店——现在 tag 等于把
-   「待裁决的包」换成新样本，第三次判定就再也无法归因（第 8 节）。等裁决回来再谈发版。
+4. **tag 的拦路石换了**：仓库仍然没有任何 tag（2026-10-02 实测 GitHub API `/repos/…/tags` 为空）。原先「先别打」的理由是
+   标签一推出 `release.yml` 就会上传新包，把那个「待裁决的样本」换掉，第三次判定再也无法归因——**裁决已经回来了**
+   （2026-10-02 实测条目在架、详情区版本 1.0.0、上次更新 2026-09-30），这条约束随之解除。现在压着发版的只有一件：
+   商店自动化要的四个 secret（`CHROME_EXTENSION_ID_TAF` 与 `CWS_CLIENT_ID` / `CWS_CLIENT_SECRET` / `CWS_REFRESH_TOKEN`）
+   配了没有——item ID 现在已知，配齐即可，不配则 `release.yml` 照旧只跳过上传、GitHub Release 正常发。见第 8 节。
 
 ## 7. 让搜索与 AI 答案引擎看见
 
@@ -300,15 +327,15 @@ curl -sS $base/robots.txt | grep -i '^Sitemap:'
    GSC 给的 `<meta name="google-site-verification" content="…">` 加到 `docs/index.html` 的 `<head>`（其他 meta 之后），
    然后 `pnpm lint:all && pnpm pages:check` → 提交 → 等部署 → 回 GSC 点「验证」。
    这条改动只碰一个 meta 标签，不进任何守卫的射程；把 content 值给我，我可以连这一步一起提交。
-2. **提交 sitemap**：GSC → sitemap → 添加 `https://liaolongdong.github.io/transfer-any-file/sitemap.xml`（25 条）。
-3. **逐条请求收录**，优先级按「新页面 + 有搜索意图」排：首页 → `/convert/` → 21 张配对页 → `/blog/`。
+2. **提交 sitemap**：GSC → sitemap → 添加 `https://liaolongdong.github.io/transfer-any-file/sitemap.xml`（39 条）。
+3. **逐条请求收录**，优先级按「新页面 + 有搜索意图」排：首页 → `/convert/` → 35 张配对页 → `/blog/`。
    `privacy.html` 不必提交。
 4. **Bing Webmaster Tools**：直接从 GSC 导入站点即可。IndexNow 属可做可不做，如果要做得把 key 文件放站点根
    （`docs/`），`static.yml` 只挡 `.md`，一个 `.txt` 能发出去。
 5. **预期**：GitHub Pages 子路径的新页面从「抓到」到「有展示」通常是数周量级；`png to webp` 这类头词竞争极强，
    真正可能带来点击的是长尾（离线 / 批量 / 不上传 / 某格式转某格式）。所以第 8、9 节带来的真实用户比排名更早见效。
 
-## 8. Chrome 应用商店：本轮刻意不动
+## 8. Chrome 应用商店：条目已上线，下面这套取舍继续有效
 
 取证结论（不是一时保守，是量过的）：
 
@@ -319,14 +346,19 @@ curl -sS $base/robots.txt | grep -i '^Sitemap:'
 - 名称同理：本项目刚因 listing 里的格式名列表被拒两次，外部 ASO 研究给的「标题塞格式关键词」方案与那两次拒审的理由
   是同一套判定，不采纳。
 
-现在真正卡着的只有一件事：**包 sha `dd8688b2…` 已提交、等裁决**。在它出结果之前：
+那两条冻结（不重打包、不改受审字段）是为「包已提交、等裁决」那几天设的，**裁决回来后自动解除**——2026-10-02
+实测条目在架（详情区版本 1.0.0、上次更新 2026-09-30）。但上面三条取舍**不作废**：它们约束的是下一次提交，
+而理由（两次拒审引用的就是那个形状）不会因为过审而消失。
 
-- 不跑 `pnpm package`、不重新 tag、不升版本——任何重打包都会换掉那个「只改了一个变量」的样本；
-- 不再改任何受审字段（名称、两份简介、两份详描、截图与宣传图上的烧字）。
+现在商店这一侧真正剩下的动作只有三件，全部是后台写操作、由所有者执行：
 
-裁决回来后按 [`CWS_PUBLISHING_GUIDE.md`](CWS_PUBLISHING_GUIDE.md) 走：通过则补「最近变更」文案并把新截图/新页面带来的
-流量写进商店页的 product description 更新（先 `pnpm verify:listing`）；再拒则先看它点名的字段形状，
-不申诉、不改没被点名的东西。安装率这一侧真正能动的杠杆是**评分条数**与**外部导流**，不是文案再压一遍关键词。
+1. 配齐 `CHROME_EXTENSION_ID_TAF` 与三个 `CWS_*` secret，让 `release.yml` 在标签事件里真的上传（不配则只跳过、
+   GitHub Release 照发）；item ID 与 listing 见 `CHROMEWEBSTORE.md` 顶部「现网状态」。
+2. 按 [`CWS_PUBLISHING_GUIDE.md`](CWS_PUBLISHING_GUIDE.md) 补「最近变更」文案，并把新截图与新页面带来的变化写进
+   详描更新——改任何一个商店字段前先 `pnpm verify:listing`。
+3. 记下上线当天的后台基线（曝光 / 详情页浏览 / 安装），第一周的波动才有参照。
+
+安装率这一侧真正能动的杠杆是**评分条数**与**外部导流**，不是文案再压一遍关键词。
 
 ## 9. 社区分发
 
@@ -338,13 +370,15 @@ curl -sS $base/robots.txt | grep -i '^Sitemap:'
 
 1. 先英文长文：dev.to / Hashnode **cross-post**，canonical 一律填 `https://liaolongdong.github.io/transfer-any-file/blog/`
    ——这一步做错会让新站点白拿不到权重。
-2. Show HN：标题不带夸张、正文写清「未上架商店」，前 12 小时不离人，事实性问题当天在评论区更正。
+2. Show HN：标题不带夸张、正文写清「完全离线、只申请存储权限、开源」，前 12 小时不离人，事实性问题当天在评论区更正。
 3. Reddit 按 sub 分别改写（`r/chrome_extensions` 可发全文，其余按稿子里的顺序）。
 4. awesome-list 两种一句话条目（按稿子给的两条，别自己扩写）。
 5. 中文渠道：掘金长文 → V2EX（`/v/create?node=分享创造`）→ 知乎回答模板 → 即刻 / 小红书短稿 → 微博 → 公众号（`pnpm promo:wechat` 排版）。
 
-**所有帖子必须写明「尚未上架 Chrome 应用商店，当前是开发者模式加载」**——这是稿子里的第一条纪律，也是商店文案
-在仓库里被反复强调的那件事：不能引用不存在的商店链接。
+**所有帖子首选给出商店链接** `https://chromewebstore.google.com/detail/blkdmpkcaceicinkhindniepbbbaekkb`——条目**已上线**
+（2026-10-02 实测，权威见 `.github/CHROMEWEBSTORE.md` 顶部「现网状态」）。源码构建那条路照旧可以提，但它是**备选**，
+不再是唯一路径；「尚未上架、只能开发者模式加载」这套写法从今天起是错账。**唯一的例外**是渠道本身禁止推广链接时
+（例如某些 sub 只准讨论），那种情况写「商店搜『文件格式任意转换助手』」而不是宣称没有商店版本。
 
 ## 10. 复核节奏
 
@@ -358,5 +392,5 @@ curl -sS $base/robots.txt | grep -i '^Sitemap:'
 ## 11. 明确不做
 
 不加统计脚本或任何第三方 JS（离线主张优先于「看数据」）；不引入外部 SEO 工具链；链接不放 `utm_*`；
-不刷 star / 评分 / 评论；不改名称与简介（第 8 节）；不在裁决前重打包；不把运营文档放进 `docs/`；
+不刷 star / 评分 / 评论；名称与简介仍守第 8 节那条留白口径（不往主字段塞格式名列表）；不把运营文档放进 `docs/`；
 不新增权限、`host_permissions` 或任何远程资源——这些如果要做，先停下来单独说明。

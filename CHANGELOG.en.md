@@ -11,6 +11,47 @@ always name the same release.
 
 ### Added
 
+- **A finished batch now says what it weighs.** Multi-file batches print one line under the rows: "Combined size:
+  12.3 MB → 8.7 MB", summed from what is on the screen rather than read out of the history record — a retry appends
+  its recovered files to the rows already there, and a figure carried up from the batch that ran before it would
+  describe a different set of files than the one above it. The line stays away in three cases: one file (its own row
+  already prints the result size and the alert title carries the count, so a line would restate the panel), the two
+  arrays disagreeing on length (the rows' identity is no longer trustworthy and the honest move is to say less), and
+  a batch whose size did not change at all. The digits are tabular because a retry appends rows and re-sums this line
+  in place, and figures shifting sideways mid-read is the one thing a readout like this must not do.
+- **History rows carry the size of what they produced.** The figure in a row like "3 files · 8.7 MB" is the
+  **result** size, not the source's: a history entry gets opened to ask how far something compressed last time, and
+  the count is already in the label as `name.md + 3`, so it needs no column of its own.
+- **The results panel's rows enter and leave.** Recovered files from a retry, or a file taken out of the list, no
+  longer rearrange the panel in one cut: new rows fade in and settle down from above, rows that stay slide over. It
+  reuses the history panel's `.fat-list-*` set instead of writing its own durations and easing. The layer forced out
+  something worth recording: a row's key is its **source file**, not its position, and not the result object either —
+  output names are "source basename, new extension", so two merged batches' rows collide by name and the only thing
+  with identity is that `File`. The mint used to live inside the upload area alone; two copies of it drift
+  independently, so it is now `createRowKey(prefix)` in `utils/core/row-key.ts`, used by both lists, and the
+  `toRaw()` guard moved with it (a `File` in a `ref` array is not proxied today, and would be a new key per frame if
+  that changed).
+- **The conversion pair pages went from 21 to 35.** The additions are the routes the workbench actually offers that no
+  page talked about yet, chosen by how often people ask for them by name: PDF to PNG / HTML / JPG / WebP / Word, Word to
+  HTML, HTML to PNG, XLSX to PDF, GIF / BMP / SVG to a bitmap, TXT to Markdown. Twelve of the fourteen are one-step
+  edges; PDF to Word and XLSX to PDF run through a chain (`pdf > html > docx`, `xlsx > html > pdf`), and the step count
+  on those pages is the route's real length — this layer was never a transcription of the enum.
+  The same batch put a guard on the mirrors: `docs/index.html`'s conversion grid and `docs/llms.txt`'s per-route list
+  are two **hand-maintained** tables that must match `PAIRS` one-for-one, and `validateLinkMirrors()` in
+  `scripts/render-site-pages.mjs` compares all three and fails the render on a missing, extra or duplicated link. The
+  10 → 21 round aligned those two by hand and got away with it. The batch also settles an older debt:
+  `Article.datePublished` used to carry `PAGES_PUBLISHED` (2026-09-25, the day the first pair page entered the
+  repository) on every page, which was false for these fourteen. An entry may now declare its own `published` and falls
+  back to that date only when it does not, `dateModified` takes the later of the two, and `validatePair()` rejects two
+  shapes — anything that is not `YYYY-MM-DD`, and anything later than `PAGES_UPDATED`, which would leave the same URL's
+  sitemap `lastmod` older than the publish date the page states.
+- **The security policy has a machine-readable copy.** `docs/security.txt` (site root, `/security.txt`) carries
+  `Contact:` for the two channels, `Preferred-Languages` and `Expires:`, with a pointer line in each of
+  `SECURITY.md` and `SECURITY.en.md`. The path is not `/.well-known/`: this is a GitHub Pages **project** page, so
+  the domain root belongs to `liaolongdong.github.io` rather than to this repository, and the nearest reachable
+  location is the project root — which is stated in the file's own header comment rather than left to be guessed.
+  `Expires:` is a maintenance date, not a product promise: when it passes, refresh this file and `SECURITY.md`
+  together.
 - **The preview header grew a copy button.** For content that already is text (TXT, CSV, JSON, Markdown,
   HTML), the preview dialog's header now puts a copy button to the left of Download, going through the
   workbench's own `utils/core/clipboard.ts`: when the Clipboard API is refused or missing it falls back to
@@ -964,6 +1005,23 @@ zero network requests`) and the Chinese equivalent never appeared in a search re
 
 ### Fixed
 
+- **"Transparency is kept" was false on the PDF and HTML routes.** In the new pages, PDF → JPEG's FAQ told readers to
+  take PNG or WebP when they need transparency, and PDF → WebP listed alpha as one of the reasons to pick it — while
+  `utils/converters/pdf-to-image.ts` paints **every page white** before the page is drawn, identically for all three
+  image targets. Following that advice returns the same white background, with nothing gained by the switch.
+  `html-to-png` is the same class: the rasteriser runs with `backgroundColor: '#ffffff'`, so "PNG is lossless and
+  carries alpha" became "lossless, on a fixed white backdrop". The copy moved rather than the converter, because
+  letting PNG and WebP skip the white fill would change the pixels of artifacts already shipped — that is a
+  conversion-semantics decision, not a side effect of a documentation fix. The claims on the image-to-image routes
+  (GIF / BMP / SVG → PNG / WebP) still hold: `image-convert.ts` and `svg-rasterize.ts` fill white only when the target
+  is JPEG.
+- **The pair pages described the clamp domain instead of the options the picker offers.** 19 lines of copy said
+  "72–600 DPI", "1–50,000 KB" and "16–8192 px", which are the bounds `utils/core/output-options.ts` clamps _to_ —
+  defensive limits for whatever value arrives, not settings anyone can pick. The output-options row actually offers
+  DPI 96 / 144 / 200 / 300 (144 by default), quality steps 40 %–90 %, a longest edge of 800–4096 px and a target size
+  of 20 KB–2 MB. The direction of the gap matters: read as written, the page promises a 600 DPI image out of a PDF
+  and no such control exists on that screen. The fix is in the data module `scripts/conversion-pages/pairs.mjs`, not
+  in any HTML file.
 - **Markdown or HTML that references images failed outright when converted to PDF or PNG.** The failure
   had two faces and one cause: the rasterizer puts the sanitized document into a sandboxed `<iframe>`
   and screenshots it, and by then not one of the image references can be resolved locally. The first

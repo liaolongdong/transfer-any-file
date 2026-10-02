@@ -1,0 +1,17 @@
+# Machine-readable copy of the security policy in SECURITY.md / SECURITY.en.md.
+#
+# Path note: the convention asks for /.well-known/security.txt at the domain root. This site is a
+# GitHub Pages *project* page, so the domain root belongs to liaolongdong.github.io rather than to us,
+# and the closest reachable location is the project root — the URL in `Canonical:` below.
+#
+# `Contact:` lists the same two channels, in the same order of preference, that SECURITY.md states:
+# private vulnerability reporting from the repository's Security page first, so details never enter a
+# public issue list, and the mail address as the fallback the policy document already names.
+#
+# `Expires:` is required by the format. It is a maintenance date, not a claim about the product: when it
+# passes, refresh this file and SECURITY.md together — the policy itself does not lapse with the date.
+Contact: https://github.com/liaolongdong/transfer-any-file/security/policy
+Contact: mailto:924902324@qq.com
+Preferred-Languages: zh-CN, en
+Canonical: https://liaolongdong.github.io/transfer-any-file/security.txt
+Expires: 2027-10-01T00:00:00.000Z

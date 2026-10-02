@@ -26,10 +26,12 @@
 &nbsp;
 ![License MIT](https://img.shields.io/badge/license-MIT-blue?style=for-the-badge)
 
-<!-- CWS badges (replace ITEM_ID with the 32-char item ID from Chrome Web Store after publishing):
-[![CWS version](https://img.shields.io/chrome-web-store/v/ITEM_ID?label=CWS&logo=googlechrome&logoColor=white&color=4285F4)](https://chrome.google.com/webstore/detail/ITEM_ID)
-[![CWS users](https://img.shields.io/chrome-web-store/users/ITEM_ID?label=Users&logo=googlechrome&logoColor=white&color=4285F4)](https://chrome.google.com/webstore/detail/ITEM_ID)
-[![CWS rating](https://img.shields.io/chrome-web-store/rating/ITEM_ID?label=Rating&color=4285F4)](https://chrome.google.com/webstore/detail/ITEM_ID) -->
+[![CWS 版本](https://img.shields.io/chrome-web-store/v/blkdmpkcaceicinkhindniepbbbaekkb?label=CWS&logo=googlechrome&logoColor=white&color=4285F4&style=for-the-badge)](https://chromewebstore.google.com/detail/blkdmpkcaceicinkhindniepbbbaekkb)
+
+<!-- 另两枚 shields 徽章（users / rating）实测恒返回 not found——还没有评分，用户数未达展示门槛——
+     挂上去就是一块红色的"条目不存在"，比不挂更糟。有值之后再启用：
+[![CWS users](https://img.shields.io/chrome-web-store/users/blkdmpkcaceicinkhindniepbbbaekkb?label=Users&logo=googlechrome&logoColor=white&color=4285F4&style=for-the-badge)](https://chromewebstore.google.com/detail/blkdmpkcaceicinkhindniepbbbaekkb)
+[![CWS rating](https://img.shields.io/chrome-web-store/rating/blkdmpkcaceicinkhindniepbbbaekkb?label=Rating&color=4285F4&style=for-the-badge)](https://chromewebstore.google.com/detail/blkdmpkcaceicinkhindniepbbbaekkb) -->
 
 [核心优势](#-核心优势) · [功能演示](#-功能演示) · [工作原理](#-工作原理) · [支持的格式](#-支持的转换) · [横向对比](#-横向对比) · [功能全览](#-功能全览) · [隐私](#-隐私) · [安装与上手](#-安装与上手) · [常见问题](#-常见问题) · [参与贡献](#-参与贡献) · [联系方式](#-联系方式) · [产品说明页](https://liaolongdong.github.io/transfer-any-file/) · [转换说明](https://liaolongdong.github.io/transfer-any-file/convert/) · [博客](https://liaolongdong.github.io/transfer-any-file/blog/)
 
@@ -240,6 +242,10 @@ _图上可达但语义不成立，因此置灰并说明原因，而不是等你�
 
 ### 安装
 
+**从 Chrome 应用商店安装（推荐）**：[文件格式任意转换助手](https://chromewebstore.google.com/detail/blkdmpkcaceicinkhindniepbbbaekkb)。装上即为稳定版，随后自动跟随更新，不需要开启开发者模式。
+
+**从源码安装**——适合要审阅构建产物或改代码的场景：
+
 ```bash
 # 环境要求：Node.js 20.12+（WXT 依赖 util.parseEnv）、pnpm
 pnpm install
@@ -253,7 +259,7 @@ pnpm build
 3. 点击 **加载已解压的扩展程序**，选择 `.output/chrome-mv3` 目录
 4. 点击工具栏图标——转换工作台在新标签页打开
 
-目前尚未上架应用商店；`.github/CHROMEWEBSTORE.md` 保存了随时可提交的商品文案、素材与披露答复。
+商店条目的文案、素材与披露答复同步维护在 [`CHROMEWEBSTORE.md`](.github/CHROMEWEBSTORE.md)。
 
 ### 使用步骤
 

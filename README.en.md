@@ -26,10 +26,13 @@ A Chrome extension (Manifest V3) that does every conversion inside a tab on your
 &nbsp;
 ![License MIT](https://img.shields.io/badge/license-MIT-blue?style=for-the-badge)
 
-<!-- CWS badges (replace ITEM_ID with the 32-char item ID from Chrome Web Store after publishing):
-[![CWS version](https://img.shields.io/chrome-web-store/v/ITEM_ID?label=CWS&logo=googlechrome&logoColor=white&color=4285F4)](https://chrome.google.com/webstore/detail/ITEM_ID)
-[![CWS users](https://img.shields.io/chrome-web-store/users/ITEM_ID?label=Users&logo=googlechrome&logoColor=white&color=4285F4)](https://chrome.google.com/webstore/detail/ITEM_ID)
-[![CWS rating](https://img.shields.io/chrome-web-store/rating/ITEM_ID?label=Rating&color=4285F4)](https://chrome.google.com/webstore/detail/ITEM_ID) -->
+[![CWS version](https://img.shields.io/chrome-web-store/v/blkdmpkcaceicinkhindniepbbbaekkb?label=CWS&logo=googlechrome&logoColor=white&color=4285F4&style=for-the-badge)](https://chromewebstore.google.com/detail/blkdmpkcaceicinkhindniepbbbaekkb)
+
+<!-- The other two shields badges (users / rating) measurably return "not found" — no ratings yet, and the
+     user count is below the display threshold — so mounting them would show a red "listing does not exist",
+     which is worse than mounting nothing. Enable them once they carry a value:
+[![CWS users](https://img.shields.io/chrome-web-store/users/blkdmpkcaceicinkhindniepbbbaekkb?label=Users&logo=googlechrome&logoColor=white&color=4285F4&style=for-the-badge)](https://chromewebstore.google.com/detail/blkdmpkcaceicinkhindniepbbbaekkb)
+[![CWS rating](https://img.shields.io/chrome-web-store/rating/blkdmpkcaceicinkhindniepbbbaekkb?label=Rating&color=4285F4&style=for-the-badge)](https://chromewebstore.google.com/detail/blkdmpkcaceicinkhindniepbbbaekkb) -->
 
 [Core advantages](#-core-advantages) · [In action](#-in-action) · [How it works](#-how-it-works) · [Supported formats](#-supported-conversions) · [How it compares](#-how-it-compares) · [Feature overview](#-feature-overview) · [Privacy](#-privacy) · [Installation and usage](#-installation-and-usage) · [FAQ](#-faq) · [Contributing](#-contributing) · [Contact](#-contact) · [Product page](https://liaolongdong.github.io/transfer-any-file/) · [Conversions](https://liaolongdong.github.io/transfer-any-file/convert/) · [Blog](https://liaolongdong.github.io/transfer-any-file/blog/)
 
@@ -218,6 +221,10 @@ Summarised from the typical behaviour of each class of tool rather than one spec
 
 ### Install
 
+**From the Chrome Web Store (recommended)**: [Transfer Any File](https://chromewebstore.google.com/detail/blkdmpkcaceicinkhindniepbbbaekkb). You get the stable build, updates arrive on their own, and Developer mode stays off.
+
+**From source** — for reviewing the built artifact or changing the code:
+
 ```bash
 # Requirements: Node.js 20.12+ (WXT needs util.parseEnv) and pnpm
 pnpm install
@@ -231,7 +238,7 @@ Then in Chrome:
 3. Click **Load unpacked** and select `.output/chrome-mv3`
 4. Click the toolbar icon — the workbench opens in a new tab
 
-There is no store listing yet; `.github/CHROMEWEBSTORE.md` holds the publish-ready listing copy, graphics and disclosure answers for when there is.
+The listing copy, graphics and disclosure answers are kept in sync in [`CHROMEWEBSTORE.md`](.github/CHROMEWEBSTORE.md).
 
 ### Usage
 

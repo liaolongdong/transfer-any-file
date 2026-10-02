@@ -1,6 +1,6 @@
 # Community distribution copy (English channels) · Transfer Any File
 
-> Purpose: turn the shipped product facts into GitHub traffic, stars and — once the listing goes live — installs.
+> Purpose: turn the shipped product facts into GitHub traffic, stars and installs on the live store listing.
 > Pairs with [`community-posts.md`](community-posts.md) (Chinese channels: Juejin / V2EX / Zhihu / Jike) and
 > [`blog-article.en.md`](blog-article.en.md) (the long-form draft, already published at `/blog/` on the site).
 > Nothing here publishes itself: every block is paste-ready, and posting is a manual, confirmed act.
@@ -18,10 +18,13 @@ from a recorded test run, so a number that moved in the code makes the prose fai
 - Playwright drives the built artifact through 327 assertions
 - The whole extension builds to 3.83 MB
 - MIT, sole author ([github.com/liaolongdong](https://github.com/liaolongdong))
-- **Not on the Chrome Web Store yet.** Installing means building and loading unpacked.
+- **On the Chrome Web Store since the review passed** (measured live 2026-10-02: listing up, detail page shows version
+  1.0.0). One click installs it. Building and loading unpacked is still the second route, and the one that works on a
+  managed machine.
 
 Links, in the order you should reach for them:
 
+- Store listing: <https://chromewebstore.google.com/detail/blkdmpkcaceicinkhindniepbbbaekkb>
 - Repository: <https://github.com/liaolongdong/transfer-any-file>
 - Product page (bilingual EN/中文): <https://liaolongdong.github.io/transfer-any-file/>
 - Per-route pages (what each conversion keeps and drops): <https://liaolongdong.github.io/transfer-any-file/convert/>
@@ -51,7 +54,7 @@ that deletes those strings from the bundle, plus a guard that re-reads the artif
 
 ## Show HN
 
-Title (≤64 chars, no marketing adjectives, the store status belongs in the comment):
+Title (≤64 chars, no marketing adjectives; the store link belongs in the comment, not the title):
 
 ```
 Show HN: An offline file format converter as a Chrome extension (MIT)
@@ -72,8 +75,10 @@ source never mentioned.
 What it deliberately cannot do: no OCR, so images cannot become text or spreadsheets; PDF output is per-page
 images with no text layer; BMP/GIF/SVG are input-only because browsers ship no encoder for them.
 
-Not on the Chrome Web Store yet, so installing means `pnpm build` and loading `.output/chrome-mv3` unpacked. I
-will edit this comment with the store link when the listing is live.
+It is on the Chrome Web Store — one click, and it updates itself:
+https://chromewebstore.google.com/detail/blkdmpkcaceicinkhindniepbbbaekkb
+If you would rather read the artifact than trust the listing, `pnpm build` and load `.output/chrome-mv3` unpacked;
+that route also works where IT blocks self-installed extensions.
 https://github.com/liaolongdong/transfer-any-file
 ```
 
@@ -103,7 +108,7 @@ Ranked by how well this fits the sub's actual culture:
 Title and body for r/chrome_extensions:
 
 ```
-Title: Open-source offline format converter (14 formats, MV3, one permission, MIT) — not on the store yet
+Title: Open-source offline format converter (14 formats, MV3, one permission, MIT)
 
 Body:
 WXT + Vue 3 + TypeScript. Files never leave the tab: no host permissions, and the manifest is checked after
@@ -150,19 +155,22 @@ Before opening a PR: read that list's contributing rules (several require the en
 require the PR author to be the maintainer — both are true here), search the list for a duplicate entry, and
 check whether it wants the item already published somewhere (several reject "load unpacked only").
 
-## X / Mastodon (short, and only after the store link exists)
+## X / Mastodon (short)
 
 ```
 14 file formats, converted inside your own browser tab. No upload step, one permission, works with networking
 switched off — and that claim is a CI guard over the built manifest, not a line in a README.
+Store (one click): https://chromewebstore.google.com/detail/blkdmpkcaceicinkhindniepbbbaekkb
 MIT, offline-first: https://liaolongdong.github.io/transfer-any-file/
 ```
 
 ## Posting rules (every time)
 
 1. Take every number from the fact list above; if the code changed, re-run `pnpm verify:numbers` first.
-2. Say plainly that there is no store listing yet. Traffic that cannot install converts into "how do I install
-   this?" issues, not users.
+2. Give both install routes, and hide neither. The listing is live, so the store link goes wherever the channel
+   allows one; the source route stays because it is the one that works on a managed machine and the only way a
+   reader can verify "nothing leaves this computer" themselves. Traffic that cannot install converts into "how do
+   I install this?" issues, not users.
 3. Keep the negative claims visible — no OCR, image-based PDF output, three image formats input-only. An
    overstated claim is a rejection risk for the listing and a trust cost in the thread.
 4. No tracking parameters on any link. The project's own claim is that it issues no requests; appending `?utm_`

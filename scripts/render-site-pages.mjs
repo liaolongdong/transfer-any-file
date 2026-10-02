@@ -343,6 +343,16 @@ function validateScreenshots() {
  */
 function validatePair(pair) {
   const { slug, from, to } = pair;
+  if (pair.published !== undefined) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(pair.published)) {
+      fail(`${slug}: published '${pair.published}' is not a YYYY-MM-DD date`);
+    } else if (pair.published > PAGES_UPDATED) {
+      fail(
+        `${slug}: published ${pair.published} is newer than PAGES_UPDATED (${PAGES_UPDATED}) — the sitemap would then ` +
+          'carry a lastmod older than the page says it was published, and the two claims are about the same URL',
+      );
+    }
+  }
   for (const value of [from, to]) {
     if (!enumValues.has(value)) fail(`${slug}: format '${value}' is not a FileFormat value in utils/core/types.ts`);
     if (!FORMAT_LABEL[value]) fail(`${slug}: no FORMAT_LABEL entry for '${value}'`);
@@ -632,7 +642,7 @@ function shotFigure(shot) {
  * - **The numbers are counts, not sentences.** The intro interpolates `MATRIX.counts`, so the table and
  *   the paragraph above it are the same computation; `pnpm verify:numbers` then checks that
  *   computation against `conversion-policy.ts` and `FileFormat` themselves.
- * - **A cell is a navigation target, not decoration.** The 21 routes with a page of their own link
+ * - **A cell is a navigation target, not decoration.** The routes that have a page of their own link
  *   straight to it, which is how the matrix also works as the cluster's internal linking layer.
  *
  * The interaction layer lives in {@link matrixScript}; it only adds focus, a readout and arrow-key
@@ -657,7 +667,13 @@ function matrixSection() {
       return `<td class="mx-block" data-kind="block" data-reason="${cell.reason}"><span aria-hidden="true">✕</span>${short}</td>`;
     }
     const plural = cell.steps === 1 ? 'step' : 'steps';
-    const page = cell.slug ? { zh: '，有说明页', en: ', with its own page' } : { zh: '', en: '' };
+    // Both halves of this pair belong in markup, not only in the readout script: "this route runs, but
+    // there is no page for it yet" is a fact about the cell, and a reader without JavaScript used to
+    // get the step count and nothing else — the same grid therefore said two different things
+    // depending on whether the browser ran the script.
+    const page = cell.slug
+      ? { zh: '，有说明页', en: ', with its own page' }
+      : { zh: '，暂无专页', en: ', no page yet' };
     const said = hidden(`${cell.steps} 步链路${page.zh}`, `${cell.steps} ${plural}${page.en}`);
     const inner = cell.slug
       ? `<a class="mx-page" href="${cell.slug}.html"><span aria-hidden="true">${cell.steps}</span>${said}</a>`
@@ -974,10 +990,14 @@ ${related}
 
   const shot = SCREENSHOTS[pair.shot];
   const shotUrl = `${SITE.origin}/assets/screenshots/${shot.file}`;
+  // `datePublished` is a per-page fact: a page written in a later revision cannot publish the date the
+  // first one entered the repository, so `pairs.mjs` declares `published` on every entry that is not part
+  // of that first batch. The default is the cluster's own date, which is the only one that holds for the
+  // pages written down before it.
+  const datePublished = pair.published ?? PAGES_PUBLISHED;
   // A page whose `dateModified` precedes its `datePublished` is a signal search engines flag as
-  // inconsistent. The pair copy can legitimately be older than the day the file first existed in the
-  // repository, so the later of the two dates is the honest one to publish.
-  const dateModified = PAGES_UPDATED > PAGES_PUBLISHED ? PAGES_UPDATED : PAGES_PUBLISHED;
+  // inconsistent, so the later of the two is the honest one to publish.
+  const dateModified = PAGES_UPDATED > datePublished ? PAGES_UPDATED : datePublished;
 
   /**
    * The page's structured data in one language.
@@ -1011,7 +1031,7 @@ ${related}
         headline: pair.title[lang],
         description: pair.desc[lang],
         image: shotUrl,
-        datePublished: PAGES_PUBLISHED,
+        datePublished,
         dateModified,
         inLanguage,
         author: { '@type': 'Person', name: 'Better', url: SITE.author },
@@ -1085,7 +1105,7 @@ ${related}
     <meta property="og:image" content="${SITE.origin}/assets/store/github-social-preview.png" />
     <meta property="og:image:width" content="1280" />
     <meta property="og:image:height" content="640" />
-    <meta property="article:published_time" content="${PAGES_PUBLISHED}" />
+    <meta property="article:published_time" content="${datePublished}" />
     <meta property="article:modified_time" content="${dateModified}" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="${esc(bilingualTitle)}" />
@@ -1402,7 +1422,7 @@ ${lists}
 const STATIC_PAGES = {
   home: {
     path: '/',
-    updated: '2026-10-01',
+    updated: '2026-10-02',
     changefreq: 'monthly',
     priority: '1.0',
     file: 'docs/index.html',
@@ -1414,7 +1434,7 @@ const STATIC_PAGES = {
   },
   blog: {
     path: '/blog/',
-    updated: '2026-09-26',
+    updated: '2026-10-02',
     changefreq: 'monthly',
     priority: '0.8',
     file: 'docs/blog/index.html',
@@ -1582,6 +1602,72 @@ function validateFaqRail() {
 }
 
 /**
+ * The two hand-maintained lists of these pages: the product page's `.pairs` grid and `docs/llms.txt`.
+ *
+ * Neither is this script's output, so nothing else notices a page added to `PAIRS` without a link —
+ * which is the drift a growth round leaves behind when both lists keep naming the routes of the round
+ * before it while the sitemap already lists all of them. The sitemap is what a crawler discovers; these
+ * two are what a reader and an LLM answer get, so a page missing from them is a page that exists but is
+ * never recommended. A new entry therefore has to be linked in the same change.
+ */
+function validateLinkMirrors() {
+  const expected = PAIRS.map(pair => pair.slug);
+
+  /**
+   * Compare one list of linked slugs with `PAIRS`, reporting the three ways it can be wrong separately:
+   * a page that is not linked, a link to a route that has no page, and the same page linked twice.
+   * @param {string} name the list, as an operator has to go fix it
+   * @param {string[]} found slugs the list links, in document order
+   * @param {string[]} slugs every slug in `PAIRS`
+   */
+  function check(name, found, slugs) {
+    const listed = new Set(found);
+    const missing = slugs.filter(slug => !listed.has(slug));
+    const unknown = [...listed].filter(slug => !slugs.includes(slug));
+    const duplicated = found.filter((slug, i) => found.indexOf(slug) !== i);
+    if (missing.length > 0) {
+      fail(`${name}: no link for ${missing.join(', ')} — \`pnpm pages:render\` writes a page nobody points at`);
+    }
+    if (unknown.length > 0) {
+      fail(`${name}: links ${unknown.join(', ')}, which is not a route in scripts/conversion-pages/pairs.mjs`);
+    }
+    if (duplicated.length > 0) {
+      fail(`${name}: links ${[...new Set(duplicated)].join(', ')} twice`);
+    }
+  }
+
+  const slug = file => {
+    if (!fs.existsSync(path.join(ROOT, file))) {
+      fail(`${file} is missing, so its list of pair pages cannot be cross-checked`);
+      return null;
+    }
+    return fs.readFileSync(path.join(ROOT, file), 'utf8');
+  };
+  const LIST = /convert\/([a-z0-9-]+)\.html/g;
+  const links = text => [...text.matchAll(LIST)].map(found => found[1]);
+
+  const product = slug('docs/index.html');
+  if (product !== null) {
+    // Only the grid counts: the FAQ body further down also links individual pair pages, and those are
+    // answers to questions rather than the cluster's index.
+    const start = product.indexOf('<div class="pairs">');
+    const end = start === -1 ? -1 : product.indexOf('</div>', start);
+    if (end === -1) {
+      fail(
+        'docs/index.html: no <div class="pairs"> grid found — the mirror check has gone blind, so retarget it ' +
+          'at whatever list now links the pair pages rather than deleting this assertion',
+      );
+    } else {
+      check('docs/index.html (.pairs grid)', links(product.slice(start, end)), expected);
+    }
+  }
+
+  const llmsFile = 'docs/llms.txt';
+  const llms = slug(llmsFile);
+  if (llms !== null) check(llmsFile, links(llms), expected);
+}
+
+/**
  * The site's discoverable URL set: the hand-written pages above plus every generated pair page.
  * @returns {string} `docs/sitemap.xml`
  */
@@ -1622,6 +1708,7 @@ const files = new Map();
 validateScreenshots();
 validateStaticDates();
 validateFaqRail();
+validateLinkMirrors();
 for (const pair of PAIRS) {
   const chain = validatePair(pair);
   // A pair whose shot key is unknown is skipped for the same reason a pair without a route is: writing

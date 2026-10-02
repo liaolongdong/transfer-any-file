@@ -88,7 +88,7 @@ For a single file, online tools are fine. What forces the difference is "I have 
 
 ## 5. Where it is and how to install it
 
-**It is not on the Chrome Web Store yet.** Stated plainly. Right now the only route is loading it from source, in four steps:
+**It is on the Chrome Web Store now** — the listing measured live on 2026-10-02. One click there installs the stable build, and updates arrive on their own. The source route is the other way in, in four steps:
 
 ```bash
 # Requires Node.js >= 20.12 and pnpm
@@ -101,7 +101,7 @@ Then `chrome://extensions` → enable "Developer mode" (top right) → "Load unp
 
 Repository: [github.com/liaolongdong/transfer-any-file](https://github.com/liaolongdong/transfer-any-file). Product page and privacy policy: [liaolongdong.github.io/transfer-any-file](https://liaolongdong.github.io/transfer-any-file/).
 
-Everything the store needs is already prepared: name and description copy, 1280×800 screenshots, a line-by-line justification for each permission, the privacy policy, and the data-disclosure answers — all in `.github/CHROMEWEBSTORE.md` and `docs/privacy.html`. What's missing is a developer account and one submission. If you want to push that forward, open an issue on the repo.
+Everything the store asks for was written down first: name and description copy, 1280×800 screenshots, a line-by-line justification for each permission, the privacy policy, and the data-disclosure answers — all in `.github/CHROMEWEBSTORE.md` and `docs/privacy.html`. Getting there took three rejections: the first two were about the shape of the copy, the third about remotely hosted strings sitting unreachable inside the bundle — fixed in the build, not in the text. To push anything for the next version, open an issue on the repo.
 
 Tech stack: **WXT + Vue 3 + TypeScript + Element Plus**, Manifest V3, `storage` as the only permission, MIT licence. How it's verified is part of the deliverable too: Playwright drives the built artifact through 327 assertions, and the fixtures it converts live in `fixtures/` next to the code.
 
@@ -110,7 +110,7 @@ Tech stack: **WXT + Vue 3 + TypeScript + Element Plus**, Manifest V3, `storage` 
 - Video, audio, EPUB, CAD: use a proper service. Don't ask a browser to do this.
 - Scanned pages or screenshots that need to become editable text: that's OCR, and it isn't here.
 - PDF → Word with the layout intact: you'll get the text and lose the layout.
-- A company machine that blocks unpacked extensions and won't grant Developer mode: this install path is closed to you.
+- A company machine where IT controls extension installs: the store route depends on policy, and the source route needs Developer mode, which is usually blocked first.
 
 But if what you're holding is **a contract, a payroll sheet, medical records, an unpublished manuscript, client data**, and you just need to move format between Markdown / Word / PDF / Excel / CSV / JSON / HTML / images — there is no reason for it to leave your machine.
 

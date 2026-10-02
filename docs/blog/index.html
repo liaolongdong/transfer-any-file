@@ -131,7 +131,7 @@
     />
     <meta
       property="og:article:modified_time"
-      content="2026-09-26"
+      content="2026-10-02"
     />
     <meta
       name="twitter:card"
@@ -159,7 +159,7 @@
             "headline": "我把「文件格式转换」做成了一个不联网的 Chrome 扩展 | I turned file format conversion into a Chrome extension that never goes online",
             "inLanguage": ["zh-CN", "en"],
             "datePublished": "2026-09-22",
-            "dateModified": "2026-09-26",
+            "dateModified": "2026-10-02",
             "author": { "@type": "Person", "name": "Better", "url": "https://github.com/liaolongdong" },
             "publisher": {
               "@type": "Organization",
@@ -849,10 +849,25 @@ SVG      ──► HTML ──► PNG</code></pre>
               ><span lang="en">5. Where it is and how to install it</span>
             </h2>
             <p>
-              <span lang="zh-CN"><b>还没上 Chrome 应用商店</b>，直说。目前只有一条路：源码加载，四步。</span>
+              <span lang="zh-CN"
+                ><b>已经上了 Chrome 应用商店</b>（这一节更新于 2026-10-02，原先写的是「还没上」）。两条路：
+                <a
+                  href="https://chromewebstore.google.com/detail/blkdmpkcaceicinkhindniepbbbaekkb"
+                  rel="noopener"
+                  target="_blank"
+                  >商店条目</a
+                >，一次点击，之后自动更新；或者源码加载，四步，给要审阅构建产物、或要改代码的人。</span
+              >
               <span lang="en"
-                ><b>It is not on the Chrome Web Store yet.</b> Stated plainly. Right now the only route is loading it
-                from source, in four steps.</span
+                ><b>It is on the Chrome Web Store now.</b> This section was updated on 2026-10-02 — it used to say "not
+                yet". Two routes: the
+                <a
+                  href="https://chromewebstore.google.com/detail/blkdmpkcaceicinkhindniepbbbaekkb"
+                  rel="noopener"
+                  target="_blank"
+                  >listing</a
+                >, one click and updates arrive on their own; or loading it from source in four steps, which is the
+                route for anyone auditing the built artifact or changing the code.</span
               >
             </p>
             <pre><code># 环境：Node.js ≥ 20.12、pnpm
@@ -871,20 +886,24 @@ pnpm install &amp;&amp; pnpm build</code></pre>
             </p>
             <p>
               <span lang="zh-CN"
-                >商店需要的东西已经准备好了：名称与描述文案、1280×800
-                截图、权限逐条说明、隐私政策、数据披露答复，都写在仓库的 <code>.github/CHROMEWEBSTORE.md</code> 和<a
+                >商店需要的东西在仓库里就写好了：名称与描述文案、1280×800
+                截图、权限逐条说明、隐私政策、数据披露答复，都在 <code>.github/CHROMEWEBSTORE.md</code> 和<a
                   href="../privacy.html"
                   >这份隐私政策</a
-                >里。上架还差一个开发者账号和一次提交——如果你想推动这件事，<a
+                >里。审核前三轮都被拒：前两轮是文案里的格式名列表，第三轮换了一条轴——包里的远程托管代码，改的是构建不是
+                文案（见第四节）。2026-10-02 实测条目已上线。后续版本想推动什么，<a
                   href="https://github.com/liaolongdong/transfer-any-file/issues"
                   >去仓库开个 issue</a
                 >。</span
               >
               <span lang="en"
-                >Everything the store needs is already prepared: name and description copy, 1280×800 screenshots, a
-                line-by-line justification for each permission, the privacy policy and the data-disclosure answers — all
-                in <code>.github/CHROMEWEBSTORE.md</code> and <a href="../privacy.html">this privacy policy</a>. What is
-                missing is a developer account and one submission. If you want to push that forward,
+                >Everything the store asks for was already written down in the repo: name and description copy, 1280×800
+                screenshots, a line-by-line justification for each permission, the privacy policy and the
+                data-disclosure answers — all in <code>.github/CHROMEWEBSTORE.md</code> and
+                <a href="../privacy.html">this privacy policy</a>. The first three review passes were all rejections:
+                the first two over format-name lists in the copy, the third on a different axis entirely — remotely
+                hosted code inside the package, which was fixed in the build rather than in the text (see section 4).
+                The listing measured live on 2026-10-02. To push anything for the next version,
                 <a href="https://github.com/liaolongdong/transfer-any-file/issues">open an issue on the repo</a>.</span
               >
             </p>
@@ -924,10 +943,12 @@ pnpm install &amp;&amp; pnpm build</code></pre>
                 <span lang="en">PDF → Word with the layout intact: you will get the text and lose the layout.</span>
               </li>
               <li>
-                <span lang="zh-CN">公司设备禁止加载未上架扩展、也没有开发者模式权限：这条路对你不成立。</span>
+                <span lang="zh-CN"
+                  >公司设备由 IT 统一管扩展安装：商店那条路得看策略放行，源码那条要开发者模式，通常先被禁。</span
+                >
                 <span lang="en"
-                  >A company machine that blocks unpacked extensions and grants no Developer mode: this install path is
-                  closed to you.</span
+                  >A company machine where IT controls extension installs: the store route depends on policy allowing
+                  it, and the source route needs Developer mode, which is usually blocked first.</span
                 >
               </li>
             </ul>

@@ -22,12 +22,17 @@ Every page below states, for one source→target pair, what the route actually e
 - [Word → PDF](https://liaolongdong.github.io/transfer-any-file/convert/word-to-pdf.html): Word → HTML → PDF, rasterized page by page onto A4 — no text layer, and the pagination is not Word's own
 - [Markdown → PDF](https://liaolongdong.github.io/transfer-any-file/convert/markdown-to-pdf.html): marked → HTML → A4 page slices; identical on every machine, and nothing in the file selects or searches
 - [PDF → TXT](https://liaolongdong.github.io/transfer-any-file/convert/pdf-to-text.html): pdf.js extracts the text layer in reading order and link annotations are protocol-filtered; a scanned PDF has no text layer, and there is no OCR
+- [PDF → HTML](https://liaolongdong.github.io/transfer-any-file/convert/pdf-to-html.html): the same text layer rejoined as paragraphs and headings instead of a flat .txt; a short all-caps line becomes an `<h2>`, link annotations survive as `<a>` behind a scheme allowlist (`javascript:` and `data:` are removed)
+- [PDF → Word](https://liaolongdong.github.io/transfer-any-file/convert/pdf-to-docx.html): two steps through HTML with no intermediate on disk — Word opens it as an altChunk and lays the text out itself, so the paragraphs are editable but the pagination is Word's, not the PDF's
+- [Word → HTML](https://liaolongdong.github.io/transfer-any-file/convert/docx-to-html.html): mammoth reads meaning rather than appearance, so Heading 1–4 become `<h1>`–`<h4>`; body text, lists, links, tables and embedded images arrive in one self-contained file, while layout-only Word features stay behind
+- [TXT → Markdown](https://liaolongdong.github.io/transfer-any-file/convert/txt-to-md.html): fenced as a code block with nothing changed — the fence sizes itself one backtick longer than the longest run in the text, so an embedded snippet cannot close the block early; no guessing at headings or lists
 - [Excel → CSV](https://liaolongdong.github.io/transfer-any-file/convert/excel-to-csv.html): cell values rather than display text, ISO-shaped dates, a UTF-8 BOM, formula injection escaped, one CSV per sheet inside a ZIP
 - [CSV → Excel](https://liaolongdong.github.io/transfer-any-file/convert/csv-to-excel.html): a field becomes a numeric cell only when it round-trips exactly, so `00123` and a 20-digit account are not silently rewritten
 - [Excel → JSON](https://liaolongdong.github.io/transfer-any-file/convert/excel-to-json.html): one sheet becomes an array of row objects, a workbook becomes an object keyed by sheet name; dates arrive as the ISO text the reader rendered rather than as day serial numbers
 - [CSV → JSON](https://liaolongdong.github.io/transfer-any-file/convert/csv-to-json.html): every field is read as text first, so `00123` survives intact; a field regains number type only when parsing and re-printing return identical characters within 15 significant digits
 - [JSON → CSV](https://liaolongdong.github.io/transfer-any-file/convert/json-to-csv.html): the header is the union of every object's keys; nested values go into the cell as JSON text rather than being flattened away
 - [JSON → Excel](https://liaolongdong.github.io/transfer-any-file/convert/json-to-excel.html): a two-step route through CSV, so both directions share the same value rules; nested objects and arrays are written into the cell as JSON text
+- [Excel → PDF](https://liaolongdong.github.io/transfer-any-file/convert/xlsx-to-pdf.html): every worksheet laid out in sequence behind its own heading, cell values as display text with dates normalised before the A4 raster — formulas arrive as their cached result, and the output carries no selectable text
 - [PNG → WebP](https://liaolongdong.github.io/transfer-any-file/convert/png-to-webp.html): alpha kept; quality and a target file size are honoured by stepping quality first, then the longest edge
 - [PNG → JPEG](https://liaolongdong.github.io/transfer-any-file/convert/png-to-jpg.html): transparency flattens onto white, and the same quality / target-size order applies with the longest edge as the second lever
 - [JPEG → PNG](https://liaolongdong.github.io/transfer-any-file/convert/jpg-to-png.html): decoded and re-encoded locally into a lossless container — worth doing before editing a photo, not to recover detail the encoder already discarded
@@ -36,6 +41,15 @@ Every page below states, for one source→target pair, what the route actually e
 - [PNG → PDF](https://liaolongdong.github.io/transfer-any-file/convert/png-to-pdf.html): the pixels go in losslessly, with no redraw (only a picture past 8192 px on an edge is resampled), and the page takes the image's own dimensions rather than A4
 - [JPEG → PDF](https://liaolongdong.github.io/transfer-any-file/convert/jpg-to-pdf.html): the one image → PDF route that does re-encode, once, at quality 0.92 onto white; two files never merge into one document
 - [SVG → PNG](https://liaolongdong.github.io/transfer-any-file/convert/svg-to-png.html): re-rendered as vectors at the target size, with scripts, event attributes and remote references removed before rasterization
+- [SVG → JPEG](https://liaolongdong.github.io/transfer-any-file/convert/svg-to-jpg.html): the same vector render landing on white — size taken from `width` / `height`, then `viewBox`, then a 1024 px square when neither reads as a usable number
+- [SVG → WebP](https://liaolongdong.github.io/transfer-any-file/convert/svg-to-webp.html): the same rasterisation leaving by a different door, and the difference is the container — a transparent icon stays transparent instead of being laid on white first
+- [PDF → PNG](https://liaolongdong.github.io/transfer-any-file/convert/pdf-to-png.html): one lossless image per page, named by its document page number, at a chosen density of 96 / 144 / 200 / 300 DPI (144 by default); there is no quality step and no target size on this route, and each page is painted white before rendering, so nothing coming out of a PDF carries transparency
+- [PDF → JPEG](https://liaolongdong.github.io/transfer-any-file/convert/pdf-to-jpg.html): one image per page named by its document page number, at a chosen density of 96 / 144 / 200 / 300 DPI (144 by default) rasterised along the vector render path, with a direct edge rather than a lossless PNG detour
+- [PDF → WebP](https://liaolongdong.github.io/transfer-any-file/convert/pdf-to-webp.html): the same per-page render with a WebP encode at the end; quality steps and a target size act only at that final encode
+- [GIF → PNG](https://liaolongdong.github.io/transfer-any-file/convert/gif-to-png.html): the first frame losslessly re-encoded, with the palette's transparent index becoming a real alpha channel — and frame loss disclosed only for files that genuinely animate (the GIF block structure is walked to find out)
+- [BMP → PNG](https://liaolongdong.github.io/transfer-any-file/convert/bmp-to-png.html): a lossless re-encode of an almost-uncompressed container, so the picture is unchanged while the file usually drops by an order of magnitude; 8-bit palettes expand to RGBA during decode
+- [BMP → JPEG](https://liaolongdong.github.io/transfer-any-file/convert/bmp-to-jpg.html): the largest size gap on this product line, and part of it is information genuinely discarded — quality steps of 40%–90% and a target size are chased quality-first, pixels-second
+- [HTML → PNG](https://liaolongdong.github.io/transfer-any-file/convert/html-to-png.html): the whole page rather than a viewport — rendered in a sandboxed iframe, measured, and returned as one image as tall as the content actually is; non-UTF-8 sources decode UTF-8 → GB18030 → GBK so mojibake is never photographed
 - [Why offline conversion, and where it stops](https://liaolongdong.github.io/transfer-any-file/blog/): the long-form piece — what a browser can convert without a server, and which jobs genuinely need a desktop tool
 
 ## What it converts
@@ -75,7 +89,7 @@ The comparison summarises the typical behaviour of each class of tool rather tha
 
 ## How to install
 
-Not published to the Chrome Web Store yet. Build from source (Node.js ≥ 20.12, pnpm), then load unpacked:
+One click from the [Chrome Web Store](https://chromewebstore.google.com/detail/blkdmpkcaceicinkhindniepbbbaekkb) — the listing is live, and it is the build most users want. To install from source instead (Node.js ≥ 20.12, pnpm), build and load unpacked:
 
 ```bash
 git clone https://github.com/liaolongdong/transfer-any-file
