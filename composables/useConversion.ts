@@ -690,6 +690,7 @@ export function useConversion() {
             fileSize: totalSourceSize,
             resultSize: totalResultSize,
             fileCount: converted.length,
+            durationMs: batchDurationMs,
           });
         } catch {
           // History is best-effort; ignore storage errors
