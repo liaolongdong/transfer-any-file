@@ -137,6 +137,33 @@ export function useConversion() {
   const currentStep: Ref<number> = ref(0);
   const stepTotal: Ref<number> = ref(0);
   /**
+   * Steps the batch planned to run, summed over every file by the pre-pass in `convert()`.
+   *
+   * The bar is weighted by steps, not files, and this is its denominator: 200 files on a two-step
+   * chain is 400 units of work, and the first file's completion is 0.25 % of the batch, not its end.
+   * The number has to exist at 0 % — which is the entire reason `convert()` resolves every route once
+   * before the loop instead of reading the step count per file inside it.
+   */
+  const plannedSteps: Ref<number> = ref(0);
+  /**
+   * Steps finished. Advances on a step that returned, and on a file that failed outright (its
+   * remaining steps are counted as done, because the batch will never run them).
+   *
+   * It does **not** advance on a cancel: the interrupted step neither finished nor failed, and
+   * counting it would report 100 % for a batch that was stopped halfway. `cancelled` already tells
+   * "ran to the end" apart from "stopped", and the bar follows that fact rather than a nicer number.
+   */
+  const stepsDone: Ref<number> = ref(0);
+  /**
+   * Milliseconds from the batch loop's start to its end, or `null` when no batch has settled here.
+   *
+   * The domain is deliberate (see the outward sentence this feeds): it excludes the pre-conversion
+   * confirmation dialog, because mixing a person's reading time into "how long this machine took"
+   * makes the figure a lie; and it excludes the ZIP assembly, which has its own `isPackaging`
+   * feedback channel and is a different action.
+   */
+  const elapsedMs: Ref<number | null> = ref(null);
+  /**
    * True while "download all" is assembling a ZIP. Packing is synchronous CPU work per entry
    * (fflate deflates ~7 MB in about a second), so without this the button looks dead and the
    * click that "did nothing" gets pressed again.
@@ -244,6 +271,9 @@ export function useConversion() {
     currentIndex.value = -1;
     currentStep.value = 0;
     stepTotal.value = 0;
+    plannedSteps.value = 0;
+    stepsDone.value = 0;
+    elapsedMs.value = null;
     previousBatch.value = null;
     resultOwners.value = [];
   }
@@ -320,6 +350,11 @@ export function useConversion() {
     cancelled.value = false;
     currentStep.value = 0;
     stepTotal.value = 0;
+    // `setTargetFormat` does not go through `clearBatchState`, so its own zeroing has to name these
+    // three too — otherwise the previous batch's denominator stays on screen across a target change.
+    plannedSteps.value = 0;
+    stepsDone.value = 0;
+    elapsedMs.value = null;
     previousBatch.value = null;
   }
 
@@ -464,6 +499,28 @@ export function useConversion() {
     // at the top of `convert()` already ruled out a null target.
     const batchTarget: string = target;
 
+    // Resolve every route once, before the first file moves. `resolvePath` is a synchronous BFS over
+    // the registry (measured 0.28 µs per call, 0.94 ms for the whole 182-pair matrix), so paying it
+    // twice per file buys the only thing the bar cannot get any other way: a denominator that exists
+    // at 0 %. A file with no route throws here, keeps 0 steps, and still throws exactly
+    // `errors.noPath` inside the loop — the pre-pass must not change any file's outcome, only stay
+    // out of the denominator.
+    //
+    // `formats` is the parallel array `sourceFormats` was copied into at the top of this function, so
+    // mapping it is the same lookup the loop does per file; an unrecognised file is `null` there, which
+    // is why the guard below is a real branch and not defensive noise.
+    const stepsPerFile: number[] = formats.map(format => {
+      if (!format) return 0;
+      try {
+        return converterRegistry.resolvePath(format, target).length;
+      } catch {
+        return 0;
+      }
+    });
+    plannedSteps.value = stepsPerFile.reduce((sum, n) => sum + n, 0);
+    stepsDone.value = 0;
+    elapsedMs.value = null;
+
     // Render the name, then suffix only when that name is already taken in this batch — two files
     // can legitimately be called `report.md`, and one of them has to arrive as `report_…_2.md`.
     const usedNames = new Set<string>();
@@ -480,6 +537,9 @@ export function useConversion() {
     }
 
     try {
+      // Stamped inside the `try` so the epoch guard below and the history record read the same
+      // number: the batch loop's span, nothing else.
+      const batchStartedAt = Date.now();
       for (let i = 0; i < files.length; i++) {
         if (signal.aborted) break;
         currentIndex.value = i;
@@ -490,6 +550,10 @@ export function useConversion() {
         // path and which step blew up. Stays []/undefined when the chain never ran.
         let stepPath: FileFormat[] = [];
         let stepFailedAt: number | undefined;
+        // Steps this file actually finished, so the failure branch can count the rest without
+        // re-deriving it from `stepFailedAt` (which is undefined when the path itself never resolved).
+        let stepsCompletedForFile = 0;
+        let stepsPlannedForFile = 0;
         // Cleared before the path resolves so a file with no route never inherits the previous
         // file's step line, and stays at 0 / 0 — the value the progress hints hide themselves on.
         currentStep.value = 0;
@@ -507,6 +571,7 @@ export function useConversion() {
           // number of steps — handy for F19's diagnostic panel.
           stepPath = [format, ...steps.map(s => s.to)];
           stepTotal.value = steps.length;
+          stepsPlannedForFile = steps.length;
 
           let currentBlob: Blob = file;
           // The last step decides the real container: a multi-sheet XLSX→CSV and a multi-page
@@ -551,6 +616,8 @@ export function useConversion() {
               lostFrames ||= stepResult.lostFrames === true;
               svgRasterized ||= stepResult.svgRasterized === true;
               imagesDropped += stepResult.imagesDropped ?? 0;
+              stepsCompletedForFile++;
+              stepsDone.value++;
             } catch (stepError) {
               stepFailedAt = stepIndex + 1;
               throw stepError;
@@ -572,6 +639,10 @@ export function useConversion() {
           // asked to stop and the batch ends here anyway. Recording it would put a "Conversion
           // cancelled" row in the failures list beside the results still worth downloading.
           if (signal.aborted) break;
+          // A file that failed will never run its remaining steps, so they are spent as far as this
+          // batch is concerned. Counting only successes would leave a bar stuck below 100 % over a
+          // batch that is, in fact, finished.
+          stepsDone.value += Math.max(0, stepsPlannedForFile - stepsCompletedForFile);
           // Isolate per-file errors: keep converting the remaining files
           const failure: ConversionFailure = {
             fileName: file.name,
@@ -586,6 +657,10 @@ export function useConversion() {
         }
         completedCount.value = i + 1;
       }
+      const batchDurationMs = Date.now() - batchStartedAt;
+      // Published even for a cancelled batch — "how long did the part that ran take" is a fair
+      // question — but only for the batch that still owns the workspace.
+      if (workspaceEpoch === epochAtConfirm) elapsedMs.value = batchDurationMs;
       // B2: assign once after the loop so Vue only fires one reactive update. Skipped when the
       // workspace was reset mid-batch — `reset()` already cleared it, and writing the abandoned
       // batch's results back would resurrect a results panel for files that are gone.
@@ -873,6 +948,11 @@ export function useConversion() {
     currentIndex.value = snap.currentIndex;
     currentStep.value = 0;
     stepTotal.value = 0;
+    // The restored snapshot ran under its own timings, and this batch's elapsed figure describes the
+    // files that were just thrown away. Saying nothing is better than attributing the wrong cost.
+    plannedSteps.value = 0;
+    stepsDone.value = 0;
+    elapsedMs.value = null;
     targetFormat.value = snap.target;
     error.value = null;
     // The restored snapshot is a batch that ran to completion; leaving `cancelled` set would
@@ -902,6 +982,9 @@ export function useConversion() {
     completedCount,
     currentStep,
     stepTotal,
+    plannedSteps,
+    stepsDone,
+    elapsedMs,
     isPackaging,
     isRetrying,
     totalCount,
