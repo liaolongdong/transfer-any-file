@@ -2,7 +2,7 @@
  * Content source for the long-tail conversion landing pages under `docs/convert/`.
  *
  * Why a data module instead of hand-written HTML per page: every claim on these pages is a claim about
- * a converter in `utils/converters/`, and `scripts/render-conversion-pages.mjs` checks each entry
+ * a converter in `utils/converters/`, and `scripts/render-site-pages.mjs` checks each entry
  * against the route baseline (`scripts/__baseline__/conversion-paths.json`) and the block list in
  * `utils/core/conversion-policy.ts` before it emits anything. A page that advertises a pair the app does
  * not offer — or omits a limit the code imposes — fails the build rather than shipping. Hand-written
@@ -2187,7 +2187,7 @@ export const PAIRS = [
         '这条链的两端各自可独立使用：只要 HTML 就停在第一步，只要可编辑文字就直接跑这条',
       ],
       en: [
-        'The text layer enters the body in reading order, a short all-caps line becomes a heading and the rest become paragraphs — the same judgement PDF to HTML makes',
+        'The text layer enters the body in reading order, the PDF’s own bookmarks become headings at their outline depth and, where there is no outline, a short all-caps line becomes a heading — the rest become paragraphs, on the same judgement PDF to HTML makes',
         'Link annotations survive as clickable hyperlinks, filtered by scheme allowlist (javascript: and data: removed outright)',
         'The separator between pages carries through, so page boundaries stay visible inside Word',
         'The intermediate HTML exists only in memory and never appears in your downloads, so there is no extra file to wonder about',

@@ -28,9 +28,11 @@ always name the same release.
   `<h1>`–`<h6>` at its own depth, and the test is that the bookmark text equals the line's text — **a whole line**. One
   bookmark lights up one line, and a bookmark whose text the document never contains lights up nothing (an invented
   heading is worse than a missing one). `pdf→md` runs as `pdf→html→md`, so it gains the same thing along the same
-  chain. A PDF with no outline, or with nothing that matches, comes out byte-for-byte unchanged and the all-caps
-  heuristic has not been touched. The `<title>` is still your own file name — a deliberate choice consistent with
-  `wrapHtmlDocument`, not metadata that was overlooked.
+  chain. A PDF with no outline, or with nothing that matches, keeps every word of its body text and the all-caps
+  heuristic has not been touched; `pdf→html`'s `<head>` does change, because the heading rule there is now
+  `h1, h2, h3, h4, h5, h6` instead of `h1, h2, h3` (it sets the spacing for the new levels), so that side is **not**
+  byte-for-byte identical — `pdf→md` is, since `html→md` only reads the `<body>`. The `<title>` is still your own
+  file name — a deliberate choice consistent with `wrapHtmlDocument`, not metadata that was overlooked.
 - **`html→md` keeps GFM task-list checkboxes.** Turndown has no `INPUT` rule, so the void element is swallowed whole:
   `- [x]` came back empty, and the one space the line gains by losing its checkbox pushes a nested item past the
   four-space code-block threshold, turning it into a code block. A new rule handles only the checkbox inside an `<li>`
