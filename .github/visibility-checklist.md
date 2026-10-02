@@ -233,48 +233,40 @@ sitemap），本轮只回填了体积数字、没有推进那组日期，所以�
 上一轮相同，真正因这条读数而变的只有历史那三张，其余九张是墙钟时间戳跟着走。产物 **3,830,033 B /
 65 个文件**（比上一批 +42 B，`Σ` 仍打印 3.83 MB，对外那 16 处体积字样照旧不动）。
 
-## 3. 收下改动：建议分两个提交
+## 3. 收下改动：这一节记的是提交账，不是提交计划
 
-按「生成器与站点内容」和「文档与守卫」拆开，将来回看某张落地页为什么这么写时，只需要读第一条。
+这一节原先给的是 2026-09-19 那一轮（配对页与博客页改成数据源生成）的两条 `git commit`。那些提交早就落地了，
+所以它现在只记账：本轮写了什么、停在哪、还欠哪一笔。**别抄这里的数字，用下面两条命令现读。**
 
 ```bash
 cd ~/code/chrome-plugins/transfer-any-file
-
-git status --short          # 先看清全貌：与并发会话共享目录时这一步不能省
-
-git add scripts/render-site-pages.mjs scripts/conversion-pages/ \
-        docs/convert/ docs/blog/ docs/assets/content.css docs/sitemap.xml \
-        package.json .prettierignore .github/workflows/ci.yml
-git commit -m "$(cat <<'EOF'
-docs(site): 10 张转换配对落地页与博客页改为数据源生成，并加漂移守卫
-
-配对页文案集中在 scripts/conversion-pages/pairs.mjs，docs/convert/ 与 docs/sitemap.xml
-由 scripts/render-site-pages.mjs 渲染；这两处生成物不再受 Prettier 管，改用
-pnpm pages:check 比对提交字节，并已加进 CI 的 lint job。博客草稿提升为 /blog/ 真实页面。
-EOF
-)"
-
-git add docs/index.html docs/llms.txt README.md README.en.md \
-        CHANGELOG.md CHANGELOG.en.md \
-        .github/repo-metadata.md .github/visibility-checklist.md \
-        AGENTS.md .qoder/rules/wxt-rules.md \
-        docs/promo/community-posts.md docs/promo/community-posts.en.md \
-        scripts/check-prose-numbers.mjs scripts/__baseline__/prose-number-quotes.json
-git commit -m "$(cat <<'EOF'
-docs: 产品页补 3 条长尾 FAQ 与结构化数据，站点入口与取证范围同步
-
-中英 FAQ 各 3 条并同步进 JSON-LD（现 22 问 × 2 语言 = 44 条，与可见条目 1:1）；
-README / llms.txt 指向新的 /convert/ 与 /blog/；verify:numbers 把生成页与博客纳入取证
-（30 份文档），并新增两份渠道稿与这份对外可见清单。
-EOF
-)"
+git log --oneline origin/main..HEAD | wc -l          # 2026-10-02 深夜读到 20
+git rev-parse --short HEAD && git rev-parse --short origin/feature-dev   # 相同 = 分支已推平
 ```
 
-两个提交都要过的收尾检查（第二个提交动了 CHANGELOG，所以 `verify:numbers` 会重读它们）：
+那 20 笔分三段（`git log --format='%h %ad %s' --date=format:'%m-%d %H:%M' origin/main..HEAD` 连时间一起读得到）：
+
+- **10-01 那一笔**（`5d19834`）：产品页自称的版本回填成 1.1.0。**第 4 节那条排序约束就来自它**。
+- **10-02 12:36 三笔**（`15228b2` / `fd5848e` / `8c0e9ac`）：结果面板报出这一批的实际减量、配对说明页扩到
+  35 张且每页发布日各自成立、`docs/security.txt` 落站点根，素材同批重拍。
+- **10-02 19:40–22:12 十六笔**：本轮批准的三件（任务列表勾选与嵌套、PDF 书签进标题层、批次步进度与耗时）
+  连同它们的红断言、素材、双语散文与收口；末尾两笔（`255a909` / `0faba3b`）是「批次快过 100 毫秒报
+  `< 0.1 s`」这条读数与跟着重拍的素材。
+
+未发布区块跟着这三段涨到 **161 条**（`CHANGELOG.md` 与 `CHANGELOG.en.md` 各 161，成对），比 `origin/main`
+上的 150 条多 11 条——第 4 节那两步的账就是按这两个数算的。本文与新加的
+`scripts/repair-release-merge.mjs` 是随后那一笔，它不动那 161 条里的任何一条。
+
+提交前的收尾检查（这一轮实际跑的那几条，跑在哪棵树上就在哪棵树上提交）：
 
 ```bash
-pnpm lint:all && pnpm pages:check && pnpm verify:numbers && pnpm verify:listing
+pnpm lint:all && pnpm verify:meta && pnpm verify:paths && pnpm pages:check \
+  && pnpm verify:numbers && pnpm verify:listing
+pnpm build && pnpm verify:offline && pnpm verify:remote-code   # 产物层两条必须在 build 之后
 ```
+
+只动文档与脚本时，产物字节应当与上一轮相同：**3,830,033 B / 65 个文件**（2026-10-02 22:12 那一次构建）。
+不一样就说明动到了扩展源码，回头确认是不是有意为之。
 
 提交前再确认一次工作树里没有别人的东西（与并发会话共享目录时尤其）：
 
@@ -283,45 +275,110 @@ git status --short          # 期望：只剩与本任务无关的、你认得�
 git diff --cached --stat    # 每个提交前都看一眼
 ```
 
-## 4. 让它上线：`main` 是唯一的发布通道
+## 4. 让它上线：`main` 是唯一的发布通道，而这一轮发版排在合流前面
 
-`static.yml` 的 push 触发只认 `branches: [main]` 且 `paths: docs/**`。当前分支拓扑（本机实测）：
+`static.yml` 的 push 触发只认 `branches: [main]` 且 `paths: docs/**`，CI 与 `release-prepare.yml` 也都以 `main` 为基。
+所以「上线」仍然只有一个动作：让改动进 `main`。**但本轮它排在发版之后**，两条理由：
 
-```
-feat/p0-data-integrity (HEAD)  领先 origin/feat/p0-data-integrity 5 个提交（第 3 节提交后是 7），领先本地 main 62 个
-main                           领先 origin/main 2 个提交，且**是 HEAD 的祖先**
-```
+1. `5d19834` 把产品页自称的版本回填成 **1.1.0**，而 `package.json` 现在仍是 **1.0.0**（本机实测）。先把它
+   合进 `main`，`static.yml` 会在几十秒内把这个中间态发到公网——一条对外主张与商品版本不一致的页面。
+2. 商店上传由 `release.yml` 在**标签事件**里做，而 GitHub Release 的正文是它从**标签的工作树**里 awk 出的
+   `## [1.1.0]` 区块。区块得先在 `main` 上成立，才谈得上发这一版。
 
-`main` 是 HEAD 的祖先这条已用 `git merge-base --is-ancestor main HEAD` 实测过，所以并进 `main` 是一次
-`--ff-only`，不产生合并提交；而 `main` 手上那 2 个未推送提交（specs 与 plans 两份文档）已经在 HEAD 的历史里，
-推 `main` 会一起带上。也就是说：**新页面在 HEAD 上，而 Pages 发的是 `main`。** 两条路：
+链路上现在没有残留（2026-10-02 深夜与 10-03 各读一次，三条匿名 API 就够）：`origin/main` = `52ee7a1`，
+`feature-dev` 领先它 20 笔，且 `origin/main` 是 HEAD 的祖先（`git merge-base --is-ancestor origin/main HEAD`
+实测通过）；远端 **0 个 tag、0 个 Release、0 个开着的 PR**，分支只有 `feature-dev` 与 `main`。所以
+`release/v1.1.0` 那格「分支已被占用」的守卫不会挡路，第一次 `prepare` 可以直接跑。
 
-- **A（推荐，与既有工作流一致）**：分支验收完（含 `pnpm test:e2e`）再并进 `main` 并推送，Pages 随之发布。
-  这一轮的文档改动会跟着分支一起上线，不需要额外动作。
-- **B（想让站点先上）**：把第 3 节的两个提交单独摘到 `main`。注意两个提交互相依赖——`docs/convert/` 与
-  `docs/sitemap.xml` 的守卫（`pages:check`）和渲染器在同一个提交里，只摘文档会让 `main` 的 CI 红。
-  摘完之后 `main` 与分支的站点内容会分叉，下一次合并要人工对齐。
+### 4.1 六步，每步一个核对点
+
+前五步是发版，第六步才轮到站点。写操作一律由所有者执行。
+
+1. **准备 Release PR**：Actions → **Release prepare** → Run workflow → `mode: prepare`。它把 `main` 上那
+   150 条未发布提升成 `## [1.1.0] - <日期>`、把 `package.json` 从 1.0.0 提到 1.1.0（`bump: minor`），
+   推 `release/v1.1.0` 并开出那个 PR。本机想先看同一件事：`node scripts/release.mjs --json /tmp/taf-plan.json`
+   （计划模式，一个文件都不写；`previousVersion` / `version` / `bump` / `subject` 四格直接读得到）。
+   ⚠️ 在 `feature-dev` 上跑它读到的未发布区是 **161 条**——分支比 `main` 多本轮那 11 条。**被提升的是
+   `main` 那侧的 150 条**，本轮这 11 条留在分支的未发布区里，等下一次发版。
+2. **审完再合那个 PR**——approve 就是批准发布。整个 diff 只有三份文件（两份 CHANGELOG 加 `package.json`）。
+   这一轮要审的是**英文那份区块是不是中文那份的对照**：两份的未发布区都是手写的成对条目，
+   `release.mjs` 在这种情况下**原样带过去**（`--json` 输出里的 `carriedHandWritten: true` 就是它），
+   不按提交信息重生成——所以 `Changelog-En:` 尾注那套「缺尾注就沿用中文主语」的机制这次不参与，
+   但成对与否得有人看一眼。仓库没有 `RELEASE_PAT` 时这个 PR **不带任何状态检查**（GitHub 不为
+   `GITHUB_TOKEN` 开的 PR 触发 `pull_request`）；`main` 若要求检查通过，那个 Merge 按钮点不动——
+   配令牌或放行 `release/*`，见 [`RELEASE_AUTOMATION.md`](RELEASE_AUTOMATION.md) 的 1.3。
+3. **确认标签真的推出去了**：合并那一刻 `tag` job 推 `v1.1.0`；没配令牌时那一步**只报 warning 就过**，
+   任务摘要里给出三行本机命令（`git fetch origin main` / `git tag v1.1.0 <sha>` / `git push origin v1.1.0`）。
+   核对：`curl -sS https://api.github.com/repos/liaolongdong/transfer-any-file/tags` 从 0 条变 1 条。
+   **这一步漏掉等于没发版**——`GITHUB_TOKEN` 推的标签不会再触发任何工作流。
+4. **读 `release.yml` 那一次运行的摘要**：构建、产物校验、GitHub Release（正文 = 标签树里抽出的 `## [1.1.0]`
+   区块），然后商店那步要么「已上传、未提审」要么「已跳过」——四个商店 secret 缺任何一个都算跳过
+   （item ID 早已取证，见 `.github/CHROMEWEBSTORE.md` 顶部「现网状态」）。要让用户真的拿到这一版，
+   还得去后台点「提交审核」（`RELEASE_AUTOMATION.md` 第二节第 6 条）。
+5. **把发布提交合回 `feature-dev`，并当场重建两份 CHANGELOG**——这一步不能省，也不能只看 `git merge`
+   的返回值。见 4.2。
+6. **然后才让 Pages 上线**：把 `feature-dev` 合进 `main` 并推送（PR 或直接推，取决于 `main` 的分支保护）。
+   `static.yml` 随之部署，第 5 节那批线上核对才有意义。
+
+### 4.2 合回开发分支：git 会绿着把发布记录合错
+
+`scripts/repair-release-merge.mjs` 是为第 5 步写的。2026-10-02 在一个隔离副本里把整件事实测了一遍，不是推演：
 
 ```bash
-# A 路线
-git push origin feat/p0-data-integrity        # 先让分支上的 7 个提交可见、跑 CI
-# 验收后：
-git checkout main && git merge --ff-only feat/p0-data-integrity && git push origin main   # 这一步才会触发 Pages
-# 如果 --ff-only 报「not possible」（期间 main 又动了），停下来选 rebase 还是普通 merge，别强推
-
-# B 路线（先在 main 上重放第 3 节的两个提交）
-git log --oneline -3                          # 记下两个新提交的哈希
-git checkout main && git cherry-pick <生成器提交> <文档提交> && git push origin main
+git clone --no-hardlinks . /tmp/taf-relsim && cd /tmp/taf-relsim
+# 副本里把 main 指到一个模拟的发布提交（--write 出来的那份），开发分支指 feature-dev
+git checkout <开发分支> && git merge --no-commit --no-ff main
 ```
 
-推送如果卡住或超时，先 `git ls-remote origin` 核实是否其实已经到达，再按既有的三件套重试
+两份 CHANGELOG 的插入点相邻但不在同一行：发布提交在 `## [未发布]` 与它那 150 条**之间**插版本标题，
+开发分支往 `## [未发布]` 的各个分组**开头**插新条目。于是 git 打印
+
+```
+Auto-merging CHANGELOG.md
+Auto-merging CHANGELOG.en.md
+Automatic merge went well; stopped before committing as requested
+```
+
+**exit 0、没有冲突标记**，而结果是未发布区从 11 条变成 **0 条**、`## [1.1.0]` 从 150 条变成 **161 条**：
+本轮那 11 条没上线的功能被记成了 1.1.0 的一部分，而下一次 `release.mjs` 会以为没有东西可发。
+**没有任何一道门禁为此变红**——CI 里既没有「未发布区非空」，也没有「版本小节等于发布时那一版」。
+GitHub Release 的正文不受影响（它从标签的工作树里 awk），坏的是两份发布记录本身。
+
+所以第 5 步的四条命令是：
+
+```bash
+git merge --no-commit --no-ff main               # 照旧合，但要 --no-commit
+node scripts/repair-release-merge.mjs --check    # 红 = 需要修，并把三份读数打给你
+node scripts/repair-release-merge.mjs            # 重建两份 CHANGELOG，然后才 git commit 那个合并
+node scripts/repair-release-merge.mjs --check    # 绿 = 分界正确，可以收尾
+```
+
+它不靠人眼：以两份权威输入重建——`MERGE_HEAD`（被合进来的发布提交）给版本小节的原文，`ORIG_HEAD`
+（合并前的分支尖端）给本轮条目的原文与分组顺序。**两份都先算完、四条断言全部成立之后才开始写盘**，
+任何一条不过就**两份一个字都不写**（那两份是成对的，只修一份等于把它们拆成两种形状）：
+① 该版本的每一条都能在分支的未发布区里找到（找不到 = 两侧不是同一次提升）；② 重建后全文条目总数守恒；
+③ 版本小节之后的历史区两侧逐字相同（不同就交人工——那说明分支上动过旧版本的正文，没有确定答案）；
+④ 中英两份的版本条数与未发布条数各自相等。重建出的两份直接过 `pnpm format:check`。隔离副本上的实测：
+`## [1.1.0] - 2026-10-02 150 条 · 未发布 11 条 · 全文 180 条`，中英各一条，且版本小节到文末与发布提交
+逐字节相同、未发布那 11 条与分支尖端那 11 条逐字节相同。四条断言各自被变异触发过一次——版本小节多一条
+（①）、分支未发布区有一条写重复（②）、发布侧改了一行旧版本的正文（③）、中英两份的版本小节条数不同（④）——
+每一次都是 exit 1 且两份文件在磁盘上一个字节没变。
+
+另一条不需要这个工具的路：发版后**废弃这条开发分支**，下一轮从新的 `main` 重新起分支。陷阱只出现在
+「旧分支带着自己的未发布条目去接 `main` 上新出现的版本小节」这个形状上，形状不在，整节 4.2 都不必存在。
+本轮不适用，因为那 11 条已经写进 `feature-dev` 的未发布区、并进了对外文档。
+
+推送如果卡住或超时，先核实是否其实已经到达，再按既有的三件套重试
 （`git -c http.version=HTTP/1.1 -c http.postBuffer=1 push`），不要凭「命令返回了非 0」就重复推。
+**核实这一步优先用匿名 API 而不是 `git ls-remote`**：`GET /repos/liaolongdong/transfer-any-file/{tags,pulls,branches}`
+三条都不需要凭证，而 `git ls-remote origin 'refs/heads/release/*'` 在本机会挂住（2026-10-03 实测，两分钟超时）。
 
 ## 5. 发布后的线上核对（部署通常 1–3 分钟）
 
 ```bash
 base=https://liaolongdong.github.io/transfer-any-file
-# 1) sitemap 里每一条都必须是 200，且条数 = 14
+# 1) sitemap 里每一条都必须是 200。条数随页面数走：2026-10-02 线上读到 25 条，
+#    本轮那批新页进 main 之后应当是 39 条（本机 docs/sitemap.xml 实测 39，两者差的就是还没上线的那些）
 curl -sS $base/sitemap.xml | sed -n 's:.*<loc>\(.*\)</loc>.*:\1:p' | tee /tmp/taf-urls.txt | wc -l
 while read -r u; do printf '%s  %s\n' "$(curl -sS -o /dev/null -w '%{http_code}' "$u")" "$u"; done < /tmp/taf-urls.txt
 # 2) 生成页两种语言都在 HTML 里（不靠 JS 渲染），且 canonical 指向自己
@@ -330,6 +387,9 @@ curl -sS $base/convert/png-to-webp.html | grep -o '<link rel="canonical"[^>]*>'
 # 3) 博客页可达、robots 仍指向 sitemap
 curl -sS -o /dev/null -w '%{http_code}\n' $base/blog/
 curl -sS $base/robots.txt | grep -i '^Sitemap:'
+# 4) 本轮新增的两处，今天还是 404（2026-10-02 实测），第 4.1 第 6 步之后必须是 200
+curl -sS -o /dev/null -w '%{http_code}\n' $base/security.txt
+curl -sS -o /dev/null -w '%{http_code}\n' $base/convert/pdf-to-png.html
 ```
 
 在浏览器里再做两件事：切一次中英（`?lang=en` 与页内开关都要生效）、把窗口拉到手机宽度看有没有整页横向溢出
