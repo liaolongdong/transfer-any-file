@@ -20,7 +20,9 @@ always name the same release.
   exactly the figures it shows today and needs no unit word. When a batch finishes, the results panel reports
   "Elapsed: 3.2 s", and each history row carries the same number. The measure is fixed at the field: loop start to
   loop end, excluding the time the pre-conversion confirmation dialog stays open (human reading time mixed in makes it
-  a fake figure) and the ZIP assembly.
+  a fake figure) and the ZIP assembly. A batch under 100 ms reads "Elapsed: < 0.1 s" instead of `0.0 s` — that string
+  is what `toFixed(1)` rounds a 30 ms batch into: on screen it is indistinguishable from a row that measured nothing,
+  which is the one ambiguity this field must never produce.
 - **PDF bookmarks become heading levels.** `pdf→html` used to recognise nothing but "a short, all-caps line", so the
   real titles recorded in the document's bookmarks (its outline) came through as body text. An outline now writes
   `<h1>`–`<h6>` at its own depth, and the test is that the bookmark text equals the line's text — **a whole line**. One

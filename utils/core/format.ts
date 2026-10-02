@@ -52,13 +52,18 @@ export function isZipCompressible(filename: string): boolean {
 }
 
 /**
- * Milliseconds to a duration label: `0.4 s` / `3.2 s` / `1 min 04 s`.
+ * Milliseconds to a duration label: `< 0.1 s` / `0.4 s` / `3.2 s` / `1 min 04 s`.
  *
  * Three tiers and nothing above them — a batch that runs for an hour keeps counting minutes
  * (`72 min 30 s`) because the one question this answers is "how long did this take on this
  * machine", and reading `1 h 12 m 30 s` costs more than the extra digits. Units stay Latin, exactly
  * like `formatSize`: the Chinese UI shows `8.7 MB`, so `3.2 s` is the same convention rather than an
  * untranslated leftover.
+ *
+ * The sub-100 ms floor is not decoration. `toFixed(1)` rounds a 30 ms batch down to `0.0 s`, and a
+ * row that reads `0.0 s` is indistinguishable, on the surface, from a row that measured nothing —
+ * the one reading this field must never be able to produce. `< 0.1 s` says what was actually
+ * observed: it ran, and it ran faster than the smallest unit this function reports.
  *
  * Returns `''` for anything outside its domain (`NaN`, `Infinity`, negatives). Those only arrive from
  * storage — a hand-edited export or a future writer that forgot to clamp — and an empty string means
@@ -67,6 +72,7 @@ export function isZipCompressible(filename: string): boolean {
 export function formatDuration(ms: number): string {
   if (!Number.isFinite(ms) || ms < 0) return '';
   const seconds = ms / 1000;
+  if (seconds < 0.1) return '< 0.1 s';
   if (seconds < 60) return `${seconds.toFixed(1)} s`;
   const minutes = Math.floor(seconds / 60);
   const rest = Math.floor(seconds - minutes * 60);

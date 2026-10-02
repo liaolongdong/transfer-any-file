@@ -81,13 +81,18 @@ function isoTime(time: number): string {
 /**
  * The batch's own cost, from the same record as the size beside it.
  *
- * Narrowing lives here rather than in the template on purpose: `v-if="record.durationMs"` and the
- * interpolation next to it are two separate expressions, and vue-tsc does not carry the first one's
- * narrowing into the second — writing `formatDuration(record.durationMs)` in the template is a
- * `number | undefined` argument going into a `number` parameter. Records written before the field
- * existed print nothing, never `耗时 0 s`.
+ * Narrowing lives here rather than in the template on purpose: `v-if="record.durationMs !== undefined"`
+ * and the interpolation next to it are two separate expressions, and vue-tsc does not carry the first
+ * one's narrowing into the second — writing `formatDuration(record.durationMs)` in the template is a
+ * `number | undefined` argument going into a `number` parameter.
+ *
+ * The test is for **presence**, not for a non-zero amount. Records written before the field existed
+ * print nothing; a batch that `Date.now()` landed on 0 ms did run, and prints `< 0.1 s` — the same
+ * reading the results panel gave it a moment before the row was ever written. Truthiness would have
+ * made those two carriers of one number disagree about whether it was measured at all.
  */
-const durationText = (record: HistoryRecord): string => (record.durationMs ? formatDuration(record.durationMs) : '');
+const durationText = (record: HistoryRecord): string =>
+  record.durationMs !== undefined ? formatDuration(record.durationMs) : '';
 
 /** Tooltip for the row label. A batch row reveals every member file on hover — the
  *  visible text is compact by design, so this is the only place the full list lives. */
@@ -363,8 +368,10 @@ async function handleImportChange(e: Event): Promise<void> {
                  `name.md + 3` — and the source size would ask the reader to compare two numbers
                  about a conversion that is already over. -->
             <span class="history-size">{{ formatSize(record.resultSize) }}</span>
+            <!-- Presence check, not non-zero: an older record has no field and prints no cell, while a
+                 batch measured at 0 ms prints the same `< 0.1 s` the results panel just showed. -->
             <span
-              v-if="record.durationMs"
+              v-if="record.durationMs !== undefined"
               class="history-duration"
               >{{ durationText(record) }}</span
             >
