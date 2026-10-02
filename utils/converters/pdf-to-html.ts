@@ -212,6 +212,12 @@ const pdfToHtmlConverter: Converter = {
     const unmatched = bookmarks.filter(bookmark => bookmark.pageNumber === null);
     /** Take the unconsumed bookmark for this page whose title equals this line, as its heading level. */
     const takeBookmark = (pageNum: number, rawLine: string): number => {
+      // Most PDFs carry no outline at all, and this runs once per line, so the empty case must cost
+      // nothing before the line is even normalized: `outlineKey()` is two regexes plus a code-point
+      // split, and paying it per line for a document that can never match would make the common path
+      // carry the cost of the rare one. Output is unaffected — with no bookmarks both scans below
+      // return 0 regardless of the key.
+      if (bookmarks.length === 0) return 0;
       const key = outlineKey(rawLine);
       if (!key) return 0;
       for (const bookmark of bookmarks) {
