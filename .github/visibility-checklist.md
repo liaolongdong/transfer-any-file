@@ -289,6 +289,31 @@ sitemap），本轮只回填了体积数字、没有推进那组日期，所以�
 或负读数时才改显隐；书签早退不改输出。重拍只会让那九张跟着墙钟时间戳走。产物 **3,830,049 B / 65 个文件**
 （比上一批 +16 B，正是那三处扩展源码；`Σ` 仍打印 3.83 MB，对外那 16 处体积字样照旧不动）。
 
+- **那条从没跑起来的产物校验，现在跑起来了，而且它的牙是跑通之后才补上的。** `scripts/verify-extension.mjs`
+  把 `.output/chrome-mv3` 当真扩展装进浏览器：它不在 CI 的任何 job 里（`ci.yml` 的 e2e job 跑
+  `e2e-test.mjs`，走 HTTP、不装载），也不是 npm script，只在 `AGENTS.md` 命令表里作为「产物校验」存在，
+  而这台机器上它一次都没跑起来过——`.qoder/specs/2026-09-23-opportunity-report.md` 记的就是这一条。
+  值得说的是：**09-25 那一轮还在往里加断言**（`CHANGELOG.md` 未发布区那条「原先会安静地通过它声称要拦的事」），
+  加进一份跑不起来的脚本，那些断言一次也没被执行过。2026-10-03 实测它需要的只是一个吃
+  `--load-extension` 的浏览器：品牌 Chrome 有头与无头两档都回 `ERR_BLOCKED_BY_CLIENT`，Playwright 自带
+  Chromium 在这台 mac13 上装不上（`Playwright does not support chromium on mac13`），两条都是这一轮亲测；
+  用新加的 `VERIFY_EXT_CHROME` 指一个 Chrome for Testing 153 就能跑。首跑 **exit 0**，读数是：worker 从
+  `chrome-extension://…/background.js` 出现、`__MSG_extensionName__` 解析成中文名、`extensionDescription`
+  66 字符、首屏零重 chunk、两次转换各自懒加载（`marked` + `purify` 一对，`pdf-` chunk + `pdf.worker` 一对）、
+  整轮零条出网请求、扩展页零 console 报错。**绿不等于守得住**：那一次的 ID 是从装载路径算出来的，脚本
+  从没看过 worker 一眼，而产物缺 `_locales/` 时它的失败形状是一条 15 s 选择器超时。于是补三条断言加一道
+  装载守卫，每一条都拿坏包验过会红（坏包放 `.test-tmp/mutants/`，用新加的 `VERIFY_EXT_PATH` 指过去，真实
+  构建一个字节没动）：缺 `manifest.json` → 立刻退并说明先 `pnpm build`（原来是一条读起来像界面坏了的超时）；
+  从 manifest 删掉 `background` → 红在「90 s 内没出现 MV3 service worker，`action.onClicked` 这唯一入口没被
+  验证」那句；把 `extensionName` 的消息体写成字面量 `__MSG_extensionName__` → 红在「manifest name 与
+  `chrome.i18n` 的那条解析出来还带着 `__MSG_`」，两格。**已知答案对照**是同一份产物换个路径的逐字节拷贝，
+  它仍 exit 0。顺带量到一条形状：`_locales/` 整个没有、或被引用的那个 key 找不到时，Chrome 不报「装载失败」，
+  而是**启动挂住**——两份坏包都是 180 s 超时加一个 stack trace，所以新加的 90 s 装载守卫做的事，就是把这种
+  形状变成点名哪份包、为什么的红。反过来，「这一轮是不是测了机器上另一份拷贝」不需要一句 ID 比对来守：
+  那份比对写过又删了，因为在 worker 缺席就直接退的版本里它恒真；认出错包的是解析出来的名字和 `.drop-zone`
+  那个选择器。这一轮改的是 `scripts/**` 与四份文档，扩展源码一行没碰，收口时重建产物仍是
+  **3,830,049 B / 65 个文件**，这就是不重跑 e2e 的依据。
+
 ## 3. 收下改动：这一节记的是提交账，不是提交计划
 
 这一节原先给的是 2026-09-19 那一轮（配对页与博客页改成数据源生成）的两条 `git commit`。那些提交早就落地了，
@@ -296,7 +321,7 @@ sitemap），本轮只回填了体积数字、没有推进那组日期，所以�
 
 ```bash
 cd ~/code/chrome-plugins/transfer-any-file
-git log --oneline origin/main..HEAD | wc -l          # 读到过：10-02 深夜 20，10-03 评审轮 26，命中率量完 29
+git log --oneline origin/main..HEAD | wc -l          # 读到过：10-02 深夜 20，10-03 评审轮 26，命中率量完 29，纯文档收口 30
 git rev-parse --short HEAD && git rev-parse --short origin/feature-dev   # 相同 = 分支已推平
 ```
 
@@ -317,13 +342,19 @@ git rev-parse --short HEAD && git rev-parse --short origin/feature-dev   # 相�
   字符数一条没丢）。这三笔与紧跟其后的这段账都只动本文，扩展源码一行没碰：这一轮重跑过构建，产物仍是下面
   那条 **3,830,049 B / 65 个文件**，一字节没多一字节没少，65 个文件里也没有混进文档——这就是这几笔不重跑
   e2e 的依据。
+- **10-03 08:00 之后两笔**：前一笔 `3c11ece` 把本节那格「领先它 20 笔」改成现读，并把上面那三笔记进分段账；
+  后一笔就是这段账所在的那一笔，把第 2 节末段那条产物校验从「这台机器跑不了」变成「跑过且 exit 0」，
+  并给它补了三条断言加一道装载守卫，每一条都拿坏包验过会红。两笔都只动文档与 `scripts/verify-extension.mjs`，
+  扩展源码一行没碰，所以下面那两格读数不变——这也是不重跑 e2e 的依据。这一轮实际跑的清单比下面那块多一行
+  `node scripts/verify-extension.mjs`（要 `VERIFY_EXT_CHROME`），共 12 步，全 `exit 0`。
 
 未发布区块跟着上面前三段涨到 **161 条**（`CHANGELOG.md` 与 `CHANGELOG.en.md` 各 161，成对），比 `origin/main`
 上的 150 条多 11 条——第 4 节那两步的账就是按这两个数算的。本文与新加的
 `scripts/repair-release-merge.mjs` 是随后那一笔（`03d2fdb`），它不动那 161 条里的任何一条；10-03 评审轮
 也不动——它改的是其中两条的**措辞**（`CHANGELOG*` 那句「产物逐字节不变」按产物语义改成两句），
 并把重建工具的守恒从四条加到五条，`AGENTS.md`、`RELEASE_AUTOMATION.md` 与本文里跟着说「四条」的那几处
-同步成五条。161 与 150 这两个数今天仍然是第 4 节那两步的输入。
+同步成五条。161 与 150 这两个数今天仍然是第 4 节那两步的输入。上面新加的那一笔也不动这 161 条：
+一条开发脚本的自检不是用户可见变更，它进 `CONTRIBUTING*`，不进 `CHANGELOG*`。
 
 提交前的收尾检查（这一轮实际跑的那几条，跑在哪棵树上就在哪棵树上提交）：
 
@@ -333,7 +364,8 @@ pnpm lint:all && pnpm verify:meta && pnpm verify:paths && pnpm pages:check \
 pnpm build && pnpm verify:offline && pnpm verify:remote-code   # 产物层两条必须在 build 之后
 ```
 
-只动文档与脚本时，产物字节应当与上一轮相同：**3,830,049 B / 65 个文件**（2026-10-03 07:56 那一次构建）。
+只动文档与脚本时，产物字节应当与上一轮相同：**3,830,049 B / 65 个文件**（2026-10-03 07:56 那一次构建，
+本轮 08:47 又重建一次，两格一字未变）。
 这两个数是数出来的：`.output/chrome-mv3` 下每个普通文件各算一格字节，相加得 3,830,049，计数得 65——
 `pnpm build` 末尾那行 `Σ Total size` 只给到 3.83 MB，取整边界之内的增减它看不见。读数不一样就说明动到了
 扩展源码，回头确认是不是有意为之。

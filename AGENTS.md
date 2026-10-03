@@ -37,7 +37,7 @@
 | 生成页漂移         | `pnpm pages:check`（同一条渲染，只把结果和已提交字节比对，不一致即非零退出；CI lint job 的 `Verify generated site pages` 跑这条）                                                                     |
 | README 演示 GIF    | `pnpm build && node scripts/render-demo-gif.mjs`（录制真实构建产物 → `docs/assets/demo/demo-<locale>.gif`，中/英各一条，`DEMO_LOCALES` 控制；另需 PATH 上有 `ffmpeg`）                                |
 | 公众号稿排版       | `pnpm promo:wechat`（`scripts/render-wechat-html.mjs`，内联样式 + 图片内嵌 + 外链转文末）                                                                                                             |
-| 产物校验           | `node scripts/verify-extension.mjs`                                                                                                                                                                   |
+| 产物校验           | `node scripts/verify-extension.mjs`（需 `VERIFY_EXT_CHROME`，见「测试与验证」）                                                                                                                       |
 | 发布               | 合并 Release PR 即批准 → `release-prepare.yml` 推标签 → `release.yml`（校版本与包内容 → GitHub Release → 凭证齐备时上传商店、默认不提审）；见 `.github/RELEASE_AUTOMATION.md`                         |
 | 仓库 About 同步    | 改 `.github/repo-metadata.json` → `.github/workflows/repo-meta.yml`（需 `REPO_METADATA_TOKEN`）；理由与一次性落地命令见 `.github/repo-metadata.md`                                                    |
 | 对外可见与发布     | `.github/visibility-checklist.md`——「收下改动 → Pages 上线 → GitHub 曝光 → 搜索收录 → 商店 → 社区」的命令与核对点。写操作一律由所有者执行；里面每个数字都在这轮实测过，`verify:numbers` 盯着它        |
@@ -115,6 +115,7 @@
 - 交付前按改动范围执行：`pnpm lint:all`（必过）；涉及入口/manifest/依赖/打包 → `pnpm build`；涉及转换逻辑或端到端行为 → `pnpm test:e2e`。
 - CI（`.github/workflows/ci.yml`，Node 22）：lint（`pnpm lint:all` + `verify:meta` + `verify:offline:source` + `verify:paths` + `pages:check` + `verify:numbers` + `verify:listing`）+ build（`pnpm build` 后跑 `verify:offline` 断言产物 manifest）+ e2e。另有四条独立工作流：`static.yml`（Pages，只在 `docs/**` 变更时部署）、`release-prepare.yml`（半自动发布链路的前半段：`main` 上的攒批变成一个可审阅的 Release PR，PR 被合并那一刻才推 `vX.Y.Z` 标签）、`release.yml`（接手标签：构建 → 校验产物 → GitHub Release → 商店上传，守卫同样是「源码层在 build 前、产物层在 build 后」的拆法）、`repo-meta.yml`（About 同步）。
 - 截图脚本与 e2e 共用一套「静态服务 + mock `chrome.storage`」启动方式，目前**故意保留两份**（避免改动千行级测试文件引入回归）；出现第三个消费方时再抽 `scripts/e2e-harness.mjs`。
+- **`scripts/verify-extension.mjs` 是唯一把产物当扩展装进真实浏览器的一条，也是唯一需要外部浏览器二进制的一条**：品牌 Chrome 忽略 `--load-extension`（2026-10-03 在本机实测，有头与无头两档都回 `ERR_BLOCKED_BY_CLIENT`），Playwright 自带 Chromium 在本机装不上（macOS 13 被拒）。用 `VERIFY_EXT_CHROME=<路径>` 指一个 Chromium 系二进制即可，Chrome for Testing 可用；那一次运行打印的 `Browser:` 行就是这批读数的取证引擎。它断言的是**装载之后**的事实，仓库级守卫给不了：MV3 worker 起没起、`__MSG_*__` 经 `_locales/` 解析成什么、首屏有没有拉到重 chunk、两次转换有没有按预期懒加载、整轮跑完有没有请求离开本机、扩展页有没有 console 报错（「测的是不是机器上另一份拷贝」由解析出来的名字与 `.drop-zone` 那个选择器兜住，不是由一句恒等的 ID 比对兜住）。`VERIFY_EXT_PATH` 让它指向别的构建目录——给它自己的断言做变异验证（2026-10-03：五份坏包各红在该红的那一句上，一份逐字节相同的拷贝仍绿）。**它不在 CI 的任何 job 里**（`ci.yml` 的 e2e job 跑的是 `e2e-test.mjs`，且两条触发器都只认 `main`）。
 - 不为通过检查而弱化规则、跳过或隐藏错误；无法运行的项在交付时说明原因。
 
 ## 常见陷阱
