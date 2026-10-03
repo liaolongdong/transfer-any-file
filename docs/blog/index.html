@@ -628,21 +628,31 @@ SVG      ──► HTML ──► PNG</code></pre>
                 ><span lang="en">Pick the ZIP method per entry.</span></b
               >
               <span lang="zh-CN"
-                >直觉做法有两种：全部 stored（快，但文本结果体积白占）或全部 deflate（省空间，但对 PNG / PDF / XLSX
-                这些已经是压缩容器的产物纯粹烧 CPU）。实测答案是<b>按条目决定</b>：文本类（TXT / CSV / JSON / HTML /
-                Markdown / SVG / XML）走 deflate，能小一个数量级；已经压过的直接 stored。用 fflate 跑 7 MB CSV 配 6 MB
+                >直觉做法有两种：全部 stored（快，但文本结果体积白占）或全部 deflate（省空间，但对 PDF / XLSX / DOCX
+                这类自带容器的产物纯粹烧 CPU）。实测答案是<b>按条目决定</b>，而「压不动」的范围比直觉小：文本类（TXT /
+                CSV / JSON / HTML / Markdown / SVG / XML）走 deflate，能小一个数量级；<b>图片也走 deflate</b
+                >——一页以纯色为主的文档，用扩展自己的编码器（Chrome canvas.toBlob）出图，PNG 条目小 49.9%、JPEG 小
+                91.1%、WebP 小 50.0%，100 页的 PNG 导出从 5.13 MB 压到 2.57 MB；12 页真实 PDF 导出实测 PNG 小
+                39.3%、JPEG 小 58.6%；连十四张商店截图都能小 6.9%。只有照片那一类高熵图像压不动，最多大
+                0.014%。压这些字节也不吃主线程：40 MB 条目压完，页面最长一次响应延迟 9 ms。用 fflate 跑 7 MB CSV 配 6 MB
                 不可压缩数据：全部 stored 得到 13.28 MB / 56 ms，全部 deflate 得到 7.04 MB / 1169
                 ms。按条目选择拿到和全量 deflate 基本相同的体积（比全 stored 小约 47%），却不在压不动的条目上空烧
                 CPU。</span
               >
               <span lang="en"
                 >There are two intuitive answers: store everything (fast, but text results waste space) or deflate
-                everything (compact, but pure CPU burn on PNG, PDF and XLSX, which are already compressed containers).
-                The measured answer is <b>decide per entry</b>: text formats (TXT, CSV, JSON, HTML, Markdown, SVG, XML)
-                deflate and come out roughly an order of magnitude smaller; anything already compressed is stored.
-                Running it through fflate on 7 MB of CSV alongside 6 MB of incompressible data: all-stored gave a 13.28
-                MB archive in 56 ms, all-deflate gave 7.04 MB in 1169 ms. Per-entry gets essentially the same size as
-                all-deflate — about 47% below all-stored — without spending CPU on the entries that cannot shrink.</span
+                everything (compact, but pure CPU burn on PDF, XLSX and DOCX, which carry their own containers). The
+                measured answer is <b>decide per entry</b> — and "cannot shrink" covers far less than intuition says:
+                text formats (TXT, CSV, JSON, HTML, Markdown, SVG, XML) deflate and come out roughly an order of
+                magnitude smaller, and <b>so do images</b> — encode one mostly-flat document page with the encoder this
+                app itself uses (Chrome canvas.toBlob) and a PNG entry gets 49.9% smaller, a JPEG 91.1%, a WebP 50.0%,
+                while a 100-page PNG export goes from 5.13 MB to 2.57 MB; the 12 pages of a real PDF export measured
+                39.3% for PNG and 58.6% for JPEG, and fourteen store screenshots give up 6.9%. Only a high-entropy
+                photograph gains nothing, at 0.014% more archive for the attempt. Those bytes don't occupy the page
+                either: packing 40 MB deflated held the main thread for at most 9 ms. Running it through fflate on 7 MB
+                of CSV alongside 6 MB of incompressible data: all-stored gave a 13.28 MB archive in 56 ms, all-deflate
+                gave 7.04 MB in 1169 ms. Per-entry gets essentially the same size as all-deflate — about 47% below
+                all-stored — without spending CPU on the entries that cannot shrink.</span
               >
             </p>
             <p>
@@ -910,13 +920,13 @@ pnpm install &amp;&amp; pnpm build</code></pre>
             <p>
               <span lang="zh-CN"
                 >技术栈：<b>WXT + Vue 3 + TypeScript + Element Plus</b>，Manifest V3，权限只有 <code>storage</code>，MIT
-                协议。验证方式也是交付的一部分：Playwright 驱动构建产物跑 331
+                协议。验证方式也是交付的一部分：Playwright 驱动构建产物跑 332
                 条断言，转换用的夹具（<code>fixtures/</code>）随仓库走，谁都能本地重跑。</span
               >
               <span lang="en"
                 >Tech stack: <b>WXT + Vue 3 + TypeScript + Element Plus</b>, Manifest V3, <code>storage</code> as the
                 only permission, MIT licence. How it is verified is part of the deliverable too: Playwright drives the
-                built artifact through 331 assertions, and the fixtures it converts live in <code>fixtures/</code> next
+                built artifact through 332 assertions, and the fixtures it converts live in <code>fixtures/</code> next
                 to the code, so anyone can re-run them.</span
               >
             </p>

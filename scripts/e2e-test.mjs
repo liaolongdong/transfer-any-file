@@ -462,20 +462,32 @@ async function downloadBatchArtifact(page) {
 }
 
 /**
- * Member names of the ZIP the workbench is offering, read out of the real download.
+ * The ZIP the workbench is offering, read out of the real download: member names plus the method
+ * each member was packed with.
  *
  * `downloadBatchArtifact` refuses a bundle on purpose — its callers want file *contents* — while the
  * page-selection assertions are about *which* pages were written and under what name, which is only
- * observable in the directory.
+ * observable in the directory. The method comes out too because the per-entry compression switch
+ * (`isZipCompressible`) is otherwise invisible to this suite: `unzipSync` hands back identical bytes
+ * whichever way an entry was packed, so a batch that quietly stopped deflating its images would still
+ * be green. Central-directory headers are walked rather than local ones because the signature occurs
+ * exactly once per entry there, and the method field is the archive's own claim about the entry.
  */
-async function zipEntryNames(page) {
+async function zipBundle(page) {
   const [download] = await Promise.all([
     page.waitForEvent('download', { timeout: 15000 }),
     (await page.$('.result-download .download-actions .el-button')).click(),
   ]);
   const buf = fs.readFileSync(await download.path());
   const { unzipSync } = await import('fflate');
-  return Object.keys(unzipSync(new Uint8Array(buf)));
+  const names = Object.keys(unzipSync(new Uint8Array(buf)));
+  const methods = {};
+  for (let i = 0; i + 46 <= buf.length; i++) {
+    if (buf.readUInt32LE(i) !== 0x02014b50) continue;
+    const name = buf.subarray(i + 46, i + 46 + buf.readUInt16LE(i + 28)).toString('latin1');
+    methods[name] = buf.readUInt16LE(i + 10);
+  }
+  return { names, methods };
 }
 
 /**
@@ -1487,9 +1499,16 @@ async function run() {
     // The naming convention an excerpt relies on, pinned before anything is narrowed: a ZIP entry
     // numbered by its position in the output would silently renumber "page 2" into "page-1".
     const whole = await convertFile(page, 'sample-2page.pdf', 'PNG (.png)');
-    const wholeEntries = whole.resultName.endsWith('.zip') ? await zipEntryNames(page) : [];
+    const wholeBundle = whole.resultName.endsWith('.zip') ? await zipBundle(page) : { names: [], methods: {} };
+    const wholeEntries = wholeBundle.names;
     if (wholeEntries.join(',') === 'page-1.png,page-2.png') ok('Whole document exports page-1 / page-2');
     else fail('Whole-document ZIP entries', `alert="${whole.alertTitle}" entries=[${wholeEntries.join(', ')}]`);
+    // The image entries go in deflated: a rasterized document page gives up 49.9 % of its archive at
+    // level 6 (a real 12-page export measured 39.3 %), and the only thing standing between that and
+    // the download the user gets is one extension set. Method 8 is deflate, 0 is stored; both pages
+    // must carry it, or the switch has silently reverted.
+    if (wholeEntries.every(name => wholeBundle.methods[name] === 8)) ok('Image entries of a PNG bundle are deflated');
+    else fail('PNG entry method', `methods=${JSON.stringify(wholeBundle.methods)}`);
 
     const secondOnly = await (async () => {
       await setRange('2');
@@ -1529,7 +1548,7 @@ async function run() {
     await pickTarget(page, 'PNG (.png)');
     await setRange('');
     const cleared = await convertFile(page, 'sample-2page.pdf', 'PNG (.png)');
-    const clearedEntries = cleared.resultName.endsWith('.zip') ? await zipEntryNames(page) : [];
+    const clearedEntries = cleared.resultName.endsWith('.zip') ? (await zipBundle(page)).names : [];
     if (clearedEntries.length === 2) ok('Clearing 页码范围 restores the whole document');
     else fail('Clearing 页码范围', `alert="${cleared.alertTitle}" entries=[${clearedEntries.join(', ')}]`);
   } catch (e) {

@@ -530,6 +530,23 @@ always name the same release.
 
 ### Changed
 
+- **Images inside a bundled download are now compressed too.** The per-entry rule filed PNG / JPEG / WebP under
+  "already-compressed containers" and stored them, although a real artifact had already falsified that in 2026-09-25:
+  the 12 pages of a multi-page PDF export came out 39.3 % smaller as `→ PNG` and 58.6 % as `→ JPEG`, costing 118 ms and
+  60 ms for the batch. The numbers went into `isZipCompressible`'s comment that round and the switch did not move. On
+  2026-10-03 the container was separated from the page by encoding through the Chrome `canvas.toBlob` this app actually
+  calls: one mostly-flat document page deflates 49.9 % smaller as PNG, 91.1 % as JPEG and 50.0 % as WebP; a 100-page PNG
+  export packs from 5.13 MB into 2.57 MB in 0.63 s; fourteen real store screenshots give up 6.9 %. The side with
+  nothing to take was measured too — one 2400×1600 gradient-plus-grain image comes out 0.014 % larger as PNG and 0.010 %
+  as WebP while a JPEG of it is 0.022 % smaller, which is deflate's stored-block overhead in both directions, at about
+  130 ms of packing per MB (10.6 MB of photographic PNG: 1.36 s). That 1.36 s does not come off the interface: after
+  packing 40 MB deflated the worst main-thread response delay measured was 9 ms, against 1462 ms for the same bytes
+  compressed synchronously in the same run, so the extra time lands inside the loading state Download-all already has.
+  `pdf` / `xlsx` / `docx` stay stored — nothing of theirs has been measured at a realistic size this round; the
+  repository's few-kilobyte fixtures deflate 67–78 %, but those are text-heavy samples rather than a photo-carrying
+  multi-megabyte PDF, and without a measurement the previous call stands. Extracted bytes are identical to what they
+  were before this change, and one new e2e assertion pins the method (a PNG batch's entries must carry method 8),
+  because `unzipSync` hands back the same contents either way and reverting the switch would redden nothing else.
 - **Chinese readers meet the Chinese name on the outward pages too.** The bullet below only reached the
   interface, so a Chinese user read 「文件格式任意转换助手」 in Chrome's extension manager and
   `Transfer Any File` one click later on the product page — two names for one thing, which reads like two

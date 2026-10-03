@@ -757,10 +757,11 @@ export function useConversion() {
    *  Uses fflate's streaming Zip so entries are fed one at a time rather than building
    *  the whole entry map up front; the library itself is loaded here, not at module scope,
    *  so it stays off the first screen (see `~/utils/core/zip`).
-   *  Each entry picks its own method: text results are deflated (a 7 MB CSV comes out
-   *  ~10x smaller), while PNG / JPEG / WebP / PDF / XLSX / DOCX are stored — deflate
-   *  cannot shrink an already-compressed container, it only burns CPU and can add a
-   *  few bytes. See `isZipCompressible` for the measured trade-off.
+   *  Each entry picks its own method: text and image results are deflated (a 7 MB CSV comes out
+   *  ~10x smaller, a rasterized document page roughly half or better), while PDF / XLSX / DOCX are
+   *  stored — those three carry bytes their own encoders already packed, and nothing at a realistic
+   *  size has been measured to say otherwise. See `isZipCompressible` for the measured trade-off,
+   *  including the shape where deflating an image buys nothing for 0.014 % more archive.
    *  The blocking cost stays bounded per entry: each blob is `await`ed before being
    *  pushed, so the event loop gets a turn between files and only one oversized text
    *  result can stall it (fflate deflates ~7 MB in roughly a second on desktop).
