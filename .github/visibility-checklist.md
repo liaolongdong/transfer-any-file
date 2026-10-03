@@ -296,11 +296,12 @@ sitemap），本轮只回填了体积数字、没有推进那组日期，所以�
 
 ```bash
 cd ~/code/chrome-plugins/transfer-any-file
-git log --oneline origin/main..HEAD | wc -l          # 2026-10-02 深夜读到 20，10-03 评审轮之后 26
+git log --oneline origin/main..HEAD | wc -l          # 读到过：10-02 深夜 20，10-03 评审轮 26，命中率量完 29
 git rev-parse --short HEAD && git rev-parse --short origin/feature-dev   # 相同 = 分支已推平
 ```
 
-那 20 笔分三段（`git log --format='%h %ad %s' --date=format:'%m-%d %H:%M' origin/main..HEAD` 连时间一起读得到）：
+这些提交分段如下（`git log --format='%h %ad %s' --date=format:'%m-%d %H:%M' origin/main..HEAD` 连时间一起读得到；
+每段报的是写下它那一轮的笔数，总额用上面那条命令现读——把各段相加不等于今天的数）：
 
 - **10-01 那一笔**（`5d19834`）：产品页自称的版本回填成 1.1.0。**第 4 节那条排序约束就来自它**。
 - **10-02 12:36 三笔**（`15228b2` / `fd5848e` / `8c0e9ac`）：结果面板报出这一批的实际减量、配对说明页扩到
@@ -311,8 +312,13 @@ git rev-parse --short HEAD && git rev-parse --short origin/feature-dev   # 相�
 - **10-03 评审轮五笔**：第 2 节末段那五处修复按「两处界面读数 / 一处逐行开销 / 重建工具 / 文档纠错 /
   运营文档」分开落，加上本节这段账。类型选 `fix`、`perf` 与 `docs`——`## [未发布]` 里有手写正文，
   `release.mjs` 走的是「原样提升」那条分支（`--with-commit-list` 没开），所以这五笔一条都不会变成新 bullet。
+- **10-03 06:46–07:47 三笔**（`866aa3c` / `eee37b5` / `888fc00`）：把第 2 节「真实 PDF 这一格只取证了一半」量成了
+  **7 / 63**，顺带证伪了一条看着像缺陷的线索（产物里没有 `cmaps/` 与 `standard_fonts/`，但三份文档的中日韩
+  字符数一条没丢）。这三笔与紧跟其后的这段账都只动本文，扩展源码一行没碰：这一轮重跑过构建，产物仍是下面
+  那条 **3,830,049 B / 65 个文件**，一字节没多一字节没少，65 个文件里也没有混进文档——这就是这几笔不重跑
+  e2e 的依据。
 
-未发布区块跟着这三段涨到 **161 条**（`CHANGELOG.md` 与 `CHANGELOG.en.md` 各 161，成对），比 `origin/main`
+未发布区块跟着上面前三段涨到 **161 条**（`CHANGELOG.md` 与 `CHANGELOG.en.md` 各 161，成对），比 `origin/main`
 上的 150 条多 11 条——第 4 节那两步的账就是按这两个数算的。本文与新加的
 `scripts/repair-release-merge.mjs` 是随后那一笔（`03d2fdb`），它不动那 161 条里的任何一条；10-03 评审轮
 也不动——它改的是其中两条的**措辞**（`CHANGELOG*` 那句「产物逐字节不变」按产物语义改成两句），
@@ -327,8 +333,10 @@ pnpm lint:all && pnpm verify:meta && pnpm verify:paths && pnpm pages:check \
 pnpm build && pnpm verify:offline && pnpm verify:remote-code   # 产物层两条必须在 build 之后
 ```
 
-只动文档与脚本时，产物字节应当与上一轮相同：**3,830,049 B / 65 个文件**（2026-10-03 05:54 那一次构建）。
-不一样就说明动到了扩展源码，回头确认是不是有意为之。
+只动文档与脚本时，产物字节应当与上一轮相同：**3,830,049 B / 65 个文件**（2026-10-03 07:56 那一次构建）。
+这两个数是数出来的：`.output/chrome-mv3` 下每个普通文件各算一格字节，相加得 3,830,049，计数得 65——
+`pnpm build` 末尾那行 `Σ Total size` 只给到 3.83 MB，取整边界之内的增减它看不见。读数不一样就说明动到了
+扩展源码，回头确认是不是有意为之。
 
 提交前再确认一次工作树里没有别人的东西（与并发会话共享目录时尤其）：
 
@@ -348,8 +356,9 @@ git diff --cached --stat    # 每个提交前都看一眼
    `## [1.1.0]` 区块。区块得先在 `main` 上成立，才谈得上发这一版。
 
 链路上现在没有残留（2026-10-02 深夜与 10-03 各读一次，三条匿名 API 就够）：`origin/main` = `52ee7a1`，
-`feature-dev` 领先它 20 笔，且 `origin/main` 是 HEAD 的祖先（`git merge-base --is-ancestor origin/main HEAD`
-实测通过）；远端 **0 个 tag、0 个 Release、0 个开着的 PR**，分支只有 `feature-dev` 与 `main`。所以
+`feature-dev` 领先它若干笔（这个数字每落一笔就在动，别抄，`git rev-list --count origin/main..HEAD` 现读），
+且 `origin/main` 是 HEAD 的祖先（`git merge-base --is-ancestor origin/main HEAD` 实测通过）；远端
+**0 个 tag、0 个 Release、0 个开着的 PR**，分支只有 `feature-dev` 与 `main`。所以
 `release/v1.1.0` 那格「分支已被占用」的守卫不会挡路，第一次 `prepare` 可以直接跑。
 
 ### 4.1 六步，每步一个核对点
