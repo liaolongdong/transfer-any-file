@@ -9,6 +9,8 @@ always name the same release.
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-10-07
+
 ### Added
 
 - **Batch progress is counted in steps, and it says how long it took.** The bar's denominator is the whole batch's
