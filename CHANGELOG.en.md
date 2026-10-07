@@ -9,6 +9,30 @@ always name the same release.
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-10-07
+
+### Added
+
+- **ui**: 结果面板报出这一批的实际减量，行键与进出场都跟着源文件 (`15228b2`)
+- **core**: adds the duration formatter (0.4 s / 3.2 s / 1 min 04 s) and the paired zh/en (`924453a`)
+- **converter**: PDF bookmarks now become headings. `pdf→html` reads the document's `/Outlines` tree once (`b0aeb65`)
+- **conversion**: the batch loop now plans its work before it starts — each file's route is resolved once (`978e36b`)
+- **ui**: the batch bar, its label and the button's `(n/m)` now read one pair of step counts, so a (`31fb98e`)
+- **history**: every history record stores how long its batch loop ran and the row prints it beside the (`7004393`)
+
+### Fixed
+
+- **converter**: html→md now keeps GFM task-list checkboxes and their nesting: a turndown rule takes (`6be177a`)
+- **ui**: In a narrow window the history row's own buttons could not be clicked. A grid item's automatic (`bd33f30`)
+- **core**: A batch faster than 100 ms used to read `0.0 s`, because `toFixed(1)` rounds a 30 ms (`255a909`)
+- **core**: 转换第一帧不再有 (0/0) 这种读数，历史耗时格不再留空 (`a2283d5`)
+- **release**: 重建工具补第五条守恒——不许拿 ref 抹掉合并现场手写的条目 (`ab817d4`)
+
+### Performance
+
+- **pdf**: 没有书签的 PDF 不再为每一行付一次 outlineKey (`2f1d0c7`)
+- **zip**: 「下载全部」里的图片现在也 deflate，收益与最坏代价都按生产形状量过 (`cfa04ed`)
+
 ## [1.1.0] - 2026-10-07
 
 ### Added
