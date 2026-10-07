@@ -9,6 +9,8 @@ always name the same release.
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-10-07
+
 ### Added
 
 - **The preview header grew a copy button.** For content that already is text (TXT, CSV, JSON, Markdown,
