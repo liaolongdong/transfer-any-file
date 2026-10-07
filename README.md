@@ -26,10 +26,12 @@
 &nbsp;
 ![License MIT](https://img.shields.io/badge/license-MIT-blue?style=for-the-badge)
 
-<!-- CWS badges (replace ITEM_ID with the 32-char item ID from Chrome Web Store after publishing):
-[![CWS version](https://img.shields.io/chrome-web-store/v/ITEM_ID?label=CWS&logo=googlechrome&logoColor=white&color=4285F4)](https://chrome.google.com/webstore/detail/ITEM_ID)
-[![CWS users](https://img.shields.io/chrome-web-store/users/ITEM_ID?label=Users&logo=googlechrome&logoColor=white&color=4285F4)](https://chrome.google.com/webstore/detail/ITEM_ID)
-[![CWS rating](https://img.shields.io/chrome-web-store/rating/ITEM_ID?label=Rating&color=4285F4)](https://chrome.google.com/webstore/detail/ITEM_ID) -->
+[![CWS 版本](https://img.shields.io/chrome-web-store/v/blkdmpkcaceicinkhindniepbbbaekkb?label=CWS&logo=googlechrome&logoColor=white&color=4285F4&style=for-the-badge)](https://chromewebstore.google.com/detail/blkdmpkcaceicinkhindniepbbbaekkb)
+
+<!-- 另两枚 shields 徽章（users / rating）实测恒返回 not found——还没有评分，用户数未达展示门槛——
+     挂上去就是一块红色的"条目不存在"，比不挂更糟。有值之后再启用：
+[![CWS users](https://img.shields.io/chrome-web-store/users/blkdmpkcaceicinkhindniepbbbaekkb?label=Users&logo=googlechrome&logoColor=white&color=4285F4&style=for-the-badge)](https://chromewebstore.google.com/detail/blkdmpkcaceicinkhindniepbbbaekkb)
+[![CWS rating](https://img.shields.io/chrome-web-store/rating/blkdmpkcaceicinkhindniepbbbaekkb?label=Rating&color=4285F4&style=for-the-badge)](https://chromewebstore.google.com/detail/blkdmpkcaceicinkhindniepbbbaekkb) -->
 
 [核心优势](#-核心优势) · [功能演示](#-功能演示) · [工作原理](#-工作原理) · [支持的格式](#-支持的转换) · [横向对比](#-横向对比) · [功能全览](#-功能全览) · [隐私](#-隐私) · [安装与上手](#-安装与上手) · [常见问题](#-常见问题) · [参与贡献](#-参与贡献) · [联系方式](#-联系方式) · [产品说明页](https://liaolongdong.github.io/transfer-any-file/) · [转换说明](https://liaolongdong.github.io/transfer-any-file/convert/) · [博客](https://liaolongdong.github.io/transfer-any-file/blog/)
 
@@ -186,9 +188,9 @@ _图上可达但语义不成立，因此置灰并说明原因，而不是等你�
 
 - **混合源格式批次** — 一次拖入 40 个不同类型的文件，每个文件各自求出到公共目标的路径；下拉只提供对**所有**已选文件都可达的格式
 - **逐文件错误隔离** — 单个损坏文件不会阻塞整批，失败文件连同原因单独列出；每条失败可展开查看诊断（完整转换路径与出错的那一步），并一键复制成纯文本，方便提 issue；也可以只重跑失败的那几个文件
-- **步骤级进度** — 多步链路显示「步骤 2 / 3」并点名正在处理的文件，批量进度条与单文件进度卡片都有这一行；此前三步链路从第一步到第三步界面一个字都不变
+- **步骤级进度** — 多步链路显示「步骤 2 / 3」并点名正在处理的文件，批量进度条与单文件进度卡片都有这一行；此前三步链路从第一步到第三步界面一个字都不变。进度条现在**按步加权**（分母是整批的总步数，不是文件数），单文件走多步链也有确定的进度条；批次结束会在结果面板报出这一批**实际耗时**，历史记录每行也跟着带上它
 - **整页拖放** — 不必精准命中上传区，页面任意位置松手都能加入批次；转换进行中投放被忽略，光标显示为禁止
-- **ZIP 打包 + 按条目压缩** — 文本类结果（TXT / CSV / JSON / HTML / Markdown）走 deflate，体积可缩小约 10 倍；本身已压缩的目标（PNG / JPEG / PDF / XLSX / DOCX）直接存储，不白耗 CPU；打包期间「下载全部」进入加载态
+- **ZIP 打包 + 按条目压缩** — 文本与图片结果都走 deflate：文本（TXT / CSV / JSON / HTML / Markdown）约小 10 倍；图片看页面内容——12 页真实 PDF 导出实测 PNG 条目小 39%、JPEG 小 59%，而一页以纯色为主的文档，PNG 与 WebP 各小一半、JPEG 小 91%；照片那一类高熵图像没有可压的，最多大 0.02%，而压缩在「下载全部」的加载态里完成，界面不卡；PDF / XLSX / DOCX 仍直接存储
 - **压缩包解包** — 拖入 `.zip`，其中可转换的文件自动加入批次
 - **文件夹拖入** — 拖入一个文件夹即递归收集其中可转换的文件（跳过隐藏文件与不支持的格式），批量上限、大小防护与 `.zip` 解包规则和直接拖文件完全一致
 - **多工作表 / 多页感知** — XLSX → CSV 导出全部工作表；PDF → 图片导出全部页面，或只导出你点名的那几页
@@ -221,7 +223,7 @@ _图上可达但语义不成立，因此置灰并说明原因，而不是等你�
 
 ### 🕘 历史与个性化
 
-- **转换历史** — 保留最近 50 条记录（仅元数据），支持一键"复用此格式"、按文件名搜索、按源/目标格式筛选、单条删除、体积趋势图，以及 JSON 导出/导入（按记录 ID 合并）。多文件批次显示为 `"<首个文件名> +N"`；新记录会额外保存完整文件列表，因此批次里每个文件都能被搜索到，悬停也可查看全部成员。旧版本保存的记录仍只能匹配这个标签。删除单条与清空全部都在之后 5 秒内可撤销——提示里的「撤销」点一下就回来
+- **转换历史** — 保留最近 50 条记录（仅元数据），支持一键"复用此格式"、按文件名搜索、按源/目标格式筛选、单条删除、体积趋势图，以及 JSON 导出/导入（按记录 ID 合并）。多文件批次显示为 `"<首个文件名> +N"`；新记录会额外保存完整文件列表，因此批次里每个文件都能被搜索到，悬停也可查看全部成员。旧版本保存的记录仍只能匹配这个标签。删除单条与清空全部都在之后 5 秒内可撤销——提示里的「撤销」点一下就回来。每行还带上那次批次循环的实际耗时（单文件与批次都是这个口径：不含转换前的确认对话框停留时间，也不含 ZIP 打包），旧记录没有这一格就不显示
 - **最近使用目标格式** — 目标下拉顶部按「最近使用」分组列出最常转的格式（最多 6 个），只显示对当前源格式仍可用的项，其余仍归入文档 / 图片 / 数据三组
 - **转换预设** — 把目标格式连同它的图片输出参数存成一键卡片（最多 12 个），点一下两样同时恢复。和「最近使用」的区别在于：后者只记住一个格式，预设记住的是整套配方——「JPEG、最长边 1280 px、控制在 200 KB 以内」。还没上传文件时选的预设会被记住，交给下一批能接住它的文件；当前批次转不了的预设会说明原因而不是静默改掉目标。没起名字的预设按它做什么自动命名
 - **界面状态记忆** — 对照视图的分隔条位置，以及转换历史与预设两张卡片的折叠状态都会持久化，下次打开工作台即恢复
@@ -240,6 +242,10 @@ _图上可达但语义不成立，因此置灰并说明原因，而不是等你�
 
 ### 安装
 
+**从 Chrome 应用商店安装（推荐）**：[文件格式任意转换助手](https://chromewebstore.google.com/detail/blkdmpkcaceicinkhindniepbbbaekkb)。装上即为稳定版，随后自动跟随更新，不需要开启开发者模式。
+
+**从源码安装**——适合要审阅构建产物或改代码的场景：
+
 ```bash
 # 环境要求：Node.js 20.12+（WXT 依赖 util.parseEnv）、pnpm
 pnpm install
@@ -253,7 +259,7 @@ pnpm build
 3. 点击 **加载已解压的扩展程序**，选择 `.output/chrome-mv3` 目录
 4. 点击工具栏图标——转换工作台在新标签页打开
 
-目前尚未上架应用商店；`.github/CHROMEWEBSTORE.md` 保存了随时可提交的商品文案、素材与披露答复。
+商店条目的文案、素材与披露答复同步维护在 [`CHROMEWEBSTORE.md`](.github/CHROMEWEBSTORE.md)。
 
 ### 使用步骤
 

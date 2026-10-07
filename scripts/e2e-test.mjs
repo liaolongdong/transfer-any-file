@@ -462,20 +462,32 @@ async function downloadBatchArtifact(page) {
 }
 
 /**
- * Member names of the ZIP the workbench is offering, read out of the real download.
+ * The ZIP the workbench is offering, read out of the real download: member names plus the method
+ * each member was packed with.
  *
  * `downloadBatchArtifact` refuses a bundle on purpose — its callers want file *contents* — while the
  * page-selection assertions are about *which* pages were written and under what name, which is only
- * observable in the directory.
+ * observable in the directory. The method comes out too because the per-entry compression switch
+ * (`isZipCompressible`) is otherwise invisible to this suite: `unzipSync` hands back identical bytes
+ * whichever way an entry was packed, so a batch that quietly stopped deflating its images would still
+ * be green. Central-directory headers are walked rather than local ones because the signature occurs
+ * exactly once per entry there, and the method field is the archive's own claim about the entry.
  */
-async function zipEntryNames(page) {
+async function zipBundle(page) {
   const [download] = await Promise.all([
     page.waitForEvent('download', { timeout: 15000 }),
     (await page.$('.result-download .download-actions .el-button')).click(),
   ]);
   const buf = fs.readFileSync(await download.path());
   const { unzipSync } = await import('fflate');
-  return Object.keys(unzipSync(new Uint8Array(buf)));
+  const names = Object.keys(unzipSync(new Uint8Array(buf)));
+  const methods = {};
+  for (let i = 0; i + 46 <= buf.length; i++) {
+    if (buf.readUInt32LE(i) !== 0x02014b50) continue;
+    const name = buf.subarray(i + 46, i + 46 + buf.readUInt16LE(i + 28)).toString('latin1');
+    methods[name] = buf.readUInt16LE(i + 10);
+  }
+  return { names, methods };
 }
 
 /**
@@ -1487,9 +1499,16 @@ async function run() {
     // The naming convention an excerpt relies on, pinned before anything is narrowed: a ZIP entry
     // numbered by its position in the output would silently renumber "page 2" into "page-1".
     const whole = await convertFile(page, 'sample-2page.pdf', 'PNG (.png)');
-    const wholeEntries = whole.resultName.endsWith('.zip') ? await zipEntryNames(page) : [];
+    const wholeBundle = whole.resultName.endsWith('.zip') ? await zipBundle(page) : { names: [], methods: {} };
+    const wholeEntries = wholeBundle.names;
     if (wholeEntries.join(',') === 'page-1.png,page-2.png') ok('Whole document exports page-1 / page-2');
     else fail('Whole-document ZIP entries', `alert="${whole.alertTitle}" entries=[${wholeEntries.join(', ')}]`);
+    // The image entries go in deflated: a rasterized document page gives up 49.9 % of its archive at
+    // level 6 (a real 12-page export measured 39.3 %), and the only thing standing between that and
+    // the download the user gets is one extension set. Method 8 is deflate, 0 is stored; both pages
+    // must carry it, or the switch has silently reverted.
+    if (wholeEntries.every(name => wholeBundle.methods[name] === 8)) ok('Image entries of a PNG bundle are deflated');
+    else fail('PNG entry method', `methods=${JSON.stringify(wholeBundle.methods)}`);
 
     const secondOnly = await (async () => {
       await setRange('2');
@@ -1529,7 +1548,7 @@ async function run() {
     await pickTarget(page, 'PNG (.png)');
     await setRange('');
     const cleared = await convertFile(page, 'sample-2page.pdf', 'PNG (.png)');
-    const clearedEntries = cleared.resultName.endsWith('.zip') ? await zipEntryNames(page) : [];
+    const clearedEntries = cleared.resultName.endsWith('.zip') ? (await zipBundle(page)).names : [];
     if (clearedEntries.length === 2) ok('Clearing 页码范围 restores the whole document');
     else fail('Clearing 页码范围', `alert="${cleared.alertTitle}" entries=[${clearedEntries.join(', ')}]`);
   } catch (e) {
@@ -2330,6 +2349,50 @@ async function run() {
   }
 
   // ═══════════════════════════════════════════
+  //  TASK LIST ROUND TRIP (regression: turndown swallowed the GFM checkbox)
+  // ═══════════════════════════════════════════
+
+  section('Task list round-trip');
+  try {
+    // One claim seen at two boundaries, counted once: a checkbox the document really carries has to
+    // survive the sanitizer that renders it *and* the serializer that writes it back out. Counting
+    // per substring would make the suite total depend on how many lines this section happens to check.
+    //
+    // The fixture is ASCII on purpose: `downloadBatchArtifact` returns a byte-preserving latin1
+    // string, so the intermediate HTML can be re-uploaded without a decode step and the assertions
+    // below compare against text that never passed through a charset guess.
+    const broken = [];
+    const lineWith = (text, needle) => text.split('\n').find(line => line.includes(needle)) ?? '';
+
+    await resetWorkbench(page);
+    const mid = await convertFile(page, 'sample-tasklist.md', 'HTML (.html)');
+    if (!mid.alertTitle.includes('完成')) throw new Error(`md→html did not finish: ${mid.alertTitle}`);
+    const html = await downloadBatchArtifact(page);
+    // Measured, not assumed: `marked` (gfm) writes `<input checked disabled type="checkbox">` and
+    // the html profile `md-to-html.ts` uses does not drop `<input>`.
+    if (!/type="checkbox"/.test(html)) broken.push('md→html lost the checkbox element');
+    if (!/checked=""/.test(html)) broken.push('md→html lost the checked state');
+
+    await resetWorkbench(page);
+    const carried = { name: 'tasklist.html', mimeType: 'text/html', buffer: Buffer.from(html, 'latin1') };
+    const back = await convertFile(page, carried, 'Markdown (.md)');
+    if (!back.alertTitle.includes('完成')) throw new Error(`html→md did not finish: ${back.alertTitle}`);
+    const md = await downloadBatchArtifact(page);
+    if (!/\[x\]/.test(lineWith(md, 'alpha'))) broken.push(`checked lost on the way out: "${lineWith(md, 'alpha')}"`);
+    if (!/\[ \]/.test(lineWith(md, 'beta'))) broken.push(`unchecked lost on the way out: "${lineWith(md, 'beta')}"`);
+    // Nesting is the second half of the same regression: with the checkbox gone the item's line
+    // began with a space, and that one space pushed the nested item past the four-space code-block
+    // threshold — which is why this round trip used to hand back a fence instead of a list.
+    const nested = lineWith(md, 'gamma');
+    if (!/^ {4}\S.*\[x\]/.test(nested)) broken.push(`nested item is not an indented checkbox: "${nested}"`);
+
+    if (broken.length === 0) ok('Task list keeps both checkbox states and its nesting through md→html→md');
+    else fail('Task list round trip', broken.join('; '));
+  } catch (e) {
+    fail('Task list round trip', e.message);
+  }
+
+  // ═══════════════════════════════════════════
   //  APPEND & CLEAR FILES
   // ═══════════════════════════════════════════
 
@@ -3024,6 +3087,46 @@ async function run() {
   }
 
   // ═══════════════════════════════════════════
+  //  PDF OUTLINE → HEADING LEVELS
+  // ═══════════════════════════════════════════
+
+  section('PDF outline headings');
+  try {
+    await resetWorkbench(page);
+    await convertFile(page, 'sample-outline.pdf', 'HTML (.html)');
+    const outlined = await page.getAttribute('.result-panel iframe.html-frame', 'srcdoc').catch(() => null);
+    if (!outlined) throw new Error('no srcdoc for the outlined PDF');
+    const headings = outlined.match(/<h[1-6]>[^<]*<\/h[1-6]>/g) || [];
+    // Depth is the claim: `Chapter One` and `Chapter Two` are top-level bookmarks, `Section 1.1` is
+    // its child. And `Chapter Two` appears on page 1 as body text while its bookmark points at page 2
+    // — promoting it there too would be inventing a heading the outline never attached to page 1.
+    const wanted = ['<h1>Chapter One</h1>', '<h2>Section 1.1</h2>', '<h1>Chapter Two</h1>'];
+    const missing = wanted.filter(tag => !outlined.includes(tag));
+    const invented = headings.filter(tag => !wanted.includes(tag));
+    if (missing.length === 0 && invented.length === 0) {
+      ok('PDF bookmarks become headings at their outline depth, and nothing else is promoted');
+    } else {
+      fail('PDF outline headings', `missing ${JSON.stringify(missing)}, got ${JSON.stringify(headings)}`);
+    }
+
+    // The control half, and it is the reason this section runs *before* the converter changes: a PDF
+    // with no outline must come back with exactly the headings it came back with before. Measured on
+    // `sample.pdf` (jsPDF, no /Outlines) by reproducing this converter's line loop and its all-caps
+    // heuristic verbatim: it yields ZERO heading tags, because no line in that fixture is all-caps.
+    // `sample-2page.pdf` is the same. So the constant below is 0 tags — written down here rather
+    // than sampled from the post-change build, which would make the control circular.
+    await resetWorkbench(page);
+    await convertFile(page, 'sample.pdf', 'HTML (.html)');
+    const plain = await page.getAttribute('.result-panel iframe.html-frame', 'srcdoc').catch(() => null);
+    if (plain === null) throw new Error('no srcdoc for the plain PDF');
+    const plainHeadings = plain.match(/<h[1-6]>[^<]*<\/h[1-6]>/g) || [];
+    if (plainHeadings.length === 0) ok('A PDF without bookmarks still gets no headings from the outline path');
+    else fail('No-outline control', `expected 0 heading tags, got ${JSON.stringify(plainHeadings)}`);
+  } catch (e) {
+    fail('PDF outline headings', e.message);
+  }
+
+  // ═══════════════════════════════════════════
   //  MULTI-STEP PATH VERIFICATION
   // ═══════════════════════════════════════════
 
@@ -3051,6 +3154,75 @@ async function run() {
 
     // Close dropdown by clicking elsewhere
     await page.keyboard.press('Escape');
+
+    // ── The other half of this section: a single file on a multi-step chain has a real bar ──
+    // One claim seen in four places, counted once. What it claims is that a batch reports its own
+    // progress and its own cost, and where that shows up: the bar mounts for a one-file chain at all,
+    // its percentage moves while it is up, the finished batch prints what it cost, and the newest
+    // history row keeps that same figure. Four `ok()` calls would tie the suite total to how many
+    // substrings this block happens to read.
+    //
+    // `json→pdf` is two steps (`json>html` + `html>pdf`), so the denominator here is 2 and the file
+    // count is 1 — the exact case that used to show a spinner and nothing else.
+    const reported = [];
+    await page.evaluate(() => {
+      if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+    });
+    // Both watchers are created before the batch starts and awaited only after it settles. Awaiting
+    // either one in turn would spend its whole timeout on a screen where nothing has begun yet —
+    // `.batch-progress` cannot exist before the keypress, so `barMounted` would be a guaranteed false
+    // plus 10 dead seconds.
+    const barMounted = page
+      .waitForSelector('.batch-progress', { timeout: 10000 })
+      .then(() => true)
+      .catch(() => false);
+    const percentMoved = page
+      .waitForFunction(
+        () => {
+          // The text label is switched off for a single-file batch (a `0/1` that never means anything
+          // is worse than no number), so the percentage is read off the stroke it animates, which is
+          // the same source `batchProgressPercent` feeds. Plain JS here: this file is `.mjs`, a TS cast
+          // inside the callback is a parse error, and the callback runs in the page, not in Node.
+          const inner = document.querySelector('.batch-progress .el-progress-bar__inner');
+          const width = inner ? Number.parseFloat(inner.style.width) : NaN;
+          return Number.isFinite(width) && width > 0;
+        },
+        undefined,
+        { timeout: 15000 },
+      )
+      .then(() => true)
+      .catch(() => false);
+
+    await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Enter' : 'Control+Enter');
+    const settled = await page
+      .waitForSelector('.result-download .el-alert__title', { timeout: 30000 })
+      .catch(() => null);
+    if (!settled) throw new Error('the JSON→PDF batch never settled');
+    if (!(await barMounted)) reported.push('no batch bar for a single file on a multi-step chain');
+    if (!(await percentMoved)) reported.push('the bar never left 0% for a one-file two-step chain');
+
+    // Guarded: today that `<p>` sits behind `v-if="sizeSummary"`, and a one-file batch has no size
+    // summary by design (`ResultDownload.vue:74-85`), so the selector matches nothing and an unguarded
+    // `$eval` would reject into this section's `catch` and report as `fail('Path hints', …)` — the wrong
+    // assertion going red. The `v-if` now reads `summaryLine`, which is what makes this green.
+    const summary = await page
+      .$eval('.result-download .result-summary', el => (el.textContent || '').trim())
+      .catch(() => null);
+    if (summary === null || !/耗时|Elapsed/.test(summary)) {
+      reported.push(`the result card printed no elapsed line: ${JSON.stringify(summary)}`);
+    }
+
+    // Newest row first. The history card is open by default and `HistoryPanel` is mounted from start-up,
+    // so no extra reveal is needed at this point in the suite.
+    const durations = await page
+      .$$eval('.history-item .history-duration', els => els.slice(0, 1).map(el => el.textContent.trim()))
+      .catch(() => []);
+    if (!(durations.length > 0 && /\d/.test(durations[0]))) {
+      reported.push(`the newest history row printed no duration: ${JSON.stringify(durations)}`);
+    }
+
+    if (reported.length === 0) ok('A single-file multi-step batch shows a moving bar and reports what it cost');
+    else fail('Batch progress and cost', reported.join('; '));
   } catch (e) {
     fail('Path hints', e.message);
   }

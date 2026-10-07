@@ -40,6 +40,10 @@ Prefer a **private security advisory**: the **Security** tab of
 "Report a vulnerability", which keeps the details off the public issue tracker. If that form is
 unavailable on this repository, email `924902324@qq.com`.
 
+The same policy has a machine-readable copy at
+[security.txt](https://liaolongdong.github.io/transfer-any-file/security.txt), whose `Contact:` lines are
+the two channels above.
+
 Please include:
 
 - The revision (`git rev-parse HEAD`) or the store version number.

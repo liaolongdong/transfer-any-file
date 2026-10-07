@@ -68,7 +68,7 @@ For a single file, online tools are fine. What forces the difference is "I have 
 
 **Per-file error isolation.** One corrupt .docx must not destroy the batch. Each file resolves its own path, executes independently, and records its own failure reason. Each failure expands into a diagnostic — the full conversion path and which step it died on — that copies out as plain text ready to paste into an issue. Batches are cancellable mid-flight and completed results are kept.
 
-**Pick the ZIP method per entry.** There are two intuitive answers: store everything (fast, but text results waste space) or deflate everything (compact, but pure CPU burn on PNG/PDF/XLSX, which are already compressed containers). The measured answer is **decide per entry**: text formats (TXT/CSV/JSON/HTML/Markdown/SVG/XML) deflate, roughly an order of magnitude smaller; anything already compressed is stored. I ran this through fflate on 7 MB of CSV alongside 6 MB of incompressible data: all-stored gave a 13.28 MB archive in 56 ms, all-deflate gave 7.04 MB in 1169 ms. Per-entry gets essentially the same size as all-deflate — about 47% below all-stored — without spending CPU on the entries that can't shrink.
+**Pick the ZIP method per entry.** There are two intuitive answers: store everything (fast, but text results waste space) or deflate everything (compact, but pure CPU burn on PDF/XLSX/DOCX, which carry their own containers). The measured answer is **decide per entry**, and "cannot shrink" covers far less than intuition says: text formats (TXT/CSV/JSON/HTML/Markdown/SVG/XML) deflate, roughly an order of magnitude smaller — and so do images. Encode one mostly-flat document page with the encoder this app itself uses (Chrome canvas.toBlob) and a PNG entry gets 49.9% smaller, a JPEG 91.1%, a WebP 50.0%, while a 100-page PNG export goes from 5.13 MB to 2.57 MB; the 12 pages of a real PDF export measured 39.3% for PNG and 58.6% for JPEG. Only a high-entropy photograph gains nothing, at 0.014% more archive and about 1.3 s of packing per 10 MB. Nor does that work occupy the page: packing 40 MB deflated held the main thread for at most 9 ms. I ran this through fflate on 7 MB of CSV alongside 6 MB of incompressible data: all-stored gave a 13.28 MB archive in 56 ms, all-deflate gave 7.04 MB in 1169 ms. Per-entry gets essentially the same size as all-deflate — about 47% below all-stored — without spending CPU on the entries that can't shrink.
 
 **Chinese CSV is an encoding problem, not a language problem.** Read: try UTF-8, then GB18030, then GBK. Write: prepend a UTF-8 BOM. Skip that and Excel opens the file as mojibake, and Chinese-speaking users churn inside the first minute.
 
@@ -88,7 +88,7 @@ For a single file, online tools are fine. What forces the difference is "I have 
 
 ## 5. Where it is and how to install it
 
-**It is not on the Chrome Web Store yet.** Stated plainly. Right now the only route is loading it from source, in four steps:
+**It is on the Chrome Web Store now** — the listing measured live on 2026-10-02. One click there installs the stable build, and updates arrive on their own. The source route is the other way in, in four steps:
 
 ```bash
 # Requires Node.js >= 20.12 and pnpm
@@ -101,16 +101,16 @@ Then `chrome://extensions` → enable "Developer mode" (top right) → "Load unp
 
 Repository: [github.com/liaolongdong/transfer-any-file](https://github.com/liaolongdong/transfer-any-file). Product page and privacy policy: [liaolongdong.github.io/transfer-any-file](https://liaolongdong.github.io/transfer-any-file/).
 
-Everything the store needs is already prepared: name and description copy, 1280×800 screenshots, a line-by-line justification for each permission, the privacy policy, and the data-disclosure answers — all in `.github/CHROMEWEBSTORE.md` and `docs/privacy.html`. What's missing is a developer account and one submission. If you want to push that forward, open an issue on the repo.
+Everything the store asks for was written down first: name and description copy, 1280×800 screenshots, a line-by-line justification for each permission, the privacy policy, and the data-disclosure answers — all in `.github/CHROMEWEBSTORE.md` and `docs/privacy.html`. Getting there took three rejections: the first two were about the shape of the copy, the third about remotely hosted strings sitting unreachable inside the bundle — fixed in the build, not in the text. To push anything for the next version, open an issue on the repo.
 
-Tech stack: **WXT + Vue 3 + TypeScript + Element Plus**, Manifest V3, `storage` as the only permission, MIT licence. How it's verified is part of the deliverable too: Playwright drives the built artifact through 327 assertions, and the fixtures it converts live in `fixtures/` next to the code.
+Tech stack: **WXT + Vue 3 + TypeScript + Element Plus**, Manifest V3, `storage` as the only permission, MIT licence. How it's verified is part of the deliverable too: Playwright drives the built artifact through 332 assertions, and the fixtures it converts live in `fixtures/` next to the code.
 
 ## 6. Who shouldn't use it
 
 - Video, audio, EPUB, CAD: use a proper service. Don't ask a browser to do this.
 - Scanned pages or screenshots that need to become editable text: that's OCR, and it isn't here.
 - PDF → Word with the layout intact: you'll get the text and lose the layout.
-- A company machine that blocks unpacked extensions and won't grant Developer mode: this install path is closed to you.
+- A company machine where IT controls extension installs: the store route depends on policy, and the source route needs Developer mode, which is usually blocked first.
 
 But if what you're holding is **a contract, a payroll sheet, medical records, an unpublished manuscript, client data**, and you just need to move format between Markdown / Word / PDF / Excel / CSV / JSON / HTML / images — there is no reason for it to leave your machine.
 

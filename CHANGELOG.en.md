@@ -11,6 +11,74 @@ always name the same release.
 
 ### Added
 
+- **Batch progress is counted in steps, and it says how long it took.** The bar's denominator is the whole batch's
+  step count (every file's route is resolved once before the loop starts — a synchronous BFS, measured at 0.28 µs per
+  call), so a batch of 200 files × 3 steps no longer sits at 0 % until the first file finishes entirely. A single file
+  on a multi-step chain (`docx→html→pdf` and friends) gets a determinate bar for the first time, and it no longer
+  shows a text figure frozen at `0/1` — that screen already carries "Processing" and "Step 1 of 2". The bar, the label
+  on it and the `(n/m)` in the button read one pair of numbers, so a batch whose steps are all one layer deep shows
+  exactly the figures it shows today and needs no unit word. When a batch finishes, the results panel reports
+  "Elapsed: 3.2 s", and each history row carries the same number. The measure is fixed at the field: loop start to
+  loop end, excluding the time the pre-conversion confirmation dialog stays open (human reading time mixed in makes it
+  a fake figure) and the ZIP assembly. A batch under 100 ms reads "Elapsed: < 0.1 s" instead of `0.0 s` — that string
+  is what `toFixed(1)` rounds a 30 ms batch into: on screen it is indistinguishable from a row that measured nothing,
+  which is the one ambiguity this field must never produce.
+- **PDF bookmarks become heading levels.** `pdf→html` used to recognise nothing but "a short, all-caps line", so the
+  real titles recorded in the document's bookmarks (its outline) came through as body text. An outline now writes
+  `<h1>`–`<h6>` at its own depth, and the test is that the bookmark text equals the line's text — **a whole line**. One
+  bookmark lights up one line, and a bookmark whose text the document never contains lights up nothing (an invented
+  heading is worse than a missing one). `pdf→md` runs as `pdf→html→md`, so it gains the same thing along the same
+  chain. A PDF with no outline, or with nothing that matches, keeps every word of its body text and the all-caps
+  heuristic has not been touched; `pdf→html`'s `<head>` does change, because the heading rule there is now
+  `h1, h2, h3, h4, h5, h6` instead of `h1, h2, h3` (it sets the spacing for the new levels), so that side is **not**
+  byte-for-byte identical — `pdf→md` is, since `html→md` only reads the `<body>`. The `<title>` is still your own
+  file name — a deliberate choice consistent with `wrapHtmlDocument`, not metadata that was overlooked.
+- **`html→md` keeps GFM task-list checkboxes.** Turndown has no `INPUT` rule, so the void element is swallowed whole:
+  `- [x]` came back empty, and the one space the line gains by losing its checkbox pushes a nested item past the
+  four-space code-block threshold, turning it into a code block. A new rule handles only the checkbox inside an `<li>`
+  and leaves indentation to the default `li` rule — taking over `li` would drop the nesting with it. A stray
+  `<input type=checkbox>` in a form serializes exactly as before; `parentElement === 'LI'` is that gate.
+- **A finished batch now says what it weighs.** Multi-file batches print one line under the rows: "Combined size:
+  12.3 MB → 8.7 MB", summed from what is on the screen rather than read out of the history record — a retry appends
+  its recovered files to the rows already there, and a figure carried up from the batch that ran before it would
+  describe a different set of files than the one above it. The line stays away in three cases: one file (its own row
+  already prints the result size and the alert title carries the count, so a line would restate the panel), the two
+  arrays disagreeing on length (the rows' identity is no longer trustworthy and the honest move is to say less), and
+  a batch whose size did not change at all. The digits are tabular because a retry appends rows and re-sums this line
+  in place, and figures shifting sideways mid-read is the one thing a readout like this must not do.
+- **History rows carry the size of what they produced.** The figure in a row like "3 files · 8.7 MB" is the
+  **result** size, not the source's: a history entry gets opened to ask how far something compressed last time, and
+  the count is already in the label as `name.md + 3`, so it needs no column of its own.
+- **The results panel's rows enter and leave.** Recovered files from a retry, or a file taken out of the list, no
+  longer rearrange the panel in one cut: new rows fade in and settle down from above, rows that stay slide over. It
+  reuses the history panel's `.fat-list-*` set instead of writing its own durations and easing. The layer forced out
+  something worth recording: a row's key is its **source file**, not its position, and not the result object either —
+  output names are "source basename, new extension", so two merged batches' rows collide by name and the only thing
+  with identity is that `File`. The mint used to live inside the upload area alone; two copies of it drift
+  independently, so it is now `createRowKey(prefix)` in `utils/core/row-key.ts`, used by both lists, and the
+  `toRaw()` guard moved with it (a `File` in a `ref` array is not proxied today, and would be a new key per frame if
+  that changed).
+- **The conversion pair pages went from 21 to 35.** The additions are the routes the workbench actually offers that no
+  page talked about yet, chosen by how often people ask for them by name: PDF to PNG / HTML / JPG / WebP / Word, Word to
+  HTML, HTML to PNG, XLSX to PDF, GIF / BMP / SVG to a bitmap, TXT to Markdown. Twelve of the fourteen are one-step
+  edges; PDF to Word and XLSX to PDF run through a chain (`pdf > html > docx`, `xlsx > html > pdf`), and the step count
+  on those pages is the route's real length — this layer was never a transcription of the enum.
+  The same batch put a guard on the mirrors: `docs/index.html`'s conversion grid and `docs/llms.txt`'s per-route list
+  are two **hand-maintained** tables that must match `PAIRS` one-for-one, and `validateLinkMirrors()` in
+  `scripts/render-site-pages.mjs` compares all three and fails the render on a missing, extra or duplicated link. The
+  10 → 21 round aligned those two by hand and got away with it. The batch also settles an older debt:
+  `Article.datePublished` used to carry `PAGES_PUBLISHED` (2026-09-25, the day the first pair page entered the
+  repository) on every page, which was false for these fourteen. An entry may now declare its own `published` and falls
+  back to that date only when it does not, `dateModified` takes the later of the two, and `validatePair()` rejects two
+  shapes — anything that is not `YYYY-MM-DD`, and anything later than `PAGES_UPDATED`, which would leave the same URL's
+  sitemap `lastmod` older than the publish date the page states.
+- **The security policy has a machine-readable copy.** `docs/security.txt` (site root, `/security.txt`) carries
+  `Contact:` for the two channels, `Preferred-Languages` and `Expires:`, with a pointer line in each of
+  `SECURITY.md` and `SECURITY.en.md`. The path is not `/.well-known/`: this is a GitHub Pages **project** page, so
+  the domain root belongs to `liaolongdong.github.io` rather than to this repository, and the nearest reachable
+  location is the project root — which is stated in the file's own header comment rather than left to be guessed.
+  `Expires:` is a maintenance date, not a product promise: when it passes, refresh this file and `SECURITY.md`
+  together.
 - **The preview header grew a copy button.** For content that already is text (TXT, CSV, JSON, Markdown,
   HTML), the preview dialog's header now puts a copy button to the left of Download, going through the
   workbench's own `utils/core/clipboard.ts`: when the Clipboard API is refused or missing it falls back to
@@ -462,6 +530,23 @@ always name the same release.
 
 ### Changed
 
+- **Images inside a bundled download are now compressed too.** The per-entry rule filed PNG / JPEG / WebP under
+  "already-compressed containers" and stored them, although a real artifact had already falsified that in 2026-09-25:
+  the 12 pages of a multi-page PDF export came out 39.3 % smaller as `→ PNG` and 58.6 % as `→ JPEG`, costing 118 ms and
+  60 ms for the batch. The numbers went into `isZipCompressible`'s comment that round and the switch did not move. On
+  2026-10-03 the container was separated from the page by encoding through the Chrome `canvas.toBlob` this app actually
+  calls: one mostly-flat document page deflates 49.9 % smaller as PNG, 91.1 % as JPEG and 50.0 % as WebP; a 100-page PNG
+  export packs from 5.13 MB into 2.57 MB in 0.63 s; fourteen real store screenshots give up 6.9 %. The side with
+  nothing to take was measured too — one 2400×1600 gradient-plus-grain image comes out 0.014 % larger as PNG and 0.010 %
+  as WebP while a JPEG of it is 0.022 % smaller, which is deflate's stored-block overhead in both directions, at about
+  130 ms of packing per MB (10.6 MB of photographic PNG: 1.36 s). That 1.36 s does not come off the interface: after
+  packing 40 MB deflated the worst main-thread response delay measured was 9 ms, against 1462 ms for the same bytes
+  compressed synchronously in the same run, so the extra time lands inside the loading state Download-all already has.
+  `pdf` / `xlsx` / `docx` stay stored — nothing of theirs has been measured at a realistic size this round; the
+  repository's few-kilobyte fixtures deflate 67–78 %, but those are text-heavy samples rather than a photo-carrying
+  multi-megabyte PDF, and without a measurement the previous call stands. Extracted bytes are identical to what they
+  were before this change, and one new e2e assertion pins the method (a PNG batch's entries must carry method 8),
+  because `unzipSync` hands back the same contents either way and reverting the switch would redden nothing else.
 - **Chinese readers meet the Chinese name on the outward pages too.** The bullet below only reached the
   interface, so a Chinese user read 「文件格式任意转换助手」 in Chrome's extension manager and
   `Transfer Any File` one click later on the product page — two names for one thing, which reads like two
@@ -964,6 +1049,34 @@ zero network requests`) and the Chinese equivalent never appeared in a search re
 
 ### Fixed
 
+- **In a narrow window the history row's own buttons could not be clicked.** `.collapsible-body` is an item of the
+  `.collapsible-panel` grid, and a grid item's automatic minimum size is its min-content: the block axis already
+  handles that with `min-height: 0`, the inline axis did not. So the `white-space: nowrap` filename in a history row —
+  truncated by an ellipsis on screen, yet still one unbreakable word to min-content — pushed the whole body wider than
+  its card, and the card's own `overflow-x: hidden` cut off the excess, which was exactly where "Reuse this format"
+  and delete sit. Measured headless against the same artifact, once per side of the declaration: at 720px the delete
+  button's centre falls outside the clip and `elementFromPoint` misses it; at 640px both buttons do. With
+  `min-width: 0` the body is the column width, the filename surrenders its remaining characters to the ellipsis instead
+  of the buttons, and both hit-test from 640px up — while at 900px and 1280px every reading is pixel-identical to
+  before. This surfaced while measuring what the new duration cell costs a row: 28px, which moved an existing defect
+  into a width someone would actually sit at.
+- **"Transparency is kept" was false on the PDF and HTML routes.** In the new pages, PDF → JPEG's FAQ told readers to
+  take PNG or WebP when they need transparency, and PDF → WebP listed alpha as one of the reasons to pick it — while
+  `utils/converters/pdf-to-image.ts` paints **every page white** before the page is drawn, identically for all three
+  image targets. Following that advice returns the same white background, with nothing gained by the switch.
+  `html-to-png` is the same class: the rasteriser runs with `backgroundColor: '#ffffff'`, so "PNG is lossless and
+  carries alpha" became "lossless, on a fixed white backdrop". The copy moved rather than the converter, because
+  letting PNG and WebP skip the white fill would change the pixels of artifacts already shipped — that is a
+  conversion-semantics decision, not a side effect of a documentation fix. The claims on the image-to-image routes
+  (GIF / BMP / SVG → PNG / WebP) still hold: `image-convert.ts` and `svg-rasterize.ts` fill white only when the target
+  is JPEG.
+- **The pair pages described the clamp domain instead of the options the picker offers.** 19 lines of copy said
+  "72–600 DPI", "1–50,000 KB" and "16–8192 px", which are the bounds `utils/core/output-options.ts` clamps _to_ —
+  defensive limits for whatever value arrives, not settings anyone can pick. The output-options row actually offers
+  DPI 96 / 144 / 200 / 300 (144 by default), quality steps 40 %–90 %, a longest edge of 800–4096 px and a target size
+  of 20 KB–2 MB. The direction of the gap matters: read as written, the page promises a 600 DPI image out of a PDF
+  and no such control exists on that screen. The fix is in the data module `scripts/conversion-pages/pairs.mjs`, not
+  in any HTML file.
 - **Markdown or HTML that references images failed outright when converted to PDF or PNG.** The failure
   had two faces and one cause: the rasterizer puts the sanitized document into a sandboxed `<iframe>`
   and screenshots it, and by then not one of the image references can be resolved locally. The first

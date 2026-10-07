@@ -65,7 +65,7 @@ SVG      ──► HTML ──► PNG
 
 **逐文件错误隔离。** 一个损坏的 .docx 不能毁掉整批。每个文件独立求路径、独立执行、独立记录失败原因；每条失败可以展开看诊断（完整的转换路径，以及卡在第几步），一键复制成纯文本贴进 issue；批次还能中途取消，已完成的保留。
 
-**ZIP 压缩要按条目选择。** 直觉做法有两种：全部 stored（快，但文本结果体积白占）或全部 deflate（省空间，但对 PNG/PDF/XLSX 这些"已经压缩过"的产物纯粹烧 CPU）。正确答案是**按条目决定**：文本类（TXT/CSV/JSON/HTML/Markdown/SVG/XML）走 deflate，能小一个数量级；已是压缩容器的直接 stored。用 fflate 实测过 7 MB CSV 配 6 MB 不可压缩数据：全部 stored 得到 13.28 MB / 56 ms，全部 deflate 得到 7.04 MB / 1169 ms。按条目选择拿到和全量 deflate 基本相同的体积（比全 stored 小约 47%），却不在已经压过的条目上空烧 CPU。
+**ZIP 压缩要按条目选择。** 直觉做法有两种：全部 stored（快，但文本结果体积白占）或全部 deflate（省空间，但对 PDF/XLSX/DOCX 这类自带容器的产物纯粹烧 CPU）。正确答案是**按条目决定**，而"压不动"的范围比直觉小得多：文本类（TXT/CSV/JSON/HTML/Markdown/SVG/XML）走 deflate，能小一个数量级；**图片也走 deflate**——一页以纯色为主的文档，用扩展自己的编码器（Chrome canvas.toBlob）出图，PNG 条目小 49.9%、JPEG 小 91.1%、WebP 小 50.0%，100 页的 PNG 导出从 5.13 MB 压到 2.57 MB；12 页真实 PDF 导出实测 PNG 小 39.3%、JPEG 小 58.6%。只有照片那一类高熵图像压不动，最多大 0.014% 体积，代价是每 10 MB 约 1.3 秒。压这些字节也不吃主线程：40 MB 条目压完，页面最长一次响应延迟 9 ms。用 fflate 实测过 7 MB CSV 配 6 MB 不可压缩数据：全部 stored 得到 13.28 MB / 56 ms，全部 deflate 得到 7.04 MB / 1169 ms。按条目选择拿到和全量 deflate 基本相同的体积（比全 stored 小约 47%），却不在压不动的条目上空烧 CPU。
 
 **中文 CSV 的编码现实。** 读取时 UTF-8 失败依次回退 GB18030 与 GBK，写出时带 UTF-8 BOM——否则 Excel 打开必乱码。这种细节不做，中文用户第一分钟就会流失。
 
@@ -85,7 +85,7 @@ SVG      ──► HTML ──► PNG
 
 ## 五、它现在在哪、怎么装
 
-**还没上 Chrome 应用商店**，直说。目前只能源码加载，四步：
+**已经上了 Chrome 应用商店**（2026-10-02 实测条目在架）。商店里搜「文件格式任意转换助手」，一次点击装好，之后自动更新；不想用商店的走源码加载，四步：
 
 ```bash
 # 环境：Node.js ≥ 20.12、pnpm
@@ -98,16 +98,16 @@ pnpm install && pnpm build
 
 仓库地址：[github.com/liaolongdong/transfer-any-file](https://github.com/liaolongdong/transfer-any-file)。
 
-商店需要的东西已经准备好了：名称与描述文案、1280×800 截图、权限逐条说明、隐私政策、数据披露答复，都写在仓库的 `.github/CHROMEWEBSTORE.md` 和 `docs/privacy.html` 里。上架还差一个开发者账号和一次提交——如果你想推动这件事，去仓库开个 issue 就行。
+商店要的东西一开始就写在了仓库里：名称与描述文案、1280×800 截图、权限逐条说明、隐私政策、数据披露答复，都在 `.github/CHROMEWEBSTORE.md` 和 `docs/privacy.html`。走到上架用了三轮拒绝：前两轮是文案的形状，第三轮换了一条轴——包里有远程托管的字符串，代码里走不到也算违规，改的是构建不是文案。后续版本想推动什么，去仓库开个 issue 就行。
 
-技术栈：**WXT + Vue 3 + TypeScript + Element Plus**，Manifest V3，权限只有 `storage`，MIT 协议。代码里的验证方式也一并交代：Playwright 驱动构建产物跑 327 条断言，夹具（`fixtures/`）随仓库走。
+技术栈：**WXT + Vue 3 + TypeScript + Element Plus**，Manifest V3，权限只有 `storage`，MIT 协议。代码里的验证方式也一并交代：Playwright 驱动构建产物跑 332 条断言，夹具（`fixtures/`）随仓库走。
 
 ## 六、谁不该用它
 
 - 要转视频、音频、EPUB、CAD：找专业在线服务，别为难浏览器。
 - 要把扫描件 / 截图变成可编辑文字：需要 OCR，这里没有。
 - 要把 PDF 转成排版完好的 Word：这里只能给你文本，版式会丢。
-- 公司设备禁止安装未上架扩展、也没有开发者模式权限：这条路走不通。
+- 公司设备由 IT 统一管扩展安装：商店那条路得看策略放行，源码那条要开发者模式，通常先被禁。
 
 反过来，如果你手上是**合同、薪资表、病例、未公开稿件、客户数据**，只是想在 Markdown / Word / PDF / Excel / CSV / JSON / HTML / 图片之间倒一下格式——那它不该有任何理由离开你的电脑。
 

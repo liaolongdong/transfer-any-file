@@ -49,11 +49,17 @@ pnpm test:e2e         # 构建 + 基于 fixtures/ 的 Playwright 套件
 pnpm assets:capture   # 重新生成商店与 README 用的截图和推广图（需先 pnpm build）
 node scripts/render-demo-gif.mjs   # 重录 README 顶部的演示 GIF（需先 pnpm build，另需 PATH 上有 ffmpeg）
 node scripts/render-icons.mjs   # 从 assets/*.svg 重新渲染两档图标
-node scripts/verify-extension.mjs   # 校验构建产物内容
+node scripts/verify-extension.mjs   # 把产物装进真实浏览器：worker 起没起、_locales 解析成什么、首屏有没有重 chunk、有没有请求出本机
 pnpm release:plan     # 只看计划：下一个版本号、双语 changelog 区块、哪些提交被当作噪声略过（不写盘）
 pnpm release:cut      # 本机落地：改那三份文件 + 本地提交 + 本地轻量标签（不推送）
 git tag vX.Y.Z && git push origin vX.Y.Z   # 推送标签即触发 release.yml：产出商店包、校验包内容、创建 GitHub Release；只推这一个，--tags 会把本地遗留标签一并发布
 ```
+
+`node scripts/verify-extension.mjs` 是这一列里唯一需要真实浏览器装载产物的一条，用 `VERIFY_EXT_CHROME` 指向一个吃
+`--load-extension` 的 Chromium 系二进制：品牌 Chrome 会忽略这个开关，Playwright 自带 Chromium 在 macOS 13 上装不上，
+Chrome for Testing 可用（运行开头打印的 `Browser:` 行会说明用的到底是哪一个）。这台机器上跑不了它时不必跳过整轮——
+`pnpm test:e2e` 覆盖同一份构建产物，只是它经 HTTP 加载页面，不会装载成扩展，所以装载之后才看得见的东西（worker、
+`_locales` 的解析结果）不在那条覆盖范围内。`VERIFY_EXT_PATH` 把这条指到别的构建目录，用途是验证它的断言真的会红。
 
 演示 GIF 与截图一样从真实构建产物录制（`docs/assets/demo/demo-<locale>.gif`，中/英各一条，用 `DEMO_LOCALES="zh en"` 控制），界面交互变更后若不重录，README 会与实际控制台漂移。
 

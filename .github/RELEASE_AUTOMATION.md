@@ -122,6 +122,18 @@ GitHub 有一条硬规则：**由 `GITHUB_TOKEN` 产生的事件不再触发其�
 5. 之后不用管：标签由同一条工作流推，`release.yml` 随即接手。商店那步的默认结果是「包已上传、未提审」。
 6. 想让用户真的拿到这一版：到 Chrome Web Store 开发者后台的 Package 页点 **提交审核**。
    两个入口的差别见 `.github/CWS_PUBLISHING_GUIDE.md` 的 3.3 第 3 条。
+7. **如果发版那一刻还有活着的长期分支**（本仓库的 `feature-dev` 就是这个形状：它带着自己的未发布条目，
+   而 `main` 上刚多出一个版本小节），把 `main` 合回去要先过一道重建：
+
+   ```bash
+   git merge --no-commit --no-ff main
+   node scripts/repair-release-merge.mjs --check   # 红 = 这次合并把发布记录合错了
+   node scripts/repair-release-merge.mjs           # 重建两份 CHANGELOG，再 git commit 那个合并
+   ```
+
+   `git` 在这里**不报冲突也不报错**，`## [未发布]` 却会清空、本轮条目被划进刚发布的那一版名下，而且没有
+   任何门禁为此变红。形状、实测读数与那五条断言见 `.github/visibility-checklist.md` 的 4.2。
+   分支是发版当口才从 `main` 切出来的（两侧未发布区是同一份）时不需要这一步，`--check` 会直接报绿。
 
 ---
 
@@ -179,6 +191,15 @@ pnpm release:cut           # = --write --commit --tag —— 落地：改三份�
 | `这一版没有发布说明`（warning）               | `Extract release notes`                         | `CHANGELOG.md` 里缺对应区块。发布不拦，但 GitHub Release 用的是占位文案，去补区块然后重跑                                                                                           |
 | `release-prepare` 报 `Release PR #N 已经开着` | `Skip when the release branch is already taken` | 同名分支已有一个开着的 PR，工作流**故意**不覆盖也不重开（你的补正可能就在里面）。去那个 PR 里继续                                                                                   |
 
+表格之外还有一条，它不表现为任何一步失败，所以不占一格：
+
+- **合回长期分支之后，`## [未发布]` 空了、刚发布那一版的小节比发布时多出几条。** `git merge` 在这道关口
+  既 exit 0、也不留冲突标记（两处插入点相邻但不在同一行），而 CI 里没有一条断言看得出这件事。修法就是
+  第二节第 7 条：合并现场先 `node scripts/repair-release-merge.mjs --check`，红了再跑不带 `--check` 的那条
+  重建——落盘前五条守恒断言任一不过，它一个字都不写。形状与实测读数见 `.github/visibility-checklist.md` 的 4.2。
+- 同一张表里「`版本预检跳过`」那一行的前提是「条目还没建」。**条目 2026-10-02 已在架**（线上 1.0.0），
+  所以现在真读到空版本号应当当成异常去查凭据与网络，而不是当成正常。
+
 ---
 
 ## 六、回滚与「发错了」
@@ -218,17 +239,24 @@ pnpm release:cut           # = --write --commit --tag —— 落地：改三份�
   GitHub 上一共分几步跑通过，答案是**零次**。步骤体的逻辑是在本机用桩 `gh` / 桩 `curl` 执行真的
   run 块验证的（含把两处已修复的令牌缺陷改回旧写法、确认它们会因此暴露），但 Actions 自身的触发规则
   只有真跑一次才算证据。
-- **商店条目还不存在**，因此 `GET /chromewebstore/v1.1/items/{id}` 的真实响应形状没有被取证过。
-  版本号字段名在本仓库无法确认（`current_version` 与 `version` 两种说法都见过），所以
-  `scripts/release-ci.mjs` 的 `item-version` 在认不出形状时**选择弃权**而不是猜：预检会跳过，
-  由上传响应体自己说明原因。这条命令永不使步骤失败。
+- **商店条目已经在架**（2026-10-02 实测：线上版本 1.0.0、详情区上次更新 2026-09-30），所以 `release.yml`
+  那三步第一次真跑就会读到版本号——但 `GET /chromewebstore/v1.1/items/{id}` 的**响应形状在本仓库没有被取证过**。
+  版本号字段名两种说法都见过（`current_version` 与 `version`），所以 `scripts/release-ci.mjs` 的 `item-version`
+  在认不出形状时**选择弃权**而不是猜：预检跳过，由上传响应体自己说明原因，这条命令永不使步骤失败。
+  第一次真跑时请顺手核对摘要里读到的线上版本号确实是 1.0.0——它是「商店只接受严格更高的版本号」那条预检的分母。
 - 分支保护的实际配置（本仓库若已要求状态检查通过）会直接影响 1.3 节的退路是否够用。
+- **已经真跑过的只有两处**（2026-10-02，都在隔离副本里，没有碰远端）：`release.mjs --write` 在 `main` 上产出的
+  那份发布提交（只改三份文件，`## [未发布]` 与它那 150 条之间插标题），以及第二节第 7 条那个「绿着合错」的
+  合并形状与 `scripts/repair-release-merge.mjs` 对它的重建（含五条断言各自被变异触发）。Actions 自身的触发规则
+  仍然只有真跑一次才算证据。
 
 ---
 
 ## 相关文档
 
 - **半自动发布链路的两个脚本**：`scripts/release.mjs`（计划与落地）、`scripts/release-ci.mjs`（Actions 适配）
+- **发版后把 `main` 合回长期分支时的重建工具**：`scripts/repair-release-merge.mjs`（`--check` 只报告，不带
+  `--check` 才写盘；默认读 `MERGE_HEAD` 与 `ORIG_HEAD`，也可以给显式 ref）
 - **上架手册（凭据、手工建条目、商店字段）**：`.github/CWS_PUBLISHING_GUIDE.md` / `.en.md`
 - **商店文案与首次上架手工步骤**：`CHROMEWEBSTORE.md`
 - **提交类型如何影响版本号与 changelog**：`CONTRIBUTING.md` → 值得先知道的约定 → 「提交信息就是发布说明的数据源」（英文对照在 `CONTRIBUTING.en.md`）

@@ -225,9 +225,9 @@
             "@id": "https://liaolongdong.github.io/transfer-any-file/#app",
             "name": "Transfer Any File",
             "alternateName": ["Transfer Any File — Offline File Format Converter", "文件格式任意转换助手"],
-            "softwareVersion": "1.0.0",
+            "softwareVersion": "1.1.0",
             "datePublished": "2026-09-07",
-            "dateModified": "2026-09-29",
+            "dateModified": "2026-10-02",
             "applicationCategory": "UtilitiesApplication",
             "applicationSubCategory": "File Format Converter",
             "keywords": "offline file format converter, file converter chrome extension, markdown to pdf, word to pdf, csv to excel, json to csv, png to webp, svg to png, html to docx, batch file conversion, convert files without uploading, local-first, privacy",
@@ -280,7 +280,10 @@
               "Keyboard-accessible UI, with topbar, button, focus-ring and informational-text contrast measured per theme",
               "Only one permission: storage"
             ],
-            "sameAs": ["https://github.com/liaolongdong/transfer-any-file"]
+            "sameAs": [
+              "https://github.com/liaolongdong/transfer-any-file",
+              "https://chromewebstore.google.com/detail/blkdmpkcaceicinkhindniepbbbaekkb"
+            ]
           },
           {
             "@type": "FAQPage",
@@ -424,10 +427,10 @@
               },
               {
                 "@type": "Question",
-                "name": "还没上架商店，现在怎么安装？",
+                "name": "怎么安装？商店里有吗？",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "从源码构建：用 Node.js 20.12+ 与 pnpm 执行 pnpm install 和 pnpm build，然后打开 chrome://extensions、开启开发者模式、点「加载未打包的扩展」并选择 .output/chrome-mv3。点击工具栏图标即在新标签页打开工作台。"
+                  "text": "有。条目已上线 Chrome 应用商店（https://chromewebstore.google.com/detail/blkdmpkcaceicinkhindniepbbbaekkb），点一次装好即为稳定版，之后自动跟随更新，不需要开启开发者模式。另一条路是源码构建：用 Node.js 20.12+ 与 pnpm 执行 pnpm install 和 pnpm build，然后打开 chrome://extensions、开启开发者模式、点「加载未打包的扩展」并选择 .output/chrome-mv3。两种方式都是点击工具栏图标即在新标签页打开工作台。"
                 }
               },
               {
@@ -676,10 +679,10 @@
           },
           {
             '@type': 'Question',
-            name: 'It is not on the Store yet — how do I install it today?',
+            name: 'How do I install it — is it on the Store?',
             acceptedAnswer: {
               '@type': 'Answer',
-              text: 'Build from source with Node.js 20.12 or later and pnpm: run pnpm install then pnpm build, open chrome://extensions, enable Developer mode, click Load unpacked and select the .output/chrome-mv3 folder. Clicking the toolbar icon opens the workbench in a new tab.',
+              text: 'It is on the Store: the listing (https://chromewebstore.google.com/detail/blkdmpkcaceicinkhindniepbbbaekkb) gives you the stable build and its updates, with no Developer mode needed. The other route is a source build — Node.js 20.12 or later plus pnpm: run pnpm install then pnpm build, open chrome://extensions, enable Developer mode, click Load unpacked and select the .output/chrome-mv3 folder. Either way, clicking the toolbar icon opens the workbench in a new tab.',
             },
           },
           {
@@ -1234,6 +1237,14 @@
         flex-wrap: wrap;
         gap: 12px;
         margin-top: 26px;
+      }
+
+      /* Four labels don't fit one row at desktop widths; the store button takes the first row
+         on purpose so the wrap reads as hierarchy rather than as an orphaned fourth button. */
+      @media (width > 620px) {
+        .hero-cta .btn-primary {
+          flex: 1 1 100%;
+        }
       }
 
       .hero-note {
@@ -3865,7 +3876,9 @@
             <div class="hero-cta">
               <a
                 class="btn btn-primary"
-                href="#install"
+                href="https://chromewebstore.google.com/detail/blkdmpkcaceicinkhindniepbbbaekkb"
+                rel="noopener"
+                target="_blank"
               >
                 <svg
                   width="17"
@@ -3882,6 +3895,13 @@
                   <path d="M7 10l5 5 5-5" />
                   <path d="M12 15V3" />
                 </svg>
+                <span lang="zh-CN">从 Chrome 应用商店安装</span>
+                <span lang="en">Install from the Chrome Web Store</span>
+              </a>
+              <a
+                class="btn btn-ghost"
+                href="#install"
+              >
                 <span lang="zh-CN">从源码安装（4 步）</span><span lang="en">Install from source (4 steps)</span>
               </a>
               <a
@@ -3901,12 +3921,17 @@
             </div>
             <p class="hero-note">
               <span lang="zh-CN"
-                >尚未上架 Chrome 应用商店：构建后在
+                >免费、开源、只申请
+                <code>storage</code>
+                一项权限，文件不出本机。走源码的话需要先构建，再在
                 <code>chrome://extensions</code>
-                以「加载未打包的扩展」安装。点击工具栏图标即在新标签页打开转换工作台。</span
+                加载未打包目录。点击工具栏图标即在新标签页打开转换工作台。</span
               >
               <span lang="en"
-                >Not on the Chrome Web Store yet: build it, then load the unpacked folder in
+                >Free, open source, one permission (
+                <code>storage</code>
+                ), and your files never leave the machine. The source route means building first, then loading the
+                unpacked folder in
                 <code>chrome://extensions</code>. Clicking the toolbar icon opens the workbench in a new tab.</span
               >
             </p>
@@ -4258,13 +4283,13 @@
             <table class="matrix">
               <caption>
                 <span lang="zh-CN"
-                  >文件格式任意转换助手 1.0.0 的实际转换能力（从 utils/converters/
+                  >文件格式任意转换助手 1.1.0 的实际转换能力（从 utils/converters/
                   注册表直接推导，非估计值）。三个格式列互不重叠，相加正好等于「可达」：「一步直达」是已注册转换器的目标，「经链路到达」只列链路可达且仍然可选的目标，「被置灰」列同样链路可达、但被语义策略禁用的组合（图片
                   → 文本 / 数据：没有文字层，除非接 OCR；PDF → 表格 / JSON：PDF
                   不携带表格结构）。被置灰的全部是多步链路目标，因为没有任何一条已注册的直连转换被策略禁用。去掉「被置灰」即为「可选」。</span
                 >
                 <span lang="en"
-                  >Actual conversion capability in Transfer Any File 1.0.0, derived from the converter registry rather
+                  >Actual conversion capability in Transfer Any File 1.1.0, derived from the converter registry rather
                   than estimated. The three format columns do not overlap, and together they add up to "Reachable":
                   "Direct targets" are registered converters, "Reached via a chain" lists only chain-reachable targets
                   that stay selectable, and "Greyed out" holds the chain-reachable pairs the semantic policy disables
@@ -5007,6 +5032,51 @@
             >
             <a
               class="pair"
+              href="convert/pdf-to-html.html"
+              >PDF → HTML<small>.pdf → .html</small></a
+            >
+            <a
+              class="pair"
+              href="convert/pdf-to-docx.html"
+              >PDF → Word<small>.pdf → .docx</small></a
+            >
+            <a
+              class="pair"
+              href="convert/docx-to-html.html"
+              >Word → HTML<small>.docx → .html</small></a
+            >
+            <a
+              class="pair"
+              href="convert/txt-to-md.html"
+              >TXT → Markdown<small>.txt → .md</small></a
+            >
+            <a
+              class="pair"
+              href="convert/pdf-to-png.html"
+              >PDF → PNG<small>.pdf → .png</small></a
+            >
+            <a
+              class="pair"
+              href="convert/pdf-to-jpg.html"
+              >PDF → JPEG<small>.pdf → .jpg</small></a
+            >
+            <a
+              class="pair"
+              href="convert/pdf-to-webp.html"
+              >PDF → WebP<small>.pdf → .webp</small></a
+            >
+            <a
+              class="pair"
+              href="convert/xlsx-to-pdf.html"
+              >Excel → PDF<small>.xlsx → .pdf</small></a
+            >
+            <a
+              class="pair"
+              href="convert/html-to-png.html"
+              >HTML → PNG<small>.html → .png</small></a
+            >
+            <a
+              class="pair"
               href="convert/excel-to-csv.html"
               >Excel → CSV<small>.xlsx → .csv</small></a
             >
@@ -5074,6 +5144,31 @@
               class="pair"
               href="convert/svg-to-png.html"
               >SVG → PNG<small>.svg → .png</small></a
+            >
+            <a
+              class="pair"
+              href="convert/svg-to-jpg.html"
+              >SVG → JPEG<small>.svg → .jpg</small></a
+            >
+            <a
+              class="pair"
+              href="convert/svg-to-webp.html"
+              >SVG → WebP<small>.svg → .webp</small></a
+            >
+            <a
+              class="pair"
+              href="convert/gif-to-png.html"
+              >GIF → PNG<small>.gif → .png</small></a
+            >
+            <a
+              class="pair"
+              href="convert/bmp-to-png.html"
+              >BMP → PNG<small>.bmp → .png</small></a
+            >
+            <a
+              class="pair"
+              href="convert/bmp-to-jpg.html"
+              >BMP → JPEG<small>.bmp → .jpg</small></a
             >
           </div>
           <p class="sub">
@@ -5579,13 +5674,16 @@
               </h3>
               <p>
                 <span lang="zh-CN"
-                  >文本结果 deflate 后约小 10 倍；PNG / PDF / XLSX 这类已压好的产物直接 stored，不浪费
-                  CPU。单文件则直接下载，不会强塞进 ZIP。</span
+                  >文本结果 deflate 后约小 10 倍；图片按页面内容而定——12 页真实 PDF 导出实测 PNG 条目小
+                  39%，而一页以纯色为主的文档，PNG 与 WebP 各小一半、JPEG 小 91%。PDF / XLSX / DOCX
+                  这类自带容器的产物直接 stored，不浪费 CPU。单文件则直接下载，不会强塞进 ZIP。</span
                 >
                 <span lang="en"
-                  >Text results deflate to roughly a tenth of the size; already-compressed outputs such as PNG, PDF and
-                  XLSX are stored as-is so no CPU is wasted. A single result downloads on its own rather than being
-                  forced into an archive.</span
+                  >Text results deflate to roughly a tenth of the size; images depend on what is on the page — a real
+                  12-page PDF export measured its PNG entries 39% smaller, and a mostly flat document page gives 50% as
+                  PNG or WebP and 91% as JPEG. Outputs that carry their own container — PDF, XLSX, DOCX — are stored
+                  as-is so no CPU is wasted. A single result downloads on its own rather than being forced into an
+                  archive.</span
                 >
               </p>
             </article>
@@ -6180,25 +6278,32 @@
               <span lang="zh-CN">安装与使用</span><span lang="en">Install &amp; use</span>
             </span>
             <h2>
-              <span lang="zh-CN">安装四步，日常四步</span>
-              <span lang="en">Four steps to install, four steps a day</span>
+              <span lang="zh-CN">安装一次点击，日常四步</span>
+              <span lang="en">One click to install, four steps a day</span>
             </h2>
             <p class="sub">
               <span lang="zh-CN"
-                >尚未上架 Chrome 应用商店，所以目前的安装方式是「加载未打包的扩展」：需要 Node.js 20.12 或更新版本与
-                pnpm。上架后本块会同步更新。</span
+                >商店条目已上线：装上就是稳定版，之后自动跟随更新，不需要开启开发者模式。要审阅构建产物或改代码，
+                走下面的源码四步（需要 Node.js 20.12 或更新版本与 pnpm）。</span
               >
               <span lang="en"
-                >It is not on the Chrome Web Store yet, so today it is a load-unpacked install: Node.js 20.12 or later
-                and pnpm. This section will be updated once it is listed.</span
+                >The listing is live: installing from the store gives you the stable build and its updates, with no
+                Developer mode needed. To review the built artifact or change the code, use the four source steps below
+                (Node.js 20.12 or later and pnpm).</span
               >
             </p>
-            <!-- Outside the <p> on purpose: a <div> inside a <p> is not allowed, and the parser
-                 ends the paragraph before it anyway — this is just what actually happens. -->
-            <div class="cws-notice">
-              <span lang="zh-CN">商店页面链接与一键安装入口上架后出现在此处。</span>
-              <span lang="en">The one-click install link and the listing URL will appear here once published.</span>
-            </div>
+            <a
+              class="btn btn-primary"
+              href="https://chromewebstore.google.com/detail/blkdmpkcaceicinkhindniepbbbaekkb"
+              rel="noopener"
+              target="_blank"
+            >
+              <span lang="zh-CN">从 Chrome 应用商店安装</span><span lang="en">Install from the Chrome Web Store</span>
+            </a>
+            <h3 style="margin: 38px 0 14px">
+              <span lang="zh-CN">从源码安装（4 步）</span>
+              <span lang="en">From source, four steps</span>
+            </h3>
           </div>
           <div class="steps-grid">
             <article class="step reveal">
@@ -7361,8 +7466,8 @@ pnpm build</code><button
             </h3>
             <details class="faq-item">
               <summary>
-                <span lang="zh-CN">还没上架商店，现在怎么安装？</span>
-                <span lang="en">It is not on the Store yet — how do I install it today?</span>
+                <span lang="zh-CN">怎么安装？商店里有吗？</span>
+                <span lang="en">How do I install it — is it on the Store?</span>
                 <svg
                   class="chev"
                   width="17"
@@ -7380,16 +7485,30 @@ pnpm build</code><button
               </summary>
               <div class="faq-a">
                 <span lang="zh-CN"
-                  >从源码构建：用 Node.js 20.12+ 与 pnpm 执行 <code>pnpm install</code> 和
-                  <code>pnpm build</code>，然后打开
+                  >有。条目已上线
+                  <a
+                    href="https://chromewebstore.google.com/detail/blkdmpkcaceicinkhindniepbbbaekkb"
+                    rel="noopener"
+                    target="_blank"
+                    >Chrome 应用商店</a
+                  >，点一次装好即为稳定版，之后自动跟随更新，不需要开启开发者模式。另一条路是源码构建：用 Node.js 20.12+
+                  与 pnpm 执行 <code>pnpm install</code> 和 <code>pnpm build</code>，然后打开
                   <code>chrome://extensions</code>、开启开发者模式、点「加载未打包的扩展」并选择
-                  <code>.output/chrome-mv3</code>。点击工具栏图标即在新标签页打开工作台。</span
+                  <code>.output/chrome-mv3</code>。两种方式都是点击工具栏图标即在新标签页打开工作台。</span
                 >
                 <span lang="en"
-                  >Build from source with Node.js 20.12 or later and pnpm: run <code>pnpm install</code> then
-                  <code>pnpm build</code>, open <code>chrome://extensions</code>, enable Developer mode, click Load
-                  unpacked and select the <code>.output/chrome-mv3</code> folder. Clicking the toolbar icon opens the
-                  workbench in a new tab.</span
+                  >It is on the Store: the
+                  <a
+                    href="https://chromewebstore.google.com/detail/blkdmpkcaceicinkhindniepbbbaekkb"
+                    rel="noopener"
+                    target="_blank"
+                    >listing</a
+                  >
+                  gives you the stable build and its updates, with no Developer mode needed. The other route is a source
+                  build — Node.js 20.12 or later plus pnpm: run <code>pnpm install</code> then <code>pnpm build</code>,
+                  open <code>chrome://extensions</code>, enable Developer mode, click Load unpacked and select the
+                  <code>.output/chrome-mv3</code> folder. Either way, clicking the toolbar icon opens the workbench in a
+                  new tab.</span
                 >
               </div>
             </details>
@@ -7584,8 +7703,8 @@ pnpm build</code><button
               <p>
                 <span lang="zh-CN"
                   >一套 Playwright 端到端套件加载真正的构建产物，用仓库内的夹具跑完各类转换场景、批量与
-                  ZIP、取消与改键、预览与编辑、图片输出参数与转换预设、PDF 选页、输出文件名模板、历史与偏好，共 327
-                  项断言全部通过（1.0.0 之后的未发布构建，2026-09-30 实测）；另在 6 主题 × 浅/深共 12
+                  ZIP、取消与改键、预览与编辑、图片输出参数与转换预设、PDF 选页、输出文件名模板、历史与偏好，共 332
+                  项断言全部通过（1.0.0 之后的未发布构建，2026-10-03 实测）；另在 6 主题 × 浅/深共 12
                   种组合下逐项校验四组对比度：顶栏文字、主按钮文字（常态 / 悬停 / 按下）、焦点环与正文信息文字。CI
                   每次推送跑 lint + build + e2e。</span
                 >
@@ -7593,8 +7712,8 @@ pnpm build</code><button
                   >A Playwright end-to-end suite drives the actual build output over the repository fixtures — every
                   conversion scenario, batching and ZIP handling, cancellation and shortcut rebinding, preview and
                   editing, image output parameters and conversion presets, PDF page selection, output file-name
-                  patterns, history and preferences — with 327/327 assertions passing (the unreleased build after 1.0.0,
-                  measured 2026-09-30). It also checks four contrast pairs — topbar text, the primary button's label in
+                  patterns, history and preferences — with 332/332 assertions passing (the unreleased build after 1.0.0,
+                  measured 2026-10-03). It also checks four contrast pairs — topbar text, the primary button's label in
                   its rest, hover and pressed states, the focus ring, and informational text such as the drop hint and
                   file sizes — in all 12 theme × light/dark combinations. CI runs lint, build and e2e on every
                   push.</span
@@ -7619,20 +7738,20 @@ pnpm build</code><button
           </div>
           <p class="updated">
             <span lang="zh-CN"
-              ><strong>版本 1.0.0 · 本页最后更新 2026-09-29。</strong>文中全部数字从代码取证：14 种格式来自
+              ><strong>版本 1.1.0 · 本页最后更新 2026-10-02。</strong>文中全部数字从代码取证：14 种格式来自
               <code>FileFormat</code> 枚举，48 条路径与 143 个可达组合来自转换器注册表的邻接图，116 个可选组合是 143
               减去 <code>utils/core/conversion-policy.ts</code> 置灰的 27 个，3.83 MB 来自
               <code>pnpm build</code> 输出，权限与上限来自 manifest 与源码常量。截图与推广图由
-              <code>pnpm assets:capture</code> 从构建产物生成；<code>docs/convert/</code> 的 21 张配对页与 1 个索引页由
+              <code>pnpm assets:capture</code> 从构建产物生成；<code>docs/convert/</code> 的 35 张配对页与 1 个索引页由
               <code>pnpm pages:render</code> 生成，与 <code>docs/sitemap.xml</code> 同步。</span
             >
             <span lang="en"
-              ><strong>Version 1.0.0 · page last updated 2026-09-29.</strong> Every number on this page is taken from
+              ><strong>Version 1.1.0 · page last updated 2026-10-02.</strong> Every number on this page is taken from
               the code: 14 formats from the <code>FileFormat</code> enum, 48 routes and 143 reachable combinations from
               the converter registry's adjacency graph, and 116 selectable combinations — that is 143 minus the 27 pairs
               <code>utils/core/conversion-policy.ts</code> greys out. 3.83 MB comes from <code>pnpm build</code> output,
               permissions and limits from the manifest and source constants. Screenshots are generated from the built
-              bundle by <code>pnpm assets:capture</code>, and the per-pair pages — 21 of them, plus an index — come from
+              bundle by <code>pnpm assets:capture</code>, and the per-pair pages — 35 of them, plus an index — come from
               <code>pnpm pages:render</code>, which writes the sitemap they are listed in.</span
             >
           </p>
@@ -7924,6 +8043,14 @@ pnpm build</code><button
             <span><a href="llms.txt">llms.txt</a></span>
             <span>
               <a
+                href="https://chromewebstore.google.com/detail/blkdmpkcaceicinkhindniepbbbaekkb"
+                rel="noopener"
+                target="_blank"
+                ><span lang="zh-CN">应用商店条目</span><span lang="en">Store listing</span></a
+              >
+            </span>
+            <span>
+              <a
                 href="https://github.com/liaolongdong/transfer-any-file"
                 rel="noopener"
                 target="_blank"
@@ -7943,12 +8070,12 @@ pnpm build</code><button
               </a>
             </span>
             <span>
-              <span lang="zh-CN">最后更新 2026-09-29 · </span><span lang="en">Last updated 2026-09-29 · </span
+              <span lang="zh-CN">最后更新 2026-10-02 · </span><span lang="en">Last updated 2026-10-02 · </span
               ><a
                 href="https://github.com/liaolongdong/transfer-any-file/blob/main/CHANGELOG.md"
                 rel="noopener"
                 target="_blank"
-                >v1.0.0</a
+                >v1.1.0</a
               >
             </span>
           </div>

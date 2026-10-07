@@ -49,11 +49,19 @@ pnpm test:e2e         # build + Playwright suite over fixtures/
 pnpm assets:capture   # regenerate store/README screenshots + promo graphics (needs pnpm build first)
 node scripts/render-demo-gif.mjs   # re-record the demo GIF at the top of the README (needs pnpm build, plus ffmpeg on PATH)
 node scripts/render-icons.mjs   # re-render both icon tiers from assets/*.svg
-node scripts/verify-extension.mjs   # check the built package contents
+node scripts/verify-extension.mjs   # load the package into a real browser: worker, _locales resolution, first-screen chunks, egress
 pnpm release:plan     # plan only: next version, both changelog entries, which commits count as noise (writes nothing)
 pnpm release:cut      # cut locally: edit those three files + the release commit + the lightweight tag (no push)
 git tag vX.Y.Z && git push origin vX.Y.Z   # pushing the tag starts release.yml: build the store zip, verify it, open the GitHub Release; push just this one — --tags would publish any leftover local tags
 ```
+
+`node scripts/verify-extension.mjs` is the only entry in that column that needs a real browser to load the package.
+Point `VERIFY_EXT_CHROME` at a Chromium-family binary that honours `--load-extension`: branded Chrome ignores the flag,
+Playwright's bundled Chromium cannot be installed on macOS 13, and Chrome for Testing works (the `Browser:` line the
+run prints first says which one it used). If that machine cannot run it, the round does not have to be skipped —
+`pnpm test:e2e` covers the same build output, only over HTTP rather than as an installed extension, so what is only
+visible after a load (the worker, what `_locales` resolved to) is outside its reach. `VERIFY_EXT_PATH` points this gate
+at a different build directory; its purpose is to prove the assertions actually go red.
 
 Like the screenshots, the demo GIF is recorded from the real build output (`docs/assets/demo/demo-<locale>.gif`, one per language, chosen with `DEMO_LOCALES="zh en"`); if the UI changes and the GIF is not re-recorded, the README drifts from the actual workbench.
 

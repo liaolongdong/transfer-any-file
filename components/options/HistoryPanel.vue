@@ -5,7 +5,7 @@ import { saveAs } from 'file-saver';
 import { useHistory, MAX_IMPORT_BYTES, HISTORY_IMPORT_ERROR_KEYS, searchableFileNames } from '~/composables/useHistory';
 import type { HistoryRecord } from '~/composables/useHistory';
 import { useI18n } from '~/composables/useI18n';
-import { formatSize } from '~/utils/core/format';
+import { formatDuration, formatSize } from '~/utils/core/format';
 import { getFormatLabel } from '~/utils/core/format-labels';
 import type { FileFormat } from '~/utils/core/types';
 import HistoryTrendChart from '~/components/shared/HistoryTrendChart.vue';
@@ -77,6 +77,22 @@ function formatTime(time: number): string {
 function isoTime(time: number): string {
   return new Date(time).toISOString();
 }
+
+/**
+ * The batch's own cost, from the same record as the size beside it.
+ *
+ * Narrowing lives here rather than in the template on purpose: `v-if="record.durationMs !== undefined"`
+ * and the interpolation next to it are two separate expressions, and vue-tsc does not carry the first
+ * one's narrowing into the second — writing `formatDuration(record.durationMs)` in the template is a
+ * `number | undefined` argument going into a `number` parameter.
+ *
+ * The test is for **presence**, not for a non-zero amount. Records written before the field existed
+ * print nothing; a batch that `Date.now()` landed on 0 ms did run, and prints `< 0.1 s` — the same
+ * reading the results panel gave it a moment before the row was ever written. Truthiness would have
+ * made those two carriers of one number disagree about whether it was measured at all.
+ */
+const durationText = (record: HistoryRecord): string =>
+  record.durationMs !== undefined ? formatDuration(record.durationMs) : '';
 
 /** Tooltip for the row label. A batch row reveals every member file on hover — the
  *  visible text is compact by design, so this is the only place the full list lives. */
@@ -347,6 +363,21 @@ async function handleImportChange(e: Event): Promise<void> {
             >
               {{ record.fileName }}
             </span>
+            <!-- The size of what the batch produced, which is the only figure a row like this is
+                 read for. `fileCount` needs no column of its own — the label already carries it as
+                 `name.md + 3` — and the source size would ask the reader to compare two numbers
+                 about a conversion that is already over. -->
+            <span class="history-size">{{ formatSize(record.resultSize) }}</span>
+            <!-- Presence check, not non-zero: an older record has no field and prints no cell, while a
+                 batch measured at 0 ms prints the same `< 0.1 s` the results panel just showed. Going
+                 through `durationText` rather than the raw field keeps one more case honest — a value
+                 `formatDuration` refuses (a negative, from a wall clock that moved mid-batch) prints no
+                 cell instead of an empty slot where a reading should be. -->
+            <span
+              v-if="durationText(record)"
+              class="history-duration"
+              >{{ durationText(record) }}</span
+            >
             <time
               class="history-time"
               :datetime="isoTime(record.time)"
@@ -505,6 +536,15 @@ async function handleImportChange(e: Event): Promise<void> {
 }
 
 .history-time {
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Shares `.history-name`'s shrinking budget rather than the time's fixed slot: the size and the
+   duration are both short, bounded strings, and the only variable-width thing on this line is the
+   filename they sit behind. */
+.history-size,
+.history-duration {
   flex-shrink: 0;
   font-variant-numeric: tabular-nums;
 }

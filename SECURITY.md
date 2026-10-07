@@ -25,6 +25,8 @@
 
 优先使用**私密安全通告**：[仓库的 Security 页](https://github.com/liaolongdong/transfer-any-file/security/policy)提供「Report a vulnerability」入口，可以让细节不进入公开的 issue 列表。如果该表单在本仓库暂不可用，请发邮件到 `924902324@qq.com`。
 
+同一份策略另有一份机器可读副本：[security.txt](https://liaolongdong.github.io/transfer-any-file/security.txt)，它的 `Contact:` 就是上面这两条通道。
+
 请一并给出：
 
 - 版本标识（`git rev-parse HEAD`）或商店版本号。

@@ -24,6 +24,13 @@ export interface HistoryRecord {
   fileSize: number;
   resultSize: number;
   fileCount: number;
+  /** Milliseconds the batch loop took (`useConversion`'s `elapsedMs`), for the row's readout.
+   *
+   *  Optional and additive for exactly the reason `fileNames` is: records written before it existed
+   *  simply have no value, and an older build reading a newer export discards the unknown key.
+   *  `HISTORY_EXPORT_VERSION` therefore does not move — bumping it would turn a compatible addition
+   *  into a hard rejection for no benefit. */
+  durationMs?: number;
 }
 
 const MAX_RECORDS = 50;
@@ -76,6 +83,12 @@ type LooseHistoryRecord = HistoryRecord & { [key: string]: unknown };
  *  panel rather than one row. `Number.isFinite` alone does not catch it: `1e18` is finite. */
 const MAX_TIME_MS = 8.64e15;
 
+/** Ceiling for `durationMs`: 24 h. A batch longer than that is not a duration but a bug — an
+ *  unguarded `Date.now()` subtraction across a device suspend, or a hand-edited export — and the
+ *  row would render it as `1440 min 00 s` while claiming to say how long a conversion took. The
+ *  same "clamp, don't reject" treatment as the sizes in `normalizeRecord`. */
+const MAX_DURATION_MS = 86_400_000;
+
 /** Same ceiling the writers use (`MAX_BATCH_FILES` in `FileUpload.vue`), restated here because that
  *  constant lives inside the SFC. An imported payload can claim any number of names per record, and
  *  every one of them reaches the search index and the row tooltip. */
@@ -114,6 +127,13 @@ function normalizeRecord(o: LooseHistoryRecord): HistoryRecord {
     resultSize: Math.max(0, o.resultSize),
     fileCount: Math.max(0, Math.floor(o.fileCount)),
   };
+  // `isHistoryRecord` does not gate this optional field: a record whose only defect is a bad
+  // duration is still a conversion the user exported, and dropping the duration keeps the row — the
+  // same trade `fileNames` makes.
+  const duration: unknown = o.durationMs;
+  if (typeof duration === 'number' && Number.isFinite(duration) && duration >= 0) {
+    base.durationMs = Math.min(duration, MAX_DURATION_MS);
+  }
   const names: unknown = o.fileNames;
   if (Array.isArray(names) && names.length > 0 && names.every(n => typeof n === 'string' && n)) {
     base.fileNames = (names as string[]).slice(0, MAX_BATCH_NAMES);

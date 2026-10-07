@@ -1,6 +1,6 @@
 # 社区分发文案（中文渠道）· Transfer Any File
 
-> 用途：把已完成的产品事实投到中文渠道上，换回 GitHub 的访问与 star、以及商店上架后的安装量。
+> 用途：把已完成的产品事实投到中文渠道上，换回 GitHub 的访问与 star、以及商店条目的安装量。
 > 与 `wechat-article.md`（公众号长文）、`weibo-posts.md`（微博短帖）互补：本文件只管**掘金 / V2EX / 知乎 / 即刻·小红书**这四类社区帖。
 > 这些草稿**不自动发布**，全部由开发者手工粘贴；发布前请读文末[发贴纪律](#发贴纪律每次都要过一遍)。
 >
@@ -17,19 +17,20 @@
 - 权限：只有 `storage` 一项 | 出处 `wxt.config.ts`
 - 体积与阈值：单文件最大 100 MB、单批最多 200 个文件，超过 20 MB 或超过 5 个文件先弹确认 | 出处 `components/shared/FileUpload.vue`、`composables/useConversion.ts`
 - 整包体积：3.83 MB | 出处 `pnpm build` 输出，按字节和 ÷ 1e6
-- 端到端断言：跑 327 条断言 | 出处 `scripts/__baseline__/e2e-assertions.json`（一轮完整绿灯运行记录）
+- 端到端断言：跑 332 条断言 | 出处 `scripts/__baseline__/e2e-assertions.json`（一轮完整绿灯运行记录）
 - 主题：6 种主题色，浅色 / 深色两组共 12 组配置逐组断言对比度 | 出处 `composables/useTheme.ts`
 - 许可 / 作者：MIT，单一作者 Better（[@liaolongdong](https://github.com/liaolongdong)） | 出处 `LICENSE`、`package.json`
-- 商店状态：**尚未上架**，只能自己构建后「加载已解压的扩展程序」 | 出处 `.github/CHROMEWEBSTORE.md`
+- 商店状态：**已上线**，一次点击安装 | 出处 `.github/CHROMEWEBSTORE.md` 顶部「现网状态」（2026-10-02 浏览器实测条目在架，详情区版本 1.0.0）
 
 链接（按渠道决定放几个，能放链接就优先这几条）：
 
+- 商店条目：<https://chromewebstore.google.com/detail/blkdmpkcaceicinkhindniepbbbaekkb>
 - 仓库：<https://github.com/liaolongdong/transfer-any-file>
 - 产品说明页（中英双语）：<https://liaolongdong.github.io/transfer-any-file/>
 - 逐条链路说明（10 条链路 + 一页总览）：<https://liaolongdong.github.io/transfer-any-file/convert/>
 - 博客长文：<https://liaolongdong.github.io/transfer-any-file/blog/>
 
-**一句必须如实说出来的话**：现在没有一键安装。所有中文渠道的帖子都要写明「未上架商店，需要 `pnpm build` 后加载解压目录」，不要让读者以为点一下就能装。这条诚实度换回来的是 issue 区没人抱怨「装不上」，以及审核员不会认为你在夸大。
+**一句必须如实说出来的话**：商店一键安装现在是事实，可以直接写；但**源码构建那条路也要一并给出**——管控机上常常只允许它，而且对想自己验证「文件不出本机」的读者，加载构建产物才是可验证的入口。同样不能省的是限制（PDF 输出是逐页图片、没有文字层；不做 OCR；单文件 100 MB）。这条诚实度换回来的是 issue 区没人抱怨「装不上」，以及审核员不会认为你在夸大。
 
 ## 掘金（技术长文，主渠道）
 
@@ -42,7 +43,7 @@
 正文（可直接粘，图从 `docs/assets/` 里取，本地上传到掘金）：
 
 ```
-先说清楚它是什么：一个 Chrome 扩展，把 Markdown、Word、PDF、TXT、HTML、CSV、Excel、JSON 和 6 种图片格式互转，全部在你自己的浏览器里完成。14 种格式，48 条直接路径，多步链路自动求出来。MIT 开源，尚未上架商店，需要 clone 后 pnpm build 再「加载已解压的扩展程序」。
+先说清楚它是什么：一个 Chrome 扩展，把 Markdown、Word、PDF、TXT、HTML、CSV、Excel、JSON 和 6 种图片格式互转，全部在你自己的浏览器里完成。14 种格式，48 条直接路径，多步链路自动求出来。MIT 开源，Chrome 应用商店已上架（<https://chromewebstore.google.com/detail/blkdmpkcaceicinkhindniepbbbaekkb>），一次点击装好；想自己审阅构建产物的话，clone 后 pnpm build 再「加载已解压的扩展程序」也走得通。
 
 链接在最后。下面讲三件我觉得值得写的实现细节。
 
@@ -81,7 +82,7 @@
 - 中文编码：文本按 UTF-8 读，失败依次回退 GB18030 与 GBK；写 CSV 带 UTF-8 BOM，Excel 双击打开不乱码。
 - 值保真比格式更重要：XLSX → CSV 按单元格存储值序列化（不是显示文本），日期在读取期统一成 ISO 形状而不是日序列号；CSV → XLSX 只在「解析后能精确回写」时才判成数值单元格，于是 `00123` 和一串 20 位数字不会被静默改坏。以 `= + - @` 开头的字段统一转义，防止 CSV 在 Excel 里被当公式执行。
 - 首屏：重型转换库全部动态 `import()`，ZIP 引擎（fflate）也只在真正要用它的那个调用点 `await import()`。整包 3.83 MB，但打开工作台不会拉那 1.26 MB 的 `pdf.worker`。注意一个坑：`defineAsyncComponent` 不等于它的 import 也是懒的——被 `v-show` 常驻挂载的异步组件在启动那一刻就解析完了自己的 chunk。
-- 测试没有单测框架，只有 Playwright 驱动**构建产物**跑 327 条断言，包括 6 种主题色 × 明暗共 12 组配置下的逐项对比度断言。
+- 测试没有单测框架，只有 Playwright 驱动**构建产物**跑 332 条断言，包括 6 种主题色 × 明暗共 12 组配置下的逐项对比度断言。
 - 文档层跑过一遍：所有对外散文里的数字（格式数、路径数、组合数、阈值、断言总数）都由一条脚本现推再比对，历史陈述按文件排除在射程外。
 
 ## 链接
@@ -95,7 +96,7 @@
 
 ## V2EX（分享创造 / 奇客软件）
 
-V2EX 的读者对「又是自我宣传」极其敏感，对「一个人做出来的东西」又确实宽容。所以：说清楚没上架、说清楚不做 OCR、把被拒三次当作主要内容之一。不堆卖点，不放徽章图。
+V2EX 的读者对「又是自我宣传」极其敏感，对「一个人做出来的东西」又确实宽容。所以：把被拒三次当作主要内容之一，说清楚不做 OCR。商店链接给一条就够，不堆卖点、不放徽章图。
 
 - 节点：分享创造（首选）／奇客软件
 - 标题：`写了个完全离线的文件格式转换扩展，14 种格式互转，被商店拒了三次终于搞清楚"离线"要怎么证明`
@@ -103,7 +104,7 @@ V2EX 的读者对「又是自我宣传」极其敏感，对「一个人做出来
 正文：
 
 ```
-一个人做的，MIT 开源，还没上架 Chrome 商店，所以现在只能自己构建加载。
+一个人做的，MIT 开源，已上架 Chrome 商店：<https://chromewebstore.google.com/detail/blkdmpkcaceicinkhindniepbbbaekkb>；不想用商店的可以自己构建加载（pnpm build 后加载 .output/chrome-mv3）。
 
 干什么的：Markdown / Word / PDF / TXT / HTML / CSV / Excel / JSON / 6 种图片格式互转，全在本机浏览器里，文件不出电脑。多步链路（比如 Markdown → PDF）不用你手工串，转换器注册成图上的边，跑 BFS 求最短路径。一次能转 200 个文件，源格式混着来也行，单个失败不拖整批。
 
@@ -137,7 +138,7 @@ V2EX 的读者对「又是自我宣传」极其敏感，对「一个人做出来
 针对你问的这个具体转换，能做到的和做不到的：
 （此处按问题填：例如 PDF → Excel——做不到可靠还原，界面上这个组合是置灰的并写明原因，因为不需要 OCR 之外的能力才能"看起来"给出表格；Word → Markdown——语义结构会保留，内嵌图片以 data URI 写进 .md，页眉页脚批注不会保留。）
 
-限制也说清楚：还没上架 Chrome 商店，需要 clone 之后 `pnpm build`，在 chrome://extensions 里加载 `.output/chrome-mv3`。单文件 100 MB、单批 200 个。PDF 输出是逐页渲染的图片，没有文字层。
+限制也说清楚：已上架 Chrome 商店（<https://chromewebstore.google.com/detail/blkdmpkcaceicinkhindniepbbbaekkb>），也可以 clone 之后 `pnpm build`，在 chrome://extensions 里加载 `.output/chrome-mv3`。单文件 100 MB、单批 200 个。PDF 输出是逐页渲染的图片，没有文字层。
 仓库：<https://github.com/liaolongdong/transfer-any-file>
 ```
 
@@ -154,7 +155,7 @@ V2EX 的读者对「又是自我宣传」极其敏感，对「一个人做出来
 14 种格式互转，转换器注册成图上的边，多步链路自动 BFS：Markdown → HTML → PDF 是一次点击。
 混合源格式批量转，单批 200 个，单个失败不拖整批；结果先看再下，文本能就地改。
 只申请一项权限，断网照样能转——这点可以自己拔线验证。
-还没上架商店，只能自己 pnpm build 加载。
+已上架 Chrome 商店，一次点击装好；想自己构建也行，pnpm build 后加载解压目录。
 仓库和说明页在评论区。
 ```
 
@@ -166,13 +167,13 @@ V2EX 的读者对「又是自我宣传」极其敏感，对「一个人做出来
   2. 这个扩展只申请一项权限，文件不出本机，断网可用，可以自己验证；
   3. 14 种格式：文档 / 表格 / 图片三类互转，一次能批量转 200 个；
   4. 中英界面，CSV 带 BOM，Excel 打开中文不乱码（这条对中文用户是真实痛点）；
-  5. 诚实的限制：不含 OCR，PDF 转出不带文字层，目前需要自己构建安装（附具体命令）；
+  5. 诚实的限制：不含 OCR，PDF 转出不带文字层；安装两条路——商店一次点击，或自己构建（附具体命令）；
   6. 仓库地址放在正文最后一行，不要只放评论区。
 
 ## 发贴纪律（每次都要过一遍）
 
 1. **数字只从上面那张事实表取**。改过代码就先 `pnpm verify:numbers`，别把旧帖子里的数字当现值。
-2. **未上架商店这件事不能藏**。任何渠道都要写明构建安装路径；否则安装率没涨，先涨一批「怎么装」的 issue。
+2. **两条安装路径都要写，一条也别藏**。商店条目已上线，能放链接就放上面那条 listing 地址；源码构建那条照旧给出——管控机上常常只允许它，而且它才是「文件不出本机」的可验证入口。只写商店不写构建，或反过来，都会先涨一批「怎么装」的 issue。
 3. **不做否定式功能的正面表述**：没有 OCR、PDF 无文字层、BMP/GIF/SVG 不能作为输出——被问到就直接说不行，并说明界面上会置灰给原因。
 4. **不放任何追踪参数**（`?utm_*` / `?from=*`）。项目主张是零网络请求，站点访问也不该被我们统计；链接一律干净 URL。
 5. **一次只在一个渠道首发**。掘金发出去之后再同步其他渠道，同一时间群发会被平台判为营销号行为；跨平台同步时在正文首行写「本文首发于 XXX」。

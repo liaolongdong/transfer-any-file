@@ -202,12 +202,24 @@ watch(isOpen, value => {
    flip lands on the first frame regardless of the delay, `transition-behavior: allow-discrete`
    included, so the row would animate an empty box shut. Getting both back would take a
    `transitionend` state machine around the resting value, and the failure modes it adds (a missed
-   end event leaves the card blank) cost more than 0.8ms on a resize frame. */
+   end event leaves the card blank) cost more than 0.8ms on a resize frame.
+
+   `min-height` guards the block axis; `min-width` guards the same rule on the inline one, where the
+   symptom is not a broken animation but an unreachable control. A grid item's automatic minimum is
+   its content's min-content width, and a history row's min-content is dominated by a filename that
+   is ellipsised on screen and therefore still one unbreakable word — the body refuses to shrink to
+   its column, the card clips the excess, and the row's own action buttons sit inside that clipped
+   area. Measured headless: at 720px the delete button's centre falls outside the clip
+   (`elementFromPoint` misses it), at 640px both buttons do. With `min-width: 0` the body is the
+   column width, the name surrenders its remaining characters to the ellipsis instead of the
+   buttons, and both controls hit-test down to 640px — while at 900px and 1280px every figure is
+   identical with and without the declaration. */
 .collapsible-body {
   overflow: hidden;
   overflow: clip;
   overflow-clip-margin: var(--fat-focus-ring-inset);
   min-height: 0;
+  min-width: 0;
   padding: 0 var(--fat-space-md) var(--fat-space-md);
   visibility: hidden;
   opacity: 0;

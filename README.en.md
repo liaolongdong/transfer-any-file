@@ -26,10 +26,13 @@ A Chrome extension (Manifest V3) that does every conversion inside a tab on your
 &nbsp;
 ![License MIT](https://img.shields.io/badge/license-MIT-blue?style=for-the-badge)
 
-<!-- CWS badges (replace ITEM_ID with the 32-char item ID from Chrome Web Store after publishing):
-[![CWS version](https://img.shields.io/chrome-web-store/v/ITEM_ID?label=CWS&logo=googlechrome&logoColor=white&color=4285F4)](https://chrome.google.com/webstore/detail/ITEM_ID)
-[![CWS users](https://img.shields.io/chrome-web-store/users/ITEM_ID?label=Users&logo=googlechrome&logoColor=white&color=4285F4)](https://chrome.google.com/webstore/detail/ITEM_ID)
-[![CWS rating](https://img.shields.io/chrome-web-store/rating/ITEM_ID?label=Rating&color=4285F4)](https://chrome.google.com/webstore/detail/ITEM_ID) -->
+[![CWS version](https://img.shields.io/chrome-web-store/v/blkdmpkcaceicinkhindniepbbbaekkb?label=CWS&logo=googlechrome&logoColor=white&color=4285F4&style=for-the-badge)](https://chromewebstore.google.com/detail/blkdmpkcaceicinkhindniepbbbaekkb)
+
+<!-- The other two shields badges (users / rating) measurably return "not found" — no ratings yet, and the
+     user count is below the display threshold — so mounting them would show a red "listing does not exist",
+     which is worse than mounting nothing. Enable them once they carry a value:
+[![CWS users](https://img.shields.io/chrome-web-store/users/blkdmpkcaceicinkhindniepbbbaekkb?label=Users&logo=googlechrome&logoColor=white&color=4285F4&style=for-the-badge)](https://chromewebstore.google.com/detail/blkdmpkcaceicinkhindniepbbbaekkb)
+[![CWS rating](https://img.shields.io/chrome-web-store/rating/blkdmpkcaceicinkhindniepbbbaekkb?label=Rating&color=4285F4&style=for-the-badge)](https://chromewebstore.google.com/detail/blkdmpkcaceicinkhindniepbbbaekkb) -->
 
 [Core advantages](#-core-advantages) · [In action](#-in-action) · [How it works](#-how-it-works) · [Supported formats](#-supported-conversions) · [How it compares](#-how-it-compares) · [Feature overview](#-feature-overview) · [Privacy](#-privacy) · [Installation and usage](#-installation-and-usage) · [FAQ](#-faq) · [Contributing](#-contributing) · [Contact](#-contact) · [Product page](https://liaolongdong.github.io/transfer-any-file/) · [Conversions](https://liaolongdong.github.io/transfer-any-file/convert/) · [Blog](https://liaolongdong.github.io/transfer-any-file/blog/)
 
@@ -164,9 +167,9 @@ Summarised from the typical behaviour of each class of tool rather than one spec
 
 - **Mixed-format batches** — drop 40 files of different types; each resolves its own route to the shared target, and only formats reachable from _every_ selected file are offered
 - **Per-file error isolation** — one broken file never blocks the batch; failures are listed with their reason, and each one expands to show the diagnostic (the conversion path and the step that failed) and copies out as plain text, ready to paste into an issue. The failed files alone can be re-run
-- **Step-level progress** — a multi-step route shows "Step 2 of 3" and names the file in flight, on the batch bar and in the single-file progress card alike; a three-step chain used to read identically at step one and at step three
+- **Step-level progress** — a multi-step route shows "Step 2 of 3" and names the file in flight, on the batch bar and in the single-file progress card alike; a three-step chain used to read identically at step one and at step three. The bar is now weighted by **steps** rather than files (its denominator is the batch's total step count), a single file on a multi-step chain gets a determinate progress bar of its own, and a finished batch prints how long it actually took — a figure each history row carries too
 - **Drop anywhere on the page** — the upload zone is not the only target; releasing files anywhere adds them to the batch. While a conversion is running the drop is ignored and the cursor shows "not allowed"
-- **ZIP download with per-entry compression** — text results (TXT / CSV / JSON / HTML / Markdown) are deflated and come out roughly 10× smaller, while already-compressed targets (PNG / JPEG / PDF / XLSX / DOCX) are stored as-is so no CPU is spent for no gain. Download-all stays in its loading state while the archive is written
+- **ZIP download with per-entry compression** — text and image results are both deflated: text (TXT / CSV / JSON / HTML / Markdown) comes out roughly 10× smaller, and images depend on the page — the 12 pages of a real PDF export measured 39% smaller as PNG and 59% as JPEG, while a page that is mostly flat colour gives 50% as PNG or WebP and 91% as JPEG. A high-entropy photograph has nothing to give up and grows by at most 0.02%, and the packing happens inside Download-all's loading state without freezing the page. PDF / XLSX / DOCX are still stored as-is
 - **Archive intake** — drop a `.zip` and its supported files are extracted into the batch automatically
 - **Folder intake** — drop a folder and its convertible files are collected recursively, hidden entries and unsupported formats skipped; the batch cap, the size guards and the `.zip` expansion behave exactly as they do for files dropped one by one
 - **Multi-sheet and multi-page aware** — XLSX → CSV exports every worksheet; PDF → image exports every page, or only the pages you name
@@ -199,7 +202,7 @@ Summarised from the typical behaviour of each class of tool rather than one spec
 
 ### 🕘 History and personalization
 
-- **Conversion history** — the last 50 conversions (metadata only) with one-click "reuse this format", search by file name, filter by source/target format, per-record delete, a size-trend sparkline, and JSON export/import (merged by record ID). A multi-file batch is labelled `"<first file> +N"`; new records also keep the full file list, so every file in the batch is searchable and all of them show on hover. Records saved by earlier versions can only match that label. Deleting one record, or clearing all of them, can be undone for the next 5 seconds from the **Undo** button in the toast
+- **Conversion history** — the last 50 conversions (metadata only) with one-click "reuse this format", search by file name, filter by source/target format, per-record delete, a size-trend sparkline, and JSON export/import (merged by record ID). A multi-file batch is labelled `"<first file> +N"`; new records also keep the full file list, so every file in the batch is searchable and all of them show on hover. Records saved by earlier versions can only match that label. Deleting one record, or clearing all of them, can be undone for the next 5 seconds from the **Undo** button in the toast. Each row also reports how long that batch loop took — the same measure for one file and for a hundred: it excludes the pre-conversion confirmation dialog and the ZIP assembly — and records saved by older versions simply show nothing there
 - **Recently used targets** — the target dropdown leads with a "recently used" group holding up to 6 of the formats you convert to most often, kept only while they remain selectable for the current source; everything else stays in the document / image / data groups
 - **Conversion presets** — save a target format together with its image output parameters as a one-click card (up to 12), and one click restores both. Unlike "recently used", which only remembers a format, a preset remembers the whole recipe — "JPEG, 1280 px, under 200 KB". A preset chosen before any file is added is remembered and applied to the next batch that can take it; one the current batch cannot reach is refused with a reason. An untitled preset names itself after what it does
 - **Remembered UI state** — the split-view divider position and the collapsed/expanded state of the history and preset cards are persisted and restored the next time the workbench opens
@@ -218,6 +221,10 @@ Summarised from the typical behaviour of each class of tool rather than one spec
 
 ### Install
 
+**From the Chrome Web Store (recommended)**: [Transfer Any File](https://chromewebstore.google.com/detail/blkdmpkcaceicinkhindniepbbbaekkb). You get the stable build, updates arrive on their own, and Developer mode stays off.
+
+**From source** — for reviewing the built artifact or changing the code:
+
 ```bash
 # Requirements: Node.js 20.12+ (WXT needs util.parseEnv) and pnpm
 pnpm install
@@ -231,7 +238,7 @@ Then in Chrome:
 3. Click **Load unpacked** and select `.output/chrome-mv3`
 4. Click the toolbar icon — the workbench opens in a new tab
 
-There is no store listing yet; `.github/CHROMEWEBSTORE.md` holds the publish-ready listing copy, graphics and disclosure answers for when there is.
+The listing copy, graphics and disclosure answers are kept in sync in [`CHROMEWEBSTORE.md`](.github/CHROMEWEBSTORE.md).
 
 ### Usage
 

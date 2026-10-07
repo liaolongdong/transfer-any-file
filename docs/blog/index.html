@@ -131,7 +131,7 @@
     />
     <meta
       property="og:article:modified_time"
-      content="2026-09-26"
+      content="2026-10-02"
     />
     <meta
       name="twitter:card"
@@ -159,7 +159,7 @@
             "headline": "我把「文件格式转换」做成了一个不联网的 Chrome 扩展 | I turned file format conversion into a Chrome extension that never goes online",
             "inLanguage": ["zh-CN", "en"],
             "datePublished": "2026-09-22",
-            "dateModified": "2026-09-26",
+            "dateModified": "2026-10-02",
             "author": { "@type": "Person", "name": "Better", "url": "https://github.com/liaolongdong" },
             "publisher": {
               "@type": "Organization",
@@ -628,21 +628,31 @@ SVG      ──► HTML ──► PNG</code></pre>
                 ><span lang="en">Pick the ZIP method per entry.</span></b
               >
               <span lang="zh-CN"
-                >直觉做法有两种：全部 stored（快，但文本结果体积白占）或全部 deflate（省空间，但对 PNG / PDF / XLSX
-                这些已经是压缩容器的产物纯粹烧 CPU）。实测答案是<b>按条目决定</b>：文本类（TXT / CSV / JSON / HTML /
-                Markdown / SVG / XML）走 deflate，能小一个数量级；已经压过的直接 stored。用 fflate 跑 7 MB CSV 配 6 MB
+                >直觉做法有两种：全部 stored（快，但文本结果体积白占）或全部 deflate（省空间，但对 PDF / XLSX / DOCX
+                这类自带容器的产物纯粹烧 CPU）。实测答案是<b>按条目决定</b>，而「压不动」的范围比直觉小：文本类（TXT /
+                CSV / JSON / HTML / Markdown / SVG / XML）走 deflate，能小一个数量级；<b>图片也走 deflate</b
+                >——一页以纯色为主的文档，用扩展自己的编码器（Chrome canvas.toBlob）出图，PNG 条目小 49.9%、JPEG 小
+                91.1%、WebP 小 50.0%，100 页的 PNG 导出从 5.13 MB 压到 2.57 MB；12 页真实 PDF 导出实测 PNG 小
+                39.3%、JPEG 小 58.6%；连十四张商店截图都能小 6.9%。只有照片那一类高熵图像压不动，最多大
+                0.014%。压这些字节也不吃主线程：40 MB 条目压完，页面最长一次响应延迟 9 ms。用 fflate 跑 7 MB CSV 配 6 MB
                 不可压缩数据：全部 stored 得到 13.28 MB / 56 ms，全部 deflate 得到 7.04 MB / 1169
                 ms。按条目选择拿到和全量 deflate 基本相同的体积（比全 stored 小约 47%），却不在压不动的条目上空烧
                 CPU。</span
               >
               <span lang="en"
                 >There are two intuitive answers: store everything (fast, but text results waste space) or deflate
-                everything (compact, but pure CPU burn on PNG, PDF and XLSX, which are already compressed containers).
-                The measured answer is <b>decide per entry</b>: text formats (TXT, CSV, JSON, HTML, Markdown, SVG, XML)
-                deflate and come out roughly an order of magnitude smaller; anything already compressed is stored.
-                Running it through fflate on 7 MB of CSV alongside 6 MB of incompressible data: all-stored gave a 13.28
-                MB archive in 56 ms, all-deflate gave 7.04 MB in 1169 ms. Per-entry gets essentially the same size as
-                all-deflate — about 47% below all-stored — without spending CPU on the entries that cannot shrink.</span
+                everything (compact, but pure CPU burn on PDF, XLSX and DOCX, which carry their own containers). The
+                measured answer is <b>decide per entry</b> — and "cannot shrink" covers far less than intuition says:
+                text formats (TXT, CSV, JSON, HTML, Markdown, SVG, XML) deflate and come out roughly an order of
+                magnitude smaller, and <b>so do images</b> — encode one mostly-flat document page with the encoder this
+                app itself uses (Chrome canvas.toBlob) and a PNG entry gets 49.9% smaller, a JPEG 91.1%, a WebP 50.0%,
+                while a 100-page PNG export goes from 5.13 MB to 2.57 MB; the 12 pages of a real PDF export measured
+                39.3% for PNG and 58.6% for JPEG, and fourteen store screenshots give up 6.9%. Only a high-entropy
+                photograph gains nothing, at 0.014% more archive for the attempt. Those bytes don't occupy the page
+                either: packing 40 MB deflated held the main thread for at most 9 ms. Running it through fflate on 7 MB
+                of CSV alongside 6 MB of incompressible data: all-stored gave a 13.28 MB archive in 56 ms, all-deflate
+                gave 7.04 MB in 1169 ms. Per-entry gets essentially the same size as all-deflate — about 47% below
+                all-stored — without spending CPU on the entries that cannot shrink.</span
               >
             </p>
             <p>
@@ -849,10 +859,25 @@ SVG      ──► HTML ──► PNG</code></pre>
               ><span lang="en">5. Where it is and how to install it</span>
             </h2>
             <p>
-              <span lang="zh-CN"><b>还没上 Chrome 应用商店</b>，直说。目前只有一条路：源码加载，四步。</span>
+              <span lang="zh-CN"
+                ><b>已经上了 Chrome 应用商店</b>（这一节更新于 2026-10-02，原先写的是「还没上」）。两条路：
+                <a
+                  href="https://chromewebstore.google.com/detail/blkdmpkcaceicinkhindniepbbbaekkb"
+                  rel="noopener"
+                  target="_blank"
+                  >商店条目</a
+                >，一次点击，之后自动更新；或者源码加载，四步，给要审阅构建产物、或要改代码的人。</span
+              >
               <span lang="en"
-                ><b>It is not on the Chrome Web Store yet.</b> Stated plainly. Right now the only route is loading it
-                from source, in four steps.</span
+                ><b>It is on the Chrome Web Store now.</b> This section was updated on 2026-10-02 — it used to say "not
+                yet". Two routes: the
+                <a
+                  href="https://chromewebstore.google.com/detail/blkdmpkcaceicinkhindniepbbbaekkb"
+                  rel="noopener"
+                  target="_blank"
+                  >listing</a
+                >, one click and updates arrive on their own; or loading it from source in four steps, which is the
+                route for anyone auditing the built artifact or changing the code.</span
               >
             </p>
             <pre><code># 环境：Node.js ≥ 20.12、pnpm
@@ -871,33 +896,37 @@ pnpm install &amp;&amp; pnpm build</code></pre>
             </p>
             <p>
               <span lang="zh-CN"
-                >商店需要的东西已经准备好了：名称与描述文案、1280×800
-                截图、权限逐条说明、隐私政策、数据披露答复，都写在仓库的 <code>.github/CHROMEWEBSTORE.md</code> 和<a
+                >商店需要的东西在仓库里就写好了：名称与描述文案、1280×800
+                截图、权限逐条说明、隐私政策、数据披露答复，都在 <code>.github/CHROMEWEBSTORE.md</code> 和<a
                   href="../privacy.html"
                   >这份隐私政策</a
-                >里。上架还差一个开发者账号和一次提交——如果你想推动这件事，<a
+                >里。审核前三轮都被拒：前两轮是文案里的格式名列表，第三轮换了一条轴——包里的远程托管代码，改的是构建不是
+                文案（见第四节）。2026-10-02 实测条目已上线。后续版本想推动什么，<a
                   href="https://github.com/liaolongdong/transfer-any-file/issues"
                   >去仓库开个 issue</a
                 >。</span
               >
               <span lang="en"
-                >Everything the store needs is already prepared: name and description copy, 1280×800 screenshots, a
-                line-by-line justification for each permission, the privacy policy and the data-disclosure answers — all
-                in <code>.github/CHROMEWEBSTORE.md</code> and <a href="../privacy.html">this privacy policy</a>. What is
-                missing is a developer account and one submission. If you want to push that forward,
+                >Everything the store asks for was already written down in the repo: name and description copy, 1280×800
+                screenshots, a line-by-line justification for each permission, the privacy policy and the
+                data-disclosure answers — all in <code>.github/CHROMEWEBSTORE.md</code> and
+                <a href="../privacy.html">this privacy policy</a>. The first three review passes were all rejections:
+                the first two over format-name lists in the copy, the third on a different axis entirely — remotely
+                hosted code inside the package, which was fixed in the build rather than in the text (see section 4).
+                The listing measured live on 2026-10-02. To push anything for the next version,
                 <a href="https://github.com/liaolongdong/transfer-any-file/issues">open an issue on the repo</a>.</span
               >
             </p>
             <p>
               <span lang="zh-CN"
                 >技术栈：<b>WXT + Vue 3 + TypeScript + Element Plus</b>，Manifest V3，权限只有 <code>storage</code>，MIT
-                协议。验证方式也是交付的一部分：Playwright 驱动构建产物跑 327
+                协议。验证方式也是交付的一部分：Playwright 驱动构建产物跑 332
                 条断言，转换用的夹具（<code>fixtures/</code>）随仓库走，谁都能本地重跑。</span
               >
               <span lang="en"
                 >Tech stack: <b>WXT + Vue 3 + TypeScript + Element Plus</b>, Manifest V3, <code>storage</code> as the
                 only permission, MIT licence. How it is verified is part of the deliverable too: Playwright drives the
-                built artifact through 327 assertions, and the fixtures it converts live in <code>fixtures/</code> next
+                built artifact through 332 assertions, and the fixtures it converts live in <code>fixtures/</code> next
                 to the code, so anyone can re-run them.</span
               >
             </p>
@@ -924,10 +953,12 @@ pnpm install &amp;&amp; pnpm build</code></pre>
                 <span lang="en">PDF → Word with the layout intact: you will get the text and lose the layout.</span>
               </li>
               <li>
-                <span lang="zh-CN">公司设备禁止加载未上架扩展、也没有开发者模式权限：这条路对你不成立。</span>
+                <span lang="zh-CN"
+                  >公司设备由 IT 统一管扩展安装：商店那条路得看策略放行，源码那条要开发者模式，通常先被禁。</span
+                >
                 <span lang="en"
-                  >A company machine that blocks unpacked extensions and grants no Developer mode: this install path is
-                  closed to you.</span
+                  >A company machine where IT controls extension installs: the store route depends on policy allowing
+                  it, and the source route needs Developer mode, which is usually blocked first.</span
                 >
               </li>
             </ul>

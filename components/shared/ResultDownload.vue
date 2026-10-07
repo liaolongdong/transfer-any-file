@@ -5,8 +5,9 @@ import type { ConvertResult } from '~/utils/core/types';
 import type { ConversionFailure } from '~/composables/useConversion';
 import { useI18n } from '~/composables/useI18n';
 import { formatFromFilename } from '~/utils/core/file-detect';
-import { formatSize, TEXT_FORMATS } from '~/utils/core/format';
+import { formatDuration, formatSize, TEXT_FORMATS } from '~/utils/core/format';
 import { copyText } from '~/utils/core/clipboard';
+import { createRowKey } from '~/utils/core/row-key';
 import { FileFormat } from '~/utils/core/types';
 import PreviewDialog from '~/components/shared/PreviewDialog.vue';
 import FailureDiagnosticItem from '~/components/shared/FailureDiagnosticItem.vue';
@@ -14,6 +15,8 @@ import FailureDiagnosticItem from '~/components/shared/FailureDiagnosticItem.vue
 const props = withDefaults(
   defineProps<{
     results: ConvertResult[];
+    /** The source `File` behind each result, index-aligned — see `useConversion`'s `resultOwners`. */
+    owners: File[];
     failures: ConversionFailure[];
     /** True when the batch ended because the user cancelled it, so the header must not read as complete. */
     cancelled?: boolean;
@@ -21,8 +24,12 @@ const props = withDefaults(
     totalCount?: number;
     /** True while the ZIP is being assembled — blocking CPU work that otherwise looks like a dead button. */
     packaging?: boolean;
+    /** Milliseconds the batch loop took, or `null` when nothing settled. Reported on the summary
+     *  line for any batch size — unlike the size totals, which a single file already prints on its
+     *  own row, a one-file conversion is exactly the case where "how long did that take" is useful. */
+    elapsedMs?: number | null;
   }>(),
-  { cancelled: false, totalCount: 0, packaging: false },
+  { cancelled: false, totalCount: 0, packaging: false, elapsedMs: null },
 );
 
 const emit = defineEmits<{
@@ -56,6 +63,64 @@ const downloadButtonText = computed(() => {
   if (props.results.length === 1) return t('result.download');
   return t('result.downloadZip', { count: props.results.length });
 });
+
+/**
+ * What the batch weighs now, against what it weighed on disk.
+ *
+ * Summed here, off the same two arrays the rows are drawn from, rather than read out of the history
+ * record: a retry appends its recovered files to what is on screen, and a line carried up from the
+ * batch that ran before it would then be describing a different set of files than the one above it.
+ *
+ * Multi-file batches only. One file already prints its result size on its own row and the alert title
+ * carries the count, so the line would restate the panel; a batch whose size did not change at all
+ * has nothing to say either.
+ */
+const sizeSummary = computed(() => {
+  const { results, owners } = props;
+  if (results.length < 2 || owners.length !== results.length) return null;
+  let sourceSize = 0;
+  let resultSize = 0;
+  results.forEach((result, index) => {
+    sourceSize += owners[index]?.size ?? 0;
+    resultSize += result.blob.size;
+  });
+  if (sourceSize === 0 || resultSize === sourceSize) return null;
+  return { source: formatSize(sourceSize), result: formatSize(resultSize) };
+});
+
+/**
+ * The elapsed half of the summary line. `formatDuration` returns `''` outside its domain, and a
+ * missing prop means "no batch has settled here" — both print nothing rather than `耗时  s`.
+ */
+const elapsedText = computed(() => {
+  const ms = props.elapsedMs;
+  if (ms === null || typeof ms !== 'number') return '';
+  const time = formatDuration(ms);
+  return time ? t('result.elapsed', { time }) : '';
+});
+
+/**
+ * Size totals and elapsed time as one line, joined here rather than in the template: the separator
+ * only exists when both halves do, and the template stays a single interpolation Prettier never has
+ * to break across lines. A batch that produced neither prints no `<p>` at all — same as today.
+ */
+const summaryLine = computed(() => {
+  const parts: string[] = [];
+  if (sizeSummary.value) {
+    parts.push(t('result.sizeTotals', { source: sizeSummary.value.source, result: sizeSummary.value.result }));
+  }
+  if (elapsedText.value) parts.push(elapsedText.value);
+  return parts.join(' · ');
+});
+
+/**
+ * Row identity for the `<TransitionGroup>`: the source `File` behind each result, falling back to the
+ * result object when a row has no owner. Both survive a retry merge, which is what `applyRetryMerge`
+ * needs — it appends recovered rows to the ones already on screen. Position cannot be the key here for
+ * the same reason it is not the staged file list's: see `~/utils/core/row-key`.
+ */
+const rowKey = createRowKey('result');
+const resultKey = (result: ConvertResult, index: number): string => rowKey(props.owners[index] ?? result);
 
 function handleDownload(): void {
   if (props.results.length === 1) {
@@ -147,44 +212,59 @@ function openPreview(result: ConvertResult): void {
       show-icon
     >
       <div class="result-list">
-        <div
-          v-for="(result, index) in results"
-          :key="index"
-          class="result-item"
+        <!-- Keyed on the row's source file rather than its position: a retry appends recovered files and
+             a dropped file takes a row out of the middle, and with position keys the whole tail after
+             that point leaves and re-enters instead of one row doing so. See `~/utils/core/row-key`. -->
+        <TransitionGroup
+          tag="div"
+          name="fat-list"
+          class="result-rows"
         >
-          <span class="result-name">{{ result.filename }}</span>
-          <span class="result-size">{{ formatSize(result.blob.size) }}</span>
-          <el-button
-            v-if="formatFromFilename(result.filename)"
-            :icon="View"
-            size="small"
-            text
-            type="primary"
-            :title="t('result.preview')"
-            :aria-label="t('a11y.preview')"
-            @click="openPreview(result)"
-          />
-          <el-button
-            v-if="isTextResult(result)"
-            :icon="CopyDocument"
-            size="small"
-            text
-            type="primary"
-            :title="t('result.copy')"
-            :aria-label="t('a11y.copy')"
-            @click="copyResult(result)"
-          />
-          <el-button
-            v-if="results.length > 1"
-            :icon="Download"
-            size="small"
-            text
-            type="primary"
-            :title="t('result.download')"
-            :aria-label="t('a11y.download')"
-            @click="emit('download', index)"
-          />
-        </div>
+          <div
+            v-for="(result, index) in results"
+            :key="resultKey(result, index)"
+            class="result-item"
+          >
+            <span class="result-name">{{ result.filename }}</span>
+            <span class="result-size">{{ formatSize(result.blob.size) }}</span>
+            <el-button
+              v-if="formatFromFilename(result.filename)"
+              :icon="View"
+              size="small"
+              text
+              type="primary"
+              :title="t('result.preview')"
+              :aria-label="t('a11y.preview')"
+              @click="openPreview(result)"
+            />
+            <el-button
+              v-if="isTextResult(result)"
+              :icon="CopyDocument"
+              size="small"
+              text
+              type="primary"
+              :title="t('result.copy')"
+              :aria-label="t('a11y.copy')"
+              @click="copyResult(result)"
+            />
+            <el-button
+              v-if="results.length > 1"
+              :icon="Download"
+              size="small"
+              text
+              type="primary"
+              :title="t('result.download')"
+              :aria-label="t('a11y.download')"
+              @click="emit('download', index)"
+            />
+          </div>
+        </TransitionGroup>
+        <p
+          v-if="summaryLine"
+          class="result-summary"
+        >
+          {{ summaryLine }}
+        </p>
         <template
           v-for="(failure, index) in failures"
           :key="index"
@@ -257,6 +337,18 @@ function openPreview(result: ConvertResult): void {
   gap: var(--fat-space-xs);
 }
 
+/* The rows sit inside a `<TransitionGroup>` so a retry's recovered files can animate in, which adds
+   one box between the alert's content and the filename that ellipsizes — hence `min-width: 0` for
+   the same reason `.el-alert__content` carries it. The rows shared a gap with the failures and notes
+   below them; inside their own container they need the same gap restated, or they merge into one
+   block the moment the animation is applied. */
+.result-rows {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--fat-space-xs);
+}
+
 /* The alert's content box is a flex item, and its default `min-width: auto` let the file row set a
    floor the whole card had to obey — from ~460px down the download buttons hung past the right edge
    of the tab, clipped rather than scrollable. `0` hands shrinking to `.result-name`, which already
@@ -288,6 +380,17 @@ function openPreview(result: ConvertResult): void {
 .result-size {
   flex-shrink: 0;
   color: var(--fat-text-secondary);
+}
+
+/* Same ink as `.result-item` and for the same reason: this sits on the alert's own 10 % tint, which
+   no contrast measurement covers at secondary hue. `tabular-nums` because a retry appends rows and
+   re-sums this line, and the two figures shifting sideways mid-animation is the one thing a readout
+   like this should not do. */
+.result-summary {
+  margin: 0;
+  font-size: 12px;
+  color: var(--fat-text-primary);
+  font-variant-numeric: tabular-nums;
 }
 
 /* Same reason as `.result-item`: the alert paints its own 10 % semantic tint behind this,
