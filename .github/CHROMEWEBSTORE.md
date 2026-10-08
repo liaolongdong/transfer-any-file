@@ -13,6 +13,11 @@
 >
 > - item ID：`blkdmpkcaceicinkhindniepbbbaekkb`
 > - listing：`https://chromewebstore.google.com/detail/blkdmpkcaceicinkhindniepbbbaekkb`（短形式即可，商店自己重定向到带标题 slug 的长地址）
+> - 规范长地址：`https://chromewebstore.google.com/detail/%E6%96%87%E4%BB%B6%E6%A0%BC%E5%BC%8F%E4%BB%BB%E6%84%8F%E8%BD%AC%E6%8D%A2%E5%8A%A9%E6%89%8B-%E2%80%94-%E7%A6%BB%E7%BA%BF%E8%BD%AC%E6%8D%A2%E6%97%A0%E4%B8%8A%E4%BC%A0/blkdmpkcaceicinkhindniepbbbaekkb`
+>   ——slug 是下面那条现网中文名逐字百分号编码的结果，两个形式指向同一个条目。**本仓库内一律写短形式**；长形式只出现在
+>   兄弟仓库的互链卡与 hub 工具箱页（`liaolongdong.github.io/_data/tools.yml`），那里必须用长形式：`cross-origin-proxy`
+>   的 `tests/docs-consistency.test.ts` 有一条「所有商店链接共用同一个扩展 ID」，它按 `detail/<32位子小写字符>` 认链接，
+>   短形式的 TAF 链接会被它当成自己那条写错的 ID。slug 跟着现网标题走，标题改了它就该重新取——但 ID 不变，链接不会断。
 > - 详情区：版本 **1.0.0**、上次更新 **2026-09-30**、大小 **1.11 MiB**、语言 **2 种**、网站字段是 Pages 根地址
 > - 评分 **0 条**（页面渲染的是空的「0 星」控件），listing 上不显示用户数
 > - 现网中文名 `文件格式任意转换助手 — 离线转换无上传` 与 `public/_locales/zh_CN/messages.json → extensionName`

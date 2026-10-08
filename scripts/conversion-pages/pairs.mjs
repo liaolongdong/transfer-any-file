@@ -24,6 +24,13 @@
 export const SITE = {
   origin: 'https://liaolongdong.github.io/transfer-any-file',
   repo: 'https://github.com/liaolongdong/transfer-any-file',
+  // The live store entry (item ID `blkdmpkcaceicinkhindniepbbbaekkb`, measured live on 2026-10-02), so the
+  // 「装好扩展后点图标」 sentence these CTAs sit under is now one click away instead of a trip back to the
+  // product page. Short form — bare ID under `/detail/` — is the convention *inside this repository*: the
+  // store redirects to the slug form itself, and `cross-origin-proxy`'s docs test claims every
+  // `detail/<32 chars>` link on its pages as its own ID, so the slug form is what the sibling repos'
+  // cross-link cards carry. Facts and both forms: `.github/CHROMEWEBSTORE.md` → 现网状态.
+  store: 'https://chromewebstore.google.com/detail/blkdmpkcaceicinkhindniepbbbaekkb',
   product: 'https://liaolongdong.github.io/transfer-any-file/',
   privacy: 'https://liaolongdong.github.io/transfer-any-file/privacy.html',
   // The profile `docs/blog/index.html` already credits in its `BlogPosting.author`; the same person
@@ -39,8 +46,11 @@ export const SITE = {
  * The date the pair content below was last revised. It is the only `lastmod` the generator has for the
  * pages it writes, and it lands in `docs/sitemap.xml`; bump it together with a content change so the
  * date a crawler reads is the date the claim was actually edited.
+ *
+ * The 2026-10-08 revision is the CTA: every page this writes now leads with the store install button, so
+ * the 36 published files changed as a set even though no prose moved.
  */
-export const PAGES_UPDATED = '2026-10-02';
+export const PAGES_UPDATED = '2026-10-08';
 
 /**
  * The date the first conversion page entered the repository, used as `datePublished` for every entry that

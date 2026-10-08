@@ -1175,7 +1175,8 @@ ${faq}
               )}
             </p>
             <p class="cta-links">
-              <a class="btn" href="../#install">${bi('安装步骤', 'Install steps')}</a>
+              <a class="btn" href="${SITE.store}" rel="noopener" target="_blank">${bi('从 Chrome 应用商店安装', 'Install from the Chrome Web Store')}</a>
+              <a class="btn ghost" href="../#install">${bi('安装步骤', 'Install steps')}</a>
               <a class="btn ghost" href="${SITE.repo}">${bi('GitHub 源码', 'Source on GitHub')}</a>
             </p>
           </section>
@@ -1386,7 +1387,8 @@ ${lists}
             )}
           </p>
           <p class="cta-links reveal">
-            <a class="btn" href="../#install">${bi('安装步骤', 'Install steps')}</a>
+            <a class="btn" href="${SITE.store}" rel="noopener" target="_blank">${bi('从 Chrome 应用商店安装', 'Install from the Chrome Web Store')}</a>
+            <a class="btn ghost" href="../#install">${bi('安装步骤', 'Install steps')}</a>
             <a class="btn ghost" href="${SITE.repo}">${bi('GitHub 源码', 'Source on GitHub')}</a>
           </p>
         </article>
