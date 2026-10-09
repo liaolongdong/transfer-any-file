@@ -2,15 +2,16 @@
 /**
  * GitHub Actions adapter for `scripts/release.mjs`.
  *
- * Five commands: three turn one plan document into the things a workflow step needs, one answers the
+ * Six commands: three turn one plan document into the things a workflow step needs, one answers the
  * question a *merged* release asks when nobody ran a plan (which version on this branch is still
- * untagged), and one reads the Chrome Web Store's own answer back to the workflow.
+ * untagged), and two read the Chrome Web Store's own answer back to the workflow.
  *
  *     node scripts/release-ci.mjs output        plan.json   # -> $GITHUB_OUTPUT
  *     node scripts/release-ci.mjs summary       plan.json   # -> $GITHUB_STEP_SUMMARY
  *     node scripts/release-ci.mjs pr-body       plan.json pr-body.md
  *     node scripts/release-ci.mjs pending-tag               # -> vX.Y.Z on stdout, or nothing
  *     node scripts/release-ci.mjs item-version  item.json   # -> the live version, or nothing
+ *     node scripts/release-ci.mjs upload-state  resp.json   # -> the store's receipt, or exit 1
  *
  * ## Why this is a file and not `node -e '…'` in the workflow
  *
@@ -27,8 +28,9 @@
  * them recomputes a version or re-reads git, so the plan and the prose in the PR cannot disagree.
  * `pending-tag` is the one command that reads the repository directly, because it runs on a commit
  * where no plan was produced (the merge of a release PR) and it must not trust the branch name alone.
- * `item-version` reads neither: it parses a response body `release.yml` just downloaded from the store,
- * which is the only way to know what version that store is serving.
+ * `item-version` and `upload-state` read neither: they parse response bodies `release.yml` just
+ * downloaded from the store, which is the only way to know what version that store is serving and
+ * whether it took the package that was just uploaded.
  *
  * The plan path is resolved against the current directory (Actions runs steps from the workspace
  * root), which is where `release.mjs --json` writes it.
@@ -60,7 +62,8 @@ if (!command) {
   process.stderr.write(
     'usage: node scripts/release-ci.mjs <output|summary|pr-body> <plan.json> [out.md]\n' +
       '   or: node scripts/release-ci.mjs pending-tag\n' +
-      '   or: node scripts/release-ci.mjs item-version <item.json>\n',
+      '   or: node scripts/release-ci.mjs item-version <item.json>\n' +
+      '   or: node scripts/release-ci.mjs upload-state <resp.json>\n',
   );
   process.exit(2);
 }
@@ -278,20 +281,22 @@ const STORE_VERSION_RE = /^\d+(\.\d+){1,3}$/;
 /**
  * The version the store is serving, or nothing.
  *
- * `release.yml` asks `GET /chromewebstore/v1.1/items/{id}` before uploading, because the store accepts only
- * a package whose version is strictly higher than the live one — and the only place it says so is Google's
- * response body, after a multi-megabyte upload, in a step whose status fields we deliberately refuse to
- * interpret (see the comment above the upload call). A number printed here turns that into a one-line
+ * `release.yml` asks `GET /v2/publishers/{publisherId}/items/{itemId}:fetchStatus` before uploading, because the
+ * store accepts only a package whose version is strictly higher than the live one — and the only place it says so
+ * is Google's response body, after a multi-megabyte upload. A number printed here turns that into a one-line
  * "线上已是 1.2.0".
  *
- * **Silence is the answer whenever the shape is not recognised, and that is deliberate.** The field name
- * cannot be verified from this repository: the item does not exist yet, so no live response has ever been
- * captured here, and the two names in circulation (`current_version`, `version`) are not documented as
- * interchangeable. A guess would be worse than abstaining — reading a non-version string as the live
- * version would fail a release that the store would have accepted. So this exits 0 with nothing on stdout
- * for every case it is unsure about (unreadable file, non-JSON body, no plausible field, two fields that
- * disagree), and the workflow's matching branch is "skip the pre-flight", leaving the upload's own response
- * body as the source of truth. This command never fails a step.
+ * v2 puts the number in `publishedItemRevisionStatus.distributionChannels[].crxVersion`（"the extension version
+ * provided in the manifest of the uploaded package"）。v1.1 那两个平铺字段（`current_version` / `version`）随着
+ * 那个端点一起在 2026-10-15 退役，所以这里只认嵌套的那一个形状，不再保留读旧字形的回落。
+ *
+ * **Silence is the answer whenever the shape is not recognised, and that is deliberate.** A guess would be worse
+ * than abstaining — reading a non-version string as the live version would fail a release that the store would
+ * have accepted. So this exits 0 with nothing on stdout for every case it is unsure about (unreadable file,
+ * non-JSON body, top level that isn't an object, no `publishedItemRevisionStatus` —— 条目还没发布过，正是第一次
+ * 上传的正常状态 —— 没有渠道、多个渠道的 `crxVersion` 互不一致、值不是版本号形状), and the workflow's matching
+ * branch is "skip the pre-flight", leaving the upload's own response body as the source of truth. This command
+ * never fails a step.
  */
 function itemVersion(file) {
   if (!file) {
@@ -316,28 +321,103 @@ function itemVersion(file) {
     return;
   }
 
-  const found = [];
-  for (const key of ['current_version', 'version']) {
-    const value = typeof item[key] === 'string' ? item[key].trim() : '';
-    if (STORE_VERSION_RE.test(value)) found.push([key, value]);
+  const channels = item.publishedItemRevisionStatus?.distributionChannels;
+  if (!Array.isArray(channels) || channels.length === 0) {
+    process.stderr.write(
+      `release-ci: 响应里没有 publishedItemRevisionStatus.distributionChannels` +
+        `（顶层字段：${Object.keys(item).join(', ') || '无'}），跳过版本预检\n`,
+    );
+    process.exit(0);
+    return;
   }
+
+  const found = channels
+    .map(channel => (typeof channel?.crxVersion === 'string' ? channel.crxVersion.trim() : ''))
+    .filter(version => STORE_VERSION_RE.test(version));
 
   if (!found.length) {
     process.stderr.write(
-      `release-ci: 响应里没有像版本号的 current_version / version（实际字段：${Object.keys(item).join(', ') || '无'}），` +
-        '跳过版本预检\n',
+      `release-ci: ${channels.length} 个 distributionChannels 里没有像版本号的 crxVersion，跳过版本预检\n`,
     );
     process.exit(0);
     return;
   }
-  if (found.length > 1 && found.some(([, value]) => value !== found[0][1])) {
+  if (new Set(found).size > 1) {
     process.stderr.write(
-      `release-ci: ${found.map(([key, value]) => `${key}=${value}`).join(' 与 ')} 不一致，跳过版本预检\n`,
+      `release-ci: 多个渠道的 crxVersion 不一致（${[...new Set(found)].join(' / ')}），跳过版本预检\n`,
     );
     process.exit(0);
     return;
   }
-  process.stdout.write(`${found[0][1]}\n`);
+  process.stdout.write(`${found[0]}\n`);
+}
+
+/**
+ * What the store said about the package that was just uploaded, and whether to treat it as accepted.
+ *
+ * `POST /upload/v2/{name}:upload` gives 200 for a package it then refuses: the answer to「商店收下了没有」is the
+ * `uploadState` field, which v2 types as a documented enum（`UPLOAD_STATE_UNSPECIFIED` / `SUCCEEDED` /
+ * `IN_PROGRESS` / `FAILED` / `NOT_FOUND`）。v1.1 的三个状态字段（`status` / `statusCode` / `updateStatus`）没有
+ * 这种文档，所以那一步只按 HTTP 码判成败、把响应体原样打出来；这条区别就是这里肯读它、那里不肯的理由。
+ *
+ * **Only the two explicitly negative values fail the step.** Everything unrecognised is reported and passed
+ * through — including a body that isn't JSON or has no `uploadState` at all, in which case the workflow's HTTP
+ * code check stands as the verdict. Turning「我读不懂」into「上传失败」would be a false red on a store that
+ * accepted the package, and a false red on the publish job costs a release.
+ *
+ * `IN_PROGRESS` is the documented async case（"If `upload_state` is `UPLOAD_IN_PROGRESS`, you can poll for
+ * updates using the fetchStatus method"）, so it prints where to look next: the `:publish` call that follows
+ * publishes the *submitted* revision, and an unfinished upload is not one yet.
+ *
+ * stdout 上是一行可以直接进 step summary 的话，附带商店从包里读出的 `crxVersion`（它同时是「商店解析到的正是
+ * 这一版」的现场证据）；非零退出时信息走 stderr，与 `item-version` 一样不抛栈。
+ */
+function uploadState(file) {
+  if (!file) {
+    process.stderr.write('release-ci: upload-state 需要 POST 响应体的路径，例如 upload-state resp.json\n');
+    process.exit(0);
+    return;
+  }
+  const target = path.resolve(process.cwd(), file);
+
+  let body;
+  try {
+    body = JSON.parse(fs.readFileSync(target, 'utf8'));
+  } catch (error) {
+    process.stderr.write(`release-ci: 商店的上传响应不是可解析的 JSON，按 HTTP 码判定：${error.message}\n`);
+    process.exit(0);
+    return;
+  }
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    process.stderr.write('release-ci: 商店的上传响应不是一个对象，按 HTTP 码判定\n');
+    process.exit(0);
+    return;
+  }
+
+  const state = typeof body.uploadState === 'string' ? body.uploadState.trim() : '';
+  const version = typeof body.crxVersion === 'string' ? body.crxVersion.trim() : '';
+  const suffix = version ? `（商店从包里读到的是 ${version}）` : '';
+
+  if (state === 'FAILED' || state === 'NOT_FOUND') {
+    process.stderr.write(`release-ci: 商店把这次上传判为 ${state}${suffix}\n`);
+    process.exit(1);
+    return;
+  }
+  if (!state) {
+    process.stderr.write(
+      `release-ci: 响应里没有 uploadState（顶层字段：${Object.keys(body).join(', ') || '无'}），按 HTTP 码判定\n`,
+    );
+    process.exit(0);
+    return;
+  }
+  if (state === 'IN_PROGRESS') {
+    process.stdout.write(
+      `商店仍在解包（uploadState=IN_PROGRESS）${suffix}；接着的 publish 提审可能因此报错，` +
+        '进度可用 fetchStatus 再读一次。\n',
+    );
+    return;
+  }
+  process.stdout.write(`商店回执：uploadState=${state}${suffix}\n`);
 }
 
 switch (command) {
@@ -360,9 +440,12 @@ switch (command) {
   case 'item-version':
     itemVersion(inputFile);
     break;
+  case 'upload-state':
+    uploadState(inputFile);
+    break;
   default:
     process.stderr.write(
-      `release-ci: 未知命令 ${command}（可用：output / summary / pr-body / pending-tag / item-version）\n`,
+      `release-ci: 未知命令 ${command}（可用：output / summary / pr-body / pending-tag / item-version / upload-state）\n`,
     );
     process.exit(2);
 }

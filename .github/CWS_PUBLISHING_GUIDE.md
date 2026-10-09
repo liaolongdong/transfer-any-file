@@ -23,7 +23,7 @@
 
 4. 支付 $5 美元一次性注册费（使用双币/全币种卡）
 
-5. 注册成功后，记录下 Dashboard 的访问地址（后续配置 CI/CD 时需要）
+5. 注册成功后，记下 devconsole 地址里那段 UUID（发布商 ID，第三步配 secrets 时要用）
 
 > **提示**：注册过程中需要访问 Google 服务，建议选择网络稳定的时段操作。
 
@@ -122,54 +122,42 @@ storage: persists the user's own conversion history (file names, formats and siz
 
 ## 第三步：配置 CI/CD 自动化发布
 
-### 3.1 获取 OAuth 凭据
+### 3.1 取服务账号凭据（Chrome Web Store API v2）
 
-1. 打开 [Google Cloud Console](https://console.cloud.google.com/)
+发布走的是 **API v2 + 服务账号**：不再有 Client ID / Client Secret / Refresh Token 那三件，也不需要在
+浏览器里点一次「同意」。换掉它的理由是那条老链路两头都断了——它的授权 URL 用的是
+`redirect_uri=urn:ietf:wg:oauth:2.0:oob`，Google 自 2022-02-28 起禁止新客户端使用该 redirect_uri、
+2023-01-31 起对**所有**客户端关闭，授权端点在检查客户端之前就回「错误 400: bad_request」；而 v1.1 那套
+端点本身在 **2026-10-15** 停止服务。
 
-2. 创建新项目（或选择已有项目）
+1. 打开 [Google Cloud Console](https://console.cloud.google.com/)，创建新项目（或选已有项目）
+2. 「API 和服务」→「库」→ 搜 **Chrome Web Store API** → 启用。
+   没启用时令牌照样换得到、调用却被回 `403 accessNotConfigured`，所以这一步是那条链路的第一道关
+3. 「IAM 和管理」→「服务账号」→ 创建服务账号。名字随意；**GCP 的 IAM 角色一个都不必加**——
+   商店授权看的是这个账号在不在你这个发布商的成员列表里（第 5 步），不是 GCP 里的角色
+4. 「服务账号」→ 该账号 →「密钥」→「添加密钥」→「新建密钥」→ JSON → 下载。
+   要用的就是文件里那两个字段：`client_email` 与 `private_key`。
+   下载完**别让它留在仓库目录里**——`git add .` 会连它一起收走，而这条链路只从 GitHub Secrets 读它，
+   本机不需要留这份文件（`.gitignore` 里那条 `.env.submit` 守的是旧形状，守不住一个随机命名的 JSON）
+5. 打开开发者信息中心 <https://chrome.google.com/webstore/devconsole>，进「账号」页把第 4 步那个
+   `client_email` 加为成员。**一个发布商目前只能加一个服务账号**，所以同属这个发布商的几个扩展
+   共用它一个就行，不必各建一个
+6. 记下**发布商 ID**：devconsole 地址栏 `https://chrome.google.com/webstore/devconsole/<uuid>` 里那段
+   UUID，它就是 v2 资源名 `publishers/{publisherId}/items/{itemId}` 的第一段
 
-3. 启用 **Chrome Web Store API**：
-   - 搜索 "Chrome Web Store API"
-   - 点击 "启用"
-
-4. 创建 OAuth 2.0 凭据：
-   - 进入 "API 和服务" → "凭据"
-   - 点击 "创建凭据" → "OAuth 客户端 ID"
-   - 应用类型选择 **"桌面应用"**
-   - 记录下 **Client ID** 和 **Client Secret**
-
-5. 生成 Refresh Token：
-
-   在浏览器中打开以下 URL（替换 YOUR_CLIENT_ID）：
-
-   ```
-   https://accounts.google.com/o/oauth2/auth?response_type=code&scope=https://www.googleapis.com/auth/chromewebstore&client_id=YOUR_CLIENT_ID&redirect_uri=urn:ietf:wg:oauth:2.0:oob
-   ```
-
-   授权后获取授权码，然后用以下命令交换 refresh token：
-
-   ```bash
-   curl -X POST \
-     -d "client_id=YOUR_CLIENT_ID" \
-     -d "client_secret=YOUR_CLIENT_SECRET" \
-     -d "code=AUTHORIZATION_CODE" \
-     -d "grant_type=authorization_code" \
-     -d "redirect_uri=urn:ietf:wg:oauth:2.0:oob" \
-     https://oauth2.googleapis.com/token
-   ```
-
-   响应中的 `refresh_token` 即为所需值。
+> v2 只有五个动作：`fetchStatus` / `upload` / `publish` / `cancelSubmission` / `setPublishedDeployPercentage`。
+> 里面**没有**「创建条目」也**没有**「改可见范围」——那两件事仍然只在后台手工做，所以本文第二节不会消失。
 
 ### 3.2 配置 GitHub Secrets
 
 在 GitHub Repository Settings → Secrets and variables → Actions 中配置以下 secrets：
 
-**共用凭据（与 account-password-helper 共享）：**
+**发布商级（同属一个发布商的仓库填同一套值）：**
 
 ```bash
-CWS_CLIENT_ID        # Google Cloud OAuth Client ID
-CWS_CLIENT_SECRET    # Google Cloud OAuth Client Secret
-CWS_REFRESH_TOKEN    # OAuth Refresh Token
+CWS_PUBLISHER_ID                 # 发布商 ID：devconsole 地址里的那段 UUID
+CWS_SERVICE_ACCOUNT_EMAIL        # 服务账号的 client_email
+CWS_SERVICE_ACCOUNT_PRIVATE_KEY  # 该服务账号的私钥
 ```
 
 **本扩展专用：**
@@ -180,15 +168,20 @@ CHROME_EXTENSION_ID_TAF  # Transfer Any File 扩展 ID（从 CWS Dashboard 获�
 
 > ⚠️ **重要提示**：
 >
-> - 复制 secret 值时确保不带空格/换行等不可见字符
-> - 扩展 ID 必须是 32 位 a-p 小写字母
-> - OAuth 应用在 Testing 模式下 refresh token 约 7 天过期，建议发布为 In production
-> - OAuth 凭据只需配置一次，两个扩展共用同一套；但 GitHub 个人账号没有组织级 secret 共享，
->   这三个值仍要在**每个仓库里各填一次**
+> - 私钥的三种粘贴形状都吃得下：整份 JSON 文件、从 JSON 里复制出来的 `private_key` 字段值（那里的换行
+>   还是字面量的反斜杠 n、等号还是 JSON 转义写法）、以及已经还原成多行的 PEM。认不出时会说清是哪一类
+>   问题，并且绝不把密钥打进日志——见 `scripts/cws-token.mjs`
+> - 但**推荐粘整份 JSON 或多行 PEM**：人手工把转义还原成真换行，是这三种形状里最容易出错的一种
+> - 前三个值是发布商级别的：GitHub 个人账号没有组织级 secret 共享，所以**每个仓库里各填一次**（值相同）
+> - 扩展 ID 必须是 32 位 a-p 小写字母，复制时别带空格/换行等不可见字符
+> - 服务账号没有「token 7 天过期」这件事：每次运行由 `scripts/cws-token.mjs` 现签一枚 5 分钟有效的 RS256
+>   JWT 去换 access_token，也不需要把 OAuth 应用发布为 In production。旧文档里那两条提醒随 refresh token
+>   一起作废
 
 ### 3.3 发布流程
 
-当前配置用 runner 自带的 `curl` 直接打 Chrome Web Store 的上传 / 发布 API，**不引入第三方 npm 包或 action**：
+当前配置用 runner 自带的 `curl` 直接打 Chrome Web Store API v2 的上传 / 发布端点，**不引入第三方 npm 包
+或 action**；只有换令牌那一步交给第一方的 `scripts/cws-token.mjs`（RS256 签名在 shell 里写不出来）：
 
 1. **准备版本**（推荐路径，全自动见 `.github/RELEASE_AUTOMATION.md`）：合并到 `main` 之后，
    `release-prepare.yml` 会算出版本号、提升双语 changelog 的「未发布」区块，并开一个 Release PR。
@@ -205,10 +198,12 @@ CHROME_EXTENSION_ID_TAF  # Transfer Any File 扩展 ID（从 CWS Dashboard 获�
    - 构建扩展，随后对产物再跑一次 `verify:offline`（断言浏览器实际加载的那份 manifest 只有 `storage` 权限）与 `verify:remote-code`，最后打包
    - 验证包内容（manifest.json 在根目录，无仓库文件）
    - 创建 GitHub Release
-   - 校验 OAuth 凭据与扩展 ID 格式
-   - **版本预检**：先读商店现在挂着的版本号，本次要传的不严格高于它就直接停下（商店只接受更高的版本；
-     这条判断放在上传之前，失败原因是我们自己写的一句话，不必去猜 Google 响应体里那套没有稳定文档的状态字段）
-   - 上传包，然后**默认到此为止**：不调用提审接口
+   - 校验服务账号凭据（现签一枚 JWT 换 access_token，失败时把 Google 的响应体原样打出来）与扩展 ID 格式
+   - **版本预检**：先用 `:fetchStatus` 读商店现在挂着的版本号（v2 把它写在
+     `publishedItemRevisionStatus.distributionChannels[].crxVersion`），本次要传的不严格高于它就直接停下。
+     这条判断放在上传之前才有意义：放在之后，几兆字节已经传完，而商店只接受更高的版本
+   - 上传包（请求体就是 zip 的原始字节），再读商店的回执 `uploadState`：明确为 `FAILED` / `NOT_FOUND`
+     就变红，读不懂的只报告不拦；然后**默认到此为止**，不调用提审接口
 
 3. **要提审有两个入口**，默认那条工作流不会替你做：
    - **开发者后台**（首选）：Dashboard → 该商品 → Package 页点 **"提交审核"**，见「第二步 · 5. 点击
@@ -269,13 +264,19 @@ CHROME_EXTENSION_ID_TAF  # Transfer Any File 扩展 ID（从 CWS Dashboard 获�
 
 ## 常见问题
 
-### Q1: OAuth token 过期怎么办？
+### Q1: 服务账号那条链路报错，怎么定位到哪一环？
 
-A: 刷新 token 的流程：
+A: 按顺序看，四种失败各有各的现场：
 
-1. 将 OAuth 应用发布为 In production（避免 7 天过期）
-2. 或重新走授权流程生成新的 refresh token
-3. 更新 GitHub Secrets 中的 `CHROME_REFRESH_TOKEN`
+1. `403 accessNotConfigured` → GCP 项目没启用 Chrome Web Store API（3.1 第 2 步）
+2. 换令牌就 `400`（`invalid_grant` / `unauthorized_client`）→ `CWS_SERVICE_ACCOUNT_EMAIL` 与这份私钥
+   不是同一个服务账号，或私钥在粘贴时被改坏了。前者重新配对一对，后者看第 3 条
+3. 步骤日志写着「私钥读不出来」→ 粘的不是那三种形状之一，常见于手工把转义还原成真换行还原坏了
+4. **令牌换得到、商店调用却 401/403** → 服务账号邮箱没加进开发者信息中心的「账号」页。
+   这一条在「校验服务账号凭据」那一步是查不出来的：那一步只做本地能做的两件事（密钥读得出、令牌换得到），
+   邮箱是不是成员只有商店调用才知道
+
+老文档里「token 过期」那一问已经不存在了：服务账号每次现签现用，没有需要续期的长期令牌。
 
 ### Q2: 扩展 ID 格式错误？
 
@@ -326,8 +327,9 @@ Package 页点 **"提交审核"**，它只发请求、不再动包；也可以�
 
 发布前请确保：
 
-- [ ] GitHub Secrets 配置齐全（3 个共用凭据 + 1 个本扩展专用 ID；要让标签自动触发发版，再加 `RELEASE_PAT`）
-- [ ] OAuth 应用状态正常（In production 或 token 未过期）
+- [ ] GitHub Secrets 配置齐全（发布商级 3 个 + 本扩展专用 1 个；要让标签自动触发发版，再加 `RELEASE_PAT`）
+- [ ] 服务账号邮箱已加进开发者信息中心的「账号」页（漏了这步，令牌照样换得到，是商店调用才回 401/403）
+- [ ] GCP 项目已启用 Chrome Web Store API
 - [ ] 扩展 ID 格式正确（32 位 a-p 字母，`CHROME_EXTENSION_ID_TAF`）
 - [ ] 所有验证通过（`pnpm lint:all && pnpm verify:meta && pnpm verify:listing && pnpm build && pnpm verify:offline`）
 - [ ] 商店文案与 `_locales` 文件一致

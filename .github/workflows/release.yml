@@ -1,6 +1,8 @@
 # 从版本 tag 构建一次发布：扩展产物 → 商店 zip → 包内容校验 → 附带该 zip 的 GitHub Release。
-# 最后一步把同一个 zip 交给 Chrome 应用商店，但只在 CHROME_* 四项 secrets 齐备之后——第一个商店
-# 条目必须在开发者后台手工创建（见 .github/CHROMEWEBSTORE.md），在那之前这一步只报告跳过原因，不让发布失败。
+# 最后一步把同一个 zip 交给 Chrome 应用商店，但只在四项 secrets 齐备之后——本扩展专用的
+# `CHROME_EXTENSION_ID_TAF`，加上发布商级的 `CWS_PUBLISHER_ID` / `CWS_SERVICE_ACCOUNT_EMAIL` /
+# `CWS_SERVICE_ACCOUNT_PRIVATE_KEY`。第一个商店条目必须在开发者后台手工创建（见 .github/CHROMEWEBSTORE.md），
+# 在那之前这一步只报告跳过原因，不让发布失败。
 #
 # 商店那一步默认**只上传、不提审**（2026-09-27 定）。理由不是保守，是这条链路已经付过学费：
 # 1.0.0 被拒三次，每一次都需要人先看一眼产物与文案再决定要不要惊动审核。把「提审」做成一个
@@ -191,16 +193,16 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       # 在开发者后台出现第一个条目之前始终是休眠状态；商店 API 既建不了条目，
-      # 也填不了商品文案、截图和隐私申报。
+      # 也填不了商品文案、截图和隐私申报（v2 更是明确去掉了「创建新内容」这项能力）。
       - name: Detect Chrome Web Store credentials
         id: store
         env:
           CHROME_EXTENSION_ID: ${{ secrets.CHROME_EXTENSION_ID_TAF }}
-          CHROME_CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
-          CHROME_CLIENT_SECRET: ${{ secrets.CWS_CLIENT_SECRET }}
-          CHROME_REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
+          CHROME_PUBLISHER_ID: ${{ secrets.CWS_PUBLISHER_ID }}
+          CWS_SERVICE_ACCOUNT_EMAIL: ${{ secrets.CWS_SERVICE_ACCOUNT_EMAIL }}
+          CWS_SERVICE_ACCOUNT_PRIVATE_KEY: ${{ secrets.CWS_SERVICE_ACCOUNT_PRIVATE_KEY }}
         run: |
-          if [ -n "$CHROME_EXTENSION_ID" ] && [ -n "$CHROME_CLIENT_ID" ] && [ -n "$CHROME_CLIENT_SECRET" ] && [ -n "$CHROME_REFRESH_TOKEN" ]; then
+          if [ -n "$CHROME_EXTENSION_ID" ] && [ -n "$CHROME_PUBLISHER_ID" ] && [ -n "$CWS_SERVICE_ACCOUNT_EMAIL" ] && [ -n "$CWS_SERVICE_ACCOUNT_PRIVATE_KEY" ]; then
             echo 'ready=true' >> "$GITHUB_OUTPUT"
           else
             echo 'ready=false' >> "$GITHUB_OUTPUT"
@@ -208,20 +210,29 @@ jobs:
               echo '### 已跳过 Chrome 应用商店提交'
               echo
               echo '四项 secrets 必须全部配置（Settings → Secrets and variables → Actions）：'
-              echo '`CHROME_EXTENSION_ID_TAF`（本扩展专用）、`CWS_CLIENT_ID`、`CWS_CLIENT_SECRET`、`CWS_REFRESH_TOKEN`。'
+              echo '`CHROME_EXTENSION_ID_TAF`（本扩展专用）、`CWS_PUBLISHER_ID`、`CWS_SERVICE_ACCOUNT_EMAIL`、`CWS_SERVICE_ACCOUNT_PRIVATE_KEY`。'
               echo
               echo '第一个版本同样要手工创建并手工提交——API 建不了条目，也填不了商品文案、截图和隐私申报。'
-              echo '手工步骤见 .github/CHROMEWEBSTORE.md。'
+              echo '手工步骤见 .github/CHROMEWEBSTORE.md，取凭据的步骤见 .github/CWS_PUBLISHING_GUIDE.md 第 3.1 节。'
             } >> "$GITHUB_STEP_SUMMARY"
           fi
 
       # ──────────────────────────────────────────────────────────────
-      # Chrome Web Store auto-publish
+      # Chrome Web Store auto-publish（API v2 + 服务账号）
       # 需要在 GitHub repo Settings → Secrets and variables → Actions 中配置：
-      #   CHROME_EXTENSION_ID_TAF — Transfer Any File 扩展 ID（从 CWS Dashboard 获取）
-      #   CWS_CLIENT_ID           — Google Cloud OAuth 2.0 Client ID（与 account-password-helper 共用）
-      #   CWS_CLIENT_SECRET       — Google Cloud OAuth 2.0 Client Secret（与 account-password-helper 共用）
-      #   CWS_REFRESH_TOKEN       — OAuth 2.0 Refresh Token（与 account-password-helper 共用）
+      #   CHROME_EXTENSION_ID_TAF         — Transfer Any File 扩展 ID（32 位 a-p 小写字母）
+      #   CWS_PUBLISHER_ID                — 发布商 ID：开发者信息中心 URL 里的那段 UUID
+      #   CWS_SERVICE_ACCOUNT_EMAIL       — 服务账号的 client_email（形如 x@y.iam.gserviceaccount.com）
+      #   CWS_SERVICE_ACCOUNT_PRIVATE_KEY — 该服务账号的 JSON 私钥（整份文件或 private_key 字段值都行）
+      #
+      # 后三项是发布商级别的，与 account-password-helper / cross-origin-proxy 共用同一个服务账号：
+      # 同属一个发布商的商品只需在开发者信息中心的「账号」页加那一个邮箱，而官方限制是
+      # 「每个发布商目前只能加一个服务账号」——所以本来就只该有一个。
+      #
+      # 为什么不再是 CWS_CLIENT_ID / CWS_CLIENT_SECRET / CWS_REFRESH_TOKEN 那三件：那条链路是
+      # 「桌面应用」OAuth 客户端 + `redirect_uri=urn:ietf:wg:oauth:2.0:oob` 换 refresh token，
+      # Google 已于 2022-02-28 起对新客户端、2023-01-31 起对所有客户端关闭该 redirect_uri
+      # （授权端点直接回 `错误 400: bad_request`），而 v1.1 端点本身在 2026-10-15 停止服务。
       # ──────────────────────────────────────────────────────────────
       # 上传接口的 --data-binary/-T 需要一个具体文件路径，不接受 glob：
       # 传 ".output/*-chrome.zip" 会被当作字面文件名而报 ENOENT。
@@ -234,39 +245,32 @@ jobs:
           echo "path=$ZIP_PATH" >> "$GITHUB_OUTPUT"
           echo "Resolved Chrome zip: $ZIP_PATH"
 
-      # 校验 CWS OAuth 凭据：用 refresh_token 换取 access_token。
-      # 上传前要先做此交换，返回 400 通常意味着：
-      #   - invalid_grant：refresh token 过期/被撤销（OAuth 应用处于 Testing 模式时约 7 天过期，最常见）
-      #   - invalid_client：client id/secret 与该 refresh token 不是同一套
-      # 本步骤把不透明的 400 转成明确错误信息；仅打印错误体，绝不打印 access_token。
-      - name: Verify CWS OAuth credentials
+      # 校验服务账号凭据：签一枚 RS256 的 JWT 去换 access_token（形状在 scripts/cws-token.mjs）。
+      # 这一步存在的理由与旧的 OAuth 校验相同——把不透明的失败转成一句能照做的话——但它现在只做本地
+      # 能做的两件事：密钥读得出来、令牌换得到。400/403 的三种成因分别对应：
+      #   - GCP 项目没启用 Chrome Web Store API（403 accessNotConfigured）
+      #   - client_email 与私钥不是同一个服务账号
+      #   - 私钥粘贴时被换行/转义破坏（整份 JSON、JSON 里的字段值、多行 PEM 这三种形状都认）
+      # 「邮箱没加到开发者信息中心」这一条在这里过不了：令牌照样换得到，是商店调用才回 401/403，
+      # 所以那件事由下面发布步骤里的 fetchStatus 现场报。本步骤只打印错误体，绝不打印 token 或 JWT。
+      - name: Verify Chrome Web Store service account
         if: steps.store.outputs.ready == 'true'
         env:
-          CHROME_CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
-          CHROME_CLIENT_SECRET: ${{ secrets.CWS_CLIENT_SECRET }}
-          CHROME_REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
+          CWS_SERVICE_ACCOUNT_EMAIL: ${{ secrets.CWS_SERVICE_ACCOUNT_EMAIL }}
+          CWS_SERVICE_ACCOUNT_PRIVATE_KEY: ${{ secrets.CWS_SERVICE_ACCOUNT_PRIVATE_KEY }}
         run: |
-          HTTP_CODE=$(curl -s -o token_resp.json -w '%{http_code}' \
-            --data-urlencode "client_id=$CHROME_CLIENT_ID" \
-            --data-urlencode "client_secret=$CHROME_CLIENT_SECRET" \
-            --data-urlencode "refresh_token=$CHROME_REFRESH_TOKEN" \
-            --data-urlencode "grant_type=refresh_token" \
-            https://oauth2.googleapis.com/token)
-          if [ "$HTTP_CODE" = "200" ]; then
-            echo "OAuth credentials OK（已获取 access_token，不打印）。若发布仍报 400，问题在扩展条目状态/版本号/包内容，而非凭据。"
-            rm -f token_resp.json
+          probe_cfg="$(mktemp)"
+          trap 'rm -f "$probe_cfg"' EXIT
+          if node scripts/cws-token.mjs "$probe_cfg"; then
+            echo "服务账号凭据 OK（已获取 access_token，不打印；临时配置已删）。若发布仍报错，问题在条目状态/版本号/包内容，而非凭据。"
           else
-            echo "OAuth token exchange failed，HTTP $HTTP_CODE："
-            cat token_resp.json
-            echo ""
-            echo "修复：重新走 OAuth 授权流程生成新的 refresh token，将 client-id/secret/refresh-token 作为同一套更新到仓库 Secrets；并把 OAuth 应用发布为 In production 以避免 token 过期。"
-            rm -f token_resp.json
+            echo "::error::服务账号令牌交换失败，响应体见上。按顺序核对：GCP 项目是否启用了 Chrome Web Store API；CWS_SERVICE_ACCOUNT_EMAIL 与这份私钥是否属于同一个服务账号；私钥粘贴时换行有没有被吃掉。"
             exit 1
           fi
 
       # 校验扩展 ID 格式：CWS 扩展 ID 必须是 32 位 a-p 小写字母。
       # Secret 值若混入空格/换行等不可见字符，上传 URL 会变形导致 Google 返回 404，
-      # 且该问题不会被 OAuth 凭据校验步骤拦截，故在发布前显式校验并给出明确错误。
+      # 且该问题不会被服务账号令牌校验步骤拦截，故在发布前显式校验并给出明确错误。
       # env 不是可省的装饰：secrets 不会自动变成同名变量，不写这一行 `$CHROME_EXTENSION_ID`
       # 就是空串，于是本步骤在四项 secrets 齐备的那次运行里必然 exit 1（长度 0）。
       - name: Verify CWS extension id format
@@ -282,18 +286,26 @@ jobs:
             exit 1
           fi
 
-      # 直接打 Chrome Web Store 上传 / 发布 API，不引入第三方 npm 包或 action：
+      # 直接打 Chrome Web Store API v2 的上传 / 发布端点，不引入第三方 npm 包或 action：
       # 本项目的全部主张就是「没有外部东西碰你的构建」，所以发布路径只用 runner 自带的 curl，
-      # 与上面用 `gh release create` 而不是第三方 action 是同一条理由。
-      # 端点见 https://developer.chrome.com/docs/webstore/publish —— 上传 PUT，发布 POST。
+      # 与上面用 `gh release create` 而不是第三方 action 是同一条理由。换令牌那一步交给
+      # scripts/cws-token.mjs——RS256 签名在 shell 里写不出来，而它是第一方代码，ESLint 和夹具都管得到。
+      #
+      # 三个端点都是「资源名 + :方法」，形状取自 v2 公开的请求/响应类型（FetchItemStatusResponse、
+      # UploadItemPackageResponse、PublishItemRequest），不是从别的工具的调用姿势反推的：
+      #   GET  https://chromewebstore.googleapis.com/v2/publishers/{p}/items/{i}:fetchStatus
+      #   POST https://chromewebstore.googleapis.com/upload/v2/publishers/{p}/items/{i}:upload
+      #   POST https://chromewebstore.googleapis.com/v2/publishers/{p}/items/{i}:publish
+      # 除 Bearer 之外每个请求都带 `x-goog-api-version: 2`（由 cws-token.mjs 写进那份 curl 配置）。
+      # v1.1 那两条是 PUT /upload/chromewebstore/v1.1/items/{id} 与 POST …/items/{id}/publish，
+      # 连不上也照抄不得：路径里多了发布商段、动词改成了冒号方法名。
       #
       # 上传与提审留在同一步里不是省事：access_token 只活在这一步的临时 curl 配置里，退出即删。
       # 拆成两步就得把它写成工作区里的文件留给下一步，而工作区的内容对后续步骤与 artifact 都可见。
       #
       # 两步之间还夹着一次版本预检。商店只接受版本号严格更高的包，而这条判断放在上传之前才有意义：
-      # 放在之后，只能靠 Google 的响应体反推为什么没接受，而下面第 1 步的注释已经写明那套状态字段
-      # 没有稳定语义（我们因此只按 HTTP 码判成败）；放在之前，它是我们自己说清楚的一句话。
-      # 预检读不到版本号时只报告、不拦（条目还不存在时必然读不到，那是第一次上架的正常状态）；读到就比。
+      # 放在之后，只能等 Google 的响应体开口，而那时几兆字节已经传完了。
+      # 预检读不到版本号时只报告、不拦（条目还没发布过的时候必然读不到，那是第一次上架的正常状态）；读到就比。
       - name: Publish to the Chrome Web Store
         if: steps.store.outputs.ready == 'true' && github.event.inputs.dry_run != 'true'
         env:
@@ -301,42 +313,27 @@ jobs:
           VERSION: ${{ steps.version.outputs.version }}
           SUBMIT_FOR_REVIEW: ${{ github.event.inputs.submit_for_review }}
           CHROME_EXTENSION_ID: ${{ secrets.CHROME_EXTENSION_ID_TAF }}
-          CHROME_CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
-          CHROME_CLIENT_SECRET: ${{ secrets.CWS_CLIENT_SECRET }}
-          CHROME_REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
+          CHROME_PUBLISHER_ID: ${{ secrets.CWS_PUBLISHER_ID }}
+          CWS_SERVICE_ACCOUNT_EMAIL: ${{ secrets.CWS_SERVICE_ACCOUNT_EMAIL }}
+          CWS_SERVICE_ACCOUNT_PRIVATE_KEY: ${{ secrets.CWS_SERVICE_ACCOUNT_PRIVATE_KEY }}
         run: |
           set -euo pipefail
-          api='https://www.googleapis.com/chromewebstore/v1.1'
-          upload_api='https://www.googleapis.com/upload/chromewebstore/v1.1'
+          api='https://chromewebstore.googleapis.com/v2'
+          upload_api='https://chromewebstore.googleapis.com/upload/v2'
+          # v2 的三个端点共用这一个资源名（discovery 里写作 {+name}），差别只在动词与主机段。
+          name="publishers/$CHROME_PUBLISHER_ID/items/$CHROME_EXTENSION_ID"
 
           # access_token 只进临时 curl 配置文件（600 权限），不出现在进程参数列表里，
           # 也不写进 $GITHUB_ENV——否则后续每一步都能看到它。
           cfg="$(mktemp)"
-          trap 'rm -f "$cfg" token.json token_code item.json resp.json' EXIT
+          trap 'rm -f "$cfg" item.json resp.json' EXIT
           chmod 600 "$cfg"
-
-          curl -sS --max-time 60 -o token.json -w '%{http_code}' \
-            --data-urlencode "client_id=$CHROME_CLIENT_ID" \
-            --data-urlencode "client_secret=$CHROME_CLIENT_SECRET" \
-            --data-urlencode "refresh_token=$CHROME_REFRESH_TOKEN" \
-            --data-urlencode "grant_type=refresh_token" \
-            https://oauth2.googleapis.com/token > token_code
-          if [ "$(cat token_code)" != '200' ]; then
-            echo "::error::上一步凭据校验刚通过，这次交换却失败（HTTP $(cat token_code)）——多为两次调用之间凭据被轮换"
-            cat token.json
-            exit 1
-          fi
-          access_token="$(node -pe "JSON.parse(require('fs').readFileSync('token.json','utf8')).access_token")"
-          {
-            printf 'header = "Authorization: Bearer %s"\n' "$access_token"
-            printf 'header = "x-goog-api-version: 2"\n'
-          } >> "$cfg"
-          unset access_token
+          node scripts/cws-token.mjs "$cfg"
 
           # 0) 版本预检：读条目上现在挂着的版本号。字段名不写在 shell 里，
           #    由 scripts/release-ci.mjs 的 item-version 负责（那里可以带夹具做单测）。
           probe="$(curl -sS --config "$cfg" --max-time 60 -o item.json -w '%{http_code}' \
-            "$api/items/$CHROME_EXTENSION_ID" || echo 000)"
+            "$api/$name:fetchStatus" || echo 000)"
           live="$(node scripts/release-ci.mjs item-version item.json)"
           if [ -z "$live" ]; then
             echo "::notice title=版本预检跳过::线上版本号读不到（HTTP $probe）。条目尚未创建时这是正常的第一次上架状态；上传若因版本被拒，原因写在下面的响应体里。"
@@ -347,21 +344,29 @@ jobs:
             echo "版本预检 OK：线上 $live < 本次 $VERSION"
           fi
 
-          # 1) 上传新包。这里只按 HTTP 码判成败，把 Google 的响应体原样打出来：
-          #    status / statusCode / updateStatus 三者的组合语义没有稳定文档，
-          #    自己去解析它们只会造出假失败；404/400 的原因本来就在响应体里。
+          # 1) 上传新包：请求体就是 zip 的原始字节，不裹 multipart，也不给它设 Content-Type
+          #    （v2 的 :upload 收的是媒体流，`-T` 正好是「把这个文件当请求体流出去」）。
+          #    HTTP 码之外还读一眼商店的回执：v2 把 uploadState 定义成带文档的枚举
+          #    （SUCCEEDED / IN_PROGRESS / FAILED / NOT_FOUND），而 v1.1 那三个状态字段
+          #    （status / statusCode / updateStatus）没有稳定语义——这就是这里肯读、当年不肯的理由。
+          #    只有两个明确为负的取值会让步骤变红，读不懂的一律放行并原样打印响应体。
           code="$(curl -sS --config "$cfg" --max-time 300 -o resp.json -w '%{http_code}' \
-            -T "$ZIP" "$upload_api/items/$CHROME_EXTENSION_ID")"
+            -X POST -T "$ZIP" "$upload_api/$name:upload")"
           echo "上传响应 HTTP $code："
           cat resp.json
           if [ "$code" != '200' ]; then
-            echo "::error::上传失败。404 多为条目尚未在开发者后台手工创建（API 建不了条目）；版本号不高于线上包也会被拒（上面有预检，它读不到版本号时才会走到这里）"
+            echo "::error::上传失败。404 多为条目尚未在开发者后台手工创建（API 建不了条目，v2 连「创建新内容」这个能力都去掉了）；401/403 多为服务账号邮箱没加进开发者信息中心的「账号」页；版本号不高于线上包也会被拒（上面有预检，它读不到版本号时才会走到这里）"
             exit 1
           fi
-          status="$(node -pe "const r=JSON.parse(require('fs').readFileSync('resp.json','utf8'));(r.status||[]).join(',')")"
-          echo "上传后条目状态：$status"
+          if ! receipt="$(node scripts/release-ci.mjs upload-state resp.json)"; then
+            echo "::error::HTTP 200，但商店把这次上传判为失败——原因就在上面那份响应体里（多半是包内容或商品字段）"
+            exit 1
+          fi
+          echo "$receipt"
 
-          # 2) 提审要显式要求。publishTarget=default 走全体用户审核；trustedTesters 只在白名单内可见。
+          # 2) 提审要显式要求。v1.1 用查询参数 publishTarget=default 选「全体用户」；
+          #    v2 把它换成了请求体里的 publishType：DEFAULT_PUBLISH 是「审核通过后立即发布」，
+          #    STAGED_PUBLISH 是「审过了但先压着、等人工放量」。这里发前者，与旧行为等价。
           #    没勾就是这个开关不存在——打标签触发的运行拿不到 workflow_dispatch 的输入，
           #    于是自动发版这条路永远停在「包已上传」，后面那半由人决定。
           if [ "$SUBMIT_FOR_REVIEW" != 'true' ]; then
@@ -369,7 +374,7 @@ jobs:
               echo '### 已上传，未提审'
               echo
               echo "- 包：\`$ZIP\`（$VERSION）"
-              echo "- 上传后状态：\`$status\`"
+              echo "- 商店回执：$receipt"
               echo
               echo '要提交审核，先看开发者后台的 Package 页与商品文案，再点「提交审核」。'
               echo
@@ -380,21 +385,23 @@ jobs:
             } >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
+          # 提审的响应体里除 state 还有 warningInfo.warnings（非阻断的告警，blockOnWarnings 不设就是
+          # 「记下但不拦」），所以这一步把整份响应打出来而不是只挑一个字段。
           code="$(curl -sS --config "$cfg" --max-time 120 -o resp.json -w '%{http_code}' \
-            -X POST -H 'Content-Length: 0' \
-            "$api/items/$CHROME_EXTENSION_ID?publishTarget=default")"
+            -X POST -H 'Content-Type: application/json' -d '{"publishType":"DEFAULT_PUBLISH"}' \
+            "$api/$name:publish")"
           echo "发布响应 HTTP $code："
           cat resp.json
           if [ "$code" != '200' ]; then
-            echo "::error::提交审核失败。商品文案/截图/隐私申报未填齐时 API 会在这里报 400，而这些字段只能手工填"
+            echo "::error::提交审核失败。商品文案/截图/隐私申报未填齐时 API 会在这里报错，而这些字段只能手工填；上传若还在解包（回执写着 IN_PROGRESS）也会撞在这里"
             exit 1
           fi
           {
             echo '### 已提交 Chrome 应用商店审核'
             echo
             echo "- 包：\`$ZIP\`"
-            echo "- 上传后状态：\`$status\`"
+            echo "- 商店回执：$receipt"
             echo "- 发布响应：见本步骤日志（HTTP $code）"
             echo
-            echo '审核时长不由本工作流控制；进度在开发者后台的 Package 页查看。'
+            echo '审核时长不由本工作流控制；进度在开发者后台的 Package 页查看，或再读一次 :fetchStatus。'
           } >> "$GITHUB_STEP_SUMMARY"
