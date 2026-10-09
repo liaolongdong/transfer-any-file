@@ -2,9 +2,9 @@
 /**
  * GitHub Actions adapter for `scripts/release.mjs`.
  *
- * Six commands: three turn one plan document into the things a workflow step needs, one answers the
+ * Eight commands: three turn one plan document into the things a workflow step needs, one answers the
  * question a *merged* release asks when nobody ran a plan (which version on this branch is still
- * untagged), and two read the Chrome Web Store's own answer back to the workflow.
+ * untagged), and four read the Chrome Web Store's own answer back to the workflow.
  *
  *     node scripts/release-ci.mjs output        plan.json   # -> $GITHUB_OUTPUT
  *     node scripts/release-ci.mjs summary       plan.json   # -> $GITHUB_STEP_SUMMARY
@@ -12,6 +12,8 @@
  *     node scripts/release-ci.mjs pending-tag               # -> vX.Y.Z on stdout, or nothing
  *     node scripts/release-ci.mjs item-version  item.json   # -> the live version, or nothing
  *     node scripts/release-ci.mjs upload-state  resp.json   # -> the store's receipt, or exit 1
+ *     node scripts/release-ci.mjs submit-check  item.json 1.2.1  # -> verdict, exit 0/10/20
+ *     node scripts/release-ci.mjs publish-state resp.json   # -> the submission receipt, or exit 1
  *
  * ## Why this is a file and not `node -e '…'` in the workflow
  *
@@ -28,9 +30,9 @@
  * them recomputes a version or re-reads git, so the plan and the prose in the PR cannot disagree.
  * `pending-tag` is the one command that reads the repository directly, because it runs on a commit
  * where no plan was produced (the merge of a release PR) and it must not trust the branch name alone.
- * `item-version` and `upload-state` read neither: they parse response bodies `release.yml` just
- * downloaded from the store, which is the only way to know what version that store is serving and
- * whether it took the package that was just uploaded.
+ * `item-version`, `upload-state`, `submit-check` and `publish-state` read neither: they parse response bodies
+ * `release.yml` just downloaded from the store, which is the only way to know what version that store is
+ * serving, whether it took the package that was just uploaded, and what is safe to do about it next.
  *
  * The plan path is resolved against the current directory (Actions runs steps from the workspace
  * root), which is where `release.mjs --json` writes it.
@@ -63,7 +65,9 @@ if (!command) {
     'usage: node scripts/release-ci.mjs <output|summary|pr-body> <plan.json> [out.md]\n' +
       '   or: node scripts/release-ci.mjs pending-tag\n' +
       '   or: node scripts/release-ci.mjs item-version <item.json>\n' +
-      '   or: node scripts/release-ci.mjs upload-state <resp.json>\n',
+      '   or: node scripts/release-ci.mjs upload-state <resp.json>\n' +
+      '   or: node scripts/release-ci.mjs submit-check <item.json> <version>\n' +
+      '   or: node scripts/release-ci.mjs publish-state <resp.json>\n',
   );
   process.exit(2);
 }
@@ -321,8 +325,8 @@ function itemVersion(file) {
     return;
   }
 
-  const channels = item.publishedItemRevisionStatus?.distributionChannels;
-  if (!Array.isArray(channels) || channels.length === 0) {
+  const live = channelVersion(item.publishedItemRevisionStatus);
+  if (live.why === 'absent') {
     process.stderr.write(
       `release-ci: 响应里没有 publishedItemRevisionStatus.distributionChannels` +
         `（顶层字段：${Object.keys(item).join(', ') || '无'}），跳过版本预检\n`,
@@ -330,26 +334,66 @@ function itemVersion(file) {
     process.exit(0);
     return;
   }
-
-  const found = channels
-    .map(channel => (typeof channel?.crxVersion === 'string' ? channel.crxVersion.trim() : ''))
-    .filter(version => STORE_VERSION_RE.test(version));
-
-  if (!found.length) {
+  if (live.why === 'no-version') {
     process.stderr.write(
-      `release-ci: ${channels.length} 个 distributionChannels 里没有像版本号的 crxVersion，跳过版本预检\n`,
+      `release-ci: ${live.count} 个 distributionChannels 里没有像版本号的 crxVersion，跳过版本预检\n`,
     );
     process.exit(0);
     return;
   }
-  if (new Set(found).size > 1) {
-    process.stderr.write(
-      `release-ci: 多个渠道的 crxVersion 不一致（${[...new Set(found)].join(' / ')}），跳过版本预检\n`,
-    );
+  if (live.why === 'conflict') {
+    process.stderr.write(`release-ci: 多个渠道的 crxVersion 不一致（${live.distinct.join(' / ')}），跳过版本预检\n`);
     process.exit(0);
     return;
   }
-  process.stdout.write(`${found[0]}\n`);
+  process.stdout.write(`${live.version}\n`);
+}
+
+/**
+ * Read the version out of an `ItemRevisionStatus` — the shape v2 reuses for the published, the submitted
+ * and (via `distributionChannels`) the per-channel revision.
+ *
+ * Returns `{ why, count, distinct, version }` instead of a version-or-nothing string because two callers ask
+ * different questions of the same shape: `item-version` needs to know *which* abstention happened in order to
+ * print its exact reason, and `submit-check` needs the channel count and the competing values for the same
+ * sentence. `why` is one of:
+ *
+ * - `absent` — no `distributionChannels` at all（条目还没发布过，或响应里根本没带这个字段）
+ * - `no-version` — channels exist, none carries a version-shaped `crxVersion`
+ * - `conflict` — more than one distinct version-shaped value（多渠道不一致时任何单值都不是「线上版本」）
+ * - `ok` — `version` is the one distinct value every agreeing channel reports
+ *
+ * Whitespace-tolerant by the same rule as `item-version`（商店给的值带空格时仍是一个可读的版本号）.
+ */
+function channelVersion(status) {
+  const channels = Array.isArray(status?.distributionChannels) ? status.distributionChannels : [];
+  if (channels.length === 0) return { why: 'absent', count: 0, distinct: [] };
+  const distinct = [
+    ...new Set(
+      channels
+        .map(channel => (typeof channel?.crxVersion === 'string' ? channel.crxVersion.trim() : ''))
+        .filter(version => STORE_VERSION_RE.test(version)),
+    ),
+  ];
+  if (distinct.length === 0) return { why: 'no-version', count: channels.length, distinct: [] };
+  if (distinct.length > 1) return { why: 'conflict', count: channels.length, distinct };
+  return { why: 'ok', count: channels.length, distinct, version: distinct[0] };
+}
+
+/**
+ * Compare two store version strings. Different from `compare` above on purpose: Chrome accepts `X.Y` through
+ * `X.Y.Z.W`, and the store is free to report the same release as `1.2.1` in one channel and `1.2.1.0` in
+ * another. Absent segments count as 0, so those two are equal — which is what `submit-check` needs to know
+ * before it tells a human「线上已经是这一版」.
+ */
+function compareStoreVersions(a, b) {
+  const pa = a.split('.').map(Number);
+  const pb = b.split('.').map(Number);
+  for (let i = 0; i < 4; i += 1) {
+    const diff = (pa[i] || 0) - (pb[i] || 0);
+    if (diff !== 0) return diff;
+  }
+  return 0;
 }
 
 /**
@@ -420,6 +464,207 @@ function uploadState(file) {
   process.stdout.write(`商店回执：uploadState=${state}${suffix}\n`);
 }
 
+/** The three verdicts `submit-check` can give; the workflow branches on the number, not on the text. */
+const SUBMIT = { proceed: 0, skip: 10, stop: 20 };
+
+/**
+ * Whether the store's current state accepts a `:publish` of *this* version, as an exit code.
+ *
+ * `release.yml` calls this in the job behind the approval gate, between `GET …:fetchStatus` and
+ * `POST …:publish`. The gate is a human, and a human can take long enough that the store's state is no longer
+ * the one that was true when the approval was queued: they may have clicked「提交审核」in the dashboard
+ * themselves, the upload may still be unpacking, or another revision may have landed in the queue. Calling
+ * `:publish` regardless is not a harmless retry — it publishes **whatever revision the store has submitted**, so
+ * the wrong verdict here puts a package nobody built under review under this release's name.
+ *
+ * Exit codes are the contract, and the workflow branches on them:
+ *
+ * - `0` proceed. Includes every shape this command cannot read, on the same reasoning as `upload-state`: a
+ *   false red on this job costs a release, and `:publish` answers the question authoritatively right after.
+ * - `10` nothing to submit — this exact version is already published or already in review. Skips without failing;
+ *   submitting twice would put two revisions for one release in front of the same reviewer.
+ * - `20` stop and show a human: an *in-review* revision for a different version, an upload still unpacking
+ *   （`lastAsyncUploadState=IN_PROGRESS`）, an upload the store judged `FAILED` / `NOT_FOUND`, or a live version
+ *   already newer than ours.
+ *
+ * Which fields carry those facts is fixed by the v2 discovery document, not guessed: `submittedItemRevisionStatus`
+ * is「the current submitted revision… unset if the item has not been submitted for publishing since the last
+ * successful publish」, `publishedItemRevisionStatus` is the live one, and `lastAsyncUploadState` is only set when
+ * an async upload happened in the past 24 hours. The two states that mean「审核队列里有一个、但它不是这一版」and
+ * the two that mean「这一版已经在里面了」are distinguished by `state`（`ItemRevisionStatus` 的枚举是
+ * `ITEM_STATE_UNSPECIFIED` / `PENDING_REVIEW` / `STAGED` / `PUBLISHED` / `PUBLISHED_TO_TESTERS` / `REJECTED` /
+ * `CANCELLED`）—— `REJECTED` 与 `CANCELLED` 是终态，队列因此是空的，重新提审正是该做的事，所以只记一条说明。
+ *
+ * 与 `upload-state` 不同的是：这里的可执行结论走 stdout（三种 exit 都要被 `echo` 进日志和 step summary），
+ * stderr 只留给「参数本身不成立」——那种情况连商店响应都没读过，谈不上结论。
+ */
+function submitCheck(file, expectedVersion) {
+  if (!file) {
+    process.stderr.write('release-ci: submit-check 需要 GET 响应体的路径，例如 submit-check item.json 1.2.1\n');
+    process.exit(SUBMIT.stop);
+    return;
+  }
+  const expected = typeof expectedVersion === 'string' ? expectedVersion.trim() : '';
+  if (!STORE_VERSION_RE.test(expected)) {
+    process.stderr.write(
+      `release-ci: submit-check 的第二个参数必须是本次要发布的版本号（X.Y 到 X.Y.Z.W），实际拿到「${expected}」\n`,
+    );
+    process.exit(SUBMIT.stop);
+    return;
+  }
+  const target = path.resolve(process.cwd(), file);
+
+  let item;
+  try {
+    item = JSON.parse(fs.readFileSync(target, 'utf8'));
+  } catch (error) {
+    process.stdout.write(
+      `读不到商店的条目状态（${target} 不是可解析的 JSON），交给 :publish 的响应定论：${error.message}\n`,
+    );
+    process.exit(SUBMIT.proceed);
+    return;
+  }
+  if (!item || typeof item !== 'object' || Array.isArray(item)) {
+    process.stdout.write('商店的条目状态不是一个对象，交给 :publish 的响应定论\n');
+    process.exit(SUBMIT.proceed);
+    return;
+  }
+
+  const notes = [];
+  if (item.takenDown === true) notes.push('条目当前被下架（takenDown）');
+  if (item.warned === true) notes.push('条目有未处理的警告（warned）');
+
+  // 1) 审核队列里已有的那份 revision 优先——它决定「这次 :publish 发布会是什么」。
+  const submitted = item.submittedItemRevisionStatus;
+  if (submitted && typeof submitted === 'object' && !Array.isArray(submitted)) {
+    const state = typeof submitted.state === 'string' ? submitted.state.trim() : '';
+    const read = channelVersion(submitted);
+    const version = read.why === 'ok' ? read.version : '';
+    if (state === 'PENDING_REVIEW' || state === 'STAGED') {
+      if (version && compareStoreVersions(version, expected) === 0) {
+        process.stdout.write(`这一版已经在审核队列里：在审的 revision 就是 ${expected}（state=${state}）。\n`);
+        process.exit(SUBMIT.skip);
+        return;
+      }
+      process.stdout.write(
+        `审核队列里已经有一个在审的 revision（state=${state}，版本 ${version || '读不到'}），而这次要发的是 ${expected} —— ` +
+          '先弄清那一份是谁提交的：现在提审会同时把两个 revision 递到审核面前。\n',
+      );
+      process.exit(SUBMIT.stop);
+      return;
+    }
+    notes.push(
+      `上一份提交的 revision state=${state || '（无 state）'}${version ? `（版本 ${version}）` : ''}，不在审核队列里`,
+    );
+  }
+
+  // 2) 上传是否已经落定。文档写明 IN_PROGRESS 时要用 fetchStatus 轮询，而提审发布的是「已提交的 revision」——
+  //    还没解完的包不是一个已提交的 revision。
+  const upload = typeof item.lastAsyncUploadState === 'string' ? item.lastAsyncUploadState.trim() : '';
+  if (upload === 'IN_PROGRESS') {
+    process.stdout.write('商店还在解包刚上传的 revision（lastAsyncUploadState=IN_PROGRESS），等它解完再提审。\n');
+    process.exit(SUBMIT.stop);
+    return;
+  }
+  if (upload === 'FAILED' || upload === 'NOT_FOUND') {
+    process.stdout.write(
+      `商店把最近一次上传判为 ${upload}，这次要提审的那份包并没有处于可提审状态——原因在上面那份 fetchStatus 响应体里。\n`,
+    );
+    process.exit(SUBMIT.stop);
+    return;
+  }
+
+  // 3) 线上版本与本次的先后。相等就没有新东西可提；更糟的是线上已经更新，说明这个 tag 并不是最新一版。
+  const live = channelVersion(item.publishedItemRevisionStatus);
+  if (live.why === 'ok') {
+    const cmp = compareStoreVersions(live.version, expected);
+    if (cmp === 0) {
+      process.stdout.write(`商店线上已经是 ${live.version}，正是这次要发的 ${expected}，没有需要提审的新 revision。\n`);
+      process.exit(SUBMIT.skip);
+      return;
+    }
+    if (cmp > 0) {
+      process.stdout.write(
+        `商店线上是 ${live.version}，比这次要发的 ${expected} 还新 —— 这个 tag 指的并不是最新一版，提审会把商店推回旧的一版。\n`,
+      );
+      process.exit(SUBMIT.stop);
+      return;
+    }
+    notes.push(`线上 ${live.version} < 本次 ${expected}`);
+  } else if (live.why === 'absent') {
+    notes.push('响应里没有 publishedItemRevisionStatus（条目还没发布过，是第一次上架的正常状态）');
+  } else {
+    notes.push(
+      `线上版本号读不到（${live.count} 个渠道${live.why === 'conflict' ? `的 crxVersion 互不一致：${live.distinct.join(' / ')}` : '里没有像版本号的 crxVersion'}）`,
+    );
+  }
+  if (upload) notes.push(`lastAsyncUploadState=${upload}`);
+
+  process.stdout.write(`可以提审：${notes.join('；')}。\n`);
+  process.exit(SUBMIT.proceed);
+}
+
+/**
+ * What the store said about the submission, and whether to treat it as accepted.
+ *
+ * `POST /v2/{name}:publish` answers with `PublishItemResponse`：`state`（同一个 `ItemRevisionStatus` 枚举）、
+ * `itemId` / `name`，以及 `warningInfo.warnings[]`. The warnings are the reason this reads the whole body:
+ * `blockOnWarnings` is left unset, so按文档它们是「记下但不拦」的非阻断告警——不打印出来就等于无声吞掉了商店
+ * 对本次提交的意见，而那正是人工放量之前要看的东西。
+ *
+ * **`REJECTED` / `CANCELLED` are the only two that fail the step.** `PENDING_REVIEW` is the expected answer for a
+ * `DEFAULT_PUBLISH`（进了队列，等审核）, `PUBLISHED` is the lucky case（这条链路对已经审过的字段是直接放行）, and
+ * `PUBLISHED_TO_TESTERS` gets flagged on stdout because it would mean the store did *not* publish to everyone —
+ * worth reading before anyone announces a release. Unreadable shapes exit 0 like `upload-state` does, leaving the
+ * workflow's HTTP code check as the verdict; a false red on this step costs a release.
+ */
+function publishState(file) {
+  if (!file) {
+    process.stderr.write('release-ci: publish-state 需要 POST 响应体的路径，例如 publish-state resp.json\n');
+    process.exit(0);
+    return;
+  }
+  const target = path.resolve(process.cwd(), file);
+
+  let body;
+  try {
+    body = JSON.parse(fs.readFileSync(target, 'utf8'));
+  } catch (error) {
+    process.stderr.write(`release-ci: 商店的发布响应不是可解析的 JSON，按 HTTP 码判定：${error.message}\n`);
+    process.exit(0);
+    return;
+  }
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    process.stderr.write('release-ci: 商店的发布响应不是一个对象，按 HTTP 码判定\n');
+    process.exit(0);
+    return;
+  }
+
+  const state = typeof body.state === 'string' ? body.state.trim() : '';
+  const warnings = Array.isArray(body.warningInfo?.warnings) ? body.warningInfo.warnings : [];
+  const reasons = warnings.map(
+    warning =>
+      `${typeof warning?.reason === 'string' && warning.reason ? warning.reason : '（无 reason）'}` +
+      `${typeof warning?.description === 'string' && warning.description ? `：${warning.description}` : ''}`,
+  );
+  const suffix = reasons.length ? `；${reasons.length} 条非阻断告警（${reasons.join(' / ')}）` : '';
+
+  if (state === 'REJECTED' || state === 'CANCELLED') {
+    process.stderr.write(`release-ci: 商店把这次提交判为 ${state}${suffix}\n`);
+    process.exit(1);
+    return;
+  }
+  if (!state) {
+    process.stderr.write(
+      `release-ci: 响应里没有 state（顶层字段：${Object.keys(body).join(', ') || '无'}），按 HTTP 码判定${suffix}\n`,
+    );
+    process.exit(0);
+    return;
+  }
+  const testers = state === 'PUBLISHED_TO_TESTERS' ? '（注意：这表示只发布给了测试人员，不是全体用户）' : '';
+  process.stdout.write(`商店回执：state=${state}${testers}${suffix}\n`);
+}
+
 switch (command) {
   case 'output':
     writeOutputs(['releasable', 'version', 'tag', 'subject'], readPlan(inputFile));
@@ -443,9 +688,17 @@ switch (command) {
   case 'upload-state':
     uploadState(inputFile);
     break;
+  case 'submit-check':
+    // 第三个位置参数在这里是「本次要发布的版本号」，不是输出文件路径——与 pr-body 复用同一个变量名，
+    // 但这条命令不写文件。
+    submitCheck(inputFile, outputFile);
+    break;
+  case 'publish-state':
+    publishState(inputFile);
+    break;
   default:
     process.stderr.write(
-      `release-ci: 未知命令 ${command}（可用：output / summary / pr-body / pending-tag / item-version / upload-state）\n`,
+      `release-ci: 未知命令 ${command}（可用：output / summary / pr-body / pending-tag / item-version / upload-state / submit-check / publish-state）\n`,
     );
     process.exit(2);
 }
