@@ -192,7 +192,7 @@ CHROME_EXTENSION_ID_TAF  # Transfer Any File 扩展 ID（从 CWS Dashboard 获�
    git push origin v1.0.0
    ```
 
-2. **自动触发**：`.github/workflows/release.yml` 被标签触发后自动执行：
+2. **自动触发（上传作业 `release`）**：`.github/workflows/release.yml` 被标签触发后自动执行：
    - 验证 tag 与 package.json 版本一致
    - 运行源码层检查（`verify:meta`、`verify:offline:source`、`verify:numbers`、`verify:listing`）
    - 构建扩展，随后对产物再跑一次 `verify:offline`（断言浏览器实际加载的那份 manifest 只有 `storage` 权限）与 `verify:remote-code`，最后打包
@@ -203,20 +203,111 @@ CHROME_EXTENSION_ID_TAF  # Transfer Any File 扩展 ID（从 CWS Dashboard 获�
      `publishedItemRevisionStatus.distributionChannels[].crxVersion`），本次要传的不严格高于它就直接停下。
      这条判断放在上传之前才有意义：放在之后，几兆字节已经传完，而商店只接受更高的版本
    - 上传包（请求体就是 zip 的原始字节），再读商店的回执 `uploadState`：明确为 `FAILED` / `NOT_FOUND`
-     就变红，读不懂的只报告不拦；然后**默认到此为止**，不调用提审接口
+     就变红，读不懂的只报告不拦
 
-3. **要提审有两个入口**，默认那条工作流不会替你做：
-   - **开发者后台**（首选）：Dashboard → 该商品 → Package 页点 **"提交审核"**，见「第二步 · 5. 点击
-     "提交审核" (Submit for Review)」。它只发提审请求，不再动包。
-   - **重跑工作流**：Actions → Release → Run workflow，填同一个 tag、`dry_run` 取消勾选、勾上
-     `submit_for_review`。这一次是「上传 + 提审」连着做完，所以同一个包会重新传一遍；如果上次上传之后
-     条目已能读到这个版本号，版本预检会先把这次运行拦下——那是正常保护，改走后台那个按钮即可。
+   **这个作业到此为止，一次 `:publish` 都不会调。**
 
-4. **Dry Run 测试**（可选）：
+3. **提审作业 `store_submit` 停在门口**：它挂的是 environment `cws-release` 的 Required reviewers。
+   配好了这道门（见 3.4）的人才会看到它：Actions 里那次运行显示为 **Waiting**，点进去是
+   「Review deployments」卡片，旁边一个 `cws-release` 的 Approve 按钮。**在有人点它之前，这个作业的第一
+   行脚本都没跑过**，商店那边只有刚上传的草稿 revision，用户侧看不到任何东西。
+
+   有人批准后，作业才开始跑，做三件事：
+
+   - 再问一次 `:fetchStatus`。批准与上传之间可能隔了几小时甚至几天，久到有人自己去后台点了「提交审核」，
+     也久到包还在解包队列里。这两种情况下直接按发布键，要么撞一个看不出所以然的错，更糟的是
+     **把审核队列里另一份 revision 当成这次的给发布了**。所以这一步先读
+     `submittedItemRevisionStatus`（已提交待审的那个 revision）与 `lastAsyncUploadState`（过去 24 小时内
+     有过异步上传才设），判定交给 `scripts/release-ci.mjs submit-check`——那张「响应形状 → 退出码」的表入库为
+     `pnpm verify:release-ci`，CI 的 lint job 每次按它真跑一遍，改判定必须同批改那张表
+   - 判定为「可以提审」才调用 `:publish`，请求体 `{"publishType":"DEFAULT_PUBLISH"}` —— 审核通过后立即
+     发布给全体用户，与旧版 `publishTarget=default` 等价
+   - 判定为「这一版已经在商店那边了」就**跳过且不算失败**（重复提交只会让队列里同时躺两份同一个包）；
+     判定为「商店侧状态不对」就变红停下，把理由写进 annotation
+
+   发布响应同样过一道 `publish-state`：HTTP 200 但 `state` 是 `REJECTED` / `CANCELLED` 一律变红，
+   `PUBLISHED_TO_TESTERS` 会在回执里明说「只发布给了测试人员」。
+
+4. **要提审有三个入口**，按「谁按下发布键」分：
+
+   | 入口                                   | 什么时候用                                  | 包要不要重传                                                                                                                             |
+   | -------------------------------------- | ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+   | **审批门**（推荐，配好之后是默认路径） | 合并 Release PR → 自动上传 → 有人点 Approve | 不用。`:publish` 发就是刚上传那个 revision                                                                                               |
+   | **开发者后台**                         | 门没配、或想立刻手工提交                    | 不用。Dashboard → 该商品 → Package 页点 **"提交审核"**，见「第二步 · 5」                                                                 |
+   | **手动触发工作流**                     | 想指定某个历史 tag 补一次发布               | 要。Actions → Release → Run workflow，填 tag、`dry_run` 取消勾选、勾上 `submit_for_review`。勾了这个复选框才会排队，排到队后仍要过审批门 |
+
+   旧文档里那句「重跑提审会被版本预检拦下、改走后台按钮即可」说的是**上传与提审绑在同一步**时的那种形态；
+   现在两步拆开了，批准之后不必重传包，也就不会被预检拦第二次。
+
+5. **Dry Run 测试**（可选）：手动触发时把 `dry_run` 勾上（默认就是勾着的）。它跑到构建与全部守卫为止，
+   不创建 GitHub Release、不上传包，提审作业因为 `uploaded` 是空的而不排队。
+
    ```bash
-   # 在 GitHub Actions 页面手动触发 workflow_dispatch
-   # 勾选 dry_run 选项进行预演，不实际发布
+   # 在 GitHub Actions 页面手动触发 workflow_dispatch；命令行等价写法：
+   gh workflow run release.yml -f tag=v1.2.0 -f dry_run=true
    ```
+
+### 3.4 配置人工批准门（environment `cws-release`，只做一次）
+
+这道门是「合并 main → 一路自动走到商店门口 → **有人放行才按发布键**」里那句「有人放行」的落地物。
+它不是本工作流里的一个 `if`：`if` 只能表达「这次运行有没有勾那个复选框」，表达不了
+「另一个人看过并同意了」。1.0.0 三次被拒之后，「先看一眼」必须是流程里的一个**状态**，不能是跑完之后
+的一句「记得看一眼」。
+
+**顺序是死的：先建门并确认它真的会拦，再设那个变量。** 反过来的后果写在下面第 5 条里。
+
+1. **建环境**。Repository → Settings → 左侧 **Environments** → **New environment**。
+   名字必须逐字写作 `cws-release`（工作流里 `environment.name` 引用的是它）。GitHub 的环境名
+   「may not exceed 255 characters and must be unique within the repository」，且**不区分大小写**——
+   写成 `CWS-Release` 会被当成同一个名字，但工作流里的引用不是同一个键，别赌。
+
+2. **加 Required reviewers**。在环境的配置页勾上 **Required reviewers**，
+   「Enter up to 6 people or teams」——填谁都行，但**至少要有一个不是「将来唯一会来点批准的那个人」的
+   替代品**：这条链路的意义是「另一双眼睛」。勾 **Prevent self-review** 可以禁止触发者自己批准
+   （个人仓库里只有你一个人时**别勾**，见 FAQ Q8）。保存前再看一眼
+   **Allow administrators to bypass configured protection rules**：勾着的话，管理员身份可以直接跳过这道门。
+   「Deselect Allow administrators to bypass configured protection rules」是文档里明确的关闭方式。
+
+3. **Deployment branch 这一项留空或写 `main`**（写模式时要「Enter the name pattern for the branch or tag
+   that you want to allow」，且分支与 tag 的模式**要分别配**）。本工作流的发布作业 checkout 的是标签
+   `needs.release.outputs.tag`，不是分支——如果你在这里加了分支限制，先确认标签触发仍然过得了这道规则，
+   否则门会变成「谁都进不去」。拿不准就留空：这条链路上真正的拦点是 Required reviewers。
+
+4. **保存**（Configure environment → Save protection rules）。
+
+5. **验证这道门真的存在，然后才开变量**。GitHub 的文档写明：
+   「Running a workflow that references an environment that does not exist will create an environment
+   with the referenced name」，而除 Pages 隐式构建那种情况外
+   「the newly created environment will not have any protection rules or secrets configured」——
+   **一个自动创建出来的环境是没有门的**，每次打标签都会直接提审。所以别只信自己点过保存：
+
+   ```bash
+   curl -sS -H "Authorization: Bearer $GH_PAT" -H "Accept: application/vnd.github+json" \
+     https://api.github.com/repos/<owner>/<repo>/environments/cws-release > /tmp/env.json
+   node -e "const e=require('/tmp/env.json');console.log(JSON.stringify((e.protection_rules||[]).map(r=>r.type)))"
+   ```
+
+   `protection_rules` 必须**非空**，并且能在里面找到 required reviewers 那一条（GitHub 的示例响应里它的
+   `type` 写作 `required_reviewers`，`reviewers` 列出被指定的人）。返回 `[]` 或者压根没有这个键，就是
+   「环境存在但没有门」——回到第 2 步。字段名以你实际看到的返回体为准，这条判断只要求**非空且能看到评审人**。
+
+6. **开变量**。Repository → Settings → Secrets and variables → Actions → **Variables** →
+   **Repository variables** → New：
+
+   ```bash
+   CWS_AUTO_SUBMIT = true      # 唯一取值就是 true；不设或设成别的值 = 不提审（fail-closed）
+   ```
+
+   它是第二道保险而不是门本身：门是 environment 的 Required reviewers，变量只是「我已经把门配好了」这个
+   **公开声明**（所以它是 variable 而不是 secret——它不是机密值）。它参与作业级 `if`，是因为
+   `jobs.<job_id>.if` 里能用 `vars` 而**不能用 `secrets`**（文档在那一页列的可用上下文是
+   github / needs / vars / inputs）。
+
+7. **最后一次真跑验证**：打一个测试标签或手动触发一次（勾 `submit_for_review`、`dry_run` 不勾）。
+   预期形状是：`release` 作业全绿并上传成功 → `Submit for review (after approval)` 显示
+   **Waiting**，等你点 Approve → 点了之后不到两分钟结束。
+   如果你**没有**看到 Waiting 而是它直接跑完了，说明第 5 步查出来的那个「没有保护规则的环境」就是它——
+   立刻回去补，并把 `CWS_AUTO_SUBMIT` 先删掉。
 
 ---
 
@@ -296,19 +387,115 @@ A: 参考 `CHROMEWEBSTORE.md` 中的"拒审记录与政策口径"章节，常见
 
 ### Q4: 如何测试发布流程？
 
-A: 使用 dry run 模式：
+A: 两段分开测。**上传之前那段**用 dry run，它不碰商店：
 
-```yaml
-# 手动触发 workflow_dispatch
-dry_run: true # 只验证，不实际发布
+```bash
+gh workflow run release.yml -f tag=v1.2.0 -f dry_run=true     # 页面上等价：勾上 dry_run
 ```
+
+**门与提审这两步**不能靠 dry run 测（dry run 下 `uploaded` 是空的，提审作业压根不排队）。可靠的测法是
+「让它排队、但不批准」：勾 `submit_for_review`、不勾 `dry_run` 跑一次，看它是否停在 **Waiting**。
+停在 Waiting = 门在；直接跑完 = 门不在，按 3.4 第 5 步查那个 environment。
+
+真要把一次发布**取消**掉：不批准即可，30 天后那次等待自己过期（Q9）；或者在运行页 Cancel workflow，
+已上传的草稿 revision 不会出现在商店页面上——它没被提交审核。
 
 ### Q5: 包上传成功了，商店那边怎么没开始审核？
 
-A: 这是默认行为，不是故障。`release.yml` 默认只把包传上去，提审要人显式发起。首选到开发者后台的
-Package 页点 **"提交审核"**，它只发请求、不再动包；也可以用 `workflow_dispatch` 再跑一次 Release
-工作流（填同一个 tag、取消勾选 `dry_run`、勾上 `submit_for_review`），差别是这一次会把同一个包重新
-传一遍——若条目已能读到那个版本号，版本预检会先把这次运行拦下。两条路的区别与前提见 3.3 第 3 条。
+A: 先确认这是不是你要的形状。上传作业**从不调用 `:publish`**，提审是另一个作业的事，而它排队要四个条件
+同时成立（少一个就连排队都不排）：
+
+| 条件                                                 | 在哪查                                                  |
+| ---------------------------------------------------- | ------------------------------------------------------- |
+| 上一作业真的传成功了（`uploaded == 'true'`）         | `release` 作业那步的日志末尾；失败原因写在响应体里      |
+| 四项 secrets 齐备（`store_ready == 'true'`）         | 「Detect Chrome Web Store credentials」那一步的 summary |
+| 仓库变量 `CWS_AUTO_SUBMIT == 'true'`                 | Settings → Secrets and variables → Actions → Variables  |
+| 手动触发时勾了 `submit_for_review`（标签触发不看它） | 那次运行的 Run workflow 表单                            |
+
+四个都对而作业显示 **Waiting** 而不是 skipped —— 那不是没开始审核，那就是门。叫它的 reviewers 里任何
+一个人点 Approve。三个入口（门 / 后台按钮 / 手动触发）的区别见 3.3 第 4 条的表。
+
+### Q6: `Submit for review (after approval)` 显示 skipped，一点日志都没有
+
+A: 作业级 `if` 为假，所以它连一行脚本都没执行——上面那张表按顺序查。最常见的两个是：变量没设（**fail-closed
+是刻意的**：没确认过门存在就不该自动提审），以及手动触发时忘了勾复选框。
+
+如果 `release` 作业里商店那两步本来就是灰的（"已跳过 Chrome 应用商店"），那是 secrets 不齐，先回 3.2。
+
+### Q7: 我在哪里批准？批准了却没动静？
+
+A: Actions → 那次运行 → 页面顶部 `cws-release` 那一行旁边有 **Review deployments**，点开卡片里的
+**Approve and deploy**。要点：
+
+- **只有 `required_reviewers` 名单里的人（以及被允许绕过的管理员）看得到这个按钮**。别人只能看到 "Waiting"。
+- 名单里**任一人**批准即放行（文档原话："Only one of the required reviewers needs to approve the job
+  for it to proceed"），不需要 6 个人都点。
+- 批准的是**作业的开始**，不是发布结果。批完了它才去 `:fetchStatus`、再决定按不按发布键（3.3 第 3 条）。
+- 没看到卡片：确认这个 environment 真的挂在作业上（`environment.name: cws-release` 拼写一致），
+  以及这个环境**不是**被首次运行自动创建出来的那个空壳（3.4 第 5 步）。
+
+### Q8: 仓库只有我一个人，勾了 Prevent self-review 之后没人能批准了
+
+A: 这是这道门在个人仓库上的真实张力：门要的是「另一双眼睛」，而你可能确实只有这一双。三个选项，按诚实程度排：
+
+1. **加一个真实的第二人**（协作者、家人账号、你自己的另一个账号），让门名副其实。
+2. **不勾 Prevent self-review**，接受「自己批准自己」——这时门仍然拦住了**自动化**（标签推上去不会自己发出去，
+   必须有人来点），只是拦不住那个「人」是你自己。
+3. 别为了让流程看起来有门而留一个谁都批不了的名单：那样每次发布都会卡在 Waiting，最后你会养成
+   「绕过它」的习惯，那比没有门更糟。
+
+无论选哪种，`CWS_AUTO_SUBMIT` 的语义都不变：它只是「门已配好」的声明，不是「跳过门」。
+
+### Q9: 批准等了很久会不会超时？
+
+A: 两个不同的钟，别混：
+
+- **等待批准**：「A workflow may wait for up to 30 days on environment approvals」。所以周五推的标签，
+  周一早上批也还来得及；超过 30 天没人管，那次等待自己过期。
+- **批准之后执行作业**：GitHub 托管 runner 的单个作业上限是 6 hours（5 天那一档是自托管 runner 的）。
+  这一步实际只用不到两分钟。
+
+工作流里**刻意没写** `jobs.store_submit.timeout-minutes`：文档没有明确说那个钟在等待审批期间走不走，
+而一旦它从排队时起算，一个 10 分钟的设置就会变成「批准得慢一点的发布自己超时」——这种失败既看不出
+所以然，又正好落在最不该失败的地方。
+
+### Q10: 私有仓库 / Free 计划能用这道门吗？
+
+A: 文档写明「Users with GitHub Free plans can only configure environments for public repositories」，
+私有仓库要 Pro / Team。本仓库是 public，所以门可用。如果你在**私有仓库 + Free** 上照抄这套配置：
+`environment:` 引用一个建不出来的环境，行为会退化成「自动创建的空壳环境」（没有保护规则），
+也就是**每次打标签直接提审**——这正是 `CWS_AUTO_SUBMIT` 那道变量保险要拦的情形。
+那种账号条件下的正确做法是：不设变量，提审走开发者后台的 Package 页按钮。
+
+同一篇文档还提醒：把一个 Free 计划下的公开仓库改成私有，已有的保护措施会被忽略并锁住配置入口，
+直到改回来为止。仓库可见性不是免费参数，别在配好门之后随手翻。
+
+### Q11: 批准之后那一步失败了（或被拒），要不要重传包？
+
+A: 不用重传。`:publish` 发布的就是**已经上传的那个 revision**，所以修复了原因之后再跑一次提审作业即可。
+而重跑前它自己会先问 `:fetchStatus`：
+
+- 如果商店那边这一版**已经在审核队列里**（例如你中途自己去后台点过按钮），`submit-check` 返回 10，
+  作业**跳过且算绿**——不会出现队列里同时躺两份同一个包。
+- 如果包还在解包（`lastAsyncUploadState: IN_PROGRESS`）或解包失败，返回 20，作业变红并写明原因，
+  **不会**去按发布键。
+- 如果队列里躺着的是**别的**版本号，同样返回 20——不把别人的 revision 当成这次的发布。
+
+真正需要重传包的只有一种情况：你改了 `package.json` 版本号并推了新标签。
+
+### Q12: `skipReview` 是什么？为什么不接上它？
+
+A: v2 的 `PublishItemRequest` 里除了 `publishType` 还有三个字段：`skipReview`、`blockOnWarnings`、
+`deployInfos`。
+
+- `skipReview` 的字面意思是「不提审直接发布」。**这条链路不接它**：审核不是可以由调用方宣布免除的环节，
+  接上它等于给发布脚本加了一个「绕过商店检查」的开关，而这条链路的整条理由恰恰是「商店的检查之前先有
+  一道人的检查」。
+- `blockOnWarnings` 是「有告警就当失败」的开关，**也刻意不开**：告警按文档是非阻断的，拦下来只会让人
+  必须去后台看一眼才能重试。取而代之的是 `publish-state` 把告警**打印出来**（回执里写「N 条非阻断告警
+  （reason：description / …）」），让人决定。
+- `deployInfos` 配的是 `STAGED_PUBLISH` 的分批放量。这里发的是 `DEFAULT_PUBLISH`，用不到它；
+  要改成灰度发布是**一次有意的产品决定**，不该是某次 CI 改动顺手带来的。
 
 ---
 
@@ -335,6 +522,11 @@ Package 页点 **"提交审核"**，它只发请求、不再动包；也可以�
 - [ ] 商店文案与 `_locales` 文件一致
 - [ ] 隐私政策 URL 可达
 - [ ] 版本号高于线上版本
+- [ ] **（要走自动提审才需要）** environment `cws-release` 已建好，且 `protection_rules` 里能看到
+      Required reviewers 那一条——不是首次运行自动创建的空壳（3.4 第 5 步的那条 curl 命令）
+- [ ] **（同上）** 仓库变量 `CWS_AUTO_SUBMIT=true` 已设，且设之前刚验证过上一格
+- [ ] **（同上）** 名单里至少有一个**不是本次触发者**的批准人；个人仓库只有一个人时，确认自己选的是
+      Q8 里的哪一种，而不是「勾了 Prevent self-review 然后没人能批」
 
 ---
 
