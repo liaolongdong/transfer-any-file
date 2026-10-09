@@ -151,7 +151,8 @@ Files are read into the extension page's memory, converted there, and returned t
 
 Public · 全部地区 · 默认价格（free）。32 位 item ID 出现在这一页，值已写进本文件顶部的「现网状态」。
 **它从今天起进 git**：ID 本身就嵌在要公开的 listing URL 里，把它留在仓库外守不住任何东西，只会让徽章与安装链接无处取值
-（下方[上架后的运营](#上架后的运营)那节对徽章的说明同此）。仍然**不进 git** 的是那三个 OAuth 凭据，
+（下方[上架后的运营](#上架后的运营)那节对徽章的说明同此）。仍然**不进 git** 的是那三个发布商级凭据
+（`CWS_PUBLISHER_ID` / `CWS_SERVICE_ACCOUNT_EMAIL` / `CWS_SERVICE_ACCOUNT_PRIVATE_KEY`），
 它们走[交接给自动化](#5-交接给自动化条目已存在之后)里说的 `CHROME_EXTENSION_ID_TAF` 与 `CWS_*` secret。
 
 ### 给审核员的备注（可选，能省一个来回）
@@ -716,27 +717,40 @@ curl -Is https://liaolongdong.github.io/transfer-any-file/privacy.html | head -1
 | Distribution       | [分发与开发者信息](#分发与开发者信息)（public、全部地区）；item ID 出现在这一页                                                                                                  |
 
 提交审核，然后盯后台的 **Package → status**。配好下面那套凭据之后，也可以用 `release.yml` 打的同一组端点查状态：
-GET `https://www.googleapis.com/chromewebstore/v1.1/items/<item ID>`，带 `x-goog-api-version: 2` 和一个
-`Authorization: Bearer <access token>`；换 access token 的命令见 `.github/CWS_PUBLISHING_GUIDE.md → 3.1`。
+GET `https://chromewebstore.googleapis.com/v2/publishers/<发布商 UUID>/items/<item ID>:fetchStatus`，带
+`x-goog-api-version: 2` 和一个 `Authorization: Bearer <access token>`。令牌由 `scripts/cws-token.mjs` 现签现换，
+本地想读一次状态就把它的输出喂给 curl：
+
+```bash
+node scripts/cws-token.mjs /tmp/cws.cfg        # 只写两行 header 到这个 0600 文件，不打印令牌
+curl -sS --config /tmp/cws.cfg \
+  'https://chromewebstore.googleapis.com/v2/publishers/<发布商 UUID>/items/<item ID>:fetchStatus'
+rm -f /tmp/cws.cfg
+```
 
 ### 5. 交接给自动化（条目已存在之后）
 
-从后台 URL 里复制 32 位 **item ID**，然后为 Chrome Web Store API 生成 OAuth 凭据。Google Cloud 那侧的完整步骤
-（在某个项目里启用 _Chrome Web Store API_、创建 OAuth client、用授权码换 refresh token）写在
-`.github/CWS_PUBLISHING_GUIDE.md → 3.1`，这里不重复。
+从后台 URL 里复制 32 位 **item ID**，再按 `.github/CWS_PUBLISHING_GUIDE.md → 3.1` 建一个服务账号：在某个 GCP
+项目里启用 _Chrome Web Store API_、建服务账号与 JSON 密钥、**把那个 `client_email` 加进开发者信息中心的「账号」页**
+（一个发布商目前只能加一个服务账号，所以几个扩展共用它）。这里不重复。
 
-补上四个仓库 secrets——本扩展专用的 `CHROME_EXTENSION_ID_TAF`，以及与 account-password-helper 共用的
-`CWS_CLIENT_ID` / `CWS_CLIENT_SECRET` / `CWS_REFRESH_TOKEN`（个人账号没有组织级 secret 共享，这三个值仍要在
-**每个仓库里各填一次**）——`release.yml` 里的 `Submit to the Chrome Web Store` 步骤就不再说「跳过」，而是从下一个 tag
-开始真正发布。它用 runner 自带的 `curl` 打 v1.1 端点：先 PUT `upload/items/<id>` 上传新包，再 POST
-`items/<id>?publishTarget=default` 提交审核；不引入第三方 npm 包或 action。头几次运行想先预演，手动触发
+补上四个仓库 secrets——本扩展专用的 `CHROME_EXTENSION_ID_TAF`，加上发布商级的 `CWS_PUBLISHER_ID` /
+`CWS_SERVICE_ACCOUNT_EMAIL` / `CWS_SERVICE_ACCOUNT_PRIVATE_KEY`（个人账号没有组织级 secret 共享，这三个值仍要在
+**每个仓库里各填一次**）——`release.yml` 里的 `Publish to the Chrome Web Store` 步骤就不再说「跳过」，而是从下一个 tag
+开始真正发布。它用 runner 自带的 `curl` 打 v2 端点：先 `:fetchStatus` 读线上版本号做预检，再 POST
+`upload/v2/…:upload` 传包（请求体就是 zip 的原始字节），勾了 `submit_for_review` 才 POST `:publish`
+`{"publishType":"DEFAULT_PUBLISH"}`；不引入第三方 npm 包或 action。头几次运行想先预演，手动触发
 workflow_dispatch 时勾 `dry_run`（只做认证与校验，不上传、不提交）。
 
-| 想改的行为                  | 改哪里                                                                                         |
-| --------------------------- | ---------------------------------------------------------------------------------------------- |
-| 限定范围发布（只给白名单）  | 那行 POST 的 `publishTarget` 换成 `trustedTesters`，它是工作流里的字面量，不是仓库变量         |
-| 只上传不请求审核（留草稿）  | 注释掉那行 POST；包已经上传，后台的 Package 页会停在草稿态                                     |
-| 用 v2 API + service account | 换掉整套端点与鉴权；**当前刻意留在 v1.1**，因为新开发者账号今天拿到的就是 v1.1 的 OAuth client |
+| 想改的行为                 | 改哪里                                                                                                                         |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| 审过但先不发（压着等放量） | 那行 POST 的 `publishType` 换成 `STAGED_PUBLISH`，它是工作流里的字面量，不是仓库变量；放量再走 `:setPublishedDeployPercentage` |
+| 只上传不请求审核（留草稿） | 现在就是这个默认：`submit_for_review` 不勾，`release.yml` 传完包就停，后台 Package 页停在草稿态                                |
+| 把提审拆成单独一步         | 刻意没拆。access_token 只活在 `Publish to the Chrome Web Store` 这一步的临时 curl 配置里，拆开就得把它落进工作区留给下一步     |
+
+> 曾经有一行写的是「当前刻意留在 v1.1，因为新开发者账号拿到的就是 v1.1 的 OAuth client」。那句话在 2026-10-08
+> 作废：v1.1 的授权链路早就拿不到 token（`redirect_uri=…:oob` 自 2023-01-31 起对所有客户端关闭，授权端点回
+> `错误 400: bad_request`），端点本身 **2026-10-15** 停止服务，所以留不留已经不是选择。
 
 ### 无法自动化的部分（别排期，然后困惑）
 

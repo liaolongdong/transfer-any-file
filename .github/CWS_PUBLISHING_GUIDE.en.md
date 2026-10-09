@@ -23,7 +23,7 @@ This document records the complete process and key configurations for publishing
 
 4. Pay the one-time $5 registration fee (use dual-currency card)
 
-5. After successful registration, note the Dashboard access URL (needed for CI/CD configuration)
+5. Once registered, note the UUID in the devconsole URL — that is the publisher ID, and 3.2 asks for it
 
 > **Tip**: Registration requires accessing Google services; choose a time with stable network conditions.
 
@@ -122,56 +122,48 @@ storage: persists the user's own conversion history (file names, formats and siz
 
 ## Step 3: Configure CI/CD Automated Publishing
 
-### 3.1 Obtain OAuth Credentials
+### 3.1 Obtain Service Account Credentials (Chrome Web Store API v2)
 
-1. Open [Google Cloud Console](https://console.cloud.google.com/)
+Publishing runs on **API v2 with a service account**: there is no Client ID / Client Secret / Refresh Token
+any more, and nobody clicks "consent" in a browser. The old chain is dead at both ends — its authorisation URL
+uses `redirect_uri=urn:ietf:wg:oauth:2.0:oob`, which Google blocked for new clients on 2022-02-28 and for
+**all** clients on 2023-01-31 (the consent endpoint answers `Error 400: bad_request` before it even looks at
+the client), and the v1.1 endpoints themselves stop serving on **2026-10-15**.
 
-2. Create new project (or select existing)
+1. Open [Google Cloud Console](https://console.cloud.google.com/) and create a project (or reuse one)
+2. "APIs & Services" → "Library" → search **Chrome Web Store API** → Enable.
+   Without this the token still exchanges and the call comes back `403 accessNotConfigured`,
+   which is why this step is first in the chain
+3. "IAM & Admin" → "Service Accounts" → create one. Name it anything; **you do not need to grant it a single
+   GCP IAM role** — the store authorises the account by it appearing in your publisher's member list
+   (step 5), not by anything GCP says about it
+4. "Service Accounts" → that account → "Keys" → "Add key" → "Create new key" → JSON → download.
+   The two fields you need from the file are `client_email` and `private_key`. Once you have pasted them,
+   **do not leave that file inside the repository** — `git add .` would sweep it up, and this pipeline only
+   reads the values from GitHub Secrets, so the file has no reason to live here. (The `.env.submit` line in
+   `.gitignore` guards the older shape; it cannot guard a JSON file with a randomly generated name.)
+5. Open the Developer Dashboard at <https://chrome.google.com/webstore/devconsole> and add that
+   `client_email` on the "Users" (账号) page. **A publisher can currently have only one service account**,
+   so every item under the same publisher shares it — do not create one per extension
+6. Note the **publisher ID**: the UUID in `https://chrome.google.com/webstore/devconsole/<uuid>`. It is the
+   first segment of the v2 resource name `publishers/{publisherId}/items/{itemId}`
 
-3. Enable **Chrome Web Store API**:
-   - Search for "Chrome Web Store API"
-   - Click "Enable"
-
-4. Create OAuth 2.0 credentials:
-   - Go to "APIs & Services" → "Credentials"
-   - Click "Create Credentials" → "OAuth client ID"
-   - Application type: **"Desktop app"**
-   - Note down **Client ID** and **Client Secret**
-
-5. Generate Refresh Token:
-
-   Open the following URL in browser (replace YOUR_CLIENT_ID):
-
-   ```
-   https://accounts.google.com/o/oauth2/auth?response_type=code&scope=https://www.googleapis.com/auth/chromewebstore&client_id=YOUR_CLIENT_ID&redirect_uri=urn:ietf:wg:oauth:2.0:oob
-   ```
-
-   After authorization, exchange the authorization code for refresh token:
-
-   ```bash
-   curl -X POST \
-     -d "client_id=YOUR_CLIENT_ID" \
-     -d "client_secret=YOUR_CLIENT_SECRET" \
-     -d "code=AUTHORIZATION_CODE" \
-     -d "grant_type=authorization_code" \
-     -d "redirect_uri=urn:ietf:wg:oauth:2.0:oob" \
-     https://oauth2.googleapis.com/token
-   ```
-
-   The `refresh_token` in response is what you need.
+> v2 offers exactly five actions: `fetchStatus` / `upload` / `publish` / `cancelSubmission` /
+> `setPublishedDeployPercentage`. Creating an item is **not** among them, and neither is changing the
+> visibility — so section 2 of this guide is not going away.
 
 ### 3.2 Configure GitHub Secrets
 
-Configure these secrets in GitHub Repository Settings → Secrets and variables → Actions.
-Three of them are **shared with account-password-helper** (the same Google Cloud project, the same developer
-account); only the extension ID is per-extension:
+Configure these secrets in GitHub Repository Settings → Secrets and variables → Actions. The first three are
+**publisher-level** (the same values in every repository under that publisher); only the extension ID is
+per-extension:
 
-**Shared OAuth credentials:**
+**Publisher level:**
 
 ```bash
-CWS_CLIENT_ID        # Google Cloud OAuth Client ID
-CWS_CLIENT_SECRET    # Google Cloud OAuth Client Secret
-CWS_REFRESH_TOKEN    # OAuth Refresh Token
+CWS_PUBLISHER_ID                 # Publisher ID: the UUID in the devconsole URL
+CWS_SERVICE_ACCOUNT_EMAIL        # The service account's client_email
+CWS_SERVICE_ACCOUNT_PRIVATE_KEY  # That service account's private key
 ```
 
 **This extension only:**
@@ -182,16 +174,24 @@ CHROME_EXTENSION_ID_TAF  # Transfer Any File extension ID (from CWS Dashboard, 3
 
 > ⚠️ **Important notes**:
 >
-> - Ensure secret values have no spaces/newlines or invisible characters when copying
-> - Extension ID must be 32 lowercase letters (a-p)
-> - OAuth apps in Testing mode have ~7-day refresh token expiry; recommend publishing as In production
-> - The OAuth credentials are configured once and shared by both extensions; GitHub has no org-level
->   secret sharing for personal accounts, so enter the three values in each repository
+> - The private key is read in all three shapes people actually paste: the whole JSON file, the `private_key`
+>   field value copied out of that JSON (where the newlines are still literal backslash-n and the equals signs
+>   are still JSON escapes), and a PEM already restored to real multiple lines. An unrecognisable one is
+>   reported by shape, and the key is never printed — see `scripts/cws-token.mjs`
+> - Still, **paste the whole JSON or the multi-line PEM**: hand-restoring the escapes is the easiest of the
+>   three shapes to get wrong
+> - GitHub has no org-level secret sharing for personal accounts, so the three publisher values go into
+>   **each repository** (identical values)
+> - Extension ID must be 32 lowercase letters (a-p), with no spaces or newlines from the copy
+> - A service account has no "~7-day token expiry": each run signs a fresh 5-minute RS256 JWT and exchanges it
+>   for an access token, and there is no OAuth app to publish as "In production". Both of those older warnings
+>   retired with the refresh token
 
 ### 3.3 Publishing Flow
 
-Current configuration uses the runner's own `curl` against the Chrome Web Store upload / publish APIs —
-**no third-party npm package or action**:
+Current configuration uses the runner's own `curl` against the Chrome Web Store **API v2** upload / publish
+endpoints — **no third-party npm package or action**. Only the token exchange is first-party code
+(`scripts/cws-token.mjs`), because an RS256 signature is not something shell can write:
 
 1. **Prepare the version** (recommended path; the full automation is in `.github/RELEASE_AUTOMATION.md`):
    once changes land on `main`, `release-prepare.yml` computes the version, promotes the `Unreleased`
@@ -209,12 +209,15 @@ Current configuration uses the runner's own `curl` against the Chrome Web Store 
    - Build the extension, run `verify:offline` and `verify:remote-code` again against the artifact (asserting the manifest the browser loads holds only `storage`, and that the bundle carries no remotely hosted code), then package it
    - Validate package contents (manifest.json at root, no repo files)
    - Create GitHub Release
-   - Verify OAuth credentials and the extension ID format
-   - **Version pre-flight**: read the version the store currently carries and stop unless this package is
-     strictly higher (the store only accepts higher versions; deciding this _before_ the upload means the
-     failure reason is a sentence we wrote, rather than a guess at Google's status fields, which have no
-     stable documentation)
-   - Upload the package, and **stop there by default**: the submit-for-review call is not made
+   - Verify the service account credentials (sign a fresh JWT and exchange it for an access token; on failure
+     print Google's response body verbatim) and the extension ID format
+   - **Version pre-flight**: read the version the store currently carries with `:fetchStatus` (in v2 it lives
+     at `publishedItemRevisionStatus.distributionChannels[].crxVersion`) and stop unless this package is
+     strictly higher. Deciding this _before_ the upload is the point: afterwards the megabytes are already
+     sent and the only witness is the store's own response
+   - Upload the package (the request body is the raw zip bytes) and read the store's receipt, `uploadState`:
+     `FAILED` / `NOT_FOUND` turn the step red, anything unreadable is reported and passed through. Then
+     **stop by default**: the submit-for-review call is not made
 
 3. **Two ways to submit for review** — the workflow above will not do it for you:
    - **Developer dashboard** (preferred): on the item's Package page click **"Submit for review"**,
@@ -279,13 +282,23 @@ After approval, obtain the 32-character extension ID from Chrome Web Store Dashb
 
 ## FAQ
 
-### Q1: What if OAuth token expires?
+### Q1: How do I tell which link in the service account chain broke?
 
-A: To refresh token:
+A: Four failures, four different scenes — check them in this order:
 
-1. Publish OAuth app to In production status (avoid 7-day expiry)
-2. Or re-authenticate to generate new refresh token
-3. Update `CHROME_REFRESH_TOKEN` in GitHub Secrets
+1. `403 accessNotConfigured` → the GCP project has not enabled the Chrome Web Store API (3.1 step 2)
+2. The token exchange itself returns `400` (`invalid_grant` / `unauthorized_client`) → the
+   `CWS_SERVICE_ACCOUNT_EMAIL` and this private key are not the same service account, or the key broke on the
+   way in. Pair them again, or look at 3
+3. The step says「私钥读不出来」(private key unreadable) → what was pasted is not one of the three shapes;
+   most often a hand-restored escape sequence that no longer parses
+4. **The token exchanges fine but the store call returns 401/403** → the service account's email was never
+   added on the Developer Dashboard's user page. The "Verify Chrome Web Store service account" step cannot see
+   this: it only proves the two things that are checkable locally (the key parses, the token exchanges), and
+   membership is only revealed by the store call itself
+
+The old "what if the token expires" question no longer exists: a service account signs what it uses, there is
+no long-lived token to renew.
 
 ### Q2: Extension ID format error?
 
@@ -340,8 +353,9 @@ so its section names are quoted verbatim below:
 
 Before publishing, ensure:
 
-- [ ] GitHub Secrets configured completely (3 shared credentials + 1 extension-specific ID; add `RELEASE_PAT` too if the tag should start the release on its own)
-- [ ] OAuth app status normal (In production or token not expired)
+- [ ] GitHub Secrets configured completely (3 publisher-level values + 1 extension-specific ID; add `RELEASE_PAT` too if the tag should start the release on its own)
+- [ ] The service account's email is added on the Developer Dashboard's user page (skip this and the token still exchanges — the store call is what answers 401/403)
+- [ ] The GCP project has the Chrome Web Store API enabled
 - [ ] Extension ID format correct (32 a-p lowercase letters, `CHROME_EXTENSION_ID_TAF`)
 - [ ] All validations passed (`pnpm lint:all && pnpm verify:meta && pnpm verify:listing && pnpm build && pnpm verify:offline`)
 - [ ] Store copy consistent with `_locales` files
