@@ -44,6 +44,7 @@
     "verify:listing": "node scripts/check-store-listing.mjs",
     "verify:paths": "node scripts/check-path-snapshot.mjs",
     "verify:numbers": "node scripts/check-prose-numbers.mjs",
+    "verify:release-ci": "node scripts/check-release-ci.mjs",
     "assets:capture": "node scripts/capture-store-assets.mjs",
     "pages:render": "node scripts/render-site-pages.mjs",
     "pages:check": "node scripts/render-site-pages.mjs --check",
