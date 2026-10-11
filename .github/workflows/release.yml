@@ -16,6 +16,12 @@
 # 令牌不跨作业传：每个作业自己现签一枚，写进自己的 `chmod 600` 临时 curl 配置，退出即删。
 #
 # 后台那个入口始终保留：开发者后台的 Package 页点「提交审核」，它只发请求、不再动包。
+#
+# 在这两步之前还有一档「什么都不写」的只读入口（store_status 作业）：现签一枚令牌、只打一次
+# `:fetchStatus`，用来证明「服务账号 → access_token → v2 端点」这条链通。它存在的理由与上面那句
+# 「宁可这里红，也不要把包递到商店手上」是同一条——凭据配错时最不想要的就是一次真上传，而本机
+# 常常根本出不了网（见 .github/CWS_PUBLISHING_GUIDE.md 的 Q13），CI 是唯一能给判绿的地方。
+#
 # 配置步骤、两道闸的语义与两个入口的差别见 .github/RELEASE_AUTOMATION.md 与 .github/CWS_PUBLISHING_GUIDE.md。
 name: Release
 
@@ -25,8 +31,8 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Existing tag to build, e.g. v1.0.0'
-        required: true
+        description: 'Existing tag to build, e.g. v1.0.0 (not read by the read-only store status run)'
+        required: false
         type: string
       dry_run:
         description: 'Build and verify everything, but create no release and submit nothing'
@@ -35,6 +41,11 @@ on:
         default: true
       submit_for_review:
         description: 'Manual runs only: unchecked stops right after the upload; checked queues the approval gate and submits once a human approves'
+        required: false
+        type: boolean
+        default: false
+      store_status_only:
+        description: 'Manual runs only: read the store item status and stop — no build, no upload, no approval, nothing written'
         required: false
         type: boolean
         default: false
@@ -51,6 +62,11 @@ concurrency:
 jobs:
   release:
     name: Build and publish
+    # 只读那一档不构建、不上传、不建 Release，所以这个作业整个跳过（下面那个 store_status 作业
+    # 才是它要做的事）。标签触发拿不到 inputs，那一支恒为假，自动发布链路不受影响。
+    if: >-
+      !(github.event_name == 'workflow_dispatch' &&
+      github.event.inputs.store_status_only == 'true')
     runs-on: ubuntu-latest
     # 末尾那个提审作业只靠这几格判断该不该排队；`uploaded` 是上传步骤走到最后一行才写的，
     # 所以「构建红/守卫红/上传红」这三种情况都不会把一次人工批准推到商店门上。
@@ -376,7 +392,7 @@ jobs:
           echo "上传响应 HTTP ${code}："
           cat resp.json
           if [ "$code" != '200' ]; then
-            echo "::error::上传失败。404 多为条目尚未在开发者后台手工创建（API 建不了条目，v2 连「创建新内容」这个能力都去掉了）；401/403 多为服务账号邮箱没加进开发者信息中心的「账号」页；版本号不高于线上包也会被拒（上面有预检，它读不到版本号时才会走到这里）"
+            echo "::error::上传失败。404 多为条目尚未在开发者后台手工创建（API 建不了条目，v2 连「创建新内容」这个能力都去掉了）；401 多为邮箱与私钥不成套；403 有两种成因——服务账号邮箱没加进开发者信息中心的「账号」页，或者 `CWS_PUBLISHER_ID` 填的并不是地址栏第一段（详见 store_status 作业里那条长判据）；版本号不高于线上包也会被拒（上面有预检，它读不到版本号时才会走到这里）"
             exit 1
           fi
           if ! receipt="$(node scripts/release-ci.mjs upload-state resp.json)"; then
@@ -408,6 +424,91 @@ jobs:
             echo '上传与提审绑在同一步时的那种形态，拆开之后它就不存在了。'
             echo '不自动提审是刻意的：1.0.0 被拒三次，每一次都要先有人看一眼产物与文案。'
           } >> "$GITHUB_STEP_SUMMARY"
+
+  # ──────────────────────────────────────────────────────────────
+  # 只读档：现签一枚令牌、只打一次 `:fetchStatus`，证明「服务账号 → access_token → v2 端点」这条链通。
+  #
+  # 为什么不是「跑一次 dry run 就够了」：dry run 走完构建与全部守卫，但它一次商店调用都不发——四项
+  # secrets 与那两个 ID 有没有配成一套，它一个字都答不出来。而这一档答的正是这个问题，代价是一趟往返。
+  #
+  # 为什么不挂 environment：`:fetchStatus` 是只读的，需要人放行的只有写那一下。挂了门，「想快速看一眼
+  # 线上是哪个版本」就变成一次审批；审批的意义在于不可撤回的动作，不在于读一个字段。
+  #
+  # 为什么不检出 tag：这个作业跑的两个脚本（cws-token.mjs / release-ci.mjs）是 2026-10 才合进来的，
+  # 比它们更早的 tag 上没有这两个文件，检出那个 tag 会在第一步就 MODULE_NOT_FOUND——而那次失败与凭据
+  # 毫无关系。所以固定检出本次 dispatch 所在的 ref。（兄弟仓库 account-password-helper 在 2026-10-11
+  # 就踩过这个形状，它的只读档因此同样不检出 tag。）
+  store_status:
+    name: Store status (read-only)
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.store_status_only == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check out the dispatched ref
+        uses: actions/checkout@v7
+
+      # 与 store_submit 同理：这里只跑两个第一方脚本，它们只 import node 内置模块，
+      # 所以这个作业不装依赖、不碰 lockfile。
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Read the item status from the store
+        env:
+          CHROME_EXTENSION_ID: ${{ secrets.CHROME_EXTENSION_ID_TAF }}
+          CHROME_PUBLISHER_ID: ${{ secrets.CWS_PUBLISHER_ID }}
+          CWS_SERVICE_ACCOUNT_EMAIL: ${{ secrets.CWS_SERVICE_ACCOUNT_EMAIL }}
+          CWS_SERVICE_ACCOUNT_PRIVATE_KEY: ${{ secrets.CWS_SERVICE_ACCOUNT_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          api='https://chromewebstore.googleapis.com/v2'
+          # 与上传/提审那两档同一个资源名：这一段拼错，三档都会红在同一处。
+          name="publishers/$CHROME_PUBLISHER_ID/items/$CHROME_EXTENSION_ID"
+
+          cfg="$(mktemp)"
+          trap 'rm -f "$cfg" item.json' EXIT
+          chmod 600 "$cfg"
+          if ! node scripts/cws-token.mjs "$cfg"; then
+            echo "::error::令牌这一关就没过，商店那边一个字都没问到。按 .github/CWS_PUBLISHING_GUIDE.md 的 Q1 顺序核对三件事：GCP 项目有没有启用 Chrome Web Store API；CWS_SERVICE_ACCOUNT_EMAIL 与这份私钥是不是同一个服务账号的；私钥粘贴时换行有没有被吃掉。"
+            exit 1
+          fi
+
+          probe="$(curl -sS --config "$cfg" --max-time 60 -o item.json -w '%{http_code}' \
+            "$api/$name:fetchStatus" || echo 000)"
+          echo "fetchStatus HTTP ${probe}："
+          # curl 连不上的时候不会创建响应体文件，而 `set -e` 会让下一行的 cat 直接把这一步终止掉——
+          # 那时日志里只剩一句 "No such file or directory"，把「没连上商店」这个真正的原因盖掉。
+          if [ -s item.json ]; then
+            cat item.json
+          else
+            echo '（没有响应体：这一跳根本没连上商店，HTTP 000 一类，与 Secret 里的值无关）'
+          fi
+          if [ "$probe" != '200' ]; then
+            echo "::error::只读查询就失败了，问题在凭据或标识符，不在这次写入。403 有两种成因，而 Google 那句 “or it might not exist” 两种都涵盖：① 服务账号邮箱没加进开发者信息中心的「账号」页（连只读查询也会被拒，不必等到写接口）；② 那两段拼出来的资源不归当前发布商——CWS_PUBLISHER_ID 取的是 Dashboard 地址栏 devconsole/ 之后的第一段（本项目是 36 位含 - 的 UUID），既不是服务账号详情页那个 21 位「唯一 ID」，也不是 Cloud 项目号。日志里的 publishers/***/items/*** 是掩码，看不出值对不对；形状检查也只禁 /。所以处置是拿地址栏那串直接覆盖一次 Secret，而不是先去比对旧值。401 多为邮箱与私钥不成套；000 是没连上商店，与凭据无关。"
+            exit 1
+          fi
+
+          # 版本号用 item-version 那条命令读，而不是在这里再写一遍 jq：同一条字段路径
+          # （publishedItemRevisionStatus.distributionChannels[].crxVersion）在三处被用到，
+          # 而它已经在 pnpm verify:release-ci 的形状表里钉着。
+          live="$(node scripts/release-ci.mjs item-version item.json)"
+          {
+            echo '### 商店只读回执（本次未写入）'
+            echo
+            if [ -n "$live" ]; then
+              echo "- 线上版本号：\`$live\`"
+            else
+              echo '- 线上版本号：读不到——响应里没有 `crxVersion`，条目从没发布成功过时就是这样'
+            fi
+            echo '- 本次只调了 `:fetchStatus`：没有 `:upload`，没有 `:publish`，商店侧零写入，也不需要谁批准。'
+            echo '- 上面那份响应体里能读出：`submittedItemRevisionStatus.state`（排队中的那份 revision）、'
+            echo '  `lastAsyncUploadState`（过去 24 小时内的异步上传有没有落定）、`takenDown`、`warningInfo.warnings`。'
+            echo
+            echo '这一档的用途是把「Secret 里是旧 key」「服务账号没绑进后台」这类问题，'
+            echo '在任何一次真上传之前暴露掉。它绿了不代表商品文案填齐了——那些字段 API 既不写也不读。'
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "只读档 OK：凭据链通（线上版本 ${live:-读不到}），商店侧未收到任何写入。"
 
   # ──────────────────────────────────────────────────────────────
   # 提审这一步整个作业被一道人工审批门挡着：它在 needs 满足后先停在 Waiting（GitHub 界面给的状态名），

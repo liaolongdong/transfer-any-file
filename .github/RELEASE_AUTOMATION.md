@@ -201,11 +201,12 @@ pnpm release:cut           # = --write --commit --tag —— 落地：改三份�
 | 工作流          | 输入                | 默认       | 说明                                                                                                                                    |
 | --------------- | ------------------- | ---------- | --------------------------------------------------------------------------------------------------------------------------------------- |
 | Release Prepare | `mode`              | `prepare`  | `prepare` = 只准备/刷新 Release PR；`tag` = 给 `main` 上已合并但没标签的版本补打标签                                                    |
-| Release         | `tag`               | 必填       | 手动触发时得把标签名打进去（`vX.Y.Z`），发布就是对这一个标签跑；由标签事件触发时这个输入不参与，取事件自带的 ref                        |
+| Release         | `tag`               | 选填       | 第 1 / 2 / 3 档手动触发时把标签打进去（`vX.Y.Z`），留空会红在 Resolve version 那一步；标签事件触发时取事件自带的 ref。第 0 档不看它     |
 | Release         | `dry_run`           | **`true`** | ⚠️ 手动触发时**不取消勾选就什么都不发**：跑完全部守卫与构建，只在摘要里报告将会做什么                                                   |
 | Release         | `submit_for_review` | `false`    | 勾上才让 `store_submit` 那个作业**排队**；排到队之后仍要过审批门，被批准才 POST `:publish`，body 是 `{"publishType":"DEFAULT_PUBLISH"}` |
+| Release         | `store_status_only` | `false`    | 勾上只跑 `store_status` 作业：现签一枚令牌 + 一次 `:fetchStatus`，不构建、不上传、不挂审批门（手册 3.3 的第 0 档）                      |
 
-三个容易踩的地方，都是默认值造成的：
+四个容易踩的地方，前三个是默认值造成的，最后一个是「表单取哪个 ref」造成的：
 
 - `dry_run` 默认 `true`。想要真发布，必须显式取消勾选。
 - 用 `workflow_dispatch` 补一次发布，这一次运行会**把包重新上传一遍**——标签触发时经过审批门的那次提审
@@ -214,6 +215,10 @@ pnpm release:cut           # = --write --commit --tag —— 落地：改三份�
   改到后台点「提交审核」即可。
 - 勾了 `submit_for_review` 而 1.4 那道门没配（或仓库变量 `CWS_AUTO_SUBMIT` 不是 `true`）：提审作业连排队
   都不排队，运行照样全绿，只是停在「包已上传，未提审」。这是刻意的 fail-closed，不是这次勾选白点了。
+- dispatch 表单上的那几个复选框，来自**你选中的那个 ref 上的那份工作流文件**。所以 `store_status_only`
+  只有在这份文件合进去的那个分支上才看得到；同理，填一个比 `scripts/cws-token.mjs` /
+  `scripts/release-ci.mjs` 更早的标签，`release` 作业会在检出后的第一个脚本上 `Cannot find module`——
+  那次红与凭据无关（判法见手册 Q15）。只想验凭据链就走第 0 档，它固定检出本次触发所在的 ref。
 
 ---
 
@@ -299,10 +304,14 @@ pnpm release:cut           # = --write --commit --tag —— 落地：改三份�
   它证明的是「脚本按这些响应形状会这么做」，**证明不了 Actions 自身的触发规则**——那只有真跑一次才算证据。
 - **入库的那一份是 `pnpm verify:release-ci`**（`scripts/check-release-ci.mjs`，CI lint job 的最后一步）：它按一张
   手写的契约表真跑 63 次商店响应解析（`item-version` / `upload-state` / `submit-check` / `publish-state` 的形状、
-  退出码与那句进 step summary 的话），再钉 `release.yml` 提审那段 case 块的 5 处形状。它守的是**两个文件的接缝**，
+  退出码与那句进 step summary 的话），再钉 `release.yml` 的 10 处接缝（1 处回执标签拼接 + 4 处 submit-check 那段
+  case 的形状 + 5 处只读档 `store_status`）。它守的是**两个文件的接缝**，
   上面那套仿真守的是**整条作业的顺序**——两件事不互相替代：守卫不会发现「`:publish` 被挪进了上传作业」，
-  仿真也不会在 CI 里替你重跑一遍判定表。它自己的牙用 9 个变异体验过（每个都必须红在它钉的那一句上，
-  控制组是那两份文件的未改拷贝）。
+  仿真也不会在 CI 里替你重跑一遍判定表。它自己的牙用 14 个变异体验过（上一轮 9 个，本轮为只读档那五处补 5 个；
+  每个都必须红在它钉的那一句上，控制组是那两份文件的未改拷贝）。只读档那一步的 run 块也按同一条路子真跑过：
+  从 YAML 里抽出**原文**执行，对面是一台只回状态码与响应体的假 `:fetchStatus`，四种出口（200 且读得到版本号 /
+  200 但没有 `crxVersion`，即条目从没发布过 / 403 / 换票这一步就失败）各自的退出码、stdout 与 summary
+  都断过言，跑完还查了临时文件有没有被 `trap` 清掉。
 - **审批门一次都没真跑过**：本仓库现在既没有 `cws-release` 这个 environment，也没有 `CWS_AUTO_SUBMIT`
   这个变量，所以「停在 Waiting → 有人点 Approve and deploy → 作业才开始跑」这一整串目前只是 GitHub 文档里
   的行为。本地能证的只有那四种组合下作业排不排队。第一次配门时务必按 3.4 第 7 步专门验一次：期望看到

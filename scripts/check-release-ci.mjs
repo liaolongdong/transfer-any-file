@@ -23,6 +23,9 @@
  * - submit-check 那一段的四处形状：调用前有 `rc=0`、调用行带 `|| rc=$?`（否则 `set -e` 在 10 / 20
  *   上先终止，case 读不到判定）、`10)` 分支以 `exit 0` 收尾（少这一支，「已经在商店那边了」会变成
  *   红灯）、`*)` 兜底 `exit 1`（少这一支，商店侧明确拦下时照样往下按 `:publish`）。
+ * - 只读档 `store_status` 的五处：作业在、不挂 `environment`、`if` 认 `store_status_only`、版本号仍经
+ *   `item-version` 读（同一条 `crxVersion` 路径只许一个实现），以及 `release` 作业的 `if` 把这一档排除
+ *   在构建与上传之外。
  *
  * 调用方式：`pnpm verify:release-ci`，以及 CI 的 lint job。
  */
@@ -498,7 +501,7 @@ function check(caseDef, dir, failures) {
 }
 
 /**
- * `release.yml` 里 submit-check 那一段的三处形状。缺陷正好长在两个文件的接缝上，
+ * `release.yml` 里 submit-check 那一段的四处形状，外加只读档的第五组。缺陷正好长在两个文件的接缝上，
  * 命令侧的守卫看不见它——上一轮的「商店回执：商店回执：…」就是这么漏出去又修掉的。
  */
 function checkWorkflow(failures) {
@@ -541,6 +544,31 @@ function checkWorkflow(failures) {
   if (!stop) failures.push('release.yml：case 块里没有 *) 兜底分支——20（拦下）会一路走过去按 :publish。');
   else if (!/exit 1/.test(stop[1]))
     failures.push('release.yml：*) 分支没有 exit 1——商店侧状态不允许提审时步骤不会变红。');
+
+  // ── 只读档（store_status）那五处 ────────────────────────────
+  // 这一档存在的唯一理由是「不写商店、也不要人批准」，所以它随时能跑；两个前提一旦被顺手改掉，
+  // 它就退化成「想验凭据就得先传一次包」，而那条链路恰恰是凭据配错时最贵的一次试错。
+  const statusAt = lines.findIndex(l => /^ {2}store_status:$/.test(l));
+  if (statusAt === -1) {
+    failures.push('release.yml：找不到 store_status 作业——验凭据链重新只能靠一次真上传来暴露。');
+  } else {
+    const nextJob = lines.findIndex((l, i) => i > statusAt && /^ {2}[a-z_]+:$/.test(l));
+    const statusBlock = lines.slice(statusAt, nextJob === -1 ? lines.length : nextJob).join('\n');
+    if (/^[ \t]+environment:/m.test(statusBlock))
+      failures.push('release.yml：store_status 挂了 environment——一次只读查询变成一次审批，这一档就没用了。');
+    if (!/store_status_only == 'true'/.test(statusBlock))
+      failures.push('release.yml：store_status 的作业级 if 不再认 store_status_only，它会跟着每次发布一起跑。');
+    // 同一条 crxVersion 字段路径只许有一个实现（`item-version`），否则三档读的分数线可以不一样。
+    if (!/release-ci\.mjs item-version item\.json/.test(statusBlock))
+      failures.push('release.yml：store_status 没有用 item-version 读线上版本号——crxVersion 出现了第二个实现。');
+  }
+  // 只读那一档不许顺带构建与上传：release 作业的 if 必须把 store_status_only 否定掉。
+  const headBlock = lines.slice(0, statusAt === -1 ? lines.length : statusAt).join('\n');
+  if (!/!\(github\.event_name == 'workflow_dispatch' &&[\s\S]{0,120}store_status_only == 'true'\)/.test(headBlock))
+    failures.push(
+      'release.yml：release 作业的 if 不再否定 store_status_only——跑一次只读查询会顺带构建、打包，' +
+        '并在 dry_run 没勾时把包传给商店。',
+    );
 }
 
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'taf-release-ci-'));
@@ -568,5 +596,6 @@ if (failures.length) {
   process.exit(1);
 }
 console.log(
-  `OK  release-ci：${String(CASES.length)} 条商店响应判定与契约句子一致，外加 release.yml 那 5 处接缝钉（1 处标签拼接 + 4 处 case 形状）`,
+  `OK  release-ci：${String(CASES.length)} 条商店响应判定与契约句子一致，` +
+    '外加 release.yml 那 10 处接缝钉（1 处标签拼接 + 4 处 case 形状 + 5 处只读档）',
 );

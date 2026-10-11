@@ -142,8 +142,23 @@ storage: persists the user's own conversion history (file names, formats and siz
 5. 打开开发者信息中心 <https://chrome.google.com/webstore/devconsole>，进「账号」页把第 4 步那个
    `client_email` 加为成员。**一个发布商目前只能加一个服务账号**，所以同属这个发布商的几个扩展
    共用它一个就行，不必各建一个
-6. 记下**发布商 ID**：devconsole 地址栏 `https://chrome.google.com/webstore/devconsole/<uuid>` 里那段
-   UUID，它就是 v2 资源名 `publishers/{publisherId}/items/{itemId}` 的第一段
+6. 记下**发布商 ID**：打开某个商品的编辑页，地址栏形如
+   `https://chrome.google.com/webstore/devconsole/{A}/{B}/edit`——`{A}` 才是要记的那一段，`{B}` 是商品
+   （扩展）ID。`{A}` 就是 v2 资源名 `publishers/{publisherId}/items/{itemId}` 的第一段，本发布商这串是
+   **36 位含 `-` 的 UUID，不是纯数字**。三个长得都像的候选，只有一个能用：
+
+   | 候选                                       | 它是什么                                                                    | 能不能填进 `CWS_PUBLISHER_ID` |
+   | ------------------------------------------ | --------------------------------------------------------------------------- | ----------------------------- |
+   | devconsole 地址栏第一段（36 位 UUID 形）   | 发布商（开发者账号）的 ID，v2 资源路径的第一段                              | ✅ 就是它                     |
+   | 服务账号详情页的「唯一 ID」（21 位纯数字） | Cloud IAM 给这个服务账号编的号，用途是拼 `<该编号>@iam.gserviceaccount.com` | ❌ 与商店授权无关             |
+   | Cloud 项目的 project number（纯数字）      | GCP 项目号                                                                  | ❌                            |
+
+   > ⚠️ **这一格没有第二道检查替你兜底。** v2 的接口定义对这段只要求「不含 `/`」，所以「形状合法、值却是
+   > 另一个编号」会一路走到 Google，然后在**只读的第一跳** `:fetchStatus` 上回 `403 PERMISSION_DENIED`——
+   > 不是 404，也不需要等到写接口。CI 日志里那行 `publishers/***/items/***` 帮不上忙：`***` 是 GitHub 对
+   > Secret 值的掩码，只要非空且合法形就长这样。兄弟仓库 account-password-helper 在 2026-10-11 就踩在这条上。
+   > Secret 只写不可读，所以处置不是「先比对旧值」，而是**拿地址栏那串直接覆盖一次**，再用下面的只读档验通
+   > （3.3 的第 0 档），成因与判法另见 FAQ Q14。
 
 > v2 只有五个动作：`fetchStatus` / `upload` / `publish` / `cancelSubmission` / `setPublishedDeployPercentage`。
 > 里面**没有**「创建条目」也**没有**「改可见范围」——那两件事仍然只在后台手工做，所以本文第二节不会消失。
@@ -177,11 +192,64 @@ CHROME_EXTENSION_ID_TAF  # Transfer Any File 扩展 ID（从 CWS Dashboard 获�
 > - 服务账号没有「token 7 天过期」这件事：每次运行由 `scripts/cws-token.mjs` 现签一枚 5 分钟有效的 RS256
 >   JWT 去换 access_token，也不需要把 OAuth 应用发布为 In production。旧文档里那两条提醒随 refresh token
 >   一起作废
+> - **四项都要落在 Repository secrets 那一档，不是 environment `cws-release` 的 secrets。** GitHub 的环境级
+>   secret 只对声明了那个环境的作业可见，而**上传**那一步在 `release` 作业里（它不挂 environment）：配错级别的
+>   后果不是报错，是 `store_ready=false`、商店两步一起静默跳过（现象见 Q6）。只有 `store_submit` 看得见环境级
+>   的值，于是「提审绿了、包却没传」这种最难解释的形状就是这么来的
+> - **私钥原文进过聊天窗口、Issue / PR 评论、CI 日志、终端回滚缓冲或提交记录，就算已泄露**，只能换不能删——
+>   删掉那条消息不是处置手段，它可能已被缓存或索引。轮换四步：Cloud Console → 该服务账号 → Keys → 删旧 key →
+>   新建 JSON key → 按下面的取法重贴进 `CWS_SERVICE_ACCOUNT_PRIVATE_KEY`（Secret 是整体替换）→ 跑一次只读档确认
+>   新 key 生效，然后**把下载那份 JSON 删掉**。**同一把 key 换在同一服务账号下时 `client_email` 不变**，
+>   所以 3.1 第 5 步后台那一行不用重做；只有连服务账号一起废弃、换新邮箱时，才要在后台先移除旧邮箱再挂新的，
+>   并且 `CWS_SERVICE_ACCOUNT_EMAIL` 必须与这把私钥**出自同一份 JSON**——只改一边时换票会直接失败
+
+私钥这一格**粘什么形状都行**这件事，本仓库是测过的，不是推测的（`normalizePrivateKey` 三条出口逐形状跑过，
+本机 2026-10-11 现生成一把 2048 位 RSA 的 PKCS#8 计数：目标形状 **28 行**，把换行写成两个字符的字面量 `\n`
+之后是 **1 行 / 1732 字符**）：
+
+| 粘进去的形状                                   | `scripts/cws-token.mjs` | 失败时报的那句                                       |
+| ---------------------------------------------- | ----------------------- | ---------------------------------------------------- |
+| 多行 PEM（BEGIN / END 两行都在，中间真实换行） | ✅                      | —                                                    |
+| 整份服务账号 JSON 文件                         | ✅                      | —（里面没有非空 `private_key` 才报「JSON 里没有…」） |
+| JSON 里那个字段值、换行还是字面量 `\n`         | ✅                      | —（脚本自己还原）                                    |
+| CRLF 行尾、首尾多空行                          | ✅                      | —                                                    |
+| 连 JSON 的那对双引号一起贴                     | ❌                      | `私钥不是一把能用的 RSA 私钥：error:1E08010C…`       |
+| 只贴中间那段 base64、首尾两行丢了              | ❌                      | `认不出 PEM 头（期望 "-----BEGIN …"）`               |
+| 只有 BEGIN、没有 END                           | ❌                      | `私钥不是一把能用的 RSA 私钥：error:1E08010C…`       |
+
+也就是说：**「整段一行」在本仓库不是坏形状的判据**（脚本会把字面量 `\n` 还原回来），真正会红的是首尾两行
+丢了或引号带进来了；三种失败各有各的句子，照着上面那两句就能定位。取法推荐仍然用带真实换行的那条，
+省得靠脚本兜底（`pbcopy` 是 macOS 的，Linux 换 `xclip -selection clipboard`）：
+
+```bash
+SA_JSON=~/Downloads/service-account.json    # 换成你下载那份的实际路径
+node -e 'console.log(JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")).private_key)' "$SA_JSON" | pbcopy
+```
+
+贴之前想自证剪贴板里那一串是不是一把能用的钥匙（不联网、不落盘、不回显内容，只报结构事实）：
+
+```bash
+pbpaste | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{require("crypto").createPrivateKey(s);console.log("可解析 | 行数",s.trimEnd().split("\n").length,"| 含字面量 \\n:",s.includes("\\n"))}catch(e){console.log("仍然坏：",e.message)}})'
+```
 
 ### 3.3 发布流程
 
 当前配置用 runner 自带的 `curl` 直接打 Chrome Web Store API v2 的上传 / 发布端点，**不引入第三方 npm 包
 或 action**；只有换令牌那一步交给第一方的 `scripts/cws-token.mjs`（RS256 签名在 shell 里写不出来）：
+
+**四档执行深度**，越靠下越接近一次真实提审。第 0 档存在的理由是：另外三档都以「构建 + 上传」为前提，
+而凭据或那两个 ID 配错的时候，你最不想要的就是先传一次包再去猜（1.0.0 那三轮拒审里就有一轮的代价花在这里）：
+
+| 档位              | 怎么触发                                                          | 做什么                                                                   | 要不要人批准 | 什么时候用                                             |
+| ----------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------ | ------------ | ------------------------------------------------------ |
+| **0 只读档**      | 手动触发，勾 `store_status_only`（`tag` 可留空）                  | 现签一枚令牌 + 一次 `:fetchStatus`，把线上版本号与商店侧状态写进 summary | 否           | 第一次真发布之前验凭据；随时想知道在架的是哪一版       |
+| **1 Dry run**     | 手动触发，`dry_run` 保持勾选（默认就是勾着的）                    | 构建 + 全部守卫 + 包内容校验；不建 Release、不碰商店                     | 否           | 改到 manifest / 依赖 / 打包后，先确认产物本身合规      |
+| **2 只上传**      | 推 `v*` 标签；或手动触发但**不**勾 `submit_for_review`            | 走完发布与上传，到此为止（`release` 作业不调 `:publish`）                | 否           | 默认形态：包先交到商店手上，要不要惊动审核由人稍后决定 |
+| **3 上传 + 提审** | 手动触发勾 `submit_for_review`，且 `CWS_AUTO_SUBMIT=true`、门已配 | 第 2 档 + `store_submit` 排队等 `cws-release` 批准 → 批准后 `:publish`   | **是**       | 正式发版（推标签那条自动链路在门配好之后就是这一档）   |
+
+> ⚠️ 第 0 档那个复选框叫 `store_status_only`，它是这次改动新加的字段。GitHub 的 dispatch 表单取的是
+> **你选中的那个 ref 上的那份工作流文件**，所以这份文件合进哪个分支，那个分支上才看得到这一档；在还没合进去
+> 的分支上触发，表单里根本没有这个勾，跑的是那个 ref 的旧定义。同理，Actions 页面里的工作流清单只看默认分支。
 
 1. **准备版本**（推荐路径，全自动见 `.github/RELEASE_AUTOMATION.md`）：合并到 `main` 之后，
    `release-prepare.yml` 会算出版本号、提升双语 changelog 的「未发布」区块，并开一个 Release PR。
@@ -246,6 +314,27 @@ CHROME_EXTENSION_ID_TAF  # Transfer Any File 扩展 ID（从 CWS Dashboard 获�
    # 在 GitHub Actions 页面手动触发 workflow_dispatch；命令行等价写法：
    gh workflow run release.yml -f tag=v1.2.0 -f dry_run=true
    ```
+
+6. **第 0 档（`store_status`）具体做什么**：这个作业不构建、不装依赖，只跑两个第一方脚本
+   （`cws-token.mjs` 现签令牌、`release-ci.mjs item-version` 读版本号），中间只有一次商店调用是
+   `:fetchStatus`，一个字节都不写。两个刻意的差别：
+
+   - **不挂 environment**——只读不需要人放行，需要放行的只有写那一下；挂了门，「看一眼线上是哪一版」
+     就变成一次审批。
+   - **不检出 `tag`**——那两个脚本是 2026-10 才合进来的，比它们更早的 tag 上没有这两个文件，
+     跟着 tag 检出会在第一步就 `Cannot find module`，而那次失败与凭据毫无关系。所以它固定检出本次触发
+     所在的 ref。
+
+   ```bash
+   gh workflow run release.yml -f store_status_only=true      # 页面上等价：勾 Store status only，tag 留空
+   ```
+
+   怎么判读：summary 里那行「线上版本号」就是商店此刻挂着的版本。这一步绿，说明「服务账号 → access_token
+   → v2 端点」整条通、四项 Secret 与那两个 ID 配成了**一套**；红在 403 就按 Q14 那两种成因查，
+   红在换票那一步就按 Q1 前三条查。要是打印出来的是 `fetchStatus HTTP 000` 并紧跟一句「没有响应体」，
+   那不是凭据问题而是**根本没连上商店**（curl 连不上时不会创建那个响应体文件，所以这一步特意把这两种
+   形状分开说，不让一句 `No such file or directory` 顶掉判决）——本机直连时这一种最常见，见 Q13。
+   它绿了**不代表**商品文案填齐了——那些字段 API 既不写也不读。
 
 ### 3.4 配置人工批准门（environment `cws-release`，只做一次）
 
@@ -365,7 +454,8 @@ A: 按顺序看，四种失败各有各的现场：
 3. 步骤日志写着「私钥读不出来」→ 粘的不是那三种形状之一，常见于手工把转义还原成真换行还原坏了
 4. **令牌换得到、商店调用却 401/403** → 服务账号邮箱没加进开发者信息中心的「账号」页。
    这一条在「校验服务账号凭据」那一步是查不出来的：那一步只做本地能做的两件事（密钥读得出、令牌换得到），
-   邮箱是不是成员只有商店调用才知道
+   邮箱是不是成员只有商店调用才知道。**403 还有第二种成因**——`CWS_PUBLISHER_ID` 填成了另一个长得也像的
+   编号，两种成因与判法见 Q14；这一问最省事的验法是第 0 档（只读、零写入），不必等到一次真上传
 
 老文档里「token 过期」那一问已经不存在了：服务账号每次现签现用，没有需要续期的长期令牌。
 
@@ -387,7 +477,8 @@ A: 参考 `CHROMEWEBSTORE.md` 中的"拒审记录与政策口径"章节，常见
 
 ### Q4: 如何测试发布流程？
 
-A: 两段分开测。**上传之前那段**用 dry run，它不碰商店：
+A: 先跑**第 0 档**把凭据链验通（`store_status_only`，不构建、不写商店、不要批准，3.3 第 6 条），下面两段
+才有意义。然后两段分开测。**上传之前那段**用 dry run，它不碰商店：
 
 ```bash
 gh workflow run release.yml -f tag=v1.2.0 -f dry_run=true     # 页面上等价：勾上 dry_run
@@ -497,6 +588,53 @@ A: v2 的 `PublishItemRequest` 里除了 `publishType` 还有三个字段：`ski
 - `deployInfos` 配的是 `STAGED_PUBLISH` 的分批放量。这里发的是 `DEFAULT_PUBLISH`，用不到它；
   要改成灰度发布是**一次有意的产品决定**，不该是某次 CI 改动顺手带来的。
 
+### Q13: 想在本地先把凭据验通，结果 `fetch failed` 或者干等十几秒超时
+
+A: 那是**网络层没出去**，不构成任何凭据结论。`scripts/cws-token.mjs` 用 `fetch` 打
+`https://oauth2.googleapis.com/token`，而 **Node 22 及更早不读 `HTTPS_PROXY`**（认环境代理是 Node 24 的
+`NODE_USE_ENV_PROXY`），所以本机常开的系统代理在这条链路上完全不参与。兄弟仓库 account-password-helper
+在 2026-10-11 量过同一个形状：直连商店域名 19.9 秒超时（`http=000`），只有显式走代理才出得来。
+于是这类机器上：
+
+- 「本地红」**推不出**「凭据错」——它报的是 `fetch failed` / 超时，而不是商店给的状态码
+- 判绿改走 CI 的第 0 档（3.3 的 `store_status_only`）：不构建、不写商店、不要批准，runner 侧没有这层代理问题
+- 本地仍然可做的两件事都不联网：3.2 那条剪贴板自检（只报行数与判据、不回显密钥），以及
+  `pnpm verify:release-ci`（拿夹具打四条商店响应判定，全程零网络）
+- 别把私钥 `export` 进 `~/.zshrc` 之类的启动文件来「省得再贴」；只在当前 shell 里导，
+  要看它长什么样用 3.2 那条自检，`echo "$CWS_SERVICE_ACCOUNT_PRIVATE_KEY"` 会把整段 PEM 打进回滚缓冲
+
+### Q14: 令牌换得到，`:fetchStatus` 却回 `403 PERMISSION_DENIED`
+
+A: Google 那句 `Permission denied on resource 'publishers/{id}/items/{extId}' (or it might not exist)`
+**同时涵盖两种成因**，别默认它是「邮箱没加」那一种：
+
+1. **服务账号邮箱没加进开发者信息中心的「账号」页**（3.1 第 5 步）。这一条连只读查询都会被拒，
+   不必等到写接口——正是第 0 档能把它单独暴露出来的原因。
+2. **那两段拼出来的资源不归当前发布商**：`CWS_PUBLISHER_ID` 填成了服务账号详情页那个 21 位「唯一 ID」、
+   或 Cloud 项目的 project number，又或者商品 ID 抄错。三段候选怎么分见 3.1 第 6 步那张表。
+
+判法不是「先把旧值比对出来」——Secret 只写不可读，日志里那行 `publishers/***/items/***` 是 GitHub 的掩码，
+只要非空且合法形就长这样，而形状检查对这段只禁 `/`，**值错照样一路绿到 Google**。所以处置是
+**拿 Dashboard 地址栏第一段直接覆盖一次 Secret**（覆盖即收敛），然后用第 0 档判绿，别拿第 3 档试。
+
+两种 403 都是**零写入**：它落在 `:fetchStatus` 那一跳，包没上传、也没生成新 revision，所以补好之后
+重跑那一次运行就行，不会撞版本预检（预检比对的是线上版本号，它没变过）。
+
+### Q15: 手动触发填了一个 tag，第一步就 `Cannot find module '…/scripts/cws-token.mjs'`
+
+A: `release` 与 `store_submit` 都按那个 tag 检出（`ref: ${{ github.event.inputs.tag }}`），
+而 `cws-token.mjs` / `release-ci.mjs` 是这一轮改动才合进来的文件——**比它们更早的 tag 的树上根本没有这两个
+脚本**（同理：这一轮还没合进 `main` 之前，`main` 上打的 tag 用的是旧的 v1.1 链路）。这不是凭据问题：
+它红在检出之后的第一个脚本，还没走到任何联网的那一步。坐实只需要一条只读命令：
+
+```bash
+git fetch --tags origin
+git ls-tree <那个tag> scripts/cws-token.mjs     # 输出为空 = 那个 tag 上没有它
+```
+
+结论：第 1 / 2 / 3 档只对**含有这些脚本的那个 ref 打出的 tag**有意义；只想验凭据链就用第 0 档，
+它固定检出本次触发所在的 ref，不受这条限制（3.3 第 6 条）。
+
 ---
 
 ## 相关文档
@@ -515,9 +653,14 @@ A: v2 的 `PublishItemRequest` 里除了 `publishType` 还有三个字段：`ski
 发布前请确保：
 
 - [ ] GitHub Secrets 配置齐全（发布商级 3 个 + 本扩展专用 1 个；要让标签自动触发发版，再加 `RELEASE_PAT`）
+- [ ] **那四项都在 Repository secrets 那一档**，不在 environment `cws-release` 的 secrets 里（配错级别不报错，
+      只让商店两步一起静默跳过，3.2 的第 4 条 ⚠️ 与 Q6）
 - [ ] 服务账号邮箱已加进开发者信息中心的「账号」页（漏了这步，令牌照样换得到，是商店调用才回 401/403）
+- [ ] `CWS_PUBLISHER_ID` 取的是**商品编辑页地址栏的第一段**（36 位 UUID 形），不是服务账号详情页那个 21 位
+      「唯一 ID」（3.1 第 6 步那张三段候选表；填错只在商店那跳露出来，见 Q14）
 - [ ] GCP 项目已启用 Chrome Web Store API
 - [ ] 扩展 ID 格式正确（32 位 a-p 字母，`CHROME_EXTENSION_ID_TAF`）
+- [ ] **先跑一次第 0 档**（`store_status_only`，只读、零写入、不要批准）确认凭据链是通的，再考虑第 2 / 3 档
 - [ ] 所有验证通过（`pnpm lint:all && pnpm verify:meta && pnpm verify:listing && pnpm build && pnpm verify:offline`）
 - [ ] 商店文案与 `_locales` 文件一致
 - [ ] 隐私政策 URL 可达

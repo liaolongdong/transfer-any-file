@@ -145,8 +145,27 @@ the client), and the v1.1 endpoints themselves stop serving on **2026-10-15**.
 5. Open the Developer Dashboard at <https://chrome.google.com/webstore/devconsole> and add that
    `client_email` on the "Users" (账号) page. **A publisher can currently have only one service account**,
    so every item under the same publisher shares it — do not create one per extension
-6. Note the **publisher ID**: the UUID in `https://chrome.google.com/webstore/devconsole/<uuid>`. It is the
-   first segment of the v2 resource name `publishers/{publisherId}/items/{itemId}`
+6. Note the **publisher ID**: open a listing's edit page and the address bar looks like
+   `https://chrome.google.com/webstore/devconsole/{A}/{B}/edit` — `{A}` is the segment you need, `{B}` is the
+   item (extension) ID. `{A}` is the first segment of the v2 resource name
+   `publishers/{publisherId}/items/{itemId}`; for this publisher it is a **36-character UUID containing `-`,
+   not a run of digits**. Three candidates all look plausible and exactly one of them works:
+
+   | Candidate                                                        | What it actually is                                                                                          | Can it go in `CWS_PUBLISHER_ID`     |
+   | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ | ----------------------------------- |
+   | First segment of the devconsole address bar (36-char UUID shape) | The ID of the publisher (developer account); first segment of the v2 resource path                           | ✅ this is the one                  |
+   | "Unique ID" on the service account page (21 digits)              | A number Cloud IAM assigned to _this service account_, used to build `<that number>@iam.gserviceaccount.com` | ❌ unrelated to store authorisation |
+   | Cloud project's project number (digits)                          | The GCP project number                                                                                       | ❌                                  |
+
+   > ⚠️ **Nothing else catches a wrong entry in this field.** The v2 API definition only requires that segment
+   > to contain no `/`, so "legal shape, but the value is some other number" travels all the way to Google and
+   > comes back `403 PERMISSION_DENIED` on the **first, read-only hop** `:fetchStatus` — not 404, and it does
+   > not wait for a write endpoint. The `publishers/***/items/***` line in the CI log does not help: `***` is
+   > GitHub masking a Secret's value, and any non-empty, well-formed value masks exactly like that. The
+   > sibling repository account-password-helper landed on precisely this on 2026-10-11. Secrets are
+   > write-only, so the remedy is not "compare against the old value" but **overwrite it once with the string
+   > from the address bar**, then verify with the read-only depth below (depth 0 in 3.3). Causes and the
+   > judging procedure: FAQ Q14.
 
 > v2 offers exactly five actions: `fetchStatus` / `upload` / `publish` / `cancelSubmission` /
 > `setPublishedDeployPercentage`. Creating an item is **not** among them, and neither is changing the
@@ -186,12 +205,79 @@ CHROME_EXTENSION_ID_TAF  # Transfer Any File extension ID (from CWS Dashboard, 3
 > - A service account has no "~7-day token expiry": each run signs a fresh 5-minute RS256 JWT and exchanges it
 >   for an access token, and there is no OAuth app to publish as "In production". Both of those older warnings
 >   retired with the refresh token
+> - **All four values belong under Repository secrets, not under the `cws-release` environment's secrets.**
+>   GitHub makes environment-scoped secrets visible only to jobs that declare that environment, and the
+>   **upload** step lives in the `release` job (which does not): the cost of putting them in the wrong scope is
+>   not an error but `store_ready=false` with both store steps silently skipped (the symptom is Q6). Only
+>   `store_submit` can see environment-level values, which is exactly how you get the hardest shape to
+>   explain — "submission went green but no package was ever uploaded"
+> - **If the private key in plaintext ever appeared in a chat window, an Issue / PR comment, a CI log, a
+>   terminal scrollback or a commit, it is leaked** — rotation is the only remedy, deletion is not: removing
+>   the message does not undo it, since it may already be cached or indexed. Four rotation steps: Cloud
+>   Console → that service account → Keys → delete the old key → create a new JSON key → paste it into
+>   `CWS_SERVICE_ACCOUNT_PRIVATE_KEY` using the method below (a Secret is replaced whole) → run the read-only
+>   depth once to confirm the new key works, then **delete the JSON file you downloaded**. **Rotating a key
+>   under the same service account leaves `client_email` unchanged**, so step 5 of 3.1 (the Dashboard member
+>   row) does not need redoing; only if you retire the account itself and move to a new address do you remove
+>   the old email from the Dashboard first — and `CWS_SERVICE_ACCOUNT_EMAIL` must come from **the same JSON
+>   file** as the key you paste, because changing only one of the two makes the token exchange fail outright
+
+That "any paste shape works" claim is measured in this repository, not inferred (every exit of
+`normalizePrivateKey` was fed each shape; the counts below come from a freshly generated 2048-bit RSA PKCS#8
+key on 2026-10-11 — the target shape is **28 lines**, and writing the newlines as the two-character literal
+`\n` yields **1 line / 1732 characters**):
+
+| What you pasted                                            | `scripts/cws-token.mjs` | The sentence it reports on failure                                        |
+| ---------------------------------------------------------- | ----------------------- | ------------------------------------------------------------------------- |
+| Multi-line PEM (both BEGIN and END present, real newlines) | ✅                      | —                                                                         |
+| The whole service-account JSON file                        | ✅                      | — (only "no … in the JSON" if there is no non-empty `private_key` inside) |
+| The `private_key` field value, newlines still literal `\n` | ✅                      | — (the script restores them)                                              |
+| CRLF line endings, extra blank lines around it             | ✅                      | —                                                                         |
+| Pasted together with JSON's surrounding double quotes      | ❌                      | `私钥不是一把能用的 RSA 私钥：error:1E08010C…`                            |
+| Only the middle base64, both boundary lines missing        | ❌                      | `认不出 PEM 头（期望 "-----BEGIN …"）`                                    |
+| BEGIN present, END missing                                 | ❌                      | `私钥不是一把能用的 RSA 私钥：error:1E08010C…`                            |
+
+So: **"the whole thing on one line" is not a broken shape here** (the script converts literal `\n` back),
+what actually goes red is losing the two boundary lines or dragging the quotes in; each of the three failures
+has its own sentence and the two quoted above are enough to locate it. The recommended retrieval method still
+produces real newlines, so you are not relying on that fallback (`pbcopy` is macOS; on Linux use
+`xclip -selection clipboard`):
+
+```bash
+SA_JSON=~/Downloads/service-account.json    # the path of the file you downloaded
+node -e 'console.log(JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")).private_key)' "$SA_JSON" | pbcopy
+```
+
+To check before pasting that what is on the clipboard is a usable key (no network, nothing written to disk,
+the content is never echoed — only structural facts):
+
+```bash
+pbpaste | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{require("crypto").createPrivateKey(s);console.log("parses | lines",s.trimEnd().split("\n").length,"| literal \\n present:",s.includes("\\n"))}catch(e){console.log("still broken: ",e.message)}})'
+```
 
 ### 3.3 Publishing Flow
 
 Current configuration uses the runner's own `curl` against the Chrome Web Store **API v2** upload / publish
 endpoints — **no third-party npm package or action**. Only the token exchange is first-party code
 (`scripts/cws-token.mjs`), because an RS256 signature is not something shell can write:
+
+**Four execution depths**, each lower one closer to a real submission. Depth 0 exists because the other three
+all presuppose "build + upload", and when the credentials or one of those two IDs is wrong the last thing you
+want is to ship a package first and guess afterwards (one of the three 1.0.0 rejections spent its cost exactly
+that way):
+
+| Depth                 | How to trigger                                                                         | What it does                                                                                        | Human approval? | When to use it                                                                                    |
+| --------------------- | -------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- | --------------- | ------------------------------------------------------------------------------------------------- |
+| **0 read-only**       | Manual run, tick `store_status_only` (`tag` may stay empty)                            | Sign a fresh token + one `:fetchStatus`; write the live version and store-side state to the summary | No              | Verify credentials before the first real release; check at any time which version is on the store |
+| **1 Dry run**         | Manual run, `dry_run` left ticked (it is ticked by default)                            | Build + every guard + package-content checks; no Release, store untouched                           | No              | After touching manifest / dependencies / bundling, confirm the artifact itself is compliant       |
+| **2 Upload only**     | Push a `v*` tag; or a manual run that does **not** tick `submit_for_review`            | Runs the release and the upload, then stops (the `release` job never calls `:publish`)              | No              | The default shape: hand the package to the store, decide later whether to involve review          |
+| **3 Upload + submit** | Manual run ticking `submit_for_review`, plus `CWS_AUTO_SUBMIT=true` and the gate built | Depth 2 + `store_submit` queues for `cws-release` approval → `:publish` once approved               | **Yes**         | The real release (the tag-push path becomes this depth once the gate is configured)               |
+
+> ⚠️ The depth-0 checkbox is called `store_status_only` and is a field added by this change. GitHub builds the
+> dispatch form from **the workflow file as it exists on the ref you select**, so this depth is only visible on
+> the branch this file was merged into; triggering from a branch that does not have it shows no such checkbox
+> and runs that ref's older definition. Likewise the workflow list on the Actions page is driven by the default
+> branch.
 
 1. **Prepare the version** (recommended path; the full automation is in `.github/RELEASE_AUTOMATION.md`):
    once changes land on `main`, `release-prepare.yml` computes the version, promotes the `Unreleased`
@@ -266,6 +352,32 @@ endpoints — **no third-party npm package or action**. Only the token exchange 
    # Trigger workflow_dispatch from the GitHub Actions page; the CLI equivalent:
    gh workflow run release.yml -f tag=v1.2.0 -f dry_run=true
    ```
+
+6. **What depth 0 (`store_status`) actually does**: the job builds nothing and installs no dependencies. It
+   runs two first-party scripts (`cws-token.mjs` to sign a token, `release-ci.mjs item-version` to read the
+   version number) with exactly one store call between them — `:fetchStatus` — and writes not a single byte.
+   Two deliberate differences from the other jobs:
+
+   - **No environment** — a read needs nobody's permission; only the write does. Put the gate on it and
+     "take a look at which version is live" becomes an approval request.
+   - **It does not check out `tag`** — those two scripts were merged in 2026-10, so tags older than them do not
+     contain these files; following the tag would fail at the very first step with `Cannot find module`, and
+     that failure would have nothing to do with credentials. So it always checks out the ref the run was
+     triggered on.
+
+   ```bash
+   gh workflow run release.yml -f store_status_only=true      # same on the page: tick Store status only, leave tag empty
+   ```
+
+   How to read it: the "live version" line in the summary is the version the store is carrying right now. That
+   step being green means the whole chain "service account → access_token → v2 endpoint" works and the four
+   Secrets plus the two IDs were configured as **one consistent set**. Red at 403 → check the two causes in
+   Q14; red at the token exchange → check the first three items of Q1. If instead it prints
+   `fetchStatus HTTP 000` followed by "no response body", that is not a credentials problem — **the store was
+   never reached** (curl does not create the response-body file when it cannot connect, which is exactly why
+   this step reports the two shapes separately rather than letting a bare `No such file or directory` stand in
+   for the verdict); on a directly-connected machine this is the common one, see Q13. Green here does **not**
+   mean the listing copy is complete — the API neither writes nor reads those fields.
 
 ### 3.4 Configuring the approval gate (environment `cws-release`, once)
 
@@ -401,7 +513,10 @@ A: Four failures, four different scenes — check them in this order:
 4. **The token exchanges fine but the store call returns 401/403** → the service account's email was never
    added on the Developer Dashboard's user page. The "Verify Chrome Web Store service account" step cannot see
    this: it only proves the two things that are checkable locally (the key parses, the token exchanges), and
-   membership is only revealed by the store call itself
+   membership is only revealed by the store call itself. **403 has a second cause** — `CWS_PUBLISHER_ID`
+   holding some other, equally plausible-looking number; both causes and how to tell them apart are in Q14.
+   The cheapest way to answer this question is depth 0 (read-only, zero writes); you do not have to wait for a
+   real upload
 
 The old "what if the token expires" question no longer exists: a service account signs what it uses, there is
 no long-lived token to renew.
@@ -424,8 +539,9 @@ A: Refer to "Rejection Records and Policy Guidelines" section in `CHROMEWEBSTORE
 
 ### Q4: How to test publishing flow?
 
-A: Test the two halves separately. **Everything before the upload** is dry run's job, and it never touches the
-store:
+A: Run **depth 0** first to prove the credential chain (`store_status_only`: no build, no store write, no
+approval — 3.3 item 6); the two halves below only mean something after that. Then test them separately.
+**Everything before the upload** is dry run's job, and it never touches the store:
 
 ```bash
 gh workflow run release.yml -f tag=v1.2.0 -f dry_run=true     # on the page it's the same as ticking dry_run
@@ -556,6 +672,67 @@ A: v2's `PublishItemRequest` carries three fields besides `publishType`: `skipRe
   it; switching to a staged rollout is **a deliberate product decision**, not something a CI edit should bring
   along by accident.
 
+### Q13: I tried verifying the credentials locally and got `fetch failed`, or a dozen seconds of nothing and a timeout
+
+A: That is **the network layer never leaving the machine** — it is not a credentials verdict of any kind.
+`scripts/cws-token.mjs` calls `https://oauth2.googleapis.com/token` with `fetch`, and **Node 22 and earlier do
+not read `HTTPS_PROXY`** (honouring an environment proxy is Node 24's `NODE_USE_ENV_PROXY`), so the system proxy
+that is permanently on here simply does not participate in this path. The sibling repository
+account-password-helper measured the same shape on 2026-10-11: a direct connection to the store domain timed out
+after 19.9 seconds (`http=000`), and a response only arrived when the proxy was named explicitly. So on machines
+like this one:
+
+- "red locally" does **not** imply "credentials wrong" — what it reported was `fetch failed` / a timeout, not a
+  status code from the store
+- take the green from CI's depth 0 instead (3.3's `store_status_only`): no build, no store write, no approval,
+  and runners do not have this proxy problem
+- the two checks you can still do locally are both offline: the clipboard self-test in 3.2 (reports line count
+  and the predicate, never echoes the key), and `pnpm verify:release-ci` (fixtures against the four
+  store-response verdicts, zero network throughout)
+- do not `export` the private key into `~/.zshrc` or another startup file to "save pasting it again"; export it
+  in the current shell only, and if you want to know what it looks like use that 3.2 self-test —
+  `echo "$CWS_SERVICE_ACCOUNT_PRIVATE_KEY"` puts the whole PEM into the scrollback
+
+### Q14: The token exchanges fine but `:fetchStatus` answers `403 PERMISSION_DENIED`
+
+A: Google's sentence `Permission denied on resource 'publishers/{id}/items/{extId}' (or it might not exist)`
+**covers two causes at once**; do not assume it is the "email not added" one:
+
+1. **The service account's email is not on the Developer Dashboard's user page** (3.1 step 5). This one rejects
+   even a read-only query, without waiting for a write endpoint — which is precisely why depth 0 can expose it
+   on its own.
+2. **The two segments assembled into that resource name do not belong to the current publisher**:
+   `CWS_PUBLISHER_ID` holding the 21-digit "Unique ID" from the service account page, or the Cloud project's
+   project number, or the item ID mis-copied. The three candidates and how to separate them are in 3.1 step 6's
+   table.
+
+The procedure is not "first work out what the old value was" — Secrets are write-only, the
+`publishers/***/items/***` line in the log is GitHub's mask, any non-empty well-formed value masks that way, and
+the shape check forbids only `/` for this segment, so **a wrong value stays green all the way to Google**. The
+remedy is therefore to **overwrite the Secret once with the first segment of the Dashboard address bar**
+(overwriting is converging), then judge with depth 0 — do not probe with depth 3.
+
+Both 403s are **zero-write**: they land on the `:fetchStatus` hop, no package was uploaded and no new revision
+exists, so once fixed you just rerun that workflow — you will not hit the version pre-flight (it compares the
+live version number, which has not changed).
+
+### Q15: I filled a tag into the manual run and the first step died with `Cannot find module '…/scripts/cws-token.mjs'`
+
+A: `release` and `store_submit` both check out that tag (`ref: ${{ github.event.inputs.tag }}`), and
+`cws-token.mjs` / `release-ci.mjs` are files merged in during this round of changes — **tags older than them do
+not have these two scripts in their tree at all** (same logic: until this round reaches `main`, tags made on
+`main` still use the old v1.1 chain). This is not a credentials problem: it fails at the first script after the
+checkout, before anything that goes on the network. One read-only command settles it:
+
+```bash
+git fetch --tags origin
+git ls-tree <that tag> scripts/cws-token.mjs     # empty output = that tag has no such file
+```
+
+Conclusion: depths 1 / 2 / 3 only mean something for **a tag cut from a ref that contains these scripts**; to
+check just the credential chain use depth 0, which always checks out the ref the run was triggered on and is not
+subject to this limitation (3.3 item 6).
+
 ---
 
 ## Related Documentation
@@ -577,9 +754,16 @@ so its section names are quoted verbatim below:
 Before publishing, ensure:
 
 - [ ] GitHub Secrets configured completely (3 publisher-level values + 1 extension-specific ID; add `RELEASE_PAT` too if the tag should start the release on its own)
+- [ ] **Those four are under Repository secrets**, not the `cws-release` environment's secrets (wrong scope
+      raises no error — it silences both store steps together, the fourth ⚠️ bullet of 3.2 plus Q6)
 - [ ] The service account's email is added on the Developer Dashboard's user page (skip this and the token still exchanges — the store call is what answers 401/403)
+- [ ] `CWS_PUBLISHER_ID` is **the first segment of the listing's edit-page address bar** (36-character UUID
+      shape), not the 21-digit "Unique ID" on the service account page (3.1 step 6's three-candidate table; a
+      wrong value only surfaces on the store hop — Q14)
 - [ ] The GCP project has the Chrome Web Store API enabled
 - [ ] Extension ID format correct (32 a-p lowercase letters, `CHROME_EXTENSION_ID_TAF`)
+- [ ] **Run depth 0 once first** (`store_status_only`: read-only, zero writes, no approval) to confirm the
+      credential chain works, before considering depths 2 / 3
 - [ ] All validations passed (`pnpm lint:all && pnpm verify:meta && pnpm verify:listing && pnpm build && pnpm verify:offline`)
 - [ ] Store copy consistent with `_locales` files
 - [ ] Privacy policy URL reachable
