@@ -43,14 +43,50 @@ export const SITE = {
 };
 
 /**
+ * The application the generated pages are about — the same node `docs/index.html` defines as `#app`.
+ *
+ * Each generated page used to inline its own anonymous `SoftwareApplication` carrying only a name and an
+ * operating system. To a crawler that is a second, differently-shaped app per page rather than one entity
+ * described 36 times, and the fields that make the entity legible (category, price, free access) were the
+ * ones missing. So the pages restate this object under the root's `@id`, and `pnpm verify:meta` compares it
+ * against the hand-written node in `docs/index.html` — the two copies exist, so the agreement is asserted.
+ *
+ * `softwareVersion` is deliberately absent: the generator fills it from `package.json`. A version literal
+ * here, or in a page, is how a site goes on advertising a release that has already been superseded.
+ */
+export const APP = {
+  '@type': 'SoftwareApplication',
+  '@id': `${SITE.origin}/#app`,
+  name: 'Transfer Any File',
+  url: `${SITE.origin}/`,
+  applicationCategory: 'UtilitiesApplication',
+  operatingSystem:
+    'Chrome OS, Windows, macOS, Linux (Google Chrome 88+, or any Chromium browser with Manifest V3 support)',
+  isAccessibleForFree: true,
+  offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+};
+
+/**
+ * The social card every page declares as its `og:image`.
+ *
+ * `alt` is an attribute, not content: it reaches a screen reader through the accessibility tree (where a
+ * bilingual string is read twice) and whatever is written here is what image search indexes. So this carries
+ * one language — English, the same string `docs/index.html` uses for the same file.
+ */
+export const SOCIAL_IMAGE_ALT =
+  'Transfer Any File brand mark and the headline "Convert 14 file formats without uploading a byte" beside a screenshot of the workbench converting a Markdown file to HTML.';
+
+/**
  * The date the pair content below was last revised. It is the only `lastmod` the generator has for the
  * pages it writes, and it lands in `docs/sitemap.xml`; bump it together with a content change so the
  * date a crawler reads is the date the claim was actually edited.
  *
  * The 2026-10-08 revision is the CTA: every page this writes now leads with the store install button, so
- * the 36 published files changed as a set even though no prose moved.
+ * the 36 published files changed as a set even though no prose moved. The 2026-10-12 revision is prose —
+ * the English `title` and `desc` of 34 entries were rewritten to fit Google's display budget, which the
+ * generator now enforces, so this date and that budget have to move together.
  */
-export const PAGES_UPDATED = '2026-10-08';
+export const PAGES_UPDATED = '2026-10-12';
 
 /**
  * The date the first conversion page entered the repository, used as `datePublished` for every entry that
@@ -155,11 +191,11 @@ export const PAIRS = [
     shot: 'batch-results',
     title: {
       zh: 'Markdown 转 Word（.docx）——离线、可批量、不上传',
-      en: 'Convert Markdown to Word (.docx) offline — in batches, without uploading',
+      en: 'Convert Markdown to Word (.docx) offline, in batches',
     },
     desc: {
       zh: '在浏览器本地把 .md 转成 .docx：标题层级、列表、表格、代码块写成真实 Word 段落，不是截图。批量、可预览、零网络请求。',
-      en: 'Convert .md to .docx in your own browser: headings, lists, tables and code blocks become real Word paragraphs, not a screenshot. Batch, previewable, zero network requests.',
+      en: 'Convert .md to .docx in your browser: headings, lists, tables and code become real Word paragraphs, not a screenshot. Batch, previewable, zero requests.',
     },
     lede: {
       zh: 'README、需求文档、技术笔记写成 Markdown，要交给的却是一个只认 Word 的人。这条链路是 Markdown → HTML → Word：先由 marked 生成语义化 HTML，再打包成 .docx。产出的文字在 Word 里可选中、可改写、可加批注——这是它和「把 Markdown 截图成 PDF」最实际的区别。全程在你自己的电脑上完成，不发请求、不排队、不上传。',
@@ -312,11 +348,11 @@ export const PAIRS = [
     shot: 'batch-files',
     title: {
       zh: 'Excel 转 CSV（.xlsx → .csv）——取值不取显示文本，离线',
-      en: 'Convert Excel to CSV (.xlsx → .csv) offline — cell values, not display text',
+      en: 'Excel to CSV (.xlsx → .csv) offline — cell values, not text',
     },
     desc: {
       zh: '浏览器本地把 .xlsx 转成 CSV：按单元格值序列化，日期统一格式，带 UTF-8 BOM，公式注入被转义。多 sheet 每表一份 CSV 装进 ZIP。',
-      en: 'Convert .xlsx to CSV in your browser: serialised from cell values, normalised dates, a UTF-8 BOM, formula injection escaped. Multi-sheet workbooks emit one CSV per sheet inside a ZIP.',
+      en: 'Convert .xlsx to CSV in your browser from cell values, not display text: dates normalised, UTF-8 BOM, formula injection escaped, one CSV per sheet in a ZIP.',
     },
     lede: {
       zh: 'Excel 里一个单元格「显示成什么」和「存的是什么」是两件事：1234.5 可以显示为 "1,234.50"，0.25 可以显示为 25.0%。多数转换翻车就翻在这里——导出的其实是显示文本。本项目从单元格值序列化（在 xlsx 0.18.5 上实测过 SheetJS 各条序列化为什做不到，所以走 sheet_to_json 那条），日期统一成机器可读的两段式，文件开头写 UTF-8 BOM，于是 Excel 双击打开不乱码。',
@@ -391,11 +427,11 @@ export const PAIRS = [
     shot: 'batch-files',
     title: {
       zh: 'CSV 转 Excel（.csv → .xlsx）——长数字不被改坏，离线',
-      en: 'Convert CSV to Excel (.csv → .xlsx) offline — long numbers stay exactly as written',
+      en: 'CSV to Excel offline — long numbers stay as written',
     },
     desc: {
       zh: '浏览器本地把 .csv 转成 .xlsx：只有能精确回写的字段才当数字存，长编号与前导零原样保留；GBK/GB18030 编码自动兜底。',
-      en: 'Convert .csv to .xlsx in your browser: only fields that round-trip exactly become numbers, so long IDs and leading zeros survive; GBK/GB18030 input is decoded automatically.',
+      en: 'Convert .csv to .xlsx in your browser: only fields that round-trip exactly become numbers, so long IDs and leading zeros survive. GBK / GB18030 decodes itself.',
     },
     lede: {
       zh: 'CSV 进 Excel 的经典事故是这样的：一个 18 位身份证号变成 4.11111111111111E+17，"007" 变成 7，事后还没法还原——原值已经不在了。这里的判定条件写得比「看起来像不像数字」更严：字段解析成数字后再写回，必须与原文完全一致才当数字存。凡是回写不上的一致性子串——超长整数、前导零、科学计数写法——一律按文本存，原样保留。',
@@ -471,11 +507,11 @@ export const PAIRS = [
     shot: 'batch-files',
     title: {
       zh: 'JSON 转 CSV——对象数组离线落成表格',
-      en: 'Convert JSON to CSV — turn an array of objects into a spreadsheet offline',
+      en: 'JSON to CSV — an array of objects becomes a table',
     },
     desc: {
       zh: '浏览器本地把 JSON 对象数组转成 CSV：表头取所有键的并集，嵌套值以 JSON 文本入格，公式注入被转义，带 UTF-8 BOM。',
-      en: 'Convert a JSON array of objects to CSV in your browser: headers are the union of every key, nested values land as JSON text, formula injection is escaped, and the file carries a UTF-8 BOM.',
+      en: 'Convert a JSON array of objects to CSV locally: headers are the union of every key, nested values land as JSON text, formula injection is escaped, UTF-8 BOM.',
     },
     lede: {
       zh: '接口给了一个数组，你要的是能发给同事的一张表。规则很简单：取数组里所有对象的键并集当表头，缺失的键留空，嵌套的对象与数组按 JSON 文本写进单元格。所以它不做的是「替你把结构拍平」——那一步需要知道你的数据语义，机器不该猜。整个转换在标签页里完成，数据不出本机。',
@@ -548,11 +584,11 @@ export const PAIRS = [
     shot: 'preview-edit',
     title: {
       zh: 'PDF 转文本（.pdf → .txt）——本地提取文字层，不上传',
-      en: 'Convert PDF to text (.pdf → .txt) locally — the text layer, no upload',
+      en: 'PDF to text locally — the text layer, no OCR',
     },
     desc: {
       zh: '浏览器本地用 pdf.js 提取 PDF 文字层，输出纯文本或 Markdown。扫描件没有文字层，所以这条对图片型 PDF 无解——项目不含 OCR。',
-      en: 'pdf.js in your browser extracts the text layer to plain text or Markdown. A scan has no text layer, so image-only PDFs are a dead end here — the extension ships no OCR.',
+      en: 'pdf.js in your browser pulls the PDF text layer out as .txt or Markdown. A scan has no text layer, so image-only PDFs are a dead end here: the app ships no OCR.',
     },
     lede: {
       zh: '先把最容易被忽略的一条说清楚：能提出文字的 PDF，是「字原本是文字」的那一类——从 Word、LaTeX、网页导出的 PDF。扫描件与拍照件是像素，里面并没有文字层，提取出来自然是空的；把它变成文字需要 OCR，而 OCR 模型要几十 MB、需要联网下载，与「一个字节都不出本机」的前提直接冲突，所以本项目不带，也不会假装能带。',
@@ -625,11 +661,11 @@ export const PAIRS = [
     shot: 'batch-results',
     title: {
       zh: 'Markdown 转 PDF——离线渲染成 A4，产物是图像不是文字层',
-      en: 'Markdown to PDF offline, rendered onto A4 — the output is an image, not a text layer',
+      en: 'Markdown to PDF offline — the output is an image, not text',
     },
     desc: {
       zh: 'Markdown → HTML → PDF，本地按 A4 逐页切片成图像型 PDF。好处是哪台机器打开都一样，代价是没有文字层、不可选中检索。',
-      en: 'Markdown → HTML → PDF, sliced page by page onto A4 locally. You get a file that looks identical everywhere; the price is no text layer, so nothing is selectable or searchable.',
+      en: 'Markdown → HTML → PDF, sliced page by page onto A4 locally. It looks identical everywhere; the price is no text layer, so nothing is selectable or searchable.',
     },
     lede: {
       zh: '这条链路给的是「打印件」，不是「文档」。Markdown 先渲染成 HTML，再整页栅格化、按 A4 宽度切片写成 PDF 页面。于是不管接收方用什么设备、装没装中文字体，看到的都和你看到的一样。也正因为它是渲染出来的图像，PDF 里的文字选不中、复制不走、搜索引擎检索不到，文件体积比文字型 PDF 大一截。要不要这条，取决于你要交付的是观感还是内容。',
@@ -702,11 +738,11 @@ export const PAIRS = [
     shot: 'batch-results',
     title: {
       zh: 'Word 转 PDF——离线出 A4 图像，版式由浏览器决定',
-      en: 'Word to PDF offline — an A4 image whose layout the browser decides',
+      en: 'Word to PDF offline — an A4 image, laid out by the browser',
     },
     desc: {
       zh: 'Word → HTML → PDF：mammoth 读语义结构后整页栅格化，按 A4 切片。文字层没有，版式与 Word 打印不尽相同，先预览再下载。',
-      en: 'Word → HTML → PDF: mammoth reads the semantic structure, the page is rasterised and sliced onto A4. There is no text layer, and the layout is not Word’s own print output — preview before you download.',
+      en: 'Word → HTML → PDF: mammoth reads the structure, the page is rasterised onto A4. No text layer, and the layout is not Word’s own print output — preview first.',
     },
     lede: {
       zh: '「Word 转 PDF」这件事在桌面上是 Word 自己做的：调用排版引擎，输出带文字层的 PDF。浏览器里这条链路走的是另一条路——mammoth 先把 .docx 读成语义 HTML，再整页栅格化、按 A4 切片。结果是：任何设备打开都长一样，但文字层没有，且版式与 Word 打印会有出入，因为排版由浏览器与系统字体决定，不由 Word 决定。',
@@ -776,11 +812,11 @@ export const PAIRS = [
     shot: 'output-preset',
     title: {
       zh: 'PNG 转 WebP——本地批量压体积，质量与目标大小可调',
-      en: 'Convert PNG to WebP locally — batch it, tune quality or aim at a target size',
+      en: 'PNG to WebP locally — batch it, tune quality or target size',
     },
     desc: {
       zh: '浏览器里把 PNG 编成 WebP，透明通道保留，质量档与目标体积先走质量阶梯再缩像素。最多 200 张一批，结果可打 ZIP。',
-      en: 'Encode PNG to WebP in the browser with alpha preserved; the target-size lever walks the quality ladder before it throws pixels away. Up to 200 images per batch, with the batch downloadable as one ZIP.',
+      en: 'Encode PNG to WebP in the browser with alpha preserved. The target-size lever walks the quality ladder before it throws pixels away; 200 images per batch.',
     },
     lede: {
       zh: '同一张图，WebP 常常比 PNG 小一大截，而透明通道仍在。这里没有上传：解码、重编码、体积控制都发生在你自己的标签页里。质量参数与目标体积的处理顺序是有讲究的——先沿质量阶梯往下试，质量已经到底还够不着目标，才开始缩边；所以「目标 200 KB」是一个追着去的上限，不是保证值，细节写在下面。',
@@ -855,11 +891,11 @@ export const PAIRS = [
     shot: 'output-preset',
     title: {
       zh: 'SVG 转 PNG——先净化再栅格化，脚本不执行',
-      en: 'Convert SVG to PNG — sanitised first, rasterised second, scripts never run',
+      en: 'SVG to PNG — sanitised first, rasterised second',
     },
     desc: {
       zh: '浏览器本地把 SVG 栅格化成 PNG（也可出 JPEG / WebP）。矢量按当前尺寸渲染，脚本与事件属性先行剥离，外链资源不会去取。',
-      en: 'Rasterise SVG to PNG in your browser (JPEG and WebP too), rendering the vector at the size you set. Scripts and event handlers are stripped before anything is drawn, and remote resources are never fetched.',
+      en: 'Rasterise SVG to PNG in your browser at the size you set: scripts and event attributes are stripped first, and remote resources are never fetched.',
     },
     lede: {
       zh: 'SVG 是图，也是可执行标记：一段 <script> 或一个 onerror 属性就藏在“图片”里面。所以这条链路的第一步不是画图，是把活性内容剥掉——先剥离脚本与事件属性，再交给栅格化；这也是为什么它敢接受一个来路不明的 SVG。渲染按矢量在指定尺寸下重新计算，因此不是「放大已渲染的位图」，边缘保持锐利。',
@@ -934,11 +970,11 @@ export const PAIRS = [
     shot: 'batch-files',
     title: {
       zh: 'JPEG（JPG）转 PNG——本地重编码成无损容器，不上传',
-      en: 'Convert JPEG (JPG) to PNG locally — a lossless container, nothing uploaded',
+      en: 'JPEG to PNG locally — a lossless container, no upload',
     },
     desc: {
       zh: '浏览器本地把 .jpg / .jpeg 解码成像素再编为 PNG：尺寸原样，可选最长边，一批最多 200 张可打成一个 ZIP。EXIF 与 GPS 不会跟着走。',
-      en: 'Decode .jpg / .jpeg to pixels in your own browser and re-encode as PNG: dimensions kept, an optional longest edge, up to 200 images downloadable as one ZIP. EXIF and GPS do not travel.',
+      en: 'Decode .jpg to pixels in your browser and re-encode as PNG: dimensions kept, optional longest edge, 200 images in one ZIP. EXIF and GPS do not travel.',
     },
     lede: {
       zh: '这两者的差别不在「清不清楚」，而在「还能不能再存一次」：JPEG 每被保存一次就再丢一层信息，PNG 不会。所以常见的工作流是把照片从 JPEG 拿出来，放进一个可以反复编辑的容器里。这条链路做的正是这件事——解码到画布、再从画布编码，画布里只有像素，所以原文件里的 EXIF、GPS、拍摄时间、相机型号、缩略图一律不会出现在结果里。这一点对隐私是加分，对「我要留住拍摄信息」是减分，两者都该在转之前知道。另外要说清：无损不等于变小，照片进 PNG 通常是涨的。',
@@ -1015,11 +1051,11 @@ export const PAIRS = [
     shot: 'output-preset',
     title: {
       zh: 'PNG 转 JPEG——透明铺白底，质量与目标体积可调',
-      en: 'Convert PNG to JPEG — transparency flattens onto white, quality and target size included',
+      en: 'PNG to JPEG — transparency flattens onto white',
     },
     desc: {
       zh: '浏览器本地把 PNG 编成 JPEG：透明区域铺纯白展平，质量档 40%–90%、目标体积 20 KB–2 MB，先降质量再缩像素。最多 200 张一批。',
-      en: 'Encode PNG to JPEG in your browser: transparency flattens onto pure white, with a 40%–90% quality step and a 20 KB–2 MB target size — quality is spent before pixels. Up to 200 images per batch.',
+      en: 'Encode PNG to JPEG in your browser: alpha flattens onto pure white, with a 40%–90% quality step and a 20 KB–2 MB target that spends quality before pixels.',
     },
     lede: {
       zh: 'JPEG 没有 alpha 通道，所以「PNG 转 JPEG」的第一件事不是压缩，而是替透明区域做一个决定。这里的答案是确定的：画布先铺纯白再把图画上去，透明变成白底，不会出现黑底，也不会留下半透明的边。第二个决定是质量：面板给六档（40%–90%），留空则由编码器自己判断。第三个是目标体积，它的行为有讲究——先沿质量阶梯往下试，质量到底仍够不着才开始缩像素，所以「目标 200 KB」是被追的上限，不是承诺值。',
@@ -1096,11 +1132,11 @@ export const PAIRS = [
     shot: 'output-preset',
     title: {
       zh: 'JPEG 转 WebP——本地再压一档体积，质量与目标大小可调',
-      en: 'Convert JPEG to WebP locally — another step down on size, with quality and a target',
+      en: 'JPEG to WebP locally — one more step down in size',
     },
     desc: {
       zh: '浏览器本地把 .jpg 编成 WebP：质量档 40%–90%、目标体积 20 KB–2 MB，先走质量阶梯再缩像素。最多 200 张一批，结果可打 ZIP。',
-      en: 'Encode .jpg to WebP in your browser with a 40%–90% quality step and a 20 KB–2 MB target size — the quality ladder first, pixels second. Up to 200 images per batch, with the batch downloadable as one ZIP.',
+      en: 'Encode .jpg to WebP in your browser with a 40%–90% quality step and a 20 KB–2 MB target — the quality ladder first, pixels second. 200 images per batch.',
     },
     lede: {
       zh: 'JPEG 与 WebP 都是有损容器，所以这条路的价值主要在体积：同一张图 WebP 常常比 JPEG 更小，而观感不掉。请把「常常」和「保证」分开——省多少取决于图像内容与两个编码器的判断，本项目不给你写一个百分比。操作上的关键还是顺序：设了目标体积时先沿质量阶梯往下试，质量到底还够不着，才开始缩边。所以目标大小是被追的上限；够不着时你拿到的是当前能做到的最小结果。',
@@ -1177,11 +1213,11 @@ export const PAIRS = [
     shot: 'batch-results',
     title: {
       zh: 'WebP 转 JPEG——给不收 WebP 的接收方兜底，透明铺白',
-      en: 'Convert WebP to JPEG for recipients that will not take WebP — alpha flattens to white',
+      en: 'WebP to JPEG for recipients that will not take WebP',
     },
     desc: {
       zh: '浏览器本地把 .webp 解码重编为 JPEG：透明铺纯白，质量档与目标体积照旧，一批最多 200 张。动图 WebP 只会留下一帧。',
-      en: 'Decode .webp and re-encode it as JPEG in your browser: transparency flattens onto pure white, the quality and target-size levers apply as usual, up to 200 images per batch. Animated WebP yields one frame.',
+      en: 'Decode .webp and re-encode as JPEG locally: alpha flattens onto white, quality and target size as usual, 200 per batch. Animated WebP yields one frame.',
     },
     lede: {
       zh: '这条路存在的理由通常不是压缩，而是「对方打不开」：一些邮件客户端、老版本 Office、以及某些 CMS 的上传校验都不接受 WebP。做法是把 WebP 解码到画布、铺白、再交给 JPEG 编码器，于是有两件事一定发生——透明变成白底，以及一次全新的有损编码。原始文件还在的话，交付 JPEG 从原始 PNG 走会更干净；这条适合的是「手里只有 WebP」的情形。',
@@ -1258,11 +1294,11 @@ export const PAIRS = [
     shot: 'batch-results',
     title: {
       zh: 'PNG 转 PDF——像素不重画，页面就是这张图',
-      en: 'Convert PNG to PDF without redrawing a pixel — the page is the picture',
+      en: 'PNG to PDF without redrawing a pixel — page is the image',
     },
     desc: {
       zh: '浏览器本地把 PNG 装进单页 PDF：常规路径不重画像素，页面尺寸由图像像素换算，横竖自动。一批最多 200 个，各自一个 PDF。',
-      en: 'Put a PNG into a one-page PDF locally: the normal path never re-draws the pixels, the page is sized from the image’s own pixels and orientation follows. Up to 200 files, one PDF each.',
+      en: 'Put a PNG into a one-page PDF locally: the normal path never re-draws pixels, the page takes its size and orientation from the image. 200 files per batch.',
     },
     lede: {
       zh: '这条链路与别的路不太一样：它是「把这张 PNG 放进 PDF 容器」，不是「重画一遍再塞进去」。像素一个都不丢，产物是无损的。但无损不等于不变大——PDF 用自己的流格式重存这些像素，实测几张截图的产物落在原 PNG 的 1.1–1.3 倍，画面越碎越接近 1.5 倍。要压体积请在图片侧解决（换 WebP、缩最长边），别指望这一转。页面尺寸直接由图像像素按 96 dpi 换算成点（px × 72 ÷ 96），宽大于高就自动横向，于是它不是 A4：一张 2560×1440 的截图进去，出来的 PDF 就是一页 2560×1440 大小的纸。打印时需要选「适合页面」。',
@@ -1339,11 +1375,11 @@ export const PAIRS = [
     shot: 'workbench-empty',
     title: {
       zh: 'JPEG 转 PDF——一张照片一页，会重编码一次',
-      en: 'Convert JPEG to PDF — one photo per page, through one re-encode',
+      en: 'JPEG to PDF — one photo per page, through one re-encode',
     },
     desc: {
       zh: '浏览器本地把 .jpg 装进单页 PDF：页面按像素尺寸换算、横竖自动。这条路解码后再编码一次，PNG 那条则不重编码，两者是有损与无损的对照。',
-      en: 'Put a .jpg into a one-page PDF locally, sized from its pixels with orientation handled automatically. This route decodes and re-encodes once; the PNG route does not, which is the lossy/lossless contrast.',
+      en: 'Put a .jpg into a one-page PDF locally, sized from its pixels with orientation handled. This route decodes and re-encodes once; the PNG route does not.',
     },
     lede: {
       zh: '同样是图片进 PDF，JPEG 这条与 PNG 这条的区别就在「有没有重画一遍」。这条路把图解码到画布、先铺纯白、再按 JPEG 档编出来交给容器——尺寸上限与统一底色都是在这一步处理的。多数照片在这一步看不太出差别，但它确实是第二次有损编码；要尽量少损失，就先转 PNG、再由 PNG 出 PDF。页面尺寸按像素在 96 dpi 下换算，所以也不是 A4。',
@@ -1420,11 +1456,11 @@ export const PAIRS = [
     shot: 'preview-edit',
     title: {
       zh: 'Excel 转 JSON——按单元格值出，多 sheet 一张不丢',
-      en: 'Convert Excel to JSON from cell values — and no worksheet gets dropped',
+      en: 'Excel to JSON from cell values, and no sheet gets dropped',
     },
     desc: {
       zh: '浏览器本地把 .xlsx 转成 JSON：单表给行对象数组，多表按工作表名分组；数字与布尔是真类型，日期是两段式 ISO 文本。',
-      en: 'Convert .xlsx to JSON in your browser: one sheet becomes an array of row objects, several are grouped by sheet name; numbers and booleans stay typed and dates arrive as two-form ISO text.',
+      en: 'Convert .xlsx to JSON locally: one sheet becomes an array of row objects, several are keyed by sheet name. Numbers and booleans stay typed, dates are ISO text.',
     },
     lede: {
       zh: 'Excel 转 JSON 最容易做错的一件事，是取「显示文本」还是取「存储值」。显示文本是格式化之后的结果：1234.5 可能显示为 "1,234.50"，0.25 显示为 25.0%，布尔显示为 TRUE。这条链路取的是值，所以数字在 JSON 里是 number、布尔是 true/false。日期走的是另一条规则：单元格里存的是天数序列号，直接给 JSON 只会得到一个 45296.33 这样的数，所以日期在读取期渲染成 yyyy-mm-dd hh:mm:ss，再剥掉零时间——纯日期就是 YYYY-MM-DD。为什么不用 Date 对象：那条换算带本地时区误差（实测 Asia/Shanghai −43 秒），而解析期渲染出的文本在三个时区逐字节一致。',
@@ -1504,11 +1540,11 @@ export const PAIRS = [
     shot: 'batch-files',
     title: {
       zh: 'CSV 转 JSON——只有能精确回写的字段才是数字',
-      en: 'Convert CSV to JSON — a field is numeric only when it round-trips exactly',
+      en: 'CSV to JSON — numeric only when it round-trips exactly',
     },
     desc: {
       zh: '浏览器本地把 .csv 转成 JSON 行对象：字段先按原文读入，只在「解析→回写完全一致」时才恢复数字类型；GBK / GB18030 自动兜底。',
-      en: 'Convert .csv to JSON row objects locally: every field is read as text and regains a numeric type only when parse-then-reprint reproduces it exactly; GBK / GB18030 input decodes automatically.',
+      en: 'Convert .csv to JSON row objects locally: every field starts as text and regains a numeric type only when parse-then-reprint reproduces it exactly.',
     },
     lede: {
       zh: '把 CSV 交给 JSON 的常见实现是让解析器猜类型，而猜是有代价的："00424" 变成 424、1e5 变成 100000、16 位卡号变成科学计数、1/2 变成一个日期。这条链路反过来做：先用严格读法把每个字段按原文读进来，再只在一个很严的条件下恢复数字类型——解析成数字、再写回、必须与原文一字不差，并且有效数字不超过 15 位。凡是回写不上的，一律留字符串。日期同理：CSV 里没有日期类型，2024-01-05 就是那串字符，转换不替你造一个。',
@@ -1585,11 +1621,11 @@ export const PAIRS = [
     shot: 'batch-results',
     title: {
       zh: 'JSON 转 Excel——经过 CSV 的两步链，嵌套值写进单元格',
-      en: 'Convert JSON to Excel — two steps through CSV, nested values kept in the cell',
+      en: 'JSON to Excel — two steps through CSV, values kept',
     },
     desc: {
       zh: '浏览器本地把 JSON 数组转成 .xlsx：表头取所有对象键的并集，嵌套对象与数组以 JSON 文本进单元格。链路是 JSON → CSV → Excel，中间不落盘。',
-      en: 'Turn a JSON array into .xlsx in your browser: the header is the union of every object’s keys and nested values go into the cell as JSON text. The route is JSON → CSV → Excel, with nothing written in between.',
+      en: 'Turn a JSON array into .xlsx locally: the header is the union of every object’s keys and nested values go into the cell as JSON text, routed via CSV.',
     },
     lede: {
       zh: '注册表上没有 JSON 直连 Excel 这条路，走的是两步：JSON → CSV → Excel，由图上的路径搜索自动给出，中间结果只在内存里传递，不落盘也不联网。这条链路真正值得说的两件事都在数据形状上：一是表头不是照第一个对象的键抄，而是取所有对象键的并集——某行缺某个键就留空，不会丢行；二是嵌套对象与数组不会被摊平掉，它们以 JSON 文本写进单元格，信息完整但代价是「往返不对称」：从 Excel 再转回 JSON，得到的是那串文本。',
@@ -1666,11 +1702,11 @@ export const PAIRS = [
     shot: 'preview-edit',
     title: {
       zh: 'Markdown 转 HTML——完整文档、内联样式、脚本被剥掉',
-      en: 'Convert Markdown to HTML — a complete document, inline styles, scripts removed',
+      en: 'Markdown to HTML — a full document, scripts removed',
     },
     desc: {
       zh: '浏览器本地把 .md 渲染成可直接双击打开的完整 HTML：GFM 表格与任务列表可用，样式内联，脚本与事件属性在净化阶段移除。',
-      en: 'Render .md into a complete, double-clickable HTML document locally: GFM tables and task lists work, styles are inlined, and scripts and event attributes are removed at the sanitise step.',
+      en: 'Render .md into a complete, double-clickable HTML document locally: GFM tables and task lists work, styles are inlined, scripts and event attributes removed.',
     },
     lede: {
       zh: '产物不是一段片段，而是从 <!DOCTYPE html> 起头、自带 <style> 的完整文档：系统字体栈、800 px 版心，标题、表格、代码块、引用都排好了样式，<title> 用你自己的文件名（去掉后缀）。渲染前有两道处理：先按 GFM 解析 Markdown，再交净化器过一遍——脚本与 on* 事件属性被移除，同时允许 html 与 svg 两组标签。后者是有原因的：Markdown 里内联的 SVG 图就是内容本身，只开 html 那一档曾把整张图吞掉。',
@@ -1747,11 +1783,11 @@ export const PAIRS = [
     shot: 'batch-results',
     title: {
       zh: 'HTML 转 PDF——按 A4 逐页切片，脚本不执行、外链不下载',
-      en: 'Convert HTML to PDF as A4 page slices — scripts never run, remote assets are never fetched',
+      en: 'HTML to PDF as A4 slices — scripts and remote assets out',
     },
     desc: {
       zh: '浏览器本地把 .html 渲染成多页 A4 PDF：800 px 版心按整页高度切片，切片是无损 PNG；脚本被移除，远程资源不会被取回。',
-      en: 'Render .html into a multi-page A4 PDF locally: an 800 px layout sliced down its full height, stored as lossless PNG. Scripts are removed and remote resources are never fetched.',
+      en: 'Render .html into a multi-page A4 PDF locally: an 800 px layout sliced down its full height, stored as lossless PNG. Scripts are removed; nothing is fetched.',
     },
     lede: {
       zh: '这条路有两层保护和一个取舍。保护一是净化：文档先过 DOMPurify（保留 head 与 <style>，移除脚本），再在隐藏的 iframe 里渲染，而 iframe 的 sandbox 只给 allow-same-origin——脚本没有执行余地。保护二是离线：净化会保留远程 URL，所以渲染前还有一道把远程引用剥掉的步骤，一张远程图不会把「不联网」这条承诺破掉。取舍是产出形态：结果是渲染出来的位图按 A4 切片，页面里没有文字层，所以搜索、复制、朗读都拿不到文字。这一条对本站所有「文档转 PDF」链路都成立。',
@@ -1829,11 +1865,11 @@ export const PAIRS = [
     published: '2026-10-02',
     title: {
       zh: 'PDF 转 HTML——本地还原文字与链接，带页面分隔',
-      en: 'Convert PDF to HTML locally — text and links restored, pages separated',
+      en: 'PDF to HTML locally — text and links, page breaks kept',
     },
     desc: {
       zh: '浏览器本地用 pdf.js 按阅读顺序提取文字层，链接标注按协议白名单保留，每页之间插入分页线，产出一个自包含的 .html。全程不上传，也不含 OCR：扫描件没有文字层。',
-      en: 'pdf.js in your browser extracts the text layer in reading order, keeps link annotations through a scheme allowlist, and puts a page break between pages — one self-contained .html. Nothing is uploaded, and there is no OCR: a scan has no text layer.',
+      en: 'pdf.js extracts the text layer in reading order, keeps link annotations through a scheme allowlist and marks page breaks in one self-contained .html. No OCR.',
     },
     lede: {
       zh: '这条是 PDF → 纯文本的「更值得后续加工」版本：同样只吃文字层，但产出的是带段落、标题与超链接的 HTML，而不是一个扁平的 .txt。标题有两个来源：PDF 自带的书签（大纲）按层级写成 `<h1>`–`<h6>`，前提是书签的文字与该行的文字「整行相等」；没有书签、或书签对不上的文档退回到几何判断——一行全大写、短于 80 字符的文字会被认成标题写成 `<h2>`，其余成段；同一页里落在同一基线上的文字拼回一行，段与段之间靠基线的纵向间距判断。这套判断是几何的，不是语义的，所以下面「丢弃项」里那条关于分栏与旋转文字的说明值得先读。',
@@ -1915,11 +1951,11 @@ export const PAIRS = [
     published: '2026-10-02',
     title: {
       zh: 'PDF 转 JPEG——本地逐页栅格化，清晰度与质量可调',
-      en: 'Convert PDF to JPEG locally — one page per image, density and quality adjustable',
+      en: 'PDF to JPEG locally — one page per image, density set',
     },
     desc: {
       zh: '浏览器本地用 pdf.js 把 PDF 逐页渲染成 JPEG：渲染密度四档 96 / 144 / 200 / 300 DPI（默认 144）、质量档 40%–90%、可指定最长边，多页自动一页一张装进 ZIP。文件不出本机，也不含 OCR。',
-      en: 'pdf.js in your browser renders each PDF page to JPEG at a density of 96, 144, 200 or 300 DPI (144 by default), with a 40%–90% quality step and an optional longest edge; multiple pages come back one per image inside a ZIP. Nothing leaves your machine, and there is no OCR.',
+      en: 'Render each PDF page to JPEG at 96, 144, 200 or 300 DPI (144 by default), quality 40%–90%, optional longest edge; multi-page batches arrive as a ZIP.',
     },
     lede: {
       zh: '这条和 PDF → PNG 是同一套渲染，区别只在最后那一次编码：本项目给 JPEG 单独开了一条直接边，而不是"先出 PNG 再转 JPEG"。原因很实际——中间那次无损编码不改变任何像素，只会让每个页面多走一遍编码、并让 ZIP 里的扩展名变成 .png。栅格化是像素这条路唯一的真瓶颈，所以能省的步骤就省掉。',
@@ -2001,11 +2037,11 @@ export const PAIRS = [
     published: '2026-10-02',
     title: {
       zh: 'PDF 转 PNG——本地逐页栅格化的无损位图，密度与最长边可调',
-      en: 'Convert PDF to PNG locally — lossless page rasters with adjustable density and longest edge',
+      en: 'PDF to PNG locally — lossless page rasters, density set',
     },
     desc: {
       zh: '浏览器本地用 pdf.js 把 PDF 逐页渲染成 PNG：渲染密度四档 96 / 144 / 200 / 300 DPI（默认 144）、可指定最长边，多页自动一页一张装进 ZIP。PNG 没有质量档也不吃目标体积——无损的意思是不替你决定丢哪些像素。文件不出本机，也不含 OCR。',
-      en: 'pdf.js in your browser renders each PDF page to PNG at a density of 96, 144, 200 or 300 DPI (144 by default), with an optional longest edge; multiple pages come back one per image inside a ZIP. PNG has no quality step and takes no target size — lossless means the encoder does not decide for you which pixels to drop. Nothing leaves your machine, and there is no OCR.',
+      en: 'Render each PDF page to PNG at 96, 144, 200 or 300 DPI with an optional longest edge, one image per page in a ZIP. PNG takes no quality step: it is lossless.',
     },
     lede: {
       zh: '这条和 PDF → JPEG 共用同一套渲染，区别只在最后那一次编码：PNG 无损，所以画面上有什么就留下什么，包括 JPEG 会先糊掉的细线与极小字号。代价是体积——一页密排文字的 PNG 通常比同一页的 JPEG 大不少，大多少由内容决定，这一页不替你写百分比。第二件事得说在前面：透明。这条转换在把页面画到画布之前先铺一层白，PNG、JPEG、WebP 三个终点一样处理，所以从 PDF 出来的图片没有透明区域；PNG 确实能带 Alpha，那是图片之间那几条路的用法。',
@@ -2092,11 +2128,11 @@ export const PAIRS = [
     published: '2026-10-02',
     title: {
       zh: 'PDF 转 WebP——本地逐页出图，通常比 JPEG 更小',
-      en: 'Convert PDF to WebP locally — one page per image, usually smaller than JPEG',
+      en: 'PDF to WebP locally — one page per image, vs. JPEG',
     },
     desc: {
       zh: '浏览器本地把 PDF 逐页渲染成 WebP：密度四档 96 / 144 / 200 / 300 DPI、质量档 40%–90%、可指定最长边，多页一页一张装进 ZIP。它与 JPEG 的差别只有体积与容器兼容性——渲染前一样先铺白底，所以这条路没有透明输出。文件不出本机。',
-      en: 'Render each page of a PDF to WebP in your browser, at a density of 96, 144, 200 or 300 DPI, with a 40%–90% quality step and an optional longest edge, zipped one page per image. What separates it from JPEG is size and container support and nothing else — the page is painted white before rendering here too, so this route has no transparent output. Nothing leaves your machine.',
+      en: 'Render each PDF page to WebP at 96–300 DPI, quality 40%–90%, one image per page in a ZIP. Like the JPEG route it paints the page white first: no transparency.',
     },
     lede: {
       zh: '和 PDF → JPEG 同一条渲染、同一个直接边，最后一步换成 WebP 编码。选它的理由只有一个：同一页往往更小（幅度取决于页面内容，这一页不替你写百分比），前提是接收方读得开 WebP。别把 Alpha 通道算成理由——WebP 支持透明，但这条转换在渲染前给每页铺白底，通道里没有内容可装；真要透明请在图片之间转，PNG 转 WebP 那一条是真的带 Alpha 的。',
@@ -2178,11 +2214,11 @@ export const PAIRS = [
     published: '2026-10-02',
     title: {
       zh: 'PDF 转 Word——本地两步走完，中间产物不落盘',
-      en: 'Convert PDF to Word (.docx) locally — two steps, no intermediate on disk',
+      en: 'PDF to Word (.docx) locally — two steps, nothing on disk',
     },
     desc: {
       zh: '这条是多步链：pdf.js 先按阅读顺序把文字层提成 HTML，再由它打包成 .docx，中间的 HTML 只在内存里、不会写到你的下载目录。全程离线，无 OCR，也不生成原生 OOXML 段落结构。',
-      en: 'This runs as a two-step chain: pdf.js lifts the text layer into HTML in reading order, and that HTML is packed into a .docx. The intermediate never leaves memory, so nothing extra lands in your downloads. Fully offline, no OCR, and no native OOXML paragraph tree either.',
+      en: 'A two-step chain: pdf.js lifts the text layer into HTML in reading order, that HTML is packed into .docx, and the intermediate never leaves memory. No OCR.',
     },
     lede: {
       zh: '先说这条路的真相，因为它决定了产物好不好用：Word 的 .docx 本应是一棵由段落、运行与样式组成的 XML 树，而这个转换产出的是 Word 的 altChunk——文档包里嵌一份 HTML，由 Word 打开时自己排版。好处是真的能编辑、能存回 .docx；代价是它带不来 PDF 里没有的任何东西（版式、分页、字体），也别指望段落样式与手工排版的 Word 文档一致。换句话说：这是"把 PDF 里的文字变成可编辑内容"，不是"把 PDF 变成 Word"。',
@@ -2267,11 +2303,11 @@ export const PAIRS = [
     published: '2026-10-02',
     title: {
       zh: 'Word 转 HTML——本地抽取正文与图片，产出单文件网页',
-      en: 'Convert Word to HTML locally — body text and images in one self-contained file',
+      en: 'Word to HTML locally — body and images in one file',
     },
     desc: {
       zh: '浏览器本地用 mammoth 读 .docx 的语义结构（标题、列表、粗斜体、超链接、表格），文档里的图片内联成 data URI，最后经 DOMPurify 净化输出单个 .html。不上传、不装 Office，也不读旧版 .doc。',
-      en: 'mammoth in your browser reads the semantic structure of a .docx — headings, lists, bold and italics, hyperlinks, tables — inline images become data URIs, and the result is sanitised through DOMPurify into one .html. No upload, no Office, and no legacy .doc either.',
+      en: 'mammoth reads a .docx’s structure — headings, lists, emphasis, links, tables — inline images become data URIs, DOMPurify sanitises the single .html. No .doc.',
     },
     lede: {
       zh: 'mammoth 的设计取向值得先知道，因为它决定了产物的样子：它读的是"这段是标题 1"这样的语义，而不是"这行用了 16 磅加粗"这样的外观，然后按自己的映射写成 HTML 标签。好处是产物干净、可直接上网页或再转 Markdown；代价是 Word 里看到的排版不会跟过来——分栏、字号、颜色、页边距这些外观信息在这一步被有意丢掉。想要"看起来一样"的产物，请走 Word → PDF。',
@@ -2358,11 +2394,11 @@ export const PAIRS = [
     published: '2026-10-02',
     title: {
       zh: 'HTML 转 PNG——本地整页栅格化，长图一次拿到',
-      en: 'Convert HTML to PNG locally — the whole page rasterised into one tall image',
+      en: 'HTML to PNG locally — the whole page as one tall image',
     },
     desc: {
       zh: '浏览器本地把 .html 渲染到画布再编码为 PNG：800 px 宽、按内容实际高度出整页长图，远程引用与脚本在渲染前就被处理掉。全程不出本机，没有截图软件、也没有服务端渲染。',
-      en: 'Render a .html file to a canvas in your own browser and encode it as PNG: 800 px wide, one tall image as long as the content actually is, with remote references and scripts dealt with before anything paints. No server-side renderer, no screenshot tool, and nothing leaves the machine.',
+      en: 'Render a .html file to a canvas and encode it as PNG: 800 px wide, one tall image as long as the content is, with remote references never fetched.',
     },
     lede: {
       zh: '这一条的价值在于"整页"：普通截图工具给的是可视区，而这个转换按内容的真实高度出图，所以一份长报告、一页长表格能一次拿到一张完整长图。做法是把 HTML 装进一个沙箱文档里渲染，宽度定在 800 px，高度按内容量出来。也正因为它是一次真实渲染，产物取决于你的浏览器怎么排版这份 HTML——这跟"HTML → PDF 再截屏"那种二次失真完全不是一回事。',
@@ -2448,11 +2484,11 @@ export const PAIRS = [
     published: '2026-10-02',
     title: {
       zh: 'Excel 转 PDF——本地两步成档，多 sheet 连续排版',
-      en: 'Convert Excel to PDF locally — two steps, every sheet laid out in sequence',
+      en: 'Excel to PDF locally — two steps, every sheet in order',
     },
     desc: {
       zh: '这条是多步链：SheetJS 先把每个工作表写成带表名的 HTML 表格，再由它生成 A4 竖版 PDF；中间产物只在内存里。日期不会被读成一串数字，公式值取上次保存时缓存的结果。全程离线。',
-      en: 'A two-step chain: SheetJS writes each worksheet as an HTML table under its own sheet name, and that becomes a portrait A4 PDF, with the intermediate held only in memory. Dates do not arrive as bare serial numbers, and formula cells carry the value cached when the file was last saved. Fully offline.',
+      en: 'SheetJS writes each worksheet as an HTML table under its name, which becomes a portrait A4 PDF, intermediate held in memory. Formula cells keep cached values.',
     },
     lede: {
       zh: '先说最容易踩的那格：Excel 里看到的"表格"，在文件里其实是三类东西的叠加——单元格的值、公式、以及格式（列宽、颜色、合并、条件格式）。这条链能带走第一类，第二类带的是缓存结果而不是活公式，第三类基本带不走。所以产物是一张干净、可打印、可复制文字的表格文档，而不是"你那张带底纹的报表"。知道边界之后再决定用它还是用 Excel 自己导出。',
@@ -2539,11 +2575,11 @@ export const PAIRS = [
     published: '2026-10-02',
     title: {
       zh: 'GIF 转 PNG——本地取首帧无损重编码，动图会说明丢了几帧',
-      en: 'Convert GIF to PNG locally — the first frame, losslessly re-encoded, with frame loss disclosed',
+      en: 'GIF to PNG locally — first frame, lossless, loss disclosed',
     },
     desc: {
       zh: '浏览器本地把 GIF 解码后编成 PNG：静态图无损换容器，动图取首帧并在结果卡片上写明丢了帧。BMP / GIF / SVG 只能作为输入——浏览器不提供它们的编码器，所以这条的方向不可逆。',
-      en: 'Decode a GIF in your own browser and encode it as PNG: a still gains a lossless container swap, an animation keeps its first frame and says so on the result card. Note the direction is one-way — a browser ships no encoder for BMP, GIF or SVG, so this route has no reverse.',
+      en: 'Decode a GIF and encode it as PNG: a still gets a lossless container swap, an animation keeps its first frame and says so on the result card. One-way only.',
     },
     lede: {
       zh: '这条转换最常发生在"我手上只有 .gif，但我要 PNG"的场合：图标、截图、单帧素材。做法很直白——解码、把当前那一帧画到画布、无损编码。真正值得写清楚的是两件事：一是动图在这里必然只剩一帧，二是本项目只在源文件「确实」有多于一个图像块的时候才提示丢帧，静态 .gif 不会收到一句多余的警告。这个判断是走查 GIF 的块结构得出的，不是看文件名。',
@@ -2625,11 +2661,11 @@ export const PAIRS = [
     published: '2026-10-02',
     title: {
       zh: 'BMP 转 PNG——本地无损重编码，体积通常大幅下降',
-      en: 'Convert BMP to PNG locally — a lossless re-encode that usually shrinks a lot',
+      en: 'BMP to PNG locally — a lossless re-encode that shrinks',
     },
     desc: {
       zh: '浏览器本地把 .bmp 解码后编成 PNG：像素尺寸与颜色原样带走，不再叠有损压缩。BMP 只能作为输入（浏览器不提供它的编码器），所以这条方向不可逆；一批最多 200 张，结果可打 ZIP。',
-      en: 'Decode a .bmp and encode it as PNG inside your browser: pixel size and colour carry over with no lossy pass added. BMP is input-only here — a browser ships no encoder for it — so the route does not run backwards; up to 200 images per batch, downloadable as one ZIP.',
+      en: 'Decode a .bmp and encode it as PNG in your browser: pixel size and colour carry over with no lossy pass. BMP is input-only, so the route does not run backwards.',
     },
     lede: {
       zh: 'BMP 是"把像素一行行铺开"的格式，几乎没有压缩，所以 Windows 里随手存出的 .bmp 常常大得离谱。转 PNG 的意义主要是体积：同一张图通常小一个数量级，而且两者都无损，画面上没有任何东西被牺牲。这是一条"换个容器、内容不变"的转换——所以下面的丢弃项很短，主要写的都是边界。',
@@ -2711,11 +2747,11 @@ export const PAIRS = [
     published: '2026-10-02',
     title: {
       zh: 'BMP 转 JPEG——本地一次编码，质量与目标体积可控',
-      en: 'Convert BMP to JPEG locally — one encode, with quality and a target size you control',
+      en: 'BMP to JPEG locally — quality and target size you set',
     },
     desc: {
       zh: '浏览器本地把 .bmp 解码后编成 JPEG：质量档 40%–90%、目标体积 20 KB–2 MB、可指定最长边，够不着目标时先降质量再缩像素。BMP 只能作为输入，方向不可逆。',
-      en: 'Decode a .bmp and encode it as JPEG in your browser, with a 40%–90% quality step, a 20 KB–2 MB target size and an optional longest edge — an unreachable target gives up quality before pixels. BMP is input-only, so the route does not run backwards.',
+      en: 'Decode a .bmp and encode it as JPEG with a 40%–90% quality step, a 20 KB–2 MB target and an optional longest edge — quality gives way before pixels do.',
     },
     lede: {
       zh: '从 BMP 到 JPEG 是这条产品线上体积落差最大的一条：源几乎没压缩，目标是有损压缩，所以"降一两个数量级"很正常。但落差来自两个方向——一部分是压缩，一部分是丢掉的信息。设了目标体积时顺序是先沿质量阶梯往下试，质量到底了才开始缩边，所以目标是被追的天花板，够不着时你拿到的是当前能做到的最小结果，而不是一次失败。',
@@ -2795,11 +2831,11 @@ export const PAIRS = [
     published: '2026-10-02',
     title: {
       zh: 'SVG 转 JPEG——本地栅格化，尺寸与质量可控',
-      en: 'Convert SVG to JPEG locally — rasterised in place, with size and quality under your control',
+      en: 'SVG to JPEG locally — rasterised in place, size you set',
     },
     desc: {
       zh: '浏览器本地把 .svg 栅格化后编成 JPEG：先净化掉脚本与事件属性、按 width / viewBox 定尺寸（都没有时按 1024 px 方形），再画到画布编码。SVG 只能作为输入，方向不可逆；需要透明请改选 PNG 或 WebP。',
-      en: 'Rasterise a .svg in your own browser and encode it as JPEG: scripts and event attributes are sanitised out first, the size comes from width / viewBox (falling back to a 1024 px square when neither is a usable number), and only then does it paint to a canvas. SVG is input-only, so the route does not run backwards — for transparency take PNG or WebP.',
+      en: 'Rasterise a .svg to JPEG: scripts and event attributes are sanitised out first, size comes from width / viewBox (else a 1024 px square). SVG is input-only here.',
     },
     lede: {
       zh: 'SVG 到 JPEG 必然是"从矢量到点阵"的一次落地，所以真正要选的两个参数是：多大、多糊。这一条把决定权给你：尺寸按文件自己声明的 width / height 或 viewBox 来，两者都不是可用数字时按 1024 px 方形出图；清晰度靠最长边与质量档。另外有一件事与所有"从 SVG 出"的路一样：作为图像加载的 SVG 不会去取外部资源，所以远程引用的 `<image>`、外链字体都不会出现——这不是失败，是离线承诺的必然结果。',
@@ -2883,11 +2919,11 @@ export const PAIRS = [
     published: '2026-10-02',
     title: {
       zh: 'SVG 转 WebP——本地栅格化，还带透明',
-      en: 'Convert SVG to WebP locally — rasterised with transparency kept',
+      en: 'SVG to WebP locally — rasterised with alpha kept',
     },
     desc: {
       zh: '浏览器本地把 .svg 栅格化后编成 WebP：带 Alpha，所以透明图形的背景能留住；质量档 40%–90%、目标体积 20 KB–2 MB、最长边可调。尺寸按 width / viewBox 推断，外部引用一律不请求。',
-      en: 'Rasterise a .svg and encode it as WebP inside your browser — with an alpha channel, so a transparent diagram keeps its background, plus a 40%–90% quality step, a 20 KB–2 MB target size and an adjustable longest edge. Size comes from width / viewBox, and nothing external is ever requested.',
+      en: 'Rasterise a .svg to WebP locally — the SVG route that keeps transparency, with quality, target size and longest edge adjustable and nothing external fetched.',
     },
     lede: {
       zh: '这一条与 SVG → JPEG 是同一次栅格化的两个出口，差别集中在最后那一步容器：WebP 有 Alpha，所以透明图标不必先铺白；同时它通常更小。代价是兼容性由接收方决定——需要"任何设备都打开"时 JPEG 仍是更稳的答案，需要无损时该走 PNG。这三条判断只关于容器，源侧完全一致，所以同一份 SVG 三种格式各出一张比较，成本很低。',
@@ -2971,11 +3007,11 @@ export const PAIRS = [
     published: '2026-10-02',
     title: {
       zh: 'TXT 转 Markdown——本地包成围栏代码块，一字不改',
-      en: 'Convert TXT to Markdown locally — fenced as a code block, not one character changed',
+      en: 'TXT to Markdown locally — fenced, not one character changed',
     },
     desc: {
       zh: '浏览器本地把 .txt 包成带围栏的 Markdown 代码块：内容原样保留，围栏长度会按文本里出现的最长反引号串加长，所以你的三反引号不会把结构撑破。它不猜标题、不猜列表——那是"值保真"与"替你排版"的区别。',
-      en: 'Wrap a .txt as a fenced Markdown code block in your own browser: content is carried verbatim, and the fence grows past the longest run of backticks in your text so your own triple backticks cannot blow the structure open. It guesses no headings and no lists — which is the difference between value fidelity and typesetting on your behalf.',
+      en: 'Wrap a .txt in a fenced Markdown code block verbatim: the fence grows past the longest run of backticks in your text, and it guesses no headings or lists.',
     },
     lede: {
       zh: '这条转换有用恰恰是因为它笨：Markdown 是纯文本的超集，任何 .txt 都可以原样放进 .md 而不改变含义；但反过来，"把你的日志、表格、诗歌自动认成 Markdown 结构"就必然要靠猜。猜错很贵——一旦识别出标题与列表，原来的缩进、连续空格与对齐就全没了。所以这一条只做一件不会错的事：加一层围栏。要结构，请自己写那几行标记，或者从真的有结构的源（Word / HTML / CSV）出发。',

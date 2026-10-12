@@ -33,12 +33,33 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { FORMAT_LABEL, PAIRS, PAGES_PUBLISHED, PAGES_UPDATED, SCREENSHOTS, SITE } from './conversion-pages/pairs.mjs';
+import {
+  APP,
+  FORMAT_LABEL,
+  PAIRS,
+  PAGES_PUBLISHED,
+  PAGES_UPDATED,
+  SCREENSHOTS,
+  SITE,
+  SOCIAL_IMAGE_ALT,
+} from './conversion-pages/pairs.mjs';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
 const OUT_DIR = path.join(ROOT, 'docs', 'convert');
 const SITEMAP = path.join(ROOT, 'docs', 'sitemap.xml');
 const CHECK = process.argv.includes('--check');
+
+/**
+ * The `SoftwareApplication` node every generated page describes.
+ *
+ * `softwareVersion` is read from `package.json` rather than written here: the site shipped claiming a
+ * version that had been superseded two releases ago, and a literal is the only shape that error can take.
+ * `pnpm verify:meta` asserts the same value against the hand-written node in `docs/index.html`.
+ */
+const APP_NODE = {
+  ...APP,
+  softwareVersion: JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8')).version,
+};
 
 /**
  * What the conversions index calls itself in a breadcrumb.
@@ -337,6 +358,22 @@ function validateScreenshots() {
 }
 
 /**
+ * Google's approximate display budget for the English side of a search result, in characters.
+ *
+ * Not a specification — Google measures pixels, not characters, and the numbers move with font and
+ * device. They are the widths this copy is written against: a title over the first budget loses its
+ * tail to an ellipsis, and a description over the second is usually rewritten outright by the
+ * snippet generator, which is worse, because then the page's own facts never reach the SERP.
+ *
+ * Only `en` is checked. The Chinese strings are deliberately denser than a CJK SERP shows (about 30
+ * title characters and 85 description characters, against measured maxima of 38 and 142 here), and
+ * pinning a number the copy is known to exceed would turn a documented display trade-off into a
+ * green checkmark.
+ */
+const SERP_TITLE = 60;
+const SERP_DESC = 160;
+
+/**
  * Validate one content entry against the code it describes.
  * @param {object} pair a `pairs.mjs` entry
  * @returns {string[]} the route chain, e.g. `['md', 'html', 'docx']`
@@ -384,6 +421,18 @@ function validatePair(pair) {
   }
   for (const text of bilingualTexts(pair)) {
     if (!text.zh.trim() || !text.en.trim()) fail(`${slug}: an empty zh or en string`);
+  }
+  for (const [key, cap] of [
+    ['title', SERP_TITLE],
+    ['desc', SERP_DESC],
+  ]) {
+    const len = [...pair[key].en].length;
+    if (len > cap) {
+      fail(
+        `${slug}: ${key}.en is ${len} characters against a ${cap}-character SERP budget — Google renders about this many and ` +
+          'drops the rest, which is the part a crawler never reads. Shorten the copy in scripts/conversion-pages/pairs.mjs.',
+      );
+    }
   }
   for (const key of ['keeps', 'limits', 'notes']) {
     if (pair[key].zh.length !== pair[key].en.length) {
@@ -1018,7 +1067,7 @@ ${related}
         name: pair.title[lang],
         inLanguage,
         isPartOf: { '@id': `${SITE.origin}/#website` },
-        about: { '@type': 'SoftwareApplication', name: 'Transfer Any File', operatingSystem: 'Chrome' },
+        about: APP_NODE,
         description: pair.desc[lang],
         image: shotUrl,
       },
@@ -1105,12 +1154,14 @@ ${related}
     <meta property="og:image" content="${SITE.origin}/assets/store/github-social-preview.png" />
     <meta property="og:image:width" content="1280" />
     <meta property="og:image:height" content="640" />
+    <meta property="og:image:alt" content="${esc(SOCIAL_IMAGE_ALT)}" />
     <meta property="article:published_time" content="${datePublished}" />
     <meta property="article:modified_time" content="${dateModified}" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="${esc(bilingualTitle)}" />
     <meta name="twitter:description" content="${esc(`${pair.desc.zh} | ${pair.desc.en}`)}" />
     <meta name="twitter:image" content="${SITE.origin}/assets/store/github-social-preview.png" />
+    <meta name="twitter:image:alt" content="${esc(SOCIAL_IMAGE_ALT)}" />
     <script type="application/ld+json" id="fat-ld">
       ${jsonLd}
     </script>
@@ -1294,6 +1345,7 @@ ${items}
         name: lang === 'zh' ? '转换一览' : 'Conversion index',
         inLanguage,
         isPartOf: { '@id': `${SITE.origin}/#website` },
+        about: APP_NODE,
         description: meta[lang].d,
         image: shotUrl,
         hasPart: PAIRS.map(pair => ({ '@type': 'WebPage', name: pair.title[lang], url: `${url}${pair.slug}.html` })),
@@ -1349,10 +1401,12 @@ ${items}
     <meta property="og:image" content="${SITE.origin}/assets/store/github-social-preview.png" />
     <meta property="og:image:width" content="1280" />
     <meta property="og:image:height" content="640" />
+    <meta property="og:image:alt" content="${esc(SOCIAL_IMAGE_ALT)}" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="转换一览 | Conversion index" />
     <meta name="twitter:description" content="14 种格式、48 条注册路径、界面提供 116 个可选组合。 | 14 formats, 48 registered direct routes, 116 selectable combinations." />
     <meta name="twitter:image" content="${SITE.origin}/assets/store/github-social-preview.png" />
+    <meta name="twitter:image:alt" content="${esc(SOCIAL_IMAGE_ALT)}" />
     <script type="application/ld+json" id="fat-ld">
       ${jsonLd}
     </script>
@@ -1414,6 +1468,18 @@ ${lists}
  * between a laptop and CI — which `--check` would then fail on. Bump the date when the page changes,
  * and leave it alone otherwise.
  *
+ * Reading it from history (`git log -1 --format=%cd -- docs/index.html`) is the obvious second attempt,
+ * and it fails because the answer depends on how the checker was cloned rather than on the page. Four of
+ * the five workflows check out at the default `fetch-depth: 1` — including `ci.yml`'s lint job, which is
+ * the one that runs `pages:check`, and `static.yml`, which is the one that deploys the site. A shallow
+ * clone has no commit for the file, so the date resolves to the tip commit and the whole site looks
+ * rewritten today. Only `release-prepare.yml` asks for `fetch-depth: 0`, and it does that to read commit
+ * messages for the changelog — so a history-derived `lastmod` would silently depend on a setting that has
+ * nothing to do with page content.
+ *
+ * So the "did you remember to bump it" half of this stays with the person editing the page:
+ * `validateStaticDates()` compares a date against the page, never against the change.
+ *
  * Each entry also names the page it describes and the patterns that spell the same date *inside* that
  * page, because those are the ones a crawler sees first: JSON-LD `dateModified`, the `article:modified_time`
  * meta, and the visible 「本页最后更新」 line. `validateStaticDates()` compares them, so a page whose
@@ -1424,19 +1490,21 @@ ${lists}
 const STATIC_PAGES = {
   home: {
     path: '/',
-    updated: '2026-10-02',
+    updated: '2026-10-12',
     changefreq: 'monthly',
     priority: '1.0',
     file: 'docs/index.html',
     dateClaims: [
       /"dateModified":\s*"(\d{4}-\d{2}-\d{2})"/g,
       /最后更新[：:]?\s*(\d{4}-\d{2}-\d{2})/g,
-      /Last updated:?\s*(\d{4}-\d{2}-\d{2})/g,
+      // Case-insensitive: the page says 「Last updated」 in the footer and "page last updated" inside the
+      // changelog line, and a pattern that only reads one of the two leaves that claim unchecked.
+      /Last updated:?\s*(\d{4}-\d{2}-\d{2})/gi,
     ],
   },
   blog: {
     path: '/blog/',
-    updated: '2026-10-02',
+    updated: '2026-10-03',
     changefreq: 'monthly',
     priority: '0.8',
     file: 'docs/blog/index.html',

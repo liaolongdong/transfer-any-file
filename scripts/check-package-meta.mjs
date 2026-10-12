@@ -18,13 +18,16 @@
  * — so only its `homepage` is compared here.
  *
  * The guard also covers the link fields (`repository`, `bugs`, `homepage`, `engines`) that npm-style
- * tooling, GitHub and the store listing read from `package.json`.
+ * tooling, GitHub and the store listing read from `package.json`, and the `SoftwareApplication` node the
+ * site publishes — `docs/index.html` writes it by hand, `scripts/conversion-pages/pairs.mjs` writes the copy
+ * the generated pages carry, and `package.json#version` is what its `softwareVersion` has to equal.
  *
  * Invoked as `pnpm verify:meta` and by the CI lint job, so an edit cannot land in only one place.
  */
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { APP } from './conversion-pages/pairs.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -121,6 +124,24 @@ function readRepoMetadata() {
   return JSON.parse(fs.readFileSync(file, 'utf8'));
 }
 
+/**
+ * Pull the `SoftwareApplication` node out of the product page's structured data.
+ *
+ * @returns {Record<string, unknown>} the `#app` node.
+ * @throws {Error} When the page, the block or the node is absent — a comparison that silently stopped
+ *   running reads as a pass, which is the failure mode this whole file exists to avoid.
+ */
+function readSiteAppNode() {
+  const source = fs.readFileSync(path.join(ROOT, 'docs', 'index.html'), 'utf8');
+  const block = /<script[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/.exec(source);
+  if (!block)
+    throw new Error('docs/index.html carries no application/ld+json block — the #app comparison has gone blind');
+  const graph = JSON.parse(block[1])['@graph'];
+  const app = Array.isArray(graph) ? graph.find(node => node?.['@id'] === APP['@id']) : undefined;
+  if (!app) throw new Error(`docs/index.html has no structured-data node with @id ${APP['@id']}`);
+  return app;
+}
+
 const failures = [];
 
 /**
@@ -196,6 +217,34 @@ if (!repoMetadata) {
   );
 }
 
+/**
+ * The application the site publishes, in both of the places it is written down.
+ *
+ * `docs/index.html` states the `#app` node by hand; `scripts/conversion-pages/pairs.mjs` states the copy
+ * the 36 generated pages carry under that same `@id`. Two descriptions of one entity agree or the long-tail
+ * pages advertise a different product than the home page. `softwareVersion` is the field that has already
+ * drifted — the site went on claiming `1.1.0` after `1.2.0` shipped — so it is pinned to `package.json`
+ * rather than to a second literal nobody reads.
+ */
+let siteApp = null;
+try {
+  siteApp = readSiteAppNode();
+} catch (error) {
+  failures.push(error instanceof Error ? error.message : String(error));
+}
+if (siteApp) {
+  for (const [field, expected] of Object.entries(APP)) {
+    check(
+      JSON.stringify(siteApp[field]) === JSON.stringify(expected),
+      `docs/index.html #app ${field} is ${JSON.stringify(siteApp[field])} but pairs.mjs APP says ${JSON.stringify(expected)} — the product page and the generated pages describe different apps`,
+    );
+  }
+  check(
+    siteApp.softwareVersion === pkg.version,
+    `docs/index.html #app softwareVersion is ${JSON.stringify(siteApp.softwareVersion)} but package.json#version is ${JSON.stringify(pkg.version)} — the product page advertises a release that is not the current one`,
+  );
+}
+
 if (failures.length > 0) {
   console.error('Package metadata check failed:');
   for (const failure of failures) console.error(`  - ${failure}`);
@@ -205,5 +254,5 @@ if (failures.length > 0) {
 console.log(
   `Package metadata OK — short description ${String([...pkg.description].length)}/${String(STORE_DESCRIPTION_LIMIT)} code points, identical in package.json and _locales/en, manifest resolves it through __MSG__ with default_locale ${DEFAULT_LOCALE}${
     repoMetadata ? `, homepage shared with .github/repo-metadata.json` : ''
-  }.`,
+  }, site #app in sync with pairs.mjs at version ${pkg.version}.`,
 );
