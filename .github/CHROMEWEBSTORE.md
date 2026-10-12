@@ -25,6 +25,10 @@
 > - **一处待核对**：listing 的数据披露写的是「会处理以下数据：**网站内容**」，而下面[数据处理](#数据处理)那张表里
 >   「网站内容」一行写的是**否**（勾的是「用户文件」与「应用活动」）。两边形状不同，改后台勾选是手工动作，
 >   本文件不改那张表的判据——它是「什么是真的」，不是「当时提交了什么」。
+> - **一处待替换**：现网两份详细介绍的结尾各有一行版本脚注（英文 `Version 1.0.0 — first store submission.`、中文
+>   「1.0.0 版本——首次提交商店。」）。下面的粘贴块已经没有那两行：详情区自己就显示版本号，而那一行是对**这一次提交**
+>   的陈述，一旦再传新包就成了公开 listing 上的错账——发布 API 写不了商品文案，所以它不会自己变对，只能等下一次
+>   手工编辑后台时按这里的块替换掉。
 >
 > 因此本文件从这一刻起是**现网列表的镜像 + 下一次提交的手术单**，而不只是可提交素材包：
 > 每个字段仍要复制进 [Chrome Developer Dashboard](https://chrome.google.com/webstore/devconsole)，
@@ -90,7 +94,7 @@ curl -Is https://liaolongdong.github.io/transfer-any-file/privacy.html | head -1
 | ----------------------------- | ----------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
 | 名称 Extension Name           | `Transfer Any File — Offline File Format Converter` (49/75)                                                 | `文件格式任意转换助手 — 离线转换无上传` (20/75)                                                                                        |
 | 简介 Short description        | `Convert between 14 common document, spreadsheet and image file formats right in your browser...` (127/132) | `在本机浏览器内互转 14 种常见的文档、表格与图片格式。支持混合批量、多步链路、预览编辑与 ZIP 打包，全程离线，不上传、无账号。` (66/132) |
-| 详描 Full description         | [英文详细介绍](#英文详细介绍) (8,902 字符)                                                                  | [中文详细介绍](#中文详细介绍) (3,142 字符)                                                                                             |
+| 详描 Full description         | [英文详细介绍](#英文详细介绍) (8,861 字符)                                                                  | [中文详细介绍](#中文详细介绍) (3,123 字符)                                                                                             |
 | 类别 Category                 | `Productivity`                                                                                              | `Productivity`                                                                                                                         |
 | 主要语言 Primary Language     | -                                                                                                           | `Chinese (China)`                                                                                                                      |
 | 附加语言 Additional Languages | `English (United States)`                                                                                   | -                                                                                                                                      |
@@ -104,7 +108,7 @@ Transfer Any File — Offline File Format Converter
 Convert between 14 common document, spreadsheet and image file formats right in your browser — offline, in batches, no uploads.
 ```
 
-**Chinese (China) —— 默认语言标签页，先贴这一套。** 三个字段（名称 20/75、简介 66/132、详描 3,142 字符）在
+**Chinese (China) —— 默认语言标签页，先贴这一套。** 三个字段（名称 20/75、简介 66/132、详描 3,123 字符）在
 [商店文案](#商店文案)里；名称与简介同时活在 `public/_locales/zh_CN/messages.json`，`pnpm verify:listing` 逐字比对两边。
 那个标签页要等**带 `_locales/zh_CN/` 的包上传之后**才出现——先传包再填表，手上那份旧草稿看不到它是正常的。
 
@@ -286,7 +290,7 @@ Convert between 14 common document, spreadsheet and image file formats right in 
 扩展真正具备的能力（混格式批量、多步链路、预览与编辑、ZIP 下载），而不是文件扩展名。依旧不写 PDF 转 Word、PDF 转 Excel，
 因为这个扩展做不到无损的 PDF 转换。
 
-**详细介绍（Detailed Description）** [必填] —— 纯文本，本仓库自设上限 16,000 字符（英文块实测 8,902；下面的中文块实测 3,142）
+**详细介绍（Detailed Description）** [必填] —— 纯文本，本仓库自设上限 16,000 字符（英文块实测 8,861；下面的中文块实测 3,123）
 
 _Google 没有为这个字段公布长度_——75 与 132 是写在文档里的，16,000 不是。把它当成本仓库自己的守卫
 （`pnpm verify:listing`），按后台计数器设定，提交时以那个计数器为准，不要把 16,000 背给审核员。
@@ -365,8 +369,6 @@ QUESTIONS
 
 SUPPORT
 Found a bug, or need a format added? Open an issue at https://github.com/liaolongdong/transfer-any-file/issues
-
-Version 1.0.0 — first store submission.
 ```
 
 **中文详细介绍（Chinese (China) detailed description）** —— 贴给 `Chinese (China)` 标签页的现成文案。逐节镜像英文版。
@@ -444,8 +446,6 @@ Version 1.0.0 — first store submission.
 
 支持
 发现缺陷，或希望新增某种格式？请到 https://github.com/liaolongdong/transfer-any-file/issues 提 issue
-
-1.0.0 版本——首次提交商店。
 ```
 
 **类别（Category）** [必填]
@@ -998,6 +998,16 @@ PDF → ZIP 解码）。跑这一步的纪律：**`.output/chrome-mv3` 在被测
 ## 本文件的变更记录
 
 > 这些是关于**本文件**的修订记录，不是产品发布说明（产品在 `CHANGELOG.md`）。数字全部由 `pnpm verify:listing` 实测。
+
+- **2026-10-12（去掉两份详细介绍结尾的版本脚注）** —— 这是唯一动到粘贴字段的一处，其余字段一个字节没改。
+  英文块结尾的 `Version 1.0.0 — first store submission.` 与中文块结尾的「1.0.0 版本——首次提交商店。」删掉：详情区面板
+  自己就显示版本号，而那两行陈述的是「**这一次**提交」——包再往上走一版，它们就成了公开 listing 上的错账，而发布 API
+  写不了商品文案，所以它不会自己变对，只能等下一次手工编辑后台。现网那两行此刻仍在原位，顶部「现网状态」已把它记成
+  一条待替换。**数字**：`pnpm verify:listing` 实测英文块 8,902 → **8,861**、中文块 3,142 → **3,123**，本文件三行与
+  上架手册中英各两行跟着改；`## 版本历史`、`## 拒审记录` 与下面每一条旧记录里的读数按档案留下，不动。
+  **顺手补了一处守卫盲区**：`scripts/check-prose-numbers.mjs` 的 `descZh` 原来认不出「详描 N 字符」这种句式，
+  所以本轮那个数改了没有一道门禁报红——是手工 grep 旧值才看见的。补上第五个 pattern 之后，把那一格改成 3,999
+  立刻报红（`quotes 3,999, but ... is 3123 (fact "descZh")`），改回原值后 `verify:numbers` 与 `verify:listing` 均绿。
 
 - **2026-10-03（补记 10-02 那次回填，并修好一处指错的小节）** —— 两件事，都不动任何粘贴字段。
   第一件是欠账：10-02 那次把「条目仍未上线」整段换成实测的「现网状态」块（item ID、listing、线上版本 1.0.0、
