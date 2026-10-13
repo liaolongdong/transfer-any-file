@@ -447,6 +447,9 @@ const FACTS = [
       /中文块实测 ([\d,]+)/,
       /中文详细说明：([\d,]+) 字符/,
       /Chinese detailed description: ([\d,]+) characters/,
+      // The `提交速查` Tab-1 lead-in counts the three Chinese fields in one parenthesis. Only the
+      // Chinese side has this shape because only the `Chinese (China)` tab is introduced that way.
+      /详描 ([\d,]+) 字符/,
     ],
   },
 ];

@@ -25,6 +25,10 @@
 > - **一处待核对**：listing 的数据披露写的是「会处理以下数据：**网站内容**」，而下面[数据处理](#数据处理)那张表里
 >   「网站内容」一行写的是**否**（勾的是「用户文件」与「应用活动」）。两边形状不同，改后台勾选是手工动作，
 >   本文件不改那张表的判据——它是「什么是真的」，不是「当时提交了什么」。
+> - **一处待替换**：现网两份详细介绍的结尾各有一行版本脚注（英文 `Version 1.0.0 — first store submission.`、中文
+>   「1.0.0 版本——首次提交商店。」）。下面的粘贴块已经没有那两行：详情区自己就显示版本号，而那一行是对**这一次提交**
+>   的陈述，一旦再传新包就成了公开 listing 上的错账——发布 API 写不了商品文案，所以它不会自己变对，只能等下一次
+>   手工编辑后台时按这里的块替换掉。
 >
 > 因此本文件从这一刻起是**现网列表的镜像 + 下一次提交的手术单**，而不只是可提交素材包：
 > 每个字段仍要复制进 [Chrome Developer Dashboard](https://chrome.google.com/webstore/devconsole)，
@@ -90,7 +94,7 @@ curl -Is https://liaolongdong.github.io/transfer-any-file/privacy.html | head -1
 | ----------------------------- | ----------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
 | 名称 Extension Name           | `Transfer Any File — Offline File Format Converter` (49/75)                                                 | `文件格式任意转换助手 — 离线转换无上传` (20/75)                                                                                        |
 | 简介 Short description        | `Convert between 14 common document, spreadsheet and image file formats right in your browser...` (127/132) | `在本机浏览器内互转 14 种常见的文档、表格与图片格式。支持混合批量、多步链路、预览编辑与 ZIP 打包，全程离线，不上传、无账号。` (66/132) |
-| 详描 Full description         | [英文详细介绍](#英文详细介绍) (8,902 字符)                                                                  | [中文详细介绍](#中文详细介绍) (3,142 字符)                                                                                             |
+| 详描 Full description         | [英文详细介绍](#英文详细介绍) (8,861 字符)                                                                  | [中文详细介绍](#中文详细介绍) (3,123 字符)                                                                                             |
 | 类别 Category                 | `Productivity`                                                                                              | `Productivity`                                                                                                                         |
 | 主要语言 Primary Language     | -                                                                                                           | `Chinese (China)`                                                                                                                      |
 | 附加语言 Additional Languages | `English (United States)`                                                                                   | -                                                                                                                                      |
@@ -104,7 +108,7 @@ Transfer Any File — Offline File Format Converter
 Convert between 14 common document, spreadsheet and image file formats right in your browser — offline, in batches, no uploads.
 ```
 
-**Chinese (China) —— 默认语言标签页，先贴这一套。** 三个字段（名称 20/75、简介 66/132、详描 3,142 字符）在
+**Chinese (China) —— 默认语言标签页，先贴这一套。** 三个字段（名称 20/75、简介 66/132、详描 3,123 字符）在
 [商店文案](#商店文案)里；名称与简介同时活在 `public/_locales/zh_CN/messages.json`，`pnpm verify:listing` 逐字比对两边。
 那个标签页要等**带 `_locales/zh_CN/` 的包上传之后**才出现——先传包再填表，手上那份旧草稿看不到它是正常的。
 
@@ -151,7 +155,8 @@ Files are read into the extension page's memory, converted there, and returned t
 
 Public · 全部地区 · 默认价格（free）。32 位 item ID 出现在这一页，值已写进本文件顶部的「现网状态」。
 **它从今天起进 git**：ID 本身就嵌在要公开的 listing URL 里，把它留在仓库外守不住任何东西，只会让徽章与安装链接无处取值
-（下方[上架后的运营](#上架后的运营)那节对徽章的说明同此）。仍然**不进 git** 的是那三个 OAuth 凭据，
+（下方[上架后的运营](#上架后的运营)那节对徽章的说明同此）。仍然**不进 git** 的是那三个发布商级凭据
+（`CWS_PUBLISHER_ID` / `CWS_SERVICE_ACCOUNT_EMAIL` / `CWS_SERVICE_ACCOUNT_PRIVATE_KEY`），
 它们走[交接给自动化](#5-交接给自动化条目已存在之后)里说的 `CHROME_EXTENSION_ID_TAF` 与 `CWS_*` secret。
 
 ### 给审核员的备注（可选，能省一个来回）
@@ -285,7 +290,7 @@ Convert between 14 common document, spreadsheet and image file formats right in 
 扩展真正具备的能力（混格式批量、多步链路、预览与编辑、ZIP 下载），而不是文件扩展名。依旧不写 PDF 转 Word、PDF 转 Excel，
 因为这个扩展做不到无损的 PDF 转换。
 
-**详细介绍（Detailed Description）** [必填] —— 纯文本，本仓库自设上限 16,000 字符（英文块实测 8,902；下面的中文块实测 3,142）
+**详细介绍（Detailed Description）** [必填] —— 纯文本，本仓库自设上限 16,000 字符（英文块实测 8,861；下面的中文块实测 3,123）
 
 _Google 没有为这个字段公布长度_——75 与 132 是写在文档里的，16,000 不是。把它当成本仓库自己的守卫
 （`pnpm verify:listing`），按后台计数器设定，提交时以那个计数器为准，不要把 16,000 背给审核员。
@@ -364,8 +369,6 @@ QUESTIONS
 
 SUPPORT
 Found a bug, or need a format added? Open an issue at https://github.com/liaolongdong/transfer-any-file/issues
-
-Version 1.0.0 — first store submission.
 ```
 
 **中文详细介绍（Chinese (China) detailed description）** —— 贴给 `Chinese (China)` 标签页的现成文案。逐节镜像英文版。
@@ -443,8 +446,6 @@ Version 1.0.0 — first store submission.
 
 支持
 发现缺陷，或希望新增某种格式？请到 https://github.com/liaolongdong/transfer-any-file/issues 提 issue
-
-1.0.0 版本——首次提交商店。
 ```
 
 **类别（Category）** [必填]
@@ -716,27 +717,44 @@ curl -Is https://liaolongdong.github.io/transfer-any-file/privacy.html | head -1
 | Distribution       | [分发与开发者信息](#分发与开发者信息)（public、全部地区）；item ID 出现在这一页                                                                                                  |
 
 提交审核，然后盯后台的 **Package → status**。配好下面那套凭据之后，也可以用 `release.yml` 打的同一组端点查状态：
-GET `https://www.googleapis.com/chromewebstore/v1.1/items/<item ID>`，带 `x-goog-api-version: 2` 和一个
-`Authorization: Bearer <access token>`；换 access token 的命令见 `.github/CWS_PUBLISHING_GUIDE.md → 3.1`。
+GET `https://chromewebstore.googleapis.com/v2/publishers/<发布商 UUID>/items/<item ID>:fetchStatus`，带
+`x-goog-api-version: 2` 和一个 `Authorization: Bearer <access token>`。令牌由 `scripts/cws-token.mjs` 现签现换，
+本地想读一次状态就把它的输出喂给 curl：
+
+```bash
+node scripts/cws-token.mjs /tmp/cws.cfg        # 只写两行 header 到这个 0600 文件，不打印令牌
+curl -sS --config /tmp/cws.cfg \
+  'https://chromewebstore.googleapis.com/v2/publishers/<发布商 UUID>/items/<item ID>:fetchStatus'
+rm -f /tmp/cws.cfg
+```
 
 ### 5. 交接给自动化（条目已存在之后）
 
-从后台 URL 里复制 32 位 **item ID**，然后为 Chrome Web Store API 生成 OAuth 凭据。Google Cloud 那侧的完整步骤
-（在某个项目里启用 _Chrome Web Store API_、创建 OAuth client、用授权码换 refresh token）写在
-`.github/CWS_PUBLISHING_GUIDE.md → 3.1`，这里不重复。
+从后台 URL 里复制 32 位 **item ID**，再按 `.github/CWS_PUBLISHING_GUIDE.md → 3.1` 建一个服务账号：在某个 GCP
+项目里启用 _Chrome Web Store API_、建服务账号与 JSON 密钥、**把那个 `client_email` 加进开发者信息中心的「账号」页**
+（一个发布商目前只能加一个服务账号，所以几个扩展共用它）。这里不重复。
 
-补上四个仓库 secrets——本扩展专用的 `CHROME_EXTENSION_ID_TAF`，以及与 account-password-helper 共用的
-`CWS_CLIENT_ID` / `CWS_CLIENT_SECRET` / `CWS_REFRESH_TOKEN`（个人账号没有组织级 secret 共享，这三个值仍要在
-**每个仓库里各填一次**）——`release.yml` 里的 `Submit to the Chrome Web Store` 步骤就不再说「跳过」，而是从下一个 tag
-开始真正发布。它用 runner 自带的 `curl` 打 v1.1 端点：先 PUT `upload/items/<id>` 上传新包，再 POST
-`items/<id>?publishTarget=default` 提交审核；不引入第三方 npm 包或 action。头几次运行想先预演，手动触发
-workflow_dispatch 时勾 `dry_run`（只做认证与校验，不上传、不提交）。
+补上四个仓库 secrets——本扩展专用的 `CHROME_EXTENSION_ID_TAF`，加上发布商级的 `CWS_PUBLISHER_ID` /
+`CWS_SERVICE_ACCOUNT_EMAIL` / `CWS_SERVICE_ACCOUNT_PRIVATE_KEY`（个人账号没有组织级 secret 共享，这三个值仍要在
+**每个仓库里各填一次**）——`release.yml` 里的 `Upload the package to the Chrome Web Store` 步骤就不再说「跳过」，
+而是从下一个 tag 开始真正把包传上去。它用 runner 自带的 `curl` 打 v2 端点：先 `:fetchStatus` 读线上版本号做预检，
+再 POST `upload/v2/…:upload` 传包（请求体就是 zip 的原始字节）；**这个作业到上传为止，从不 POST `:publish`**。
+提审是同一工作流里的第二个作业 `store_submit`，它排在 environment `cws-release` 的人工批准门后面，而它排队还要仓库
+变量 `CWS_AUTO_SUBMIT=true`——两个默认值都在所有者手里，配法见 `.github/CWS_PUBLISHING_GUIDE.md` 的 3.3 与 3.4。
+两个作业各换各的 access_token：令牌只活在**各自那一步**的 `chmod 600` 临时 curl 配置里，退出即删，从不落进工作区，
+所以拆开作业并没有把令牌留在哪儿给人捡；除换令牌那一小段是第一方的 `scripts/cws-token.mjs` 之外，全程用 runner 自带
+的 `curl`，不引入第三方 npm 包或 action。头几次运行想先预演，手动触发 workflow_dispatch 时勾 `dry_run`
+（只做认证与校验，不上传、不提交）。
 
-| 想改的行为                  | 改哪里                                                                                         |
-| --------------------------- | ---------------------------------------------------------------------------------------------- |
-| 限定范围发布（只给白名单）  | 那行 POST 的 `publishTarget` 换成 `trustedTesters`，它是工作流里的字面量，不是仓库变量         |
-| 只上传不请求审核（留草稿）  | 注释掉那行 POST；包已经上传，后台的 Package 页会停在草稿态                                     |
-| 用 v2 API + service account | 换掉整套端点与鉴权；**当前刻意留在 v1.1**，因为新开发者账号今天拿到的就是 v1.1 的 OAuth client |
+| 想改的行为                     | 改哪里                                                                                                                                                                                                          |
+| ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 审过但先不发（压着等放量）     | 那个作业里 POST 的 `publishType` 换成 `STAGED_PUBLISH`，它是工作流里的字面量，不是仓库变量；放量再走 `:setPublishedDeployPercentage`，分批放量还得配 `deployInfos`（为什么现在不接，见手册 FAQ Q12）            |
+| 只上传不请求审核（留草稿）     | 现在就是这个默认：不设 `CWS_AUTO_SUBMIT`（或门没配），`release.yml` 传完包就停，后台 Package 页停在草稿态                                                                                                       |
+| 让「要不要惊动审核」必须人点头 | 已经是默认形状，但前提是你按手册 3.4 那七步把门建出来了：**先**建 environment `cws-release` 与 Required reviewers、验证 `protection_rules` 真的非空，**再**设那个变量。顺序反了等于在一道不存在的门后面自动提审 |
+
+> 曾经有一行写的是「当前刻意留在 v1.1，因为新开发者账号拿到的就是 v1.1 的 OAuth client」。那句话在 2026-10-08
+> 作废：v1.1 的授权链路早就拿不到 token（`redirect_uri=…:oob` 自 2023-01-31 起对所有客户端关闭，授权端点回
+> `错误 400: bad_request`），端点本身 **2026-10-15** 停止服务，所以留不留已经不是选择。
 
 ### 无法自动化的部分（别排期，然后困惑）
 
@@ -984,6 +1002,16 @@ PDF → ZIP 解码）。跑这一步的纪律：**`.output/chrome-mv3` 在被测
 ## 本文件的变更记录
 
 > 这些是关于**本文件**的修订记录，不是产品发布说明（产品在 `CHANGELOG.md`）。数字全部由 `pnpm verify:listing` 实测。
+
+- **2026-10-12（去掉两份详细介绍结尾的版本脚注）** —— 这是唯一动到粘贴字段的一处，其余字段一个字节没改。
+  英文块结尾的 `Version 1.0.0 — first store submission.` 与中文块结尾的「1.0.0 版本——首次提交商店。」删掉：详情区面板
+  自己就显示版本号，而那两行陈述的是「**这一次**提交」——包再往上走一版，它们就成了公开 listing 上的错账，而发布 API
+  写不了商品文案，所以它不会自己变对，只能等下一次手工编辑后台。现网那两行此刻仍在原位，顶部「现网状态」已把它记成
+  一条待替换。**数字**：`pnpm verify:listing` 实测英文块 8,902 → **8,861**、中文块 3,142 → **3,123**，本文件三行与
+  上架手册中英各两行跟着改；`## 版本历史`、`## 拒审记录` 与下面每一条旧记录里的读数按档案留下，不动。
+  **顺手补了一处守卫盲区**：`scripts/check-prose-numbers.mjs` 的 `descZh` 原来认不出「详描 N 字符」这种句式，
+  所以本轮那个数改了没有一道门禁报红——是手工 grep 旧值才看见的。补上第五个 pattern 之后，把那一格改成 3,999
+  立刻报红（`quotes 3,999, but ... is 3123 (fact "descZh")`），改回原值后 `verify:numbers` 与 `verify:listing` 均绿。
 
 - **2026-10-03（补记 10-02 那次回填，并修好一处指错的小节）** —— 两件事，都不动任何粘贴字段。
   第一件是欠账：10-02 那次把「条目仍未上线」整段换成实测的「现网状态」块（item ID、listing、线上版本 1.0.0、

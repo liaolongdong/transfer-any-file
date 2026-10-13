@@ -612,8 +612,10 @@ curl -sS -o /dev/null -w '%{http_code}\n' $base/convert/pdf-to-png.html
 4. **tag 的拦路石换了**：仓库仍然没有任何 tag（2026-10-02 实测 GitHub API `/repos/…/tags` 为空）。原先「先别打」的理由是
    标签一推出 `release.yml` 就会上传新包，把那个「待裁决的样本」换掉，第三次判定再也无法归因——**裁决已经回来了**
    （2026-10-02 实测条目在架、详情区版本 1.0.0、上次更新 2026-09-30），这条约束随之解除。现在压着发版的只有一件：
-   商店自动化要的四个 secret（`CHROME_EXTENSION_ID_TAF` 与 `CWS_CLIENT_ID` / `CWS_CLIENT_SECRET` / `CWS_REFRESH_TOKEN`）
-   配了没有——item ID 现在已知，配齐即可，不配则 `release.yml` 照旧只跳过上传、GitHub Release 正常发。见第 8 节。
+   商店自动化要的四个 secret（`CHROME_EXTENSION_ID_TAF` 与发布商级的 `CWS_PUBLISHER_ID` /
+   `CWS_SERVICE_ACCOUNT_EMAIL` / `CWS_SERVICE_ACCOUNT_PRIVATE_KEY`）配了没有——item ID 现在已知，配齐即可，
+   不配则 `release.yml` 照旧只跳过上传、GitHub Release 正常发。取这三项的步骤见 `.github/CWS_PUBLISHING_GUIDE.md`
+   的 3.1（Chrome Web Store API v2 + 服务账号；旧的 OAuth 桌面客户端与 refresh token 那条链路已断，别照着配）。见第 8 节。
 
 ## 7. 让搜索与 AI 答案引擎看见
 

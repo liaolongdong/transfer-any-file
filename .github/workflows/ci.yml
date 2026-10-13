@@ -50,6 +50,11 @@ jobs:
         run: pnpm verify:numbers
       # 商店后台的每个粘贴字段都在字数上限内，且与 manifest 一致
       - run: pnpm verify:listing
+      # release.yml 提审那段吃的就是 scripts/release-ci.mjs 四条商店响应命令的退出码与句子。
+      # 真商店在 CI 里跑不到，所以这里按契约表把形状、判定和 step summary 的那句话钉住——
+      # 放在 lint job 而不是 release job：它守的是这两个文件的接缝，与被发布的包无关。
+      - name: Verify store response contract
+        run: pnpm verify:release-ci
 
   build:
     name: Build Extension
