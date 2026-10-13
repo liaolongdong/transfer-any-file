@@ -1,15 +1,28 @@
 # 从版本 tag 构建一次发布：扩展产物 → 商店 zip → 包内容校验 → 附带该 zip 的 GitHub Release。
-# 最后一步把同一个 zip 交给 Chrome 应用商店，但只在四项 secrets 齐备之后——本扩展专用的
-# `CHROME_EXTENSION_ID_TAF`，加上发布商级的 `CWS_PUBLISHER_ID` / `CWS_SERVICE_ACCOUNT_EMAIL` /
-# `CWS_SERVICE_ACCOUNT_PRIVATE_KEY`。第一个商店条目必须在开发者后台手工创建（见 .github/CHROMEWEBSTORE.md），
-# 在那之前这一步只报告跳过原因，不让发布失败。
+# 然后是商店的两步：上传包（release 作业的最后一步），提审（store_submit 作业）。两步都只在四项
+# secrets 齐备时才走——本扩展专用的 `CHROME_EXTENSION_ID_TAF`，加上发布商级的 `CWS_PUBLISHER_ID` /
+# `CWS_SERVICE_ACCOUNT_EMAIL` / `CWS_SERVICE_ACCOUNT_PRIVATE_KEY`；缺任何一项只报告跳过原因，不让发布失败。
+# 第一个商店条目仍然必须在开发者后台手工创建（见 .github/CHROMEWEBSTORE.md）：商店 API 既建不了条目，
+# 也填不了商品文案、截图和隐私申报（v2 连「创建新内容」这个动作都没有）。
 #
-# 商店那一步默认**只上传、不提审**（2026-09-27 定）。理由不是保守，是这条链路已经付过学费：
-# 1.0.0 被拒三次，每一次都需要人先看一眼产物与文案再决定要不要惊动审核。把「提审」做成一个
-# 显式开关，等于把那次「看一眼」留在流程里而不是留在人的记性里。打标签触发的运行永远走默认值。
-# 要提审有两个入口：开发者后台点「提交审核」（首选，不再碰包），或 workflow_dispatch 勾上
-# submit_for_review（上传与提审在同一次运行里连着做完，适合开工前就决定好的那次）。
-# 准备工作、两个入口的差别与开关的含义见 .github/RELEASE_AUTOMATION.md。
+# 提审默认**不会发生**，而且要连过两道都在仓库所有者手里的闸：仓库变量 `CWS_AUTO_SUBMIT=true`，
+# 以及 environment `cws-release` 的人工批准（Required reviewers 里点 Approve and deploy）。两道默认都是关。
+# 这不是保守，是这条链路已经付过学费：1.0.0 被拒三次，每一次都需要人先看一眼产物与文案，再决定要不要
+# 惊动审核。把「看一眼」做成一道必须有人点的门，而不是留在人的记性里。
+#
+# 为什么拆成两个作业，而不是同一步里多一行 if：审批门是作业级的（`jobs.<id>.environment`），而要被人
+# 隔在中间的正是「上传」与「提审」之间。上传成功后这一版已经躺在商店那边，要不要惊动审核可以由人晚
+# 几分钟、甚至晚几天决定——决定不需要重传包，`:publish` 发布的就是刚上传的那个 revision。另一个理由是
+# 令牌不跨作业传：每个作业自己现签一枚，写进自己的 `chmod 600` 临时 curl 配置，退出即删。
+#
+# 后台那个入口始终保留：开发者后台的 Package 页点「提交审核」，它只发请求、不再动包。
+#
+# 在这两步之前还有一档「什么都不写」的只读入口（store_status 作业）：现签一枚令牌、只打一次
+# `:fetchStatus`，用来证明「服务账号 → access_token → v2 端点」这条链通。它存在的理由与上面那句
+# 「宁可这里红，也不要把包递到商店手上」是同一条——凭据配错时最不想要的就是一次真上传，而本机
+# 常常根本出不了网（见 .github/CWS_PUBLISHING_GUIDE.md 的 Q13），CI 是唯一能给判绿的地方。
+#
+# 配置步骤、两道闸的语义与两个入口的差别见 .github/RELEASE_AUTOMATION.md 与 .github/CWS_PUBLISHING_GUIDE.md。
 name: Release
 
 on:
@@ -18,8 +31,8 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Existing tag to build, e.g. v1.0.0'
-        required: true
+        description: 'Existing tag to build, e.g. v1.0.0 (not read by the read-only store status run)'
+        required: false
         type: string
       dry_run:
         description: 'Build and verify everything, but create no release and submit nothing'
@@ -27,7 +40,12 @@ on:
         type: boolean
         default: true
       submit_for_review:
-        description: 'Upload AND submit for review; leave unchecked to upload without submitting'
+        description: 'Manual runs only: unchecked stops right after the upload; checked queues the approval gate and submits once a human approves'
+        required: false
+        type: boolean
+        default: false
+      store_status_only:
+        description: 'Manual runs only: read the store item status and stop — no build, no upload, no approval, nothing written'
         required: false
         type: boolean
         default: false
@@ -44,7 +62,20 @@ concurrency:
 jobs:
   release:
     name: Build and publish
+    # 只读那一档不构建、不上传、不建 Release，所以这个作业整个跳过（下面那个 store_status 作业
+    # 才是它要做的事）。标签触发拿不到 inputs，那一支恒为假，自动发布链路不受影响。
+    if: >-
+      !(github.event_name == 'workflow_dispatch' &&
+      github.event.inputs.store_status_only == 'true')
     runs-on: ubuntu-latest
+    # 末尾那个提审作业只靠这几格判断该不该排队；`uploaded` 是上传步骤走到最后一行才写的，
+    # 所以「构建红/守卫红/上传红」这三种情况都不会把一次人工批准推到商店门上。
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+      store_ready: ${{ steps.store.outputs.ready }}
+      uploaded: ${{ steps.cws_upload.outputs.uploaded }}
+      uploaded_version: ${{ steps.cws_upload.outputs.uploaded_version }}
     steps:
       - name: Check out the tag
         uses: actions/checkout@v7
@@ -73,7 +104,7 @@ jobs:
           version="${tag#v}"
           pkg_version="$(node -p "require('./package.json').version")"
           if [ "$version" != "$pkg_version" ]; then
-            echo "::error::tag '$tag' 是 $version，但 package.json 是 $pkg_version —— 只升其中一个不行"
+            echo "::error::tag '$tag' 是 ${version}，但 package.json 是 ${pkg_version} —— 只升其中一个不行"
             exit 1
           fi
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
@@ -207,13 +238,15 @@ jobs:
           else
             echo 'ready=false' >> "$GITHUB_OUTPUT"
             {
-              echo '### 已跳过 Chrome 应用商店提交'
+              echo '### 已跳过 Chrome 应用商店（上传与提审两步都不做）'
               echo
               echo '四项 secrets 必须全部配置（Settings → Secrets and variables → Actions）：'
               echo '`CHROME_EXTENSION_ID_TAF`（本扩展专用）、`CWS_PUBLISHER_ID`、`CWS_SERVICE_ACCOUNT_EMAIL`、`CWS_SERVICE_ACCOUNT_PRIVATE_KEY`。'
               echo
+              echo 'GitHub Release 与本作业之前的全部守卫都不受影响——这次发布只是没进商店。'
               echo '第一个版本同样要手工创建并手工提交——API 建不了条目，也填不了商品文案、截图和隐私申报。'
               echo '手工步骤见 .github/CHROMEWEBSTORE.md，取凭据的步骤见 .github/CWS_PUBLISHING_GUIDE.md 第 3.1 节。'
+              echo 'secrets 配齐后还要 environment `cws-release`（人工批准门）与仓库变量 `CWS_AUTO_SUBMIT`，提审那一步才会排队，见同文档第 3.4 节。'
             } >> "$GITHUB_STEP_SUMMARY"
           fi
 
@@ -286,13 +319,14 @@ jobs:
             exit 1
           fi
 
-      # 直接打 Chrome Web Store API v2 的上传 / 发布端点，不引入第三方 npm 包或 action：
+      # 直接打 Chrome Web Store API v2 的上传端点，不引入第三方 npm 包或 action：
       # 本项目的全部主张就是「没有外部东西碰你的构建」，所以发布路径只用 runner 自带的 curl，
       # 与上面用 `gh release create` 而不是第三方 action 是同一条理由。换令牌那一步交给
       # scripts/cws-token.mjs——RS256 签名在 shell 里写不出来，而它是第一方代码，ESLint 和夹具都管得到。
       #
-      # 三个端点都是「资源名 + :方法」，形状取自 v2 公开的请求/响应类型（FetchItemStatusResponse、
-      # UploadItemPackageResponse、PublishItemRequest），不是从别的工具的调用姿势反推的：
+      # 三个端点都是「资源名 + :方法」，形状取自 v2 的 discovery（FetchItemStatusResponse、
+      # UploadItemPackageResponse、PublishItemRequest 三个类型是它自己公布的，不是从别的工具的调用姿势
+      # 反推的）：
       #   GET  https://chromewebstore.googleapis.com/v2/publishers/{p}/items/{i}:fetchStatus
       #   POST https://chromewebstore.googleapis.com/upload/v2/publishers/{p}/items/{i}:upload
       #   POST https://chromewebstore.googleapis.com/v2/publishers/{p}/items/{i}:publish
@@ -300,18 +334,21 @@ jobs:
       # v1.1 那两条是 PUT /upload/chromewebstore/v1.1/items/{id} 与 POST …/items/{id}/publish，
       # 连不上也照抄不得：路径里多了发布商段、动词改成了冒号方法名。
       #
-      # 上传与提审留在同一步里不是省事：access_token 只活在这一步的临时 curl 配置里，退出即删。
-      # 拆成两步就得把它写成工作区里的文件留给下一步，而工作区的内容对后续步骤与 artifact 都可见。
+      # 这一步只上传。提审在下一个作业里，中间隔一道人工审批门（store_submit）。
+      # 拆成两个作业不是为了好看：access_token 只活在签它那一步的临时 curl 配置里（600 权限、退出即删），
+      # 跨步骤传令牌就得把它落成工作区文件或 artifact，而工作区对后续步骤与 artifact 都可见；
+      # 跨作业则各签各的，服务账号本来就是每次现签现用，多出来的一次成本是一趟 HTTPS 往返，不是一次人工操作。
       #
-      # 两步之间还夹着一次版本预检。商店只接受版本号严格更高的包，而这条判断放在上传之前才有意义：
+      # 上传之前夹着一次版本预检。商店只接受版本号严格更高的包，而这条判断放在上传之前才有意义：
       # 放在之后，只能等 Google 的响应体开口，而那时几兆字节已经传完了。
       # 预检读不到版本号时只报告、不拦（条目还没发布过的时候必然读不到，那是第一次上架的正常状态）；读到就比。
-      - name: Publish to the Chrome Web Store
+      - name: Upload the package to the Chrome Web Store
+        id: cws_upload
         if: steps.store.outputs.ready == 'true' && github.event.inputs.dry_run != 'true'
         env:
           ZIP: ${{ steps.cws_zip.outputs.path }}
           VERSION: ${{ steps.version.outputs.version }}
-          SUBMIT_FOR_REVIEW: ${{ github.event.inputs.submit_for_review }}
+          AUTO_SUBMIT: ${{ vars.CWS_AUTO_SUBMIT }}
           CHROME_EXTENSION_ID: ${{ secrets.CHROME_EXTENSION_ID_TAF }}
           CHROME_PUBLISHER_ID: ${{ secrets.CWS_PUBLISHER_ID }}
           CWS_SERVICE_ACCOUNT_EMAIL: ${{ secrets.CWS_SERVICE_ACCOUNT_EMAIL }}
@@ -336,9 +373,9 @@ jobs:
             "$api/$name:fetchStatus" || echo 000)"
           live="$(node scripts/release-ci.mjs item-version item.json)"
           if [ -z "$live" ]; then
-            echo "::notice title=版本预检跳过::线上版本号读不到（HTTP $probe）。条目尚未创建时这是正常的第一次上架状态；上传若因版本被拒，原因写在下面的响应体里。"
+            echo "::notice title=版本预检跳过::线上版本号读不到（HTTP ${probe}）。条目尚未创建时这是正常的第一次上架状态；上传若因版本被拒，原因写在下面的响应体里。"
           elif [ "$(printf '%s\n%s\n' "$live" "$VERSION" | sort -V | tail -1)" = "$live" ]; then
-            echo "::error::线上已是 $live，这次要传的是 $VERSION —— 商店只接受版本号严格更高的包。多半是这个 tag 指的并不是最新一版；先核对 main 上的 package.json 与这个 tag 是否对得上。"
+            echo "::error::线上已是 ${live}，这次要传的是 $VERSION —— 商店只接受版本号严格更高的包。多半是这个 tag 指的并不是最新一版；先核对 main 上的 package.json 与这个 tag 是否对得上。"
             exit 1
           else
             echo "版本预检 OK：线上 $live < 本次 $VERSION"
@@ -352,10 +389,10 @@ jobs:
           #    只有两个明确为负的取值会让步骤变红，读不懂的一律放行并原样打印响应体。
           code="$(curl -sS --config "$cfg" --max-time 300 -o resp.json -w '%{http_code}' \
             -X POST -T "$ZIP" "$upload_api/$name:upload")"
-          echo "上传响应 HTTP $code："
+          echo "上传响应 HTTP ${code}："
           cat resp.json
           if [ "$code" != '200' ]; then
-            echo "::error::上传失败。404 多为条目尚未在开发者后台手工创建（API 建不了条目，v2 连「创建新内容」这个能力都去掉了）；401/403 多为服务账号邮箱没加进开发者信息中心的「账号」页；版本号不高于线上包也会被拒（上面有预检，它读不到版本号时才会走到这里）"
+            echo "::error::上传失败。404 多为条目尚未在开发者后台手工创建（API 建不了条目，v2 连「创建新内容」这个能力都去掉了）；401 多为邮箱与私钥不成套；403 有两种成因——服务账号邮箱没加进开发者信息中心的「账号」页，或者 `CWS_PUBLISHER_ID` 填的并不是地址栏第一段（详见 store_status 作业里那条长判据）；版本号不高于线上包也会被拒（上面有预检，它读不到版本号时才会走到这里）"
             exit 1
           fi
           if ! receipt="$(node scripts/release-ci.mjs upload-state resp.json)"; then
@@ -364,44 +401,252 @@ jobs:
           fi
           echo "$receipt"
 
-          # 2) 提审要显式要求。v1.1 用查询参数 publishTarget=default 选「全体用户」；
-          #    v2 把它换成了请求体里的 publishType：DEFAULT_PUBLISH 是「审核通过后立即发布」，
-          #    STAGED_PUBLISH 是「审过了但先压着、等人工放量」。这里发前者，与旧行为等价。
-          #    没勾就是这个开关不存在——打标签触发的运行拿不到 workflow_dispatch 的输入，
-          #    于是自动发版这条路永远停在「包已上传」，后面那半由人决定。
-          if [ "$SUBMIT_FOR_REVIEW" != 'true' ]; then
-            {
-              echo '### 已上传，未提审'
-              echo
-              echo "- 包：\`$ZIP\`（$VERSION）"
-              echo "- 商店回执：$receipt"
-              echo
-              echo '要提交审核，先看开发者后台的 Package 页与商品文案，再点「提交审核」。'
-              echo
-              echo "也可以再用 \`workflow_dispatch\` 跑一次本工作流（tag \`v${VERSION}\`、\`dry_run\` 取消勾选、勾上 \`submit_for_review\`），"
-              echo '但这一次会把同一个包重新上传一遍；若上面那次的版本号已能被条目读到，版本预检会先拦下来'
-              echo '（商店只接受严格更高的版本号），那就走后台那个按钮。**提审优先在后台点，重跑是备选。**'
-              echo '默认不提审是刻意的：1.0.0 被拒三次，每一次都要先有人看一眼产物与文案。'
-            } >> "$GITHUB_STEP_SUMMARY"
-            exit 0
+          # 2) 到此为止：包已经交到商店手上，提审是下一个作业的事，而那个作业要人批准才会跑。
+          #    「接下来会发生什么」按仓库变量的实际取值写，省得人去猜这道门到底有没有配上。
+          echo 'uploaded=true' >> "$GITHUB_OUTPUT"
+          echo "uploaded_version=$VERSION" >> "$GITHUB_OUTPUT"
+          if [ "$AUTO_SUBMIT" = 'true' ]; then
+            next='提审作业（Submit for review (after approval)）现在应停在 **Waiting**：它被 `cws-release` 环境的 Required reviewers 挡着，有人点「Approve and deploy」之后才会调 `:publish`。批准之前商店那边只有草稿 revision，用户侧看不到任何东西。'
+          else
+            next='仓库变量 `CWS_AUTO_SUBMIT` 不是 `true`，所以提审作业连排队都不会排（fail-closed）。要么去开发者后台的 Package 页点「提交审核」，要么按 .github/CWS_PUBLISHING_GUIDE.md 第 3.4 节把审批门配上再设这个变量。'
           fi
-          # 提审的响应体里除 state 还有 warningInfo.warnings（非阻断的告警，blockOnWarnings 不设就是
-          # 「记下但不拦」），所以这一步把整份响应打出来而不是只挑一个字段。
+          {
+            echo '### 包已上传，未提审'
+            echo
+            echo "- 包：\`$ZIP\`（${VERSION}）"
+            # 命令的 stdout 自己就带标签（「商店回执：uploadState=…」，IN_PROGRESS 时是「商店仍在解包…」），
+            # 所以这里把整句当列表项，再拼一次前缀就成了「商店回执：商店回执：…」那种重复。
+            echo "- $receipt"
+            echo "- 接下来：$next"
+            echo
+            echo '`publish` 发布的就是刚上传的那个 revision，所以批准之后不必重传包，'
+            echo '也不会被本作业开头的版本预检拦第二次——旧文档里那句「重跑提审会被版本预检拦下」说的是'
+            echo '上传与提审绑在同一步时的那种形态，拆开之后它就不存在了。'
+            echo '不自动提审是刻意的：1.0.0 被拒三次，每一次都要先有人看一眼产物与文案。'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # ──────────────────────────────────────────────────────────────
+  # 只读档：现签一枚令牌、只打一次 `:fetchStatus`，证明「服务账号 → access_token → v2 端点」这条链通。
+  #
+  # 为什么不是「跑一次 dry run 就够了」：dry run 走完构建与全部守卫，但它一次商店调用都不发——四项
+  # secrets 与那两个 ID 有没有配成一套，它一个字都答不出来。而这一档答的正是这个问题，代价是一趟往返。
+  #
+  # 为什么不挂 environment：`:fetchStatus` 是只读的，需要人放行的只有写那一下。挂了门，「想快速看一眼
+  # 线上是哪个版本」就变成一次审批；审批的意义在于不可撤回的动作，不在于读一个字段。
+  #
+  # 为什么不检出 tag：这个作业跑的两个脚本（cws-token.mjs / release-ci.mjs）是 2026-10 才合进来的，
+  # 比它们更早的 tag 上没有这两个文件，检出那个 tag 会在第一步就 MODULE_NOT_FOUND——而那次失败与凭据
+  # 毫无关系。所以固定检出本次 dispatch 所在的 ref。（兄弟仓库 account-password-helper 在 2026-10-11
+  # 就踩过这个形状，它的只读档因此同样不检出 tag。）
+  store_status:
+    name: Store status (read-only)
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.store_status_only == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check out the dispatched ref
+        uses: actions/checkout@v7
+
+      # 与 store_submit 同理：这里只跑两个第一方脚本，它们只 import node 内置模块，
+      # 所以这个作业不装依赖、不碰 lockfile。
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Read the item status from the store
+        env:
+          CHROME_EXTENSION_ID: ${{ secrets.CHROME_EXTENSION_ID_TAF }}
+          CHROME_PUBLISHER_ID: ${{ secrets.CWS_PUBLISHER_ID }}
+          CWS_SERVICE_ACCOUNT_EMAIL: ${{ secrets.CWS_SERVICE_ACCOUNT_EMAIL }}
+          CWS_SERVICE_ACCOUNT_PRIVATE_KEY: ${{ secrets.CWS_SERVICE_ACCOUNT_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          api='https://chromewebstore.googleapis.com/v2'
+          # 与上传/提审那两档同一个资源名：这一段拼错，三档都会红在同一处。
+          name="publishers/$CHROME_PUBLISHER_ID/items/$CHROME_EXTENSION_ID"
+
+          cfg="$(mktemp)"
+          trap 'rm -f "$cfg" item.json' EXIT
+          chmod 600 "$cfg"
+          if ! node scripts/cws-token.mjs "$cfg"; then
+            echo "::error::令牌这一关就没过，商店那边一个字都没问到。按 .github/CWS_PUBLISHING_GUIDE.md 的 Q1 顺序核对三件事：GCP 项目有没有启用 Chrome Web Store API；CWS_SERVICE_ACCOUNT_EMAIL 与这份私钥是不是同一个服务账号的；私钥粘贴时换行有没有被吃掉。"
+            exit 1
+          fi
+
+          probe="$(curl -sS --config "$cfg" --max-time 60 -o item.json -w '%{http_code}' \
+            "$api/$name:fetchStatus" || echo 000)"
+          echo "fetchStatus HTTP ${probe}："
+          # curl 连不上的时候不会创建响应体文件，而 `set -e` 会让下一行的 cat 直接把这一步终止掉——
+          # 那时日志里只剩一句 "No such file or directory"，把「没连上商店」这个真正的原因盖掉。
+          if [ -s item.json ]; then
+            cat item.json
+          else
+            echo '（没有响应体：这一跳根本没连上商店，HTTP 000 一类，与 Secret 里的值无关）'
+          fi
+          if [ "$probe" != '200' ]; then
+            echo "::error::只读查询就失败了，问题在凭据或标识符，不在这次写入。403 有两种成因，而 Google 那句 “or it might not exist” 两种都涵盖：① 服务账号邮箱没加进开发者信息中心的「账号」页（连只读查询也会被拒，不必等到写接口）；② 那两段拼出来的资源不归当前发布商——CWS_PUBLISHER_ID 取的是 Dashboard 地址栏 devconsole/ 之后的第一段（本项目是 36 位含 - 的 UUID），既不是服务账号详情页那个 21 位「唯一 ID」，也不是 Cloud 项目号。日志里的 publishers/***/items/*** 是掩码，看不出值对不对；形状检查也只禁 /。所以处置是拿地址栏那串直接覆盖一次 Secret，而不是先去比对旧值。401 多为邮箱与私钥不成套；000 是没连上商店，与凭据无关。"
+            exit 1
+          fi
+
+          # 版本号用 item-version 那条命令读，而不是在这里再写一遍 jq：同一条字段路径
+          # （publishedItemRevisionStatus.distributionChannels[].crxVersion）在三处被用到，
+          # 而它已经在 pnpm verify:release-ci 的形状表里钉着。
+          live="$(node scripts/release-ci.mjs item-version item.json)"
+          {
+            echo '### 商店只读回执（本次未写入）'
+            echo
+            if [ -n "$live" ]; then
+              echo "- 线上版本号：\`$live\`"
+            else
+              echo '- 线上版本号：读不到——响应里没有 `crxVersion`，条目从没发布成功过时就是这样'
+            fi
+            echo '- 本次只调了 `:fetchStatus`：没有 `:upload`，没有 `:publish`，商店侧零写入，也不需要谁批准。'
+            echo '- 上面那份响应体里能读出：`submittedItemRevisionStatus.state`（排队中的那份 revision）、'
+            echo '  `lastAsyncUploadState`（过去 24 小时内的异步上传有没有落定）、`takenDown`、`warningInfo.warnings`。'
+            echo
+            echo '这一档的用途是把「Secret 里是旧 key」「服务账号没绑进后台」这类问题，'
+            echo '在任何一次真上传之前暴露掉。它绿了不代表商品文案填齐了——那些字段 API 既不写也不读。'
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "只读档 OK：凭据链通（线上版本 ${live:-读不到}），商店侧未收到任何写入。"
+
+  # ──────────────────────────────────────────────────────────────
+  # 提审这一步整个作业被一道人工审批门挡着：它在 needs 满足后先停在 Waiting（GitHub 界面给的状态名），
+  # 直到有人在那次运行的通知上点「Review deployments」→「Approve and deploy」才开始跑第一步。
+  # 这就是「合并 main → 一路自动走到商店门口 → 人放行才按发布键」。
+  #
+  # 门是 GitHub 的 environment `cws-release` 的 Required reviewers，不是本工作流里的一个 if：
+  # 后者只能表达「这次运行有没有勾那个复选框」，表达不了「另一个人看过并同意了」，
+  # 而这条链路要的正是后者——1.0.0 三次被拒之后，「有人先看一眼」必须是流程里的一个状态，
+  # 不能是跑完之后的一句「记得看一眼」。名单里填最多 6 个人或团队，任一人批准即放行。
+  #
+  # `vars.CWS_AUTO_SUBMIT` 是第二道保险。引用一个还不存在的 environment 时，GitHub 会在首次运行
+  # 把它建出来，而新建的环境没有任何保护规则（文档原话：the newly created environment will not have
+  # any protection rules or secrets configured）——那种状态下这道门等于没有门，每次打标签都会直接提审。
+  # 所以顺序是死的：先按 .github/CWS_PUBLISHING_GUIDE.md 3.4 建好带 Required reviewers 的
+  # `cws-release`，确认它真的会拦，再把变量设成 true。没设之前这个作业根本不出现，
+  # 行为与「只上传、不提审」完全一致。
+  store_submit:
+    name: Submit for review (after approval)
+    needs: release
+    # 四个条件缺一不可：上一作业真的传成功了（uploaded 只在最后两行才写）、四项 secrets 齐备、
+    # 审批门已经配好并显式开启、以及手动触发时那个复选框勾了。标签触发拿不到 inputs，
+    # 于是 `github.event_name != 'workflow_dispatch'` 那一支为真，自动链路才会走到门口。
+    # `vars` 能出现在作业级 if 里而 `secrets` 不能（contexts 文档对 jobs.<job_id>.if 列的可用上下文是
+    # github / needs / vars / inputs），所以这道开关是仓库变量，不是 secret——它不是一个机密值，
+    # 而是一个「门已经配好」的公开声明。
+    if: >-
+      needs.release.outputs.store_ready == 'true' &&
+      needs.release.outputs.uploaded == 'true' &&
+      vars.CWS_AUTO_SUBMIT == 'true' &&
+      (github.event_name != 'workflow_dispatch' || github.event.inputs.submit_for_review == 'true')
+    environment:
+      name: cws-release
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    # 这里刻意不写 timeout-minutes。平台的限制把两件事分列成两条：等待环境批准是「A workflow may wait for
+    # up to 30 days on environment approvals」，而 GitHub 托管 runner 的作业执行上限是 6 小时
+    # （5 天那一档是自托管 runner 的）。但文档没有写明 jobs.<id>.timeout-minutes 那个钟在等待审批期间
+    # 走不走。这一步真正的 API 调用不到两分钟，可一旦那个钟从排队时起算，10 分钟的代价就是
+    # 「批准得慢一点的发布自己超时」——这种失败既看不出所以然，又正好落在最不该失败的地方。
+    # 不设限则由平台的执行上限兜底，而它不会因为有人去吃了一午饭而触发。
+    steps:
+      - name: Check out the release commit
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.release.outputs.tag }}
+
+      # 到这里只跑两个第一方脚本，它们只 import node 内置模块（node:crypto / fs / buffer / url / path），
+      # 所以这个作业不装依赖、不碰 lockfile：一次批准之后要执行的代码越少，门就越像门。
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Submit the uploaded package for review
+        id: cws_publish
+        env:
+          VERSION: ${{ needs.release.outputs.uploaded_version }}
+          CHROME_EXTENSION_ID: ${{ secrets.CHROME_EXTENSION_ID_TAF }}
+          CHROME_PUBLISHER_ID: ${{ secrets.CWS_PUBLISHER_ID }}
+          CWS_SERVICE_ACCOUNT_EMAIL: ${{ secrets.CWS_SERVICE_ACCOUNT_EMAIL }}
+          CWS_SERVICE_ACCOUNT_PRIVATE_KEY: ${{ secrets.CWS_SERVICE_ACCOUNT_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          api='https://chromewebstore.googleapis.com/v2'
+          name="publishers/$CHROME_PUBLISHER_ID/items/$CHROME_EXTENSION_ID"
+
+          # 令牌在本作业里重新签一枚：理由写在上面那个作业的注释里（不跨步骤、不跨作业传令牌）。
+          cfg="$(mktemp)"
+          trap 'rm -f "$cfg" item.json resp.json' EXIT
+          chmod 600 "$cfg"
+          node scripts/cws-token.mjs "$cfg"
+
+          # 1) 先问商店现在是什么状态，再决定提不提。
+          #    批准与提审之间可能隔了很久，久到人有时间自己去后台点「提交审核」；
+          #    也可能包还躺在解包队列里。这两种情况下 :publish 都会回一个看不出所以然的错，
+          #    或者更糟——把审核队列里另一份 revision 当成这次的给发布了。
+          #    所以这一步读的是 discovery 里那两个 Output only 字段：
+          #    submittedItemRevisionStatus（已提交待审的那个 revision，未提交过则不设）与
+          #    lastAsyncUploadState（过去 24 小时内有过异步上传才设）。
+          probe="$(curl -sS --config "$cfg" --max-time 60 -o item.json -w '%{http_code}' \
+            "$api/$name:fetchStatus" || echo 000)"
+          if [ "$probe" != '200' ]; then
+            echo "::error:::fetchStatus 返回 HTTP ${probe}。读不到条目当前状态就不提审——在不知道商店那边躺着什么的情况下按发布键，不是自动化该有的胆量。401/403 多为服务账号邮箱没加进开发者信息中心的「账号」页；404 多为发布商 ID 或扩展 ID 对不上。响应体见下。"
+            cat item.json || true
+            exit 1
+          fi
+
+          # 2) 判定与理由都在 scripts/release-ci.mjs 的 submit-check 里（那里能带夹具测，shell 里不能）。
+          #    约定：exit 0 = 可以提审；exit 10 = 这一版已经在商店那边了，跳过且不算失败；
+          #    exit 20 = 商店侧状态不对，停下让人看；读不懂的形状一律按 0 放行，由 :publish 的响应定论。
+          rc=0
+          verdict="$(node scripts/release-ci.mjs submit-check item.json "$VERSION")" || rc=$?
+          echo "submit-check（exit ${rc}）：$verdict"
+          case "$rc" in
+            0) : ;;
+            10)
+              {
+                echo '### 无需提审：这一版已经在商店那边了'
+                echo
+                echo "- 版本：\`$VERSION\`"
+                echo "- 商店侧：$verdict"
+                echo
+                echo '本次没有调用 `:publish`，也不算失败。重复提交只会让审核队列里同时躺两份同一个包，'
+                echo '而那种成绩单看着像出了两次事故。'
+              } >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+              ;;
+            *)
+              echo "::error::商店侧状态不允许提审：$verdict"
+              exit 1
+              ;;
+          esac
+
+          # 3) 提审。v1.1 用查询参数 publishTarget=default 选「全体用户」；v2 把它换成请求体里的
+          #    publishType：DEFAULT_PUBLISH 是「审核通过后立即发布」，STAGED_PUBLISH 是「审过了但先压着、
+          #    等人工放量」。这里发前者，与旧行为等价。
+          #    blockOnWarnings 不设：那是「有告警就当失败」的开关，而告警按文档是非阻断的，
+          #    拦下来只会让人去后台看一眼才能重试。
           code="$(curl -sS --config "$cfg" --max-time 120 -o resp.json -w '%{http_code}' \
             -X POST -H 'Content-Type: application/json' -d '{"publishType":"DEFAULT_PUBLISH"}' \
             "$api/$name:publish")"
-          echo "发布响应 HTTP $code："
+          echo "发布响应 HTTP ${code}："
           cat resp.json
           if [ "$code" != '200' ]; then
-            echo "::error::提交审核失败。商品文案/截图/隐私申报未填齐时 API 会在这里报错，而这些字段只能手工填；上传若还在解包（回执写着 IN_PROGRESS）也会撞在这里"
+            echo "::error::提交审核失败。商品文案/截图/隐私申报未填齐时 API 会在这里报错，而这些字段只能手工填；包还在解包也会撞在这里（上面的 :fetchStatus 已经查过一遍，若它当时是干净的而这里仍报错，原因就在这份响应体里）"
+            exit 1
+          fi
+          if ! publish_receipt="$(node scripts/release-ci.mjs publish-state resp.json)"; then
+            echo "::error::HTTP 200，但商店把这次提交判成了被拒或已取消——原因在上面那份响应体里"
             exit 1
           fi
           {
             echo '### 已提交 Chrome 应用商店审核'
             echo
-            echo "- 包：\`$ZIP\`"
-            echo "- 商店回执：$receipt"
-            echo "- 发布响应：见本步骤日志（HTTP $code）"
+            echo "- 版本：\`$VERSION\`"
+            echo "- $publish_receipt"  # 同上：publish-state 的 stdout 已经以「商店回执：」开头
             echo
-            echo '审核时长不由本工作流控制；进度在开发者后台的 Package 页查看，或再读一次 :fetchStatus。'
+            echo '审核时长不由本工作流控制；进度在开发者后台的 Package 页查看，或再读一次 `:fetchStatus`'
+            echo '（那时 `submittedItemRevisionStatus.state` 会从 `PENDING_REVIEW` 变成 `PUBLISHED` 或 `REJECTED`）。'
           } >> "$GITHUB_STEP_SUMMARY"

@@ -145,8 +145,27 @@ the client), and the v1.1 endpoints themselves stop serving on **2026-10-15**.
 5. Open the Developer Dashboard at <https://chrome.google.com/webstore/devconsole> and add that
    `client_email` on the "Users" (账号) page. **A publisher can currently have only one service account**,
    so every item under the same publisher shares it — do not create one per extension
-6. Note the **publisher ID**: the UUID in `https://chrome.google.com/webstore/devconsole/<uuid>`. It is the
-   first segment of the v2 resource name `publishers/{publisherId}/items/{itemId}`
+6. Note the **publisher ID**: open a listing's edit page and the address bar looks like
+   `https://chrome.google.com/webstore/devconsole/{A}/{B}/edit` — `{A}` is the segment you need, `{B}` is the
+   item (extension) ID. `{A}` is the first segment of the v2 resource name
+   `publishers/{publisherId}/items/{itemId}`; for this publisher it is a **36-character UUID containing `-`,
+   not a run of digits**. Three candidates all look plausible and exactly one of them works:
+
+   | Candidate                                                        | What it actually is                                                                                          | Can it go in `CWS_PUBLISHER_ID`     |
+   | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ | ----------------------------------- |
+   | First segment of the devconsole address bar (36-char UUID shape) | The ID of the publisher (developer account); first segment of the v2 resource path                           | ✅ this is the one                  |
+   | "Unique ID" on the service account page (21 digits)              | A number Cloud IAM assigned to _this service account_, used to build `<that number>@iam.gserviceaccount.com` | ❌ unrelated to store authorisation |
+   | Cloud project's project number (digits)                          | The GCP project number                                                                                       | ❌                                  |
+
+   > ⚠️ **Nothing else catches a wrong entry in this field.** The v2 API definition only requires that segment
+   > to contain no `/`, so "legal shape, but the value is some other number" travels all the way to Google and
+   > comes back `403 PERMISSION_DENIED` on the **first, read-only hop** `:fetchStatus` — not 404, and it does
+   > not wait for a write endpoint. The `publishers/***/items/***` line in the CI log does not help: `***` is
+   > GitHub masking a Secret's value, and any non-empty, well-formed value masks exactly like that. The
+   > sibling repository account-password-helper landed on precisely this on 2026-10-11. Secrets are
+   > write-only, so the remedy is not "compare against the old value" but **overwrite it once with the string
+   > from the address bar**, then verify with the read-only depth below (depth 0 in 3.3). Causes and the
+   > judging procedure: FAQ Q14.
 
 > v2 offers exactly five actions: `fetchStatus` / `upload` / `publish` / `cancelSubmission` /
 > `setPublishedDeployPercentage`. Creating an item is **not** among them, and neither is changing the
@@ -186,12 +205,79 @@ CHROME_EXTENSION_ID_TAF  # Transfer Any File extension ID (from CWS Dashboard, 3
 > - A service account has no "~7-day token expiry": each run signs a fresh 5-minute RS256 JWT and exchanges it
 >   for an access token, and there is no OAuth app to publish as "In production". Both of those older warnings
 >   retired with the refresh token
+> - **All four values belong under Repository secrets, not under the `cws-release` environment's secrets.**
+>   GitHub makes environment-scoped secrets visible only to jobs that declare that environment, and the
+>   **upload** step lives in the `release` job (which does not): the cost of putting them in the wrong scope is
+>   not an error but `store_ready=false` with both store steps silently skipped (the symptom is Q6). Only
+>   `store_submit` can see environment-level values, which is exactly how you get the hardest shape to
+>   explain — "submission went green but no package was ever uploaded"
+> - **If the private key in plaintext ever appeared in a chat window, an Issue / PR comment, a CI log, a
+>   terminal scrollback or a commit, it is leaked** — rotation is the only remedy, deletion is not: removing
+>   the message does not undo it, since it may already be cached or indexed. Four rotation steps: Cloud
+>   Console → that service account → Keys → delete the old key → create a new JSON key → paste it into
+>   `CWS_SERVICE_ACCOUNT_PRIVATE_KEY` using the method below (a Secret is replaced whole) → run the read-only
+>   depth once to confirm the new key works, then **delete the JSON file you downloaded**. **Rotating a key
+>   under the same service account leaves `client_email` unchanged**, so step 5 of 3.1 (the Dashboard member
+>   row) does not need redoing; only if you retire the account itself and move to a new address do you remove
+>   the old email from the Dashboard first — and `CWS_SERVICE_ACCOUNT_EMAIL` must come from **the same JSON
+>   file** as the key you paste, because changing only one of the two makes the token exchange fail outright
+
+That "any paste shape works" claim is measured in this repository, not inferred (every exit of
+`normalizePrivateKey` was fed each shape; the counts below come from a freshly generated 2048-bit RSA PKCS#8
+key on 2026-10-11 — the target shape is **28 lines**, and writing the newlines as the two-character literal
+`\n` yields **1 line / 1732 characters**):
+
+| What you pasted                                            | `scripts/cws-token.mjs` | The sentence it reports on failure                                        |
+| ---------------------------------------------------------- | ----------------------- | ------------------------------------------------------------------------- |
+| Multi-line PEM (both BEGIN and END present, real newlines) | ✅                      | —                                                                         |
+| The whole service-account JSON file                        | ✅                      | — (only "no … in the JSON" if there is no non-empty `private_key` inside) |
+| The `private_key` field value, newlines still literal `\n` | ✅                      | — (the script restores them)                                              |
+| CRLF line endings, extra blank lines around it             | ✅                      | —                                                                         |
+| Pasted together with JSON's surrounding double quotes      | ❌                      | `私钥不是一把能用的 RSA 私钥：error:1E08010C…`                            |
+| Only the middle base64, both boundary lines missing        | ❌                      | `认不出 PEM 头（期望 "-----BEGIN …"）`                                    |
+| BEGIN present, END missing                                 | ❌                      | `私钥不是一把能用的 RSA 私钥：error:1E08010C…`                            |
+
+So: **"the whole thing on one line" is not a broken shape here** (the script converts literal `\n` back),
+what actually goes red is losing the two boundary lines or dragging the quotes in; each of the three failures
+has its own sentence and the two quoted above are enough to locate it. The recommended retrieval method still
+produces real newlines, so you are not relying on that fallback (`pbcopy` is macOS; on Linux use
+`xclip -selection clipboard`):
+
+```bash
+SA_JSON=~/Downloads/service-account.json    # the path of the file you downloaded
+node -e 'console.log(JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")).private_key)' "$SA_JSON" | pbcopy
+```
+
+To check before pasting that what is on the clipboard is a usable key (no network, nothing written to disk,
+the content is never echoed — only structural facts):
+
+```bash
+pbpaste | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{require("crypto").createPrivateKey(s);console.log("parses | lines",s.trimEnd().split("\n").length,"| literal \\n present:",s.includes("\\n"))}catch(e){console.log("still broken: ",e.message)}})'
+```
 
 ### 3.3 Publishing Flow
 
 Current configuration uses the runner's own `curl` against the Chrome Web Store **API v2** upload / publish
 endpoints — **no third-party npm package or action**. Only the token exchange is first-party code
 (`scripts/cws-token.mjs`), because an RS256 signature is not something shell can write:
+
+**Four execution depths**, each lower one closer to a real submission. Depth 0 exists because the other three
+all presuppose "build + upload", and when the credentials or one of those two IDs is wrong the last thing you
+want is to ship a package first and guess afterwards (one of the three 1.0.0 rejections spent its cost exactly
+that way):
+
+| Depth                 | How to trigger                                                                         | What it does                                                                                        | Human approval? | When to use it                                                                                    |
+| --------------------- | -------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- | --------------- | ------------------------------------------------------------------------------------------------- |
+| **0 read-only**       | Manual run, tick `store_status_only` (`tag` may stay empty)                            | Sign a fresh token + one `:fetchStatus`; write the live version and store-side state to the summary | No              | Verify credentials before the first real release; check at any time which version is on the store |
+| **1 Dry run**         | Manual run, `dry_run` left ticked (it is ticked by default)                            | Build + every guard + package-content checks; no Release, store untouched                           | No              | After touching manifest / dependencies / bundling, confirm the artifact itself is compliant       |
+| **2 Upload only**     | Push a `v*` tag; or a manual run that does **not** tick `submit_for_review`            | Runs the release and the upload, then stops (the `release` job never calls `:publish`)              | No              | The default shape: hand the package to the store, decide later whether to involve review          |
+| **3 Upload + submit** | Manual run ticking `submit_for_review`, plus `CWS_AUTO_SUBMIT=true` and the gate built | Depth 2 + `store_submit` queues for `cws-release` approval → `:publish` once approved               | **Yes**         | The real release (the tag-push path becomes this depth once the gate is configured)               |
+
+> ⚠️ The depth-0 checkbox is called `store_status_only` and is a field added by this change. GitHub builds the
+> dispatch form from **the workflow file as it exists on the ref you select**, so this depth is only visible on
+> the branch this file was merged into; triggering from a branch that does not have it shows no such checkbox
+> and runs that ref's older definition. Likewise the workflow list on the Actions page is driven by the default
+> branch.
 
 1. **Prepare the version** (recommended path; the full automation is in `.github/RELEASE_AUTOMATION.md`):
    once changes land on `main`, `release-prepare.yml` computes the version, promotes the `Unreleased`
@@ -203,7 +289,7 @@ endpoints — **no third-party npm package or action**. Only the token exchange 
    git push origin v1.0.0
    ```
 
-2. **Auto-trigger**: `.github/workflows/release.yml` automatically executes:
+2. **Auto-trigger (the upload job, `release`)**: `.github/workflows/release.yml` automatically executes:
    - Verify tag matches package.json version
    - Run the source-layer checks (`verify:meta`, `verify:offline:source`, `verify:numbers`, `verify:listing`)
    - Build the extension, run `verify:offline` and `verify:remote-code` again against the artifact (asserting the manifest the browser loads holds only `storage`, and that the bundle carries no remotely hosted code), then package it
@@ -216,22 +302,154 @@ endpoints — **no third-party npm package or action**. Only the token exchange 
      strictly higher. Deciding this _before_ the upload is the point: afterwards the megabytes are already
      sent and the only witness is the store's own response
    - Upload the package (the request body is the raw zip bytes) and read the store's receipt, `uploadState`:
-     `FAILED` / `NOT_FOUND` turn the step red, anything unreadable is reported and passed through. Then
-     **stop by default**: the submit-for-review call is not made
+     `FAILED` / `NOT_FOUND` turn the step red, anything unreadable is reported and passed through
 
-3. **Two ways to submit for review** — the workflow above will not do it for you:
-   - **Developer dashboard** (preferred): on the item's Package page click **"Submit for review"**,
-     see item 5 of Step 2. It only sends the request and does not touch the package.
-   - **Run the workflow again**: Actions → Release → Run workflow, same tag, uncheck `dry_run`, check
-     `submit_for_review`. That run does upload _and_ submit back to back, so the same package is uploaded a
-     second time; if the item already reports that version, the version pre-flight stops the run first — that
-     is the guard working, so use the dashboard button instead.
+   **That job then ends. It never calls `:publish`.**
 
-4. **Dry Run Test** (optional):
-   ```yaml
-   # Manually trigger workflow_dispatch from GitHub Actions page
-   dry_run: true # Verification only, no actual publishing
+3. **The submit job, `store_submit`, waits at the door**: it carries the `cws-release` environment's
+   Required reviewers. Once the gate is configured (3.4) the run shows **Waiting**, and opening it reveals a
+   "Review deployments" card with an Approve button next to `cws-release`. **Not one line of that job's script
+   runs before somebody presses it**, and until then the store holds nothing but the draft revision just
+   uploaded — users see no change.
+
+   After a human approves, the job does three things:
+
+   - Ask `:fetchStatus` again. Approval can come hours or days after the upload — long enough that someone
+     clicked "Submit for review" in the dashboard themselves, or long enough that the package is still being
+     processed. Publishing straight away in either case either returns an error nobody can read, or worse,
+     **publishes whichever revision happens to be in the review queue as if it were this one**. So this step
+     reads `submittedItemRevisionStatus` (the revision already submitted for publishing) and
+     `lastAsyncUploadState` (only set if an async upload happened within the past 24 hours), and hands the
+     decision to `scripts/release-ci.mjs submit-check` — that "response shape → exit code" table is committed as
+     `pnpm verify:release-ci`, which CI's lint job replays on every push, so changing a verdict means changing
+     the table in the same commit
+   - Call `:publish` only when the verdict is "go", with body `{"publishType":"DEFAULT_PUBLISH"}` — publish
+     to all users as soon as review passes, the equivalent of the old `publishTarget=default`
+   - Skip **without failing** when this version is already on the store's side (submitting twice would put two
+     copies of the same package in the review queue), and stop red with the reason written into the annotation
+     when the store's state says no
+
+   The publish response goes through `publish-state` as well: HTTP 200 with `state` `REJECTED` / `CANCELLED`
+   is always red, and `PUBLISHED_TO_TESTERS` is called out in the receipt as "published to testers only".
+
+4. **Three entry points to submitting**, sorted by who presses the publish key:
+
+   | Entry point                                                           | When to use it                                                            | Re-upload the package?                                                                                                                                                                     |
+   | --------------------------------------------------------------------- | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+   | **The approval gate** (recommended; the default path once configured) | Merge the Release PR → upload runs automatically → someone clicks Approve | No. `:publish` publishes the revision just uploaded                                                                                                                                        |
+   | **Developer dashboard**                                               | The gate is not configured, or you want to submit by hand right now       | No. Dashboard → the item → Package page → **"Submit for review"**, see Step 2 item 5                                                                                                       |
+   | **Manual workflow run**                                               | You need to release a specific older tag                                  | Yes. Actions → Release → Run workflow, set the tag, uncheck `dry_run`, check `submit_for_review`. The checkbox only decides whether the job queues; once queued it still waits at the gate |
+
+   The old sentence "re-running to submit will be blocked by the version pre-flight, so use the dashboard
+   button" described the shape where upload and submit were **one step**. They are two jobs now, so approving
+   does not re-upload and cannot be stopped by the pre-flight a second time.
+
+5. **Dry Run test** (optional): check `dry_run` when triggering manually (it is checked by default). It runs
+   the build and every guard, creates no GitHub Release, uploads nothing, and the submit job does not even
+   queue because `uploaded` is empty.
+
+   ```bash
+   # Trigger workflow_dispatch from the GitHub Actions page; the CLI equivalent:
+   gh workflow run release.yml -f tag=v1.2.0 -f dry_run=true
    ```
+
+6. **What depth 0 (`store_status`) actually does**: the job builds nothing and installs no dependencies. It
+   runs two first-party scripts (`cws-token.mjs` to sign a token, `release-ci.mjs item-version` to read the
+   version number) with exactly one store call between them — `:fetchStatus` — and writes not a single byte.
+   Two deliberate differences from the other jobs:
+
+   - **No environment** — a read needs nobody's permission; only the write does. Put the gate on it and
+     "take a look at which version is live" becomes an approval request.
+   - **It does not check out `tag`** — those two scripts were merged in 2026-10, so tags older than them do not
+     contain these files; following the tag would fail at the very first step with `Cannot find module`, and
+     that failure would have nothing to do with credentials. So it always checks out the ref the run was
+     triggered on.
+
+   ```bash
+   gh workflow run release.yml -f store_status_only=true      # same on the page: tick Store status only, leave tag empty
+   ```
+
+   How to read it: the "live version" line in the summary is the version the store is carrying right now. That
+   step being green means the whole chain "service account → access_token → v2 endpoint" works and the four
+   Secrets plus the two IDs were configured as **one consistent set**. Red at 403 → check the two causes in
+   Q14; red at the token exchange → check the first three items of Q1. If instead it prints
+   `fetchStatus HTTP 000` followed by "no response body", that is not a credentials problem — **the store was
+   never reached** (curl does not create the response-body file when it cannot connect, which is exactly why
+   this step reports the two shapes separately rather than letting a bare `No such file or directory` stand in
+   for the verdict); on a directly-connected machine this is the common one, see Q13. Green here does **not**
+   mean the listing copy is complete — the API neither writes nor reads those fields.
+
+### 3.4 Configuring the approval gate (environment `cws-release`, once)
+
+This gate is what "merge to main → everything runs automatically up to the store's door → **a human lets it
+through**" means in practice. It is not an `if` inside the workflow: an `if` can express "was that checkbox
+ticked", and it cannot express "a second pair of eyes looked and agreed". After three rejections of 1.0.0,
+"someone looks first" has to be a **state** in the pipeline, not a reminder after it finishes.
+
+**The order is fixed: build the gate, prove it bites, then set the variable.** The consequence of reversing it
+is in item 5 below.
+
+1. **Create the environment**. Repository → Settings → **Environments** (left sidebar) → **New environment**.
+   The name must be exactly `cws-release` (that is what `environment.name` in the workflow references).
+   GitHub's own limits apply: "An environment name may not exceed 255 characters and must be unique within
+   the repository", and uniqueness **ignores case** — `CWS-Release` would be treated as the same name while
+   the workflow's reference is not the same key. Don't gamble on that.
+
+2. **Add Required reviewers**. On the environment's configuration page tick **Required reviewers** and
+   "Enter up to 6 people or teams". Who is on the list matters less than that **at least one entry is not
+   the person who will be approving it alone**: the whole point of the gate is a second pair of eyes. Tick
+   **Prevent self-review** to stop the person who triggered a run from approving it (on a personal repo with
+   only you, **don't** tick it — see FAQ Q8). Before saving, look at
+   **Allow administrators to bypass configured protection rules**: while ticked, an admin walks straight
+   through the gate. The docs state the way to close it: "Deselect Allow administrators to bypass configured
+   protection rules".
+
+3. **Leave Deployment branch empty, or write `main`.** With a pattern, GitHub wants "the name pattern for the
+   branch or tag that you want to allow" and "Name patterns must be configured for branches or tags
+   individually". The submit job checks out a **tag** (`needs.release.outputs.tag`), not a branch — if you
+   add a branch restriction here, first confirm a tag-triggered run still passes that rule, or the gate turns
+   into "nobody gets through". When in doubt, leave it empty: on this chain the real blocker is
+   Required reviewers.
+
+4. **Save** (Configure environment → Save protection rules).
+
+5. **Verify the gate actually exists — before enabling the variable.** GitHub documents that
+   "Running a workflow that references an environment that does not exist will create an environment with
+   the referenced name", and apart from implicit Pages builds
+   "the newly created environment will not have any protection rules or secrets configured" — **an
+   auto-created environment is a door with no gate**, and every tag would submit straight to review. So don't
+   trust that you clicked Save:
+
+   ```bash
+   curl -sS -H "Authorization: Bearer $GH_PAT" -H "Accept: application/vnd.github+json" \
+     https://api.github.com/repos/<owner>/<repo>/environments/cws-release > /tmp/env.json
+   node -e "const e=require('/tmp/env.json');console.log(JSON.stringify((e.protection_rules||[]).map(r=>r.type)))"
+   ```
+
+   `protection_rules` must be **non-empty**, and the reviewers entry must be visible in it (GitHub's sample
+   response spells its `type` as `required_reviewers`, with `reviewers` listing who was named). A `[]`, or no
+   such key at all, is the "environment exists but has no gate" shape — go back to item 2. Take the field
+   names from what you actually get back: the test is "non-empty and reviewers visible", not an exact
+   document match.
+
+6. **Set the variable.** Repository → Settings → Secrets and variables → Actions → **Variables** →
+   **Repository variables** → New:
+
+   ```bash
+   CWS_AUTO_SUBMIT = true      # the only value is true; unset or anything else = do not submit (fail-closed)
+   ```
+
+   It is the second interlock, not the gate itself. The gate is the environment's Required reviewers; the
+   variable is only a **public statement** that "the gate is configured" (which is why it is a variable and
+   not a secret — it is not a confidential value). It belongs in the job-level `if` because
+   `jobs.<job_id>.if` may read `vars` but **not** `secrets` (the contexts documented for that key are
+   github / needs / vars / inputs).
+
+7. **One last real run to prove it**: push a test tag or trigger manually (check `submit_for_review`, leave
+   `dry_run` unchecked). The expected shape is: the `release` job goes green and uploads →
+   `Submit for review (after approval)` shows **Waiting** → you approve → it finishes in under two minutes.
+   If you never saw Waiting and it simply ran to completion, item 5's "environment with no protection rules"
+   is what you have — fix it now, and delete `CWS_AUTO_SUBMIT` until you do.
 
 ---
 
@@ -295,7 +513,10 @@ A: Four failures, four different scenes — check them in this order:
 4. **The token exchanges fine but the store call returns 401/403** → the service account's email was never
    added on the Developer Dashboard's user page. The "Verify Chrome Web Store service account" step cannot see
    this: it only proves the two things that are checkable locally (the key parses, the token exchanges), and
-   membership is only revealed by the store call itself
+   membership is only revealed by the store call itself. **403 has a second cause** — `CWS_PUBLISHER_ID`
+   holding some other, equally plausible-looking number; both causes and how to tell them apart are in Q14.
+   The cheapest way to answer this question is depth 0 (read-only, zero writes); you do not have to wait for a
+   real upload
 
 The old "what if the token expires" question no longer exists: a service account signs what it uses, there is
 no long-lived token to renew.
@@ -318,20 +539,199 @@ A: Refer to "Rejection Records and Policy Guidelines" section in `CHROMEWEBSTORE
 
 ### Q4: How to test publishing flow?
 
-A: Use dry run mode:
+A: Run **depth 0** first to prove the credential chain (`store_status_only`: no build, no store write, no
+approval — 3.3 item 6); the two halves below only mean something after that. Then test them separately.
+**Everything before the upload** is dry run's job, and it never touches the store:
 
-```yaml
-# Manually trigger workflow_dispatch
-dry_run: true # Verify only, no actual publishing
+```bash
+gh workflow run release.yml -f tag=v1.2.0 -f dry_run=true     # on the page it's the same as ticking dry_run
 ```
+
+**The gate and the submit step cannot be tested with dry run** — under dry run `uploaded` is empty, so the submit
+job never queues. The reliable test is "let it queue, but don't approve": run once with `submit_for_review`
+ticked and `dry_run` unticked, then look at whether it stops at **Waiting**. Stopped at Waiting means the gate is
+there; ran straight through to completion means it isn't — check that environment against step 5 of 3.4.
+
+To actually **call off** a release: don't approve. The wait expires on its own after 30 days (Q9). Or press
+Cancel workflow on the run page — either way the draft revision already uploaded never appears on the store page,
+because it was never submitted for review.
 
 ### Q5: The package uploaded but review has not started?
 
-A: That is the default, not a failure. `release.yml` only pushes the package up; the review request has to be
-started by a person. Prefer the developer dashboard's Package page and click **"Submit for review"** — it sends
-the request without touching the package. Alternatively run the Release workflow again via `workflow_dispatch`
-(same tag, uncheck `dry_run`, check `submit_for_review`), which uploads the same package a second time and may
-therefore be stopped by the version pre-flight. Item 3 of 3.3 spells out both routes.
+A: First confirm this is the shape you asked for. The upload job **never calls `:publish`**; submitting is another
+job's business, and that job queues only when all four conditions hold at once — one missing and it never even
+queues:
+
+| Condition                                                          | Where to check                                                                          |
+| ------------------------------------------------------------------ | --------------------------------------------------------------------------------------- |
+| The previous job really uploaded (`uploaded == 'true'`)            | End of that step's log in the `release` job; the failure reason is in the response body |
+| All four secrets are present (`store_ready == 'true'`)             | The summary of the "Detect Chrome Web Store credentials" step                           |
+| Repository variable `CWS_AUTO_SUBMIT == 'true'`                    | Settings → Secrets and variables → Actions → Variables                                  |
+| `submit_for_review` ticked on a manual run (a tag push ignores it) | The Run workflow form of that run                                                       |
+
+All four correct, and the job reads **Waiting** rather than skipped — that is not "review hasn't started", that
+is the gate. Ask any one person on its reviewers list to click Approve. The three entry points (gate / dashboard
+button / manual run) are compared in the table under item 4 of 3.3.
+
+### Q6: `Submit for review (after approval)` shows skipped, with not one line of log
+
+A: The job-level `if` evaluated false, so none of its script ran — walk the table above in order. The two most
+common causes are the variable not being set (**fail-closed is deliberate**: nothing should submit itself before
+someone confirmed the gate exists) and forgetting the checkbox on a manual run.
+
+If the store steps inside the `release` job were grey from the start (the summary reads「已跳过 Chrome 应用商店」
+— "Chrome Web Store skipped", both steps included), the secrets are incomplete; go back to 3.2 first.
+
+### Q7: Where do I approve? I approved and nothing happened?
+
+A: Actions → that run → at the top of the page, next to the `cws-release` line, there is **Review deployments**;
+open the card and click **Approve and deploy**. What is worth knowing:
+
+- **Only someone on the `required_reviewers` list (or an admin allowed to bypass) sees that button.** Everyone
+  else sees "Waiting" and nothing else.
+- **Any one** reviewer on the list is enough — GitHub's own wording is "Only one of the required reviewers needs
+  to approve the job for it to proceed". All six do not have to click.
+- What you approve is **the start of the job**, not the release outcome. Only after approval does it call
+  `:fetchStatus` and decide whether to press the publish key (item 3 of 3.3).
+- No card in sight: confirm this environment really is attached to the job (`environment.name: cws-release`,
+  spelled identically), and that the environment is not the empty shell the first run created for you
+  (step 5 of 3.4).
+
+### Q8: I'm the only person in this repo, and with Prevent self-review ticked nobody can approve
+
+A: This is the gate's real tension on a personal repo: the gate wants "a second pair of eyes", and you may
+genuinely only have one. Three options, ordered by how honest they are:
+
+1. **Add a real second person** (a collaborator, a family member's account, your own second account), so the
+   gate means what it claims.
+2. **Leave Prevent self-review unticked** and accept approving your own run. The gate still blocks the
+   **automation** — a pushed tag no longer releases itself, someone has to press it — it just can't block the
+   case where that someone is you.
+3. Don't keep a list nobody can approve just so the pipeline looks gated: every release then stalls at Waiting,
+   and you end up in the habit of bypassing it, which is worse than having no gate at all.
+
+Whichever you choose, the meaning of `CWS_AUTO_SUBMIT` does not change: it states "the gate is configured", it
+never means "skip the gate".
+
+### Q9: If approval takes a long time, does it time out?
+
+A: Two different clocks — don't mix them up:
+
+- **Waiting for approval**: "A workflow may wait for up to 30 days on environment approvals". A tag pushed on
+  Friday can still be approved on Monday morning; left alone past 30 days, that wait expires by itself.
+- **Running the job after approval**: a single job on GitHub-hosted runners is capped at 6 hours (the 5-day
+  figure is for self-hosted runners). This step actually takes under two minutes.
+
+The workflow **deliberately omits** `jobs.store_submit.timeout-minutes`: the documentation does not say whether
+that clock runs while a job waits for approval, and if it starts counting at queue time, a 10-minute setting
+becomes "a release approved a little late times out on its own" — a failure with nothing readable about it,
+landing exactly where a failure is least acceptable.
+
+### Q10: Does the gate work on a private repo / the Free plan?
+
+A: The documentation states "Users with GitHub Free plans can only configure environments for public
+repositories" — private repositories need Pro / Team. This repository is public, so the gate works. If you copy
+this setup onto a **private repo with Free**: `environment:` references an environment that cannot be created,
+and the behaviour degrades into the auto-created empty shell (no protection rules), which means **every tag
+submits straight to review** — precisely the case the `CWS_AUTO_SUBMIT` interlock exists to stop. Under that
+account tier the right move is to leave the variable unset and submit from the Developer Dashboard's Package
+page.
+
+The same page warns that switching a Free-plan public repo to private makes existing protection rules ignored
+and locks the configuration entry until you switch back. Visibility is not a free parameter here — don't flip it
+after building the gate.
+
+### Q11: The step after approval failed (or the store rejected it) — do I have to re-upload the package?
+
+A: No re-upload. `:publish` publishes **the revision that was already uploaded**, so fix the cause and run the
+submit job again. Before it does anything, that job asks `:fetchStatus` itself:
+
+- If this version is **already in the store's review queue** (say you clicked the dashboard button in the
+  meantime), `submit-check` returns 10 and the job **skips and stays green** — the queue never ends up holding
+  two copies of the same package.
+- If the package is still being processed (`lastAsyncUploadState: IN_PROGRESS`) or processing failed, it returns
+  20, the job goes red with the reason written into the annotation, and the publish key is **not** pressed.
+- If what sits in the queue is a **different** version, also 20 — someone else's revision is not published as if
+  it were this one.
+
+Re-uploading is needed in exactly one case: you changed the `package.json` version and pushed a new tag.
+
+### Q12: What is `skipReview`, and why isn't it wired up?
+
+A: v2's `PublishItemRequest` carries three fields besides `publishType`: `skipReview`, `blockOnWarnings` and
+`deployInfos`.
+
+- `skipReview` literally means "publish without submitting for review". **This chain does not wire it**: review
+  is not a step the caller gets to declare waived. Hooking it up would hand the release script a "bypass the
+  store's checks" switch, while the entire reason this chain exists is "a human check before the store's check".
+- `blockOnWarnings` means "treat warnings as failure" and is **also deliberately off**: warnings are non-blocking
+  by design, so blocking on them would force someone into the dashboard before any retry. Instead
+  `publish-state` **prints** them — the receipt ends with「N 条非阻断告警（reason：description / …）」, i.e. N
+  non-blocking warnings with each reason, plus its description when there is one — and lets a person decide.
+- `deployInfos` belongs to `STAGED_PUBLISH` staged rollout. This chain sends `DEFAULT_PUBLISH` and has no use for
+  it; switching to a staged rollout is **a deliberate product decision**, not something a CI edit should bring
+  along by accident.
+
+### Q13: I tried verifying the credentials locally and got `fetch failed`, or a dozen seconds of nothing and a timeout
+
+A: That is **the network layer never leaving the machine** — it is not a credentials verdict of any kind.
+`scripts/cws-token.mjs` calls `https://oauth2.googleapis.com/token` with `fetch`, and **Node 22 and earlier do
+not read `HTTPS_PROXY`** (honouring an environment proxy is Node 24's `NODE_USE_ENV_PROXY`), so the system proxy
+that is permanently on here simply does not participate in this path. The sibling repository
+account-password-helper measured the same shape on 2026-10-11: a direct connection to the store domain timed out
+after 19.9 seconds (`http=000`), and a response only arrived when the proxy was named explicitly. So on machines
+like this one:
+
+- "red locally" does **not** imply "credentials wrong" — what it reported was `fetch failed` / a timeout, not a
+  status code from the store
+- take the green from CI's depth 0 instead (3.3's `store_status_only`): no build, no store write, no approval,
+  and runners do not have this proxy problem
+- the two checks you can still do locally are both offline: the clipboard self-test in 3.2 (reports line count
+  and the predicate, never echoes the key), and `pnpm verify:release-ci` (fixtures against the four
+  store-response verdicts, zero network throughout)
+- do not `export` the private key into `~/.zshrc` or another startup file to "save pasting it again"; export it
+  in the current shell only, and if you want to know what it looks like use that 3.2 self-test —
+  `echo "$CWS_SERVICE_ACCOUNT_PRIVATE_KEY"` puts the whole PEM into the scrollback
+
+### Q14: The token exchanges fine but `:fetchStatus` answers `403 PERMISSION_DENIED`
+
+A: Google's sentence `Permission denied on resource 'publishers/{id}/items/{extId}' (or it might not exist)`
+**covers two causes at once**; do not assume it is the "email not added" one:
+
+1. **The service account's email is not on the Developer Dashboard's user page** (3.1 step 5). This one rejects
+   even a read-only query, without waiting for a write endpoint — which is precisely why depth 0 can expose it
+   on its own.
+2. **The two segments assembled into that resource name do not belong to the current publisher**:
+   `CWS_PUBLISHER_ID` holding the 21-digit "Unique ID" from the service account page, or the Cloud project's
+   project number, or the item ID mis-copied. The three candidates and how to separate them are in 3.1 step 6's
+   table.
+
+The procedure is not "first work out what the old value was" — Secrets are write-only, the
+`publishers/***/items/***` line in the log is GitHub's mask, any non-empty well-formed value masks that way, and
+the shape check forbids only `/` for this segment, so **a wrong value stays green all the way to Google**. The
+remedy is therefore to **overwrite the Secret once with the first segment of the Dashboard address bar**
+(overwriting is converging), then judge with depth 0 — do not probe with depth 3.
+
+Both 403s are **zero-write**: they land on the `:fetchStatus` hop, no package was uploaded and no new revision
+exists, so once fixed you just rerun that workflow — you will not hit the version pre-flight (it compares the
+live version number, which has not changed).
+
+### Q15: I filled a tag into the manual run and the first step died with `Cannot find module '…/scripts/cws-token.mjs'`
+
+A: `release` and `store_submit` both check out that tag (`ref: ${{ github.event.inputs.tag }}`), and
+`cws-token.mjs` / `release-ci.mjs` are files merged in during this round of changes — **tags older than them do
+not have these two scripts in their tree at all** (same logic: until this round reaches `main`, tags made on
+`main` still use the old v1.1 chain). This is not a credentials problem: it fails at the first script after the
+checkout, before anything that goes on the network. One read-only command settles it:
+
+```bash
+git fetch --tags origin
+git ls-tree <that tag> scripts/cws-token.mjs     # empty output = that tag has no such file
+```
+
+Conclusion: depths 1 / 2 / 3 only mean something for **a tag cut from a ref that contains these scripts**; to
+check just the credential chain use depth 0, which always checks out the ref the run was triggered on and is not
+subject to this limitation (3.3 item 6).
 
 ---
 
@@ -354,13 +754,28 @@ so its section names are quoted verbatim below:
 Before publishing, ensure:
 
 - [ ] GitHub Secrets configured completely (3 publisher-level values + 1 extension-specific ID; add `RELEASE_PAT` too if the tag should start the release on its own)
+- [ ] **Those four are under Repository secrets**, not the `cws-release` environment's secrets (wrong scope
+      raises no error — it silences both store steps together, the fourth ⚠️ bullet of 3.2 plus Q6)
 - [ ] The service account's email is added on the Developer Dashboard's user page (skip this and the token still exchanges — the store call is what answers 401/403)
+- [ ] `CWS_PUBLISHER_ID` is **the first segment of the listing's edit-page address bar** (36-character UUID
+      shape), not the 21-digit "Unique ID" on the service account page (3.1 step 6's three-candidate table; a
+      wrong value only surfaces on the store hop — Q14)
 - [ ] The GCP project has the Chrome Web Store API enabled
 - [ ] Extension ID format correct (32 a-p lowercase letters, `CHROME_EXTENSION_ID_TAF`)
+- [ ] **Run depth 0 once first** (`store_status_only`: read-only, zero writes, no approval) to confirm the
+      credential chain works, before considering depths 2 / 3
 - [ ] All validations passed (`pnpm lint:all && pnpm verify:meta && pnpm verify:listing && pnpm build && pnpm verify:offline`)
 - [ ] Store copy consistent with `_locales` files
 - [ ] Privacy policy URL reachable
 - [ ] Version number higher than online version
+- [ ] **(only if you want auto-submit)** environment `cws-release` exists and its `protection_rules` visibly
+      contains the Required reviewers entry — not the empty shell the first run created (step 5 of 3.4 is the
+      curl command that proves it)
+- [ ] **(same)** repository variable `CWS_AUTO_SUBMIT=true` is set, and the box above was checked right before
+      setting it
+- [ ] **(same)** at least one reviewer on the list is **not the person who triggers the release**; on a solo
+      personal repo, confirm which of Q8's three options you picked, rather than "ticked Prevent self-review and
+      now nobody can approve"
 
 ---
 

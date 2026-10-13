@@ -214,7 +214,7 @@ jobs:
           # PR 模式下这一步尤其重要：分支名是准备时算的，合并前 main 可能又攒了别的版本改动。
           pkg_version="$(node -p "require('./package.json').version")"
           if [ "${tag#v}" != "$pkg_version" ]; then
-            echo "::error::main 上的 package.json 是 $pkg_version，却要打标签 $tag —— 说明这份 changelog 与版本号已经错位，先别合这个 PR"
+            echo "::error::main 上的 package.json 是 ${pkg_version}，却要打标签 $tag —— 说明这份 changelog 与版本号已经错位，先别合这个 PR"
             exit 1
           fi
           echo "tag=$tag" >> "$GITHUB_OUTPUT"

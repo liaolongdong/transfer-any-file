@@ -1,9 +1,10 @@
 # 发版自动化操作说明 · Transfer Any File
 
 > 这条链路把「合并到 `main`」变成一次可审阅的 Release PR，把「合并那个 PR」当作发布批准，之后自动出
-> GitHub Release、打商店包并上传到 Chrome 应用商店——但**默认不提审**。本文只写操作：哪些必须你亲手做、
-> 每步在哪看、失败了怎么读。设计与理由写在两份工作流的文件头注释里（`.github/workflows/release-prepare.yml`
-> 与 `.github/workflows/release.yml`），那里是「为什么」的唯一出处。
+> GitHub Release、打商店包并上传到 Chrome 应用商店——但**默认不提审**；要走自动提审，得先配好一道
+> environment 人工批准门（1.4），而配好之后**每一次提审仍然要有人在 GitHub 上点 Approve**。本文只写操作：
+> 哪些必须你亲手做、每步在哪看、失败了怎么读。设计与理由写在两份工作流的文件头注释里
+> （`.github/workflows/release-prepare.yml` 与 `.github/workflows/release.yml`），那里是「为什么」的唯一出处。
 
 ---
 
@@ -30,10 +31,17 @@ release-prepare.yml（tag job，自动）
 release.yml（由标签触发，自动）
    ├─ 版本一致性 → 源码层守卫 → pnpm build → 打包 → 产物层两道守卫 → 校验包内容
    ├─ gh release create（附商店 zip，说明取 CHANGELOG.md 的对应区块）
-   └─ 商店：四项 secrets 齐备才走 → 服务账号令牌校验 → 扩展 ID 格式 → 版本预检 → 上传包
+   └─ release 作业 · 商店那步：四项 secrets 齐备才走 → 令牌校验 → ID 格式 → 版本预检 → 上传包
+        │                    ← 这个作业到上传为止，从不调用 :publish
+        ▼
+store_submit 作业（同一工作流，needs: release）
+   ├─ 排队要四个条件同时成立（作业级 if：uploaded / store_ready / 仓库变量 CWS_AUTO_SUBMIT / 手动触发时的复选框）
+   ├─ 排在门口：environment `cws-release` 的 Required reviewers → 状态是 Waiting，一行脚本都没跑
+   └─ 被批准之后：:fetchStatus → submit-check →（判定可以才）:publish {"publishType":"DEFAULT_PUBLISH"}
         │
         ▼
-你：在开发者后台点「提交审核」   ★ 默认到此为止，提审是你的决定
+你：在那次运行页点 Approve and deploy   ★ 默认到此为止，提审是你的决定
+   （门没配时唯一的入口：开发者后台该商品的 Package 页点「提交审核」）
 ```
 
 ---
@@ -47,7 +55,7 @@ release.yml（由标签触发，自动）
 | Secret                            | 谁用它                                     | 不配会怎样                                                                                     |
 | --------------------------------- | ------------------------------------------ | ---------------------------------------------------------------------------------------------- |
 | `RELEASE_PAT`                     | `release-prepare.yml` 的开 PR 与建标签两步 | 标签不会自动推：那一步只写 warning + 摘要里的本机命令，Release PR 照常开，`release.yml` 不启动 |
-| `CHROME_EXTENSION_ID_TAF`         | `release.yml` 的商店那几步                 | 「已跳过 Chrome 应用商店提交」写进摘要，发布照常完成（GitHub Release 不受影响）                |
+| `CHROME_EXTENSION_ID_TAF`         | `release.yml` 的商店那几步                 | 「已跳过 Chrome 应用商店」写进摘要，两步都不做，发布照常完成（GitHub Release 不受影响）        |
 | `CWS_PUBLISHER_ID`                | 同上                                       | 同上                                                                                           |
 | `CWS_SERVICE_ACCOUNT_EMAIL`       | 同上                                       | 同上                                                                                           |
 | `CWS_SERVICE_ACCOUNT_PRIVATE_KEY` | 同上                                       | 同上                                                                                           |
@@ -101,6 +109,30 @@ GitHub 有一条硬规则：**由 `GITHUB_TOKEN` 产生的事件不再触发其�
   `pnpm release:cut`（见第三节），自己推分支开一个普通 PR——作者是真人账号，`ci.yml` 会正常跑；合并后按
   第四节的 `tag` 模式补标签。
 
+### 1.4 审批门：environment `cws-release` + 仓库变量（可选，只做一次）
+
+**不配它，链路的行为与「只上传、不提审」完全一致**——`store_submit` 那个作业根本不出现。要配，就照
+`.github/CWS_PUBLISHING_GUIDE.md` 的 3.4 那七步走，而且顺序是死的：先建环境、验证 `protection_rules` 里
+**真的看得到** Required reviewers 那一条，**再**设仓库变量 `CWS_AUTO_SUBMIT=true`。两条理由：
+
+- 工作流引用一个不存在的环境时，GitHub 会把它建出来，而自动创建的环境**没有任何保护规则**——那种
+  「有门框没有门」的状态下，每次打标签都会直接提审。
+- 变量而不是 secret：`jobs.<id>.if` 读得到 `vars`、读不到 `secrets`，而这道题本来就不是机密——它是
+  「门已配好」的一句公开声明。它的语义永远不包含「跳过门」。
+
+配完之后，链路上就多了一次必须的人为点击（第二节第 6 条）。三处容易搞错的地方：
+
+| 项目       | 在哪                                                                | 配错的样子                                                                  |
+| ---------- | ------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| 环境名     | Settings → Environments，必须逐字 `cws-release`                     | 大小写不同的名字在 GitHub 那里算同一个环境，在工作流的 `if` 里却是另一个键  |
+| 批准人名单 | 该环境的 Required reviewers（最多 6 个，任一人批准即放行）          | 只有触发者且在勾了 Prevent self-review → 每次发布都卡死在 Waiting（FAQ Q8） |
+| 管理员绕过 | 同一页的 Allow administrators to bypass configured protection rules | 勾着时管理员可以直接穿过这道门，等于门只拦别人                              |
+
+两个不受本仓库控制的边界，值得先知道再配：等待批准的上限是 **30 天**，而批准之后跑作业的上限是
+GitHub 托管 runner 的 **6 小时**（两个不同的钟，见 FAQ Q9）；Free 计划只能给**公开仓库**配环境，
+私有仓库上照抄这套配置会退化成那个空壳环境（见 FAQ Q10）。门只管提审这一下：GitHub Release、标签、
+商店里的草稿 revision 都在门**之前**就完成了，批准与否都不回退它们。
+
 ---
 
 ## 二、每次发版的流程（只有「合并」这一步是你的批准）
@@ -121,9 +153,14 @@ GitHub 有一条硬规则：**由 `GITHUB_TOKEN` 产生的事件不再触发其�
      见第五节 `Release PR #N 已经开着` 那一行）；
      ③ 干脆在本机按第三节 `pnpm release:cut -- --bump minor` 自己落地一版。
 4. **合并它**。这一步就是「批准发布」。
-5. 之后不用管：标签由同一条工作流推，`release.yml` 随即接手。商店那步的默认结果是「包已上传、未提审」。
-6. 想让用户真的拿到这一版：到 Chrome Web Store 开发者后台的 Package 页点 **提交审核**。
-   两个入口的差别见 `.github/CWS_PUBLISHING_GUIDE.md` 的 3.3 第 3 条。
+5. 之后到商店门口为止不用管：标签由同一条工作流推，`release.yml` 随即接手。门没配（或配了还没人批准）时，
+   商店那部分的结果就是「包已上传、未提审」。
+6. 想让用户真的拿到这一版，先看 1.4 那道门配了没有：
+   - **配了门**：Actions → 那次运行 → 页面顶部 `cws-release` 那一行旁边点 **Review deployments** →
+     **Approve and deploy**。被批准之后那个作业才会去问 `:fetchStatus`，再决定按不按发布键。
+   - **没配门**：到 Chrome Web Store 开发者后台该商品的 Package 页点 **提交审核**——它同样不重传包。
+     三个入口（审批门 / 后台按钮 / 手动触发工作流）各自要不要重传包，对比表在
+     `.github/CWS_PUBLISHING_GUIDE.md` 的 3.3 第 4 条。
 7. **如果发版那一刻还有活着的长期分支**（本仓库的 `feature-dev` 就是这个形状：它带着自己的未发布条目，
    而 `main` 上刚多出一个版本小节），把 `main` 合回去要先过一道重建：
 
@@ -161,38 +198,53 @@ pnpm release:cut           # = --write --commit --tag —— 落地：改三份�
 
 ## 四、手动开关（`workflow_dispatch`）
 
-| 工作流          | 输入                | 默认       | 说明                                                                                                             |
-| --------------- | ------------------- | ---------- | ---------------------------------------------------------------------------------------------------------------- |
-| Release Prepare | `mode`              | `prepare`  | `prepare` = 只准备/刷新 Release PR；`tag` = 给 `main` 上已合并但没标签的版本补打标签                             |
-| Release         | `tag`               | 必填       | 手动触发时得把标签名打进去（`vX.Y.Z`），发布就是对这一个标签跑；由标签事件触发时这个输入不参与，取事件自带的 ref |
-| Release         | `dry_run`           | **`true`** | ⚠️ 手动触发时**不取消勾选就什么都不发**：跑完全部守卫与构建，只在摘要里报告将会做什么                            |
-| Release         | `submit_for_review` | `false`    | 勾上才在上传之后 POST `:publish`，body 是 `{"publishType":"DEFAULT_PUBLISH"}`（提审）                            |
+| 工作流          | 输入                | 默认       | 说明                                                                                                                                    |
+| --------------- | ------------------- | ---------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| Release Prepare | `mode`              | `prepare`  | `prepare` = 只准备/刷新 Release PR；`tag` = 给 `main` 上已合并但没标签的版本补打标签                                                    |
+| Release         | `tag`               | 选填       | 第 1 / 2 / 3 档手动触发时把标签打进去（`vX.Y.Z`），留空会红在 Resolve version 那一步；标签事件触发时取事件自带的 ref。第 0 档不看它     |
+| Release         | `dry_run`           | **`true`** | ⚠️ 手动触发时**不取消勾选就什么都不发**：跑完全部守卫与构建，只在摘要里报告将会做什么                                                   |
+| Release         | `submit_for_review` | `false`    | 勾上才让 `store_submit` 那个作业**排队**；排到队之后仍要过审批门，被批准才 POST `:publish`，body 是 `{"publishType":"DEFAULT_PUBLISH"}` |
+| Release         | `store_status_only` | `false`    | 勾上只跑 `store_status` 作业：现签一枚令牌 + 一次 `:fetchStatus`，不构建、不上传、不挂审批门（手册 3.3 的第 0 档）                      |
 
-两个容易踩的地方，都是默认值造成的：
+四个容易踩的地方，前三个是默认值造成的，最后一个是「表单取哪个 ref」造成的：
 
 - `dry_run` 默认 `true`。想要真发布，必须显式取消勾选。
-- 用 `workflow_dispatch` 补提审时，同一次运行会**把包重新上传一遍**。如果上一次上传之后条目已能读到那个
-  版本号，版本预检会先把这次运行拦下——那是守卫在正常工作，改到后台点「提交审核」即可。
+- 用 `workflow_dispatch` 补一次发布，这一次运行会**把包重新上传一遍**——标签触发时经过审批门的那次提审
+  不重传（上传与提审是两个作业），手动重跑不是。重传一般能过版本预检，因为商店那边「已发布的版本号」
+  还没变成这一版；要是这一版**已经发布成功**了，预检就会当场拦下这次运行，那是守卫在正常工作，
+  改到后台点「提交审核」即可。
+- 勾了 `submit_for_review` 而 1.4 那道门没配（或仓库变量 `CWS_AUTO_SUBMIT` 不是 `true`）：提审作业连排队
+  都不排队，运行照样全绿，只是停在「包已上传，未提审」。这是刻意的 fail-closed，不是这次勾选白点了。
+- dispatch 表单上的那几个复选框，来自**你选中的那个 ref 上的那份工作流文件**。所以 `store_status_only`
+  只有在这份文件合进去的那个分支上才看得到；同理，填一个比 `scripts/cws-token.mjs` /
+  `scripts/release-ci.mjs` 更早的标签，`release` 作业会在检出后的第一个脚本上 `Cannot find module`——
+  那次红与凭据无关（判法见手册 Q15）。只想验凭据链就走第 0 档，它固定检出本次触发所在的 ref。
 
 ---
 
 ## 五、失败了怎么读
 
-| 现象                                          | 出处                                            | 原因与动作                                                                                                                                                                                                  |
-| --------------------------------------------- | ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 合了 PR，但 `release.yml` 没有跑，也没有标签  | `release-prepare.yml` → `Push the tag`          | 仓库**完全没配** `RELEASE_PAT`：那一步只报 warning 就过，摘要里给出三行本机命令，补上即可；想以后自动，按 1.2 配令牌                                                                                        |
-| `用 RELEASE_PAT 创建标签失败`                 | 同上                                            | 这一步是红的，与上一行的「没配」不是同一种情形。以日志里 GitHub 的原话为准：最常见的是令牌过期或已被撤销、只对别的仓库生效，再就是权限没勾够——创建 ref 写的是仓库内容，不是 Actions                         |
-| Release PR 上没有任何状态检查、合不动         | `Open the release PR` 的 notice                 | PR 由 `GITHUB_TOKEN` 创建，GitHub 不触发 `pull_request`。配 `RELEASE_PAT` 或放行 `release/*`                                                                                                                |
-| `找不到可打标签的版本`                        | `Resolve the tag to create`                     | `CHANGELOG.md` 里最高的版本号与 `package.json` 不一致。先修这两者，再跑 `tag` 模式                                                                                                                          |
-| `main 上的 package.json 是 A，却要打标签 B`   | 同上                                            | 这份 changelog 与版本号已经错位，别合那个 PR；重跑 `prepare` 模式让它按当前 `main` 重算                                                                                                                     |
-| 商店那步写着「已跳过 Chrome 应用商店提交」    | `Detect Chrome Web Store credentials`           | 四项商店 secrets 没配齐，缺任何一个都算。按 1.1 补齐再重跑；条目还没在后台手工建是另一回事，那会表现为上传 404，手工步骤见 `CHROMEWEBSTORE.md`                                                              |
-| `服务账号令牌交换失败`                        | `Verify Chrome Web Store service account`       | 按那行错误自己列的顺序核对：GCP 项目没启用 _Chrome Web Store API_；邮箱与私钥不是同一个服务账号；私钥粘贴时换行被吃掉（三种粘贴形状见 3.2 的说明）                                                          |
-| `CHROME_EXTENSION_ID_TAF 格式非法`            | `Verify CWS extension id format`                | 不是 32 位 a-p 小写字母，或混进了空格/换行。从后台 URL 里复制，不要手敲                                                                                                                                     |
-| `线上已是 X，这次要传的是 Y`                  | `Publish to the Chrome Web Store`               | 版本预检拦下：商店只接受严格更高的版本号。核对 `main` 上的 `package.json` 与这个标签是否对得上                                                                                                              |
-| `版本预检跳过`（notice）                      | 同上                                            | 读不到线上版本号——条目还没建时**必然**如此，属正常。上传若被拒，原因在响应体里                                                                                                                              |
-| `HTTP 200，但商店把这次上传判为失败`          | 同上                                            | 传输成了，商店读包读失败了：`uploadState` 回执是 `FAILED`（原因在它下面那份响应体里，多半是包内容或商品字段）。`IN_PROGRESS` 不会报这行，它在摘要里写「商店仍在解包」并提示紧接着的 `:publish` 可能因此报错 |
-| `这一版没有发布说明`（warning）               | `Extract release notes`                         | `CHANGELOG.md` 里缺对应区块。发布不拦，但 GitHub Release 用的是占位文案，去补区块然后重跑                                                                                                                   |
-| `release-prepare` 报 `Release PR #N 已经开着` | `Skip when the release branch is already taken` | 同名分支已有一个开着的 PR，工作流**故意**不覆盖也不重开（你的补正可能就在里面）。去那个 PR 里继续                                                                                                           |
+| 现象                                                   | 出处                                            | 原因与动作                                                                                                                                                                                                  |
+| ------------------------------------------------------ | ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 合了 PR，但 `release.yml` 没有跑，也没有标签           | `release-prepare.yml` → `Push the tag`          | 仓库**完全没配** `RELEASE_PAT`：那一步只报 warning 就过，摘要里给出三行本机命令，补上即可；想以后自动，按 1.2 配令牌                                                                                        |
+| `用 RELEASE_PAT 创建标签失败`                          | 同上                                            | 这一步是红的，与上一行的「没配」不是同一种情形。以日志里 GitHub 的原话为准：最常见的是令牌过期或已被撤销、只对别的仓库生效，再就是权限没勾够——创建 ref 写的是仓库内容，不是 Actions                         |
+| Release PR 上没有任何状态检查、合不动                  | `Open the release PR` 的 notice                 | PR 由 `GITHUB_TOKEN` 创建，GitHub 不触发 `pull_request`。配 `RELEASE_PAT` 或放行 `release/*`                                                                                                                |
+| `找不到可打标签的版本`                                 | `Resolve the tag to create`                     | `CHANGELOG.md` 里最高的版本号与 `package.json` 不一致。先修这两者，再跑 `tag` 模式                                                                                                                          |
+| `main 上的 package.json 是 A，却要打标签 B`            | 同上                                            | 这份 changelog 与版本号已经错位，别合那个 PR；重跑 `prepare` 模式让它按当前 `main` 重算                                                                                                                     |
+| 商店那两步都是灰的、摘要写着「已跳过 Chrome 应用商店」 | `Detect Chrome Web Store credentials`           | 四项商店 secrets 没配齐，缺任何一个都算。按 1.1 补齐再重跑；条目还没在后台手工建是另一回事，那会表现为上传 404，手工步骤见 `CHROMEWEBSTORE.md`                                                              |
+| `服务账号令牌交换失败`                                 | `Verify Chrome Web Store service account`       | 按那行错误自己列的顺序核对：GCP 项目没启用 _Chrome Web Store API_；邮箱与私钥不是同一个服务账号；私钥粘贴时换行被吃掉（三种粘贴形状见 3.2 的说明）                                                          |
+| `CHROME_EXTENSION_ID_TAF 格式非法`                     | `Verify CWS extension id format`                | 不是 32 位 a-p 小写字母，或混进了空格/换行。从后台 URL 里复制，不要手敲                                                                                                                                     |
+| `线上已是 X，这次要传的是 Y`                           | `Upload the package to the Chrome Web Store`    | 版本预检拦下：商店只接受严格更高的版本号。核对 `main` 上的 `package.json` 与这个标签是否对得上                                                                                                              |
+| `版本预检跳过`（notice）                               | 同上                                            | 读不到线上版本号——条目还没建时**必然**如此，属正常。上传若被拒，原因在响应体里                                                                                                                              |
+| `HTTP 200，但商店把这次上传判为失败`                   | 同上                                            | 传输成了，商店读包读失败了：`uploadState` 回执是 `FAILED`（原因在它下面那份响应体里，多半是包内容或商品字段）。`IN_PROGRESS` 不会报这行，它在摘要里写「商店仍在解包」并提示紧接着的 `:publish` 可能因此报错 |
+| `Submit for review (after approval)` 显示 **skipped**  | `store_submit` 的作业级 `if`                    | 四个条件之一不成立，作业一行脚本都没跑。最常见是仓库变量 `CWS_AUTO_SUBMIT` 没设（**fail-closed 是刻意的**），其次是手动触发没勾复选框；逐项查法见 `.github/CWS_PUBLISHING_GUIDE.md` 的 FAQ Q5 那张表        |
+| 那一步停在 **Waiting**，没人点                         | environment `cws-release`                       | 这不是故障，这就是门。名单里任一人去那次运行页点 **Review deployments → Approve and deploy**（FAQ Q7）；看不到按钮的人不在名单里                                                                            |
+| `:fetchStatus 返回 HTTP …`                             | `Submit the uploaded package for review`        | 批准之后先问商店「现在躺着什么」，问不到就不按发布键。401/403 多为服务账号邮箱没加进开发者信息中心的「账号」页，404 多为发布商 ID 或扩展 ID 对不上                                                          |
+| `商店侧状态不允许提审：…`                              | 同上                                            | `submit-check` 返回 20：包还在解包、最近一次上传被商店判负、或队列里躺着的是**别的**版本号。发布键没按，修好原因再重跑这一步即可，**不需要重传包**（FAQ Q11）                                               |
+| 摘要里出现「无需提审：这一版已经在商店那边了」         | 同上                                            | `submit-check` 返回 10——这一版已经在审核队列里（多半是你中途自己去后台点过）。跳过且算绿：重复提交只会让队列里同时躺两份同一个包                                                                            |
+| `HTTP 200，但商店把这次提交判成了被拒或已取消`         | 同上                                            | `:publish` 回了 200，而响应里的 `state` 是 `REJECTED` / `CANCELLED`——只看 HTTP 码会当成成功，所以这一步单独判。政策口径与既往拒审见 `CHROMEWEBSTORE.md` 的「拒审记录与政策口径」                            |
+| `这一版没有发布说明`（warning）                        | `Extract release notes`                         | `CHANGELOG.md` 里缺对应区块。发布不拦，但 GitHub Release 用的是占位文案，去补区块然后重跑                                                                                                                   |
+| `release-prepare` 报 `Release PR #N 已经开着`          | `Skip when the release branch is already taken` | 同名分支已有一个开着的 PR，工作流**故意**不覆盖也不重开（你的补正可能就在里面）。去那个 PR 里继续                                                                                                           |
 
 表格之外还有一条，它不表现为任何一步失败，所以不占一格：
 
@@ -223,12 +275,15 @@ pnpm release:cut           # = --write --commit --tag —— 落地：改三份�
 ## 七、这条链路刻意不做的事
 
 - 不自动合并 Release PR——approve 是人的判断，整条链路就靠这一次点头收口。
-- 不自动提审。上传是幂等的准备动作，惊动审核不是。
+- 不自动提审。上传是幂等的准备动作，惊动审核不是。配了 1.4 那道门之后提审仍然要**人先批准**：仓库变量与
+  environment 是两道都握在所有者手里的闸，工作流里没有任何一处能把「批准」这个动作替人做掉，也没有
+  `skipReview` 那种「调用方自己宣布免审」的开关（为什么不接它，见 FAQ Q12）。
 - 不创建商店条目、不写商品文案、不传截图、不填隐私申报：商店 API 做不到这些，见
   `CHROMEWEBSTORE.md` 的「首次上架（手工步骤）」。
 - 不升级依赖、不改 lockfile、不碰 `docs/` 生成物、不加任何 manifest 权限。它对仓库的写动作全部可以列出来：
   推 `release/vX.Y.Z` 那一个分支、开那一个 PR、建那一个 `vX.Y.Z` 标签 ref、创建一个 GitHub Release、
-  上传一次商店包——默认配置下就这五下，没有别的；勾了 `submit_for_review` 才多出第六下（那次提审 POST）。
+  上传一次商店包——默认配置下就这五下，没有别的；第六下（提审那次 `:publish` POST）要么根本不排队，
+  要么排在审批门口等一个人点下 Approve 之后才打得出去。
 - 发布动作本身不借第三方：建 Release 用 runner 自带的 `gh release create`，上传与提审用自带的 `curl`
   直接打 Google 的 API，而不是用 `softprops/action-gh-release` 或某个 npm 发布包。工作流里确实还有
   `actions/checkout`、`pnpm/action-setup`、`actions/setup-node` 这类通用步骤，构建也照旧走 `pnpm build`——
@@ -241,9 +296,26 @@ pnpm release:cut           # = --write --commit --tag —— 落地：改三份�
 诚实清单，第一次发版时请重点盯这几处：
 
 - **仓库目前没有任何标签**，所以「合并 Release PR → 自动建标签 → `release.yml` 启动」这条链在真实
-  GitHub 上一共分几步跑通过，答案是**零次**。步骤体的逻辑是在本机用桩 `gh` / 桩 `curl` 执行真的
-  run 块验证的（含把两处已修复的令牌缺陷改回旧写法、确认它们会因此暴露），但 Actions 自身的触发规则
-  只有真跑一次才算证据。
+  GitHub 上一共分几步跑通过，答案是**零次**。步骤体的逻辑在本机被真跑过一轮：从 YAML 里抽出**真实的**
+  run 块执行，只替换两个 API base 与换令牌那一步，对面是一台记录每个请求的假 v2 商店（方法/路径/字节数/
+  请求体/认证头都参与断言），排队与否的作业级 `if` 也是从文件里读出来算的；同一套工装还做过变异验证
+  （把守卫逐条改坏，包括这轮和上轮已修复的几处缺陷改回旧写法，确认每一个都红在该红的那一句上）。
+  这套工装是一次性取证、没有入库，
+  它证明的是「脚本按这些响应形状会这么做」，**证明不了 Actions 自身的触发规则**——那只有真跑一次才算证据。
+- **入库的那一份是 `pnpm verify:release-ci`**（`scripts/check-release-ci.mjs`，CI lint job 的最后一步）：它按一张
+  手写的契约表真跑 63 次商店响应解析（`item-version` / `upload-state` / `submit-check` / `publish-state` 的形状、
+  退出码与那句进 step summary 的话），再钉 `release.yml` 的 10 处接缝（1 处回执标签拼接 + 4 处 submit-check 那段
+  case 的形状 + 5 处只读档 `store_status`）。它守的是**两个文件的接缝**，
+  上面那套仿真守的是**整条作业的顺序**——两件事不互相替代：守卫不会发现「`:publish` 被挪进了上传作业」，
+  仿真也不会在 CI 里替你重跑一遍判定表。它自己的牙用 14 个变异体验过（上一轮 9 个，本轮为只读档那五处补 5 个；
+  每个都必须红在它钉的那一句上，控制组是那两份文件的未改拷贝）。只读档那一步的 run 块也按同一条路子真跑过：
+  从 YAML 里抽出**原文**执行，对面是一台只回状态码与响应体的假 `:fetchStatus`，四种出口（200 且读得到版本号 /
+  200 但没有 `crxVersion`，即条目从没发布过 / 403 / 换票这一步就失败）各自的退出码、stdout 与 summary
+  都断过言，跑完还查了临时文件有没有被 `trap` 清掉。
+- **审批门一次都没真跑过**：本仓库现在既没有 `cws-release` 这个 environment，也没有 `CWS_AUTO_SUBMIT`
+  这个变量，所以「停在 Waiting → 有人点 Approve and deploy → 作业才开始跑」这一整串目前只是 GitHub 文档里
+  的行为。本地能证的只有那四种组合下作业排不排队。第一次配门时务必按 3.4 第 7 步专门验一次：期望看到
+  **Waiting**；要是它直接跑完了，你手上就是那个「没有保护规则的空壳环境」，先把变量删掉再回去补门。
 - **商店条目已经在架**（2026-10-02 实测：线上版本 1.0.0、详情区上次更新 2026-09-30），所以 `release.yml`
   那三步第一次真跑就会读到版本号。读的是 v2 `:fetchStatus` 响应里的
   `publishedItemRevisionStatus.distributionChannels[].crxVersion`——这个形状是向 `publish-browser-extension` 那套
@@ -262,6 +334,8 @@ pnpm release:cut           # = --write --commit --tag —— 落地：改三份�
 ## 相关文档
 
 - **半自动发布链路的两个脚本**：`scripts/release.mjs`（计划与落地）、`scripts/release-ci.mjs`（Actions 适配）
+- **上面那两条命令的契约守卫**：`scripts/check-release-ci.mjs`（`pnpm verify:release-ci`，形状与判定表在文件里，
+  改判定就要同批改那张表）
 - **发版后把 `main` 合回长期分支时的重建工具**：`scripts/repair-release-merge.mjs`（`--check` 只报告，不带
   `--check` 才写盘；默认读 `MERGE_HEAD` 与 `ORIG_HEAD`，也可以给显式 ref）
 - **上架手册（凭据、手工建条目、商店字段）**：`.github/CWS_PUBLISHING_GUIDE.md` / `.en.md`

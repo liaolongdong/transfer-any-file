@@ -736,17 +736,21 @@ rm -f /tmp/cws.cfg
 
 补上四个仓库 secrets——本扩展专用的 `CHROME_EXTENSION_ID_TAF`，加上发布商级的 `CWS_PUBLISHER_ID` /
 `CWS_SERVICE_ACCOUNT_EMAIL` / `CWS_SERVICE_ACCOUNT_PRIVATE_KEY`（个人账号没有组织级 secret 共享，这三个值仍要在
-**每个仓库里各填一次**）——`release.yml` 里的 `Publish to the Chrome Web Store` 步骤就不再说「跳过」，而是从下一个 tag
-开始真正发布。它用 runner 自带的 `curl` 打 v2 端点：先 `:fetchStatus` 读线上版本号做预检，再 POST
-`upload/v2/…:upload` 传包（请求体就是 zip 的原始字节），勾了 `submit_for_review` 才 POST `:publish`
-`{"publishType":"DEFAULT_PUBLISH"}`；不引入第三方 npm 包或 action。头几次运行想先预演，手动触发
-workflow_dispatch 时勾 `dry_run`（只做认证与校验，不上传、不提交）。
+**每个仓库里各填一次**）——`release.yml` 里的 `Upload the package to the Chrome Web Store` 步骤就不再说「跳过」，
+而是从下一个 tag 开始真正把包传上去。它用 runner 自带的 `curl` 打 v2 端点：先 `:fetchStatus` 读线上版本号做预检，
+再 POST `upload/v2/…:upload` 传包（请求体就是 zip 的原始字节）；**这个作业到上传为止，从不 POST `:publish`**。
+提审是同一工作流里的第二个作业 `store_submit`，它排在 environment `cws-release` 的人工批准门后面，而它排队还要仓库
+变量 `CWS_AUTO_SUBMIT=true`——两个默认值都在所有者手里，配法见 `.github/CWS_PUBLISHING_GUIDE.md` 的 3.3 与 3.4。
+两个作业各换各的 access_token：令牌只活在**各自那一步**的 `chmod 600` 临时 curl 配置里，退出即删，从不落进工作区，
+所以拆开作业并没有把令牌留在哪儿给人捡；除换令牌那一小段是第一方的 `scripts/cws-token.mjs` 之外，全程用 runner 自带
+的 `curl`，不引入第三方 npm 包或 action。头几次运行想先预演，手动触发 workflow_dispatch 时勾 `dry_run`
+（只做认证与校验，不上传、不提交）。
 
-| 想改的行为                 | 改哪里                                                                                                                         |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| 审过但先不发（压着等放量） | 那行 POST 的 `publishType` 换成 `STAGED_PUBLISH`，它是工作流里的字面量，不是仓库变量；放量再走 `:setPublishedDeployPercentage` |
-| 只上传不请求审核（留草稿） | 现在就是这个默认：`submit_for_review` 不勾，`release.yml` 传完包就停，后台 Package 页停在草稿态                                |
-| 把提审拆成单独一步         | 刻意没拆。access_token 只活在 `Publish to the Chrome Web Store` 这一步的临时 curl 配置里，拆开就得把它落进工作区留给下一步     |
+| 想改的行为                     | 改哪里                                                                                                                                                                                                          |
+| ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 审过但先不发（压着等放量）     | 那个作业里 POST 的 `publishType` 换成 `STAGED_PUBLISH`，它是工作流里的字面量，不是仓库变量；放量再走 `:setPublishedDeployPercentage`，分批放量还得配 `deployInfos`（为什么现在不接，见手册 FAQ Q12）            |
+| 只上传不请求审核（留草稿）     | 现在就是这个默认：不设 `CWS_AUTO_SUBMIT`（或门没配），`release.yml` 传完包就停，后台 Package 页停在草稿态                                                                                                       |
+| 让「要不要惊动审核」必须人点头 | 已经是默认形状，但前提是你按手册 3.4 那七步把门建出来了：**先**建 environment `cws-release` 与 Required reviewers、验证 `protection_rules` 真的非空，**再**设那个变量。顺序反了等于在一道不存在的门后面自动提审 |
 
 > 曾经有一行写的是「当前刻意留在 v1.1，因为新开发者账号拿到的就是 v1.1 的 OAuth client」。那句话在 2026-10-08
 > 作废：v1.1 的授权链路早就拿不到 token（`redirect_uri=…:oob` 自 2023-01-31 起对所有客户端关闭，授权端点回

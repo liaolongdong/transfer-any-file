@@ -142,8 +142,23 @@ storage: persists the user's own conversion history (file names, formats and siz
 5. 打开开发者信息中心 <https://chrome.google.com/webstore/devconsole>，进「账号」页把第 4 步那个
    `client_email` 加为成员。**一个发布商目前只能加一个服务账号**，所以同属这个发布商的几个扩展
    共用它一个就行，不必各建一个
-6. 记下**发布商 ID**：devconsole 地址栏 `https://chrome.google.com/webstore/devconsole/<uuid>` 里那段
-   UUID，它就是 v2 资源名 `publishers/{publisherId}/items/{itemId}` 的第一段
+6. 记下**发布商 ID**：打开某个商品的编辑页，地址栏形如
+   `https://chrome.google.com/webstore/devconsole/{A}/{B}/edit`——`{A}` 才是要记的那一段，`{B}` 是商品
+   （扩展）ID。`{A}` 就是 v2 资源名 `publishers/{publisherId}/items/{itemId}` 的第一段，本发布商这串是
+   **36 位含 `-` 的 UUID，不是纯数字**。三个长得都像的候选，只有一个能用：
+
+   | 候选                                       | 它是什么                                                                    | 能不能填进 `CWS_PUBLISHER_ID` |
+   | ------------------------------------------ | --------------------------------------------------------------------------- | ----------------------------- |
+   | devconsole 地址栏第一段（36 位 UUID 形）   | 发布商（开发者账号）的 ID，v2 资源路径的第一段                              | ✅ 就是它                     |
+   | 服务账号详情页的「唯一 ID」（21 位纯数字） | Cloud IAM 给这个服务账号编的号，用途是拼 `<该编号>@iam.gserviceaccount.com` | ❌ 与商店授权无关             |
+   | Cloud 项目的 project number（纯数字）      | GCP 项目号                                                                  | ❌                            |
+
+   > ⚠️ **这一格没有第二道检查替你兜底。** v2 的接口定义对这段只要求「不含 `/`」，所以「形状合法、值却是
+   > 另一个编号」会一路走到 Google，然后在**只读的第一跳** `:fetchStatus` 上回 `403 PERMISSION_DENIED`——
+   > 不是 404，也不需要等到写接口。CI 日志里那行 `publishers/***/items/***` 帮不上忙：`***` 是 GitHub 对
+   > Secret 值的掩码，只要非空且合法形就长这样。兄弟仓库 account-password-helper 在 2026-10-11 就踩在这条上。
+   > Secret 只写不可读，所以处置不是「先比对旧值」，而是**拿地址栏那串直接覆盖一次**，再用下面的只读档验通
+   > （3.3 的第 0 档），成因与判法另见 FAQ Q14。
 
 > v2 只有五个动作：`fetchStatus` / `upload` / `publish` / `cancelSubmission` / `setPublishedDeployPercentage`。
 > 里面**没有**「创建条目」也**没有**「改可见范围」——那两件事仍然只在后台手工做，所以本文第二节不会消失。
@@ -177,11 +192,64 @@ CHROME_EXTENSION_ID_TAF  # Transfer Any File 扩展 ID（从 CWS Dashboard 获�
 > - 服务账号没有「token 7 天过期」这件事：每次运行由 `scripts/cws-token.mjs` 现签一枚 5 分钟有效的 RS256
 >   JWT 去换 access_token，也不需要把 OAuth 应用发布为 In production。旧文档里那两条提醒随 refresh token
 >   一起作废
+> - **四项都要落在 Repository secrets 那一档，不是 environment `cws-release` 的 secrets。** GitHub 的环境级
+>   secret 只对声明了那个环境的作业可见，而**上传**那一步在 `release` 作业里（它不挂 environment）：配错级别的
+>   后果不是报错，是 `store_ready=false`、商店两步一起静默跳过（现象见 Q6）。只有 `store_submit` 看得见环境级
+>   的值，于是「提审绿了、包却没传」这种最难解释的形状就是这么来的
+> - **私钥原文进过聊天窗口、Issue / PR 评论、CI 日志、终端回滚缓冲或提交记录，就算已泄露**，只能换不能删——
+>   删掉那条消息不是处置手段，它可能已被缓存或索引。轮换四步：Cloud Console → 该服务账号 → Keys → 删旧 key →
+>   新建 JSON key → 按下面的取法重贴进 `CWS_SERVICE_ACCOUNT_PRIVATE_KEY`（Secret 是整体替换）→ 跑一次只读档确认
+>   新 key 生效，然后**把下载那份 JSON 删掉**。**同一把 key 换在同一服务账号下时 `client_email` 不变**，
+>   所以 3.1 第 5 步后台那一行不用重做；只有连服务账号一起废弃、换新邮箱时，才要在后台先移除旧邮箱再挂新的，
+>   并且 `CWS_SERVICE_ACCOUNT_EMAIL` 必须与这把私钥**出自同一份 JSON**——只改一边时换票会直接失败
+
+私钥这一格**粘什么形状都行**这件事，本仓库是测过的，不是推测的（`normalizePrivateKey` 三条出口逐形状跑过，
+本机 2026-10-11 现生成一把 2048 位 RSA 的 PKCS#8 计数：目标形状 **28 行**，把换行写成两个字符的字面量 `\n`
+之后是 **1 行 / 1732 字符**）：
+
+| 粘进去的形状                                   | `scripts/cws-token.mjs` | 失败时报的那句                                       |
+| ---------------------------------------------- | ----------------------- | ---------------------------------------------------- |
+| 多行 PEM（BEGIN / END 两行都在，中间真实换行） | ✅                      | —                                                    |
+| 整份服务账号 JSON 文件                         | ✅                      | —（里面没有非空 `private_key` 才报「JSON 里没有…」） |
+| JSON 里那个字段值、换行还是字面量 `\n`         | ✅                      | —（脚本自己还原）                                    |
+| CRLF 行尾、首尾多空行                          | ✅                      | —                                                    |
+| 连 JSON 的那对双引号一起贴                     | ❌                      | `私钥不是一把能用的 RSA 私钥：error:1E08010C…`       |
+| 只贴中间那段 base64、首尾两行丢了              | ❌                      | `认不出 PEM 头（期望 "-----BEGIN …"）`               |
+| 只有 BEGIN、没有 END                           | ❌                      | `私钥不是一把能用的 RSA 私钥：error:1E08010C…`       |
+
+也就是说：**「整段一行」在本仓库不是坏形状的判据**（脚本会把字面量 `\n` 还原回来），真正会红的是首尾两行
+丢了或引号带进来了；三种失败各有各的句子，照着上面那两句就能定位。取法推荐仍然用带真实换行的那条，
+省得靠脚本兜底（`pbcopy` 是 macOS 的，Linux 换 `xclip -selection clipboard`）：
+
+```bash
+SA_JSON=~/Downloads/service-account.json    # 换成你下载那份的实际路径
+node -e 'console.log(JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")).private_key)' "$SA_JSON" | pbcopy
+```
+
+贴之前想自证剪贴板里那一串是不是一把能用的钥匙（不联网、不落盘、不回显内容，只报结构事实）：
+
+```bash
+pbpaste | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{require("crypto").createPrivateKey(s);console.log("可解析 | 行数",s.trimEnd().split("\n").length,"| 含字面量 \\n:",s.includes("\\n"))}catch(e){console.log("仍然坏：",e.message)}})'
+```
 
 ### 3.3 发布流程
 
 当前配置用 runner 自带的 `curl` 直接打 Chrome Web Store API v2 的上传 / 发布端点，**不引入第三方 npm 包
 或 action**；只有换令牌那一步交给第一方的 `scripts/cws-token.mjs`（RS256 签名在 shell 里写不出来）：
+
+**四档执行深度**，越靠下越接近一次真实提审。第 0 档存在的理由是：另外三档都以「构建 + 上传」为前提，
+而凭据或那两个 ID 配错的时候，你最不想要的就是先传一次包再去猜（1.0.0 那三轮拒审里就有一轮的代价花在这里）：
+
+| 档位              | 怎么触发                                                          | 做什么                                                                   | 要不要人批准 | 什么时候用                                             |
+| ----------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------ | ------------ | ------------------------------------------------------ |
+| **0 只读档**      | 手动触发，勾 `store_status_only`（`tag` 可留空）                  | 现签一枚令牌 + 一次 `:fetchStatus`，把线上版本号与商店侧状态写进 summary | 否           | 第一次真发布之前验凭据；随时想知道在架的是哪一版       |
+| **1 Dry run**     | 手动触发，`dry_run` 保持勾选（默认就是勾着的）                    | 构建 + 全部守卫 + 包内容校验；不建 Release、不碰商店                     | 否           | 改到 manifest / 依赖 / 打包后，先确认产物本身合规      |
+| **2 只上传**      | 推 `v*` 标签；或手动触发但**不**勾 `submit_for_review`            | 走完发布与上传，到此为止（`release` 作业不调 `:publish`）                | 否           | 默认形态：包先交到商店手上，要不要惊动审核由人稍后决定 |
+| **3 上传 + 提审** | 手动触发勾 `submit_for_review`，且 `CWS_AUTO_SUBMIT=true`、门已配 | 第 2 档 + `store_submit` 排队等 `cws-release` 批准 → 批准后 `:publish`   | **是**       | 正式发版（推标签那条自动链路在门配好之后就是这一档）   |
+
+> ⚠️ 第 0 档那个复选框叫 `store_status_only`，它是这次改动新加的字段。GitHub 的 dispatch 表单取的是
+> **你选中的那个 ref 上的那份工作流文件**，所以这份文件合进哪个分支，那个分支上才看得到这一档；在还没合进去
+> 的分支上触发，表单里根本没有这个勾，跑的是那个 ref 的旧定义。同理，Actions 页面里的工作流清单只看默认分支。
 
 1. **准备版本**（推荐路径，全自动见 `.github/RELEASE_AUTOMATION.md`）：合并到 `main` 之后，
    `release-prepare.yml` 会算出版本号、提升双语 changelog 的「未发布」区块，并开一个 Release PR。
@@ -192,7 +260,7 @@ CHROME_EXTENSION_ID_TAF  # Transfer Any File 扩展 ID（从 CWS Dashboard 获�
    git push origin v1.0.0
    ```
 
-2. **自动触发**：`.github/workflows/release.yml` 被标签触发后自动执行：
+2. **自动触发（上传作业 `release`）**：`.github/workflows/release.yml` 被标签触发后自动执行：
    - 验证 tag 与 package.json 版本一致
    - 运行源码层检查（`verify:meta`、`verify:offline:source`、`verify:numbers`、`verify:listing`）
    - 构建扩展，随后对产物再跑一次 `verify:offline`（断言浏览器实际加载的那份 manifest 只有 `storage` 权限）与 `verify:remote-code`，最后打包
@@ -203,20 +271,132 @@ CHROME_EXTENSION_ID_TAF  # Transfer Any File 扩展 ID（从 CWS Dashboard 获�
      `publishedItemRevisionStatus.distributionChannels[].crxVersion`），本次要传的不严格高于它就直接停下。
      这条判断放在上传之前才有意义：放在之后，几兆字节已经传完，而商店只接受更高的版本
    - 上传包（请求体就是 zip 的原始字节），再读商店的回执 `uploadState`：明确为 `FAILED` / `NOT_FOUND`
-     就变红，读不懂的只报告不拦；然后**默认到此为止**，不调用提审接口
+     就变红，读不懂的只报告不拦
 
-3. **要提审有两个入口**，默认那条工作流不会替你做：
-   - **开发者后台**（首选）：Dashboard → 该商品 → Package 页点 **"提交审核"**，见「第二步 · 5. 点击
-     "提交审核" (Submit for Review)」。它只发提审请求，不再动包。
-   - **重跑工作流**：Actions → Release → Run workflow，填同一个 tag、`dry_run` 取消勾选、勾上
-     `submit_for_review`。这一次是「上传 + 提审」连着做完，所以同一个包会重新传一遍；如果上次上传之后
-     条目已能读到这个版本号，版本预检会先把这次运行拦下——那是正常保护，改走后台那个按钮即可。
+   **这个作业到此为止，一次 `:publish` 都不会调。**
 
-4. **Dry Run 测试**（可选）：
+3. **提审作业 `store_submit` 停在门口**：它挂的是 environment `cws-release` 的 Required reviewers。
+   配好了这道门（见 3.4）的人才会看到它：Actions 里那次运行显示为 **Waiting**，点进去是
+   「Review deployments」卡片，旁边一个 `cws-release` 的 Approve 按钮。**在有人点它之前，这个作业的第一
+   行脚本都没跑过**，商店那边只有刚上传的草稿 revision，用户侧看不到任何东西。
+
+   有人批准后，作业才开始跑，做三件事：
+
+   - 再问一次 `:fetchStatus`。批准与上传之间可能隔了几小时甚至几天，久到有人自己去后台点了「提交审核」，
+     也久到包还在解包队列里。这两种情况下直接按发布键，要么撞一个看不出所以然的错，更糟的是
+     **把审核队列里另一份 revision 当成这次的给发布了**。所以这一步先读
+     `submittedItemRevisionStatus`（已提交待审的那个 revision）与 `lastAsyncUploadState`（过去 24 小时内
+     有过异步上传才设），判定交给 `scripts/release-ci.mjs submit-check`——那张「响应形状 → 退出码」的表入库为
+     `pnpm verify:release-ci`，CI 的 lint job 每次按它真跑一遍，改判定必须同批改那张表
+   - 判定为「可以提审」才调用 `:publish`，请求体 `{"publishType":"DEFAULT_PUBLISH"}` —— 审核通过后立即
+     发布给全体用户，与旧版 `publishTarget=default` 等价
+   - 判定为「这一版已经在商店那边了」就**跳过且不算失败**（重复提交只会让队列里同时躺两份同一个包）；
+     判定为「商店侧状态不对」就变红停下，把理由写进 annotation
+
+   发布响应同样过一道 `publish-state`：HTTP 200 但 `state` 是 `REJECTED` / `CANCELLED` 一律变红，
+   `PUBLISHED_TO_TESTERS` 会在回执里明说「只发布给了测试人员」。
+
+4. **要提审有三个入口**，按「谁按下发布键」分：
+
+   | 入口                                   | 什么时候用                                  | 包要不要重传                                                                                                                             |
+   | -------------------------------------- | ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+   | **审批门**（推荐，配好之后是默认路径） | 合并 Release PR → 自动上传 → 有人点 Approve | 不用。`:publish` 发就是刚上传那个 revision                                                                                               |
+   | **开发者后台**                         | 门没配、或想立刻手工提交                    | 不用。Dashboard → 该商品 → Package 页点 **"提交审核"**，见「第二步 · 5」                                                                 |
+   | **手动触发工作流**                     | 想指定某个历史 tag 补一次发布               | 要。Actions → Release → Run workflow，填 tag、`dry_run` 取消勾选、勾上 `submit_for_review`。勾了这个复选框才会排队，排到队后仍要过审批门 |
+
+   旧文档里那句「重跑提审会被版本预检拦下、改走后台按钮即可」说的是**上传与提审绑在同一步**时的那种形态；
+   现在两步拆开了，批准之后不必重传包，也就不会被预检拦第二次。
+
+5. **Dry Run 测试**（可选）：手动触发时把 `dry_run` 勾上（默认就是勾着的）。它跑到构建与全部守卫为止，
+   不创建 GitHub Release、不上传包，提审作业因为 `uploaded` 是空的而不排队。
+
    ```bash
-   # 在 GitHub Actions 页面手动触发 workflow_dispatch
-   # 勾选 dry_run 选项进行预演，不实际发布
+   # 在 GitHub Actions 页面手动触发 workflow_dispatch；命令行等价写法：
+   gh workflow run release.yml -f tag=v1.2.0 -f dry_run=true
    ```
+
+6. **第 0 档（`store_status`）具体做什么**：这个作业不构建、不装依赖，只跑两个第一方脚本
+   （`cws-token.mjs` 现签令牌、`release-ci.mjs item-version` 读版本号），中间只有一次商店调用是
+   `:fetchStatus`，一个字节都不写。两个刻意的差别：
+
+   - **不挂 environment**——只读不需要人放行，需要放行的只有写那一下；挂了门，「看一眼线上是哪一版」
+     就变成一次审批。
+   - **不检出 `tag`**——那两个脚本是 2026-10 才合进来的，比它们更早的 tag 上没有这两个文件，
+     跟着 tag 检出会在第一步就 `Cannot find module`，而那次失败与凭据毫无关系。所以它固定检出本次触发
+     所在的 ref。
+
+   ```bash
+   gh workflow run release.yml -f store_status_only=true      # 页面上等价：勾 Store status only，tag 留空
+   ```
+
+   怎么判读：summary 里那行「线上版本号」就是商店此刻挂着的版本。这一步绿，说明「服务账号 → access_token
+   → v2 端点」整条通、四项 Secret 与那两个 ID 配成了**一套**；红在 403 就按 Q14 那两种成因查，
+   红在换票那一步就按 Q1 前三条查。要是打印出来的是 `fetchStatus HTTP 000` 并紧跟一句「没有响应体」，
+   那不是凭据问题而是**根本没连上商店**（curl 连不上时不会创建那个响应体文件，所以这一步特意把这两种
+   形状分开说，不让一句 `No such file or directory` 顶掉判决）——本机直连时这一种最常见，见 Q13。
+   它绿了**不代表**商品文案填齐了——那些字段 API 既不写也不读。
+
+### 3.4 配置人工批准门（environment `cws-release`，只做一次）
+
+这道门是「合并 main → 一路自动走到商店门口 → **有人放行才按发布键**」里那句「有人放行」的落地物。
+它不是本工作流里的一个 `if`：`if` 只能表达「这次运行有没有勾那个复选框」，表达不了
+「另一个人看过并同意了」。1.0.0 三次被拒之后，「先看一眼」必须是流程里的一个**状态**，不能是跑完之后
+的一句「记得看一眼」。
+
+**顺序是死的：先建门并确认它真的会拦，再设那个变量。** 反过来的后果写在下面第 5 条里。
+
+1. **建环境**。Repository → Settings → 左侧 **Environments** → **New environment**。
+   名字必须逐字写作 `cws-release`（工作流里 `environment.name` 引用的是它）。GitHub 的环境名
+   「may not exceed 255 characters and must be unique within the repository」，且**不区分大小写**——
+   写成 `CWS-Release` 会被当成同一个名字，但工作流里的引用不是同一个键，别赌。
+
+2. **加 Required reviewers**。在环境的配置页勾上 **Required reviewers**，
+   「Enter up to 6 people or teams」——填谁都行，但**至少要有一个不是「将来唯一会来点批准的那个人」的
+   替代品**：这条链路的意义是「另一双眼睛」。勾 **Prevent self-review** 可以禁止触发者自己批准
+   （个人仓库里只有你一个人时**别勾**，见 FAQ Q8）。保存前再看一眼
+   **Allow administrators to bypass configured protection rules**：勾着的话，管理员身份可以直接跳过这道门。
+   「Deselect Allow administrators to bypass configured protection rules」是文档里明确的关闭方式。
+
+3. **Deployment branch 这一项留空或写 `main`**（写模式时要「Enter the name pattern for the branch or tag
+   that you want to allow」，且分支与 tag 的模式**要分别配**）。本工作流的发布作业 checkout 的是标签
+   `needs.release.outputs.tag`，不是分支——如果你在这里加了分支限制，先确认标签触发仍然过得了这道规则，
+   否则门会变成「谁都进不去」。拿不准就留空：这条链路上真正的拦点是 Required reviewers。
+
+4. **保存**（Configure environment → Save protection rules）。
+
+5. **验证这道门真的存在，然后才开变量**。GitHub 的文档写明：
+   「Running a workflow that references an environment that does not exist will create an environment
+   with the referenced name」，而除 Pages 隐式构建那种情况外
+   「the newly created environment will not have any protection rules or secrets configured」——
+   **一个自动创建出来的环境是没有门的**，每次打标签都会直接提审。所以别只信自己点过保存：
+
+   ```bash
+   curl -sS -H "Authorization: Bearer $GH_PAT" -H "Accept: application/vnd.github+json" \
+     https://api.github.com/repos/<owner>/<repo>/environments/cws-release > /tmp/env.json
+   node -e "const e=require('/tmp/env.json');console.log(JSON.stringify((e.protection_rules||[]).map(r=>r.type)))"
+   ```
+
+   `protection_rules` 必须**非空**，并且能在里面找到 required reviewers 那一条（GitHub 的示例响应里它的
+   `type` 写作 `required_reviewers`，`reviewers` 列出被指定的人）。返回 `[]` 或者压根没有这个键，就是
+   「环境存在但没有门」——回到第 2 步。字段名以你实际看到的返回体为准，这条判断只要求**非空且能看到评审人**。
+
+6. **开变量**。Repository → Settings → Secrets and variables → Actions → **Variables** →
+   **Repository variables** → New：
+
+   ```bash
+   CWS_AUTO_SUBMIT = true      # 唯一取值就是 true；不设或设成别的值 = 不提审（fail-closed）
+   ```
+
+   它是第二道保险而不是门本身：门是 environment 的 Required reviewers，变量只是「我已经把门配好了」这个
+   **公开声明**（所以它是 variable 而不是 secret——它不是机密值）。它参与作业级 `if`，是因为
+   `jobs.<job_id>.if` 里能用 `vars` 而**不能用 `secrets`**（文档在那一页列的可用上下文是
+   github / needs / vars / inputs）。
+
+7. **最后一次真跑验证**：打一个测试标签或手动触发一次（勾 `submit_for_review`、`dry_run` 不勾）。
+   预期形状是：`release` 作业全绿并上传成功 → `Submit for review (after approval)` 显示
+   **Waiting**，等你点 Approve → 点了之后不到两分钟结束。
+   如果你**没有**看到 Waiting 而是它直接跑完了，说明第 5 步查出来的那个「没有保护规则的环境」就是它——
+   立刻回去补，并把 `CWS_AUTO_SUBMIT` 先删掉。
 
 ---
 
@@ -274,7 +454,8 @@ A: 按顺序看，四种失败各有各的现场：
 3. 步骤日志写着「私钥读不出来」→ 粘的不是那三种形状之一，常见于手工把转义还原成真换行还原坏了
 4. **令牌换得到、商店调用却 401/403** → 服务账号邮箱没加进开发者信息中心的「账号」页。
    这一条在「校验服务账号凭据」那一步是查不出来的：那一步只做本地能做的两件事（密钥读得出、令牌换得到），
-   邮箱是不是成员只有商店调用才知道
+   邮箱是不是成员只有商店调用才知道。**403 还有第二种成因**——`CWS_PUBLISHER_ID` 填成了另一个长得也像的
+   编号，两种成因与判法见 Q14；这一问最省事的验法是第 0 档（只读、零写入），不必等到一次真上传
 
 老文档里「token 过期」那一问已经不存在了：服务账号每次现签现用，没有需要续期的长期令牌。
 
@@ -296,19 +477,163 @@ A: 参考 `CHROMEWEBSTORE.md` 中的"拒审记录与政策口径"章节，常见
 
 ### Q4: 如何测试发布流程？
 
-A: 使用 dry run 模式：
+A: 先跑**第 0 档**把凭据链验通（`store_status_only`，不构建、不写商店、不要批准，3.3 第 6 条），下面两段
+才有意义。然后两段分开测。**上传之前那段**用 dry run，它不碰商店：
 
-```yaml
-# 手动触发 workflow_dispatch
-dry_run: true # 只验证，不实际发布
+```bash
+gh workflow run release.yml -f tag=v1.2.0 -f dry_run=true     # 页面上等价：勾上 dry_run
 ```
+
+**门与提审这两步**不能靠 dry run 测（dry run 下 `uploaded` 是空的，提审作业压根不排队）。可靠的测法是
+「让它排队、但不批准」：勾 `submit_for_review`、不勾 `dry_run` 跑一次，看它是否停在 **Waiting**。
+停在 Waiting = 门在；直接跑完 = 门不在，按 3.4 第 5 步查那个 environment。
+
+真要把一次发布**取消**掉：不批准即可，30 天后那次等待自己过期（Q9）；或者在运行页 Cancel workflow，
+已上传的草稿 revision 不会出现在商店页面上——它没被提交审核。
 
 ### Q5: 包上传成功了，商店那边怎么没开始审核？
 
-A: 这是默认行为，不是故障。`release.yml` 默认只把包传上去，提审要人显式发起。首选到开发者后台的
-Package 页点 **"提交审核"**，它只发请求、不再动包；也可以用 `workflow_dispatch` 再跑一次 Release
-工作流（填同一个 tag、取消勾选 `dry_run`、勾上 `submit_for_review`），差别是这一次会把同一个包重新
-传一遍——若条目已能读到那个版本号，版本预检会先把这次运行拦下。两条路的区别与前提见 3.3 第 3 条。
+A: 先确认这是不是你要的形状。上传作业**从不调用 `:publish`**，提审是另一个作业的事，而它排队要四个条件
+同时成立（少一个就连排队都不排）：
+
+| 条件                                                 | 在哪查                                                  |
+| ---------------------------------------------------- | ------------------------------------------------------- |
+| 上一作业真的传成功了（`uploaded == 'true'`）         | `release` 作业那步的日志末尾；失败原因写在响应体里      |
+| 四项 secrets 齐备（`store_ready == 'true'`）         | 「Detect Chrome Web Store credentials」那一步的 summary |
+| 仓库变量 `CWS_AUTO_SUBMIT == 'true'`                 | Settings → Secrets and variables → Actions → Variables  |
+| 手动触发时勾了 `submit_for_review`（标签触发不看它） | 那次运行的 Run workflow 表单                            |
+
+四个都对而作业显示 **Waiting** 而不是 skipped —— 那不是没开始审核，那就是门。叫它的 reviewers 里任何
+一个人点 Approve。三个入口（门 / 后台按钮 / 手动触发）的区别见 3.3 第 4 条的表。
+
+### Q6: `Submit for review (after approval)` 显示 skipped，一点日志都没有
+
+A: 作业级 `if` 为假，所以它连一行脚本都没执行——上面那张表按顺序查。最常见的两个是：变量没设（**fail-closed
+是刻意的**：没确认过门存在就不该自动提审），以及手动触发时忘了勾复选框。
+
+如果 `release` 作业里商店那两步本来就是灰的（"已跳过 Chrome 应用商店"），那是 secrets 不齐，先回 3.2。
+
+### Q7: 我在哪里批准？批准了却没动静？
+
+A: Actions → 那次运行 → 页面顶部 `cws-release` 那一行旁边有 **Review deployments**，点开卡片里的
+**Approve and deploy**。要点：
+
+- **只有 `required_reviewers` 名单里的人（以及被允许绕过的管理员）看得到这个按钮**。别人只能看到 "Waiting"。
+- 名单里**任一人**批准即放行（文档原话："Only one of the required reviewers needs to approve the job
+  for it to proceed"），不需要 6 个人都点。
+- 批准的是**作业的开始**，不是发布结果。批完了它才去 `:fetchStatus`、再决定按不按发布键（3.3 第 3 条）。
+- 没看到卡片：确认这个 environment 真的挂在作业上（`environment.name: cws-release` 拼写一致），
+  以及这个环境**不是**被首次运行自动创建出来的那个空壳（3.4 第 5 步）。
+
+### Q8: 仓库只有我一个人，勾了 Prevent self-review 之后没人能批准了
+
+A: 这是这道门在个人仓库上的真实张力：门要的是「另一双眼睛」，而你可能确实只有这一双。三个选项，按诚实程度排：
+
+1. **加一个真实的第二人**（协作者、家人账号、你自己的另一个账号），让门名副其实。
+2. **不勾 Prevent self-review**，接受「自己批准自己」——这时门仍然拦住了**自动化**（标签推上去不会自己发出去，
+   必须有人来点），只是拦不住那个「人」是你自己。
+3. 别为了让流程看起来有门而留一个谁都批不了的名单：那样每次发布都会卡在 Waiting，最后你会养成
+   「绕过它」的习惯，那比没有门更糟。
+
+无论选哪种，`CWS_AUTO_SUBMIT` 的语义都不变：它只是「门已配好」的声明，不是「跳过门」。
+
+### Q9: 批准等了很久会不会超时？
+
+A: 两个不同的钟，别混：
+
+- **等待批准**：「A workflow may wait for up to 30 days on environment approvals」。所以周五推的标签，
+  周一早上批也还来得及；超过 30 天没人管，那次等待自己过期。
+- **批准之后执行作业**：GitHub 托管 runner 的单个作业上限是 6 hours（5 天那一档是自托管 runner 的）。
+  这一步实际只用不到两分钟。
+
+工作流里**刻意没写** `jobs.store_submit.timeout-minutes`：文档没有明确说那个钟在等待审批期间走不走，
+而一旦它从排队时起算，一个 10 分钟的设置就会变成「批准得慢一点的发布自己超时」——这种失败既看不出
+所以然，又正好落在最不该失败的地方。
+
+### Q10: 私有仓库 / Free 计划能用这道门吗？
+
+A: 文档写明「Users with GitHub Free plans can only configure environments for public repositories」，
+私有仓库要 Pro / Team。本仓库是 public，所以门可用。如果你在**私有仓库 + Free** 上照抄这套配置：
+`environment:` 引用一个建不出来的环境，行为会退化成「自动创建的空壳环境」（没有保护规则），
+也就是**每次打标签直接提审**——这正是 `CWS_AUTO_SUBMIT` 那道变量保险要拦的情形。
+那种账号条件下的正确做法是：不设变量，提审走开发者后台的 Package 页按钮。
+
+同一篇文档还提醒：把一个 Free 计划下的公开仓库改成私有，已有的保护措施会被忽略并锁住配置入口，
+直到改回来为止。仓库可见性不是免费参数，别在配好门之后随手翻。
+
+### Q11: 批准之后那一步失败了（或被拒），要不要重传包？
+
+A: 不用重传。`:publish` 发布的就是**已经上传的那个 revision**，所以修复了原因之后再跑一次提审作业即可。
+而重跑前它自己会先问 `:fetchStatus`：
+
+- 如果商店那边这一版**已经在审核队列里**（例如你中途自己去后台点过按钮），`submit-check` 返回 10，
+  作业**跳过且算绿**——不会出现队列里同时躺两份同一个包。
+- 如果包还在解包（`lastAsyncUploadState: IN_PROGRESS`）或解包失败，返回 20，作业变红并写明原因，
+  **不会**去按发布键。
+- 如果队列里躺着的是**别的**版本号，同样返回 20——不把别人的 revision 当成这次的发布。
+
+真正需要重传包的只有一种情况：你改了 `package.json` 版本号并推了新标签。
+
+### Q12: `skipReview` 是什么？为什么不接上它？
+
+A: v2 的 `PublishItemRequest` 里除了 `publishType` 还有三个字段：`skipReview`、`blockOnWarnings`、
+`deployInfos`。
+
+- `skipReview` 的字面意思是「不提审直接发布」。**这条链路不接它**：审核不是可以由调用方宣布免除的环节，
+  接上它等于给发布脚本加了一个「绕过商店检查」的开关，而这条链路的整条理由恰恰是「商店的检查之前先有
+  一道人的检查」。
+- `blockOnWarnings` 是「有告警就当失败」的开关，**也刻意不开**：告警按文档是非阻断的，拦下来只会让人
+  必须去后台看一眼才能重试。取而代之的是 `publish-state` 把告警**打印出来**（回执里写「N 条非阻断告警
+  （reason：description / …）」），让人决定。
+- `deployInfos` 配的是 `STAGED_PUBLISH` 的分批放量。这里发的是 `DEFAULT_PUBLISH`，用不到它；
+  要改成灰度发布是**一次有意的产品决定**，不该是某次 CI 改动顺手带来的。
+
+### Q13: 想在本地先把凭据验通，结果 `fetch failed` 或者干等十几秒超时
+
+A: 那是**网络层没出去**，不构成任何凭据结论。`scripts/cws-token.mjs` 用 `fetch` 打
+`https://oauth2.googleapis.com/token`，而 **Node 22 及更早不读 `HTTPS_PROXY`**（认环境代理是 Node 24 的
+`NODE_USE_ENV_PROXY`），所以本机常开的系统代理在这条链路上完全不参与。兄弟仓库 account-password-helper
+在 2026-10-11 量过同一个形状：直连商店域名 19.9 秒超时（`http=000`），只有显式走代理才出得来。
+于是这类机器上：
+
+- 「本地红」**推不出**「凭据错」——它报的是 `fetch failed` / 超时，而不是商店给的状态码
+- 判绿改走 CI 的第 0 档（3.3 的 `store_status_only`）：不构建、不写商店、不要批准，runner 侧没有这层代理问题
+- 本地仍然可做的两件事都不联网：3.2 那条剪贴板自检（只报行数与判据、不回显密钥），以及
+  `pnpm verify:release-ci`（拿夹具打四条商店响应判定，全程零网络）
+- 别把私钥 `export` 进 `~/.zshrc` 之类的启动文件来「省得再贴」；只在当前 shell 里导，
+  要看它长什么样用 3.2 那条自检，`echo "$CWS_SERVICE_ACCOUNT_PRIVATE_KEY"` 会把整段 PEM 打进回滚缓冲
+
+### Q14: 令牌换得到，`:fetchStatus` 却回 `403 PERMISSION_DENIED`
+
+A: Google 那句 `Permission denied on resource 'publishers/{id}/items/{extId}' (or it might not exist)`
+**同时涵盖两种成因**，别默认它是「邮箱没加」那一种：
+
+1. **服务账号邮箱没加进开发者信息中心的「账号」页**（3.1 第 5 步）。这一条连只读查询都会被拒，
+   不必等到写接口——正是第 0 档能把它单独暴露出来的原因。
+2. **那两段拼出来的资源不归当前发布商**：`CWS_PUBLISHER_ID` 填成了服务账号详情页那个 21 位「唯一 ID」、
+   或 Cloud 项目的 project number，又或者商品 ID 抄错。三段候选怎么分见 3.1 第 6 步那张表。
+
+判法不是「先把旧值比对出来」——Secret 只写不可读，日志里那行 `publishers/***/items/***` 是 GitHub 的掩码，
+只要非空且合法形就长这样，而形状检查对这段只禁 `/`，**值错照样一路绿到 Google**。所以处置是
+**拿 Dashboard 地址栏第一段直接覆盖一次 Secret**（覆盖即收敛），然后用第 0 档判绿，别拿第 3 档试。
+
+两种 403 都是**零写入**：它落在 `:fetchStatus` 那一跳，包没上传、也没生成新 revision，所以补好之后
+重跑那一次运行就行，不会撞版本预检（预检比对的是线上版本号，它没变过）。
+
+### Q15: 手动触发填了一个 tag，第一步就 `Cannot find module '…/scripts/cws-token.mjs'`
+
+A: `release` 与 `store_submit` 都按那个 tag 检出（`ref: ${{ github.event.inputs.tag }}`），
+而 `cws-token.mjs` / `release-ci.mjs` 是这一轮改动才合进来的文件——**比它们更早的 tag 的树上根本没有这两个
+脚本**（同理：这一轮还没合进 `main` 之前，`main` 上打的 tag 用的是旧的 v1.1 链路）。这不是凭据问题：
+它红在检出之后的第一个脚本，还没走到任何联网的那一步。坐实只需要一条只读命令：
+
+```bash
+git fetch --tags origin
+git ls-tree <那个tag> scripts/cws-token.mjs     # 输出为空 = 那个 tag 上没有它
+```
+
+结论：第 1 / 2 / 3 档只对**含有这些脚本的那个 ref 打出的 tag**有意义；只想验凭据链就用第 0 档，
+它固定检出本次触发所在的 ref，不受这条限制（3.3 第 6 条）。
 
 ---
 
@@ -328,13 +653,23 @@ Package 页点 **"提交审核"**，它只发请求、不再动包；也可以�
 发布前请确保：
 
 - [ ] GitHub Secrets 配置齐全（发布商级 3 个 + 本扩展专用 1 个；要让标签自动触发发版，再加 `RELEASE_PAT`）
+- [ ] **那四项都在 Repository secrets 那一档**，不在 environment `cws-release` 的 secrets 里（配错级别不报错，
+      只让商店两步一起静默跳过，3.2 的第 4 条 ⚠️ 与 Q6）
 - [ ] 服务账号邮箱已加进开发者信息中心的「账号」页（漏了这步，令牌照样换得到，是商店调用才回 401/403）
+- [ ] `CWS_PUBLISHER_ID` 取的是**商品编辑页地址栏的第一段**（36 位 UUID 形），不是服务账号详情页那个 21 位
+      「唯一 ID」（3.1 第 6 步那张三段候选表；填错只在商店那跳露出来，见 Q14）
 - [ ] GCP 项目已启用 Chrome Web Store API
 - [ ] 扩展 ID 格式正确（32 位 a-p 字母，`CHROME_EXTENSION_ID_TAF`）
+- [ ] **先跑一次第 0 档**（`store_status_only`，只读、零写入、不要批准）确认凭据链是通的，再考虑第 2 / 3 档
 - [ ] 所有验证通过（`pnpm lint:all && pnpm verify:meta && pnpm verify:listing && pnpm build && pnpm verify:offline`）
 - [ ] 商店文案与 `_locales` 文件一致
 - [ ] 隐私政策 URL 可达
 - [ ] 版本号高于线上版本
+- [ ] **（要走自动提审才需要）** environment `cws-release` 已建好，且 `protection_rules` 里能看到
+      Required reviewers 那一条——不是首次运行自动创建的空壳（3.4 第 5 步的那条 curl 命令）
+- [ ] **（同上）** 仓库变量 `CWS_AUTO_SUBMIT=true` 已设，且设之前刚验证过上一格
+- [ ] **（同上）** 名单里至少有一个**不是本次触发者**的批准人；个人仓库只有一个人时，确认自己选的是
+      Q8 里的哪一种，而不是「勾了 Prevent self-review 然后没人能批」
 
 ---
 
