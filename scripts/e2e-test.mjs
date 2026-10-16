@@ -30,14 +30,72 @@ const failures = [];
 function shot(name) {
   return path.join(SCREENSHOT_DIR, name);
 }
+
+/**
+ * Stop a *diagnostic* screenshot from failing the section that took it.
+ *
+ * Every call site in this suite writes a file for a human to look at and discards the return value —
+ * none of them is an assertion. They are also the slowest thing in a run: a full-page capture has to
+ * rasterize the whole document, and on 2026-10-17, with the editor holding the machine at load
+ * average 11, the renderer sat past the 30 s default *after* printing "fonts loaded". Three of those
+ * in one run, each thrown from inside a `try`, meant three sections that stopped before their own
+ * cleanup — the popover left open, the locale left English, the staged file left staged — which is
+ * how one stall became the twenty-five colour samples and four History failures after it.
+ *
+ * Only a capture with a `path` is swallowed. One that returns bytes is a measurement, and a
+ * measurement that quietly returned nothing is worse than the red it would replace.
+ */
+function tolerateScreenshotTimeout(target) {
+  const capture = target.screenshot.bind(target);
+  target.screenshot = options => {
+    if (!options || !options.path) return capture(options);
+    return capture({ timeout: 20000, ...options }).catch(error => {
+      console.log(`  ! screenshot skipped: ${path.basename(options.path)} (${String(error.message).split('\n')[0]})`);
+    });
+  };
+}
 function ok(name) {
   passed++;
   console.log(`  ✓ ${name}`);
 }
+
+/**
+ * The two things a failure needs to be actionable, neither of which this suite used to leave behind:
+ * which section it happened in (the assertion name alone repeats across the light and dark passes of
+ * six themes), and what the page looked like at that instant.
+ *
+ * `evidencePage` is the main workbench tab, assigned once it exists — before then there is nothing to
+ * photograph. Sections that open their own tab (`cardPage`, `folderPage`, …) deliberately do not
+ * redirect it: their failures are about the shared page state they were launched from.
+ *
+ * The screenshot is not awaited. Playwright sends commands over one connection and the browser
+ * processes them in send order, so a capture issued here is taken *before* the next section's first
+ * click reaches the page — the picture is of the failing moment, not of wherever the run got to. A
+ * floating promise also cannot add a second failure to a run that already has one, hence the catch.
+ */
+let evidencePage = null;
+let currentSectionName = 'startup';
+let evidenceIdx = 0;
+
 function fail(name, err) {
   failed++;
-  failures.push({ name, error: err });
+  failures.push({ name, error: err, section: currentSectionName });
   console.log(`  ✗ ${name}: ${err}`);
+  if (!evidencePage) return;
+  const file = shot(`${String(evidenceIdx++).padStart(2, '0')}-FAIL-${slug(name)}.png`);
+  evidencePage
+    .screenshot({ path: file, fullPage: true })
+    .then(() => console.log(`    ↳ ${path.basename(file)}`))
+    .catch(() => {
+      /* the tab is gone or the paint failed; the console line above is still the evidence */
+    });
+}
+/** A failure name like `[rose dark] topbar contrast` is not a legal filename on its own. */
+function slug(name) {
+  return name
+    .replace(/[^a-z0-9]+/gi, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 60);
 }
 /**
  * Scenario filter. `E2E_ONLY` is a comma-separated list of case-insensitive substrings; when set,
@@ -52,6 +110,7 @@ const ONLY = (process.env.E2E_ONLY || '')
 let skippedSections = 0;
 
 function section(name) {
+  currentSectionName = name;
   if (ONLY.length > 0 && !ONLY.some(needle => name.toLowerCase().includes(needle))) {
     skippedSections++;
     console.log(`\n▸ ${name}  (skipped by E2E_ONLY)`);
@@ -151,6 +210,40 @@ async function sampleWithoutMotion(page, read) {
   } finally {
     await page.emulateMedia({ reducedMotion: null });
   }
+}
+
+/**
+ * Collapse motion around a *state change*, not only around the read that follows it.
+ *
+ * `sampleWithoutMotion` cannot fix a theme switch on its own: an interpolation that has already
+ * started under normal motion keeps its own timeline, and `prefers-reduced-motion` does not
+ * retroactively collapse it. On a starved main thread the frames that would advance it never
+ * arrive, so the read stays parked on the previous theme's ink while the root's custom properties —
+ * recalculated synchronously — are already the new theme's. That is the pairing a 2026-10-17 run
+ * printed as `[green light] .file-list-header: 2.13:1 — rgb(166,173,200) on rgb(240,253,244)`: dark
+ * ink, light backdrop, in the same sample. The switch has to happen inside the window.
+ *
+ * Nesting is harmless (`emulateMedia` is a set, not a stack), so the samplers below keep wrapping
+ * their own reads.
+ */
+async function changeWithoutMotion(page, change) {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  try {
+    return await change();
+  } finally {
+    await page.emulateMedia({ reducedMotion: null });
+  }
+}
+
+/** Drive `dataset` straight from the page, the way `useTheme` ends up doing it. */
+function applyTheme(page, mode, theme) {
+  return page.evaluate(
+    ([m, t]) => {
+      document.documentElement.dataset.mode = m;
+      document.documentElement.dataset.theme = t;
+    },
+    [mode, theme],
+  );
 }
 
 /** The two colours that carry the Option-A contrast contract, read from the page: the
@@ -351,28 +444,43 @@ function mockChromeStorage(seed = {}) {
  * that position is what keeps the budgets written next to them real.
  */
 async function convertFile(page, fixture, targetText, timeout = 30000) {
-  const fi = await page.$('input[type="file"]');
-  if (!fi) throw new Error('file input not found');
+  // `page.$()` answers "is it there this instant", and the lookups below sit right after a reset that
+  // unmounts and remounts the workbench — long enough for a frame to be missed and for the section to
+  // die on `file input not found` with nothing wrong but scheduling. Waiting is what makes the message
+  // mean what it says: absent for the whole budget. The file input is `attached` rather than `visible`
+  // because it is the visually-hidden half of the styled drop zone (measured 2026-10-17: `page.$()`
+  // returns it, `waitForSelector()` at its default state times out on 2 matches, none of them visible).
+  const fi = await page.waitForSelector('input[type="file"]', { state: 'attached', timeout: 10000 });
   const entries = Array.isArray(fixture) ? fixture : [fixture];
   const label = entries.map(entry => (typeof entry === 'string' ? entry : entry.name)).join(', ');
   await fi.setInputFiles(entries.map(entry => (typeof entry === 'string' ? path.join(FIXTURE_PATH, entry) : entry)));
-  await page.waitForTimeout(1000);
+
+  // Detection writes the row; the row is what says the detection happened. Sleeping 1 000 ms instead
+  // of waiting made this the step that decided whether the *next* line could find its target, so a
+  // contended machine turned a working converter into `format not detected`.
+  await page.waitForSelector('.file-item .el-tag--primary', { timeout: 10000 });
 
   const formatTag = await page.$eval('.file-item .el-tag--primary', el => el.textContent).catch(() => null);
   if (!formatTag) throw new Error(`format not detected for ${label}`);
 
-  const sel = await page.$('.action-row .el-select');
-  if (!sel) throw new Error('format select not found');
+  const sel = await page.waitForSelector('.action-row .el-select', { timeout: 10000 });
   await sel.click();
-  await page.waitForTimeout(500);
+  await page.waitForSelector('.el-select-dropdown__item:visible', { timeout: 10000 });
 
-  const opt = await page.locator('.el-select-dropdown__item:visible').filter({ hasText: targetText }).first();
-  if (!(await opt.isVisible())) throw new Error(`${targetText} option not available`);
+  // Same reason as the two waits above, and this is the one that used to lie: a fixed 500 ms for the
+  // dropdown to paint, then `isVisible()`. On 2026-10-17, at load average 11, it reported
+  // `PDF (.pdf) option not available` for a route the registry still had — a red that points at a
+  // converter rather than at the clock is the expensive kind.
+  const opt = page.locator('.el-select-dropdown__item:visible').filter({ hasText: targetText }).first();
+  const offered = await opt
+    .waitFor({ state: 'visible', timeout: 5000 })
+    .then(() => true)
+    .catch(() => false);
+  if (!offered) throw new Error(`${targetText} option not available`);
   await opt.click();
   await page.waitForTimeout(300);
 
-  const cb = await page.$('.convert-btn');
-  if (!cb) throw new Error('convert button not found');
+  const cb = await page.waitForSelector('.convert-btn', { timeout: 10000 });
   await cb.click();
 
   await page.waitForFunction(
@@ -391,19 +499,26 @@ async function convertFile(page, fixture, targetText, timeout = 30000) {
   return { alertTitle, resultName, resultSize, formatDetected: formatTag };
 }
 
-/** Reset the workbench for a new conversion */
+/** Reset the workbench for a new conversion.
+ *  Tolerates being called on an already-empty workbench — `.reset-btn` is a results-area button, and
+ *  sections use this as "make sure nothing is left over" rather than as a step that must happen. When
+ *  it does click, the wait is until the source list is actually gone, not a fixed budget: a reset that
+ *  has not settled is how the next section's `file input not found` appears two sections late. */
 async function resetWorkbench(page) {
   const resetBtn = await page.$('.reset-btn');
   if (resetBtn) {
     await resetBtn.click();
-    await page.waitForTimeout(500);
+    await page
+      .waitForFunction(() => document.querySelectorAll('.file-item').length === 0, undefined, {
+        timeout: 10000,
+      })
+      .catch(() => {});
   }
 }
 
 /** Choose a conversion target from the workbench's format dropdown. */
 async function pickTarget(page, text) {
-  const sel = await page.$('.action-row .el-select');
-  if (!sel) throw new Error('format select not found');
+  const sel = await page.waitForSelector('.action-row .el-select', { timeout: 10000 });
   await sel.click();
   await page.waitForTimeout(400);
   await page.locator('.el-select-dropdown__item:visible').filter({ hasText: text }).first().click();
@@ -706,6 +821,8 @@ async function run() {
     args: ['--no-first-run', '--no-default-browser-check', '--no-sandbox'],
   });
   const page = await browser.newPage();
+  tolerateScreenshotTimeout(page);
+  evidencePage = page;
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.addInitScript(mockChromeStorage());
 
@@ -1380,6 +1497,63 @@ async function run() {
       }
     } catch (e) {
       fail('Layout Settle Completeness', e.message);
+    }
+  }
+
+  // ═══════════════════════════════════════════
+  //  FULL-PAGE CAPTURE HEIGHT CEILING
+  // ═══════════════════════════════════════════
+
+  if (section('Full-Page Height Ceiling')) {
+    try {
+      // Both bounds come off the constants that define them, read from source the way the settle table
+      // above does: a copied number here would follow a change to the ceiling quietly, and the whole point
+      // of the ceiling is that it sits under a platform limit that reports success while drawing nothing.
+      const rasterSource = fs.readFileSync(path.resolve(__dirname, '../utils/core/html-raster.ts'), 'utf8');
+      const outputSource = fs.readFileSync(path.resolve(__dirname, '../utils/core/output-options.ts'), 'utf8');
+      const edge = Number((/export const MAX_CANVAS_EDGE = (\d+);/.exec(outputSource) ?? [])[1]);
+      const times = Number((/const MAX_CAPTURE_HEIGHT = MAX_CANVAS_EDGE \* (\d+);/.exec(rasterSource) ?? [])[1]);
+      if (!edge || !times) throw new Error(`ceiling unreadable from source (MAX_CANVAS_EDGE=${edge}, ×${times})`);
+      const ceiling = edge * times;
+
+      const wrap = height =>
+        `<!doctype html><html><head><meta charset="utf-8"><style>body{margin:0}</style></head>` +
+        `<body><div style="height:${height}px"></div></body></html>`;
+      const capturePage = async (height, timeout) => {
+        await resetWorkbench(page);
+        return convertFile(
+          page,
+          { name: 'tall.html', mimeType: 'text/html', buffer: Buffer.from(wrap(height)) },
+          'PNG (.png)',
+          timeout,
+        );
+      };
+
+      // Above it the run must *say so*. Measured 2026-10-17 on this machine's Chromium: an 800×40 000
+      // canvas allocates and reports no error, then `fillRect` leaves it transparent — so without the
+      // guard the workbench would hand back a PNG of white space and the batch line would read `done`.
+      // The check sits before the allocation, so refusing costs a layout and no canvas.
+      const over = await capturePage(Math.round(ceiling * 1.2), 60000);
+      const overReason = (
+        await page.$eval('.failure-item .failure-reason', el => el.textContent).catch(() => '')
+      ).trim();
+      if (!over.alertTitle.includes('完成') && overReason.includes('超出了浏览器单次渲染的上限')) {
+        ok(`A ${Math.round(ceiling * 1.2)} CSS px page is refused with the length diagnostic, not blanked`);
+      } else {
+        fail('Over-ceiling page', `alert="${over.alertTitle}" reason="${overReason}"`);
+      }
+
+      // Six tenths of the ceiling is still a document no fixture in this repository approaches, and it has
+      // to come out as a picture — a guard that quietly became a cap on long documents would be the worse
+      // regression of the two. The PDF route shares this one call, so the refusal above covers it too.
+      const under = await capturePage(Math.round(ceiling * 0.6), 120000);
+      if (under.alertTitle.includes('完成') && under.resultName.endsWith('.png')) {
+        ok(`A ${Math.round(ceiling * 0.6)} CSS px page below the ceiling still converts (${under.resultSize})`);
+      } else {
+        fail('Under-ceiling page', `alert="${under.alertTitle}" name="${under.resultName}"`);
+      }
+    } catch (e) {
+      fail('Full-Page Height Ceiling', e.message);
     }
   }
 
@@ -2092,6 +2266,156 @@ async function run() {
   }
 
   // ═══════════════════════════════════════════
+  //  TEXT ENCODING — UTF-16 in, unreadable bytes refused
+  // ═══════════════════════════════════════════
+
+  if (section('Text Encoding Gate')) {
+    try {
+      // One CSV, written four ways. In memory rather than in `fixtures/` on purpose: the claim is about
+      // the *bytes*, and a fixture is a file some later editor may quietly re-save as UTF-8 — which would
+      // leave four green assertions testing one encoding. CSV→HTML is the route because it writes the
+      // decoded text straight into the artifact, so the assertion reads the values rather than a copy
+      // this suite had to re-encode to compare against.
+      const csv = 'name,city\nAlice,上海\n';
+      const le = Buffer.from(csv, 'utf16le');
+      const latin1 = value => Buffer.from(value, 'utf8').toString('latin1');
+      const shapes = [
+        ['UTF-16LE with BOM (Excel「Unicode 文本」)', Buffer.concat([Buffer.from([0xff, 0xfe]), le])],
+        ['UTF-16LE without BOM', le],
+        ['UTF-16BE with BOM', Buffer.concat([Buffer.from([0xfe, 0xff]), Buffer.from(le).swap16()])],
+        ['UTF-8 with BOM', Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from(csv, 'utf8')])],
+      ];
+      const broken = [];
+      for (const [name, buffer] of shapes) {
+        await resetWorkbench(page);
+        const run = await convertFile(page, { name: 'encoded.csv', mimeType: 'text/csv', buffer }, 'HTML (.html)');
+        if (!run.alertTitle.includes('完成')) {
+          broken.push(`${name}: conversion reported ${run.alertTitle}`);
+          continue;
+        }
+        const html = await downloadBatchArtifact(page);
+        // Every marker is a value the file itself carries. `Alice` is the one that used to fail quietly:
+        // UTF-16LE's NUL padding is valid UTF-8, so the bare shape sailed through the chain, the batch
+        // reported success, and the field arrived as `A\0l\0i\0c\0e\0` — hence the absence checks rather
+        // than a byte-for-byte diff. The BOM check is the same failure seen from the other side: a
+        // U+FEFF that reaches a cell would be a value that is not quite the value.
+        const problems = [];
+        if (!html.includes('Alice')) problems.push('the Latin value did not survive');
+        if (!html.includes(latin1('上海'))) problems.push('the CJK value did not survive');
+        if (html.includes('\x00')) problems.push('the artifact carries NULs');
+        if (html.includes(latin1('\ufeff'))) problems.push('a BOM leaked into the text');
+        if (problems.length) broken.push(`${name}: ${problems.join(', ')}`);
+      }
+      if (broken.length === 0) {
+        ok('CSV written as UTF-16LE with and without BOM, UTF-16BE and UTF-8 reaches HTML with its values intact');
+      } else {
+        fail('Text encoding gate', broken.join('; '));
+      }
+
+      /** The diagnostic a refused source prints, or `''` when the run produced no failure row. */
+      const failureReason = () => page.$eval('.failure-item .failure-reason', el => el.textContent).catch(() => '');
+
+      await resetWorkbench(page);
+      const notText = await convertFile(
+        page,
+        {
+          name: 'pretender.csv',
+          mimeType: 'image/gif',
+          buffer: fs.readFileSync(path.join(FIXTURE_PATH, 'sample.gif')),
+        },
+        'HTML (.html)',
+      );
+      // The extension says CSV and the bytes say otherwise. Every compressed fixture this was measured
+      // against (GIF, ZIP, DOCX, XLSX, plus public/icon/128.png) fails all three strict decodes of the
+      // chain, so the read itself is the gate and the user gets a named encoding failure instead of a
+      // converted file nobody can open.
+      if (!notText.alertTitle.includes('完成') && (await failureReason()).includes('CSV 解码失败')) {
+        ok('Binary bytes wearing a .csv name are refused with the encoding diagnostic, not converted');
+      } else {
+        fail('Binary as CSV', `alert="${notText.alertTitle}" reason="${(await failureReason()).trim()}"`);
+      }
+
+      await resetWorkbench(page);
+      const cjkOnlyUtf16 = await convertFile(
+        page,
+        {
+          name: 'no-bom-cjk.csv',
+          mimeType: 'text/csv',
+          buffer: Buffer.from('名称,城市\n爱丽丝,上海\n', 'utf16le'),
+        },
+        'HTML (.html)',
+      );
+      // The one UTF-16 shape the sniff deliberately declines to claim: with every unit carrying two
+      // non-zero bytes there is no parity left to read, so the bytes are indistinguishable from a GBK
+      // file and GB18030 returns 24 characters of which six are control characters (four of them NULs).
+      // Converting that is the silent-success outcome; refusing it is the honest one, and it is what
+      // `countControlChars` exists for. Lowering the sniff threshold to accept this shape instead would
+      // hijack real GBK.
+      if (!cjkOnlyUtf16.alertTitle.includes('完成') && (await failureReason()).includes('CSV 解码失败')) {
+        ok('All-CJK UTF-16 without a BOM is refused rather than converted into NUL-riddled text');
+      } else {
+        fail('Ambiguous UTF-16', `alert="${cjkOnlyUtf16.alertTitle}" reason="${(await failureReason()).trim()}"`);
+      }
+    } catch (e) {
+      fail('Text Encoding Gate', e.message);
+    }
+  }
+
+  // ═══════════════════════════════════════════
+  //  JSON → CSV KEEPS ROWS THAT HAVE NO KEYS
+  // ═══════════════════════════════════════════
+
+  if (section('JSON To CSV Scalar Rows')) {
+    try {
+      const toCsv = async body => {
+        await resetWorkbench(page);
+        const run = await convertFile(
+          page,
+          { name: 'rows.json', mimeType: 'application/json', buffer: Buffer.from(body) },
+          'CSV (.csv)',
+        );
+        if (!run.alertTitle.includes('完成')) throw new Error(`conversion reported ${run.alertTitle}`);
+        return downloadBatchArtifact(page);
+      };
+
+      // A JSON array is free to mix shapes, and an element with no keys has no column to land under. The
+      // header union used to be the whole story: `[{"a":1},2]` wrote a header, dropped the 2, and the
+      // batch line read `done`. 1 000 records arriving as 980 rows is the one outcome this project cannot
+      // ship, so a synthetic `_value` column carries whatever had no keys — and only appears when
+      // something actually needs it, which is what the second assertion pins.
+      const mixed = await toCsv('[{"name":"Alice","score":1},{"name":"Bob","score":2},42,"note"]');
+      const mixedProblems = [];
+      if (!mixed.includes('_value')) mixedProblems.push('no _value column');
+      if (!/,42,?\s*$/m.test(mixed)) mixedProblems.push('the bare 42 is missing');
+      if (!/,note,?\s*$/m.test(mixed)) mixedProblems.push('the bare string is missing');
+      if (!/name,score,_value/.test(mixed)) mixedProblems.push(`header is ${mixed.split('\n')[0]}`);
+      if (mixedProblems.length === 0) ok('Mixed-shape JSON exports every row, with keyless values under _value');
+      else fail('JSON→CSV scalar rows', mixedProblems.join('; '));
+
+      const plain = await toCsv('[{"name":"Alice","score":1},{"name":"Bob","score":2}]');
+      if (!plain.includes('_value') && /Alice,1/.test(plain) && /Bob,2/.test(plain)) {
+        ok('An all-object array writes no _value column — the synthetic one appears only when it is used');
+      } else {
+        fail('JSON→CSV column hygiene', `header=${plain.split('\n')[0]}`);
+      }
+
+      // Headers are the union across records, so a key present in one row is *read* in every row — and
+      // reading `constructor` off an object that never declared it walks the prototype chain and hands
+      // back a function. `Object.hasOwn` is the guard, and `[Function: Object]` in a cell is its absence.
+      const proto = await toCsv('[{"a":1},{"constructor":"x"}]');
+      // `\s*$` on the row ends because SheetJS writes `\r\n` separators by default — a `$` alone would
+      // be testing end-of-string and the whole shape of this assertion would go silently unchecked.
+      if (!proto.includes('Function') && /^1,\s*$/m.test(proto) && /,x\s*$/m.test(proto)) {
+        ok('A key only one record declares yields an empty cell, never a prototype value');
+      } else {
+        fail('JSON→CSV prototype read', `csv=${JSON.stringify(proto.slice(0, 80))}`);
+      }
+    } catch (e) {
+      fail('JSON To CSV Scalar Rows', e.message);
+    }
+  }
+
+  // ═══════════════════════════════════════════
   //  F-7 — XLSX→CSV/JSON emit values, and formulas never survive as formulas
   // ═══════════════════════════════════════════
 
@@ -2577,6 +2901,7 @@ async function run() {
   // file list it leaves behind cannot move a later section.
   if (section('Dropped Folder Imports Its Files')) {
     const folderPage = await browser.newPage();
+    tolerateScreenshotTimeout(folderPage);
     try {
       await folderPage.setViewportSize({ width: 1280, height: 900 });
       await folderPage.addInitScript(mockChromeStorage());
@@ -2756,6 +3081,7 @@ async function run() {
   // batch comes out named. Its own page, because it converts the same fixture several times over.
   if (section('Output File Names Follow The Template')) {
     const namePage = await browser.newPage();
+    tolerateScreenshotTimeout(namePage);
     try {
       await namePage.setViewportSize({ width: 1280, height: 900 });
       await namePage.addInitScript(mockChromeStorage());
@@ -3682,17 +4008,18 @@ async function run() {
 
     // Test each theme
     for (let i = 0; i < items.length; i++) {
-      await items[i].click();
-      await page.waitForTimeout(200);
-      const applied = await page.evaluate(() => document.documentElement.dataset.theme);
-      if (applied === themeValues[i]) ok(`Theme "${themeValues[i]}" applied`);
-      else fail(`Theme "${themeValues[i]}"`, `got "${applied}"`);
-
+      const surface = await changeWithoutMotion(page, async () => {
+        await items[i].click();
+        await page.waitForTimeout(200);
+        const applied = await page.evaluate(() => document.documentElement.dataset.theme);
+        if (applied === themeValues[i]) ok(`Theme "${themeValues[i]}" applied`);
+        else fail(`Theme "${themeValues[i]}"`, `got "${applied}"`);
+        return surfaceColors(page);
+      });
       // Contrast is measured off the rendered page, per theme, so a future palette edit
       // that pushes any of the 12 combos under AA fails here instead of being a manual
       // audit. The topbar carries 4.5:1 body text (brand-tag); the ring needs 3:1 as
       // non-text content (WCAG 1.4.11) against the card it is usually drawn on.
-      const surface = await surfaceColors(page);
       const onTopbar = contrast(surface.brand, surface.topbar);
       const ringOnCard = contrast(surface.ring, surface.card);
       if (onTopbar >= 4.5) ok(`[${themeValues[i]} light] topbar brand ${onTopbar.toFixed(2)}:1`);
@@ -3746,20 +4073,23 @@ async function run() {
       // Test each theme in dark mode
       const themeItems = await page.$$('.theme-item');
       for (let i = 0; i < themeItems.length && i < themeValues.length; i++) {
-        await themeItems[i].click();
-        await page.waitForTimeout(100);
-        const primary = await page.evaluate(() =>
-          getComputedStyle(document.documentElement).getPropertyValue('--fat-primary').trim(),
-        );
-        const elPrimary = await page.evaluate(() =>
-          getComputedStyle(document.documentElement).getPropertyValue('--el-color-primary').trim(),
-        );
+        const { primary, elPrimary, surface } = await changeWithoutMotion(page, async () => {
+          await themeItems[i].click();
+          await page.waitForTimeout(100);
+          const read = await page.evaluate(() => {
+            const cs = getComputedStyle(document.documentElement);
+            return {
+              primary: cs.getPropertyValue('--fat-primary').trim(),
+              elPrimary: cs.getPropertyValue('--el-color-primary').trim(),
+            };
+          });
+          return { ...read, surface: await surfaceColors(page) };
+        });
         if (primary && primary === elPrimary) ok(`Dark+${themeValues[i]}: primary=${primary}, EP synced`);
         else fail(`Dark+${themeValues[i]}`, `primary=${primary}, el=${elPrimary}`);
 
         // Same contract as the light loop. White-on-pastel is exactly what used to fail
         // here (1.69–2.67:1) because the dark primaries are deliberately light tints.
-        const surface = await surfaceColors(page);
         const onTopbar = contrast(surface.brand, surface.topbar);
         const ringOnCard = contrast(surface.ring, surface.card);
         if (onTopbar >= 4.5) ok(`[${themeValues[i]} dark] topbar brand ${onTopbar.toFixed(2)}:1`);
@@ -3800,19 +4130,26 @@ async function run() {
 
     await enButton.click();
     await page.waitForTimeout(500);
-    const langEn = await page.evaluate(() => document.documentElement.lang);
-    if (langEn === 'en') ok('Switching to English moves <html lang> to "en"');
-    else fail('Document language after switch', `lang="${langEn}"`);
-    const titleEn = await page.title();
-    if (titleEn === 'Transfer Any File · Conversion Workbench') ok('Tab title follows the switch to English');
-    else fail('Document title after switch', `"${titleEn}"`);
-    const footerEn = await page.$eval('.footer', el => el.textContent).catch(() => '');
-    if (footerEn.includes('formats supported')) ok('Strings re-render in English without a reload');
-    else fail('English UI', `footer read "${footerEn.trim()}"`);
-    await page.screenshot({ path: shot(`${String(shotIdx++).padStart(2, '0')}-english-ui.png`), fullPage: true });
+    try {
+      const langEn = await page.evaluate(() => document.documentElement.lang);
+      if (langEn === 'en') ok('Switching to English moves <html lang> to "en"');
+      else fail('Document language after switch', `lang="${langEn}"`);
+      const titleEn = await page.title();
+      if (titleEn === 'Transfer Any File · Conversion Workbench') ok('Tab title follows the switch to English');
+      else fail('Document title after switch', `"${titleEn}"`);
+      const footerEn = await page.$eval('.footer', el => el.textContent).catch(() => '');
+      if (footerEn.includes('formats supported')) ok('Strings re-render in English without a reload');
+      else fail('English UI', `footer read "${footerEn.trim()}"`);
+      await page.screenshot({ path: shot(`${String(shotIdx++).padStart(2, '0')}-english-ui.png`), fullPage: true });
+    } finally {
+      // Restoring here rather than after the assertions is the only thing that keeps a starved
+      // screenshot from deciding the language of every section after this one: the later gates
+      // match Chinese strings, so a run that left the UI in English reports "HTML (.html) option
+      // not available" and a history count off by one instead of the one real failure.
+      await zhButton.click();
+      await page.waitForTimeout(500);
+    }
 
-    await zhButton.click();
-    await page.waitForTimeout(500);
     const langZh = await page.evaluate(() => document.documentElement.lang);
     const footerZh = await page.$eval('.footer', el => el.textContent).catch(() => '');
     if (langZh === 'zh-CN' && footerZh.includes('格式')) ok('Switching back restores zh and the Chinese strings');
@@ -3849,14 +4186,11 @@ async function run() {
     const appliedMode = await page.evaluate(() => document.documentElement.dataset.mode ?? '');
     for (const mode of ['light', 'dark']) {
       for (const theme of themeValues) {
-        await page.evaluate(
-          ([m, t]) => {
-            document.documentElement.dataset.mode = m;
-            document.documentElement.dataset.theme = t;
-          },
-          [mode, theme],
-        );
-        const btn = await buttonStateColors(page);
+        const btn = await changeWithoutMotion(page, async () => {
+          await applyTheme(page, mode, theme);
+          await page.waitForTimeout(400);
+          return buttonStateColors(page);
+        });
         const states = {
           rest: contrast(btn.label, btn.rest),
           hover: contrast(btn.label, btn.hover),
@@ -3919,18 +4253,14 @@ async function run() {
       let groupFailed = false;
       for (const mode of ['light', 'dark']) {
         for (const theme of themeValues) {
-          await page.evaluate(
-            ([m, t]) => {
-              document.documentElement.dataset.mode = m;
-              document.documentElement.dataset.theme = t;
-            },
-            [mode, theme],
-          );
-          // Same 180ms reason as `buttonStateColors`: these surfaces transition, so sampling
-          // immediately reads a colour between the old theme's and the new one's — an earlier
-          // draft of this gate "failed" at 1.17:1 on a mid-flight blue-to-dark backdrop.
-          await page.waitForTimeout(400);
-          const { found, missing } = await infoTextSamples(page, INFO_TEXT);
+          const { found, missing } = await changeWithoutMotion(page, async () => {
+            await applyTheme(page, mode, theme);
+            // Same 180ms reason as `buttonStateColors`: these surfaces transition, so sampling
+            // immediately reads a colour between the old theme's and the new one's — an earlier
+            // draft of this gate "failed" at 1.17:1 on a mid-flight blue-to-dark backdrop.
+            await page.waitForTimeout(400);
+            return infoTextSamples(page, INFO_TEXT);
+          });
           if (missing.length) {
             groupFailed = true;
             fail(`[${theme} ${mode}] information text`, `not sampled: ${missing.join(', ')}`);
@@ -3964,6 +4294,91 @@ async function run() {
       await resetWorkbench(page);
     } catch (e) {
       fail('Information text contrast', e.message);
+    }
+  }
+
+  if (section('Alert & Tag Ink Contrast')) {
+    try {
+      // Element Plus paints its light-effect alerts and tags with a semantic colour as the ink on
+      // that same colour's 10% tint, so this is the one text pair the token ladder does not own and
+      // the five selectors above do not reach. Two sweeps because no single batch shows all of it:
+      // an unrecognized file gives the `danger` badge and the `warning` alert the target picker
+      // leaves behind, and a clean conversion gives the `success` alert plus the `primary` format
+      // badge every file row carries. `error` and `info` need a failed or cancelled batch, which
+      // later sections produce; they are not claimed here.
+      const UNRECOGNIZED = ['.file-item .el-tag--danger', '.format-selector .el-alert__title'];
+      const SUCCEEDED = ['.result-download .el-alert__title', '.file-item .el-tag--primary'];
+
+      const appliedTheme = await page.evaluate(() => document.documentElement.dataset.theme ?? '');
+      const appliedMode = await page.evaluate(() => document.documentElement.dataset.mode ?? '');
+
+      /** Sweep the 6 themes × 2 modes for one screen state, after `stage` has put it on screen. */
+      const sweep = async (selectors, label) => {
+        let worst = Number.POSITIVE_INFINITY;
+        let worstLabel = '';
+        let groupFailed = false;
+        for (const mode of ['light', 'dark']) {
+          for (const theme of themeValues) {
+            const { found, missing } = await changeWithoutMotion(page, async () => {
+              await applyTheme(page, mode, theme);
+              // The wait is not the guarantee — `infoTextSamples` samples under reduced motion, and
+              // the theme still has to be applied once before anything can be read.
+              await page.waitForTimeout(400);
+              return infoTextSamples(page, selectors);
+            });
+            if (missing.length) {
+              groupFailed = true;
+              fail(`[${theme} ${mode}] ${label}`, `not sampled: ${missing.join(', ')}`);
+              continue;
+            }
+            for (const s of found) {
+              const ratio = contrast(s.color, s.bg);
+              const name = `[${theme} ${mode}] ${s.sel}`;
+              if (!(ratio >= 4.5)) {
+                groupFailed = true;
+                fail(name, `${ratio.toFixed(2)}:1 — ${s.color} on ${s.bg}`);
+              } else if (ratio < worst) {
+                worst = ratio;
+                worstLabel = `${s.sel} (${theme} ${mode})`;
+              }
+            }
+          }
+        }
+        if (!groupFailed && worstLabel) {
+          ok(`${label} ≥ 4.5:1 in 6 themes × 2 modes (worst ${worst.toFixed(2)}:1, ${worstLabel})`);
+        }
+      };
+
+      await resetWorkbench(page);
+      const fi3 = await page.$('input[type="file"]');
+      if (!fi3) throw new Error('file input not found');
+      await fi3.setInputFiles([
+        { name: 'mystery.bin', mimeType: 'application/octet-stream', buffer: Buffer.from([0, 1, 2, 3]) },
+      ]);
+      // 15s, not 5s: the badge is inside a `<TransitionGroup>`, so it is mounted with
+      // `el-zoom-in-center-enter-from` (opacity 0, scale 0) and only becomes visible on the frame
+      // that ends the transition. A starved renderer can withhold that frame for seconds, and
+      // `waitForSelector` waits for *visible* — 2026-10-17 saw six such tags resolved as hidden.
+      await page.waitForSelector('.file-item .el-tag--danger', { timeout: 15000 });
+      await sweep(UNRECOGNIZED, 'unrecognized-format badge');
+
+      await resetWorkbench(page);
+      await convertFile(page, 'sample.txt', 'HTML');
+      await page.waitForSelector('.result-download .el-alert__title', { timeout: 5000 });
+      await sweep(SUCCEEDED, 'result alert and format badge');
+
+      await page.evaluate(
+        ([m, t]) => {
+          if (m) document.documentElement.dataset.mode = m;
+          else delete document.documentElement.dataset.mode;
+          if (t) document.documentElement.dataset.theme = t;
+          else delete document.documentElement.dataset.theme;
+        },
+        [appliedMode, appliedTheme],
+      );
+      await resetWorkbench(page);
+    } catch (e) {
+      fail('Alert and tag ink contrast', e.message);
     }
   }
 
@@ -4880,7 +5295,7 @@ async function run() {
     console.log('║                                                ║');
     console.log('║  Failures:                                     ║');
     for (const f of failures) {
-      const line = `║    ✗ ${f.name}: ${f.error}`;
+      const line = `║    ✗ [${f.section}] ${f.name}: ${f.error}`;
       console.log(line.padEnd(46) + '║');
     }
   }
