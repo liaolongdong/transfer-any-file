@@ -166,6 +166,9 @@ export default {
     remove: '删除预设 {name}',
     saved: '已保存预设「{name}」',
     removed: '已删除预设「{name}」',
+    // 卡片是先进内存再写盘的，写盘失败时页面看起来和成功一模一样，只有刷新才露出来。
+    saveFailed: '预设「{name}」已加到本页，但未能写入本地存储，刷新后会重新出现',
+    removeFailed: '预设「{name}」已从本页移除，但未能写入本地存储，刷新后会重新出现',
     pending: '已记住预设，上传匹配文件后自动应用',
     unavailable: '当前文件无法转换为该预设的目标格式',
     limit: '预设数量已达上限（{max}）',
@@ -332,6 +335,8 @@ export default {
     imageEncode: '图片编码失败，浏览器不支持该输出格式',
     renderTimeout: '文档渲染超时，请尝试简化该文档（如减少图片或复杂样式）',
     renderFailed: '文档渲染失败，文件内容可能不受浏览器支持',
+    // 长度在这里是量出来的（HTML 排版高），不是文件大小；用户能做的只有把内容拆短，所以这条要给方向而不是数字。
+    renderTooTall: '文档长度超出了浏览器单次渲染的上限，请把它拆成更短的部分分批转换',
     zipFail: 'ZIP 打包失败',
     jsonParse: 'JSON 解析失败，请检查文件格式',
     jsonNotArray: 'JSON 内容必须是对象数组才能转换为 CSV',
