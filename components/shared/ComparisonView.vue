@@ -93,7 +93,17 @@ let lastEmittedBlob: Blob | null = null;
 
 watch(
   () => [props.sourceFile, props.sourceFormat] as const,
-  async ([file, format]) => {
+  async ([file, format], _prev, onCleanup) => {
+    // A DOCX/XLSX preview is a parse, not an assignment: mammoth and SheetJS both run long enough
+    // for the user to switch file, reset the batch or close the comparison while one is in flight.
+    // Without this the stale result lands on top of the new one — the pane keeps showing the
+    // document that is no longer selected, with the header and the format badge already moved on.
+    // Same guard PreviewDialog uses; `onCleanup` also fires when the component is torn down.
+    let cancelled = false;
+    onCleanup(() => {
+      cancelled = true;
+    });
+
     if (sourceImageUrl.value) URL.revokeObjectURL(sourceImageUrl.value);
     if (sourcePdfUrl.value) URL.revokeObjectURL(sourcePdfUrl.value);
     sourceImageUrl.value = '';
@@ -107,19 +117,25 @@ watch(
       sourcePdfUrl.value = URL.createObjectURL(file);
     } else if (format === FileFormat.DOCX) {
       try {
-        sourceDocHtml.value = await docxToPreviewHtml(file);
+        const html = await docxToPreviewHtml(file);
+        if (cancelled) return;
+        sourceDocHtml.value = html;
       } catch {
         /* preview is best-effort */
       }
     } else if (format === FileFormat.XLSX) {
       try {
-        sourceDocHtml.value = await xlsxToPreviewHtml(file);
+        const html = await xlsxToPreviewHtml(file);
+        if (cancelled) return;
+        sourceDocHtml.value = html;
       } catch {
         /* preview is best-effort */
       }
     } else if (TEXT_FORMATS.has(format)) {
       try {
-        sourceText.value = await file.text();
+        const text = await file.text();
+        if (cancelled) return;
+        sourceText.value = text;
       } catch {
         /* ignore */
       }
@@ -130,7 +146,12 @@ watch(
 
 watch(
   () => [props.result, props.targetFormat] as const,
-  async ([result, format]) => {
+  async ([result, format], _prev, onCleanup) => {
+    let cancelled = false;
+    onCleanup(() => {
+      cancelled = true;
+    });
+
     if (!result || !format) {
       resultText.value = '';
       resultDocHtml.value = '';
@@ -150,19 +171,25 @@ watch(
       resultPdfUrl.value = URL.createObjectURL(result.blob);
     } else if (format === FileFormat.DOCX) {
       try {
-        resultDocHtml.value = await docxToPreviewHtml(result.blob);
+        const html = await docxToPreviewHtml(result.blob);
+        if (cancelled) return;
+        resultDocHtml.value = html;
       } catch {
         /* preview is best-effort */
       }
     } else if (format === FileFormat.XLSX) {
       try {
-        resultDocHtml.value = await xlsxToPreviewHtml(result.blob);
+        const html = await xlsxToPreviewHtml(result.blob);
+        if (cancelled) return;
+        resultDocHtml.value = html;
       } catch {
         /* preview is best-effort */
       }
     } else if (TEXT_FORMATS.has(format)) {
       try {
-        resultText.value = await result.blob.text();
+        const text = await result.blob.text();
+        if (cancelled) return;
+        resultText.value = text;
       } catch {
         /* ignore */
       }
