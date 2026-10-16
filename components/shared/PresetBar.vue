@@ -59,13 +59,22 @@ async function handleSave(): Promise<void> {
 
   const preset = createPreset(nameDraft.value, target, optionsToCapture.value, t);
   nameDraft.value = '';
-  await addPreset(preset);
-  ElMessage.success(t('preset.saved', { name: preset.name }));
+  // The two branches are not the same message with a different colour. The chip is added either way,
+  // so a storage failure looks exactly like a success until the page is reloaded and it comes back;
+  // saying so is the only way the user learns the card was never written to disk.
+  if (await addPreset(preset)) {
+    ElMessage.success(t('preset.saved', { name: preset.name }));
+  } else {
+    ElMessage.warning(t('preset.saveFailed', { name: preset.name }));
+  }
 }
 
 async function handleRemove(preset: ConversionPreset): Promise<void> {
-  await removePreset(preset.id);
-  ElMessage.info(t('preset.removed', { name: preset.name }));
+  if (await removePreset(preset.id)) {
+    ElMessage.info(t('preset.removed', { name: preset.name }));
+  } else {
+    ElMessage.warning(t('preset.removeFailed', { name: preset.name }));
+  }
 }
 </script>
 

@@ -51,12 +51,21 @@ export async function storageGetMany<Fallbacks extends Record<string, unknown>>(
   }
 }
 
-/** Write a value to local storage */
-export async function storageSet<T>(key: string, value: T): Promise<void> {
+/**
+ * Write a value to local storage, reporting whether the write landed.
+ *
+ * The `catch` stays — storage is unavailable in a handful of contexts and a preference write must
+ * never break the workbench — but swallowing silently made every caller's success message a promise
+ * it could not keep. Returning the outcome costs a caller nothing (most still ignore it) and lets the
+ * few that *say* something on screen say the true thing.
+ */
+export async function storageSet<T>(key: string, value: T): Promise<boolean> {
   try {
     await browser.storage.local.set({ [key]: value });
+    return true;
   } catch {
-    // storage may be unavailable in some contexts; ignore
+    // storage may be unavailable in some contexts; report the failure instead of hiding it
+    return false;
   }
 }
 
