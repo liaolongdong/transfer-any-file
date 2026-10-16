@@ -46,7 +46,7 @@ const dropText = computed(() => (selectedFiles.value.length === 0 ? t('upload.dr
 
 /**
  * Stable v-for key for the staged-file list. The `File` instance is the only identity these rows have —
- * `removeFile()` rebuilds the array but carries the same objects through `selectFiles()` — and the reason
+ * `removeFile()` rebuilds the array but carries the same objects straight through it — and the reason
  * a position would not do is written up in `~/utils/core/row-key`.
  */
 const rowKey = createRowKey('file');
@@ -288,16 +288,14 @@ async function expandArchives(files: File[]): Promise<File[]> {
   return out;
 }
 
-function selectFiles(files: File[]): void {
-  void applyFiles(files);
-}
-
 // Last-write-wins across the `expandArchives` await: two rapid selections (second drop while
 // the first archive is still inflating) would otherwise resolve out of order and the older,
 // slower one would clobber the newer list on completion.
 let applyGeneration = 0;
+/** The selection currently being inflated, so a removal can wait for it instead of racing it. */
+let pendingApply: Promise<void> | null = null;
 
-async function applyFiles(files: File[]): Promise<void> {
+async function expandAndApply(files: File[]): Promise<void> {
   const generation = ++applyGeneration;
   const expanded = await expandArchives(files);
   if (generation !== applyGeneration) return;
@@ -333,17 +331,53 @@ async function applyFiles(files: File[]): Promise<void> {
   emit('update:files', next);
 }
 
-function removeFile(index: number): void {
+/**
+ * `expandAndApply` with the one piece of bookkeeping a removal needs: it hands back the promise, so
+ * a click on ✕ while an archive is still inflating can land on the list that expansion produces
+ * rather than on the pre-drop list, which the in-flight apply would otherwise overwrite a second
+ * later — taking the user's removal with it.
+ */
+function applyFiles(files: File[]): Promise<void> {
+  const run = expandAndApply(files);
+  pendingApply = run;
+  const settled = () => {
+    if (pendingApply === run) pendingApply = null;
+  };
+  void run.then(settled, settled);
+  return run;
+}
+
+function selectFiles(files: File[]): void {
+  void applyFiles(files);
+}
+
+/**
+ * Drop one staged row.
+ *
+ * This used to route through `selectFiles()`, which is a *selection*: the whole list re-runs the size
+ * and count guards, so every file over 20 MB shows its warning toast a second time and the unknown-
+ * format notice is re-counted for a batch the user already read. It also opens an `await` between the
+ * click and the write — the window in which an expansion still in flight lands afterwards and
+ * overwrites the removal. Neither is needed: `expandArchives` swaps a ZIP for its entries, so the rows
+ * already hold the `File` objects the batch converts, and those same objects are what
+ * `~/utils/core/row-key` keys the list by. A removal is a list edit, not a re-read.
+ */
+async function removeFile(index: number): Promise<void> {
   if (props.disabled) return;
-  const newFiles = [...selectedFiles.value];
-  newFiles.splice(index, 1);
-  if (newFiles.length === 0) {
-    selectedFiles.value = [];
-    detectedFormats.value = [];
-    emit('update:files', []);
-  } else {
-    selectFiles(newFiles);
-  }
+  const target = selectedFiles.value[index];
+  if (!target) return;
+  await pendingApply;
+  // Both re-checked after the wait: the list may have been replaced by the expansion this removal was
+  // waiting on, and a batch may have started while it ran. `indexOf` on the captured object is what
+  // keeps the row the user pointed at the row that gets dropped, whichever list it landed in.
+  if (props.disabled) return;
+  const at = selectedFiles.value.indexOf(target);
+  if (at === -1) return;
+  const next = [...selectedFiles.value];
+  next.splice(at, 1);
+  selectedFiles.value = next;
+  detectedFormats.value = next.map(f => detectFormat(f));
+  emit('update:files', next);
 }
 
 // --- Source file preview (F12) -------------------------------------------
