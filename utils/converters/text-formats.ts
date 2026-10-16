@@ -8,7 +8,7 @@ const txtToHtmlConverter: Converter = {
   to: FileFormat.HTML,
 
   async convert(input: Blob, ctx?: ConvertContext): Promise<ConvertResult> {
-    const text = await decodeTextBlob(input, 'errors.unknown');
+    const text = await decodeTextBlob(input, 'errors.decodeFail');
     const escaped = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
     const blob = wrapHtmlDocument(`<pre>${escaped}</pre>`, { sourceName: ctx?.source?.name });
     return { blob, filename: 'converted.html' };
@@ -20,7 +20,7 @@ const txtToMdConverter: Converter = {
   to: FileFormat.MD,
 
   async convert(input: Blob): Promise<ConvertResult> {
-    const text = await decodeTextBlob(input, 'errors.unknown');
+    const text = await decodeTextBlob(input, 'errors.decodeFail');
     // Wrap in a code block to preserve formatting; extend the fence when
     // the content itself contains backtick runs. Reduced rather than spread into `Math.max`:
     // a text file of backticks yields one argument per run, and 200k of them was measured to

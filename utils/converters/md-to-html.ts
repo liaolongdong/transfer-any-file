@@ -18,7 +18,7 @@ const mdToHtmlConverter: Converter = {
       markedConfigured = true;
     }
 
-    const markdown = await decodeTextBlob(input, 'errors.unknown');
+    const markdown = await decodeTextBlob(input, 'errors.decodeFail');
     // The svg profiles are here because an inline `<svg>` diagram in markdown *is* the content, and
     // an html-only profile deleted the entire graphic at this step — so md→html, md→docx and md→png
     // all silently lost it. Not a new trust decision: svg-to-html.ts already runs this same

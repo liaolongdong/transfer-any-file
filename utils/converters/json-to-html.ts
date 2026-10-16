@@ -70,7 +70,7 @@ const jsonToHtmlConverter: Converter = {
   to: FileFormat.HTML,
 
   async convert(input: Blob, ctx?: ConvertContext): Promise<ConvertResult> {
-    const text = await decodeTextBlob(input, 'errors.unknown');
+    const text = await decodeTextBlob(input, 'errors.decodeFail');
 
     let parsed: unknown;
     try {
