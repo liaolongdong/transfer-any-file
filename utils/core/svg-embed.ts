@@ -1,3 +1,4 @@
+import { throwIfAborted } from '~/utils/core/abort';
 import { normalizeSvgForRaster, stripSvgActiveContent, fitToMaxDim } from '~/utils/core/svg-raster-common';
 import { loadImage, releaseCanvas } from '~/utils/core/image-utils';
 
@@ -66,7 +67,10 @@ async function rasterizeSvg(svgMarkup: string): Promise<string> {
  * nothing. A caller that must describe the bytes it hands back still has to check its own output: see
  * `html-to-md.ts`, where a diagram inside a table cell is flattened to text and never arrives.
  */
-export async function replaceInlineSvgWithPng(html: string): Promise<{ html: string; svgCount: number }> {
+export async function replaceInlineSvgWithPng(
+  html: string,
+  signal?: AbortSignal,
+): Promise<{ html: string; svgCount: number }> {
   const doc = new DOMParser().parseFromString(html, 'text/html');
   // A nested `<svg>` is already inside the parent's own markup, so it paints in the parent's
   // raster; rasterizing it a second time would only be wasted work on a node about to be detached.
@@ -75,6 +79,10 @@ export async function replaceInlineSvgWithPng(html: string): Promise<{ html: str
 
   let replaced = 0;
   for (const node of svgs) {
+    // One diagram per iteration, each an `<img>` decode plus a canvas encode, so a page full of icons
+    // is a step that can outlast the user's Cancel press by minutes. Throwing between diagrams leaves
+    // nothing behind: the cloned document is local to this call and the caller's write never starts.
+    throwIfAborted(signal);
     const markup = new XMLSerializer().serializeToString(node);
     let dataUrl: string;
     try {

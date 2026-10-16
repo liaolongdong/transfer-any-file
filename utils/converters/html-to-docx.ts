@@ -1,5 +1,5 @@
 import { FileFormat } from '~/utils/core/types';
-import type { Converter, ConvertResult } from '~/utils/core/types';
+import type { Converter, ConvertContext, ConvertResult } from '~/utils/core/types';
 import { decodeTextBlobLenient } from '~/utils/core/text-decode';
 import { stripRemoteResources } from '~/utils/core/html-sanitize';
 import { replaceInlineSvgWithPng } from '~/utils/core/svg-embed';
@@ -8,7 +8,7 @@ const htmlToDocxConverter: Converter = {
   from: FileFormat.HTML,
   to: FileFormat.DOCX,
 
-  async convert(input: Blob): Promise<ConvertResult> {
+  async convert(input: Blob, ctx?: ConvertContext): Promise<ConvertResult> {
     const [{ asBlob }, purifyModule] = await Promise.all([import('html-docx-js-typescript'), import('dompurify')]);
     const DOMPurify = purifyModule.default;
 
@@ -32,7 +32,7 @@ const htmlToDocxConverter: Converter = {
     // diagram, and `asBlob` then produced a valid blank `.docx` for a batch that reported success.
     // Remote references still have to be stripped AFTER, because Word — not us — renders this markup
     // on the user's machine.
-    const { html: withPngDiagrams, svgCount } = await replaceInlineSvgWithPng(htmlString);
+    const { html: withPngDiagrams, svgCount } = await replaceInlineSvgWithPng(htmlString, ctx?.signal);
     const sanitized = stripRemoteResources(
       DOMPurify.sanitize(withPngDiagrams, {
         WHOLE_DOCUMENT: true,
