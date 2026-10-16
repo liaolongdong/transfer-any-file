@@ -4,12 +4,20 @@ import { decodeTextBlob } from '~/utils/core/text-decode';
 import { guardCsvValue, sheetToValueCsv, typeNumericCells } from '~/utils/core/csv-guard';
 import { ownSheet } from '~/utils/core/xlsx-sheets';
 
+/** Header column for array elements that carry no keys of their own — see {@link jsonToCsvConverter}. */
+const VALUE_COLUMN = '_value';
+
+/** A JSON object as a CSV row wants it: a mapping, not an array and not a primitive. */
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === 'object' && !Array.isArray(value);
+}
+
 const jsonToCsvConverter: Converter = {
   from: FileFormat.JSON,
   to: FileFormat.CSV,
 
   async convert(input: Blob): Promise<ConvertResult> {
-    const [XLSX, text] = await Promise.all([import('xlsx'), decodeTextBlob(input, 'errors.unknown')]);
+    const [XLSX, text] = await Promise.all([import('xlsx'), decodeTextBlob(input, 'errors.decodeFail')]);
 
     let parsed: unknown;
     try {
@@ -24,8 +32,8 @@ const jsonToCsvConverter: Converter = {
 
     const headers = new Set<string>();
     for (const item of parsed) {
-      if (item && typeof item === 'object' && !Array.isArray(item)) {
-        for (const key of Object.keys(item as Record<string, unknown>)) {
+      if (isPlainRecord(item)) {
+        for (const key of Object.keys(item)) {
           headers.add(key);
         }
       }
@@ -35,18 +43,34 @@ const jsonToCsvConverter: Converter = {
       throw new Error('errors.jsonNotArray');
     }
 
+    // A JSON array is free to mix shapes (`[{"a":1}, "note", [2,3]]`), and an element that is not a
+    // plain object has no key to land under. Dropping those rows silently is the one outcome this
+    // project cannot ship — a 1 000-record file writing out 980 rows and reporting success is worse
+    // than an ugly column. So one synthetic `_value` column carries whatever had no keys of its own,
+    // and it only appears in the header when something actually needs it.
+    const hasNonObject = parsed.some(item => !isPlainRecord(item));
     const headerList = [...headers];
+    if (hasNonObject) headerList.push(VALUE_COLUMN);
+
     const aoa: unknown[][] = [headerList.map(guardCsvValue)];
     for (const item of parsed) {
-      if (item && typeof item === 'object' && !Array.isArray(item)) {
+      if (isPlainRecord(item)) {
         const row = headerList.map(h => {
-          const val = (item as Record<string, unknown>)[h];
+          // The headers are the union across every record, so a key that is absent here is absent for
+          // real — reading it off the object would walk the prototype chain instead, and a record
+          // whose peer declared `constructor` would export `Object`'s own function as a cell value.
+          if (h === VALUE_COLUMN || !Object.hasOwn(item, h)) return '';
+          const val = item[h];
           if (val === null || val === undefined) return '';
           if (typeof val === 'object') return JSON.stringify(val);
           // JSON strings are free to carry "=HYPERLINK(...)" payloads that Excel would
           // happily evaluate once the CSV is opened.
           return typeof val === 'string' ? guardCsvValue(val) : val;
         });
+        aoa.push(row);
+      } else {
+        const bare = item === null || item === undefined ? '' : typeof item === 'string' ? item : JSON.stringify(item);
+        const row = headerList.map(h => (h === VALUE_COLUMN ? guardCsvValue(bare) : ''));
         aoa.push(row);
       }
     }
