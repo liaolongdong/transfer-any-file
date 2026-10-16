@@ -31,6 +31,11 @@ export const CONVERSION_ERROR_KEYS = new Set([
   'errors.imageEncode',
   'errors.renderTimeout',
   'errors.renderFailed',
+  // The document measured longer than one capture canvas can reliably hold. Separate from
+  // `renderFailed` because that one means the browser could not draw the content at all, while here the
+  // content is fine and only its length is the problem — and an over-long capture used to come back as a
+  // blank picture with the batch reporting success.
+  'errors.renderTooTall',
   'errors.zipFail',
   'errors.jsonParse',
   'errors.jsonNotArray',
