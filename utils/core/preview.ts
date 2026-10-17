@@ -153,6 +153,17 @@ export async function xlsxToPreviewHtml(blob: Blob): Promise<string> {
       parts.push(`<h2>${escapeHtml(name)}</h2>`);
       parts.push(XLSX.utils.sheet_to_html(sheet, { editable: false }));
     }
-    return wrapDocument(parts.join('\n'));
+    // `sheet_to_html` escapes a cell's *text* but writes its `data-v` mirror without quoting, so a cell
+    // holding a double quote closes that attribute early and adds whatever follows to the element. With
+    // the cell `a" onmouseover="alert(1)" x`, the parsed preview document carries a real
+    // `onmouseover="alert(1)"` on that `<td>` (measured: the attribute survives, the cell text does not
+    // shift). The frame renders it with `sandbox=""`, which is the only reason that handler cannot run —
+    // and a rule this repo already enforces at every other render boundary
+    // (`data-to-html.ts` sanitizes this same output) should not depend on an attribute set in a different
+    // file. Sanitizing the body also keeps `stripRemoteResources`' serialisation from writing the handler
+    // into the string handed to `srcdoc`.
+    const { default: DOMPurify } = await import('dompurify');
+    const body = DOMPurify.sanitize(parts.join('\n'), { USE_PROFILES: { html: true } }) as string;
+    return wrapDocument(body);
   });
 }
