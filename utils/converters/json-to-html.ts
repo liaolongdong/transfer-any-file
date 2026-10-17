@@ -22,47 +22,93 @@ const JSON_VIEWER_CSS = `
   details.json-group > summary:hover { background: #f0f0f0; border-radius: 3px; }
 `;
 
-function renderJsonValue(value: unknown): string {
-  if (value === null) {
-    return `<span class="json-null">null</span>`;
+/**
+ * Serialize a parsed JSON value as the collapsible viewer markup.
+ *
+ * Iterative on purpose. The document already survived `JSON.parse`, so a recursive renderer here was
+ * the second stack in the pipeline and the shallower one — a nested-enough file threw `RangeError`
+ * from the renderer and reached the user as a conversion failure with the stack trace as its only
+ * explanation. The work list also drops the string concatenation the recursion did at every level.
+ *
+ * Markup is unchanged from the recursive version: every child line, comma and `<details>` wrapper is
+ * emitted in the same order, because the produced document's own CSS (`JSON_VIEWER_CSS`) selects
+ * `.json-line` and `.json-group`.
+ */
+function renderJsonValue(root: unknown): string {
+  const out: string[] = [];
+  // Two task kinds are all this needs: literal markup goes straight to the output, a value is
+  // expanded into the tasks around it. Children are pushed in reverse because the stack pops first
+  // in, and the opening tag has to leave before the children it wraps.
+  const tasks: Array<{ text: string } | { value: unknown }> = [{ value: root }];
+
+  while (tasks.length > 0) {
+    const task = tasks.pop() as { text: string } | { value: unknown };
+    if ('text' in task) {
+      out.push(task.text);
+      continue;
+    }
+    const value = task.value;
+
+    if (value === null) {
+      out.push(`<span class="json-null">null</span>`);
+      continue;
+    }
+    if (typeof value === 'string') {
+      out.push(`<span class="json-string">"${escapeHtml(value)}"</span>`);
+      continue;
+    }
+    if (typeof value === 'number') {
+      out.push(`<span class="json-number">${value}</span>`);
+      continue;
+    }
+    if (typeof value === 'boolean') {
+      out.push(`<span class="json-boolean">${value}</span>`);
+      continue;
+    }
+
+    if (Array.isArray(value)) {
+      if (value.length === 0) {
+        out.push(`<span class="json-bracket">[]</span>`);
+        continue;
+      }
+      out.push(
+        `<details class="json-group" open><summary><span class="json-bracket">[</span> ` +
+          `<span class="json-summary">Array(${value.length})</span></summary>`,
+      );
+      tasks.push({ text: `<span class="json-bracket">]</span></details>` });
+      for (let i = value.length - 1; i >= 0; i--) {
+        tasks.push({ text: '</div>' });
+        if (i < value.length - 1) tasks.push({ text: `<span class="json-comma">,</span>` });
+        tasks.push({ value: value[i] });
+        tasks.push({ text: `<div class="json-line">` });
+      }
+      continue;
+    }
+
+    if (typeof value === 'object') {
+      const entries = Object.entries(value as Record<string, unknown>);
+      if (entries.length === 0) {
+        out.push(`<span class="json-bracket">{}</span>`);
+        continue;
+      }
+      out.push(
+        `<details class="json-group" open><summary><span class="json-bracket">{</span> ` +
+          `<span class="json-summary">Object(${entries.length})</span></summary>`,
+      );
+      tasks.push({ text: `<span class="json-bracket">}</span></details>` });
+      for (let i = entries.length - 1; i >= 0; i--) {
+        tasks.push({ text: '</div>' });
+        if (i < entries.length - 1) tasks.push({ text: `<span class="json-comma">,</span>` });
+        tasks.push({ value: entries[i][1] });
+        tasks.push({ text: `<div class="json-line"><span class="json-key">"${escapeHtml(entries[i][0])}"</span>: ` });
+      }
+      continue;
+    }
+
+    out.push(`<span>${escapeHtml(String(value))}</span>`);
   }
 
-  if (typeof value === 'string') {
-    return `<span class="json-string">"${escapeHtml(value)}"</span>`;
-  }
-
-  if (typeof value === 'number') {
-    return `<span class="json-number">${value}</span>`;
-  }
-
-  if (typeof value === 'boolean') {
-    return `<span class="json-boolean">${value}</span>`;
-  }
-
-  if (Array.isArray(value)) {
-    if (value.length === 0) return `<span class="json-bracket">[]</span>`;
-    const items = value
-      .map((item, i) => {
-        const comma = i < value.length - 1 ? `<span class="json-comma">,</span>` : '';
-        return `<div class="json-line">${renderJsonValue(item)}${comma}</div>`;
-      })
-      .join('');
-    return `<details class="json-group" open><summary><span class="json-bracket">[</span> <span class="json-summary">Array(${value.length})</span></summary>${items}<span class="json-bracket">]</span></details>`;
-  }
-
-  if (typeof value === 'object') {
-    const entries = Object.entries(value as Record<string, unknown>);
-    if (entries.length === 0) return `<span class="json-bracket">{}</span>`;
-    const props = entries
-      .map(([key, val], i) => {
-        const comma = i < entries.length - 1 ? `<span class="json-comma">,</span>` : '';
-        return `<div class="json-line"><span class="json-key">"${escapeHtml(key)}"</span>: ${renderJsonValue(val)}${comma}</div>`;
-      })
-      .join('');
-    return `<details class="json-group" open><summary><span class="json-bracket">{</span> <span class="json-summary">Object(${entries.length})</span></summary>${props}<span class="json-bracket">}</span></details>`;
-  }
-
-  return `<span>${escapeHtml(String(value))}</span>`;
+  return out.join('');
 }
 
 const jsonToHtmlConverter: Converter = {
