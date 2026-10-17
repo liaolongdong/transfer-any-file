@@ -19,19 +19,22 @@ export async function copyText(text: string): Promise<boolean> {
   } catch {
     // fall through to the legacy route below
   }
+  const area = document.createElement('textarea');
+  area.value = text;
+  area.setAttribute('readonly', '');
+  area.style.position = 'fixed';
+  area.style.top = '-1px';
+  area.style.opacity = '0';
   try {
-    const area = document.createElement('textarea');
-    area.value = text;
-    area.setAttribute('readonly', '');
-    area.style.position = 'fixed';
-    area.style.top = '-1px';
-    area.style.opacity = '0';
     document.body.appendChild(area);
     area.select();
-    const copied = document.execCommand('copy');
-    document.body.removeChild(area);
-    return copied;
+    return document.execCommand('copy');
   } catch {
     return false;
+  } finally {
+    // `finally` rather than the line after `execCommand`: this node is off-screen but still real, so a
+    // throw between append and remove used to leave one invisible textarea in the live document per
+    // failed copy — and the promise this function's own comment makes is that nothing is left behind.
+    area.remove();
   }
 }
