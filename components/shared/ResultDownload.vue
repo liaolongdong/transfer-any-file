@@ -122,6 +122,13 @@ const summaryLine = computed(() => {
 const rowKey = createRowKey('result');
 const resultKey = (result: ConvertResult, index: number): string => rowKey(props.owners[index] ?? result);
 
+/**
+ * `FailureDiagnosticItem` keeps its own `expanded` state, so the failure rows need an identity that
+ * outlives a list edit too: with position as the key, a retry merge that drops one failure re-parents
+ * every diagnostic below it, and the row the user had opened shows a different error while staying open.
+ */
+const failureKey = createRowKey('fail');
+
 function handleDownload(): void {
   if (props.results.length === 1) {
     emit('download', 0);
@@ -266,8 +273,8 @@ function openPreview(result: ConvertResult): void {
           {{ summaryLine }}
         </p>
         <template
-          v-for="(failure, index) in failures"
-          :key="index"
+          v-for="failure in failures"
+          :key="failureKey(failure)"
         >
           <FailureDiagnosticItem :failure="failure" />
         </template>
