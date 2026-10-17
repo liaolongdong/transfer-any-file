@@ -1,6 +1,7 @@
 import { chromium } from 'playwright';
 import { fileURLToPath } from 'url';
 import { Buffer } from 'node:buffer';
+import { deflateSync } from 'node:zlib';
 import path from 'path';
 import fs from 'fs';
 import http from 'http';
@@ -216,9 +217,34 @@ function contrast(a, b) {
  * call site still needs its own wait between writing the theme and sampling — the emulation takes the
  * *duration* out of that wait's budget, it does not remove the wait.
  */
+/**
+ * Jump every running CSS transition to its end value.
+ *
+ * `prefers-reduced-motion` collapses the duration to 0.01 ms, but that is a *timeline* — a starved
+ * renderer can still withhold the frame that advances a just-started transition, and
+ * `getComputedStyle` then reports the transition's start value. That is the failure a 2026-10-17 run
+ * produced at load average 457: `[blue light] .result-download .el-alert__title: 2.08:1`, the raw
+ * Element Plus green, sampled before the dark-ink transition got its first frame; the same element
+ * reads 5:1 once anything at all has elapsed. Finishing is the deterministic equivalent of waiting —
+ * it moves every animation to its target without needing a frame. Infinite animations throw on
+ * `finish()` and are skipped; nothing sampled here is a spinner.
+ */
+async function finishAnimations(page) {
+  await page.evaluate(() => {
+    for (const animation of document.getAnimations()) {
+      try {
+        animation.finish();
+      } catch {
+        // The loading spinner loops forever, so it has no end value to jump to.
+      }
+    }
+  });
+}
+
 async function sampleWithoutMotion(page, read) {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   try {
+    await finishAnimations(page);
     return await read();
   } finally {
     await page.emulateMedia({ reducedMotion: null });
@@ -456,7 +482,7 @@ function mockChromeStorage(seed = {}) {
  * function's argument and the wait runs on Playwright's 30 s default. The explicit `undefined` in
  * that position is what keeps the budgets written next to them real.
  */
-async function convertFile(page, fixture, targetText, timeout = 30000) {
+async function convertFile(page, fixture, targetText, timeout = 30000, prepare) {
   // `page.$()` answers "is it there this instant", and the lookups below sit right after a reset that
   // unmounts and remounts the workbench — long enough for a frame to be missed and for the section to
   // die on `file input not found` with nothing wrong but scheduling. Waiting is what makes the message
@@ -471,27 +497,74 @@ async function convertFile(page, fixture, targetText, timeout = 30000) {
   // Detection writes the row; the row is what says the detection happened. Sleeping 1 000 ms instead
   // of waiting made this the step that decided whether the *next* line could find its target, so a
   // contended machine turned a working converter into `format not detected`.
-  await page.waitForSelector('.file-item .el-tag--primary', { timeout: 10000 });
-
-  const formatTag = await page.$eval('.file-item .el-tag--primary', el => el.textContent).catch(() => null);
+  //
+  // The row is looked up by name rather than as `'.file-item .el-tag--primary'`: a section that
+  // follows another ends with the previous batch's row still in the DOM for the length of its leave
+  // transition, and reading the first tag then attributed that file's format to this upload
+  // (measured 2026-10-17: JSON→HTML reported "Text (.txt)" while the history recorded the JSON).
+  const firstEntry = entries[0];
+  const firstName = typeof firstEntry === 'string' ? firstEntry : firstEntry.name;
+  const formatTag = await page
+    .waitForFunction(
+      name => {
+        const row = [...document.querySelectorAll('.file-item')].find(item => item.textContent.includes(name));
+        return row?.querySelector('.el-tag--primary')?.textContent ?? false;
+      },
+      firstName,
+      { timeout: 10000 },
+    )
+    .then(handle => handle.jsonValue())
+    .catch(() => null);
   if (!formatTag) throw new Error(`format not detected for ${label}`);
 
-  const sel = await page.waitForSelector('.action-row .el-select', { timeout: 10000 });
-  await sel.click();
-  await page.waitForSelector('.el-select-dropdown__item:visible', { timeout: 10000 });
+  // A click on a dropdown row is not proof that the selection committed: Element Plus renders the
+  // popper through a transition, and under the load of the section before it, the click can land on
+  // a row that is about to be replaced — the menu stays open, the placeholder stays visible and the
+  // convert button stays `disabled` until the budget expires (measured once on 2026-10-17 in
+  // JSON→CSV, while the same route passed in every other run). So the app's own state is what gets
+  // waited on: the select shows the chosen label *and* the button leaves `disabled`, which is the
+  // same predicate that enables the button. A failed attempt is retried rather than reported, and
+  // only a target that is not offered at all fails immediately.
+  let selected = false;
+  for (let attempt = 0; attempt < 3 && !selected; attempt++) {
+    if (attempt > 0) {
+      await page.keyboard.press('Escape').catch(() => {});
+      await page.waitForTimeout(200);
+    }
+    const sel = await page.waitForSelector('.action-row .el-select', { timeout: 10000 });
+    await sel.click();
+    await page.waitForSelector('.el-select-dropdown__item:visible', { timeout: 10000 });
 
-  // Same reason as the two waits above, and this is the one that used to lie: a fixed 500 ms for the
-  // dropdown to paint, then `isVisible()`. On 2026-10-17, at load average 11, it reported
-  // `PDF (.pdf) option not available` for a route the registry still had — a red that points at a
-  // converter rather than at the clock is the expensive kind.
-  const opt = page.locator('.el-select-dropdown__item:visible').filter({ hasText: targetText }).first();
-  const offered = await opt
-    .waitFor({ state: 'visible', timeout: 5000 })
-    .then(() => true)
-    .catch(() => false);
-  if (!offered) throw new Error(`${targetText} option not available`);
-  await opt.click();
+    // Same reason as the two waits above, and this is the one that used to lie: a fixed 500 ms for the
+    // dropdown to paint, then `isVisible()`. On 2026-10-17, at load average 11, it reported
+    // `PDF (.pdf) option not available` for a route the registry still had — a red that points at a
+    // converter rather than at the clock is the expensive kind.
+    const opt = page.locator('.el-select-dropdown__item:visible').filter({ hasText: targetText }).first();
+    const offered = await opt
+      .waitFor({ state: 'visible', timeout: 5000 })
+      .then(() => true)
+      .catch(() => false);
+    if (!offered) throw new Error(`${targetText} option not available`);
+    await opt.click();
+    selected = await page
+      .waitForFunction(
+        text => {
+          const select = document.querySelector('.action-row .el-select');
+          const button = document.querySelector('.convert-btn');
+          return !!select && select.textContent.includes(text) && !!button && !button.disabled;
+        },
+        targetText,
+        { timeout: 8000 },
+      )
+      .then(() => true)
+      .catch(() => false);
+  }
+  if (!selected) throw new Error(`${targetText} selection did not commit`);
   await page.waitForTimeout(300);
+
+  // Some conversions need a field filled between choosing the target and clicking convert — the PDF
+  // page-range box only mounts once an image target is selected, so it cannot be set up earlier.
+  if (prepare) await prepare();
 
   const cb = await page.waitForSelector('.convert-btn', { timeout: 10000 });
   await cb.click();
@@ -514,18 +587,16 @@ async function convertFile(page, fixture, targetText, timeout = 30000) {
 
 /** Reset the workbench for a new conversion.
  *  Tolerates being called on an already-empty workbench — `.reset-btn` is a results-area button, and
- *  sections use this as "make sure nothing is left over" rather than as a step that must happen. When
- *  it does click, the wait is until the source list is actually gone, not a fixed budget: a reset that
- *  has not settled is how the next section's `file input not found` appears two sections late. */
+ *  sections use this as "make sure nothing is left over" rather than as a step that must happen.
+ *  The button runs `clearResults`, which drops the result card and keeps the source files, so the
+ *  settle check is the card's own removal. Waiting for `.file-item` to reach zero never happened
+ *  (measured 2026-10-17) and silently spent the full 10 s budget on every call — the source list is
+ *  replaced by the next upload anyway. */
 async function resetWorkbench(page) {
   const resetBtn = await page.$('.reset-btn');
   if (resetBtn) {
     await resetBtn.click();
-    await page
-      .waitForFunction(() => document.querySelectorAll('.file-item').length === 0, undefined, {
-        timeout: 10000,
-      })
-      .catch(() => {});
+    await page.waitForSelector('.reset-btn', { state: 'detached', timeout: 10000 }).catch(() => {});
   }
 }
 
@@ -635,6 +706,56 @@ function pngHead(w, h) {
   head.writeUInt32BE(w, 16);
   head.writeUInt32BE(h, 20);
   return head.toString('base64');
+}
+
+function crc32(bytes) {
+  let crc = 0xffffffff;
+  for (const byte of bytes) {
+    crc ^= byte;
+    for (let bit = 0; bit < 8; bit += 1) crc = (crc >>> 1) ^ (0xedb88320 & -(crc & 1));
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+/**
+ * A solid-colour PNG as a data URI, for tests that need a decoded picture with no fixture file.
+ *
+ * The layout-settle page is built in memory, and its image has to survive the sanitizer: the
+ * subresource strip keeps raster `data:` payloads but treats `data:image/svg+xml` as markup-bearing
+ * and removes it. An SVG here would therefore assert a behaviour the product deliberately does not
+ * have. The encoder is ~20 lines because Node has zlib but no PNG writer, and a 300×180 solid
+ * rectangle compresses to a few hundred bytes.
+ */
+function solidPngBase64(width, height, [red, green, blue]) {
+  const chunk = (type, data) => {
+    const length = Buffer.alloc(4);
+    length.writeUInt32BE(data.length);
+    const body = Buffer.concat([Buffer.from(type, 'ascii'), data]);
+    const crc = Buffer.alloc(4);
+    crc.writeUInt32BE(crc32(body));
+    return Buffer.concat([length, body, crc]);
+  };
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(width, 0);
+  ihdr.writeUInt32BE(height, 4);
+  ihdr[8] = 8; // bit depth
+  ihdr[9] = 2; // truecolour, no alpha
+  const raw = Buffer.alloc(height * (1 + width * 3));
+  for (let y = 0; y < height; y += 1) {
+    const row = y * (1 + width * 3);
+    for (let x = 0; x < width; x += 1) {
+      raw[row + 1 + x * 3] = red;
+      raw[row + 2 + x * 3] = green;
+      raw[row + 3 + x * 3] = blue;
+    }
+  }
+  const png = Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    chunk('IHDR', ihdr),
+    chunk('IDAT', deflateSync(raw)),
+    chunk('IEND', Buffer.alloc(0)),
+  ]);
+  return `data:image/png;base64,${png.toString('base64')}`;
 }
 
 /**
@@ -1104,7 +1225,7 @@ async function run() {
     ['sample.pdf', 'PNG (.png)', 'PDF→PNG'],
     // Direct PDF→raster edges (were two-step through PNG before)
     ['sample.pdf', 'JPEG (.jpg)', 'PDF→JPG'],
-    ['sample.pdf', 'WEBP (.webp)', 'PDF→WEBP'],
+    ['sample.pdf', 'WebP (.webp)', 'PDF→WEBP'],
     // SVG conversions (new format)
     ['sample.svg', 'PNG (.png)', 'SVG→PNG'],
     ['sample.svg', 'HTML (.html)', 'SVG→HTML'],
@@ -1120,7 +1241,8 @@ async function run() {
 
   let shotIdx = 2;
   for (const [fixture, target, label] of conversions) {
-    section(`${label} Conversion`);
+    // Each conversion is its own section, so `E2E_ONLY` can select one instead of replaying all 50.
+    if (!section(`${label} Conversion`)) continue;
     try {
       await resetWorkbench(page);
       const result = await convertFile(page, fixture, target);
@@ -1353,11 +1475,10 @@ async function run() {
       const wrapPage = body =>
         `<!doctype html><html><head><meta charset="utf-8"><title>Settle</title><style>body{margin:0}</style></head><body>${body}</body></html>`;
       // No `width`/`height` attributes on purpose: the intrinsic size is what reflows everything below
-      // it, and an `<img>` is the condition the settle is now keyed on. `data:` survives both the
-      // sanitizer and the subresource strip, so it is a real decode inside an offline package.
-      const blueImg = `<img src="data:image/svg+xml;base64,${Buffer.from(
-        '<svg xmlns="http://www.w3.org/2000/svg" width="300" height="180"><rect width="300" height="180" fill="#00f"/></svg>',
-      ).toString('base64')}">`;
+      // it, and an `<img>` is the condition the settle is now keyed on. The payload is a raster data
+      // URI because that is the shape the sanitizer keeps; `data:image/svg+xml` carries markup of its
+      // own and is stripped like any other remote-capable reference.
+      const blueImg = `<img src="${solidPngBase64(300, 180, [0, 0, 255])}">`;
 
       /** The page's CSS height at the rasterizer's own render width, measured independently of it. */
       const cssHeight = html =>
@@ -1750,6 +1871,11 @@ async function run() {
     // be missing.
     await setRange('2');
     await pickTarget(page, 'HTML (.html)');
+    // Wait out `fat-expand` rather than sampling once: the panel leaves through a 250 ms grid/opacity
+    // transition, and a single check after `pickTarget`'s 300 ms settle can still catch the clamped
+    // element on a loaded machine. Detachment is the state that matters — a panel parked at 0fr is
+    // already invisible and unclickable, which is exactly why the export below is the real assertion.
+    await page.waitForSelector('.output-options', { state: 'detached', timeout: 5000 }).catch(() => {});
     if ((await page.$$('.output-options')).length === 0 && (await labels()).length === 0)
       ok('页码范围 hides together with the output panel');
     else fail('页码范围 visibility', `panel still rendered with labels [${(await labels()).join(', ')}]`);
@@ -1776,11 +1902,87 @@ async function run() {
   }
 
   // ═══════════════════════════════════════════
+  //  PDF PAGE BUDGETS (long documents stop before the work starts)
+  // ═══════════════════════════════════════════
+
+  if (section('PDF Page Budgets')) {
+    try {
+      const failureReason = () => page.$eval('.failure-item .failure-reason', el => el.textContent).catch(() => '');
+      const setRange = spec => page.fill('.output-options .el-input input', spec);
+      // 201 pages is one past the render budget. Asserting on the remedy text, not merely on the
+      // failure: the whole point of the cap is that the user is told about the page-range field
+      // instead of watching the tab die, and `imageEncode` would say nothing of the sort.
+      await resetWorkbench(page);
+      const tooManyImages = await convertFile(page, 'sample-201-pages.pdf', 'PNG (.png)');
+      const imageReason = (await failureReason()).trim();
+      if (!tooManyImages.alertTitle.includes('完成') && imageReason.includes('页码范围')) {
+        ok('A 201-page PDF is refused by the image route with the page-range remedy');
+      } else {
+        fail('PDF image page budget', `alert="${tooManyImages.alertTitle}" reason="${imageReason}"`);
+      }
+
+      // The remedy the message names has to actually work: the same document converts once a range
+      // brings it under the cap, and the excerpt keeps the document's own page numbers.
+      await resetWorkbench(page);
+      const rescued = await convertFile(page, 'sample-201-pages.pdf', 'PNG (.png)', 60000, () => setRange('1-2'));
+      const rescuedBundle = rescued.resultName.endsWith('.zip') ? await zipBundle(page) : { names: [] };
+      if (rescuedBundle.names.join(',') === 'page-1.png,page-2.png') {
+        ok('页码范围 1-2 rescues a 201-page PDF into a two-page excerpt');
+      } else {
+        fail(
+          'PDF image budget rescue',
+          `alert="${rescued.alertTitle}" name="${rescued.resultName}" entries=[${rescuedBundle.names.join(', ')}]`,
+        );
+      }
+
+      // Exactly at the cap is allowed — the guard is `> MAX`, not `>=` — so this is the only
+      // assertion that proves the boundary from the accepting side. It renders 200 blank pages,
+      // the slowest case in this section, hence the larger budget.
+      await resetWorkbench(page);
+      const atCap = await convertFile(page, 'sample-201-pages.pdf', 'PNG (.png)', 120000, () => setRange('1-200'));
+      const atCapBundle = atCap.resultName.endsWith('.zip') ? await zipBundle(page) : { names: [] };
+      if (
+        atCapBundle.names.length === 200 &&
+        atCapBundle.names.includes('page-1.png') &&
+        atCapBundle.names.includes('page-200.png')
+      ) {
+        ok('A 200-page selection is accepted — the budget stops at 201, not at 200');
+      } else {
+        fail('PDF image budget boundary', `alert="${atCap.alertTitle}" entries=${atCapBundle.names.length}`);
+      }
+
+      // 1001 pages is one past the extraction budget. This route has no page-range control, so the
+      // diagnostic has to point at splitting the file instead.
+      await resetWorkbench(page);
+      const tooManyText = await convertFile(page, 'sample-1001-pages.pdf', 'HTML (.html)');
+      const textReason = (await failureReason()).trim();
+      if (!tooManyText.alertTitle.includes('完成') && textReason.includes('拆分')) {
+        ok('A 1001-page PDF is refused by the text route with the split remedy');
+      } else {
+        fail('PDF text page budget', `alert="${tooManyText.alertTitle}" reason="${textReason}"`);
+      }
+    } catch (e) {
+      fail('PDF Page Budgets', e.message);
+    }
+  }
+
+  // ═══════════════════════════════════════════
   //  OFFLINE SENTINEL — remote references must never be fetched
   // ═══════════════════════════════════════════
 
   section('Offline Sentinel — zero subresource requests');
   try {
+    // Positive control: the listener must record a request that is actually made, or the zero
+    // below would be indistinguishable from a server that never saw anything.
+    await new Promise((resolve, reject) => {
+      http
+        .get(`http://127.0.0.1:${PORT}/canary/probe`, res => {
+          res.resume();
+          res.on('end', resolve);
+        })
+        .on('error', reject);
+    });
+    if (!canaryHits.includes('/canary/probe')) throw new Error('canary server did not record its own probe');
     canaryHits.length = 0;
     await resetWorkbench(page);
     // Re-point the canary URLs at the actual harness port before uploading.
@@ -1811,8 +2013,25 @@ async function run() {
     // Give any in-flight subresource request time to reach the server before judging.
     await page.waitForTimeout(1500);
 
+    // A failed conversion renders no document at all, so "no requests" would be vacuously true.
+    // The sentinel only means something once this same page reports a finished PNG.
+    const sentinelAlert = await page.$eval('.el-alert__title', el => el.textContent || '').catch(() => '');
+    const sentinelResult = await page.$eval('.result-item .result-name', el => el.textContent || '').catch(() => '');
+    if (!sentinelAlert.includes('完成') || !sentinelResult.trim().endsWith('.png')) {
+      // Expand the diagnostic before reporting: the cause is what turns "render failed" into an
+      // actionable failure, and this path exists precisely to catch a render that never happened.
+      const toggle = await page.$('.failure-toggle');
+      if (toggle) await toggle.click();
+      const cause = await page.$eval('.failure-cause', el => el.textContent || '').catch(() => '');
+      throw new Error(
+        `sentinel conversion failed: alert="${sentinelAlert.trim()}" result="${sentinelResult.trim()}" cause="${cause.trim()}"`,
+      );
+    }
+
     if (canaryHits.length === 0) {
-      ok('Remote img/link/@import/style-url/srcset/video/background-attr references produced zero requests');
+      ok(
+        'Remote img/link/@import (plain, escaped, comment-split, data:) / style-url (escaped, protocol-relative, backslash) / image-set / srcset / video / svg image / srcdoc / meta-refresh produced zero requests',
+      );
     } else {
       fail('Offline sentinel', `canary was fetched: ${[...new Set(canaryHits)].join(', ')}`);
     }
@@ -1826,14 +2045,41 @@ async function run() {
     await page.waitForSelector('.preview-dialog iframe.doc-frame', { timeout: 10000 });
     const srcdoc = await page.$eval('.preview-dialog iframe.doc-frame', el => el.getAttribute('srcdoc') || '');
     const anchorKept = srcdoc.includes(`/canary/anchor`);
-    const imgKept = srcdoc.includes(`/canary/img.png`);
-    const bodyBgKept = srcdoc.includes(`body-bg-attr.png`);
-    if (anchorKept && !imgKept && !bodyBgKept) {
-      ok('Anchor href preserved while image and background references were stripped');
+    const strippedMarkers = [
+      'import.css',
+      'escaped-import.css',
+      'comment-import.css',
+      'data-import.css',
+      'body-bg.png',
+      'inline.png',
+      'escaped-url.png',
+      'protocol-relative.png',
+      'backslash.png',
+      'image-set.png',
+      'var-fallback.png',
+      'cross-fade.png',
+      'cross-fade-2.png',
+      'data-svg.png',
+      'img.png',
+      'entity.png',
+      'srcset-fallback.png',
+      'srcset-2x.png',
+      'srcset-3x.png',
+      'poster.png',
+      'svg-image.png',
+      'svg-fill.svg',
+      'srcdoc.png',
+      'td-bg-attr.png',
+      'body-bg-attr.png',
+      'meta-refresh',
+    ];
+    const survived = strippedMarkers.filter(marker => srcdoc.includes(marker));
+    if (anchorKept && survived.length === 0) {
+      ok('Anchor href preserved while every remote reference was stripped from the rendered markup');
     } else {
       fail(
         'Surgical strip check',
-        `anchor kept=${anchorKept}, img src kept=${imgKept}, background attr kept=${bodyBgKept}`,
+        `anchor kept=${anchorKept}, survived: ${survived.length > 0 ? survived.join(', ') : '(none)'}`,
       );
     }
     await page.keyboard.press('Escape');
@@ -2421,7 +2667,10 @@ async function run() {
           'CSV (.csv)',
         );
         if (!run.alertTitle.includes('完成')) throw new Error(`conversion reported ${run.alertTitle}`);
-        return downloadBatchArtifact(page);
+        // `downloadBatchArtifact` hands back bytes as latin1, so the UTF-8 BOM arrives as `ï»¿`.
+        // It is real output — the writer always prepends it — but it is not part of the header,
+        // and the assertions below anchor on line starts.
+        return (await downloadBatchArtifact(page)).replace(/^\u00EF\u00BB\u00BF/, '');
       };
 
       // A JSON array is free to mix shapes, and an element with no keys has no column to land under. The
@@ -2443,6 +2692,25 @@ async function run() {
         ok('An all-object array writes no _value column — the synthetic one appears only when it is used');
       } else {
         fail('JSON→CSV column hygiene', `header=${plain.split('\n')[0]}`);
+      }
+
+      // A plain scalar array used to be rejected outright. Each element is a row under the same
+      // synthetic column, so `[1,2,3]` is a one-column table rather than an error.
+      const scalars = await toCsv('[1,2,3]');
+      if (/^_value\s*$/.test(scalars.split('\n')[0]) && /^1\s*$/m.test(scalars) && /^3\s*$/m.test(scalars)) {
+        ok('A scalar array converts to a single _value column instead of failing');
+      } else {
+        fail('JSON→CSV scalar array', `csv=${JSON.stringify(scalars.slice(0, 80))}`);
+      }
+
+      // The synthetic column must not overwrite a record's real `_value` field: the only way to keep
+      // both pieces of data is to move the synthetic column aside.
+      const collision = await toCsv('[{"_value":"real"},7]');
+      const collisionHeader = collision.split('\n')[0].trim();
+      if (collisionHeader === '_value,_value_2' && /^real,\s*$/m.test(collision) && /^,7\s*$/m.test(collision)) {
+        ok('A record that declares _value keeps it; the synthetic column becomes _value_2');
+      } else {
+        fail('JSON→CSV _value collision', `csv=${JSON.stringify(collision.slice(0, 120))}`);
       }
 
       // Headers are the union across records, so a key present in one row is *read* in every row — and
@@ -2539,6 +2807,40 @@ async function run() {
       });
     } catch (e) {
       fail('XLSX Value Fidelity', e.message);
+    }
+  }
+
+  // ═══════════════════════════════════════════
+  //  XLSX DIMENSION BOMB (declared <dimension> is untrusted)
+  // ═══════════════════════════════════════════
+
+  if (section('XLSX Dimension Bomb')) {
+    try {
+      // Both fixtures are structurally valid workbooks; only the declared sheet extent lies. The
+      // first claims the full grid (A1:XFD1048576, ~17 billion cells) around a single cell, the
+      // second truthfully spans 500 001 rows — past the per-sheet budget. A guard that trusted
+      // `!ref` would walk the first rectangle and hang, so asserting on the converted output is
+      // the only way to tell "narrowed to reality" from "survived because it was lucky".
+      await resetWorkbench(page);
+      const forged = await convertFile(page, 'sample-xlsx-dimension.xlsx', 'CSV (.csv)');
+      if (!forged.alertTitle.includes('完成')) throw new Error(`forged dimension failed: ${forged.alertTitle}`);
+      const csv = await downloadBatchArtifact(page);
+      if (csv.includes('ok') && csv.length < 64) {
+        ok('a forged A1:XFD1048576 dimension converts from the actual extent, not the declared one');
+      } else {
+        fail('XLSX forged dimension', `csv length ${csv.length}: ${JSON.stringify(csv.slice(0, 80))}`);
+      }
+
+      await resetWorkbench(page);
+      const overflow = await convertFile(page, 'sample-xlsx-overflow.xlsx', 'CSV (.csv)');
+      const reason = (await page.$eval('.failure-item .failure-reason', el => el.textContent).catch(() => '')).trim();
+      if (!overflow.alertTitle.includes('完成') && reason.includes('单元格数量过多')) {
+        ok('a sheet whose real span exceeds the cell budget fails loudly with its own diagnostic');
+      } else {
+        fail('XLSX overflow budget', `alert="${overflow.alertTitle}" reason="${reason}"`);
+      }
+    } catch (e) {
+      fail('XLSX Dimension Bomb', e.message);
     }
   }
 
@@ -3390,6 +3692,30 @@ async function run() {
       '.el-select-dropdown__item.is-disabled',
       els => els.filter(e => e.getAttribute('aria-disabled') === 'true').length,
     );
+
+    // The reason must be readable, not merely present in the accessible name: Element Plus's option
+    // row is `white-space: nowrap; overflow: hidden`, so a long reason would be clipped to a sliver.
+    // Assert on layout, not on the CSS property alone.
+    const reasonBox = await page.$$eval('.el-select-dropdown__item.is-disabled', els => {
+      const item = els.find(e => e.getClientRects().length > 0 && (e.textContent || '').includes('需 OCR'));
+      if (!item) return null;
+      const reason = item.querySelector('.option-reason');
+      if (!reason) return null;
+      const itemRect = item.getBoundingClientRect();
+      const reasonRect = reason.getBoundingClientRect();
+      return {
+        whiteSpace: getComputedStyle(item).whiteSpace,
+        clipped: item.scrollWidth > item.clientWidth + 1,
+        fits: reasonRect.right <= itemRect.right + 1 && reasonRect.height > 0,
+        height: Math.round(reasonRect.height),
+      };
+    });
+    if (!reasonBox) throw new Error('blocked option has no readable reason element');
+    if (reasonBox.whiteSpace !== 'normal' || reasonBox.clipped || !reasonBox.fits) {
+      throw new Error(`reason is not visible in full: ${JSON.stringify(reasonBox)}`);
+    }
+    ok(`A blocked option's reason wraps inside the row (${reasonBox.height}px tall)`);
+
     await page.keyboard.press('Escape');
     await page.waitForTimeout(200);
 
@@ -5166,10 +5492,23 @@ async function run() {
       await page.keyboard.press('Control+Shift+Equal'); // the keydown carries key: '+'
       await page.waitForTimeout(700);
       const recorded = await label();
-      if (recorded !== before && recorded.includes('+')) {
+      // Exact, not `includes('+')`: the old broken shape persisted as `ctrl+shift`, whose label
+      // "Ctrl + Shift" contains a plus and passes the loose check while never firing. The key token
+      // must be the trailing `+` (macOS joins with spaces).
+      const expectedRecorded = process.platform === 'darwin' ? '⌃ ⇧ +' : 'Ctrl + Shift + +';
+      if (recorded === expectedRecorded) {
         ok(`Recorded '+' as its own token ("${before}" → "${recorded}")`);
       } else {
-        fail('Shortcut plus token', `label "${recorded}" did not take the key`);
+        fail('Shortcut plus token', `label "${recorded}" != "${expectedRecorded}"`);
+      }
+      const storedBinding = await page.evaluate(async () => {
+        const stored = await window.chrome.storage.local.get('fat:shortcuts');
+        return stored['fat:shortcuts']?.convert ?? '';
+      });
+      if (storedBinding === 'ctrl+shift+plus') {
+        ok('The plus binding persists as the word token, not a trailing empty slot');
+      } else {
+        fail('Shortcut plus storage', `stored "${storedBinding}" != "ctrl+shift+plus"`);
       }
       await page.keyboard.press('Escape');
       await page.waitForTimeout(400);

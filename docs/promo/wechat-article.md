@@ -67,7 +67,7 @@ SVG      ──► HTML ──► PNG
 
 **ZIP 压缩要按条目选择。** 直觉做法有两种：全部 stored（快，但文本结果体积白占）或全部 deflate（省空间，但对 PDF/XLSX/DOCX 这类自带容器的产物纯粹烧 CPU）。正确答案是**按条目决定**，而"压不动"的范围比直觉小得多：文本类（TXT/CSV/JSON/HTML/Markdown/SVG/XML）走 deflate，能小一个数量级；**图片也走 deflate**——一页以纯色为主的文档，用扩展自己的编码器（Chrome canvas.toBlob）出图，PNG 条目小 49.9%、JPEG 小 91.1%、WebP 小 50.0%，100 页的 PNG 导出从 5.13 MB 压到 2.57 MB；12 页真实 PDF 导出实测 PNG 小 39.3%、JPEG 小 58.6%。只有照片那一类高熵图像压不动，最多大 0.014% 体积，代价是每 10 MB 约 1.3 秒。压这些字节也不吃主线程：40 MB 条目压完，页面最长一次响应延迟 9 ms。用 fflate 实测过 7 MB CSV 配 6 MB 不可压缩数据：全部 stored 得到 13.28 MB / 56 ms，全部 deflate 得到 7.04 MB / 1169 ms。按条目选择拿到和全量 deflate 基本相同的体积（比全 stored 小约 47%），却不在压不动的条目上空烧 CPU。
 
-**中文 CSV 的编码现实。** 读取时 UTF-8 失败依次回退 GB18030 与 GBK，写出时带 UTF-8 BOM——否则 Excel 打开必乱码。这种细节不做，中文用户第一分钟就会流失。
+**中文 CSV 的编码现实。** 读取时先按 BOM / NUL 奇偶判断 UTF-16，再按 UTF-8 → GB18030 → GBK 依次严格解码；四种都不覆盖、或解出一串控制字符，就报错而不是产出乱码。写出时带 UTF-8 BOM——否则 Excel 打开必乱码。这种细节不做，中文用户第一分钟就会流失。
 
 **不可信输入必须净化。** 用户上传的 HTML / SVG / Markdown 全是攻击面。任何由用户文件生成的 HTML、SVG、Markdown 在渲染前都要过 DOMPurify，预览跑在 `sandbox` 的 iframe 里，全程禁止 `v-html`、`eval`、`new Function`。
 
@@ -100,7 +100,7 @@ pnpm install && pnpm build
 
 商店要的东西一开始就写在了仓库里：名称与描述文案、1280×800 截图、权限逐条说明、隐私政策、数据披露答复，都在 `.github/CHROMEWEBSTORE.md` 和 `docs/privacy.html`。走到上架用了三轮拒绝：前两轮是文案的形状，第三轮换了一条轴——包里有远程托管的字符串，代码里走不到也算违规，改的是构建不是文案。后续版本想推动什么，去仓库开个 issue 就行。
 
-技术栈：**WXT + Vue 3 + TypeScript + Element Plus**，Manifest V3，权限只有 `storage`，MIT 协议。代码里的验证方式也一并交代：Playwright 驱动构建产物跑 348 条断言，夹具（`fixtures/`）随仓库走。
+技术栈：**WXT + Vue 3 + TypeScript + Element Plus**，Manifest V3，权限只有 `storage`，MIT 协议。代码里的验证方式也一并交代：Playwright 驱动构建产物跑 358 条断言，夹具（`fixtures/`）随仓库走。
 
 ## 六、谁不该用它
 

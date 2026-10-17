@@ -159,16 +159,20 @@ watch(
       }
     } else if (isMarkdown.value || isHtml.value) {
       try {
-        textContent.value = await blob.text();
+        // Read into a local first: assigning before the cancellation check would let a slow read
+        // from an older file land after a newer run already cleared the pane, leaving the previous
+        // document's text on screen until the next one finishes.
+        const raw = await blob.text();
         if (cancelled) return;
+        textContent.value = raw;
         const purifyModule = await import('dompurify');
         const DOMPurify = purifyModule.default;
-        let source = textContent.value;
+        let source = raw;
         if (isMarkdown.value) {
           // The dialog mounts with the file list, so a static import here would put 41 KB of
           // `marked` on every boot; only the markdown tab needs the parser.
           const { marked } = await import('marked');
-          source = await marked(textContent.value);
+          source = await marked(raw);
         }
         const htmlBody = DOMPurify.sanitize(source, { USE_PROFILES: { html: true } });
         if (cancelled) return;

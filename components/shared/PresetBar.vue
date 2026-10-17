@@ -60,7 +60,7 @@ async function handleSave(): Promise<void> {
   const preset = createPreset(nameDraft.value, target, optionsToCapture.value, t);
   nameDraft.value = '';
   // The two branches are not the same message with a different colour. The chip is added either way,
-  // so a storage failure looks exactly like a success until the page is reloaded and it comes back;
+  // so a storage failure looks exactly like a success until the page is reloaded and it disappears;
   // saying so is the only way the user learns the card was never written to disk.
   if (await addPreset(preset)) {
     ElMessage.success(t('preset.saved', { name: preset.name }));
@@ -186,6 +186,11 @@ async function handleRemove(preset: ConversionPreset): Promise<void> {
 
 .preset-apply {
   max-width: 220px;
+
+  /* WCAG 2.5.8 asks for a 24×24 pointer target; a one-character preset name is narrower than that
+     without a floor, and the chip would still look the same height. */
+  min-width: 24px;
+  min-height: 24px;
   padding: 4px var(--fat-space-sm);
   overflow: hidden;
   border: none;
@@ -206,7 +211,12 @@ async function handleRemove(preset: ConversionPreset): Promise<void> {
 .preset-remove {
   display: inline-flex;
   align-items: center;
-  padding: 4px 6px 4px 2px;
+  justify-content: center;
+
+  /* Same 24×24 floor; the 12px icon plus 6px on each side is the target. */
+  min-width: 24px;
+  min-height: 24px;
+  padding: 0;
   border: none;
   background: none;
   color: var(--fat-text-secondary);

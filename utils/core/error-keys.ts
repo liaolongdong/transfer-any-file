@@ -25,7 +25,15 @@ export const CONVERSION_ERROR_KEYS = new Set([
   // A page range the user typed matched no page of this document. Distinct from `pdfParse` (the file
   // is fine) and from `imageEncode` (nothing failed to render), because the fix is in the field.
   'errors.pdfPageRange',
+  // The work budget, not the file, is the problem: rendering and extracting stop at a page count so
+  // the tab does not die of memory exhaustion. Two keys because the image route can point at the page
+  // range field and the text route cannot.
+  'errors.pdfTooManyImagePages',
+  'errors.pdfTooManyPages',
   'errors.xlsxEmpty',
+  // A sheet's serialized rectangle exceeds the work budget. Not a corrupt file: the data is fine,
+  // but walking it in one pass would freeze the workbench.
+  'errors.sheetTooLarge',
   'errors.csvDecode',
   'errors.imageDecode',
   'errors.imageEncode',

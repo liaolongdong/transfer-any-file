@@ -78,9 +78,35 @@ function docHintKey(fmt: FileFormat): 'preview.docxHint' | 'preview.xlsxHint' {
 
 const htmlView = ref<'rendered' | 'source'>('rendered');
 
-// `resultText` stays verbatim (it feeds the editor, copy and download); only the
-// rendered iframe gets remote references stripped so previewing cannot reach the network.
-const resultHtmlPreview = computed(() => (resultText.value ? stripRemoteResources(resultText.value) : ''));
+// `resultText` stays verbatim (it feeds the editor, copy and download); only the rendered iframe
+// gets a sanitized copy. DOMPurify is loaded on demand — this pane is mounted with the workbench and
+// a static import would put the sanitizer on the first-load path — so the pipeline is async and has
+// to survive a newer edit (or unmount) winning the race while the import is in flight.
+const resultHtmlPreview = ref('');
+let htmlPreviewGeneration = 0;
+
+watch(
+  [resultText, isResultHtml, htmlView] as const,
+  async ([text, isHtml, view], _prev, onCleanup) => {
+    const generation = ++htmlPreviewGeneration;
+    let cancelled = false;
+    onCleanup(() => {
+      cancelled = true;
+    });
+    if (!isHtml || view !== 'rendered' || !text) {
+      resultHtmlPreview.value = '';
+      return;
+    }
+    const DOMPurify = (await import('dompurify')).default;
+    if (cancelled || generation !== htmlPreviewGeneration) return;
+    // Same profile the markdown converter trusts: SVG is part of the result (inline diagrams), and
+    // dropping it here would make the pane disagree with the file the user downloads.
+    const purified = DOMPurify.sanitize(text, { USE_PROFILES: { html: true, svg: true, svgFilters: true } });
+    if (cancelled || generation !== htmlPreviewGeneration) return;
+    resultHtmlPreview.value = stripRemoteResources(purified);
+  },
+  { immediate: true },
+);
 
 // Panel visibility derived from split position
 const showSourcePanel = computed(() => !isResultOnly.value);
@@ -153,8 +179,16 @@ watch(
     });
 
     if (!result || !format) {
+      // A cleared result must release its object URLs here, not only on unmount: the comparison pane
+      // outlives the batch, so a revoked-on-unmount-only URL keeps the converted blob alive for the
+      // rest of the session.
+      if (resultImageUrl.value) URL.revokeObjectURL(resultImageUrl.value);
+      if (resultPdfUrl.value) URL.revokeObjectURL(resultPdfUrl.value);
+      resultImageUrl.value = '';
+      resultPdfUrl.value = '';
       resultText.value = '';
       resultDocHtml.value = '';
+      resultHtmlPreview.value = '';
       return;
     }
     if (result.blob === lastEmittedBlob) return;
@@ -164,6 +198,7 @@ watch(
     resultPdfUrl.value = '';
     resultText.value = '';
     resultDocHtml.value = '';
+    resultHtmlPreview.value = '';
     if (result.blob.type === 'application/zip') return;
     if (getFormatCategory(format) === 'image') {
       resultImageUrl.value = URL.createObjectURL(result.blob);
@@ -649,14 +684,24 @@ function toggleEdit(): void {
               @input="handleResultEdit(($event.target as HTMLTextAreaElement).value)"
             ></textarea>
           </div>
-          <!-- HTML rendered -->
+          <!-- HTML rendered. Mounted only once the sanitized copy exists: an iframe that first
+               renders an empty document and is navigated later can be left unlaid-out by Chromium
+               while it sits below the fold — the pane stayed white through a 10-second poll in the
+               store captures (measured 2026-10-18). Mounting with the final srcdoc avoids that
+               empty-document state entirely. -->
           <iframe
-            v-else-if="isResultHtml && htmlView === 'rendered' && resultText"
+            v-else-if="isResultHtml && htmlView === 'rendered' && resultHtmlPreview"
             class="html-frame"
             sandbox=""
             :srcdoc="resultHtmlPreview"
             :title="result?.filename ?? ''"
           ></iframe>
+          <!-- The sanitizer's on-demand import runs before the frame can mount; this keeps the
+               pane an empty white sheet, as the frame itself was, instead of flashing "no preview". -->
+          <div
+            v-else-if="isResultHtml && htmlView === 'rendered' && resultText"
+            class="html-frame-pending"
+          ></div>
           <!-- Text view (includes HTML source view) -->
           <pre
             v-else-if="isResultText && resultText"
@@ -961,6 +1006,13 @@ function toggleEdit(): void {
   background: #fff;
 }
 
+.html-frame-pending {
+  width: 100%;
+  height: 100%;
+  min-height: 350px;
+  background: #fff;
+}
+
 .pdf-frame {
   width: 100%;
   height: 100%;
@@ -1164,6 +1216,7 @@ function toggleEdit(): void {
   /* Each pane now gets about half of that height, so the floors that keep a preview readable in a
      400px-tall row pane would push the pair back out of its own container. */
   .html-frame,
+  .html-frame-pending,
   .pdf-frame,
   .doc-frame,
   .edit-content,

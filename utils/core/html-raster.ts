@@ -78,8 +78,9 @@ function carriesOwnBytes(value: string | null): boolean {
 }
 
 /**
- * Point every image reference the rasterizer cannot resolve at {@link IMAGE_PLACEHOLDER}, returning the
- * rewritten document and how many references were replaced.
+ * Point every image reference the rasterizer cannot resolve at {@link IMAGE_PLACEHOLDER}, give a
+ * `<video>` with no usable poster the same box (uncounted — see its loop below), and return the
+ * rewritten document plus how many *image* references were replaced.
  *
  * Two shapes reach here, and the first one is why a document with a single remote picture used to
  * report `errors.renderFailed`. A remote `src` has already lost its attribute to
@@ -124,6 +125,20 @@ function replaceUnresolvableImageRefs(html: string): { html: string; imagesDropp
     node.setAttribute('href', IMAGE_PLACEHOLDER);
     node.removeAttribute('xlink:href');
     replaced++;
+  }
+
+  // A `<video>` is the one element html-to-image rejects with a bare `Event`. With no loaded frame it
+  // builds an `<img>` from `video.poster`; an empty poster (the sanitizer already removed the remote
+  // one), a relative path into the extension package, or a dead blob all make that image fail, and
+  // the rejection is raised inside `cloneVideoElement` — the `onImageErrorHandler` passed to
+  // `toCanvas` never sees it, so one video aborts the whole document. Replacing the poster with the placeholder keeps the
+  // clone on its image path; a video whose bytes did load still wins, because `currentSrc` is checked
+  // first. Not counted in `imagesDropped`: that note is about image references, and this box is its
+  // own disclosure.
+  for (const video of Array.from(doc.querySelectorAll('video'))) {
+    const poster = video.getAttribute('poster');
+    if (poster && /^data:image\//i.test(poster)) continue;
+    video.setAttribute('poster', IMAGE_PLACEHOLDER);
   }
 
   // Same leading-doctype preservation {@link stripRemoteResources} does: standards-mode layout is what
@@ -295,7 +310,13 @@ export async function renderHtmlToCanvas(html: string, signal?: AbortSignal): Pr
       height: fullHeight,
       pixelRatio,
       backgroundColor: '#ffffff',
-      cacheBust: true,
+      // Deliberately off. `cacheBust` appends `?<timestamp>` to every resource URL, which is harmless
+      // only for network URLs — and this document has none. On the two shapes that remain it corrupts
+      // the resource itself: a data: URL keeps the query inside its payload (`</svg>?123` is no longer
+      // a valid SVG), and a blob: URL with a query resolves to nothing. A `<video>` poster goes
+      // through that same fetch path even when it is a data: URL, so this is also what makes the
+      // placeholder poster below actually load.
+      cacheBust: false,
       // The backstop for whatever still fails after the rewrite above — a `data:` payload this browser
       // cannot decode, a `blob:` since revoked. Without a handler, html-to-image routes the clone's
       // `onerror` straight to `reject`, so one unreadable picture aborts the document and the user

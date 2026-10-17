@@ -180,6 +180,17 @@ function lineToHtml(segments: Array<{ text: string; url: string | null }>, headi
   return isHeading ? `<h2>${inner}</h2>\n` : `<p>${inner}</p>\n`;
 }
 
+/**
+ * Pages this route will extract text from in one conversion.
+ *
+ * Text extraction is far cheaper than rasterizing, so the budget is higher than the image route's,
+ * but it is still bounded: every page's text items and annotations stay referenced while the HTML
+ * string grows, and a document with tens of thousands of pages exhausts the tab before the user ever
+ * sees an error. Unlike the image route there is no page-range control here, so the only remedy this
+ * message can offer is splitting the file.
+ */
+const MAX_PDF_TEXT_PAGES = 1000;
+
 const pdfToHtmlConverter: Converter = {
   from: FileFormat.PDF,
   to: FileFormat.HTML,
@@ -201,6 +212,13 @@ const pdfToHtmlConverter: Converter = {
       await loadingTask.destroy();
       if (ctx?.signal?.aborted) throw new Error('errors.cancelled', { cause: error });
       throw new Error('errors.pdfParse', { cause: error });
+    }
+
+    // Checked before the outline walk and the page loop, both so a document this long is rejected
+    // in constant time and so the error is not caught and relabelled further down.
+    if (pdf.numPages > MAX_PDF_TEXT_PAGES) {
+      await loadingTask.destroy();
+      throw new Error('errors.pdfTooManyPages');
     }
 
     // Read once per document, before the page loop: an outline is a document-level object, and a

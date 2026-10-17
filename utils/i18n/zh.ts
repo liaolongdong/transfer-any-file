@@ -166,8 +166,8 @@ export default {
     remove: '删除预设 {name}',
     saved: '已保存预设「{name}」',
     removed: '已删除预设「{name}」',
-    // 卡片是先进内存再写盘的，写盘失败时页面看起来和成功一模一样，只有刷新才露出来。
-    saveFailed: '预设「{name}」已加到本页，但未能写入本地存储，刷新后会重新出现',
+    // 卡片是先进内存再写盘的，写盘失败时页面看起来和成功一模一样，刷新后卡片消失才露出来。
+    saveFailed: '预设「{name}」已加到本页，但未能写入本地存储，刷新后会消失',
     removeFailed: '预设「{name}」已从本页移除，但未能写入本地存储，刷新后会重新出现',
     pending: '已记住预设，上传匹配文件后自动应用',
     unavailable: '当前文件无法转换为该预设的目标格式',
@@ -329,7 +329,13 @@ export default {
     pdfParse: 'PDF 解析失败，文件可能已损坏',
     // 文件本身没问题，是用户填的那串页码在这份文档里一页都没命中——所以指向输入框，而不是文件。
     pdfPageRange: '页码范围在本文件中没有匹配到任何页面，请检查它是否超出文档页数',
+    // 两条页数上限分开写：转图片这条路有「页码范围」可以自救，提取文本没有，能给的下一步不同。
+    pdfTooManyImagePages: '要渲染的页数过多，请用「页码范围」只选择需要的页，或先拆分这个 PDF',
+    pdfTooManyPages: '这个 PDF 页数过多，无法一次性提取全部文本，请先拆分后再转换',
     xlsxEmpty: 'XLSX 文件中没有工作表',
+    // 序列化器按 !ref 的矩形逐格走，伪造的维度可以远大于真实数据量；上限按实际单元格范围算，
+    // 触顶说明这份表在这个浏览器里转不动，而不是文件损坏。
+    sheetTooLarge: '表格的单元格数量过多，超出浏览器可安全转换的范围',
     csvDecode: 'CSV 解码失败，请检查文件编码',
     imageDecode: '图片解码失败，文件可能已损坏',
     imageEncode: '图片编码失败，浏览器不支持该输出格式',
@@ -339,7 +345,7 @@ export default {
     renderTooTall: '文档长度超出了浏览器单次渲染的上限，请把它拆成更短的部分分批转换',
     zipFail: 'ZIP 打包失败',
     jsonParse: 'JSON 解析失败，请检查文件格式',
-    jsonNotArray: 'JSON 内容必须是对象数组才能转换为 CSV',
+    jsonNotArray: 'JSON 内容必须是包含数据的数组才能转换为 CSV',
     htmlToJson: '无法从 HTML 中提取有效的 JSON 数据',
     decodeFail: '文件解码失败，编码可能不受支持或文件已损坏',
     cancelled: '转换已取消',

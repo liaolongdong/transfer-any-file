@@ -4,7 +4,7 @@ const path = require('node:path');
 const { asBlob } = require('html-docx-js-typescript');
 const XLSX = require('xlsx');
 const { jsPDF } = require('jspdf');
-const { zipSync, strToU8 } = require('fflate');
+const { unzipSync, zipSync, strToU8 } = require('fflate');
 
 const TINY_PNG =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
@@ -100,6 +100,56 @@ function buildBmp() {
   return Buffer.from(bytes);
 }
 
+/**
+ * XLSX fixtures for the `!ref` budget.
+ *
+ * `XLSX.write` believes `!ref` and walks it, so the forged dimension cannot be produced by writing a
+ * workbook with that range — it is patched into the sheet XML after the fact, at 5 KB total. The
+ * overflow fixture is honest: two cells 500 000 rows apart already exceed the per-sheet budget even
+ * though the file is tiny, which is exactly the sparse shape the budget is about.
+ */
+function writeXlsxBoundsFixtures(outDir) {
+  const forged = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(forged, XLSX.utils.aoa_to_sheet([['ok']]), 'Sheet1');
+  const base = XLSX.write(forged, { type: 'buffer', bookType: 'xlsx' });
+  const parts = unzipSync(new Uint8Array(base));
+  const sheetXml = Buffer.from(parts['xl/worksheets/sheet1.xml']).toString('utf8');
+  parts['xl/worksheets/sheet1.xml'] = strToU8(
+    sheetXml.replace(/<dimension ref="[^"]*"\/>/, '<dimension ref="A1:XFD1048576"/>'),
+  );
+  fs.writeFileSync(path.join(outDir, 'sample-xlsx-dimension.xlsx'), Buffer.from(zipSync(parts)));
+
+  const overflow = XLSX.utils.book_new();
+  const sheet = XLSX.utils.aoa_to_sheet([['first']]);
+  sheet.A500001 = { t: 's', v: 'last' };
+  sheet['!ref'] = 'A1:A500001';
+  XLSX.utils.book_append_sheet(overflow, sheet, 'Sheet1');
+  fs.writeFileSync(
+    path.join(outDir, 'sample-xlsx-overflow.xlsx'),
+    Buffer.from(XLSX.write(overflow, { type: 'buffer', bookType: 'xlsx' })),
+  );
+}
+
+/**
+ * PDF fixtures for the page-count budgets.
+ *
+ * Both are honest documents — the page tree lists every page — because the guard has to fire on the
+ * count pdf.js actually reports, not on a number this script made up. A 1-inch page keeps them small
+ * and keeps the one acceptance case cheap: the boundary test renders 200 pages at the default 144
+ * dpi, which is a 144×144 canvas each rather than an A4 sheet. Both rejection routes stop before
+ * rendering or extracting anything, so they cost the same either way.
+ */
+function writePdfCapFixtures(outDir) {
+  for (const [pages, name] of [
+    [201, 'sample-201-pages.pdf'],
+    [1001, 'sample-1001-pages.pdf'],
+  ]) {
+    const doc = new jsPDF({ unit: 'pt', format: [72, 72] });
+    for (let i = 1; i < pages; i++) doc.addPage();
+    doc.save(path.join(outDir, name));
+  }
+}
+
 async function main() {
   const outDir = path.join(__dirname, '..', 'fixtures');
   fs.mkdirSync(outDir, { recursive: true });
@@ -163,6 +213,8 @@ async function main() {
     '目录',
   );
   XLSX.writeFile(single, path.join(outDir, 'single-sheet.xlsx'));
+  writeXlsxBoundsFixtures(outDir);
+  writePdfCapFixtures(outDir);
 
   // 1x1 GIF (well-known minimal valid GIF89a) — single frame on purpose: it is the negative case for
   // the "only the first frame survives" disclosure, which must stay quiet about an animation that
@@ -322,7 +374,7 @@ body{background:url('http://127.0.0.1:9876/canary/css-bg.png')}</style>
   console.log('fixtures written to', outDir);
 }
 
-module.exports = { buildAnimatedGif, buildBmp };
+module.exports = { buildAnimatedGif, buildBmp, writeXlsxBoundsFixtures, writePdfCapFixtures };
 
 // Importable on purpose: one fixture can then be written without touching the others, since
 // regenerating the whole set re-stamps the PDF and XLSX files whose exact bytes the e2e assertions

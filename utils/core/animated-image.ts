@@ -51,6 +51,21 @@ function skipSubBlocks(bytes: Uint8Array, p: number): number {
 }
 
 /**
+ * Byte after the color table a packed-flags byte announces, or `null` when the table would run past
+ * the buffer.
+ *
+ * Bit 7 says a table follows, and the low three bits give `2^(n+1)` entries of 3 bytes — the same
+ * rule for the logical screen's global table and an image descriptor's local one. A table larger
+ * than the buffer is a corrupt or truncated stream; the caller can only ask "is this animated", and
+ * the only honest answer to that is "no".
+ */
+function skipColorTable(bytes: Uint8Array, start: number, packed: number): number | null {
+  if (!(packed & 0x80)) return start;
+  const end = start + 3 * (1 << ((packed & 7) + 1));
+  return end > bytes.length ? null : end;
+}
+
+/**
  * Walk one buffer of GIF blocks.
  *
  * `multi` says a second image descriptor was counted. `conclusive` says the walk reached an end that
@@ -62,16 +77,10 @@ function scanFrames(bytes: Uint8Array, isWholeFile: boolean): { multi: boolean; 
   if (isWholeFile && bytes.length <= 13) return { multi: false, conclusive: true };
 
   // Logical screen descriptor: 6-byte header + 7 bytes, then the global color table if the packed
-  // flags announce one (2^(n+1) entries of 3 bytes).
-  const packed = bytes[10];
-  let p = 13;
-  if (packed & 0x80) {
-    const tableEnd = p + 3 * (1 << ((packed & 7) + 1));
-    // A header claiming a color table larger than the buffer is a corrupt or truncated stream. The
-    // caller can only ask "is this animated", and the only honest answer to that is "no".
-    if (tableEnd > bytes.length) return { multi: false, conclusive: isWholeFile };
-    p = tableEnd;
-  }
+  // flags announce one.
+  const afterGlobalTable = skipColorTable(bytes, 13, bytes[10]);
+  if (afterGlobalTable === null) return { multi: false, conclusive: isWholeFile };
+  let p = afterGlobalTable;
 
   let frames = 0;
   while (p < bytes.length) {
@@ -85,13 +94,9 @@ function scanFrames(bytes: Uint8Array, isWholeFile: boolean): { multi: boolean; 
       p += 9; // the four coordinate shorts; the packed flags byte sits right after them
       const localPacked = bytes[p];
       if (localPacked === undefined) return { multi: false, conclusive: isWholeFile };
-      p += 1;
-      if (localPacked & 0x80) {
-        const localTableEnd = p + 3 * (1 << ((localPacked & 7) + 1));
-        if (localTableEnd > bytes.length) return { multi: false, conclusive: isWholeFile };
-        p = localTableEnd;
-      }
-      p = skipSubBlocks(bytes, p + 1); // LZW minimum code size, then the compressed image data
+      const afterLocalTable = skipColorTable(bytes, p + 1, localPacked);
+      if (afterLocalTable === null) return { multi: false, conclusive: isWholeFile };
+      p = skipSubBlocks(bytes, afterLocalTable + 1); // LZW minimum code size, then the compressed data
       // Counting happens once the frame's own blocks are behind us, so a truncated last frame inside a
       // window cannot be mistaken for a second frame that exists.
       frames++;

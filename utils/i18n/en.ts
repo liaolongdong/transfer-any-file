@@ -157,8 +157,8 @@ const en: typeof zh = {
     saved: 'Preset “{name}” saved',
     removed: 'Preset “{name}” deleted',
     // The chip lands in memory before the write, so a failed write looks exactly like a success until
-    // the page is reloaded — which is the only moment the user would otherwise find out.
-    saveFailed: 'Preset “{name}” is on this page but could not be saved to storage; it returns after a reload',
+    // the page is reloaded and the chip disappears — the only moment the user would otherwise find out.
+    saveFailed: 'Preset “{name}” is on this page but could not be saved to storage; it will be gone after a reload',
     removeFailed: 'Preset “{name}” is off this page but the change could not be saved; it returns after a reload',
     pending: 'Preset remembered; it applies once you upload matching files',
     unavailable: 'The current files cannot be converted to that preset’s target format',
@@ -315,7 +315,10 @@ const en: typeof zh = {
     docxEmpty: 'The DOCX file contains no convertible content',
     pdfParse: 'Failed to parse PDF; the file may be corrupted',
     pdfPageRange: 'The page range matches no page in this document; check it against the page count',
+    pdfTooManyImagePages: 'Too many pages to render at once; select fewer pages with Pages, or split the PDF',
+    pdfTooManyPages: 'This PDF has too many pages to extract as text in one pass; split it and try again',
     xlsxEmpty: 'The XLSX file contains no worksheets',
+    sheetTooLarge: 'This table has too many cells to convert safely in the browser',
     csvDecode: 'Failed to decode CSV; please check the file encoding',
     imageDecode: 'Failed to decode image; the file may be corrupted',
     imageEncode: 'Failed to encode image; the browser does not support this output format',
@@ -327,7 +330,7 @@ const en: typeof zh = {
       'The document is longer than the browser can render in one pass; split it into shorter parts and convert them separately',
     zipFail: 'Failed to create ZIP archive',
     jsonParse: 'Failed to parse JSON; please check the file format',
-    jsonNotArray: 'JSON must be an array of objects to convert to CSV',
+    jsonNotArray: 'JSON must be an array containing data to convert to CSV',
     htmlToJson: 'Could not extract valid JSON data from the HTML',
     decodeFail: 'Failed to decode the file; its encoding may be unsupported or the file may be corrupted',
     cancelled: 'Conversion cancelled',

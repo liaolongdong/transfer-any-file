@@ -70,7 +70,7 @@ For a single file, online tools are fine. What forces the difference is "I have 
 
 **Pick the ZIP method per entry.** There are two intuitive answers: store everything (fast, but text results waste space) or deflate everything (compact, but pure CPU burn on PDF/XLSX/DOCX, which carry their own containers). The measured answer is **decide per entry**, and "cannot shrink" covers far less than intuition says: text formats (TXT/CSV/JSON/HTML/Markdown/SVG/XML) deflate, roughly an order of magnitude smaller — and so do images. Encode one mostly-flat document page with the encoder this app itself uses (Chrome canvas.toBlob) and a PNG entry gets 49.9% smaller, a JPEG 91.1%, a WebP 50.0%, while a 100-page PNG export goes from 5.13 MB to 2.57 MB; the 12 pages of a real PDF export measured 39.3% for PNG and 58.6% for JPEG. Only a high-entropy photograph gains nothing, at 0.014% more archive and about 1.3 s of packing per 10 MB. Nor does that work occupy the page: packing 40 MB deflated held the main thread for at most 9 ms. I ran this through fflate on 7 MB of CSV alongside 6 MB of incompressible data: all-stored gave a 13.28 MB archive in 56 ms, all-deflate gave 7.04 MB in 1169 ms. Per-entry gets essentially the same size as all-deflate — about 47% below all-stored — without spending CPU on the entries that can't shrink.
 
-**Chinese CSV is an encoding problem, not a language problem.** Read: try UTF-8, then GB18030, then GBK. Write: prepend a UTF-8 BOM. Skip that and Excel opens the file as mojibake, and Chinese-speaking users churn inside the first minute.
+**Chinese CSV is an encoding problem, not a language problem.** Read: settle UTF-16 first by BOM or NUL parity, then try UTF-8, GB18030 and GBK strictly; when none covers the bytes, or the result carries a run of control characters, fail instead of emitting mojibake. Write: prepend a UTF-8 BOM. Skip that and Excel opens the file as mojibake, and Chinese-speaking users churn inside the first minute.
 
 **Untrusted input gets sanitised.** Uploaded HTML, SVG and Markdown are all attack surface. Every HTML/SVG/Markdown document generated from a user file passes through DOMPurify before it is rendered, previews run in a `sandbox`ed iframe, and there is no `v-html`, no `eval`, no `new Function` anywhere in the runtime path.
 
@@ -103,7 +103,7 @@ Repository: [github.com/liaolongdong/transfer-any-file](https://github.com/liaol
 
 Everything the store asks for was written down first: name and description copy, 1280×800 screenshots, a line-by-line justification for each permission, the privacy policy, and the data-disclosure answers — all in `.github/CHROMEWEBSTORE.md` and `docs/privacy.html`. Getting there took three rejections: the first two were about the shape of the copy, the third about remotely hosted strings sitting unreachable inside the bundle — fixed in the build, not in the text. To push anything for the next version, open an issue on the repo.
 
-Tech stack: **WXT + Vue 3 + TypeScript + Element Plus**, Manifest V3, `storage` as the only permission, MIT licence. How it's verified is part of the deliverable too: Playwright drives the built artifact through 348 assertions, and the fixtures it converts live in `fixtures/` next to the code.
+Tech stack: **WXT + Vue 3 + TypeScript + Element Plus**, Manifest V3, `storage` as the only permission, MIT licence. How it's verified is part of the deliverable too: Playwright drives the built artifact through 358 assertions, and the fixtures it converts live in `fixtures/` next to the code.
 
 ## 6. Who shouldn't use it
 

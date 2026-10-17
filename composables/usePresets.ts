@@ -44,7 +44,7 @@ export function usePresets() {
    *
    * Resolves to whether the list reached storage, because the bar that calls this tells the user the
    * preset is saved. Without the outcome that sentence is a promise the code cannot keep: the chip is
-   * in memory either way, so a quota failure only shows up as the preset returning after a reload.
+   * in memory either way, so a quota failure only shows up as the preset vanishing after a reload.
    */
   async function addPreset(preset: ConversionPreset): Promise<boolean> {
     await initPromise;

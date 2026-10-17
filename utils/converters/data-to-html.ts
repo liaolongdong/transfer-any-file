@@ -3,7 +3,7 @@ import type { Converter, ConvertResult, ConvertContext } from '~/utils/core/type
 import { decodeTextBlob } from '~/utils/core/text-decode';
 import { wrapHtmlDocument, escapeHtml } from '~/utils/core/html-document';
 import { normalizeDateCells, XLSX_TEXT_DATE_FORMAT } from '~/utils/core/csv-guard';
-import { ownSheet } from '~/utils/core/xlsx-sheets';
+import { boundWorkbook, ownSheet } from '~/utils/core/xlsx-sheets';
 import type { WorkBook } from 'xlsx';
 
 /** sheet_to_html wraps output in a nested html/head/body; keep only tables */
@@ -17,6 +17,7 @@ function tablesOnly(html: string): string {
 }
 
 async function workbookToHtmlBody(XLSX: typeof import('xlsx'), workbook: WorkBook): Promise<string> {
+  boundWorkbook(workbook);
   const parts: string[] = [];
   for (const name of workbook.SheetNames) {
     const sheet = ownSheet(workbook, name);

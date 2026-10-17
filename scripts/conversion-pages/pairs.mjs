@@ -524,23 +524,25 @@ export const PAIRS = [
         '表头为所有对象键的并集，顺序按首次出现，缺失键留空而不是错位',
         'null 与缺字段都写为空单元格，数字与布尔按原值写',
         '嵌套对象与数组以 JSON 文本入格，信息不丢，便于下一步用 jq 或 Excel 公式处理',
+        '标量或嵌套数组没有键可挂时写进一列 `_value`；若记录本身已用该键，合成列自动改名，绝不丢行',
         '字符串以 = + - @ 开头时转义，防止一个 JSON 字段在 Excel 里被当成公式执行',
       ],
       en: [
         'Headers are the union of all keys, ordered by first appearance; a missing key becomes an empty cell rather than a shifted row',
         'null and absent fields both write empty; numbers and booleans write their value',
         'Nested objects and arrays land in the cell as JSON text, so nothing is lost and a next step in jq or a spreadsheet formula can use them',
+        'A scalar or nested array with no keys lands in a single `_value` column; if a record already uses that key the synthetic column is renamed, so no row is dropped',
         'A string beginning with = + - @ is escaped, so one JSON field cannot execute as a formula in Excel',
       ],
     },
     limits: {
       zh: [
-        '输入必须是数组。对象、数组套对象这类结构会直接报错（errors.jsonNotArray），而不是给你一个看起来成功的空文件',
+        '输入必须是包含数据的数组。单独一个对象、空数组或一组空对象会报错（errors.jsonNotArray），而不是给你一个看起来成功的空文件',
         '不做扁平化：a.b.c 不会被拆成三列，需要拆就先用 jq 或「转成 Excel」之前的加工做一次',
         '不读取网络上的 JSON：文件必须是本地的那一份',
       ],
       en: [
-        'The input must be an array. A bare object or an object of objects reports an error (errors.jsonNotArray) instead of producing a file that looks like success and is empty',
+        'The input must be an array containing data. A bare object, an empty array, or an array of empty objects reports an error (errors.jsonNotArray) instead of producing a file that looks like success and is empty',
         'No flattening: a.b.c is not split into three columns. Flatten first with jq if the result has to be a flat grid',
         'It never reads JSON from the network — it has to be the local copy',
       ],

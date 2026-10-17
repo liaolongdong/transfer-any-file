@@ -1,7 +1,7 @@
 import type { WorkBook } from 'xlsx';
 import { escapeHtml } from '~/utils/core/html-document';
 import { stripRemoteResources } from '~/utils/core/html-sanitize';
-import { ownSheet } from '~/utils/core/xlsx-sheets';
+import { boundWorkbook, ownSheet } from '~/utils/core/xlsx-sheets';
 
 const PREVIEW_CSS = `
   body {
@@ -137,6 +137,7 @@ export async function xlsxToPreviewHtml(blob: Blob): Promise<string> {
   return cachedXlsxPreview(blob, async () => {
     const [XLSX, buffer] = await Promise.all([import('xlsx'), blob.arrayBuffer()]);
     const workbook: WorkBook = XLSX.read(buffer, { type: 'array' });
+    boundWorkbook(workbook);
     if (workbook.SheetNames.length === 0) {
       // Thrown rather than rendered as a note inside the preview document, which is what used to
       // happen — and that note was a hardcoded English literal, so no dictionary key could be

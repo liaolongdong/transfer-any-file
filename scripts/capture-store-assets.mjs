@@ -240,13 +240,41 @@ function shotLabel(outDir, file) {
   return rel.startsWith('..') ? file : rel;
 }
 
+/**
+ * The comparison pane's result iframe carries a `srcdoc` that DOMPurify fills in asynchronously,
+ * and Chromium defers the frame's layout while it is below the fold. The fixed settle that suits
+ * every other pane caught a white result pane on two consecutive full runs (2026-10-18), so wait
+ * for the frame's own document to report a laid-out element instead of guessing a longer sleep.
+ * Scrolling the host pane into view is what releases the deferred layout, so this runs after it.
+ */
+async function waitForRenderedFrame(page, childSelector) {
+  const deadline = Date.now() + 10000;
+  while (Date.now() < deadline) {
+    const frame = page.frames().find(f => f !== page.mainFrame());
+    const laidOut = frame
+      ? await frame
+          .evaluate(sel => {
+            const el = document.querySelector(sel);
+            if (!el) return false;
+            const rect = el.getBoundingClientRect();
+            return rect.width > 0 && rect.height > 0;
+          }, childSelector)
+          .catch(() => false)
+      : false;
+    if (laidOut) return;
+    await page.waitForTimeout(100);
+  }
+  throw new Error(`result frame never laid out ${childSelector}`);
+}
+
 /** Scroll an element to the vertical centre, then shoot the viewport (never fullPage). */
-async function shootCentered(page, selector, outDir, file) {
+async function shootCentered(page, selector, outDir, file, ready) {
   await page.locator(selector).first().scrollIntoViewIfNeeded();
   await page.evaluate(sel => {
     const el = document.querySelector(sel);
     if (el) el.scrollIntoView({ block: 'center', behavior: 'instant' });
   }, selector);
+  if (ready) await ready();
   await page.waitForTimeout(350);
   await page.screenshot({ path: path.join(outDir, file) });
   console.log(`  ✓ ${shotLabel(outDir, file)}`);
@@ -293,7 +321,7 @@ async function captureScreens(locale, outDir) {
   // and each run leaves a real record behind for the history shot.
   await resetWorkbench(page);
   await convert(page, ['sample.md'], 'HTML (.html)');
-  await shootCentered(page, '.comparison-view', outDir, 'preview-edit.png');
+  await shootCentered(page, '.comparison-view', outDir, 'preview-edit.png', () => waitForRenderedFrame(page, 'h1'));
 
   await resetWorkbench(page);
   await convert(page, ['sample.csv'], 'Excel (.xlsx)');

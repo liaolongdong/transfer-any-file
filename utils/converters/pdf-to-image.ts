@@ -25,6 +25,18 @@ const MIME_TYPES: Partial<Record<FileFormat, string>> = {
 };
 
 /**
+ * Pages this route will rasterize in one conversion.
+ *
+ * The page range exists so a long document can still be exported in parts, but a range that selects
+ * everything is the same work as no range at all. Each page holds a full-size canvas until it is
+ * encoded, and 200 of them is already several hundred megabytes at print densities — past that the
+ * tab dies with an out-of-memory tab crash, which reaches the user as "the extension closed itself"
+ * rather than as a conversion failure. The cap turns that into a diagnostic that names the way out
+ * (select fewer pages, or split the file).
+ */
+const MAX_PDF_IMAGE_PAGES = 200;
+
+/**
  * PDF → raster converter factory.
  *
  * PNG, JPG and WEBP each get a direct edge: going through PNG first and re-encoding would pay
@@ -62,7 +74,9 @@ function createPdfToImageConverter(to: FileFormat): Converter {
         throw new Error('errors.pdfParse', { cause: error });
       }
 
-      const selected = parsePageRange(ctx?.pageRange, pdf.numPages);
+      // `+ 1` so a selection of exactly the budget is still distinguishable from one past it; the
+      // array never grows beyond the cap regardless of what the document claims its page count is.
+      const selected = parsePageRange(ctx?.pageRange, pdf.numPages, MAX_PDF_IMAGE_PAGES + 1);
       if (selected && selected.length === 0) {
         // Nothing in the typed range survives this document. Handing back every page would be a
         // file the user did not ask for, and the silent version of that mistake is the one this
@@ -73,7 +87,19 @@ function createPdfToImageConverter(to: FileFormat): Converter {
       }
       // The whole document, or only the pages the user listed. `selected` comes back ascending, so
       // either way the loop walks the PDF in reading order and never revisits a page.
+      // The no-selection case is checked before building the array: `pdf.numPages` is the
+      // document's own claim and can be absurd, while a selection was already bounded above.
+      if (!selected && pdf.numPages > MAX_PDF_IMAGE_PAGES) {
+        await loadingTask.destroy();
+        throw new Error('errors.pdfTooManyImagePages');
+      }
       const pages = selected ?? Array.from({ length: pdf.numPages }, (_, index) => index + 1);
+      if (pages.length > MAX_PDF_IMAGE_PAGES) {
+        // Before the render `try`, whose catch would relabel this as `imageEncode`; the document
+        // loaded fine, it is only too long to rasterize in one pass.
+        await loadingTask.destroy();
+        throw new Error('errors.pdfTooManyImagePages');
+      }
 
       const pageImages: Array<Uint8Array> = [];
 

@@ -122,6 +122,37 @@ storage: persists the user's own conversion history (file names, formats and siz
 
 ## Step 3: Configure CI/CD Automated Publishing
 
+### 3.0 First work out which pieces are missing right now (read-only, any time)
+
+Every other section of this document describes the **intended state**, while the reasons a chain does not run
+almost always live in the repository's settings. GitHub Secrets are **write-only**, so what can be checked is
+whether a _name_ is present, never whether its _value_ is right. Run these five before configuring anything —
+they are all GETs and write not a single byte:
+
+```bash
+R=liaolongdong/transfer-any-file
+
+gh api repos/$R/actions/secrets --jq '.secrets[].name'                     # ① are the four new names present
+gh api repos/$R/environments/cws-release --jq '[.protection_rules[].type]' # ② does the gate have teeth
+gh api repos/$R/environments/cws-release/secrets --jq '.total_count'       # ③ must be 0
+gh api repos/$R/actions/variables --jq '.variables[].name'                 # ④ CWS_AUTO_SUBMIT
+git ls-remote --tags origin | wc -l                                        # ⑤ does any tag exist at all
+```
+
+| Reading                                                                                                                           | What it means                                                                                                                                                     | Where to fix it |
+| --------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------- |
+| ① missing any of `CHROME_EXTENSION_ID_TAF` / `CWS_PUBLISHER_ID` / `CWS_SERVICE_ACCOUNT_EMAIL` / `CWS_SERVICE_ACCOUNT_PRIVATE_KEY` | Both store steps are **silently skipped together**, the summary says "已跳过 Chrome 应用商店", and the run stays green                                            | 3.2             |
+| ① contains `CWS_CLIENT_ID` / `CWS_CLIENT_SECRET` / `CWS_EXTENSION_ID`                                                             | Those three are the v1.1 leftovers; the new chain never reads them — **do not count them as "three configured"** (Q17)                                            | 3.2             |
+| ② is `[]`                                                                                                                         | The environment exists but **there is no gate**: once `store_submit` queues it runs straight through                                                              | 3.4             |
+| ② contains only `wait_timer`, no `required_reviewers`                                                                             | A **fake gate**: the timer expires and the job proceeds with nobody approving anything (Q16)                                                                      | 3.4             |
+| ③ is not `0`                                                                                                                      | The credentials were configured at environment scope, so only `store_submit` can see them — the upload step lives in the `release` job and cannot                 | 3.2             |
+| ④ has no `CWS_AUTO_SUBMIT`                                                                                                        | The submission job does not even queue — deliberate fail-closed behaviour                                                                                         | 3.4 step 6      |
+| ⑤ is `0`                                                                                                                          | Depths 1 / 2 / 3 **cannot run right now**: `Check out the tag` uses `inputs.tag`, and a ref that does not exist fails at the checkout. Only depth 0 is unaffected | Q19             |
+
+Readings ② ③ ④ together explain the single most misread situation on this chain: **the pipeline is all green while
+the store received nothing**. No step failed — those two steps never executed. `Detect Chrome Web Store credentials`
+asserts "all four are non-empty", and a missing one writes a single skip line instead of an error.
+
 ### 3.1 Obtain Service Account Credentials (Chrome Web Store API v2)
 
 Publishing runs on **API v2 with a service account**: there is no Client ID / Client Secret / Refresh Token
@@ -403,6 +434,13 @@ is in item 5 below.
    **Allow administrators to bypass configured protection rules**: while ticked, an admin walks straight
    through the gate. The docs state the way to close it: "Deselect Allow administrators to bypass configured
    protection rules".
+
+   > ⚠️ **This step can only be done in the web UI — do not type it as a command.** Measured this round: on the
+   > same environment the `wait_timer` and `can_admins_bypass` fields are both writable over REST, but the
+   > required-reviewers rule is not — `reviewers` holding your own id, a nonexistent id, or somebody else's id
+   > all answer the identical 422 `Required reviewers must have at least one reviewer`. The measurement table and
+   > how to read it are in Q16, which also explains why an environment carrying only `wait_timer` is a **fake
+   > gate** that releases on its own.
 
 3. **Leave Deployment branch empty, or write `main`.** With a pattern, GitHub wants "the name pattern for the
    branch or tag that you want to allow" and "Name patterns must be configured for branches or tags
@@ -733,6 +771,167 @@ Conclusion: depths 1 / 2 / 3 only mean something for **a tag cut from a ref that
 check just the credential chain use depth 0, which always checks out the ref the run was triggered on and is not
 subject to this limitation (3.3 item 6).
 
+### Q16: The environment exists and its `protection_rules` contains only `wait_timer` — is that a gate?
+
+**No, and it is worse than having no gate at all.** A wait timer means "release automatically once N minutes have
+passed"; it needs nobody's approval. Treating it as a gate is giving an automatic submission a grace period. One
+reading decides it: `protection_rules` must contain the `required_reviewers` entry with people actually listed in
+`reviewers` (step 5 of 3.4 is the command that reads it).
+
+The other thing measured this round belongs here, because it disproves the assumption "just type the documented
+command". On this account that rule can be added **only in the web UI, never over REST**. The same
+`PUT /repos/{owner}/{repo}/environments/cws-release`:
+
+| Request body                                                                    | Result (measured 2026-10-18)                             |
+| ------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| `{"wait_timer":1}`                                                              | 200, `protection_rules` gains `wait_timer`               |
+| `{"wait_timer":0}`                                                              | 200, the rules are cleared                               |
+| `{"can_admins_bypass":false}`                                                   | 200, the field changes                                   |
+| `{"reviewers":[{"reviewer_id":<your own id>}]}`                                 | 422 `Required reviewers must have at least one reviewer` |
+| The same plus `wait_timer` / `prevent_self_review` / `deployment_branch_policy` | 422, same sentence                                       |
+| `{"reviewers":[{"reviewer_id":1}]}` (an id that does not exist)                 | 422, **still the same sentence**                         |
+
+That last line is the tell: the error has nothing to do with whether the id is valid, so GitHub never checked the
+number — the whole required-reviewers rule was refused (`gh` uses an OAuth token holding both the `repo` and
+`workflow` scopes, and `wait_timer` writes fine, so this is not a missing write permission). The remedy is
+therefore: **add it under Settings → Environments → `cws-release` → Required reviewers in the browser**, then
+confirm with reading ② of 3.0 that `required_reviewers` is now visible. Until then, do not set `CWS_AUTO_SUBMIT` —
+an empty shell and a fake gate both let "merged to main" alert the review queue, and the entire reason this chain
+exists is that a human looks first.
+
+### Q17: The repo still has `CWS_CLIENT_ID` / `CWS_CLIENT_SECRET` / `CWS_EXTENSION_ID` — does that mean credentials are configured?
+
+No. Those three are leftovers of the v1.1 "OAuth desktop client + refresh token" design, and **the new chain never
+reads a single one of them**: `release.yml` reads `CHROME_EXTENSION_ID_TAF`, `CWS_PUBLISHER_ID`,
+`CWS_SERVICE_ACCOUNT_EMAIL` and `CWS_SERVICE_ACCOUNT_PRIVATE_KEY`, and its predicate is "all four are non-empty".
+Leaving the old three in place breaks nothing, but it makes reading ① of 3.0 easy to miscount — this repo measured
+exactly the shape "three old names present, four new names absent", and in that state both store steps are silently
+skipped together.
+
+Deleting them is the owner's call: Secrets are write-only, so once deleted the value cannot be recovered and
+restoring it means pasting again. The one thing not to do is read `CWS_EXTENSION_ID` as "the extension ID is already
+configured" — the key the workflow reads is `CHROME_EXTENSION_ID_TAF`, and a wrong name equals not configured. Worth
+noticing: those 32 characters are public anyway (they are the store listing's URL), so copying them into the new key
+involves no secrecy at all — `gh secret set CHROME_EXTENSION_ID_TAF` and paste.
+
+### Q18: I merged the Release PR and there is neither a tag nor a `release.yml` run?
+
+`RELEASE_PAT` is missing. GitHub has a hard rule: **events created by `GITHUB_TOKEN` do not trigger other
+workflows**, so a tag pushed with the built-in token yields the silent half-failure "the tag exists, the downstream
+workflow never ran". How to configure it is in 1.2 of `.github/RELEASE_AUTOMATION.md` (fine-grained token, this one
+repository only, Contents + Pull requests permissions).
+
+Without it the chain is not broken, it **steps back one**: `Push the tag` only reports a warning and the summary
+prints the three local commands, and completing them in a terminal triggers `release.yml` just the same. Reading ⑤
+of 3.0 shows this shape — an empty tag list while `main` already has a version section.
+
+### Q19: I wanted a dry run to check the artifact and the very first step failed?
+
+If reading ⑤ of 3.0 returns `0`, then depths 1 / 2 / 3 **cannot run at all right now**, and the failure has nothing
+to do with credentials: the `release` job's `Check out the tag` uses
+`ref: ${{ github.event.inputs.tag || github.ref }}`, so a tag you type that does not exist in the repository fails
+at the checkout. A dry run starts from that same step — "creates no Release, touches no store" happens later and does
+not change the need for a real ref.
+
+Each thing you might want verified has its own entry point:
+
+| What you want to verify                                                   | Use                                                                                                                       | Needs a tag |
+| ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| The artifact itself is compliant (build + every guard + package contents) | Locally `pnpm build && pnpm verify:offline && pnpm verify:remote-code`; on CI the build job of `ci.yml` already does this | No          |
+| The verdict logic and the seams to `release.yml` were not broken          | `pnpm verify:release-ci` (zero network)                                                                                   | No          |
+| Whether the credential chain works                                        | Depth 0, `store_status_only` — it checks out the ref the dispatch started from                                            | No          |
+| The whole release chain                                                   | First get a tag per Q18 (configure `RELEASE_PAT` or run the three local lines), then talk about depths 1 / 2 / 3          | **Yes**     |
+
+### Q20: What happens while `uploadState=IN_PROGRESS` — could it submit the previous version?
+
+After the store receives a package it **unpacks asynchronously**, so `:upload` may answer `IN_PROGRESS`. Posting
+`:publish` at that moment puts the **previous parsed version** into the review queue — v2's nastiest failure,
+because it reports success while shipping the old package.
+
+This chain handles it in two layers rather than by luck. The upload step reads `IN_PROGRESS` and writes only
+"the store is still unpacking" into the summary — **it does not turn red** (the package genuinely got through, and
+failing there would mark the whole release job broken). What actually stops it is `submit-check` in the submission
+job: it asks `:fetchStatus` again, and if `lastAsyncUploadState` is still `IN_PROGRESS` it returns exit code 20, the
+job turns red with the reason written out, and **the publish button is not pressed**. Between those two steps sits
+the human approval gate of 3.4, so unpacking has usually long finished.
+
+When you drive those two endpoints by hand with curl, this is the one place a polling loop is mandatory: keep
+reading `lastAsyncUploadState` from `GET :fetchStatus` and do not POST `:publish` until it settles on `SUCCEEDED` or
+`FAILED`. The reference repository polls until settled before submitting; this project delegates the same guarantee
+to `submit-check` turning red. Both are sound only on the condition "read, then publish" — never "publish, then read".
+
+### Q21: The wrong package went up — can that submission be cancelled?
+
+It can: v2 has `:cancelSubmission`, but **this repository does not wire it into a subcommand** (the four
+store-response verdicts in `scripts/release-ci.mjs` are `item-version` / `upload-state` / `submit-check` /
+`publish-state`, and none of them is a cancellation; `release.yml` has no cancellation step either). So there are two real paths today: cancel it by hand on
+that item's page in the Developer Dashboard, or use the one-off recipe below. Per Google's documentation the quota
+is **6 calls per publisher per day** — do not treat it as a retry button.
+
+```bash
+# One-off emergency: cancels this submission only; leaves the package and the GitHub Release alone.
+export CWS_SERVICE_ACCOUNT_EMAIL='…@iam.gserviceaccount.com'
+SA_JSON=~/Downloads/service-account.json
+export CWS_SERVICE_ACCOUNT_PRIVATE_KEY="$(node -e 'console.log(JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")).private_key)' "$SA_JSON")"
+
+node scripts/cws-token.mjs /tmp/cws.cfg          # a 600-permission curl config file; the token never enters argv
+curl -sS --config /tmp/cws.cfg -X POST \
+  "https://chromewebstore.googleapis.com/v2/publishers/$CWS_PUBLISHER_ID/items/$CHROME_EXTENSION_ID_TAF:cancelSubmission" \
+  -w '\n[http %{http_code}]\n'
+rm -f /tmp/cws.cfg                                # delete it when done
+```
+
+This block **was not actually run this round** (there are no credentials, and this machine cannot reach the network
+— see Q13), and the endpoint name and quota are as Google's current documentation states. It is written here because
+"cancelling a submission" previously had no home in this document at all, not because it is verified working. Before
+using it, run depth 0 once to confirm `:fetchStatus` reads the item, and confirm that the two segments from the
+address bar (3.1 step 6) assemble into the item you mean to cancel.
+
+### Q22: Could a contributor's fork accidentally submit my item for review?
+
+No — but not because the workflow contains a guard. **`release.yml` in this repository has no
+`github.repository == '…'` job-level condition.** What blocks it are three facts about triggers and credentials:
+`release.yml` runs only on a `v*` tag `push` and on `workflow_dispatch`, so a `pull_request` never triggers it (PRs
+run `ci.yml`); a fork's run receives none of your repository's Secrets, so `store_ready` is permanently `false` and
+both store steps skip; and `store_submit` additionally requires `vars.CWS_AUTO_SUBMIT == 'true'`, which nobody has
+set on that fork.
+
+To verify the artifact itself on a fork, the zero-credential checks are enough: `verify:offline` and
+`verify:remote-code` after `pnpm build` are assertions about the built package, which is exactly what the build job
+of `ci.yml` does. The reason no explicit guard is added here: adding one means editing `release.yml`, and those very
+strings are pinned by `pnpm verify:release-ci`'s seam table — rewriting a contract table to stop something the
+trigger rules already prevent is not a good trade. If it is ever tightened, the change is to that job's `if` **plus**
+the contract table in the same commit, not a stray line.
+
+### Q23: What is the environment's `can_admins_bypass`, and should it be off?
+
+It is the environment page's "Allow administrators to bypass configured protection rules", and **GitHub defaults it
+to on** — an administrator of the repository walks straight through the gate, which then only constrains everybody
+else. For a gate whose entire purpose is "a second pair of eyes", that is an open back door.
+
+Measured this round: this field _is_ writable over REST (`{"can_admins_bypass":false}` returns 200 and does change),
+while the required-reviewers rule is not (Q16). So the current state here is "admins can no longer bypass it, but
+there is nobody who can approve" — and in that state, once `store_submit` queues, **no one can release it** and the
+wait expires by itself after 30 days (Q9). That is precisely why the order in 3.4 is rigid: add the approvers to
+`required_reviewers` in the UI first, come back and confirm `protection_rules` shows them, and only then set
+`CWS_AUTO_SUBMIT`. On a personal repository with only you in it, pick one of Q8's three options first — the gate
+wants a second pair of eyes, and a list containing only the person who triggered the run, with
+`prevent_self_review` ticked, means every release deadlocks.
+
+### Q24: Can the API make the item unlisted, or hold it back after approval for staged rollout?
+
+Changing visibility: **no**. v2's `publishType` offers only `DEFAULT_PUBLISH` and `STAGED_PUBLISH`, and Google states
+outright that changing an item's visibility through the API is no longer supported — unlisted, trusted testers and
+the rest are Dashboard-only. This is the same family of limits as "the API cannot create an item and cannot write
+listing copy": the publishing API manages packages and the act of submitting, never what the item _is_.
+
+`STAGED_PUBLISH`: **the flag exists but the rollout half is unusable here.** Swapping that literal in `release.yml`
+does turn "approved means live" into "approved means held", but the batching endpoint `:setPublishedDeployPercentage`
+requires, per Google's documentation, that the item have **more than 10,000 weekly active users**; below that the
+request is refused and the split has to be done in the Dashboard. This project is nowhere near that line, so a real
+staged rollout would mean changing how an endpoint that currently cannot be called is invoked — a deliberate product
+decision, never something a CI edit slips in (Q12's `deployInfos` bullet is the same point).
+
 ---
 
 ## Related Documentation
@@ -753,9 +952,14 @@ so its section names are quoted verbatim below:
 
 Before publishing, ensure:
 
+- [ ] **The five read-only commands of 3.0 were just run**, and that table says which pieces are missing — the
+      three causes of "pipeline green, store received nothing" (missing credential, fake gate, variable unset) all
+      look like success, and only those five readings tell them apart
 - [ ] GitHub Secrets configured completely (3 publisher-level values + 1 extension-specific ID; add `RELEASE_PAT` too if the tag should start the release on its own)
 - [ ] **Those four are under Repository secrets**, not the `cws-release` environment's secrets (wrong scope
       raises no error — it silences both store steps together, the fourth ⚠️ bullet of 3.2 plus Q6)
+- [ ] Those four are **the new chain's four names**, not the three old ones `CWS_CLIENT_ID` / `CWS_CLIENT_SECRET`
+      / `CWS_EXTENSION_ID` (the new chain never reads them — do not count them as configured, Q17)
 - [ ] The service account's email is added on the Developer Dashboard's user page (skip this and the token still exchanges — the store call is what answers 401/403)
 - [ ] `CWS_PUBLISHER_ID` is **the first segment of the listing's edit-page address bar** (36-character UUID
       shape), not the 21-digit "Unique ID" on the service account page (3.1 step 6's three-candidate table; a
@@ -764,6 +968,8 @@ Before publishing, ensure:
 - [ ] Extension ID format correct (32 a-p lowercase letters, `CHROME_EXTENSION_ID_TAF`)
 - [ ] **Run depth 0 once first** (`store_status_only`: read-only, zero writes, no approval) to confirm the
       credential chain works, before considering depths 2 / 3
+- [ ] Before any depth 1 / 2 / 3 run, the tag you will type **really exists** (with zero tags in the repository a
+      dry run dies at the checkout — Q19)
 - [ ] All validations passed (`pnpm lint:all && pnpm verify:meta && pnpm verify:listing && pnpm build && pnpm verify:offline`)
 - [ ] Store copy consistent with `_locales` files
 - [ ] Privacy policy URL reachable
@@ -771,8 +977,12 @@ Before publishing, ensure:
 - [ ] **(only if you want auto-submit)** environment `cws-release` exists and its `protection_rules` visibly
       contains the Required reviewers entry — not the empty shell the first run created (step 5 of 3.4 is the
       curl command that proves it)
-- [ ] **(same)** repository variable `CWS_AUTO_SUBMIT=true` is set, and the box above was checked right before
-      setting it
+- [ ] **(same)** that reading is **not** `wait_timer` alone: an auto-releasing fake gate is worse than no gate (Q16)
+- [ ] **(same)** the reviewers were added **in the web UI** — this round measured that REST cannot create that
+      rule, so do not type it as a command (Q16)
+- [ ] **(same)** `can_admins_bypass` is off (it ships on by default, letting an admin walk through — Q23)
+- [ ] **(same)** repository variable `CWS_AUTO_SUBMIT=true` is set, and the three boxes above were checked right
+      before setting it
 - [ ] **(same)** at least one reviewer on the list is **not the person who triggers the release**; on a solo
       personal repo, confirm which of Q8's three options you picked, rather than "ticked Prevent self-review and
       now nobody can approve"
