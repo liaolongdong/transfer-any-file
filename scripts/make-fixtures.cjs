@@ -61,6 +61,45 @@ function buildAnimatedGif() {
   return Buffer.from(bytes);
 }
 
+/**
+ * A 2×2, 24-bit Windows BMP — the only bitmap format the app accepts as input but cannot encode, so
+ * every route out of it is a decode plus a re-encode. Hand-encoded because nothing in the dependency
+ * tree writes one, and because the dimensions and the four colours are what the e2e assertion reads
+ * back out of the PNG: a decoder that silently produced a blank canvas would still pass a mere
+ * "conversion succeeded".
+ *
+ * Rows are stored bottom-up in BGR order. At 2 px wide a row is 6 bytes of pixels padded to 8.
+ */
+function buildBmp() {
+  const width = 2;
+  const height = 2;
+  const rowSize = 8;
+  const pixelBytes = rowSize * height;
+  const bytes = [];
+  const u16 = value => [value & 0xff, (value >> 8) & 0xff];
+  const u32 = value => [value & 0xff, (value >> 8) & 0xff, (value >> 16) & 0xff, (value >>> 24) & 0xff];
+
+  bytes.push(0x42, 0x4d); // 'BM'
+  bytes.push(...u32(54 + pixelBytes), ...u32(0), ...u32(54));
+  bytes.push(
+    ...u32(40), // BITMAPINFOHEADER
+    ...u32(width),
+    ...u32(height),
+    ...u16(1), // planes
+    ...u16(24), // bits per pixel
+    ...u32(0), // BI_RGB, uncompressed
+    ...u32(pixelBytes),
+    ...u32(2835), // 72 dpi
+    ...u32(2835),
+    ...u32(0),
+    ...u32(0),
+  );
+  // Bottom row: red, green. Top row: blue, white. Then the two padding bytes of each row.
+  bytes.push(0x00, 0x00, 0xff, 0x00, 0xff, 0x00, 0x00, 0x00);
+  bytes.push(0xff, 0x00, 0x00, 0xff, 0xff, 0xff, 0x00, 0x00);
+  return Buffer.from(bytes);
+}
+
 async function main() {
   const outDir = path.join(__dirname, '..', 'fixtures');
   fs.mkdirSync(outDir, { recursive: true });
@@ -131,6 +170,10 @@ async function main() {
   const GIF_B64 = 'R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==';
   fs.writeFileSync(path.join(outDir, 'sample.gif'), Buffer.from(GIF_B64, 'base64'));
   fs.writeFileSync(path.join(outDir, 'sample-animated.gif'), buildAnimatedGif());
+
+  // The input-only bitmap. 2×2 with four distinct colours, so the PNG the suite downloads can be
+  // checked for the exact dimensions rather than merely for being a PNG.
+  fs.writeFileSync(path.join(outDir, 'sample.bmp'), buildBmp());
 
   // SVG fixture lives in the repo as text; keep it in sync here for clarity
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="240" height="140" viewBox="0 0 240 140">
@@ -279,7 +322,7 @@ body{background:url('http://127.0.0.1:9876/canary/css-bg.png')}</style>
   console.log('fixtures written to', outDir);
 }
 
-module.exports = { buildAnimatedGif };
+module.exports = { buildAnimatedGif, buildBmp };
 
 // Importable on purpose: one fixture can then be written without touching the others, since
 // regenerating the whole set re-stamps the PDF and XLSX files whose exact bytes the e2e assertions

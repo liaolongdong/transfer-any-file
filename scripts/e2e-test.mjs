@@ -60,6 +60,19 @@ function ok(name) {
 }
 
 /**
+ * Uncaught exceptions are the one class of failure the click-and-look assertions below cannot see: the
+ * click still lands, the DOM still looks right, and the bug resurfaces two scenarios later as a stale
+ * panel or a missing row whose real cause is long gone. Every tab gets the listener, not just the
+ * workbench — the preview, folder and template sections each drive their own page.
+ *
+ * A deliberate `throw` that the app catches never reaches this listener; anything that does is
+ * unhandled, so the message is reported as its own failure rather than counted against a scenario.
+ */
+function trackPageErrors(target) {
+  target.on('pageerror', error => fail('Uncaught page error', error.message));
+}
+
+/**
  * The two things a failure needs to be actionable, neither of which this suite used to leave behind:
  * which section it happened in (the assertion name alone repeats across the light and dark passes of
  * six themes), and what the page looked like at that instant.
@@ -822,6 +835,7 @@ async function run() {
   });
   const page = await browser.newPage();
   tolerateScreenshotTimeout(page);
+  trackPageErrors(page);
   evidencePage = page;
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.addInitScript(mockChromeStorage());
@@ -943,6 +957,7 @@ async function run() {
   // the exact shape of the bug. The 900 ms wait below budgets two such round trips plus the debounce.
   section('Collapsed State Writes Serialize');
   const cardPage = await browser.newPage();
+  trackPageErrors(cardPage);
   await cardPage.setViewportSize({ width: 1280, height: 900 });
   await cardPage.addInitScript(mockChromeStorage());
   await cardPage.addInitScript(`(() => {
@@ -991,6 +1006,7 @@ async function run() {
     // `--lang`, so on a Chinese macOS `navigator.languages` is `zh-CN` and the detection it agrees with
     // the seed is indistinguishable from the fallback this section exists to rule out.
     const enPage = await browser.newPage({ locale: 'en-US' });
+    trackPageErrors(enPage);
     await enPage.setViewportSize({ width: 1280, height: 900 });
     await enPage.addInitScript(mockChromeStorage({ 'fat:locale': undefined }));
     // Injected as a script body rather than a callback, the same way `mockChromeStorage` is, so the
@@ -1096,6 +1112,8 @@ async function run() {
     // GIF conversions (new format)
     ['sample.gif', 'PNG (.png)', 'GIF→PNG'],
     ['sample.gif', 'PDF (.pdf)', 'GIF→PDF'],
+    // BMP is input-only — no canvas can encode one — so this route is a decode plus a re-encode
+    ['sample.bmp', 'PNG (.png)', 'BMP→PNG'],
     // Single-sheet workbook keeps the plain CSV output
     ['single-sheet.xlsx', 'CSV (.csv)', 'XLSX1→CSV'],
   ];
@@ -1119,6 +1137,34 @@ async function run() {
       }
     } catch (e) {
       fail(label, e.message);
+    }
+  }
+
+  // ═══════════════════════════════════════════
+  //  BMP is decoded, not merely accepted by extension
+  // ═══════════════════════════════════════════
+
+  // The registry holds no BMP *encoder* — no browser canvas writes one — so every edge out of BMP
+  // begins with a real decode. "The conversion completed" is not evidence of that: a decoder handed
+  // bytes it cannot read either throws (the failure path, covered above) or paints nothing, and a
+  // blank canvas still encodes fine. The fixture is 2×2 with four distinct colours so the downloaded
+  // PNG can be checked for its own IHDR dimensions, the same 24-byte probe the inline-SVG tests use.
+  if (section('BMP input decodes to a real bitmap')) {
+    try {
+      await resetWorkbench(page);
+      const bmp = await convertFile(page, 'sample.bmp', 'PNG (.png)');
+      if (!bmp.resultName) {
+        fail('BMP→PNG decode', `no result row: alert "${bmp.alertTitle}"`);
+      } else {
+        const artifact = Buffer.from(await downloadBatchArtifact(page), 'latin1');
+        if (artifact.toString('base64').startsWith(pngHead(2, 2))) {
+          ok(`BMP→PNG decodes the fixture (2×2 PNG, ${artifact.length} bytes)`);
+        } else {
+          fail('BMP→PNG decode', `unexpected PNG header: ${artifact.subarray(0, 24).toString('base64')}`);
+        }
+      }
+    } catch (e) {
+      fail('BMP→PNG decode', e.message);
     }
   }
 
@@ -2902,6 +2948,7 @@ async function run() {
   if (section('Dropped Folder Imports Its Files')) {
     const folderPage = await browser.newPage();
     tolerateScreenshotTimeout(folderPage);
+    trackPageErrors(folderPage);
     try {
       await folderPage.setViewportSize({ width: 1280, height: 900 });
       await folderPage.addInitScript(mockChromeStorage());
@@ -3082,6 +3129,7 @@ async function run() {
   if (section('Output File Names Follow The Template')) {
     const namePage = await browser.newPage();
     tolerateScreenshotTimeout(namePage);
+    trackPageErrors(namePage);
     try {
       await namePage.setViewportSize({ width: 1280, height: 900 });
       await namePage.addInitScript(mockChromeStorage());
@@ -3926,6 +3974,7 @@ async function run() {
     // storage guard: unknown formats, a duplicate id, a non-object entry and an out-of-range
     // quality all arrive from a payload the user could have edited by hand.
     const dirtyPage = await browser.newPage();
+    trackPageErrors(dirtyPage);
     await dirtyPage.setViewportSize({ width: 1280, height: 900 });
     await dirtyPage.addInitScript(
       mockChromeStorage({
@@ -5079,6 +5128,96 @@ async function run() {
     await page.waitForTimeout(400);
   } catch (e) {
     fail('Custom shortcut', e.message);
+  }
+
+  // ═══════════════════════════════════════════
+  //  SHORTCUT SYMBOL KEYS (KEY_TOKENS)
+  // ═══════════════════════════════════════════
+
+  // `+` and the space bar have no literal form inside a `+`-joined binding: the first *is* the
+  // delimiter and the second is trimmed away. `Ctrl+Shift+=` is the shape that used to persist as
+  // `ctrl+shift` — labelled "Ctrl + Shift", accepted by validation, and never firing, because the key
+  // slot had swallowed the modifier. The binding now stores `plus`. That fix shipped with out-of-tree
+  // probes only, so this section walks the loop a user walks — record → label → fire → reset — and
+  // doubles as the check that `mod+enter` expands to this platform's own modifier.
+  if (section('Shortcut symbol keys')) {
+    try {
+      const openPreferences = async () => {
+        await page.evaluate(() => window.scrollTo(0, 0));
+        const gear = await page.$('.topbar-inner .el-button');
+        if (!gear) throw new Error('settings button not found');
+        await gear.click();
+        await page.waitForSelector('.shortcut-key', { timeout: 5000 });
+      };
+      const label = async () => (await page.$eval('.shortcut-key', el => el.textContent || '').catch(() => '')).trim();
+
+      // A reload, because the previous section deliberately leaves the binding it recorded — the
+      // storage mock resets with the document, so this starts from the shipped default.
+      await page.reload();
+      await page.waitForTimeout(1500);
+      await openPreferences();
+      const before = await label();
+      const expectedDefault = process.platform === 'darwin' ? '⌘ Enter' : 'Ctrl + Enter';
+      if (before === expectedDefault) ok(`Default label expands mod per platform ("${before}")`);
+      else fail('Default shortcut label', `"${before}" != "${expectedDefault}"`);
+
+      await (await page.$('.shortcut-key')).click();
+      await page.waitForTimeout(300);
+      await page.keyboard.press('Control+Shift+Equal'); // the keydown carries key: '+'
+      await page.waitForTimeout(700);
+      const recorded = await label();
+      if (recorded !== before && recorded.includes('+')) {
+        ok(`Recorded '+' as its own token ("${before}" → "${recorded}")`);
+      } else {
+        fail('Shortcut plus token', `label "${recorded}" did not take the key`);
+      }
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(400);
+
+      // A binding that only *looks* right is exactly the failure this section exists for: press the
+      // recorded combo with a batch armed and require the conversion to actually start.
+      await resetWorkbench(page);
+      const fi = await page.$('input[type="file"]');
+      if (!fi) throw new Error('file input not found');
+      await fi.setInputFiles(path.join(FIXTURE_PATH, 'sample.md'));
+      await page.waitForTimeout(1000);
+      const sel = await page.$('.action-row .el-select');
+      await sel.click();
+      await page.waitForTimeout(500);
+      const opt = page.locator('.el-select-dropdown__item:visible').filter({ hasText: 'HTML (.html)' }).first();
+      await opt.click();
+      await page.waitForTimeout(300);
+      await page.keyboard.press('Escape');
+      await page.evaluate(() => {
+        if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+      });
+      await page.keyboard.press('Control+Shift+Equal');
+      await page.waitForFunction(
+        () => {
+          const alert = document.querySelector('.el-alert__title');
+          return alert && alert.textContent.length > 0;
+        },
+        undefined,
+        { timeout: 30000 },
+      );
+      const alertTitle = await page.$eval('.el-alert__title', el => el.textContent).catch(() => '');
+      if (alertTitle.includes('完成')) ok('The recorded symbol binding fires the conversion');
+      else fail('Shortcut plus token', `alert: "${alertTitle}"`);
+
+      // Leave the shipped default behind for whatever runs after this section, and in storage.
+      await openPreferences();
+      const resetBtn = await page.$('.shortcut-reset');
+      if (!resetBtn) throw new Error('shortcut reset button not found');
+      await resetBtn.click();
+      await page.waitForTimeout(600);
+      const afterReset = await label();
+      if (afterReset === before) ok(`Reset restored "${before}" after the symbol binding`);
+      else fail('Shortcut symbol reset', `"${afterReset}" != "${before}"`);
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(300);
+    } catch (e) {
+      fail('Shortcut symbol keys', e.message);
+    }
   }
 
   // ═══════════════════════════════════════════
