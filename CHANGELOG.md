@@ -4,7 +4,9 @@
 
 **Transfer Any File** 的所有值得记录的变更都写在这里。格式遵循
 [Keep a Changelog 1.1.0](https://keepachangelog.com/zh-CN/1.1.0/)；`package.json` 中的版本号即扩展
-manifest 的版本号，因此 `vX.Y.Z` 标签、构建产物与商店包始终指向同一次发布。
+manifest 的版本号。一次发布 = 在 `main` 上打 `vX.Y.Z` 标签，由 `release.yml` 从那个标签构建并上传商店；
+标签只在 Release PR 合并时自动推，且仓库需要配置 `RELEASE_PAT`，没有配置时这一步会留下一份待办，
+所以「合并了 Release PR」本身不等于「已经发布」。
 
 ## [未发布]
 
