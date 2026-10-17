@@ -1018,7 +1018,6 @@ function toggleEdit(): void {
   min-height: 350px;
   padding: var(--fat-space-md);
   border: none;
-  outline: none;
   resize: none;
   font-family: var(--fat-font-mono);
   font-size: 13px;
@@ -1030,6 +1029,17 @@ function toggleEdit(): void {
 
 .edit-textarea:focus {
   box-shadow: inset 0 0 0 2px rgb(var(--fat-primary-rgb) / 15%);
+}
+
+/* The base rule used to add `outline: none`, which cancelled the global `:focus-visible` ring
+   (assets/styles/global.css F10) and left the only indicator as that 15%-alpha inset shadow — an
+   affordance aimed at the mouse, and under WCAG 2.4.7 no substitute for a keyboard ring. The ring
+   is drawn *inside* the box: this textarea fills a scrollable pane, and an outset ring would be
+   clipped by the pane's own edge. Declaring the block here rather than deleting `outline: none`
+   alone also pins the result against stylesheet order. */
+.edit-textarea:focus-visible {
+  outline: 2px solid var(--fat-focus-ring);
+  outline-offset: -2px;
 }
 
 .no-preview {

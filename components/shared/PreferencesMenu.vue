@@ -398,7 +398,7 @@ const notifyStatusKey = computed<string>(() => {
 }
 
 .theme-item:focus-visible {
-  outline: 2px solid var(--fat-primary);
+  outline: 2px solid var(--fat-focus-ring);
   outline-offset: 2px;
 }
 
@@ -574,7 +574,7 @@ const notifyStatusKey = computed<string>(() => {
 }
 
 .shortcut-key:focus-visible {
-  outline: 2px solid var(--fat-primary);
+  outline: 2px solid var(--fat-focus-ring);
   outline-offset: 2px;
 }
 
@@ -619,7 +619,7 @@ const notifyStatusKey = computed<string>(() => {
 }
 
 .shortcut-reset:focus-visible {
-  outline: 2px solid var(--fat-primary);
+  outline: 2px solid var(--fat-focus-ring);
   outline-offset: 2px;
 }
 </style>

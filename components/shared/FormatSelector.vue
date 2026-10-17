@@ -169,13 +169,19 @@ const noTargetTitle = computed(() => (hasSource.value ? t('format.noTarget') : t
               :value="format"
               :disabled="!selectableSet.has(format)"
             >
-              <span
-                :title="selectableSet.has(format) ? undefined : disabledReason(format)"
-                :aria-label="
-                  selectableSet.has(format) ? undefined : `${getFormatLabel(format)} — ${disabledReason(format)}`
-                "
-              >
+              <!-- `title` answers the mouse. The reason used to ride on this span's `aria-label`, but
+                  ARIA prohibits naming a generic element, so that label is not a dependable carrier for
+                  the row's accessible name. Real text inside the row is part of it by construction; it
+                  stays out of the layout because the option's own `:label` prop, not this slot, is what
+                  the closed select displays. -->
+              <span :title="selectableSet.has(format) ? undefined : disabledReason(format)">
                 {{ getFormatLabel(format) }}
+                <span
+                  v-if="!selectableSet.has(format)"
+                  class="sr-only"
+                >
+                  {{ disabledReason(format) }}
+                </span>
               </span>
             </el-option>
           </el-option-group>
