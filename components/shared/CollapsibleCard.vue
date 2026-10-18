@@ -138,7 +138,7 @@ watch(isOpen, value => {
 }
 
 .collapsible-head:focus-visible {
-  outline: 2px solid var(--fat-primary);
+  outline: 2px solid var(--fat-focus-ring);
   outline-offset: -2px;
 }
 

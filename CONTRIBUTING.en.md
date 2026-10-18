@@ -51,7 +51,7 @@ node scripts/render-demo-gif.mjs   # re-record the demo GIF at the top of the RE
 node scripts/render-icons.mjs   # re-render both icon tiers from assets/*.svg
 node scripts/verify-extension.mjs   # load the package into a real browser: worker, _locales resolution, first-screen chunks, egress
 pnpm release:plan     # plan only: next version, both changelog entries, which commits count as noise (writes nothing)
-pnpm release:cut      # cut locally: edit those three files + the release commit + the lightweight tag (no push)
+pnpm release:cut      # cut locally: edit those four files + the release commit + the lightweight tag (no push)
 git tag vX.Y.Z && git push origin vX.Y.Z   # pushing the tag starts release.yml: build the store zip, verify it, open the GitHub Release; push just this one — --tags would publish any leftover local tags
 ```
 
@@ -134,14 +134,15 @@ SECURITY.md            # disclosure channel and the offline attack-surface claim
 
 ## Accessibility and contrast assertions
 
-The end-to-end suite (`pnpm test:e2e`) asserts four contrast pairs across all 6 themes × light/dark, 12 combinations:
+The end-to-end suite (`pnpm test:e2e`) asserts five contrast pairs across all 6 themes × light/dark, 12 combinations:
 
 - topbar brand text against the topbar at 4.5:1 or better (WCAG 2.1 AA for text)
 - the focus ring against a card surface at 3:1 or better (AA for user-interface components)
 - the primary button's label in its **rest, hover and pressed** states at 4.5:1 or better — read off the enabled button with a file and a target staged, because the text rule exempts disabled controls
 - informational text (drop-zone hint, paste hint, file list header, file sizes, footer) against its own backdrop at 4.5:1 or better — same rule, five strings read off the live page with a file staged, each theme switch followed by a 400 ms wait, because the tokens carry a 0.18 s transition and a sample taken mid-transition returns an interpolated colour
+- the titles of Element Plus light-effect alerts and the per-file format tags against the tint underneath them at 4.5:1 or better — the five selectors above cannot reach these, because Element Plus paints both with the **same semantic colour** as ink and as fill (`.el-alert--x.is-light` puts `--el-color-x` on a 10% tint of itself). That contract belongs to `assets/styles/global.css`, not the `--fat-*` ladder; the fix redeclares `--el-color-*` as `--fat-state-ink-*` on those two selectors and leaves the tint alone — the four fixed semantics keep 60% of their hue and the theme primary keeps 65%, the rest being black. It is swept over all 12 configurations from two staged screens: an unrecognized file yields the `danger` badge and the `warning` alert the target picker leaves behind, a clean conversion yields the `success` result alert and the `primary` badge on every row; `error` and `info` only appear on a failed or cancelled batch, so this group does not claim them
 
-It separately asserts that the first Tab lands on the skip link and that the link shows a visible ring. Measured worst value on the live page (2026-09-14): 4.70:1, rose in light mode; the dark themes land at 7.03:1 and up. The informational-text group measured 4.95:1 at worst on 2026-09-20 (the drop-zone hint under light rose).
+It separately asserts that the first Tab lands on the skip link and that the link shows a visible ring. Measured worst value on the live page (2026-09-14): 4.70:1, rose in light mode; the dark themes land at 7.03:1 and up. The informational-text group measured 4.95:1 at worst on 2026-09-20 (the drop-zone hint under light rose). The fifth group measured on 2026-10-17: 5.13:1 at worst on the screen with the warning alert and the danger badge (the alert title under blue, light mode), and 4.99:1 on the result screen (the `primary` format tag under green, light mode).
 
 **Which ink goes where**: `--fat-text-secondary` is the only colour informational text may take (4.95–5.44:1 light, 7.37–8.42:1 dark). `--fat-text-placeholder` (2.33–2.56:1 light) is reserved for the three cases 1.4.3 does not cover — real input placeholders, disabled controls, and decoration whose state is already carried by an ARIA attribute. Point informational text at the placeholder token and the fourth group above turns red.
 

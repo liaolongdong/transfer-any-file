@@ -43,8 +43,13 @@ export function clampPageRangeSpec(value: unknown): string {
  * - an empty array — a selection was made but nothing in it survives this document (`9` in a
  *   three-page PDF, or a spec of only punctuation). Failing loudly beats converting every page,
  *   which would hand the user a file they did not ask for and never mention the range they set.
+ *
+ * `limit` stops expansion once that many pages are collected. `total` is the document's own page
+ * count, which a malformed PDF can claim to be astronomically large; without a bound, `1-999999`
+ * would materialize the whole array before any caller-level cap could look at its length. Callers
+ * that cap work at `N` pass `N + 1` so "exactly at the cap" stays distinguishable from "over it".
  */
-export function parsePageRange(spec: string | undefined, total: number): number[] | undefined {
+export function parsePageRange(spec: string | undefined, total: number, limit = Infinity): number[] | undefined {
   const clean = clampPageRangeSpec(spec);
   if (!clean) return undefined;
 
@@ -58,7 +63,7 @@ export function parsePageRange(spec: string | undefined, total: number): number[
     // Reversed pairs (`15-12`) are a slip of the same hand, not a request for nothing.
     const lo = Math.max(1, Math.min(first, second));
     const hi = Math.min(total, Math.max(first, second));
-    for (let page = lo; page <= hi; page++) pages.add(page);
+    for (let page = lo; page <= hi && pages.size < limit; page++) pages.add(page);
   }
 
   return [...pages].sort((a, b) => a - b);

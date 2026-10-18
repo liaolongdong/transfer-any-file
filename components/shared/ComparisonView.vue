@@ -78,9 +78,35 @@ function docHintKey(fmt: FileFormat): 'preview.docxHint' | 'preview.xlsxHint' {
 
 const htmlView = ref<'rendered' | 'source'>('rendered');
 
-// `resultText` stays verbatim (it feeds the editor, copy and download); only the
-// rendered iframe gets remote references stripped so previewing cannot reach the network.
-const resultHtmlPreview = computed(() => (resultText.value ? stripRemoteResources(resultText.value) : ''));
+// `resultText` stays verbatim (it feeds the editor, copy and download); only the rendered iframe
+// gets a sanitized copy. DOMPurify is loaded on demand — this pane is mounted with the workbench and
+// a static import would put the sanitizer on the first-load path — so the pipeline is async and has
+// to survive a newer edit (or unmount) winning the race while the import is in flight.
+const resultHtmlPreview = ref('');
+let htmlPreviewGeneration = 0;
+
+watch(
+  [resultText, isResultHtml, htmlView] as const,
+  async ([text, isHtml, view], _prev, onCleanup) => {
+    const generation = ++htmlPreviewGeneration;
+    let cancelled = false;
+    onCleanup(() => {
+      cancelled = true;
+    });
+    if (!isHtml || view !== 'rendered' || !text) {
+      resultHtmlPreview.value = '';
+      return;
+    }
+    const DOMPurify = (await import('dompurify')).default;
+    if (cancelled || generation !== htmlPreviewGeneration) return;
+    // Same profile the markdown converter trusts: SVG is part of the result (inline diagrams), and
+    // dropping it here would make the pane disagree with the file the user downloads.
+    const purified = DOMPurify.sanitize(text, { USE_PROFILES: { html: true, svg: true, svgFilters: true } });
+    if (cancelled || generation !== htmlPreviewGeneration) return;
+    resultHtmlPreview.value = stripRemoteResources(purified);
+  },
+  { immediate: true },
+);
 
 // Panel visibility derived from split position
 const showSourcePanel = computed(() => !isResultOnly.value);
@@ -93,7 +119,17 @@ let lastEmittedBlob: Blob | null = null;
 
 watch(
   () => [props.sourceFile, props.sourceFormat] as const,
-  async ([file, format]) => {
+  async ([file, format], _prev, onCleanup) => {
+    // A DOCX/XLSX preview is a parse, not an assignment: mammoth and SheetJS both run long enough
+    // for the user to switch file, reset the batch or close the comparison while one is in flight.
+    // Without this the stale result lands on top of the new one — the pane keeps showing the
+    // document that is no longer selected, with the header and the format badge already moved on.
+    // Same guard PreviewDialog uses; `onCleanup` also fires when the component is torn down.
+    let cancelled = false;
+    onCleanup(() => {
+      cancelled = true;
+    });
+
     if (sourceImageUrl.value) URL.revokeObjectURL(sourceImageUrl.value);
     if (sourcePdfUrl.value) URL.revokeObjectURL(sourcePdfUrl.value);
     sourceImageUrl.value = '';
@@ -107,19 +143,25 @@ watch(
       sourcePdfUrl.value = URL.createObjectURL(file);
     } else if (format === FileFormat.DOCX) {
       try {
-        sourceDocHtml.value = await docxToPreviewHtml(file);
+        const html = await docxToPreviewHtml(file);
+        if (cancelled) return;
+        sourceDocHtml.value = html;
       } catch {
         /* preview is best-effort */
       }
     } else if (format === FileFormat.XLSX) {
       try {
-        sourceDocHtml.value = await xlsxToPreviewHtml(file);
+        const html = await xlsxToPreviewHtml(file);
+        if (cancelled) return;
+        sourceDocHtml.value = html;
       } catch {
         /* preview is best-effort */
       }
     } else if (TEXT_FORMATS.has(format)) {
       try {
-        sourceText.value = await file.text();
+        const text = await file.text();
+        if (cancelled) return;
+        sourceText.value = text;
       } catch {
         /* ignore */
       }
@@ -130,10 +172,23 @@ watch(
 
 watch(
   () => [props.result, props.targetFormat] as const,
-  async ([result, format]) => {
+  async ([result, format], _prev, onCleanup) => {
+    let cancelled = false;
+    onCleanup(() => {
+      cancelled = true;
+    });
+
     if (!result || !format) {
+      // A cleared result must release its object URLs here, not only on unmount: the comparison pane
+      // outlives the batch, so a revoked-on-unmount-only URL keeps the converted blob alive for the
+      // rest of the session.
+      if (resultImageUrl.value) URL.revokeObjectURL(resultImageUrl.value);
+      if (resultPdfUrl.value) URL.revokeObjectURL(resultPdfUrl.value);
+      resultImageUrl.value = '';
+      resultPdfUrl.value = '';
       resultText.value = '';
       resultDocHtml.value = '';
+      resultHtmlPreview.value = '';
       return;
     }
     if (result.blob === lastEmittedBlob) return;
@@ -143,6 +198,7 @@ watch(
     resultPdfUrl.value = '';
     resultText.value = '';
     resultDocHtml.value = '';
+    resultHtmlPreview.value = '';
     if (result.blob.type === 'application/zip') return;
     if (getFormatCategory(format) === 'image') {
       resultImageUrl.value = URL.createObjectURL(result.blob);
@@ -150,19 +206,25 @@ watch(
       resultPdfUrl.value = URL.createObjectURL(result.blob);
     } else if (format === FileFormat.DOCX) {
       try {
-        resultDocHtml.value = await docxToPreviewHtml(result.blob);
+        const html = await docxToPreviewHtml(result.blob);
+        if (cancelled) return;
+        resultDocHtml.value = html;
       } catch {
         /* preview is best-effort */
       }
     } else if (format === FileFormat.XLSX) {
       try {
-        resultDocHtml.value = await xlsxToPreviewHtml(result.blob);
+        const html = await xlsxToPreviewHtml(result.blob);
+        if (cancelled) return;
+        resultDocHtml.value = html;
       } catch {
         /* preview is best-effort */
       }
     } else if (TEXT_FORMATS.has(format)) {
       try {
-        resultText.value = await result.blob.text();
+        const text = await result.blob.text();
+        if (cancelled) return;
+        resultText.value = text;
       } catch {
         /* ignore */
       }
@@ -622,14 +684,24 @@ function toggleEdit(): void {
               @input="handleResultEdit(($event.target as HTMLTextAreaElement).value)"
             ></textarea>
           </div>
-          <!-- HTML rendered -->
+          <!-- HTML rendered. Mounted only once the sanitized copy exists: an iframe that first
+               renders an empty document and is navigated later can be left unlaid-out by Chromium
+               while it sits below the fold — the pane stayed white through a 10-second poll in the
+               store captures (measured 2026-10-18). Mounting with the final srcdoc avoids that
+               empty-document state entirely. -->
           <iframe
-            v-else-if="isResultHtml && htmlView === 'rendered' && resultText"
+            v-else-if="isResultHtml && htmlView === 'rendered' && resultHtmlPreview"
             class="html-frame"
             sandbox=""
             :srcdoc="resultHtmlPreview"
             :title="result?.filename ?? ''"
           ></iframe>
+          <!-- The sanitizer's on-demand import runs before the frame can mount; this keeps the
+               pane an empty white sheet, as the frame itself was, instead of flashing "no preview". -->
+          <div
+            v-else-if="isResultHtml && htmlView === 'rendered' && resultText"
+            class="html-frame-pending"
+          ></div>
           <!-- Text view (includes HTML source view) -->
           <pre
             v-else-if="isResultText && resultText"
@@ -934,6 +1006,13 @@ function toggleEdit(): void {
   background: #fff;
 }
 
+.html-frame-pending {
+  width: 100%;
+  height: 100%;
+  min-height: 350px;
+  background: #fff;
+}
+
 .pdf-frame {
   width: 100%;
   height: 100%;
@@ -991,7 +1070,6 @@ function toggleEdit(): void {
   min-height: 350px;
   padding: var(--fat-space-md);
   border: none;
-  outline: none;
   resize: none;
   font-family: var(--fat-font-mono);
   font-size: 13px;
@@ -1003,6 +1081,17 @@ function toggleEdit(): void {
 
 .edit-textarea:focus {
   box-shadow: inset 0 0 0 2px rgb(var(--fat-primary-rgb) / 15%);
+}
+
+/* The base rule used to add `outline: none`, which cancelled the global `:focus-visible` ring
+   (assets/styles/global.css F10) and left the only indicator as that 15%-alpha inset shadow — an
+   affordance aimed at the mouse, and under WCAG 2.4.7 no substitute for a keyboard ring. The ring
+   is drawn *inside* the box: this textarea fills a scrollable pane, and an outset ring would be
+   clipped by the pane's own edge. Declaring the block here rather than deleting `outline: none`
+   alone also pins the result against stylesheet order. */
+.edit-textarea:focus-visible {
+  outline: 2px solid var(--fat-focus-ring);
+  outline-offset: -2px;
 }
 
 .no-preview {
@@ -1127,6 +1216,7 @@ function toggleEdit(): void {
   /* Each pane now gets about half of that height, so the floors that keep a preview readable in a
      400px-tall row pane would push the pair back out of its own container. */
   .html-frame,
+  .html-frame-pending,
   .pdf-frame,
   .doc-frame,
   .edit-content,

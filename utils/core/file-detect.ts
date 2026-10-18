@@ -66,5 +66,9 @@ export function formatFromFilename(name: string): FileFormat | null {
  * Pure and stateless, which is why it sits in `utils/core/` rather than behind a composable.
  */
 export function detectFormat(file: File): FileFormat | null {
-  return formatFromFilename(file.name) ?? lookup(MIME_MAP, file.type.toLowerCase()) ?? null;
+  // The MIME side of the map is keyed by the bare `type/subtype`, but a `File`'s own `type` may carry
+  // parameters — `text/csv; charset=utf-8` is what some drop and paste sources report. Matched whole,
+  // that parameterised string names a format this app supports and still reads as an unrecognized file.
+  const mimeType = file.type.split(';', 1)[0].trim().toLowerCase();
+  return formatFromFilename(file.name) ?? (mimeType ? lookup(MIME_MAP, mimeType) : undefined) ?? null;
 }

@@ -1,5 +1,5 @@
 import { FileFormat } from '~/utils/core/types';
-import type { Converter, ConvertResult } from '~/utils/core/types';
+import type { Converter, ConvertContext, ConvertResult } from '~/utils/core/types';
 import { decodeTextBlobLenient } from '~/utils/core/text-decode';
 import { replaceInlineSvgWithPng } from '~/utils/core/svg-embed';
 
@@ -29,12 +29,12 @@ const htmlToMdConverter: Converter = {
   from: FileFormat.HTML,
   to: FileFormat.MD,
 
-  async convert(input: Blob): Promise<ConvertResult> {
+  async convert(input: Blob, ctx?: ConvertContext): Promise<ConvertResult> {
     const { default: TurndownService } = await import('turndown');
     // Turndown has no rule for an inline `<svg>`: the whole subtree collapsed to its `<text>` nodes,
     // so SVG→Markdown used to hand back a file with the diagram missing. Rasterizing first turns it
     // into an `<img>`, which the rule below already keeps as `![alt](src)`.
-    const { html, svgCount } = await replaceInlineSvgWithPng(await decodeTextBlobLenient(input));
+    const { html, svgCount } = await replaceInlineSvgWithPng(await decodeTextBlobLenient(input), ctx?.signal);
     const doc = new DOMParser().parseFromString(html, 'text/html');
     const bodyHtml = doc.body?.innerHTML ?? html;
 

@@ -279,6 +279,44 @@ body {
   font-weight: 500;
 }
 
+/* Readable ink for Element Plus's light-effect alerts and tags.
+   Both components paint their text with a semantic colour and set the background to that same
+   colour's 10% tint, which measures 2.04–2.80:1 for the four fixed types and 2.31–4.49:1 for a
+   default `type="primary"` tag — the format badge on every file row. WCAG 1.4.3 wants 4.5:1, so the
+   hue is kept and only its lightness is corrected, through the tokens that state the measurements
+   (`--fat-state-ink-*`); the tinted background is left alone because it is a precomputed value that
+   does not re-read the variable being replaced here.
+   Redeclaring the variable *on the component* rather than overriding `color` means this reaches the
+   rules Element Plus writes per type — including `.el-alert__description`, which sets its own
+   `color` — instead of starting a specificity fight with `!important` on each of them. The dark
+   effect is excluded: there the same hue is a background under white text, not an ink on a tint. */
+.el-alert--success.is-light,
+.el-tag:not(.el-tag--dark).el-tag--success {
+  --el-color-success: var(--fat-state-ink-success);
+}
+
+.el-alert--warning.is-light,
+.el-tag:not(.el-tag--dark).el-tag--warning {
+  --el-color-warning: var(--fat-state-ink-warning);
+}
+
+/* `error` is the alert's name for `danger`, the tag's. */
+.el-alert--error.is-light,
+.el-tag:not(.el-tag--dark).el-tag--danger {
+  --el-color-error: var(--fat-state-ink-danger);
+  --el-color-danger: var(--fat-state-ink-danger);
+}
+
+.el-alert--info.is-light,
+.el-tag:not(.el-tag--dark).el-tag--info {
+  --el-color-info: var(--fat-state-ink-info);
+}
+
+.el-alert--primary.is-light,
+.el-tag:not(.el-tag--dark).el-tag--primary {
+  --el-color-primary: var(--fat-state-ink-primary);
+}
+
 /* Visually hidden but exposed to assistive tech (live regions, screen-reader-only labels).
    A utility, not a component style: the popups that need it render in a teleported layer
    outside the component that owns them, so a scoped rule would not reach them.

@@ -43,20 +43,6 @@ const CATEGORY_ORDER: FileCategory[] = ['document', 'image', 'data'];
 /** Every known format, so unsupported targets are shown greyed-out instead of hidden */
 const ALL_FORMATS = Object.keys(FORMAT_INFO) as FileFormatType[];
 
-const formatGroups = computed(() => {
-  const groups = new Map<FileCategory, FileFormatType[]>();
-  for (const format of ALL_FORMATS) {
-    const category = getFormatCategory(format);
-    const list = groups.get(category);
-    if (list) list.push(format);
-    else groups.set(category, [format]);
-  }
-  return CATEGORY_ORDER.filter(category => groups.has(category)).map(category => ({
-    label: t(CATEGORY_LABEL_KEYS[category]),
-    options: groups.get(category) ?? [],
-  }));
-});
-
 /** Targets that are actually selectable: reachable in the graph AND semantically valid */
 const selectableSet = computed(() => new Set(props.availableTargets));
 
@@ -73,6 +59,27 @@ function disabledReason(format: FileFormatType): string {
 /** F17: recent targets that are still selectable for the current source. */
 const recentOptions = computed<FileFormatType[]>(() => {
   return props.recentTargets.filter(f => selectableSet.value.has(f));
+});
+
+/** A format lives in exactly one group. Element Plus caches options by value, so rendering the same
+ *  value twice (recent + category) leaves the category copy unregistered once the recent copy
+ *  unmounts — selecting it then paints the raw enum (`html`) instead of the label (measured
+ *  2026-10-17: every target that had dropped out of the six-entry recent list showed this). */
+const recentSet = computed(() => new Set(recentOptions.value));
+
+const formatGroups = computed(() => {
+  const groups = new Map<FileCategory, FileFormatType[]>();
+  for (const format of ALL_FORMATS) {
+    if (recentSet.value.has(format)) continue;
+    const category = getFormatCategory(format);
+    const list = groups.get(category);
+    if (list) list.push(format);
+    else groups.set(category, [format]);
+  }
+  return CATEGORY_ORDER.filter(category => groups.has(category)).map(category => ({
+    label: t(CATEGORY_LABEL_KEYS[category]),
+    options: groups.get(category) ?? [],
+  }));
 });
 
 const conversionPathLabels = computed(() => {
@@ -141,6 +148,7 @@ const noTargetTitle = computed(() => (hasSource.value ? t('format.noTarget') : t
           :no-match-text="t('format.noMatch')"
           size="default"
           style="width: 100%"
+          popper-class="fat-format-popper"
           @change="handleChange"
         >
           <el-option-group
@@ -169,13 +177,21 @@ const noTargetTitle = computed(() => (hasSource.value ? t('format.noTarget') : t
               :value="format"
               :disabled="!selectableSet.has(format)"
             >
+              <!-- `title` answers the mouse; the reason is also real, visible text inside the row.
+                  It used to be `sr-only`, which left sighted keyboard users with no way to read why
+                  an option was greyed out — a tooltip is not reachable without a pointer. The second
+                  line does not affect the closed select, whose text comes from the `:label` prop. -->
               <span
+                class="option-label"
                 :title="selectableSet.has(format) ? undefined : disabledReason(format)"
-                :aria-label="
-                  selectableSet.has(format) ? undefined : `${getFormatLabel(format)} — ${disabledReason(format)}`
-                "
               >
                 {{ getFormatLabel(format) }}
+              </span>
+              <span
+                v-if="!selectableSet.has(format)"
+                class="option-reason"
+              >
+                {{ disabledReason(format) }}
               </span>
             </el-option>
           </el-option-group>
@@ -256,5 +272,30 @@ const noTargetTitle = computed(() => (hasSource.value ? t('format.noTarget') : t
   color: var(--fat-primary);
   font-weight: 500;
   font-family: var(--fat-font-mono);
+}
+
+/* The dropdown is teleported to <body>, so scoped rules cannot reach it; the popper class is the
+   stable hook. `height: auto` lets the reason wrap under the label instead of being clipped by
+   Element Plus's fixed 34px option row, and `white-space: normal` undoes the library's nowrap —
+   without it the reason extends past the row and is hidden by `overflow: hidden` rather than
+   wrapping. `overflow-wrap` covers a token longer than the row itself. */
+:global(.fat-format-popper .el-select-dropdown__item) {
+  height: auto;
+  min-height: 34px;
+  line-height: 1.4;
+  padding-top: 6px;
+  padding-bottom: 6px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+:global(.fat-format-popper .el-select-dropdown__item .option-label) {
+  display: block;
+}
+
+:global(.fat-format-popper .el-select-dropdown__item .option-reason) {
+  display: block;
+  font-size: 11px;
+  color: var(--fat-text-secondary);
 }
 </style>

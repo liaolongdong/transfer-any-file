@@ -122,6 +122,34 @@ storage: persists the user's own conversion history (file names, formats and siz
 
 ## 第三步：配置 CI/CD 自动化发布
 
+### 3.0 先确认这条链此刻缺哪几块（只读，任何时候都能跑）
+
+本文其余小节写的是**应有状态**，而跑不通的原因几乎全在仓库设置里。GitHub 的 Secret **只写不可读**，所以能核对的是
+「名字在不在」，不是「值对不对」。动手配之前先跑这五条，它们全是 GET，一个字节都不写：
+
+```bash
+R=liaolongdong/transfer-any-file
+
+gh api repos/$R/actions/secrets --jq '.secrets[].name'                     # ① 四项新名字在不在
+gh api repos/$R/environments/cws-release --jq '[.protection_rules[].type]' # ② 门有没有牙
+gh api repos/$R/environments/cws-release/secrets --jq '.total_count'       # ③ 必须是 0
+gh api repos/$R/actions/variables --jq '.variables[].name'                 # ④ CWS_AUTO_SUBMIT
+git ls-remote --tags origin | wc -l                                        # ⑤ 有没有标签
+```
+
+| 读数                                                                                                                         | 说明什么                                                                                                              | 去哪一节    |
+| ---------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- | ----------- |
+| ① 缺 `CHROME_EXTENSION_ID_TAF` / `CWS_PUBLISHER_ID` / `CWS_SERVICE_ACCOUNT_EMAIL` / `CWS_SERVICE_ACCOUNT_PRIVATE_KEY` 任一项 | 商店那两步**一起静默跳过**，摘要写「已跳过 Chrome 应用商店」，运行照样全绿                                            | 3.2         |
+| ① 里有 `CWS_CLIENT_ID` / `CWS_CLIENT_SECRET` / `CWS_EXTENSION_ID`                                                            | 那是 v1.1 时代的三项，新链路一个字都不读它们——**别把它们数成「配了三样」**（见 Q17）                                  | 3.2         |
+| ② 是 `[]`                                                                                                                    | 环境存在但**没有门**：`store_submit` 一旦排上队就直接放行                                                             | 3.4         |
+| ② 只有 `wait_timer`、没有 `required_reviewers`                                                                               | **假门**：timer 走完自动放行，不需要任何人批准（见 Q16）                                                              | 3.4         |
+| ③ 不是 `0`                                                                                                                   | 凭据配成了环境级，只有 `store_submit` 看得见；上传那一步在 `release` 作业里，看不见                                   | 3.2         |
+| ④ 里没有 `CWS_AUTO_SUBMIT`                                                                                                   | 提审作业连排队都不排——这是刻意的 fail-closed                                                                          | 3.4 第 6 步 |
+| ⑤ 是 `0`                                                                                                                     | 第 1 / 2 / 3 档**此刻都跑不了**：`Check out the tag` 按 `inputs.tag` 检出，不存在的 ref 直接失败；只有第 0 档不受影响 | Q19         |
+
+② ③ ④ 这三格合起来，解释的是最容易误判的一种现场：**流水线全绿，而商店那边什么都没发生**。那不是某一步失败，
+是那两步根本没执行——`Detect Chrome Web Store credentials` 判的是「四样都非空」，缺任何一样都只写一行跳过原因。
+
 ### 3.1 取服务账号凭据（Chrome Web Store API v2）
 
 发布走的是 **API v2 + 服务账号**：不再有 Client ID / Client Secret / Refresh Token 那三件，也不需要在
@@ -356,6 +384,11 @@ pbpaste | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{r
    （个人仓库里只有你一个人时**别勾**，见 FAQ Q8）。保存前再看一眼
    **Allow administrators to bypass configured protection rules**：勾着的话，管理员身份可以直接跳过这道门。
    「Deselect Allow administrators to bypass configured protection rules」是文档里明确的关闭方式。
+
+   > ⚠️ **这一步只能在网页界面里做，别照命令敲。** 本轮实测：同一个环境上 `wait_timer` 与 `can_admins_bypass`
+   > 两个字段 REST 都改得动，唯独 required reviewers 这条规则改不了——`reviewers` 里填本人 id、填不存在的 id、
+   > 填别人的 id，回的都是同一句 422 `Required reviewers must have at least one reviewer`。判法与那一整张
+   > 实测表在 Q16，它顺带解释了为什么「只有 `wait_timer`」的环境是一条会自动放行的**假门**。
 
 3. **Deployment branch 这一项留空或写 `main`**（写模式时要「Enter the name pattern for the branch or tag
    that you want to allow」，且分支与 tag 的模式**要分别配**）。本工作流的发布作业 checkout 的是标签
@@ -635,6 +668,149 @@ git ls-tree <那个tag> scripts/cws-token.mjs     # 输出为空 = 那个 tag �
 结论：第 1 / 2 / 3 档只对**含有这些脚本的那个 ref 打出的 tag**有意义；只想验凭据链就用第 0 档，
 它固定检出本次触发所在的 ref，不受这条限制（3.3 第 6 条）。
 
+### Q16: 环境建好了，`protection_rules` 里只有 `wait_timer`——这算门吗？
+
+**不算，而且比没有门更危险。** wait timer 是「等满 N 分钟自动放行」，它不需要任何人批准；把它当成闸门，等于
+给一次自动提审配了一个缓冲期。判据只有一条：`protection_rules` 里必须出现 `required_reviewers` 那一条，
+且 `reviewers` 列得出人（3.4 第 5 步那条命令读的就是它）。
+
+本轮实测的另一件事值得写进这里，因为它推翻了「照命令敲就能配好」这个假设：**这一条保护规则在本账号上只能用
+网页界面加，REST 加不上**。同一个 `PUT /repos/{owner}/{repo}/environments/cws-release`：
+
+| 请求体                                                                       | 结果（2026-10-18 实测）                                  |
+| ---------------------------------------------------------------------------- | -------------------------------------------------------- |
+| `{"wait_timer":1}`                                                           | 200，`protection_rules` 出现 `wait_timer`                |
+| `{"wait_timer":0}`                                                           | 200，规则清空                                            |
+| `{"can_admins_bypass":false}`                                                | 200，字段改掉                                            |
+| `{"reviewers":[{"reviewer_id":<本人 id>}]}`                                  | 422 `Required reviewers must have at least one reviewer` |
+| 同上，再加 `wait_timer` / `prevent_self_review` / `deployment_branch_policy` | 422，同一句                                              |
+| `{"reviewers":[{"reviewer_id":1}]}`（不存在的 id）                           | 422，**还是同一句**                                      |
+
+最后一行是判据：报错与 id 对不对无关，说明 GitHub 根本没校验那串数字，而是整条 required reviewers 规则没被接受
+（`gh` 用的是 OAuth 令牌，`repo` 与 `workflow` 两个 scope 都在，`wait_timer` 写得动，所以不是没有写权限）。
+所以处置是：**去 Settings → Environments → `cws-release` → Required reviewers 在界面里加**，回来再用 3.0 的第 ②
+条确认读得出 `required_reviewers`。在那之前不要设 `CWS_AUTO_SUBMIT`——空壳环境与假门都会让「合并 main」直接
+惊动审核，而这条链路的整句理由就是先要有一个人看一眼。
+
+### Q17: 仓库里还留着 `CWS_CLIENT_ID` / `CWS_CLIENT_SECRET` / `CWS_EXTENSION_ID`，是不是说明凭据配好了？
+
+不是。那三样是 v1.1 那套「OAuth 桌面客户端 + refresh token」的遗留，**新链路一个字都不读它们**：`release.yml`
+读的是 `CHROME_EXTENSION_ID_TAF`、`CWS_PUBLISHER_ID`、`CWS_SERVICE_ACCOUNT_EMAIL`、`CWS_SERVICE_ACCOUNT_PRIVATE_KEY`
+这四样，判据是「这四样都非空」。留着它们不会让流水线失败，但会让人在 3.0 的第 ① 条里数错——本轮实测这个仓库
+就是「旧三样在、新四样缺」的形状，那种状态下商店两步一起静默跳过。
+
+删不删由所有者定：Secret 只写不可读，删掉之后原值找不回来，要恢复必须重新粘。唯一别做的事是把
+`CWS_EXTENSION_ID` 当成「已经配过扩展 ID 了」——工作流里那个键叫 `CHROME_EXTENSION_ID_TAF`，名字不对等没配。
+顺带一句：那 32 位本来就是公开的（商店详情页地址栏里就是它），所以把它复制成新键这一步没有任何保密难度，
+`gh secret set CHROME_EXTENSION_ID_TAF` 粘进去即可。
+
+### Q18: 合并了 Release PR，既没有标签、`release.yml` 也没跑？
+
+缺 `RELEASE_PAT`。GitHub 有一条硬规则：**由 `GITHUB_TOKEN` 产生的事件不再触发其他工作流**，所以工作流自带的
+令牌推上去的标签是「标签有了、下游从没跑过」的静默半成品。配法见 `.github/RELEASE_AUTOMATION.md` 的 1.2
+（细粒度令牌，只选这一个仓库，权限勾 Contents + Pull requests）。
+
+没配它时链路不是坏掉而是**退一步**：`Push the tag` 那步只报 warning，摘要里给出三行本机命令，你在终端补完，
+`release.yml` 一样会被触发。这一格在 3.0 的第 ⑤ 条读得出来——`git ls-remote --tags origin` 为空而 `main` 上
+已经有版本小节，就是这个形状。
+
+### Q19: 现在想跑一次 dry run 验产物，结果第一步就失败？
+
+如果 3.0 的第 ⑤ 条读出标签数是 `0`，那第 1 / 2 / 3 档此刻**都跑不了**，且失败点与凭据无关：`release` 作业
+`Check out the tag` 用的是 `ref: ${{ github.event.inputs.tag || github.ref }}`，你填的那个标签在仓库里不存在，
+检出这一步就红了。dry run 也是从这一步开始的——「不创建 Release、不碰商店」发生在后面，不改变它需要一个真实
+ref 才能开工。
+
+想验的东西按深浅各有对应的入口：
+
+| 想验什么                                 | 用什么                                                                                                  | 需不需要标签 |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------- | ------------ |
+| 产物本身合规（构建 + 全部守卫 + 包内容） | 本地 `pnpm build && pnpm verify:offline && pnpm verify:remote-code`；CI 侧由 `ci.yml` 的 build job 代跑 | 不需要       |
+| 判定逻辑与 `release.yml` 的接缝没被改坏  | `pnpm verify:release-ci`（零网络）                                                                      | 不需要       |
+| 凭据链通不通                             | 第 0 档 `store_status_only`，它固定检出本次触发所在的 ref                                               | 不需要       |
+| 整条发布链                               | 先按 Q18 把标签弄出来（配 `RELEASE_PAT` 或本机补那三行），再谈第 1 / 2 / 3 档                           | **需要**     |
+
+### Q20: `uploadState=IN_PROGRESS` 的时候会发生什么？会不会把上一版提审上去？
+
+商店收到包之后是**异步解包**的，`:upload` 可能回 `IN_PROGRESS`。这时候立刻 `:publish`，审核队列里拿到的就是
+**上一个已解析的版本**——这是 v2 最坑人的一种失败，因为它报成功，而发布出去的是旧包。
+
+这条链路的处理是分两层，不靠运气：上传那一步读到 `IN_PROGRESS` 只在摘要里写「商店仍在解包」，**不判红**
+（包确实交上去了，红一次会把整个发布作业标坏）；真正拦下的是提审作业里的 `submit-check`——它先重新问一次
+`:fetchStatus`，读到 `lastAsyncUploadState` 还是 `IN_PROGRESS` 就返回退出码 20，作业变红并写明原因，
+**发布键不按**。而这两步之间隔着 3.4 那道人工批准门，解包通常早就落定了。
+
+要自己手搓 curl 调这两个端点时，这里就是唯一必须补一段轮询的地方：`GET :fetchStatus` 读
+`lastAsyncUploadState`，落定（`SUCCEEDED` / `FAILED`）之前不要 POST `:publish`。参考仓库的做法是固定轮询到落定
+为止再提审，本项目把它交给了 `submit-check` 的判红——两种都行的前提是「读过才发」，而不是「发完再读」。
+
+### Q21: 包传错了、或者提审内容不对，能不能撤回这次提交？
+
+能，v2 有 `:cancelSubmission`，但**本仓库没有把它接成子命令**（`scripts/release-ci.mjs` 的四条商店响应判定是
+`item-version` / `upload-state` / `submit-check` / `publish-state`，里面没有撤审那一条，`release.yml` 也没有撤审那一步）。
+所以当前处置有两条真路：开发者后台该商品的页面上手工撤回，或者用下面这段一次性手工配方。配额限制按 Google
+文档是**每个发布商每天 6 次**，别把它当重试按钮用。
+
+```bash
+# 一次性应急：只撤这一次提交，不动包、不动 GitHub Release。
+export CWS_SERVICE_ACCOUNT_EMAIL='…@iam.gserviceaccount.com'
+SA_JSON=~/Downloads/service-account.json
+export CWS_SERVICE_ACCOUNT_PRIVATE_KEY="$(node -e 'console.log(JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")).private_key)' "$SA_JSON")"
+
+node scripts/cws-token.mjs /tmp/cws.cfg          # 权限 600 的 curl 配置文件，令牌不落 argv
+curl -sS --config /tmp/cws.cfg -X POST \
+  "https://chromewebstore.googleapis.com/v2/publishers/$CWS_PUBLISHER_ID/items/$CHROME_EXTENSION_ID_TAF:cancelSubmission" \
+  -w '\n[http %{http_code}]\n'
+rm -f /tmp/cws.cfg                                # 用完就删
+```
+
+这段**本轮没有真跑过**（既没有凭据，本机又出不了网，见 Q13），端点名与配额以 Google 当前文档为准；写在这里的
+理由是「撤审这件事在本文档里原本没有出处」，而不是「已验证可用」。真要用它之前，先跑一次第 0 档确认
+`:fetchStatus` 读得到当前条目，再确认地址栏那两段（3.1 第 6 步）拼出来的就是你要撤的那个商品。
+
+### Q22: fork 的贡献者提 PR，会不会误把我的商品提审出去？
+
+不会，但不是因为工作流里写了守卫——**本仓库的 `release.yml` 没有 `github.repository == '…'` 这一条作业级判断**。
+拦住它的是三条触发与凭据层面的事实：`release.yml` 只由 `push` 的 `v*` 标签和 `workflow_dispatch` 触发，
+`pull_request` 根本不触发它（PR 上跑的是 `ci.yml`）；fork 的 run 拿不到你仓库的任何 Secret，所以
+`store_ready` 恒为 `false`，商店两步直接跳过；而 `store_submit` 还额外要 `vars.CWS_AUTO_SUBMIT == 'true'`，
+fork 那个副本上没人设过它。
+
+fork 上想验证产物本身合规，用零凭据的那几条就够：`pnpm build` 之后的 `verify:offline` 与 `verify:remote-code`
+是产物层断言，`ci.yml` 的 build job 已经在做这件事。之所以不给这条加显式守卫：加它要改 `release.yml`，
+而那几行字符串正被 `pnpm verify:release-ci` 的接缝表钉着，为一个已经由触发规则挡住的场景去改契约表不划算。
+真要收紧，改的是那条作业的 `if` 并同步改契约表，不是随手加一行。
+
+### Q23: 环境的 `can_admins_bypass` 是什么？要不要关？
+
+它是环境页上那句「Allow administrators to bypass configured protection rules」，**GitHub 的默认值是开着**——
+也就是仓库管理员可以直接穿过这道门，门只拦别人。对一个「必须有另一双眼睛」的闸门，这就是漏底。
+
+本轮实测：这个字段 REST 改得动（`{"can_admins_bypass":false}` 回 200 并确实生效），只有 required reviewers
+那条规则改不了（见 Q16）。所以现在的状态是「不让管理员绕过，但还没有批准人」——那种状态下 `store_submit`
+一旦排上队会**没有人能放行**，30 天后那次等待自己过期（Q9）。这也是为什么 3.4 的顺序是死的：先在界面里把
+批准人加进 `required_reviewers`，再回来确认 `protection_rules` 读得出它，最后才设 `CWS_AUTO_SUBMIT`。
+个人仓库只有你一个人时，Q8 的三个选项要先选一个——门要的是另一双眼睛，而名单里只有触发者本人时，
+勾了 `prevent_self_review` 就等于每次发布都卡死。
+
+### Q24: 能不能用 API 把商品改成 unlisted、或者审核通过后先压着不放量？
+
+改可见范围：**不能**。v2 的 `publishType` 只有 `DEFAULT_PUBLISH` 与 `STAGED_PUBLISH`，而 Google 明确写过
+不再支持用 API 修改商品可见性——unlisted / trusted testers 这些一律在开发者后台改。这条与本仓库
+「API 建不了条目、写不了商品文案」是同一族限制：发布 API 管的是包与提交动作，不管商品是什么形态。
+
+`STAGED_PUBLISH`：**能发，但放量这一步这里用不上**。把 `release.yml` 里那个字面量换成 `STAGED_PUBLISH`
+确实会让「审过即上架」变成「审过先挂起」，可分批放量的 `:setPublishedDeployPercentage` 按 Google 文档要求
+该商品**7 日活跃用户超过 10,000**，量级不足时请求被拒，只能在后台手动操作。本项目现在的用户数远不到那条线，
+所以真要灰度，改的是一个当前不具备调用条件端点的调用方式——那是一次有意的产品决定，不该由某次 CI 改动顺手带来
+（Q12 里 `deployInfos` 那条讲的是同一件事）。
+
+- **权限与隐私申报**：`CHROMEWEBSTORE.md` → "权限与隐私申报"
+- **拒审记录与应对**：`CHROMEWEBSTORE.md` → "拒审记录与政策口径"
+- **发版自动化（Release PR、标签、secrets 清单）**：`.github/RELEASE_AUTOMATION.md`
+- **产品说明页**：https://liaolongdong.github.io/transfer-any-file/
+- **隐私政策**：https://liaolongdong.github.io/transfer-any-file/privacy.html
+
 ---
 
 ## 相关文档
@@ -652,22 +828,30 @@ git ls-tree <那个tag> scripts/cws-token.mjs     # 输出为空 = 那个 tag �
 
 发布前请确保：
 
+- [ ] **先跑 3.0 那五条只读命令**，按那张表确认此刻缺的是哪几块——「流水线全绿而商店什么都没发生」的三种成因
+      （凭据缺项、假门、变量没设）全都长得像成功，只有那五条读数能把它们分开
 - [ ] GitHub Secrets 配置齐全（发布商级 3 个 + 本扩展专用 1 个；要让标签自动触发发版，再加 `RELEASE_PAT`）
 - [ ] **那四项都在 Repository secrets 那一档**，不在 environment `cws-release` 的 secrets 里（配错级别不报错，
       只让商店两步一起静默跳过，3.2 的第 4 条 ⚠️ 与 Q6）
+- [ ] 那四项是**新链路的四个名字**，不是 `CWS_CLIENT_ID` / `CWS_CLIENT_SECRET` / `CWS_EXTENSION_ID` 那三个旧名字
+      （新链路不读它们，别把它们数成「配过了」，见 Q17）
 - [ ] 服务账号邮箱已加进开发者信息中心的「账号」页（漏了这步，令牌照样换得到，是商店调用才回 401/403）
 - [ ] `CWS_PUBLISHER_ID` 取的是**商品编辑页地址栏的第一段**（36 位 UUID 形），不是服务账号详情页那个 21 位
       「唯一 ID」（3.1 第 6 步那张三段候选表；填错只在商店那跳露出来，见 Q14）
 - [ ] GCP 项目已启用 Chrome Web Store API
 - [ ] 扩展 ID 格式正确（32 位 a-p 字母，`CHROME_EXTENSION_ID_TAF`）
 - [ ] **先跑一次第 0 档**（`store_status_only`，只读、零写入、不要批准）确认凭据链是通的，再考虑第 2 / 3 档
+- [ ] 想跑第 1 / 2 / 3 档之前，确认那个标签**真的存在**（仓库零标签时 dry run 红在检出那一步，见 Q19）
 - [ ] 所有验证通过（`pnpm lint:all && pnpm verify:meta && pnpm verify:listing && pnpm build && pnpm verify:offline`）
 - [ ] 商店文案与 `_locales` 文件一致
 - [ ] 隐私政策 URL 可达
 - [ ] 版本号高于线上版本
 - [ ] **（要走自动提审才需要）** environment `cws-release` 已建好，且 `protection_rules` 里能看到
       Required reviewers 那一条——不是首次运行自动创建的空壳（3.4 第 5 步的那条 curl 命令）
-- [ ] **（同上）** 仓库变量 `CWS_AUTO_SUBMIT=true` 已设，且设之前刚验证过上一格
+- [ ] **（同上）** 那一格读出来不是**只有** `wait_timer`：那是一条自动放行的假门，比没有门更坏（Q16）
+- [ ] **（同上）** 批准人是在**网页界面**里加的——本轮实测 REST 加不上这条规则，别照着命令敲（Q16）
+- [ ] **（同上）** `can_admins_bypass` 已关（默认是开的，管理员能直接穿门，Q23）
+- [ ] **（同上）** 仓库变量 `CWS_AUTO_SUBMIT=true` 已设，且设之前刚验证过上面三格
 - [ ] **（同上）** 名单里至少有一个**不是本次触发者**的批准人；个人仓库只有一个人时，确认自己选的是
       Q8 里的哪一种，而不是「勾了 Prevent self-review 然后没人能批」
 

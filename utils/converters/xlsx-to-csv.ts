@@ -4,7 +4,7 @@ import { FileFormat } from '~/utils/core/types';
 import type { Converter, ConvertResult } from '~/utils/core/types';
 import { guardFormulaCells, normalizeDateCells, sheetToValueCsv, XLSX_TEXT_DATE_FORMAT } from '~/utils/core/csv-guard';
 import { loadFflate } from '~/utils/core/zip';
-import { ownSheetNames } from '~/utils/core/xlsx-sheets';
+import { boundWorkbook, ownSheetNames } from '~/utils/core/xlsx-sheets';
 
 function csvBlob(csv: string): Blob {
   // UTF-8 BOM so Excel opens the CSV with the correct encoding
@@ -38,6 +38,7 @@ const xlsxToCsvConverter: Converter = {
     // the `raw: false` this call used to carry is not a read option at all and is discarded by
     // option normalization, so it never had the documented effect of "use values".
     const workbook = XLSX.read(buffer, { type: 'array', cellDates: true, dateNF: XLSX_TEXT_DATE_FORMAT });
+    boundWorkbook(workbook);
     const sheetNames = ownSheetNames(workbook);
     if (sheetNames.length === 0) {
       throw new Error('errors.xlsxEmpty');

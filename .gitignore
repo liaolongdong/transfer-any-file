@@ -30,8 +30,10 @@ _site/
 .tmp-staging
 # A one-off verification screenshot from an early build, tracked since the first commit. This
 # extension has no popup at all (`entrypoints/` is `background.ts` + `options/`, and `AGENTS.md` says
-# so), so the file documented a surface that never shipped; `.qoder/specs/2026-09-19-…-design.md` had
-# already recorded it as contradicting that claim. Nothing references it as an asset — no README, no
+# so), so the file documented a surface that never shipped; the 2026-09-19 P0 design spec had already
+# recorded it as contradicting that claim — it lives in `.qoder/specs/`, which is untracked (see the
+# note at the bottom of this file), so that path is readable on a working machine and 404 on GitHub.
+# Nothing references the screenshot as an asset — no README, no
 # `docs/`, no script — so removing it from the index cannot break a link, only a history view.
 popup-verify.png
 # Generated paste-ready drafts (images inlined as data URIs, ~MBs each); the .md sources are tracked.

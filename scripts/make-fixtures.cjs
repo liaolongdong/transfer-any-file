@@ -4,7 +4,7 @@ const path = require('node:path');
 const { asBlob } = require('html-docx-js-typescript');
 const XLSX = require('xlsx');
 const { jsPDF } = require('jspdf');
-const { zipSync, strToU8 } = require('fflate');
+const { unzipSync, zipSync, strToU8 } = require('fflate');
 
 const TINY_PNG =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
@@ -59,6 +59,95 @@ function buildAnimatedGif() {
 
   push(0x3b); // trailer
   return Buffer.from(bytes);
+}
+
+/**
+ * A 2×2, 24-bit Windows BMP — the only bitmap format the app accepts as input but cannot encode, so
+ * every route out of it is a decode plus a re-encode. Hand-encoded because nothing in the dependency
+ * tree writes one, and because the dimensions and the four colours are what the e2e assertion reads
+ * back out of the PNG: a decoder that silently produced a blank canvas would still pass a mere
+ * "conversion succeeded".
+ *
+ * Rows are stored bottom-up in BGR order. At 2 px wide a row is 6 bytes of pixels padded to 8.
+ */
+function buildBmp() {
+  const width = 2;
+  const height = 2;
+  const rowSize = 8;
+  const pixelBytes = rowSize * height;
+  const bytes = [];
+  const u16 = value => [value & 0xff, (value >> 8) & 0xff];
+  const u32 = value => [value & 0xff, (value >> 8) & 0xff, (value >> 16) & 0xff, (value >>> 24) & 0xff];
+
+  bytes.push(0x42, 0x4d); // 'BM'
+  bytes.push(...u32(54 + pixelBytes), ...u32(0), ...u32(54));
+  bytes.push(
+    ...u32(40), // BITMAPINFOHEADER
+    ...u32(width),
+    ...u32(height),
+    ...u16(1), // planes
+    ...u16(24), // bits per pixel
+    ...u32(0), // BI_RGB, uncompressed
+    ...u32(pixelBytes),
+    ...u32(2835), // 72 dpi
+    ...u32(2835),
+    ...u32(0),
+    ...u32(0),
+  );
+  // Bottom row: red, green. Top row: blue, white. Then the two padding bytes of each row.
+  bytes.push(0x00, 0x00, 0xff, 0x00, 0xff, 0x00, 0x00, 0x00);
+  bytes.push(0xff, 0x00, 0x00, 0xff, 0xff, 0xff, 0x00, 0x00);
+  return Buffer.from(bytes);
+}
+
+/**
+ * XLSX fixtures for the `!ref` budget.
+ *
+ * `XLSX.write` believes `!ref` and walks it, so the forged dimension cannot be produced by writing a
+ * workbook with that range — it is patched into the sheet XML after the fact, at 5 KB total. The
+ * overflow fixture is honest: two cells 500 000 rows apart already exceed the per-sheet budget even
+ * though the file is tiny, which is exactly the sparse shape the budget is about.
+ */
+function writeXlsxBoundsFixtures(outDir) {
+  const forged = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(forged, XLSX.utils.aoa_to_sheet([['ok']]), 'Sheet1');
+  const base = XLSX.write(forged, { type: 'buffer', bookType: 'xlsx' });
+  const parts = unzipSync(new Uint8Array(base));
+  const sheetXml = Buffer.from(parts['xl/worksheets/sheet1.xml']).toString('utf8');
+  parts['xl/worksheets/sheet1.xml'] = strToU8(
+    sheetXml.replace(/<dimension ref="[^"]*"\/>/, '<dimension ref="A1:XFD1048576"/>'),
+  );
+  fs.writeFileSync(path.join(outDir, 'sample-xlsx-dimension.xlsx'), Buffer.from(zipSync(parts)));
+
+  const overflow = XLSX.utils.book_new();
+  const sheet = XLSX.utils.aoa_to_sheet([['first']]);
+  sheet.A500001 = { t: 's', v: 'last' };
+  sheet['!ref'] = 'A1:A500001';
+  XLSX.utils.book_append_sheet(overflow, sheet, 'Sheet1');
+  fs.writeFileSync(
+    path.join(outDir, 'sample-xlsx-overflow.xlsx'),
+    Buffer.from(XLSX.write(overflow, { type: 'buffer', bookType: 'xlsx' })),
+  );
+}
+
+/**
+ * PDF fixtures for the page-count budgets.
+ *
+ * Both are honest documents — the page tree lists every page — because the guard has to fire on the
+ * count pdf.js actually reports, not on a number this script made up. A 1-inch page keeps them small
+ * and keeps the one acceptance case cheap: the boundary test renders 200 pages at the default 144
+ * dpi, which is a 144×144 canvas each rather than an A4 sheet. Both rejection routes stop before
+ * rendering or extracting anything, so they cost the same either way.
+ */
+function writePdfCapFixtures(outDir) {
+  for (const [pages, name] of [
+    [201, 'sample-201-pages.pdf'],
+    [1001, 'sample-1001-pages.pdf'],
+  ]) {
+    const doc = new jsPDF({ unit: 'pt', format: [72, 72] });
+    for (let i = 1; i < pages; i++) doc.addPage();
+    doc.save(path.join(outDir, name));
+  }
 }
 
 async function main() {
@@ -124,6 +213,8 @@ async function main() {
     '目录',
   );
   XLSX.writeFile(single, path.join(outDir, 'single-sheet.xlsx'));
+  writeXlsxBoundsFixtures(outDir);
+  writePdfCapFixtures(outDir);
 
   // 1x1 GIF (well-known minimal valid GIF89a) — single frame on purpose: it is the negative case for
   // the "only the first frame survives" disclosure, which must stay quiet about an animation that
@@ -131,6 +222,10 @@ async function main() {
   const GIF_B64 = 'R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==';
   fs.writeFileSync(path.join(outDir, 'sample.gif'), Buffer.from(GIF_B64, 'base64'));
   fs.writeFileSync(path.join(outDir, 'sample-animated.gif'), buildAnimatedGif());
+
+  // The input-only bitmap. 2×2 with four distinct colours, so the PNG the suite downloads can be
+  // checked for the exact dimensions rather than merely for being a PNG.
+  fs.writeFileSync(path.join(outDir, 'sample.bmp'), buildBmp());
 
   // SVG fixture lives in the repo as text; keep it in sync here for clarity
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="240" height="140" viewBox="0 0 240 140">
@@ -279,7 +374,7 @@ body{background:url('http://127.0.0.1:9876/canary/css-bg.png')}</style>
   console.log('fixtures written to', outDir);
 }
 
-module.exports = { buildAnimatedGif };
+module.exports = { buildAnimatedGif, buildBmp, writeXlsxBoundsFixtures, writePdfCapFixtures };
 
 // Importable on purpose: one fixture can then be written without touching the others, since
 // regenerating the whole set re-stamps the PDF and XLSX files whose exact bytes the e2e assertions

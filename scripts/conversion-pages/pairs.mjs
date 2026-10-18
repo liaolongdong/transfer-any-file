@@ -84,9 +84,11 @@ export const SOCIAL_IMAGE_ALT =
  * The 2026-10-08 revision is the CTA: every page this writes now leads with the store install button, so
  * the 36 published files changed as a set even though no prose moved. The 2026-10-12 revision is prose —
  * the English `title` and `desc` of 34 entries were rewritten to fit Google's display budget, which the
- * generator now enforces, so this date and that budget have to move together.
+ * generator now enforces, so this date and that budget have to move together. The 2026-10-17 revision
+ * corrects two claims that had gone false: TXT→MD no longer says "strict UTF-8" (the decoder now accepts
+ * UTF-16 and GB18030/GBK), and HTML→PNG now discloses the full-page height ceiling that makes it fail.
  */
-export const PAGES_UPDATED = '2026-10-12';
+export const PAGES_UPDATED = '2026-10-17';
 
 /**
  * The date the first conversion page entered the repository, used as `datePublished` for every entry that
@@ -522,23 +524,25 @@ export const PAIRS = [
         '表头为所有对象键的并集，顺序按首次出现，缺失键留空而不是错位',
         'null 与缺字段都写为空单元格，数字与布尔按原值写',
         '嵌套对象与数组以 JSON 文本入格，信息不丢，便于下一步用 jq 或 Excel 公式处理',
+        '标量或嵌套数组没有键可挂时写进一列 `_value`；若记录本身已用该键，合成列自动改名，绝不丢行',
         '字符串以 = + - @ 开头时转义，防止一个 JSON 字段在 Excel 里被当成公式执行',
       ],
       en: [
         'Headers are the union of all keys, ordered by first appearance; a missing key becomes an empty cell rather than a shifted row',
         'null and absent fields both write empty; numbers and booleans write their value',
         'Nested objects and arrays land in the cell as JSON text, so nothing is lost and a next step in jq or a spreadsheet formula can use them',
+        'A scalar or nested array with no keys lands in a single `_value` column; if a record already uses that key the synthetic column is renamed, so no row is dropped',
         'A string beginning with = + - @ is escaped, so one JSON field cannot execute as a formula in Excel',
       ],
     },
     limits: {
       zh: [
-        '输入必须是数组。对象、数组套对象这类结构会直接报错（errors.jsonNotArray），而不是给你一个看起来成功的空文件',
+        '输入必须是包含数据的数组。单独一个对象、空数组或一组空对象会报错（errors.jsonNotArray），而不是给你一个看起来成功的空文件',
         '不做扁平化：a.b.c 不会被拆成三列，需要拆就先用 jq 或「转成 Excel」之前的加工做一次',
         '不读取网络上的 JSON：文件必须是本地的那一份',
       ],
       en: [
-        'The input must be an array. A bare object or an object of objects reports an error (errors.jsonNotArray) instead of producing a file that looks like success and is empty',
+        'The input must be an array containing data. A bare object, an empty array, or an array of empty objects reports an error (errors.jsonNotArray) instead of producing a file that looks like success and is empty',
         'No flattening: a.b.c is not split into three columns. Flatten first with jq if the result has to be a flat grid',
         'It never reads JSON from the network — it has to be the local copy',
       ],
@@ -1814,12 +1818,14 @@ export const PAIRS = [
         '没有文字层：PDF 里的字是画出来的，搜索、复制、屏幕阅读器都取不到内容',
         '远程引用在渲染前被剥掉，剥空之后的引用与相对路径引用会换成虚线方框占位；只有浏览器真解得开的 data: / blob: 图片能进 PDF，解不开的 data: 与已撤销的 blob: 会在那处留空，远程图片、远程字体与远程 CSS 一律不下载',
         '长文档像素比会降：高度超过 2000 px 用 1.5 倍、超过 4000 px 用 1 倍，超长页的字不如短页锐利',
+        '整页高度有上限：超出浏览器单次渲染能吃的长度时直接报错，而不是交出一份内容不全的 PDF——那种文档请拆成更短的部分分批转换',
         '分页只看高度，不懂「章节起新页」；纸张固定 A4 竖版，不能选横版或其它尺寸',
       ],
       en: [
         'There is no text layer: the characters are drawn, so search, copy and screen readers find nothing to work with',
         'Remote references are stripped before rendering, and what is left of them — the emptied reference, plus any relative path — is replaced by a dashed placeholder box; only a data: or blob: picture the browser can still decode reaches the PDF, one it cannot (a revoked blob:, an unreadable data:) leaves that position empty, and no remote image, font or stylesheet is ever downloaded',
         'Long documents drop resolution: past 2000 px of height the ratio is 1.5× and past 4000 px it is 1×, so very long pages are less crisp than short ones',
+        'Page height has a ceiling: past what the browser can render in one pass the conversion reports an error instead of delivering a PDF missing content — split such a document and convert the parts separately',
         'Pagination only measures height and does not understand “start a new page per chapter”; the paper is fixed portrait A4 with no size or orientation choice',
       ],
     },
@@ -2430,6 +2436,7 @@ export const PAIRS = [
         '外部字体与 CSS 里的远程 `@import` 同样取不到，字体会回落到系统栈',
         '宽度定在 800 px，不接受视口参数；iframe 与远程嵌入内容不会渲染',
         '产物是像素：图里的文字不可选中、不可复制（这条与所有"到图片"的路一致）',
+        '整页高度有上限：超出浏览器单次渲染能吃的长度时直接报错，而不是给你一张内容不全的长图——那种文档请拆成更短的部分分批转换',
       ],
       en: [
         'Pictures referenced by URL or by a sibling path cannot get their bytes: under the offline guarantee nothing is requested, so they become dashed placeholder boxes before rendering — the position is kept, the content is not guessed. Only an undecodable data: or an already-revoked blob: leaves that position empty',
@@ -2438,6 +2445,7 @@ export const PAIRS = [
         'Web fonts and remote `@import` rules cannot be fetched either, so type falls back to the system stack',
         'The width is fixed at 800 px with no viewport parameter, and iframes or remote embeds do not render',
         'The output is pixels: text in it is not selectable or copyable, as on every route to an image',
+        'Page height has a ceiling: past what the browser can render in one pass the conversion reports an error instead of delivering a tall image missing content — split such a document and convert the parts separately',
       ],
     },
     notes: {
@@ -3036,13 +3044,13 @@ export const PAIRS = [
     limits: {
       zh: [
         '不生成结构：标题、列表、表格、强调一律不推断，产物整块是代码块（这正是"不改内容"的代价）',
-        '编码按严格 UTF-8 读：非 UTF-8 的旧文件（GBK / GB18030 导出）会报解码失败，而不是悄悄给你一屏乱码——那一屏乱码之后就没法复原了',
+        '编码按严格解码链读：UTF-16（看 BOM 或 NUL 分布）→ UTF-8 → GB18030 → GBK，国内 Excel 另存的 GBK 文件读得动；这条链覆盖不了的字节（改了扩展名的压缩二进制，PNG / GIF / ZIP 那一类）报解码失败，而不是悄悄给你一屏乱码——那一屏乱码之后就没法复原了',
         '围栏之外没有别的加工：如果你想要"看起来像文档"的结构，请走 TXT → HTML 或 TXT → DOCX（它们是另一套取舍）',
         '反向也有路但不同源：Markdown → TXT 会剥掉标记，而这一条只是包一层，两者不互逆',
       ],
       en: [
         'No structure is manufactured: headings, lists, tables and emphasis are not inferred, and the whole result is one code block — which is the price of not touching the content',
-        'The read is strict UTF-8: an older file saved as GBK or GB18030 reports a decode failure rather than quietly producing a screen of mojibake, which could not be undone afterwards',
+        'Decoding runs a strict chain — UTF-16 (by BOM or NUL spacing), then UTF-8 → GB18030 → GBK — so a GBK file from a Chinese Excel reads correctly, while bytes no encoding in the chain covers (a compressed binary wearing a .txt name: PNG, GIF, ZIP) report a decode failure rather than quietly producing a screen of mojibake, which could not be undone afterwards',
         'Nothing happens outside the fence: for something that reads like a document, take TXT → HTML or TXT → DOCX, which make different trade-offs',
         'The reverse route is not an inverse: Markdown → TXT strips markers, while this route only wraps — the two are not each other’s undo',
       ],
@@ -3080,8 +3088,8 @@ export const PAIRS = [
       {
         q: { zh: '老文件是 GBK 编码的，打不开怎么办？', en: 'My file is GBK and it fails — what now?' },
         a: {
-          zh: '这条路径严格读 UTF-8，所以它会明确报解码失败而不是猜——猜错的解码是不可逆的。办法：先用能指定编码的工具转存成 UTF-8，再拿来转。（本项目的若干条文本路径确实做了 UTF-8 → GB18030 → GBK 的兜底解码，但那是那些路径的明确取舍，不适用于这条。）',
-          en: 'This route reads strict UTF-8, so it reports a decode failure instead of guessing — and a wrong decoding cannot be undone. Re-save the file as UTF-8 with a tool that lets you name the encoding, then convert it. (Several other text routes in this project do fall back UTF-8 → GB18030 → GBK, but that is an explicit decision for those routes and does not apply here.)',
+          zh: '这条路径读的是严格解码链，不是宽进严出的猜测：任一编码能严格表示这批字节就按它解，全都不覆盖才报解码失败——猜错的解码是不可逆的。所以国内 Excel 的 GBK / GB18030 文件可以直接转，改了扩展名的压缩二进制（PNG / GIF / ZIP 那一类）会被挡在门口。真遇到报解码失败，先用能指定编码的工具转存成 UTF-8，再拿来转。',
+          en: 'This route reads through a strict chain, not a permissive guess: whichever of UTF-16, UTF-8, GB18030 and GBK can represent the bytes exactly wins, and only when none can does it report a decode failure — a wrong decoding cannot be undone. So a GBK or GB18030 file from a Chinese Excel converts as-is, while a compressed binary wearing a text extension (a PNG, GIF or ZIP renamed .txt) is stopped at the door. If you do hit the failure, re-save as UTF-8 with a tool that lets you name the encoding, then convert it.',
         },
       },
     ],

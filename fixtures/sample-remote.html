@@ -3,25 +3,74 @@
   <head>
     <meta charset="UTF-8" />
     <title>Remote canary</title>
+    <meta http-equiv="refresh" content="0;url=http://127.0.0.1:9876/canary/meta-refresh" />
     <link rel="stylesheet" href="http://127.0.0.1:9876/canary/link.css" />
     <style>
       @import url('http://127.0.0.1:9876/canary/import.css');
+      @im\70 ort 'http://127.0.0.1:9876/canary/escaped-import.css';
+      @import /* hidden */ url('http://127.0.0.1:9876/canary/comment-import.css');
+      @import 'data:text/css,@import url("http://127.0.0.1:9876/canary/data-import.css")';
       body {
         background: url('http://127.0.0.1:9876/canary/body-bg.png');
         font-family: sans-serif;
+      }
+      .escaped-url {
+        background-image: u\72 l('http://127.0.0.1:9876/canary/escaped-url.png');
+        min-height: 4px;
+      }
+      .protocol-relative {
+        background-image: url(//127.0.0.1:9876/canary/protocol-relative.png);
+        min-height: 4px;
+      }
+      .backslash {
+        background-image: url(\\\\127.0.0.1:9876/canary/backslash.png);
+        min-height: 4px;
+      }
+      .image-set {
+        background-image: image-set('http://127.0.0.1:9876/canary/image-set.png' 1x);
+        min-height: 4px;
+      }
+      .var-fallback {
+        background-image: var(--missing, url('http://127.0.0.1:9876/canary/var-fallback.png'));
+        min-height: 4px;
+      }
+      .cross-fade {
+        background-image: cross-fade(
+          url('http://127.0.0.1:9876/canary/cross-fade.png'),
+          url('http://127.0.0.1:9876/canary/cross-fade-2.png'),
+          50%
+        );
+        min-height: 4px;
+      }
+      .svg-data {
+        background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg"><image href="http://127.0.0.1:9876/canary/data-svg.png"/></svg>');
+        min-height: 4px;
       }
     </style>
   </head>
   <body background="http://127.0.0.1:9876/canary/body-bg-attr.png">
     <h1>Offline sentinel document</h1>
     <p style="background-image: url('http://127.0.0.1:9876/canary/inline.png')">Plain text paragraph.</p>
+    <div class="escaped-url">escaped</div>
+    <div class="protocol-relative">protocol-relative</div>
+    <div class="backslash">backslash</div>
+    <div class="image-set">image-set</div>
+    <div class="var-fallback">var-fallback</div>
+    <div class="cross-fade">cross-fade</div>
+    <div class="svg-data">svg-data</div>
     <img src="http://127.0.0.1:9876/canary/img.png" alt="canary" />
+    <img src="&#104;ttp://127.0.0.1:9876/canary/entity.png" alt="canary" />
     <img
       src="http://127.0.0.1:9876/canary/srcset-fallback.png"
       srcset="http://127.0.0.1:9876/canary/srcset-2x.png 2x, http://127.0.0.1:9876/canary/srcset-3x.png 3x"
       alt="canary"
     />
     <video poster="http://127.0.0.1:9876/canary/poster.png"></video>
+    <svg width="10" height="10">
+      <image href="http://127.0.0.1:9876/canary/svg-image.png" width="10" height="10" />
+      <rect width="10" height="10" fill="url(http://127.0.0.1:9876/canary/svg-fill.svg#paint)" />
+    </svg>
+    <iframe srcdoc="<img src='http://127.0.0.1:9876/canary/srcdoc.png'>"></iframe>
     <table>
       <tr>
         <td background="http://127.0.0.1:9876/canary/td-bg-attr.png">cell</td>

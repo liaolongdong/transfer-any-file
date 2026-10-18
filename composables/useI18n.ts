@@ -21,7 +21,9 @@ let unsubscribe: (() => void) | null = null;
 
 function resolveKey(dict: Messages, path: string): string {
   const value = path.split('.').reduce<unknown>((acc, key) => {
-    if (acc && typeof acc === 'object' && key in acc) {
+    // Own properties only: a path is a string, so `constructor` or `toString` reaches
+    // `Object.prototype` through `in` and the function that comes back is not a message.
+    if (acc && typeof acc === 'object' && Object.hasOwn(acc, key)) {
       return (acc as Record<string, unknown>)[key];
     }
     return undefined;
@@ -29,9 +31,28 @@ function resolveKey(dict: Messages, path: string): string {
   return typeof value === 'string' ? value : path;
 }
 
+/**
+ * The selected dictionary first, `zh` second.
+ *
+ * `zh` is the source language and the documented fallback (`.qoder/rules/wxt-rules.md` §10), and
+ * `en: typeof zh` keeps the two key-for-key — so the only way a lookup misses is a path that is not a
+ * literal key, and the one answer users can actually read for that is the source language, not the
+ * bare key. `resolveKey` hands back the path itself when it misses, which is what makes the second
+ * lookup's condition decidable without a separate "found" flag.
+ */
+function resolveMessage(locale: Locale, path: string): string {
+  const found = resolveKey(messages[locale] ?? messages[DEFAULT_LOCALE], path);
+  if (found !== path || locale === DEFAULT_LOCALE) return found;
+  return resolveKey(messages[DEFAULT_LOCALE], path);
+}
+
 function interpolate(template: string, params?: Record<string, string | number>): string {
   if (!params) return template;
-  return template.replace(/\{(\w+)\}/g, (_, key: string) => (key in params ? String(params[key]) : `{${key}}`));
+  // `hasOwn` because the substituted value is rendered into the UI: a template containing `{constructor}`
+  // would otherwise read `Object.prototype.constructor` off `params` and print its source.
+  return template.replace(/\{(\w+)\}/g, (_, key: string) =>
+    Object.hasOwn(params, key) ? String(params[key]) : `{${key}}`,
+  );
 }
 
 /**
@@ -115,8 +136,7 @@ export function useI18n() {
   const locale = computed<Locale>(() => state.locale);
 
   function t(key: string, params?: Record<string, string | number>): string {
-    const dict = messages[state.locale] ?? messages[DEFAULT_LOCALE];
-    return interpolate(resolveKey(dict, key), params);
+    return interpolate(resolveMessage(state.locale, key), params);
   }
 
   async function setLocale(next: Locale): Promise<void> {

@@ -39,20 +39,27 @@ if (import.meta.hot) {
 export function usePresets() {
   if (!initPromise) initPromise = initPresets();
 
-  /** Store a new preset ahead of the existing ones; the cap drops the oldest, newest first. */
-  async function addPreset(preset: ConversionPreset): Promise<void> {
+  /**
+   * Store a new preset ahead of the existing ones; the cap drops the oldest, newest first.
+   *
+   * Resolves to whether the list reached storage, because the bar that calls this tells the user the
+   * preset is saved. Without the outcome that sentence is a promise the code cannot keep: the chip is
+   * in memory either way, so a quota failure only shows up as the preset vanishing after a reload.
+   */
+  async function addPreset(preset: ConversionPreset): Promise<boolean> {
     await initPromise;
     const next = [preset, ...presets.value].slice(0, MAX_PRESETS);
     presets.value = next;
-    await storageSet(STORAGE_KEYS.presets, next);
+    return storageSet(STORAGE_KEYS.presets, next);
   }
 
-  async function removePreset(id: string): Promise<void> {
+  /** Same outcome contract as `addPreset`, for the matching 「已删除」 message. */
+  async function removePreset(id: string): Promise<boolean> {
     await initPromise;
     const next = presets.value.filter(preset => preset.id !== id);
-    if (next.length === presets.value.length) return;
+    if (next.length === presets.value.length) return true;
     presets.value = next;
-    await storageSet(STORAGE_KEYS.presets, next);
+    return storageSet(STORAGE_KEYS.presets, next);
   }
 
   return { presets, addPreset, removePreset };

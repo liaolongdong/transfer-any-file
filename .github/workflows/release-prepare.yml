@@ -129,9 +129,12 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git switch -c "release/$TAG"
-          # 只暂存这三份文件：与本机脚本同理，`-A` 会把任何未预期进来的东西一起打包成一次发布。
+          # 只暂存这四份文件：与本机脚本同理，`-A` 会把任何未预期进来的东西一起打包成一次发布。
+          # 第四份是 `docs/index.html`：`--write` 会把它 `#app` 节点的 `softwareVersion` 跟着
+          # `package.json` 一起改，而 `pnpm verify:meta` 比对的就是这两处——漏进这里，`main` 就会在
+          # 发布提交的下一次 lint 里变红。
           # plan.json 就在这时候躺在工作区里，它不进提交。
-          git add CHANGELOG.md CHANGELOG.en.md package.json
+          git add CHANGELOG.md CHANGELOG.en.md package.json docs/index.html
           git commit -m "$SUBJECT" -m "由 .github/workflows/release-prepare.yml 生成，统计区间见 \`node scripts/release.mjs\` 的计划输出。合并本 PR 即批准发布。"
           git push --set-upstream origin "release/$TAG"
 

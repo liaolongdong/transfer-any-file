@@ -1,5 +1,6 @@
 import { throwIfAborted } from '~/utils/core/abort';
 import { asErrorKey } from '~/utils/core/error-keys';
+import { MAX_CANVAS_EDGE } from '~/utils/core/output-options';
 import { stripRemoteResources } from '~/utils/core/html-sanitize';
 
 /** Layout width used to render the document before rasterizing */
@@ -7,6 +8,24 @@ const RENDER_WIDTH = 800;
 
 /** Budget for the iframe's own load, before the document can even be measured */
 const LOAD_TIMEOUT_MS = 10_000;
+
+/**
+ * Longest capture canvas this path attempts, in device pixels.
+ *
+ * `MAX_CANVAS_EDGE` (8192) is the ceiling for a picture handed back as a *result*, where the encoders
+ * clamp to it. A capture canvas is a different thing: one tall strip is what lets HTML→PDF slice an
+ * N-page document into N A4 pages, so capping it at 8192 would take a working feature away. But it is
+ * still one allocation, and the canvas API does not refuse an oversized one — measured on this machine
+ * in Chrome, an 800×65 536 context allocates, accepts `fillRect` and reads back entirely transparent,
+ * while 800×40 000 still draws. So the failure past the browser's own limit is silent, and the worst
+ * outcome this path can produce is a white PNG with the batch line reading `done`.
+ *
+ * Four times the result ceiling (32768 device pixels, ≈105 MB RGBA) is therefore a bound we choose, not
+ * one the platform enforces: it sits under the measured silent limit, and it caps one allocation at a
+ * size a user can reason about — over 40 screen-heights of 800 px content. Stated as a multiple of the
+ * result ceiling so the two cannot drift apart.
+ */
+const MAX_CAPTURE_HEIGHT = MAX_CANVAS_EDGE * 4;
 
 /** Budget for each image inside the document to either load or fail */
 const ASSET_TIMEOUT_MS = 5_000;
@@ -59,8 +78,9 @@ function carriesOwnBytes(value: string | null): boolean {
 }
 
 /**
- * Point every image reference the rasterizer cannot resolve at {@link IMAGE_PLACEHOLDER}, returning the
- * rewritten document and how many references were replaced.
+ * Point every image reference the rasterizer cannot resolve at {@link IMAGE_PLACEHOLDER}, give a
+ * `<video>` with no usable poster the same box (uncounted — see its loop below), and return the
+ * rewritten document plus how many *image* references were replaced.
  *
  * Two shapes reach here, and the first one is why a document with a single remote picture used to
  * report `errors.renderFailed`. A remote `src` has already lost its attribute to
@@ -105,6 +125,20 @@ function replaceUnresolvableImageRefs(html: string): { html: string; imagesDropp
     node.setAttribute('href', IMAGE_PLACEHOLDER);
     node.removeAttribute('xlink:href');
     replaced++;
+  }
+
+  // A `<video>` is the one element html-to-image rejects with a bare `Event`. With no loaded frame it
+  // builds an `<img>` from `video.poster`; an empty poster (the sanitizer already removed the remote
+  // one), a relative path into the extension package, or a dead blob all make that image fail, and
+  // the rejection is raised inside `cloneVideoElement` — the `onImageErrorHandler` passed to
+  // `toCanvas` never sees it, so one video aborts the whole document. Replacing the poster with the placeholder keeps the
+  // clone on its image path; a video whose bytes did load still wins, because `currentSrc` is checked
+  // first. Not counted in `imagesDropped`: that note is about image references, and this box is its
+  // own disclosure.
+  for (const video of Array.from(doc.querySelectorAll('video'))) {
+    const poster = video.getAttribute('poster');
+    if (poster && /^data:image\//i.test(poster)) continue;
+    video.setAttribute('poster', IMAGE_PLACEHOLDER);
   }
 
   // Same leading-doctype preservation {@link stripRemoteResources} does: standards-mode layout is what
@@ -261,6 +295,11 @@ export async function renderHtmlToCanvas(html: string, signal?: AbortSignal): Pr
 
     // Expand the iframe to the full content height before capturing
     const fullHeight = Math.max(doc.documentElement.scrollHeight, doc.body?.scrollHeight ?? 0, 1);
+    // Measured *before* the allocation, because the limit above the platform's own is silent: an
+    // oversized canvas allocates, draws nothing and reads back transparent, so the converter would
+    // return a white PNG and the batch line would read `done`. "Too long to fit one picture" is the
+    // one thing here the user can act on themselves.
+    if (fullHeight > MAX_CAPTURE_HEIGHT) throw new Error('errors.renderTooTall');
     iframe.style.height = `${fullHeight}px`;
 
     // Tall documents drop to a lower ratio so the canvas stays inside the browser's size limits.
@@ -271,7 +310,13 @@ export async function renderHtmlToCanvas(html: string, signal?: AbortSignal): Pr
       height: fullHeight,
       pixelRatio,
       backgroundColor: '#ffffff',
-      cacheBust: true,
+      // Deliberately off. `cacheBust` appends `?<timestamp>` to every resource URL, which is harmless
+      // only for network URLs — and this document has none. On the two shapes that remain it corrupts
+      // the resource itself: a data: URL keeps the query inside its payload (`</svg>?123` is no longer
+      // a valid SVG), and a blob: URL with a query resolves to nothing. A `<video>` poster goes
+      // through that same fetch path even when it is a data: URL, so this is also what makes the
+      // placeholder poster below actually load.
+      cacheBust: false,
       // The backstop for whatever still fails after the rewrite above — a `data:` payload this browser
       // cannot decode, a `blob:` since revoked. Without a handler, html-to-image routes the clone's
       // `onerror` straight to `reject`, so one unreadable picture aborts the document and the user

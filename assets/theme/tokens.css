@@ -246,6 +246,26 @@
   --el-color-primary-dark-2: color-mix(in srgb, var(--fat-primary) 80%, black);
   --el-border-radius-base: var(--fat-radius-md);
 
+  /* Ink for Element Plus's light-effect alerts and tags.
+     EP paints those two with a semantic colour *as the text* on that same colour's 10% tint, and the
+     pair is not readable: WCAG 2.x contrast on sRGB measures 2.04:1 (warning), 2.08:1 (success),
+     2.61:1 (danger/error), 2.80:1 (info) in light mode, and 2.31:1 (green) / 3.15:1 (orange) /
+     4.00:1 (rose) / 4.49:1 (blue) for a default `type="primary"` tag, which is what every format
+     badge on the workbench is. Deepening each hue toward black is the only lever that keeps the hue
+     recognizable — 60% for the four fixed semantics (worst pair then 5.13:1) and 65% for the theme
+     primary, whose worst case is green (4.99:1); the other five primaries land 6.3–10.4:1 at the
+     same 65%, which is why this is one number rather than six.
+     Dark mode is not in scope: there the tint is mixed toward `#1e1e2e`, so the unaltered hues
+     already measure 4.59–6.31:1 for the semantics and 5.22–8.13:1 for the six theme primaries, and
+     darkening them would move them off the page. */
+  --fat-state-ink-success: color-mix(in srgb, var(--el-color-success) 60%, black);
+  --fat-state-ink-warning: color-mix(in srgb, var(--el-color-warning) 60%, black);
+
+  /* `danger` and `error` are the same hue under two names: a tag says danger, an alert says error. */
+  --fat-state-ink-danger: color-mix(in srgb, var(--el-color-danger) 60%, black);
+  --fat-state-ink-info: color-mix(in srgb, var(--el-color-info) 60%, black);
+  --fat-state-ink-primary: color-mix(in srgb, var(--el-color-primary) 65%, black);
+
   /* Map Element Plus's *motion* onto the same ladder.
      Nothing here was overridden before, so the product ran two motion systems at once: ours at
      0.15-0.25s on one curve, Element Plus at 0.2/0.3/0.4/0.6s on two beziers plus a `linear`.
@@ -505,6 +525,16 @@
   --el-color-info-light-8: color-mix(in srgb, var(--el-color-info) 20%, #1e1e2e);
   --el-color-info-light-9: color-mix(in srgb, var(--el-color-info) 10%, #1e1e2e);
   --el-color-info-dark-2: color-mix(in srgb, var(--el-color-info) 80%, black);
+
+  /* The alert/tag inks are a light-mode fix only. In this mode the same tints are mixed toward
+     `#1e1e2e`, so the hues are already the readable end of the pair (semantics 4.59–6.31:1, the six
+     dark primaries 5.22–8.13:1 on their own tint) and deepening them would pull the accent off the
+     page. */
+  --fat-state-ink-success: var(--el-color-success);
+  --fat-state-ink-warning: var(--el-color-warning);
+  --fat-state-ink-danger: var(--el-color-danger);
+  --fat-state-ink-info: var(--el-color-info);
+  --fat-state-ink-primary: var(--el-color-primary);
 }
 
 :root[data-mode='dark'][data-theme='blue'] {

@@ -143,7 +143,7 @@
     />
     <meta
       property="og:article:modified_time"
-      content="2026-10-03"
+      content="2026-10-17"
     />
     <meta
       name="twitter:card"
@@ -175,7 +175,7 @@
             "headline": "我把「文件格式转换」做成了一个不联网的 Chrome 扩展 | I turned file format conversion into a Chrome extension that never goes online",
             "inLanguage": ["zh-CN", "en"],
             "datePublished": "2026-09-22",
-            "dateModified": "2026-10-03",
+            "dateModified": "2026-10-17",
             "author": { "@type": "Person", "name": "Better", "url": "https://github.com/liaolongdong" },
             "publisher": {
               "@type": "Organization",
@@ -812,11 +812,12 @@ SVG      ──► HTML ──► PNG</code></pre>
                 ><span lang="en">Accessibility is a measurable number, not a goodwill gesture.</span></b
               >
               <span lang="zh-CN"
-                >四组颜色从真实页面上读回来，在 6 种主题 × 明暗共 12 组配置下逐主题断言：顶栏品牌文字对顶栏底色 ≥
+                >五组颜色从真实页面上读回来，在 6 种主题 × 明暗共 12 组配置下逐主题断言：顶栏品牌文字对顶栏底色 ≥
                 4.5:1，主按钮文字在静止 / 悬停 / 按下三种状态下对按钮底色 ≥ 4.5:1（这两项是 WCAG 2.1 AA
                 对文本的要求），焦点环对卡片底色 ≥ 3:1（AA
-                对界面组件的要求），拖放提示、文件大小、页脚这些给人读的句子对各自底色 ≥ 4.5:1；测试还单独断言第一次 Tab
-                落在 skip link
+                对界面组件的要求），拖放提示、文件大小、页脚这些给人读的句子对各自底色 ≥ 4.5:1，Element Plus
+                浅色效果的警示框标题与文件行的格式标签——同一支语义色同时当墨与底——对各自的淡色底 ≥
+                4.5:1；测试还单独断言第一次 Tab 落在 skip link
                 上、并且它显示可见的焦点环——不是「看着还行」。主按钮这一条最值回票价：先把它写成测量时，12 组里有 7
                 组不达标，最差
                 3.45:1，而且失败点全在悬停或按下的中间色阶上，静止态反而是过的——修法是让这两档色阶从文字颜色的反方向推导，不再跟着主题的明度阶梯走。今天最差的一组是
@@ -824,11 +825,13 @@ SVG      ──► HTML ──► PNG</code></pre>
                 组，浅色的森林绿与活力橙不成立，因为那两档填充本身就接近白色。</span
               >
               <span lang="en"
-                >Four contrast pairs are read back off the live page in 6 accent themes × light and dark, 12
+                >Five contrast pairs are read back off the live page in 6 accent themes × light and dark, 12
                 configurations, and asserted per theme: topbar brand text against the topbar at 4.5:1 or better, the
                 primary button's label in its rest, hover <b>and</b> pressed states at 4.5:1 or better, the focus ring
                 against a card at 3:1 or better (WCAG 2.1 AA for text and for user-interface components respectively),
-                and informational text — the drop hint, file sizes, the footer — against its own backdrop at 4.5:1 or
+                informational text — the drop hint, file sizes, the footer — against its own backdrop at 4.5:1 or
+                better, and the titles of Element Plus's light-effect alerts plus the format tag on every file row —
+                there one semantic colour serves as both ink and fill — against the tint underneath them at 4.5:1 or
                 better. The suite separately asserts that the first Tab lands on the skip link and that it shows a
                 visible ring. Not "looks fine". The button gate is the one that earned its keep: written as a
                 measurement first, it reported the label failing 4.5:1 in 7 of the 12 configurations — 3.45:1 at worst,
@@ -936,13 +939,13 @@ pnpm install &amp;&amp; pnpm build</code></pre>
             <p>
               <span lang="zh-CN"
                 >技术栈：<b>WXT + Vue 3 + TypeScript + Element Plus</b>，Manifest V3，权限只有 <code>storage</code>，MIT
-                协议。验证方式也是交付的一部分：Playwright 驱动构建产物跑 332
+                协议。验证方式也是交付的一部分：Playwright 驱动构建产物跑 358
                 条断言，转换用的夹具（<code>fixtures/</code>）随仓库走，谁都能本地重跑。</span
               >
               <span lang="en"
                 >Tech stack: <b>WXT + Vue 3 + TypeScript + Element Plus</b>, Manifest V3, <code>storage</code> as the
                 only permission, MIT licence. How it is verified is part of the deliverable too: Playwright drives the
-                built artifact through 332 assertions, and the fixtures it converts live in <code>fixtures/</code> next
+                built artifact through 358 assertions, and the fixtures it converts live in <code>fixtures/</code> next
                 to the code, so anyone can re-run them.</span
               >
             </p>
