@@ -51,7 +51,7 @@ node scripts/render-demo-gif.mjs   # 重录 README 顶部的演示 GIF（需先 
 node scripts/render-icons.mjs   # 从 assets/*.svg 重新渲染两档图标
 node scripts/verify-extension.mjs   # 把产物装进真实浏览器：worker 起没起、_locales 解析成什么、首屏有没有重 chunk、有没有请求出本机
 pnpm release:plan     # 只看计划：下一个版本号、双语 changelog 区块、哪些提交被当作噪声略过（不写盘）
-pnpm release:cut      # 本机落地：改那三份文件 + 本地提交 + 本地轻量标签（不推送）
+pnpm release:cut      # 本机落地：改那四份文件 + 本地提交 + 本地轻量标签（不推送）
 git tag vX.Y.Z && git push origin vX.Y.Z   # 推送标签即触发 release.yml：产出商店包、校验包内容、创建 GitHub Release；只推这一个，--tags 会把本地遗留标签一并发布
 ```
 

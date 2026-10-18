@@ -17,7 +17,7 @@
 release-prepare.yml（prepare job，自动）
    ├─ node scripts/release.mjs --json plan.json      算版本号 + 双语 changelog 区块
    ├─ 写任务摘要（这次是否可发版、区间、噪声提交数）
-   ├─ 推分支 release/vX.Y.Z（提交只含 CHANGELOG.md / CHANGELOG.en.md / package.json 三份）
+   ├─ 推分支 release/vX.Y.Z（提交只含 CHANGELOG.md / CHANGELOG.en.md / package.json / docs/index.html 四份）
    └─ gh pr create                                   ← Release PR 开出来，等你
         │
 你：审 diff，合并这个 PR   ★ 批准发布就发生在这里
@@ -189,13 +189,16 @@ GitHub 托管 runner 的 **6 小时**（两个不同的钟，见 FAQ Q9）；Fre
 
 ```bash
 pnpm release:plan          # = node scripts/release.mjs —— 只算，不写任何文件
-pnpm release:cut           # = --write --commit --tag —— 落地：改三份文件 + 本地提交 + 本地标签（不推送）
+pnpm release:cut           # = --write --commit --tag —— 落地：改四份文件 + 本地提交 + 本地标签（不推送）
 ```
 
 - 计划会读**工作树**，不只是历史：`## [未发布]` 区块、`package.json#version`、陈旧版本号扫描都在树里。
   所以工作树脏时它会提示，但照常给出计划；`--write` 才会因为脏树直接拒绝——那时才真的可能把别人
   未完成的改动带进发布提交。确信无碍可加 `--allow-dirty`。
-- `--write` 只碰三份文件：`CHANGELOG.md`、`CHANGELOG.en.md`、`package.json`。它不会替你 `git push`，
+- `--write` 只碰四份文件：`CHANGELOG.md`、`CHANGELOG.en.md`、`package.json`，加 `docs/index.html` 里 `#app` 节点那
+  一行 `softwareVersion`——它是 `pnpm verify:meta` 与 `package.json` 比对的那一格，`--write` 不带着它，发布提交
+  落进 `main` 的下一次 lint 就会红在这一条上。那一页其余的版本字样（矩阵导语、取证段、页脚 `vX.Y.Z` 链接）是
+  **句子**，仍留在 `staleVersionMentions` 里等人自己重新取证。它不会替你 `git push`，
   标签也一样要你自己 `git push origin vX.Y.Z`（或按第四节的 `mode: tag` 让工作流打）。
 - 常用覆盖参数：`--bump major|minor|patch`、`--version X.Y.Z`、`--from <rev>`（改统计起点）、
   `--as-of YYYY-MM-DD`（改区块日期）、`--with-commit-list`（区块里附逐条清单）、`--json <path>`，
@@ -340,9 +343,16 @@ pnpm release:cut           # = --write --commit --tag —— 落地：改三份�
   同一理由，`upload-state` 只把 `FAILED` / `NOT_FOUND` 这两个明确否定的取值判红，读不懂一律原样报出来并放行。
   第一次真跑时请顺手核对摘要里读到的线上版本号确实是那个数——它是「商店只接受严格更高的版本号」那条预检的分母。
 - 分支保护的实际配置（本仓库若已要求状态检查通过）会直接影响 1.3 节的退路是否够用。
-- **已经真跑过的只有两处**（2026-10-02，都在隔离副本里，没有碰远端）：`release.mjs --write` 在 `main` 上产出的
-  那份发布提交（只改三份文件，`## [未发布]` 与它那 150 条之间插标题），以及第二节第 7 条那个「绿着合错」的
-  合并形状与 `scripts/repair-release-merge.mjs` 对它的重建（含五条断言各自被变异触发）。Actions 自身的触发规则
+- **已经真跑过的只有三处**。前两处是 2026-10-02，都在隔离副本里、没有碰远端：`release.mjs --write` 在 `main`
+  上产出的那份发布提交（**当时只改三份文件**，`## [未发布]` 与它那 150 条之间插标题），以及第二节第 7 条那个
+  「绿着合错」的合并形状与 `scripts/repair-release-merge.mjs` 对它的重建（含五条断言各自被变异触发）。
+  第三处是 2026-10-18，在 `git worktree` 的 detached 副本里跑 `--write --allow-dirty`（1.2.0 → 1.2.1），
+  四种形状各自落在该落的地方：happy path 写 `package.json` 1.2.1、`docs/index.html` 的 `#app
+softwareVersion` 1.2.1 与双语区块各 23 行，随后 `node scripts/check-package-meta.mjs` 在同一棵树上绿；
+  只把 `docs/index.html` 退回 1.2.0 而 `package.json` 留 1.2.1，`verify:meta` 红在「the product page
+  advertises a release that is not the current one」——第四份文件存在的理由就是这一条；把那一行改成 `9.9.9`
+  再跑 `--write`，退出 1，且 `package.json` 与两份 changelog 一个字都没动（校验排在任何写入之前）。顺带验到
+  脏树闸门：把工作树弄脏之后 `--write` 直接拒绝列出脏在哪，加 `--allow-dirty` 才继续。Actions 自身的触发规则
   仍然只有真跑一次才算证据。
 
 ---

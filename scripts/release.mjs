@@ -33,7 +33,8 @@
  * ## Modes
  *
  *     node scripts/release.mjs                        plan only (default — writes nothing)
- *     node scripts/release.mjs --write                apply the changelog pair + package.json
+ *     node scripts/release.mjs --write                apply the changelog pair + package.json + the site's
+ *                                                     `#app` version claim
  *     node scripts/release.mjs --write --commit --tag  ... plus the release commit and the `vX.Y.Z` tag
  *
  * The tag stays lightweight: `CONTRIBUTING.md` documents `git tag vX.Y.Z && git push origin vX.Y.Z`, and
@@ -184,7 +185,7 @@ process.stdout.on('error', error => {
  * `git grep` behind `staleVersionMentions` are all read from the worktree. On a dirty tree the number
  * printed here can therefore differ from what the CI job (a clean checkout) would produce — so a dirty
  * tree is worth *saying*, always. It is only worth *failing* for `--write`, where a release commit stages
- * three named paths and any other tracked change is somebody else's unfinished work that would ride along
+ * four named paths and any other tracked change is somebody else's unfinished work that would ride along
  * on the next `--commit`.
  *
  * Refusing in read-only plan mode was the first version, and it is wrong in both directions: it blocks the
@@ -193,7 +194,7 @@ process.stdout.on('error', error => {
  * release commit — cannot happen without `--write`.
  */
 function reportTreeState() {
-  // Untracked files are deliberately not part of this check: a release commit stages three named paths,
+  // Untracked files are deliberately not part of this check: a release commit stages four named paths,
   // so a new file nobody has added yet cannot ride along. Modified or deleted tracked files can, and do.
   const dirty = git(['status', '--porcelain', '--untracked-files=no']);
   if (!dirty) return;
@@ -538,6 +539,32 @@ function writePackage(currentVersion, nextVersion) {
 }
 
 /**
+ * Sync the one version claim on the product page that is a value rather than prose.
+ *
+ * `docs/index.html` states its `SoftwareApplication` node by hand, and `pnpm verify:meta` asserts that
+ * node's `softwareVersion` equals `package.json#version`. A bump that leaves this line behind therefore
+ * turns `main`'s lint job red on the very push that carries it — which is a worse outcome than the
+ * `1.1.0` drift this check was written to catch, because it lands on a release commit.
+ *
+ * Only this line is auto-edited. The sibling mentions on that page (matrix captions, the evidence
+ * paragraph, the footer's `vX.Y.Z` link) are sentences with numbers in them, and those stay in
+ * `findStaleMentions` for a human to re-evidence.
+ */
+function writeSiteAppVersion(currentVersion, nextVersion) {
+  const file = path.join(ROOT, 'docs', 'index.html');
+  const text = fs.readFileSync(file, 'utf8');
+  const needle = `"softwareVersion": "${currentVersion}"`;
+  const hits = text.split(needle).length - 1;
+  if (hits !== 1) {
+    fail(
+      `docs/index.html 里 ${needle} 出现 ${hits} 次（应当正好 1 次）：这一行由 pnpm verify:meta 与 package.json 比对，` +
+        `bump 必须带着它一起走。页面结构改过的话，同步改这里的 needle。`,
+    );
+  }
+  fs.writeFileSync(file, text.replace(needle, `"softwareVersion": "${nextVersion}"`), 'utf8');
+}
+
+/**
  * Every tracked place still carrying the old version, minus what must never be auto-edited or is noise.
  *
  * `CHANGELOG*` is a record and keeps saying `1.0.0` where it did; `pnpm-lock.yaml`'s hits are unrelated
@@ -655,6 +682,8 @@ function main() {
 
   const changelogs = [];
   if (releasable && OPTS.write) {
+    // First, because it reads a hand-edited page: if the line is gone, nothing else should have moved.
+    writeSiteAppVersion(currentVersion, version);
     changelogs.push(writeChangelog('zh', plan), writeChangelog('en', plan));
     writePackage(currentVersion, version);
     if (OPTS.commit) commitRelease(plan);
@@ -763,7 +792,7 @@ function groupByFile(rows) {
  * and a blanket add would carry somebody else's half-finished edit into a release.
  */
 function commitRelease(plan) {
-  const files = [CHANGELOG_FILES.zh.file, CHANGELOG_FILES.en.file, 'package.json'];
+  const files = [CHANGELOG_FILES.zh.file, CHANGELOG_FILES.en.file, 'package.json', 'docs/index.html'];
   git(['add', ...files]);
   const message = [
     plan.subject,
@@ -771,7 +800,8 @@ function commitRelease(plan) {
     plan.carried
       ? `「${CHANGELOG_FILES.zh.label}」里的手写正文原样提升为 ${plan.version} 的发布说明。`
       : `发布说明由 ${plan.entries.length} 条 Conventional Commits 生成。`,
-    `package.json#version 同步到 ${plan.version}；release.yml 按这个号产出商店包与 GitHub Release。`,
+    `package.json#version 与 docs/index.html 的 #app softwareVersion 同步到 ${plan.version}；` +
+      `release.yml 按这个号产出商店包与 GitHub Release，pnpm verify:meta 按它比对两边。`,
   ];
   git(['commit', '-m', message.join('\n\n')]);
 }

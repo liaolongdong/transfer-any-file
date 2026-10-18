@@ -51,7 +51,7 @@ node scripts/render-demo-gif.mjs   # re-record the demo GIF at the top of the RE
 node scripts/render-icons.mjs   # re-render both icon tiers from assets/*.svg
 node scripts/verify-extension.mjs   # load the package into a real browser: worker, _locales resolution, first-screen chunks, egress
 pnpm release:plan     # plan only: next version, both changelog entries, which commits count as noise (writes nothing)
-pnpm release:cut      # cut locally: edit those three files + the release commit + the lightweight tag (no push)
+pnpm release:cut      # cut locally: edit those four files + the release commit + the lightweight tag (no push)
 git tag vX.Y.Z && git push origin vX.Y.Z   # pushing the tag starts release.yml: build the store zip, verify it, open the GitHub Release; push just this one — --tags would publish any leftover local tags
 ```
 
