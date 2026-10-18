@@ -457,6 +457,23 @@ pnpm build && pnpm verify:offline && pnpm verify:remote-code   # 产物层两条
 `pnpm build` 末尾那行 `Σ Total size` 只给到 3.83 MB，取整边界之内的增减它看不见。读数不一样就说明动到了
 扩展源码，回头确认是不是有意为之。
 
+**2026-10-18 这一轮（1.2.1 发版 + 发布链路两次补漏 + 体积回填）**：`Σ` 的现值是 **3,842,846 B / 65 个文件**，
+比上面那一格多 **12,778 B**。涨在 10-17 那 22 笔扩展源码改动（XLSX 预览过 DOMPurify、`row-key`、解码链与
+存储上报那批），而 `verify:numbers` 不守体积（盲区就写在上面那段里），所以那 12,778 B 一路没人报红——直到
+1.2.1 的发布构建把 `Σ Total size: 3.84 MB` 打在 CI 日志里，而对外文案还写着 3.83。**回填 16 处，另带一处生成物**：
+`docs/index.html` 六处（指标卡、中英取证段、注释里那份「每个数从哪来」的清单、以及两处说明「带单位的数不做
+整数高亮 / 尺寸条挂在它下面」的引用）、`docs/blog/index.html` 中英各一、`docs/llms.txt`、`CONTRIBUTING*` 各一、
+`docs/promo/community-posts.md` 两处与 `.en.md` 一处、`wechat-article.md` 与 `blog-article.en.md` 各一处；
+`docs/promo/wechat-article.html` 由 `pnpm promo:wechat` 重排跟上（它 gitignored，不进 `git status`）。
+**按档案留下的**：上面每一格按天的 `3,83x,xxx B`、两份 `CHANGELOG*` 里的历史条目、本文件第 4 节那些「那一轮实测」。
+
+这一轮还把发布链路的两个洞补上了，核对点也跟着变：`aa7215d` 之前，发布提交只改四份手写文件，而三十六张生成页的
+`about` 节点把版本号从 `package.json` 现读——1.2.1 合进 `main` 后 CI 正是红在 `pages:check` 上。今天起
+`release.mjs --write` 自己重渲染，发布提交 = 四份手写 + `docs/convert/**` 与（有变化时的）`docs/sitemap.xml`；
+**所以第 4.1 节那句「整个 diff 只有三份文件」是 1.1.0 那一轮的现场，不是今天的**（那一段按档案留着）。
+另外 `fix(release)` 这个类型今天犯过一次：它按 `fix` 进了「修复」分组并当场催出一条 1.2.2 的 Release PR
+（内容是发版脚本自己，用户看不见），已关在 #21——内部改动要用 `chore` / `ci`，这是 `release.mjs` 文件头就写明的分类。
+
 提交前再确认一次工作树里没有别人的东西（与并发会话共享目录时尤其）：
 
 ```bash
