@@ -11,6 +11,12 @@ Release PR is not by itself a release.
 
 ## [Unreleased]
 
+## [1.2.2] - 2026-10-18
+
+### Fixed
+
+- **release**: bump 之后由脚本自己重渲染生成页，发布提交带上 docs/convert 与 sitemap (`aa7215d`)
+
 ## [1.2.1] - 2026-10-18
 
 ### Fixed
