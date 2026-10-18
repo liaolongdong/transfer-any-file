@@ -11,6 +11,29 @@ Release PR is not by itself a release.
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-10-18
+
+### Fixed
+
+- **core**: UTF-16 text is now identified before the strict decode chain runs, and decoded text that still carries control characters is refused instead of converted. (`b79f86c`)
+- **converter**: JSON→CSV keeps array elements that have no keys of their own in a synthetic _value column instead of silently dropping those rows. (`04e04de`)
+- **core**: Over-long full-page captures now report an error instead of producing a blank or incomplete PNG / PDF. (`cd5cb41`)
+- **storage**: Preset save and delete now report whether the write reached storage instead of showing success for a change that will reappear after a reload. (`30736fe`)
+- **ui**: The comparison view discards a preview parse that finishes after the user has already moved on. (`b70dc01`)
+- **ui**: Removing a staged file no longer re-runs the size and count warnings for the whole batch, and can no longer be overwritten by an archive still expanding. (`d76bf8e`)
+- **style**: Element Plus light-effect alerts and the per-file format tags now use ink that clears 4.5:1 against their own tint, in all 6 themes and both modes. (`a2d9660`)
+- **core**: A MIME type carrying parameters is now matched by its bare `type/subtype`, so a dropped or pasted CSV is no longer shown as an unrecognized file; the copy fallback removes its textarea even when `execCommand` throws. (`ff51e5a`)
+- **i18n**: Message lookup reads own properties only, so a path such as `constructor` can no longer resolve through `Object.prototype`; a missing key now falls back to the Chinese source dictionary instead of printing the bare key. (`f24a1ce`)
+- **converter**: json→html renders through an explicit work list, so a deeply nested document no longer fails with `RangeError` (30 000 levels now render); a GIF whose first frame runs past the 4 MB sniff window is re-read in full instead of being reported as a single frame. (`72c5a53`)
+- **preview**: The XLSX preview body now passes through DOMPurify before it reaches `srcdoc`: `sheet_to_html` writes cell values into `data-v` unquoted, so a cell containing a double quote could add attributes to the preview document. (`efe6dec`)
+- **a11y**: Four focus rings now use `--fat-focus-ring`, the comparison editor regains a keyboard ring, and a disabled format's reason is real text inside its option instead of an `aria-label` on a generic span. (`c55bf37`)
+- **ui**: Failure diagnostics key on the failure object rather than its position, so a retry merge that drops one row can no longer move an expanded diagnostic onto a different error. (`b571a35`)
+- Normalizes remote-reference detection at render boundaries (CSS escapes/comments, protocol-relative and backslash URLs, SVG animation and ping), budgets XLSX ranges and PDF page counts, keeps keyless JSON rows under `_value`, sanitizes the result HTML preview with a cancellable async pipeline, and fixes duplicate-option labels plus disabled-reason visibility in the format selector (358 assertions in a full green run). (`7d8e4cc`)
+
+### Performance
+
+- **converter**: Cancelling an SVG-embedding conversion now stops between diagrams instead of after the whole page has been rasterized. (`9b4c3cd`)
+
 ## [1.2.0] - 2026-10-07
 
 ### Added
