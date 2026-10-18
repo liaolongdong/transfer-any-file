@@ -17,7 +17,7 @@
 release-prepare.yml（prepare job，自动）
    ├─ node scripts/release.mjs --json plan.json      算版本号 + 双语 changelog 区块
    ├─ 写任务摘要（这次是否可发版、区间、噪声提交数）
-   ├─ 推分支 release/vX.Y.Z（提交只含 CHANGELOG.md / CHANGELOG.en.md / package.json / docs/index.html 四份）
+   ├─ 推分支 release/vX.Y.Z（四份手写文件 + 重新渲染的 docs/convert 与 sitemap）
    └─ gh pr create                                   ← Release PR 开出来，等你
         │
 你：审 diff，合并这个 PR   ★ 批准发布就发生在这里
@@ -189,16 +189,18 @@ GitHub 托管 runner 的 **6 小时**（两个不同的钟，见 FAQ Q9）；Fre
 
 ```bash
 pnpm release:plan          # = node scripts/release.mjs —— 只算，不写任何文件
-pnpm release:cut           # = --write --commit --tag —— 落地：改四份文件 + 本地提交 + 本地标签（不推送）
+pnpm release:cut           # = --write --commit --tag —— 落地：改四份手写文件 + 重渲染生成页 + 本地提交 + 本地标签（不推送）
 ```
 
 - 计划会读**工作树**，不只是历史：`## [未发布]` 区块、`package.json#version`、陈旧版本号扫描都在树里。
   所以工作树脏时它会提示，但照常给出计划；`--write` 才会因为脏树直接拒绝——那时才真的可能把别人
   未完成的改动带进发布提交。确信无碍可加 `--allow-dirty`。
-- `--write` 只碰四份文件：`CHANGELOG.md`、`CHANGELOG.en.md`、`package.json`，加 `docs/index.html` 里 `#app` 节点那
-  一行 `softwareVersion`——它是 `pnpm verify:meta` 与 `package.json` 比对的那一格，`--write` 不带着它，发布提交
-  落进 `main` 的下一次 lint 就会红在这一条上。那一页其余的版本字样（矩阵导语、取证段、页脚 `vX.Y.Z` 链接）是
-  **句子**，仍留在 `staleVersionMentions` 里等人自己重新取证。它不会替你 `git push`，
+- `--write` 碰四份**手写**文件：`CHANGELOG.md`、`CHANGELOG.en.md`、`package.json`，加 `docs/index.html` 里 `#app`
+  节点那一行 `softwareVersion`——它是 `pnpm verify:meta` 与 `package.json` 比对的那一格，`--write` 不带着它，发布
+  提交落进 `main` 的下一次 lint 就会红在这一条上。那一页其余的版本字样（矩阵导语、取证段、页脚 `vX.Y.Z` 链接）是
+  **句子**，仍留在 `staleVersionMentions` 里等人自己重新取证。然后它重渲染 `docs/convert/` 与 `docs/sitemap.xml`：
+  那三十六页的 `about` 节点把版本号从 `package.json` 现读，不重渲染就是「四份手写文件都改对了、生成物还停在上一版」，
+  1.2.1 那次自动发版正是被 `pnpm pages:check` 咬在这里变红。它不会替你 `git push`，
   标签也一样要你自己 `git push origin vX.Y.Z`（或按第四节的 `mode: tag` 让工作流打）。
 - 常用覆盖参数：`--bump major|minor|patch`、`--version X.Y.Z`、`--from <rev>`（改统计起点）、
   `--as-of YYYY-MM-DD`（改区块日期）、`--with-commit-list`（区块里附逐条清单）、`--json <path>`，
@@ -352,8 +354,13 @@ softwareVersion` 1.2.1 与双语区块各 23 行，随后 `node scripts/check-pa
   只把 `docs/index.html` 退回 1.2.0 而 `package.json` 留 1.2.1，`verify:meta` 红在「the product page
   advertises a release that is not the current one」——第四份文件存在的理由就是这一条；把那一行改成 `9.9.9`
   再跑 `--write`，退出 1，且 `package.json` 与两份 changelog 一个字都没动（校验排在任何写入之前）。顺带验到
-  脏树闸门：把工作树弄脏之后 `--write` 直接拒绝列出脏在哪，加 `--allow-dirty` 才继续。Actions 自身的触发规则
-  仍然只有真跑一次才算证据。
+  脏树闸门：把工作树弄脏之后 `--write` 直接拒绝列出脏在哪，加 `--allow-dirty` 才继续。
+  **而这一版仍漏了一件事**：1.2.1 的 Release PR 合进 `main`（`c29aa8e`）之后，CI 的 `Lint & Type Check` 变红，
+  红在 `pnpm pages:check`——四份手写文件都对（同一个 job 里 `verify:meta` 读到的就是 1.2.1），三十六张生成页的
+  `about` 节点把版本号从 `package.json` 现读、没人重渲染。这条只有真发一次版才暴露得出来：本机那次跑的是
+  `--write` 的写入面，`pages:check` 不在它的调用链里。修法是 `--write` 自己重渲染并把生成页纳进暂存集
+  （第三节那条），上面「四份文件」的说法也随之改成「四份手写 + 生成页」。Actions 自身的触发规则仍然只有真跑
+  一次才算证据——这一次就是它的证据。
 
 ---
 

@@ -129,12 +129,15 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git switch -c "release/$TAG"
-          # 只暂存这四份文件：与本机脚本同理，`-A` 会把任何未预期进来的东西一起打包成一次发布。
-          # 第四份是 `docs/index.html`：`--write` 会把它 `#app` 节点的 `softwareVersion` 跟着
-          # `package.json` 一起改，而 `pnpm verify:meta` 比对的就是这两处——漏进这里，`main` 就会在
-          # 发布提交的下一次 lint 里变红。
+          # 只暂存这几份文件：与本机脚本同理，`-A` 会把任何未预期进来的东西一起打包成一次发布。
+          # `docs/index.html` 是发布提交带的第四份手写文件：`--write` 会把它 `#app` 节点的
+          # `softwareVersion` 跟着 `package.json` 一起改，而 `pnpm verify:meta` 比对的就是这两处——
+          # 漏进这里，`main` 就会在发布提交的下一次 lint 里变红。
+          # `docs/convert/` 与 `docs/sitemap.xml` 是生成物：那三十六页的 `about` 节点把版本号从
+          # `package.json` 现读，`--write` 因此顺手重渲染它们（1.2.1 那次自动发版就是被 `pages:check`
+          # 咬在这里红的——四份手写文件都对了，生成物还停在 1.2.0）。
           # plan.json 就在这时候躺在工作区里，它不进提交。
-          git add CHANGELOG.md CHANGELOG.en.md package.json docs/index.html
+          git add CHANGELOG.md CHANGELOG.en.md package.json docs/index.html docs/convert docs/sitemap.xml
           git commit -m "$SUBJECT" -m "由 .github/workflows/release-prepare.yml 生成，统计区间见 \`node scripts/release.mjs\` 的计划输出。合并本 PR 即批准发布。"
           git push --set-upstream origin "release/$TAG"
 

@@ -34,7 +34,8 @@
  *
  *     node scripts/release.mjs                        plan only (default — writes nothing)
  *     node scripts/release.mjs --write                apply the changelog pair + package.json + the site's
- *                                                     `#app` version claim
+ *                                                     `#app` version claim, then re-render `docs/convert/`
+ *                                                     (its `about` node reads that version from package.json)
  *     node scripts/release.mjs --write --commit --tag  ... plus the release commit and the `vX.Y.Z` tag
  *
  * The tag stays lightweight: `CONTRIBUTING.md` documents `git tag vX.Y.Z && git push origin vX.Y.Z`, and
@@ -185,8 +186,8 @@ process.stdout.on('error', error => {
  * `git grep` behind `staleVersionMentions` are all read from the worktree. On a dirty tree the number
  * printed here can therefore differ from what the CI job (a clean checkout) would produce — so a dirty
  * tree is worth *saying*, always. It is only worth *failing* for `--write`, where a release commit stages
- * four named paths and any other tracked change is somebody else's unfinished work that would ride along
- * on the next `--commit`.
+ * the paths this script just wrote and nothing else — any other tracked change is somebody else's
+ * unfinished work that would ride along on the next `--commit`.
  *
  * Refusing in read-only plan mode was the first version, and it is wrong in both directions: it blocks the
  * advertised `pnpm release:plan` for anyone with a work-in-progress edit checked out (which is the normal
@@ -194,8 +195,9 @@ process.stdout.on('error', error => {
  * release commit — cannot happen without `--write`.
  */
 function reportTreeState() {
-  // Untracked files are deliberately not part of this check: a release commit stages four named paths,
-  // so a new file nobody has added yet cannot ride along. Modified or deleted tracked files can, and do.
+  // Untracked files are deliberately not part of this check: a release commit stages only the paths named
+  // in `commitRelease`, so a new file nobody has added yet cannot ride along. Modified or deleted tracked
+  // files can, and do.
   const dirty = git(['status', '--porcelain', '--untracked-files=no']);
   if (!dirty) return;
   const count = dirty.split('\n').filter(Boolean).length;
@@ -565,6 +567,30 @@ function writeSiteAppVersion(currentVersion, nextVersion) {
 }
 
 /**
+ * Re-render the generated long-tail pages, because their `about` node reads `softwareVersion` from
+ * `package.json`.
+ *
+ * A bump that stops at the four hand-written files leaves 36 published pages describing the previous
+ * release while still pointing at the entity that claims the new one — and `pnpm pages:check`, which
+ * compares the committed bytes against the data source, goes red for exactly that. This happened on the
+ * first automated release: the commit bumping 1.2.0 → 1.2.1 failed CI on that one guard, with
+ * `verify:meta`, `format:check`, `verify:numbers` and the rest all green.
+ *
+ * Runs after `package.json` is written, since that file is the renderer's input.
+ */
+function renderGeneratedPages() {
+  const script = path.join(ROOT, 'scripts', 'render-site-pages.mjs');
+  try {
+    execFileSync(process.execPath, [script], { cwd: ROOT, stdio: 'pipe' });
+  } catch (error) {
+    const detail = String(error.stderr || error.stdout || error.message).trim();
+    fail(
+      `重渲染 docs/convert 失败——生成页的版本主张是从 package.json 现读的，bump 之后不重渲染就会让 pages:check 变红：\n${detail}`,
+    );
+  }
+}
+
+/**
  * Every tracked place still carrying the old version, minus what must never be auto-edited or is noise.
  *
  * `CHANGELOG*` is a record and keeps saying `1.0.0` where it did; `pnpm-lock.yaml`'s hits are unrelated
@@ -686,6 +712,7 @@ function main() {
     writeSiteAppVersion(currentVersion, version);
     changelogs.push(writeChangelog('zh', plan), writeChangelog('en', plan));
     writePackage(currentVersion, version);
+    renderGeneratedPages();
     if (OPTS.commit) commitRelease(plan);
     if (OPTS.tag) git(['tag', plan.tag]);
   }
@@ -792,7 +819,14 @@ function groupByFile(rows) {
  * and a blanket add would carry somebody else's half-finished edit into a release.
  */
 function commitRelease(plan) {
-  const files = [CHANGELOG_FILES.zh.file, CHANGELOG_FILES.en.file, 'package.json', 'docs/index.html'];
+  const files = [
+    CHANGELOG_FILES.zh.file,
+    CHANGELOG_FILES.en.file,
+    'package.json',
+    'docs/index.html',
+    'docs/convert',
+    'docs/sitemap.xml',
+  ];
   git(['add', ...files]);
   const message = [
     plan.subject,
