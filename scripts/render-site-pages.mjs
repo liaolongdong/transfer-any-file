@@ -1528,7 +1528,7 @@ const STATIC_PAGES = {
   },
   privacy: {
     path: '/privacy.html',
-    updated: '2026-09-25',
+    updated: '2026-10-19',
     changefreq: 'yearly',
     priority: '0.6',
     file: 'docs/privacy.html',
@@ -1855,6 +1855,60 @@ function validateLinkMirrors() {
 }
 
 /**
+ * Cross-check the one hand-written `site-nav` against the one this script emits.
+ *
+ * `chrome()` puts that bar on every generated page, so adding a destination there is a one-line change
+ * with nothing on the other side of it — while `docs/blog/index.html` carries its own copy of the same
+ * bar. That is precisely how `/diff/` ended up on all 36 generated pages and missing from the blog page
+ * for a whole round: no guard could see the two drifting apart, and `validateLinkMirrors()` only reads
+ * `/convert/<slug>.html`, so a site page is outside its view by construction.
+ *
+ * Both bars sit one level below the site root, so their hrefs are byte-comparable, and the order is part
+ * of the claim: the same four destinations in a different order is the same inconsistency, just wearing
+ * a different hat.
+ */
+function validateSiteNav() {
+  const file = 'docs/blog/index.html';
+
+  /**
+   * @param {string} name the document the block came from, as an operator has to go fix it
+   * @param {string} text
+   * @returns {string[] | null}
+   */
+  const navHrefs = (name, text) => {
+    // Matched as a tag, not as the literal `<nav class="site-nav"`: Prettier breaks a hand-formatted
+    // element's attributes onto their own lines, and an anchor-search for the one-line form would find
+    // nothing in exactly the files this check exists to watch.
+    const open = /<nav\b[^>]*class="site-nav"[^>]*>/.exec(text);
+    const end = open === null ? -1 : text.indexOf('</nav>', open.index);
+    if (end === -1) {
+      fail(
+        `${name}: no <nav class="site-nav"> found — this check has gone blind, so retarget it at whatever ` +
+          'element now carries the site bar rather than deleting the assertion',
+      );
+      return null;
+    }
+    return [...text.slice(open.index, end).matchAll(/href="([^"]*)"/g)].map(hit => hit[1]);
+  };
+
+  const expected = navHrefs('chrome()', chrome(1).head);
+  const source = fs.existsSync(path.join(ROOT, file)) ? fs.readFileSync(path.join(ROOT, file), 'utf8') : null;
+  if (source === null) {
+    fail(`${file} is missing, so its site-nav cannot be compared with the generated one`);
+    return;
+  }
+  const found = navHrefs(file, source);
+  if (expected === null || found === null) return;
+  if (expected.join(' ') !== found.join(' ')) {
+    fail(
+      `${file}: its site-nav links ${found.join(', ')}, but chrome() emits ${expected.join(', ')} on all ` +
+        `${PAIRS.length + 1} generated pages — one bar, two answers. A new site destination has to be added ` +
+        'to the hand-written copy in the same change',
+    );
+  }
+}
+
+/**
  * The site's discoverable URL set: the hand-written pages above plus every generated pair page.
  * @returns {string} `docs/sitemap.xml`
  */
@@ -1896,6 +1950,7 @@ validateScreenshots();
 validateStaticDates();
 validateFaqRail();
 validateLinkMirrors();
+validateSiteNav();
 validateDiffPage();
 for (const pair of PAIRS) {
   const chain = validatePair(pair);

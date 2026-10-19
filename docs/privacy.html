@@ -175,7 +175,7 @@
     <main class="wrap">
       <h1>Privacy Policy — Transfer Any File</h1>
       <p class="updated">
-        Effective date: 2026-09-06 · Last updated: 2026-09-25 · Applies to extension version 1.0.0 and later
+        Effective date: 2026-09-06 · Last updated: 2026-10-19 · Applies to extension version 1.0.0 and later
       </p>
 
       <h2>Summary</h2>
@@ -225,6 +225,19 @@
         does not request access to browsing history, tabs, cookies, website content, downloads, or any site.
       </p>
 
+      <h2>This site's pages</h2>
+      <p>
+        This repository also publishes the static pages you are reading, including one page that asks for a file of
+        yours: <code>/diff/</code> compares two files or two pasted texts and shows the difference. Those files are read
+        into that page's own memory by its own script and are never sent anywhere — there is no upload path on it, and
+        no network call of any kind appears in the code it is served with (the same assertion the extension is held to,
+        run over <code>tools/</code> as well as the extension source). It remembers three interface preferences —
+        language, colour theme, and split or unified view — in that browser's <code>localStorage</code>, and nothing
+        else: no cookies, no analytics, no account, no file content stored anywhere. Opening any of these pages is an
+        ordinary HTTPS request to GitHub, which serves them and keeps request metadata (IP address, user agent) in its
+        own logs; this site deploys no analytics, and we receive none of it.
+      </p>
+
       <h2>Children, minors and sensitive data</h2>
       <p>
         Because nothing is collected, nothing can be misused in that way. The extension is not directed at children and
@@ -253,7 +266,7 @@
         lang="zh-CN"
       >
         <h2>隐私政策（简体中文）</h2>
-        <p class="updated">生效日期：2026-09-06 · 最后更新：2026-09-25 · 适用于扩展 1.0.0 及后续版本</p>
+        <p class="updated">生效日期：2026-09-06 · 最后更新：2026-10-19 · 适用于扩展 1.0.0 及后续版本</p>
 
         <p>
           <strong>摘要：</strong>文件格式任意转换助手（Transfer Any File）是一款离线的 Chrome
@@ -284,6 +297,17 @@
           <strong>权限：</strong>仅申请
           <code>storage</code>
           一项，只用于上述两类数据。不申请浏览记录、标签页、Cookie、网页内容、下载或任何站点的访问权限。
+        </p>
+
+        <p>
+          <strong>本站的页面：</strong>本仓库同时发布你所读到的这些静态页面，其中有一张会请你放入自己的文件：<code
+            >/diff/</code
+          >
+          比较两个文件或两段粘贴的文本，并把差异显示出来。这些文件由该页面自己的脚本读入它自己的内存，<strong>不会被送到任何地方</strong>——那张页面上不存在上传路径，交付的代码里也没有任何一处网络调用（与扩展同一套自动断言，扫描范围同样覆盖
+          <code>tools/</code>）。它只在这台浏览器的 <code>localStorage</code>
+          里记住三项界面偏好：语言、深浅色配色、以及并排或统一的视图模式，此外什么都不存：无
+          Cookie、无统计埋点、无账号，也不保存任何文件内容。打开这些页面是一次普通的 HTTPS 请求，由 GitHub
+          提供服务并依其在自己的日志里保留请求元数据（IP 地址、User-Agent）；本站不部署任何统计，我们也收不到这些数据。
         </p>
 
         <p>
