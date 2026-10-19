@@ -8,6 +8,8 @@ defineProps<{
   error: string | null;
   /** Name of the file currently being processed (batch progress hint). */
   currentFileName?: string | null;
+  /** Counter for a non-file unit, e.g. "image 2 of 5" during a merged-PDF run. */
+  currentDetail?: string | null;
   /** 1-indexed position inside the current file's conversion chain; 0 when unknown. */
   currentStep?: number;
   /** Steps in the resolved chain; ≤ 1 hides the line, so single-step routes look unchanged. */
@@ -45,6 +47,7 @@ const { t } = useI18n();
       <CurrentFileHint
         v-if="currentFileName"
         :name="currentFileName"
+        :detail="currentDetail"
       />
       <StepProgressHint
         v-if="(stepTotal ?? 0) > 1"

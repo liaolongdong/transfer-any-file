@@ -101,7 +101,7 @@ curl -Is https://liaolongdong.github.io/transfer-any-file/privacy.html | head -1
 | ----------------------------- | ----------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
 | 名称 Extension Name           | `Transfer Any File — Offline File Format Converter` (49/75)                                                 | `文件格式任意转换助手 — 离线转换无上传` (20/75)                                                                                        |
 | 简介 Short description        | `Convert between 14 common document, spreadsheet and image file formats right in your browser...` (127/132) | `在本机浏览器内互转 14 种常见的文档、表格与图片格式。支持混合批量、多步链路、预览编辑与 ZIP 打包，全程离线，不上传、无账号。` (66/132) |
-| 详描 Full description         | [英文详细介绍](#英文详细介绍) (8,861 字符)                                                                  | [中文详细介绍](#中文详细介绍) (3,123 字符)                                                                                             |
+| 详描 Full description         | [英文详细介绍](#英文详细介绍) (9,413 字符)                                                                  | [中文详细介绍](#中文详细介绍) (3,317 字符)                                                                                             |
 | 类别 Category                 | `Productivity`                                                                                              | `Productivity`                                                                                                                         |
 | 主要语言 Primary Language     | -                                                                                                           | `Chinese (China)`                                                                                                                      |
 | 附加语言 Additional Languages | `English (United States)`                                                                                   | -                                                                                                                                      |
@@ -115,7 +115,7 @@ Transfer Any File — Offline File Format Converter
 Convert between 14 common document, spreadsheet and image file formats right in your browser — offline, in batches, no uploads.
 ```
 
-**Chinese (China) —— 默认语言标签页，先贴这一套。** 三个字段（名称 20/75、简介 66/132、详描 3,123 字符）在
+**Chinese (China) —— 默认语言标签页，先贴这一套。** 三个字段（名称 20/75、简介 66/132、详描 3,317 字符）在
 [商店文案](#商店文案)里；名称与简介同时活在 `public/_locales/zh_CN/messages.json`，`pnpm verify:listing` 逐字比对两边。
 那个标签页要等**带 `_locales/zh_CN/` 的包上传之后**才出现——先传包再填表，手上那份旧草稿看不到它是正常的。
 
@@ -297,7 +297,7 @@ Convert between 14 common document, spreadsheet and image file formats right in 
 扩展真正具备的能力（混格式批量、多步链路、预览与编辑、ZIP 下载），而不是文件扩展名。依旧不写 PDF 转 Word、PDF 转 Excel，
 因为这个扩展做不到无损的 PDF 转换。
 
-**详细介绍（Detailed Description）** [必填] —— 纯文本，本仓库自设上限 16,000 字符（英文块实测 8,861；下面的中文块实测 3,123）
+**详细介绍（Detailed Description）** [必填] —— 纯文本，本仓库自设上限 16,000 字符（英文块实测 9,413；下面的中文块实测 3,317）
 
 _Google 没有为这个字段公布长度_——75 与 132 是写在文档里的，16,000 不是。把它当成本仓库自己的守卫
 （`pnpm verify:listing`），按后台计数器设定，提交时以那个计数器为准，不要把 16,000 背给审核员。
@@ -335,6 +335,7 @@ BUILT FOR REAL WORKLOADS
 • Recent targets: the formats you convert to most often are grouped at the top of the target picker
 • Image output parameters: an image target exposes a longest edge (800–4096 px), and a compressed image target additionally takes encoder quality (40–90%) and a target file size (20 KB–2 MB); a source that is rendered page by page takes a render density of 96–300 DPI — every knob starts untouched
 • PDF page selection: converting a PDF to images can be limited to the pages you name (1-3, 5) instead of the whole document; that choice belongs to the batch in front of you and is never stored, so it cannot silently truncate the next PDF
+• Merge images into one PDF: when every file in a batch is a PNG, JPEG, WebP, BMP or GIF and the target is PDF, a merge box appears — ticked, the batch becomes one document in list order, one page per image (up to 200 pages), named with a -merged suffix; it is off by default, so a single conversion is unchanged, and an image that will not decode fails the whole group rather than leaving a partial file
 • Conversion presets: save a target format together with its parameters as a named shortcut (up to 12) and restore the whole setup in one click; a preset works for any batch that can reach that format
 • Output names you can write: a result is named after its source file plus the date and time to the second by default, and Preferences takes a pattern of your own; the extension always comes from the real output, so a customised name never claims a format it is not
 • Archive intake: drop a .zip and the supported files inside join the batch automatically
@@ -363,6 +364,7 @@ PLEASE KNOW BEFORE INSTALLING
 • Images cannot be turned into text or spreadsheets — that needs OCR, which is not bundled
 • Three of the image formats are input-only, because no browser can encode them; an animated source contributes its first frame, and a vector source is rasterised
 • Pictures a document references over the network or by a path next to the file have no bytes an offline conversion can reach, so converting to PDF or an image leaves those positions empty or marks them with an outlined box, and the result card counts how many — embed the picture as a data URI if it has to come through
+• Merging images into one PDF is all or nothing: if one image in the group will not decode, no PDF is produced and the failure list names the file
 • One file up to 100 MB is accepted, and a batch is limited to 200 files
 
 QUESTIONS
@@ -412,6 +414,7 @@ Found a bug, or need a format added? Open an issue at https://github.com/liaolon
 • 最近使用：你常转的目标格式会以下拉顶部的「最近使用」分组呈现
 • 图片输出参数：目标为图片时可设最长边（800–4096 px）；目标为压缩图片格式时还可设质量（40–90%）与目标体积（20 KB–2 MB）；逐页渲染的源文件另可按「清晰度」选 96–300 DPI；不设置即保持默认
 • PDF 选页：把 PDF 转成图片时可以只点名要渲染的页（如 1-3, 5），不必整份出图；这个选择只属于眼前这一批、不落存储，所以不会悄悄截断下一份 PDF
+• 多图合并为一份 PDF：整批都是 PNG / JPEG / WebP / BMP / GIF 且目标为 PDF 时会出现合并开关——勾上后整批按列表顺序写成一份，每张一页（最多 200 页），文件名带 -merged；默认关闭，单张转换与以前完全一样；任一张解码失败整批都不产出，而不是给出残缺文档
 • 转换预设：把目标格式连同输出参数存成一个命名快捷方式（最多 12 个），下次一键套用；预设不绑定源格式，凡能转到该格式的批次都能直接用
 • 输出文件名：结果默认叫「源文件名 + 精确到秒的日期与时间」，偏好设置里这一串写法可以自定义；扩展名始终取自真实产物，自定义过的名字因此不会与实际格式不符
 • 压缩包解包：拖入一个 .zip，其中受支持的文件自动加入批次
@@ -440,6 +443,7 @@ Found a bug, or need a format added? Open an issue at https://github.com/liaolon
 • 图片无法转换为文本或表格——那需要 OCR，本扩展未内置
 • 有三种图片格式只能作为输入、不能作为输出，因为浏览器未提供它们的编码器；动图源文件取首帧，矢量源文件先展平
 • 文档里用网络地址或相邻路径引用的图片，离线转换取不到它们的字节，所以转 PDF 或图片时这些位置会留空或以虚线方框标出，结果卡片按张数说明有多少处——想让图片一起转出，请先把它内嵌为 data URI
+• 多图合并是整组原子的：其中任一张解不开，整批都不产出，失败清单会点名是哪个文件
 • 单文件最大 100 MB，单批最多 200 个文件
 
 常见问题
@@ -1010,6 +1014,15 @@ PDF → ZIP 解码）。跑这一步的纪律：**`.output/chrome-mv3` 在被测
 ## 本文件的变更记录
 
 > 这些是关于**本文件**的修订记录，不是产品发布说明（产品在 `CHANGELOG.md`）。数字全部由 `pnpm verify:listing` 实测。
+
+- **2026-10-20（多图合并进两份详细介绍）** —— 英文与中文粘贴块各加一条 bullet，位置同为「PDF 选页 / PDF page selection」之后：
+  整批都是 PNG / JPEG / WebP / BMP / GIF 且目标为 PDF 时出现合并开关，勾上后按列表顺序写成一份（每张一页、最多 200 页），
+  文件名带 `-merged`，默认关闭，任一张解码失败整批不产出。另在「安装前请了解 / PLEASE KNOW BEFORE INSTALLING」各加一条
+  原子失败说明，位置同为「图片引用取不到」之后。**为什么现在补**：界面、`README*`、`docs/convert/{png,jpg,webp}-to-pdf.html`
+  与产品页 FAQ 都已改口，商店这份同族披露清单此前仍只说「一张图一份 PDF」；而 CWS 审核看的正是这份。
+  **副作用**：两个粘贴块变长，速查表、字段标签与上架手册（中英两份）里被引用的字符数按 `pnpm verify:listing` 重测为
+  英文 9,413 / 中文 3,317；更早记录里的读数按档案留下，不动。**仍需手工**：这两条只进了粘贴块，现网 listing 要等下一次
+  在后台手工整块替换（发布 API 写不了商品文案）。名称、简介、单一目的与隐私披露逐字节未动。
 
 - **2026-10-12（去掉两份详细介绍结尾的版本脚注）** —— 这是唯一动到粘贴字段的一处，其余字段一个字节没改。
   英文块结尾的 `Version 1.0.0 — first store submission.` 与中文块结尾的「1.0.0 版本——首次提交商店。」删掉：详情区面板

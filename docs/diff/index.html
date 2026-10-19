@@ -93,7 +93,7 @@
             "name": "文件差异对比",
             "alternateName": "File Diff",
             "url": "https://liaolongdong.github.io/transfer-any-file/diff/",
-            "dateModified": "2026-10-19",
+            "dateModified": "2026-10-20",
             "inLanguage": ["zh-CN", "en"],
             "browserRequirements": "Requires a JavaScript-enabled browser. Works without a server: the page can also be opened from a local file.",
             "description": [
@@ -128,6 +128,49 @@
                 "position": 2,
                 "name": "文件差异对比",
                 "item": "https://liaolongdong.github.io/transfer-any-file/diff/"
+              }
+            ]
+          },
+          {
+            "@type": "FAQPage",
+            "@id": "https://liaolongdong.github.io/transfer-any-file/diff/#faq",
+            "inLanguage": "zh-CN",
+            "isPartOf": {
+              "@type": "WebApplication",
+              "@id": "https://liaolongdong.github.io/transfer-any-file/diff/"
+            },
+            "mainEntity": [
+              {
+                "@type": "Question",
+                "name": "上传的文件会离开这台电脑吗？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "不会。文件只在当前标签页的内存里读取和比较，页面不发起任何网络请求，断网也能用；关闭标签页后内容消失。直接从磁盘打开这个 HTML 文件时，行为相同。"
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "支持多大的文件？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "每一边上限 32 MiB、40 万行，两边要同时放进内存。超过上限会明确说明原因并停止，不会截断成半份结果。"
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "行级差异和词级差异有什么区别？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "行级先确定哪些行被加入、删除或改动；对改动过的行，词级再标出真正变化的词。超长行会退回行级，并在结果里注明。"
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "能导出补丁并直接应用吗？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "能。复制或下载得到的是标准 unified diff，含 3 行上下文与 @@ 区间，可直接交给 git apply；导出的补丁统一使用 LF 换行。"
+                }
               }
             ]
           }
@@ -762,6 +805,67 @@
         font-size: 11.5px;
       }
 
+      /* The prose half of the page: what the tool does, and the questions a first-time reader
+         arrives with. Both languages are baked into the markup and revealed by `html[lang]` — the
+         same rule `docs/index.html` uses — so a client that parses the CSS but never runs the script
+         still reads the Chinese text, and a reader who flips the switch never sees two copies of the
+         same section stacked. Without the attribute the section is hidden, not shown twice. */
+      .about {
+        margin-top: 16px;
+        padding: 14px 16px;
+        border: 1px solid var(--fd-border);
+        border-radius: var(--fd-radius);
+        background: var(--fd-card);
+        font-size: 13.5px;
+        line-height: 1.65;
+      }
+
+      .about h2 {
+        margin: 0 0 8px;
+        font-size: 17px;
+      }
+
+      .about h3 {
+        margin: 14px 0 4px;
+        font-size: 14px;
+      }
+
+      .about p {
+        margin: 0 0 8px;
+      }
+
+      .about p:last-child {
+        margin-bottom: 0;
+      }
+
+      .about a {
+        color: var(--fd-primary);
+      }
+
+      .about .faq-item {
+        margin-top: 6px;
+      }
+
+      .about .faq-item summary {
+        cursor: pointer;
+        font-weight: 600;
+      }
+
+      .about .faq-item p {
+        margin: 4px 0 0;
+        color: var(--fd-text-secondary);
+      }
+
+      .about-zh,
+      .about-en {
+        display: none;
+      }
+
+      html[lang='zh-CN'] .about-zh,
+      html[lang='en'] .about-en {
+        display: block;
+      }
+
       footer.foot {
         margin-top: 16px;
         color: var(--fd-text-secondary);
@@ -1335,6 +1439,112 @@
         ></div>
       </details>
 
+      <section
+        class="about about-zh"
+        aria-labelledby="aboutZhHeading"
+      >
+        <h2 id="aboutZhHeading">在浏览器里比较两个文件，不把内容发出去</h2>
+        <p>
+          这一页只做一件事：把两段文本放在一起，逐行标出加入、删除和改动的部分；必要时再对改动过的行做逐词标注。文件由选择器或拖放读入当前标签页的内存，比较过程全部在本机完成——页面不发起任何网络请求，断网也能用，直接从磁盘打开同样可用。关闭标签页，内容随之消失。
+        </p>
+        <p>
+          适合用来核对两份配置导出到底差在哪几行、在应用别人的补丁前先看清改动、比较两版文案或译文，以及确认 CSV / JSON
+          导出只动了预期的字段。行级差异给出增删的骨架，词级差异指出同一行里真正变化的词；并排与统一两种视图、连续相同行的折叠，是为长文件准备的。
+        </p>
+        <p>
+          比较只在文本上做：二进制、加密或压缩文件会被识别并明确拒绝，而不是给出半截结果。需要格式转换（Markdown →
+          Word、Excel → CSV、图片格式互转等）时，请用同一作者的
+          <a href="https://liaolongdong.github.io/transfer-any-file/">Transfer Any File 工作台</a>，或从<a
+            href="https://liaolongdong.github.io/transfer-any-file/convert/"
+            >按格式分类的转换页</a
+          >进入。两者都在本地完成，不上传文件。
+        </p>
+        <h3>常见问题</h3>
+        <details class="faq-item">
+          <summary>上传的文件会离开这台电脑吗？</summary>
+          <p>
+            不会。文件只在当前标签页的内存里读取和比较，页面不发起任何网络请求，断网也能用；关闭标签页后内容消失。直接从磁盘打开这个
+            HTML 文件时，行为相同。
+          </p>
+        </details>
+        <details class="faq-item">
+          <summary>支持多大的文件？</summary>
+          <p>每一边上限 32 MiB、40 万行，两边要同时放进内存。超过上限会明确说明原因并停止，不会截断成半份结果。</p>
+        </details>
+        <details class="faq-item">
+          <summary>行级差异和词级差异有什么区别？</summary>
+          <p>
+            行级先确定哪些行被加入、删除或改动；对改动过的行，词级再标出真正变化的词。超长行会退回行级，并在结果里注明。
+          </p>
+        </details>
+        <details class="faq-item">
+          <summary>能导出补丁并直接应用吗？</summary>
+          <p>
+            能。复制或下载得到的是标准 unified diff，含 3 行上下文与 @@ 区间，可直接交给 git apply；导出的补丁统一使用
+            LF 换行。
+          </p>
+        </details>
+      </section>
+
+      <section
+        class="about about-en"
+        aria-labelledby="aboutEnHeading"
+      >
+        <h2 id="aboutEnHeading">Compare two files in your browser, without sending them anywhere</h2>
+        <p>
+          This page does one thing: put two pieces of text side by side and mark every added, removed or changed line,
+          then mark the words that truly differ inside a changed line. Files are read into this tab’s memory by the
+          picker or by drag and drop, and the comparison runs entirely on your machine. The page makes no network
+          request, works with the network off, and behaves the same when the HTML file is opened straight from disk.
+          Close the tab and the content is gone.
+        </p>
+        <p>
+          It is for checking which lines two exports of a config actually differ in, reading a change before applying
+          someone’s patch, comparing two revisions of copy or a translation, and confirming that a CSV / JSON export
+          touched only the fields you expected. Line-level output gives the skeleton of additions and removals;
+          word-level output points at the part of a line that really changed. Split and unified views, plus folding of
+          long unchanged runs, are there for big files.
+        </p>
+        <p>
+          The comparison is textual only: binary, encrypted or archived files are recognised and refused outright rather
+          than half-read. For format conversion — Markdown to Word, Excel to CSV, one image format to another — use the
+          <a href="https://liaolongdong.github.io/transfer-any-file/">Transfer Any File workbench</a> from the same
+          author, or enter through the
+          <a href="https://liaolongdong.github.io/transfer-any-file/convert/">format-by-format conversion pages</a>.
+          Both run locally and upload nothing.
+        </p>
+        <h3>Questions</h3>
+        <details class="faq-item">
+          <summary>Do my files leave this computer?</summary>
+          <p>
+            No. They are read into this tab’s memory and compared there; the page issues no network request, works
+            offline, and discards the content when the tab closes. Opening the HTML file straight from disk behaves the
+            same way.
+          </p>
+        </details>
+        <details class="faq-item">
+          <summary>How large a file can I compare?</summary>
+          <p>
+            Up to 32 MiB and 400,000 lines per side, with both sides held in memory at once. Exceeding a limit stops
+            with a stated reason rather than returning half a result.
+          </p>
+        </details>
+        <details class="faq-item">
+          <summary>What is the difference between line level and word level?</summary>
+          <p>
+            Line level decides which lines were added, removed or changed. For changed lines, word level marks the words
+            that actually differ. Very long lines fall back to line level and say so in the result.
+          </p>
+        </details>
+        <details class="faq-item">
+          <summary>Can I export a patch and apply it?</summary>
+          <p>
+            Yes. Copy or download produces a standard unified diff with three lines of context and @@ hunks, ready for
+            git apply; exported patches always use LF line endings.
+          </p>
+        </details>
+      </section>
+
       <footer class="foot">
         <p data-i18n="footPrivacy"></p>
         <p data-i18n="footNote"></p>
@@ -1502,7 +1712,7 @@
           // One of the three date claims `validateStaticDates()` cross-checks against
           // `STATIC_PAGES.diff.updated`, alongside `"dateModified"` above and this very string in the
           // English value. Changing the date means changing all three at once, or the render stops.
-          footUpdated: ['最后更新：2026-10-19', 'Last updated: 2026-10-19'],
+          footUpdated: ['最后更新：2026-10-20', 'Last updated: 2026-10-20'],
           wordSkipped: ['（超长行：仅行级差异）', '(very long line: line-level diff only)'],
           unexpectedError: [
             '页面出现异常：{msg}。输入仍然保留，可重试或清空。',

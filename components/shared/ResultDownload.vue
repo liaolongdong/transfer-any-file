@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { Download, View, CopyDocument } from '@element-plus/icons-vue';
-import type { ConvertResult } from '~/utils/core/types';
+import type { BatchResult, ConvertResult } from '~/utils/core/types';
 import type { ConversionFailure } from '~/composables/useConversion';
 import { useI18n } from '~/composables/useI18n';
 import { formatFromFilename } from '~/utils/core/file-detect';
 import { formatDuration, formatSize, TEXT_FORMATS } from '~/utils/core/format';
+import { getFormatLabel } from '~/utils/core/format-labels';
 import { copyText } from '~/utils/core/clipboard';
 import { createRowKey } from '~/utils/core/row-key';
 import { FileFormat } from '~/utils/core/types';
@@ -14,10 +15,11 @@ import FailureDiagnosticItem from '~/components/shared/FailureDiagnosticItem.vue
 
 const props = withDefaults(
   defineProps<{
-    results: ConvertResult[];
-    /** The source `File` behind each result, index-aligned — see `useConversion`'s `resultOwners`. */
-    owners: File[];
+    /** One row per produced file, each carrying its own target and source owners. */
+    results: BatchResult[];
     failures: ConversionFailure[];
+    /** The selector's current target, used only to explain rows produced under another one. */
+    currentTarget?: FileFormat | null;
     /** True when the batch ended because the user cancelled it, so the header must not read as complete. */
     cancelled?: boolean;
     /** Files the batch planned to process; only meaningful together with `cancelled`. */
@@ -29,7 +31,7 @@ const props = withDefaults(
      *  own row, a one-file conversion is exactly the case where "how long did that take" is useful. */
     elapsedMs?: number | null;
   }>(),
-  { cancelled: false, totalCount: 0, packaging: false, elapsedMs: null },
+  { cancelled: false, totalCount: 0, packaging: false, elapsedMs: null, currentTarget: null },
 );
 
 const emit = defineEmits<{
@@ -76,16 +78,58 @@ const downloadButtonText = computed(() => {
  * has nothing to say either.
  */
 const sizeSummary = computed(() => {
-  const { results, owners } = props;
-  if (results.length < 2 || owners.length !== results.length) return null;
+  const { results } = props;
+  // One source and one output already prints both figures on the row itself. A merged PDF is the
+  // exception even though it is one result: it was written from N sources, and the source total is
+  // exactly what the reader cannot reconstruct from a single row.
+  if (results.length === 1 && results[0].owners.length === 1) return null;
   let sourceSize = 0;
   let resultSize = 0;
-  results.forEach((result, index) => {
-    sourceSize += owners[index]?.size ?? 0;
-    resultSize += result.blob.size;
-  });
+  for (const entry of results) {
+    for (const owner of entry.owners) sourceSize += owner.size;
+    resultSize += entry.result.blob.size;
+  }
   if (sourceSize === 0 || resultSize === sourceSize) return null;
   return { source: formatSize(sourceSize), result: formatSize(resultSize) };
+});
+
+/**
+ * Targets the rows were produced under that no longer match the selector.
+ *
+ * Derived per entry rather than stored: the selector can move back and forth, and an entry's own
+ * `target` is the only thing that knows what its bytes are.
+ */
+const staleTargets = computed<FileFormat[]>(() => {
+  const current = props.currentTarget;
+  if (!current) return [];
+  const stale = new Set<FileFormat>();
+  for (const entry of props.results) {
+    if (entry.target !== current) stale.add(entry.target);
+  }
+  return [...stale];
+});
+
+const staleDismissed = ref(false);
+// A fresh run, a target change, or an undo all produce a different set; an explanation the user
+// has already waved away should not silently reappear as if it were a new fact.
+watch(staleTargets, () => {
+  staleDismissed.value = false;
+});
+
+const staleNotice = computed(() => {
+  const current = props.currentTarget;
+  if (!current || staleTargets.value.length === 0 || staleDismissed.value) return null;
+  return t('result.staleNotice', {
+    current: getFormatLabel(current),
+    stale: staleTargets.value.map(format => getFormatLabel(format)).join(t('common.listSeparator')),
+  });
+});
+
+/** The merged row's own sentence: how many images went in and how many pages came out. */
+const mergedSummary = computed(() => {
+  const merged = props.results.find(entry => entry.merged);
+  if (!merged || !merged.merged) return null;
+  return t('result.mergedSummary', { images: merged.owners.length, pages: merged.merged.pageCount });
 });
 
 /**
@@ -120,7 +164,9 @@ const summaryLine = computed(() => {
  * the same reason it is not the staged file list's: see `~/utils/core/row-key`.
  */
 const rowKey = createRowKey('result');
-const resultKey = (result: ConvertResult, index: number): string => rowKey(props.owners[index] ?? result);
+// The first owner is the batch identity of the entry: a retry appends entries rather than
+// reordering them, and the merged row's first image is the one whose name the output carries.
+const resultKey = (entry: BatchResult): string => rowKey(entry.owners[0] ?? entry.result);
 
 /**
  * `FailureDiagnosticItem` keeps its own `expanded` state, so the failure rows need an identity that
@@ -146,7 +192,9 @@ function isTextResult(result: ConvertResult): boolean {
  * Every PDF this app writes is a page image (`addImage`, never text operators), so the
  * "no text layer" disclosure keys off the result format rather than off how it was made.
  */
-const hasPdfResult = computed(() => props.results.some(r => formatFromFilename(r.filename) === FileFormat.PDF));
+const hasPdfResult = computed(() =>
+  props.results.some(entry => formatFromFilename(entry.result.filename) === FileFormat.PDF),
+);
 
 /**
  * Which route a file took is invisible from the result: the name is rebuilt from the source basename
@@ -154,14 +202,14 @@ const hasPdfResult = computed(() => props.results.some(r => formatFromFilename(r
  * source onto a canvas, and this discloses it — a GIF that went to HTML kept moving, one that went to
  * PNG did not.
  */
-const lostFrames = computed(() => props.results.some(r => r.lostFrames));
+const lostFrames = computed(() => props.results.some(entry => entry.result.lostFrames));
 
 /**
  * Whether a document loses its vector artwork is a fact about that document, not about the route —
  * an HTML→DOCX batch with no `<svg>` in it keeps everything — so only the converter can report it.
  * The orchestrator carries that up from whichever step did the rasterizing.
  */
-const svgRasterized = computed(() => props.results.some(r => r.svgRasterized));
+const svgRasterized = computed(() => props.results.some(entry => entry.result.svgRasterized));
 
 /**
  * A document that references pictures by URL, or by a path next to the file, asked for images this
@@ -171,7 +219,9 @@ const svgRasterized = computed(() => props.results.some(r => r.svgRasterized));
  * the gaps for part of the author's layout. The orchestrator carries the fact up from whichever step did
  * the rendering, exactly as `svgRasterized`, and a batch adds its files together.
  */
-const imagesDroppedCount = computed(() => props.results.reduce((sum, r) => sum + (r.imagesDropped ?? 0), 0));
+const imagesDroppedCount = computed(() =>
+  props.results.reduce((sum, entry) => sum + (entry.result.imagesDropped ?? 0), 0),
+);
 
 async function copyResult(result: ConvertResult): Promise<void> {
   if (!isTextResult(result)) {
@@ -212,6 +262,16 @@ function openPreview(result: ConvertResult): void {
     v-if="results.length > 0 || failures.length > 0 || cancelled"
     class="result-download"
   >
+    <!-- Explains a card whose badge disagrees with the selector. A notice rather than a forced
+         re-run: changing the target must never cost CPU the user did not ask for. -->
+    <el-alert
+      v-if="staleNotice"
+      :title="staleNotice"
+      type="info"
+      show-icon
+      :closable="true"
+      @close="staleDismissed = true"
+    />
     <el-alert
       :title="alertTitle"
       :type="alertType"
@@ -228,31 +288,34 @@ function openPreview(result: ConvertResult): void {
           class="result-rows"
         >
           <div
-            v-for="(result, index) in results"
-            :key="resultKey(result, index)"
+            v-for="(entry, index) in results"
+            :key="resultKey(entry)"
             class="result-item"
           >
-            <span class="result-name">{{ result.filename }}</span>
-            <span class="result-size">{{ formatSize(result.blob.size) }}</span>
+            <span class="result-name">{{ entry.result.filename }}</span>
+            <!-- The row says what its own bytes are, which the selector above cannot: after a
+                 target switch the two deliberately disagree until the next run. -->
+            <span class="result-target">{{ getFormatLabel(entry.target) }}</span>
+            <span class="result-size">{{ formatSize(entry.result.blob.size) }}</span>
             <el-button
-              v-if="formatFromFilename(result.filename)"
+              v-if="formatFromFilename(entry.result.filename)"
               :icon="View"
               size="small"
               text
               type="primary"
               :title="t('result.preview')"
               :aria-label="t('a11y.preview')"
-              @click="openPreview(result)"
+              @click="openPreview(entry.result)"
             />
             <el-button
-              v-if="isTextResult(result)"
+              v-if="isTextResult(entry.result)"
               :icon="CopyDocument"
               size="small"
               text
               type="primary"
               :title="t('result.copy')"
               :aria-label="t('a11y.copy')"
-              @click="copyResult(result)"
+              @click="copyResult(entry.result)"
             />
             <el-button
               v-if="results.length > 1"
@@ -266,6 +329,12 @@ function openPreview(result: ConvertResult): void {
             />
           </div>
         </TransitionGroup>
+        <p
+          v-if="mergedSummary"
+          class="result-summary"
+        >
+          {{ mergedSummary }}
+        </p>
         <p
           v-if="summaryLine"
           class="result-summary"
@@ -364,7 +433,14 @@ function openPreview(result: ConvertResult): void {
   min-width: 0;
 }
 
+/* Same containment as `.file-item` in `FileUpload`, for the same reason: a 200-file batch appends
+   one result row per file, and rows below the fold have no reason to be painted. 24px is the
+   measured border-box height; `auto` lets Chrome remember the real one. The row still animates
+   (`.fat-list-enter-active` / `-move` live on the same element), which is why the containment has to
+   survive a transitional `transform` — measured with a single-row append and delete. */
 .result-item {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 24px;
   display: flex;
   align-items: center;
   gap: var(--fat-space-sm);
@@ -382,6 +458,18 @@ function openPreview(result: ConvertResult): void {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* The target badge reads as a property of the file, not as a status: a neutral chip rather than a
+   semantic hue, which inside an alert would borrow the alert's own meaning. */
+.result-target {
+  flex-shrink: 0;
+  padding: 0 6px;
+  font-size: 11px;
+  line-height: 18px;
+  color: var(--fat-text-secondary);
+  background: var(--fat-surface-2);
+  border-radius: var(--fat-radius-sm);
 }
 
 .result-size {

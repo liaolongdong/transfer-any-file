@@ -594,10 +594,28 @@ async function convertFile(page, fixture, targetText, timeout = 30000, prepare) 
  *  replaced by the next upload anyway. */
 async function resetWorkbench(page) {
   const resetBtn = await page.$('.reset-btn');
-  if (resetBtn) {
-    await resetBtn.click();
-    await page.waitForSelector('.reset-btn', { state: 'detached', timeout: 10000 }).catch(() => {});
+  if (!resetBtn) return;
+  // The button lives inside the results card it clears, so the click unmounts its own target.
+  // Playwright can sample the node between the dispatch and Vue's patch and reject with
+  // "element is not attached to the DOM" even though `clearResults` ran — and the failure list's
+  // enter transition makes that window wider. The detached-card check is the authoritative one, so
+  // a rejected click is retried once against a fresh handle rather than failing the scenario.
+  await resetBtn.click({ timeout: 3000 }).catch(() => {});
+  let settled = await page.waitForSelector('.reset-btn', { state: 'detached', timeout: 5000 }).then(
+    () => true,
+    () => false,
+  );
+  if (!settled) {
+    const again = await page.$('.reset-btn');
+    if (again) {
+      await again.click().catch(() => {});
+      settled = await page.waitForSelector('.reset-btn', { state: 'detached', timeout: 5000 }).then(
+        () => true,
+        () => false,
+      );
+    }
   }
+  if (!settled) throw new Error('the results card did not clear before the next scenario');
 }
 
 /** Choose a conversion target from the workbench's format dropdown. */
@@ -3134,20 +3152,22 @@ async function run() {
      *
      * `convertFile` waits for any non-empty `.el-alert__title`, which is safe for it because a fresh
      * upload used to wipe the results panel. Under F7 the panel can still be showing the previous
-     * batch's headline the moment this one starts, so the wait is pinned to the headline *changing*
-     * — otherwise the first read races the alert that is already on screen.
+     * batch's headline the moment this one starts, so the card leaving is the start signal and its
+     * return is the end. A headline-*changed* wait would hang on the retarget case below: the old
+     * 「转换完成！」 and the new one are the same sentence, and the only moment that separates them
+     * is the card being unmounted while `isDone` is false.
      */
-    const alertTitle = () => page.$eval('.el-alert__title', el => el.textContent.trim()).catch(() => '');
     const convertBatch = async () => {
-      const before = await alertTitle();
       await page.click('.convert-btn');
+      await page
+        .waitForFunction(() => !document.querySelector('.result-download'), undefined, { timeout: 5000 })
+        .catch(() => {});
       await page.waitForFunction(
-        previous => {
+        () => {
           const el = document.querySelector('.el-alert__title');
-          const text = el ? el.textContent.trim() : '';
-          return text.length > 0 && text !== previous;
+          return !!el && el.textContent.trim().length > 0;
         },
-        before,
+        undefined,
         { timeout: 30000 },
       );
       await page.waitForTimeout(300);
@@ -3215,17 +3235,51 @@ async function run() {
     if ((await rowCount('.result-item')) === 0) ok('A target the updated list cannot reach clears the batch');
     else fail('Incompatible target cleanup', `${await rowCount('.result-item')} result(s) left for a dead target`);
 
-    // Pinned deliberately: retargeting is still a full reset. Those results belong to a target the
-    // user has just walked away from, and keeping them would put PNG and HTML rows in one list.
+    // 2A: walking away from a target no longer throws the bytes away. The row keeps its own
+    // badge (the selector says PDF while the row says HTML), the notice explains the disagreement,
+    // and the download button still hands back the HTML that was actually produced. Only a new run
+    // replaces the row — and that run is the one place the notice may disappear.
     await clearFiles();
     await fi.setInputFiles(path.join(FIXTURE_PATH, 'sample.md'));
     await page.waitForTimeout(1000);
     await pickTarget(page, 'HTML (.html)');
     await convertBatch();
+    const keptName = (await resultNames())[0];
+    const keptBytes = await downloadBatchArtifact(page);
     await pickTarget(page, 'PDF (.pdf)');
-    if ((await rowCount('.result-item')) === 0)
-      ok('Switching the target still clears the results made for the old one');
-    else fail('Retarget clears results', 'results survived a change of target');
+    if ((await rowCount('.result-item')) === 1) ok('Switching the target keeps the results already made');
+    else fail('Retarget keeps results', `${await rowCount('.result-item')} result(s) left after the switch`);
+    const keptBadge = await page.$eval('.result-item .result-target', el => el.textContent.trim()).catch(() => '');
+    if (keptBadge === 'HTML (.html)') ok('A kept row still says which format its bytes are');
+    else fail('Retarget row badge', `row reads "${keptBadge}"`);
+    const staleNotice = await page
+      .$$eval('.el-alert__title', els => els.map(el => el.textContent.trim()).find(text => text.includes('当前目标是')))
+      .catch(() => '');
+    if (staleNotice?.includes('PDF (.pdf)') && staleNotice?.includes('HTML (.html)'))
+      ok('A kept row is explained against the target now selected');
+    else fail('Stale result notice', `notice reads "${staleNotice}"`);
+    const unchangedBytes = await downloadBatchArtifact(page);
+    if (unchangedBytes === keptBytes) ok('A kept result still downloads the bytes it was made from');
+    else fail('Kept result download', 'the downloaded bytes changed without a new conversion');
+
+    await convertBatch();
+    const rerunNames = await resultNames();
+    const rerunBadge = await page.$eval('.result-item .result-target', el => el.textContent.trim()).catch(() => '');
+    if (
+      rerunNames.length === 1 &&
+      rerunBadge === 'PDF (.pdf)' &&
+      /^sample_\d{8}_\d{6}\.pdf$/.test(rerunNames[0]) &&
+      rerunNames[0] !== keptName
+    ) {
+      ok('Re-running under the new target replaces the stale row with the new format');
+    } else {
+      fail('Retarget re-run', `rows=[${rerunNames}] badge="${rerunBadge}"`);
+    }
+    const noticeGone = await page
+      .$$eval('.el-alert__title', els => els.some(el => el.textContent.includes('当前目标是')))
+      .catch(() => false);
+    if (!noticeGone) ok('The stale notice leaves once the rows match the selector');
+    else fail('Stale notice clear', 'the notice survived a run under the new target');
 
     await page.screenshot({
       path: shot(`${String(shotIdx++).padStart(2, '0')}-file-set-edit.png`),
@@ -3234,6 +3288,597 @@ async function run() {
     await clearFiles();
   } catch (e) {
     fail('File set edits keep unrelated results', e.message);
+  }
+
+  // ═══════════════════════════════════════════
+  //  MERGED IMAGE PDF (2B)
+  // ═══════════════════════════════════════════
+  //
+  // One PDF written from several images. The assertions read the artifact rather than the panel:
+  // page count comes out of the PDF's own `/Type /Page` objects, and the encoders per image XObject
+  // show which branch each source took (PNG pass-through and the BMP re-encode end up FlateDecode,
+  // the JPEG pass-through DCTDecode). A wrong panel sentence cannot satisfy either.
+  if (section('Merged Image PDF')) {
+    const mergedPage = await browser.newPage();
+    tolerateScreenshotTimeout(mergedPage);
+    trackPageErrors(mergedPage);
+    try {
+      await mergedPage.setViewportSize({ width: 1280, height: 900 });
+      // The twelve-file cancel scenario would otherwise stop at the pre-conversion confirmation,
+      // and the cancel button would never mount — that dialog has its own section below.
+      await mergedPage.addInitScript(mockChromeStorage({ 'fat:confirmConvert': false }));
+      await mergedPage.goto(`http://localhost:${PORT}/options.html`);
+      await mergedPage.waitForTimeout(1200);
+
+      const pngBuf = Buffer.from(solidPngBase64(64, 48, [214, 64, 64]).split(',')[1], 'base64');
+      // The JPEG has to come out of a real encoder, and the page has one. Generated before any file
+      // is staged so the canvas never shares a frame with a conversion.
+      const jpegB64 = await mergedPage.evaluate(() => {
+        const canvas = document.createElement('canvas');
+        canvas.width = 72;
+        canvas.height = 54;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return '';
+        ctx.fillStyle = '#2f6f4f';
+        ctx.fillRect(0, 0, 72, 54);
+        return canvas.toDataURL('image/jpeg', 0.9).split(',')[1];
+      });
+      if (!jpegB64) throw new Error('could not produce a JPEG in the page');
+      const jpegBuf = Buffer.from(jpegB64, 'base64');
+
+      const historyRecords = () =>
+        mergedPage.evaluate(() => window.chrome.storage.local.get('fat:history')).then(r => r['fat:history'] ?? []);
+      const resetMerged = async () => {
+        await resetWorkbench(mergedPage);
+        // The upload card re-enters after 重新转换, so the clear button is still moving when the
+        // reset returns. Wait for the list's own expand transition, then click: that button
+        // unmounts the list it sits in, and Playwright can sample the node between the press and
+        // Vue's patch and report "not attached" even though `clearAll` ran. The state check below
+        // is the authoritative one — without it a swallowed click would leak files into the next
+        // scenario.
+        await mergedPage
+          .waitForFunction(
+            () => {
+              const list = document.querySelector('.file-list-expand');
+              return !!list && list.getAnimations({ subtree: true }).every(a => a.playState === 'finished');
+            },
+            undefined,
+            { timeout: 5000 },
+          )
+          .catch(() => {});
+        const clear = await mergedPage.$('.clear-files-btn');
+        if (clear) {
+          await clear.click().catch(() => {});
+          const cleared = await mergedPage
+            .waitForFunction(() => !document.querySelector('.clear-files-btn'), undefined, { timeout: 5000 })
+            .then(
+              () => true,
+              () => false,
+            );
+          if (!cleared) throw new Error('the file list did not clear before the next merge scenario');
+          await mergedPage.waitForTimeout(300);
+        }
+      };
+      const upload = async entries => {
+        const fi = await mergedPage.waitForSelector('input[type="file"]', { state: 'attached', timeout: 10000 });
+        await fi.setInputFiles(entries);
+        await mergedPage.waitForTimeout(1200);
+        await pickTarget(mergedPage, 'PDF (.pdf)');
+      };
+      const runMerge = async timeout => {
+        await mergedPage.click('.convert-btn');
+        await mergedPage.waitForFunction(
+          () => {
+            const el = document.querySelector('.el-alert__title');
+            return !!el && el.textContent.trim().length > 0;
+          },
+          undefined,
+          { timeout },
+        );
+        await mergedPage.waitForTimeout(400);
+      };
+
+      await upload([
+        { name: 'merge-a.png', mimeType: 'image/png', buffer: pngBuf },
+        { name: 'merge-b.jpg', mimeType: 'image/jpeg', buffer: jpegBuf },
+        {
+          name: 'sample.bmp',
+          mimeType: 'image/bmp',
+          buffer: fs.readFileSync(path.join(FIXTURE_PATH, 'sample.bmp')),
+        },
+      ]);
+      if (await mergedPage.isVisible('.merge-row')) ok('A multi-image batch offers the merge checkbox');
+      else fail('Merge checkbox', 'the merge row is missing for three mergeable images');
+      const mergeHint = await mergedPage.$eval('.merge-hint', el => el.textContent.trim()).catch(() => '');
+      if (mergeHint.includes('200')) ok('The merge row states the page ceiling');
+      else fail('Merge hint', `hint reads "${mergeHint}"`);
+      await mergedPage.locator('.merge-row .el-checkbox').click();
+      await mergedPage.waitForTimeout(200);
+      if (await mergedPage.$eval('.merge-row .el-checkbox', el => el.classList.contains('is-checked')))
+        ok('The merge choice is a real checked state');
+      else fail('Merge checkbox', 'the checkbox did not report checked after the click');
+
+      await runMerge(60000);
+      const mergedNames = await mergedPage.$$eval('.result-item .result-name', els =>
+        els.map(el => el.textContent.trim()),
+      );
+      if (mergedNames.length === 1 && /^merge-a-merged_\d{8}_\d{6}\.pdf$/.test(mergedNames[0]))
+        ok(`Three images arrive as one -merged PDF (${mergedNames[0]})`);
+      else fail('Merged result', `rows [${mergedNames.join(', ')}]`);
+      const mergedBadge = await mergedPage.$eval('.result-item .result-target', el => el.textContent.trim());
+      if (mergedBadge === 'PDF (.pdf)') ok('The merged row is badged as the PDF it is');
+      else fail('Merged badge', `row reads "${mergedBadge}"`);
+      const mergedSummary = (await mergedPage.$$eval('.result-summary', els => els.map(el => el.textContent.trim())))
+        .join(' | ')
+        .replace(/\s+/g, ' ');
+      if (mergedSummary.includes('3 张图片') && mergedSummary.includes('3 页'))
+        ok('The result card says how many images became how many pages');
+      else fail('Merged summary', `summary reads "${mergedSummary}"`);
+      const downloadLabel = await mergedPage.$eval('.download-actions .el-button', el => el.textContent.trim());
+      if (downloadLabel === '下载文件') ok('A merged batch offers one file, not a ZIP');
+      else fail('Merged download label', `button reads "${downloadLabel}"`);
+
+      const { pages: mergedPages, filters } = readPdfSliceFilters(await downloadBatchArtifact(mergedPage));
+      if (mergedPages === 3) ok('The downloaded PDF really carries one page per image');
+      else fail('Merged page count', `${mergedPages} page object(s)`);
+      const jpegStreams = filters.filter(filter => filter === 'DCTDecode').length;
+      const flateStreams = filters.filter(filter => filter === 'FlateDecode').length;
+      if (filters.length === 3 && jpegStreams === 1 && flateStreams === 2)
+        ok('Each source took its intended encoder (JPEG passthrough, PNG/Flate for the rest)');
+      else fail('Merged encoders', `filters [${filters.join(', ')}]`);
+
+      const mergedRecord = (await historyRecords())[0];
+      const pagesCell = await mergedPage
+        .$eval('.history-item .history-pages', el => el.textContent.trim())
+        .catch(() => '');
+      if (mergedRecord?.pageCount === 3 && mergedRecord.fileCount === 3 && mergedRecord.sourceFormat === 'png')
+        ok('The history record keeps the page count and the source format');
+      else fail('Merged history', JSON.stringify(mergedRecord));
+      if (pagesCell === '3 页') ok('The history row prints the merged page count');
+      else fail('Merged history cell', `cell reads "${pagesCell}"`);
+      await mergedPage.screenshot({
+        path: shot(`${String(shotIdx++).padStart(2, '0')}-merged-image-pdf.png`),
+        fullPage: true,
+      });
+
+      // The single-image route is untouched by the merge pipeline: the checkbox keeps its in-memory
+      // choice, but one file is not a batch to fold, and no `-merged` suffix may appear on its name.
+      await resetMerged();
+      await upload([{ name: 'merge-a.png', mimeType: 'image/png', buffer: pngBuf }]);
+      if ((await mergedPage.$$('.merge-row')).length === 0) ok('A one-image batch hides the merge choice');
+      else fail('Merge row on one file', 'the merge row is offered for a single image');
+      await runMerge(30000);
+      const singleName = await mergedPage.$eval('.result-item .result-name', el => el.textContent.trim());
+      const singleSummary = await mergedPage.$$eval('.result-summary', els => els.map(el => el.textContent.trim()));
+      if (/^merge-a_\d{8}_\d{6}\.pdf$/.test(singleName) && !singleSummary.some(t => t.includes('-merged')))
+        ok('A single image still takes the ordinary PDF path');
+      else fail('Single image path', `name "${singleName}" summary [${singleSummary.join(' | ')}]`);
+      const single = readPdfSliceFilters(await downloadBatchArtifact(mergedPage));
+      if (single.pages === 1) ok('The single-image PDF still has exactly one page');
+      else fail('Single image pages', `${single.pages} page object(s)`);
+
+      // Atomic failure: the second image cannot decode, and the whole run must leave no partial
+      // PDF, name the image that broke, and keep the group together for the retry.
+      await resetMerged();
+      await upload([
+        { name: 'good.png', mimeType: 'image/png', buffer: pngBuf },
+        { name: 'broken.bmp', mimeType: 'image/bmp', buffer: Buffer.from('this is not a bitmap') },
+      ]);
+      await mergedPage.locator('.merge-row .el-checkbox').click();
+      await mergedPage.waitForTimeout(200);
+      const historyBeforeFailure = (await historyRecords()).length;
+      await runMerge(30000);
+      const failedResults = await mergedPage.$$eval('.result-item', els => els.length);
+      const failureNames = await mergedPage.$$eval('.failure-item .failure-name', els =>
+        els.map(el => el.textContent.trim()),
+      );
+      if (failedResults === 0) ok('A bad page leaves no partial PDF behind');
+      else fail('Merged atomicity', `${failedResults} result row(s) survived a failed merge`);
+      if (failureNames.length === 1 && failureNames[0] === 'broken.bmp')
+        ok('The diagnostic names the image that broke, not the first one in the list');
+      else fail('Merged failure name', `failures [${failureNames.join(', ')}]`);
+      const retryLabel = await mergedPage.$eval('.retry-btn', el => el.textContent.trim()).catch(() => '');
+      if (retryLabel === '重试失败项 (1)') ok('A merged failure is one retryable row');
+      else fail('Merged retry label', `button reads "${retryLabel}"`);
+      if ((await historyRecords()).length === historyBeforeFailure) ok('A failed merge writes no history record');
+      else fail('Merged failure history', 'the failed merge was recorded as if it produced a file');
+
+      // The retry has to carry the whole group, not just the one row that names the bad file: a
+      // one-file retry would fall out of merged mode and never rebuild the PDF. The button's own
+      // counter is the observable — `retryFailedFiles` hands `convert()` two files, so it reads /2.
+      await mergedPage.evaluate(() => {
+        window.__retryLabels = [];
+        const button = document.querySelector('.convert-btn');
+        if (!button) return;
+        const record = () => {
+          const text = button.textContent.trim();
+          if (text && window.__retryLabels[window.__retryLabels.length - 1] !== text) {
+            window.__retryLabels.push(text);
+          }
+        };
+        new window.MutationObserver(record).observe(button, { childList: true, subtree: true, characterData: true });
+      });
+      await mergedPage.locator('.retry-btn').click();
+      await mergedPage
+        .waitForFunction(() => !document.querySelector('.failure-item'), undefined, { timeout: 5000 })
+        .catch(() => {});
+      await mergedPage.waitForFunction(
+        () => !!document.querySelector('.failure-item') && !!document.querySelector('.retry-btn'),
+        undefined,
+        { timeout: 30000 },
+      );
+      await mergedPage.waitForTimeout(300);
+      const retryLabels = await mergedPage.evaluate(() => window.__retryLabels);
+      if (retryLabels.some(text => /重试失败项 \(\d+\/2\)/.test(text)))
+        ok('Retrying a merged failure re-runs the whole group');
+      else fail('Merged retry group', `button showed [${retryLabels.join(' → ')}]`);
+      const retryNames = await mergedPage.$$eval('.failure-item .failure-name', els =>
+        els.map(el => el.textContent.trim()),
+      );
+      if (
+        retryNames.length === 1 &&
+        retryNames[0] === 'broken.bmp' &&
+        (await mergedPage.$$eval('.result-item', els => els.length)) === 0
+      ) {
+        ok('The re-run fails atomically again and keeps naming the bad image');
+      } else {
+        fail('Merged retry outcome', `failures [${retryNames.join(', ')}]`);
+      }
+
+      // Cancel is not a failure: no row, no file, no history. The images are big enough that the
+      // cancel lands while the builder is still preparing pages rather than after it has finished.
+      await resetMerged();
+      const bigJpegB64 = await mergedPage.evaluate(() => {
+        const canvas = document.createElement('canvas');
+        canvas.width = 3000;
+        canvas.height = 2000;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return '';
+        ctx.fillStyle = '#88a';
+        ctx.fillRect(0, 0, 3000, 2000);
+        return canvas.toDataURL('image/jpeg', 0.92).split(',')[1];
+      });
+      if (!bigJpegB64) throw new Error('could not produce the large JPEG in the page');
+      const bigJpegBuf = Buffer.from(bigJpegB64, 'base64');
+      // Twelve pages, not four: the cancel has to land while the builder is still preparing pages,
+      // and four solid-colour JPEGs can finish inside the time Playwright spends checking that the
+      // button holds still. The count is the window, not an assertion.
+      await upload(
+        Array.from({ length: 12 }, (_, index) => ({
+          name: `cancel-${index + 1}.jpg`,
+          mimeType: 'image/jpeg',
+          buffer: bigJpegBuf,
+        })),
+      );
+      await mergedPage.locator('.merge-row .el-checkbox').click();
+      await mergedPage.waitForTimeout(200);
+      const historyBeforeCancel = (await historyRecords()).length;
+      await mergedPage.click('.convert-btn');
+      await mergedPage.waitForSelector('.cancel-btn', { timeout: 10000 });
+      // The progress card is still entering when the button appears, so a normal click can spend
+      // its whole budget re-checking a box that keeps moving; if the batch then ends, the handle is
+      // detached. Force skips the stability wait, and the in-page dispatch is the fallback for the
+      // frame where Vue has already replaced the node. The two assertions below read the app's
+      // cancelled state, not how the click arrived.
+      await mergedPage
+        .locator('.cancel-btn')
+        .click({ timeout: 1000, force: true })
+        .catch(() => {});
+      await mergedPage.evaluate(() => document.querySelector('.cancel-btn')?.click());
+      const cancelled = await mergedPage
+        .waitForFunction(
+          () => {
+            const el = document.querySelector('.el-alert__title');
+            return !!el && el.textContent.includes('转换已取消');
+          },
+          undefined,
+          { timeout: 30000 },
+        )
+        .then(
+          () => true,
+          () => false,
+        );
+      if (!cancelled) throw new Error('the merge finished before the cancel landed');
+      await mergedPage.waitForTimeout(400);
+      const cancelledRows = await mergedPage.$$eval('.result-item', els => els.length);
+      const cancelledFailures = await mergedPage.$$eval('.failure-item', els => els.length);
+      if (cancelledRows === 0 && cancelledFailures === 0) ok('A cancelled merge produces no partial result');
+      else fail('Merged cancel', `${cancelledRows} result(s), ${cancelledFailures} failure(s)`);
+      if ((await historyRecords()).length === historyBeforeCancel) ok('A cancelled merge writes no history');
+      else fail('Merged cancel history', 'a cancelled merge was recorded');
+    } catch (e) {
+      fail('Merged image PDF', e.message);
+    } finally {
+      await mergedPage.close();
+    }
+  }
+
+  // ═══════════════════════════════════════════
+  //  PRESET EDITING (2A)
+  // ═══════════════════════════════════════════
+  if (section('Preset Editing')) {
+    const editPage = await browser.newPage();
+    tolerateScreenshotTimeout(editPage);
+    trackPageErrors(editPage);
+    try {
+      await editPage.setViewportSize({ width: 1280, height: 900 });
+      await editPage.addInitScript(
+        mockChromeStorage({
+          'fat:presets': [{ id: 'p1', name: '旧名字', target: 'png', options: { maxEdge: 800 } }],
+        }),
+      );
+      await editPage.goto(`http://localhost:${PORT}/options.html`);
+      await editPage.waitForTimeout(1200);
+      if (!(await openPresetCard(editPage))) throw new Error('presets card did not open');
+
+      const chipName = () => editPage.$eval('.preset-apply', el => el.textContent.trim()).catch(() => '');
+      const storedPresets = () =>
+        editPage.evaluate(() => window.chrome.storage.local.get('fat:presets')).then(r => r['fat:presets']);
+      const lastMessage = async () => ((await editPage.locator('.el-message').last().textContent()) || '').trim();
+      const openEdit = async () => {
+        await editPage.locator('.preset-edit').first().click();
+        await editPage.waitForSelector('#preset-edit-name', { timeout: 5000 });
+      };
+
+      await openEdit();
+      await editPage.fill('#preset-edit-name', '改过的名字');
+      await editPage.locator('.preset-edit-footer .el-button--primary').click();
+      await editPage.waitForTimeout(500);
+      if ((await chipName()) === '改过的名字') ok('Renaming a preset updates its chip');
+      else fail('Preset rename', `chip reads "${await chipName()}"`);
+      let stored = await storedPresets();
+      if (stored?.[0]?.name === '改过的名字' && stored[0].target === 'png' && stored[0].options?.maxEdge === 800)
+        ok('A rename leaves the stored target and parameters untouched');
+      else fail('Preset rename storage', JSON.stringify(stored));
+      if ((await lastMessage()).includes('已更新预设')) ok('A rename is announced as an update');
+      else fail('Preset rename toast', await lastMessage());
+      await editPage.keyboard.press('Escape');
+      await editPage.waitForTimeout(400);
+
+      // `用当前设置更新` is the only way to move a preset onto what the workbench is doing now;
+      // its name must survive, and the saved parameter has to be the live one, not the old value.
+      const fi = await editPage.waitForSelector('input[type="file"]', { state: 'attached', timeout: 10000 });
+      await fi.setInputFiles(path.join(FIXTURE_PATH, 'sample.pdf'));
+      await editPage.waitForTimeout(1000);
+      await pickTarget(editPage, 'PNG (.png)');
+      await setOutputOption(editPage, '最长边', '1600 px');
+      await openEdit();
+      await editPage.locator('.preset-edit-footer .el-button').filter({ hasText: '用当前设置更新' }).click();
+      await editPage.waitForTimeout(500);
+      stored = await storedPresets();
+      if (stored?.[0]?.options?.maxEdge === 1600 && stored[0].name === '改过的名字')
+        ok('「用当前设置更新」 rewrites the live parameters and keeps the name');
+      else fail('Preset recapture', JSON.stringify(stored));
+      await editPage.keyboard.press('Escape');
+      await editPage.waitForTimeout(400);
+
+      // A refused write must not leave the bar showing a name the next reload will undo.
+      await editPage.evaluate(() => {
+        window.chrome.storage.local.set = () => Promise.reject(new Error('quota'));
+      });
+      await openEdit();
+      await editPage.fill('#preset-edit-name', '不会落盘的名字');
+      await editPage.locator('.preset-edit-footer .el-button--primary').click();
+      await editPage.waitForTimeout(600);
+      if ((await chipName()) === '改过的名字') ok('A refused write rolls the chip back to the stored name');
+      else fail('Preset rollback', `chip reads "${await chipName()}"`);
+      if ((await lastMessage()).includes('未能更新')) ok('A refused write is announced as a failure');
+      else fail('Preset rollback toast', await lastMessage());
+      await editPage.screenshot({
+        path: shot(`${String(shotIdx++).padStart(2, '0')}-preset-edit.png`),
+        fullPage: true,
+      });
+    } catch (e) {
+      fail('Preset editing', e.message);
+    } finally {
+      await editPage.close();
+    }
+  }
+
+  // ═══════════════════════════════════════════
+  //  HISTORY REUSE RESTORES SETTINGS (2A)
+  // ═══════════════════════════════════════════
+  //
+  // Reuse used to restore only the target. A batch's saved name pattern and image parameters now
+  // come back with it, which is the difference between "pick PNG again" and "pick the batch again".
+  if (section('History Reuse Restores Settings')) {
+    const reusePage = await browser.newPage();
+    tolerateScreenshotTimeout(reusePage);
+    trackPageErrors(reusePage);
+    try {
+      await reusePage.setViewportSize({ width: 1280, height: 900 });
+      await reusePage.addInitScript(mockChromeStorage());
+      await reusePage.goto(`http://localhost:${PORT}/options.html`);
+      await reusePage.waitForTimeout(1200);
+
+      const gear = await reusePage.$('.topbar-inner .el-button');
+      if (!gear) throw new Error('settings button not found');
+      const openPrefs = async () => {
+        await gear.click();
+        await reusePage.waitForTimeout(500);
+      };
+      const setPattern = async value => {
+        const field = await reusePage.$('.name-input input');
+        if (!field) throw new Error('name pattern field not found');
+        await field.fill(value);
+        await field.press('Enter');
+        await field.evaluate(el => el.blur());
+        await reusePage.waitForTimeout(400);
+      };
+      const closePrefs = async () => {
+        await gear.click();
+        await reusePage.waitForTimeout(300);
+      };
+      const targetText = async () => (await reusePage.locator('.action-row .el-select').first().innerText()).trim();
+      const staleVisible = () =>
+        reusePage
+          .$$eval('.el-alert__title', els => els.some(el => el.textContent.includes('当前目标是')))
+          .catch(() => false);
+      const lastMessage = async () => ((await reusePage.locator('.el-message').last().textContent()) || '').trim();
+
+      await openPrefs();
+      await setPattern('{name}');
+      await closePrefs();
+      const fi = await reusePage.waitForSelector('input[type="file"]', { state: 'attached', timeout: 10000 });
+      await fi.setInputFiles(path.join(FIXTURE_PATH, 'sample.pdf'));
+      await reusePage.waitForTimeout(1000);
+      await pickTarget(reusePage, 'PNG (.png)');
+      await setOutputOption(reusePage, '最长边', '800 px');
+      await reusePage.click('.convert-btn');
+      await reusePage.waitForFunction(
+        () => {
+          const el = document.querySelector('.el-alert__title');
+          return !!el && el.textContent.trim().length > 0;
+        },
+        undefined,
+        { timeout: 30000 },
+      );
+      await reusePage.waitForTimeout(500);
+
+      const storedRecord = (await reusePage.evaluate(() => window.chrome.storage.local.get('fat:history')))[
+        'fat:history'
+      ]?.[0];
+      if (storedRecord?.settings?.nameTemplate === '{name}' && storedRecord.settings.outputOptions?.maxEdge === 800) {
+        ok('A finished batch records the name pattern and image parameters it ran with');
+      } else {
+        fail('History settings snapshot', JSON.stringify(storedRecord?.settings));
+      }
+
+      // Move every live setting away from the record, so what reuse restores cannot be mistaken for
+      // what was already on screen.
+      await openPrefs();
+      await setPattern('{name}_{target}');
+      await closePrefs();
+      await pickTarget(reusePage, 'HTML (.html)');
+      if (await staleVisible()) ok('The retargeted result is still explained before reuse');
+      else fail('Reuse precondition', 'no stale notice after moving away from PNG');
+      await reusePage.locator('.history-item .history-actions .el-button').first().click();
+      await reusePage.waitForTimeout(600);
+
+      if ((await targetText()) === 'PNG (.png)') ok('Reuse restores the target the batch ran under');
+      else fail('Reuse target', `selector reads "${await targetText()}"`);
+      const optionsText = (
+        await reusePage
+          .locator('.output-options')
+          .innerText()
+          .catch(() => '')
+      ).replace(/\s+/g, ' ');
+      if (optionsText.includes('800 px')) ok('Reuse restores the image parameters the batch ran with');
+      else fail('Reuse options', `panel reads "${optionsText}"`);
+      await openPrefs();
+      const patternNow = await reusePage.$eval('.name-input input', el => el.value);
+      await closePrefs();
+      if (patternNow === '{name}') ok('Reuse restores the name pattern the batch ran with');
+      else fail('Reuse pattern', `field reads "${patternNow}"`);
+      const reuseToast = await lastMessage();
+      if (reuseToast.includes('已应用目标') && reuseToast.includes('800 px') && reuseToast.includes('{name}'))
+        ok('The reuse toast names everything that came back');
+      else fail('Reuse toast', reuseToast);
+      if (!(await staleVisible())) ok('Reuse clears the stale notice because the rows match again');
+      else fail('Reuse stale notice', 'the notice survived a return to the rows\u2019 own target');
+    } catch (e) {
+      fail('History reuse restores settings', e.message);
+    } finally {
+      await reusePage.close();
+    }
+  }
+
+  // ═══════════════════════════════════════════
+  //  LONG FILE LIST WINDOWS ITS ROWS (2C)
+  // ═══════════════════════════════════════════
+  //
+  // At 200 files only the rows near the viewport may exist. The page scrolls, not an inner box, and
+  // the spacers carry the height of what is not mounted. Assertions read the mounted names, the
+  // header's own count, and the effect of deleting the first row.
+  if (section('Long File List Windows Its Rows')) {
+    const listPage = await browser.newPage();
+    tolerateScreenshotTimeout(listPage);
+    trackPageErrors(listPage);
+    try {
+      await listPage.setViewportSize({ width: 1280, height: 900 });
+      await listPage.addInitScript(mockChromeStorage());
+      await listPage.goto(`http://localhost:${PORT}/options.html`);
+      await listPage.waitForTimeout(1200);
+
+      const mountedNames = () => listPage.$$eval('.file-item .file-name', els => els.map(el => el.textContent.trim()));
+      const headerText = () => listPage.$eval('.file-list-header', el => el.textContent).catch(() => '');
+      const files = Array.from({ length: 200 }, (_, index) => ({
+        name: `perf-${index}.txt`,
+        mimeType: 'text/plain',
+        buffer: Buffer.from(`row ${index}`),
+      }));
+      const fi = await listPage.waitForSelector('input[type="file"]', { state: 'attached', timeout: 10000 });
+      await fi.setInputFiles(files);
+      await listPage.waitForFunction(
+        () => {
+          const header = document.querySelector('.file-list-header');
+          return !!header && header.textContent.includes('200');
+        },
+        undefined,
+        { timeout: 15000 },
+      );
+      await listPage.waitForTimeout(500);
+
+      let mounted = await mountedNames();
+      const bottomSpacer = await listPage
+        .$$eval('.file-spacer', els => els.map(el => parseFloat(el.style.height) || 0))
+        .then(heights => heights[0] ?? 0);
+      if (mounted.length > 0 && mounted.length <= 60 && !mounted.includes('perf-199.txt') && bottomSpacer > 0)
+        ok(`200 files mount ${mounted.length} rows and reserve the rest with a spacer`);
+      else
+        fail(
+          'List windowing',
+          `mounted ${mounted.length}, last visible "${mounted[mounted.length - 1]}", first spacer ${bottomSpacer}px`,
+        );
+
+      await listPage.evaluate(() => {
+        const list = document.querySelector('.file-list');
+        if (!list) return;
+        window.scrollTo(0, list.getBoundingClientRect().bottom + window.scrollY - window.innerHeight);
+      });
+      await listPage
+        .waitForFunction(
+          () => [...document.querySelectorAll('.file-item .file-name')].some(el => el.textContent === 'perf-199.txt'),
+          undefined,
+          { timeout: 5000 },
+        )
+        .catch(() => {});
+      mounted = await mountedNames();
+      if (mounted.includes('perf-199.txt') && mounted.length <= 60)
+        ok('Scrolling to the end mounts the last row without mounting the list');
+      else fail('List scroll window', `mounted ${mounted.length}, last "${mounted[mounted.length - 1]}"`);
+
+      await listPage.evaluate(() => window.scrollTo(0, 0));
+      await listPage.waitForTimeout(500);
+      await listPage.locator('.file-item .el-button--danger').first().click();
+      await listPage.waitForTimeout(700);
+      mounted = await mountedNames();
+      if ((await headerText()).includes('199') && mounted[0] === 'perf-1.txt')
+        ok('Deleting the first row drops it and renumbers the window in place');
+      else fail('List delete first row', `header "${(await headerText()).trim()}" first "${mounted[0]}"`);
+
+      const addBtn = await listPage.$('.add-files-btn');
+      if (!addBtn) throw new Error('add-files button not found');
+      await addBtn.click();
+      await listPage.waitForTimeout(300);
+      await fi.setInputFiles({
+        name: 'perf-200.txt',
+        mimeType: 'text/plain',
+        buffer: Buffer.from('row 200'),
+      });
+      await listPage.waitForTimeout(1000);
+      if ((await headerText()).includes('200') && (await mountedNames()).length <= 60)
+        ok('An append into a windowed list keeps the window and the count');
+      else fail('List append', `header "${(await headerText()).trim()}" mounted ${(await mountedNames()).length}`);
+      await listPage.screenshot({
+        path: shot(`${String(shotIdx++).padStart(2, '0')}-long-list-windowed.png`),
+        fullPage: false,
+      });
+    } catch (e) {
+      fail('Long file list windowing', e.message);
+    } finally {
+      await listPage.close();
+    }
   }
 
   // ═══════════════════════════════════════════

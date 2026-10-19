@@ -69,6 +69,33 @@ export interface ConvertResult {
 }
 
 /**
+ * One row of the finished batch: the produced file plus everything needed to read it years of
+ * target switches later.
+ *
+ * The batch used to keep a parallel `owners` array beside `ConvertResult[]`. That cannot express a
+ * merged result (one PDF written from N source images), and it also lost the target the result was
+ * produced under — after a target switch the card had no way to say which format it was looking at.
+ */
+export interface BatchResult {
+  result: ConvertResult;
+  /** Source files behind this entry: one on the ordinary path, all N when images were merged. */
+  owners: File[];
+  /** The format this entry was actually encoded to. Downloads read this, not the live selection. */
+  target: FileFormat;
+  /**
+   * Detected source formats of {@link owners}, in the same order. The merged card and the history
+   * record both need the full set; a single-file entry carries exactly one.
+   */
+  sourceFormats: FileFormat[];
+  /**
+   * Present only on a merged-image PDF. `pageCount` equals `owners.length` today, but it is a fact
+   * read back from the PDF builder rather than an assumption, and it keeps the card from recomputing
+   * a page count from an unrelated array.
+   */
+  merged?: { pageCount: number };
+}
+
+/**
  * User-tunable output parameters for conversions that produce an image.
  *
  * Every field is optional and *absent means unchanged*: an unset option has to leave the encoder

@@ -113,6 +113,14 @@ export function timeStamp(date: Date): string {
 export interface NameContext {
   /** Source file name, extension included; `{name}` uses the part before the last dot. */
   source: string;
+  /**
+   * What `{name}` renders instead of `baseOf(source)`, when the caller has already decided the base.
+   *
+   * The merged-image PDF is named after its first image plus `-merged`, but that concatenation must
+   * not go through `source`: a source called `photo.v2.png` would be cut at its last dot and lose
+   * the suffix, because `source` is still treated as a filename with an extension.
+   */
+  sourceBase?: string;
   /** 1-based position within this batch, for `{index}`. */
   index: number;
   /** Output format, for `{target}`. */
@@ -136,7 +144,7 @@ export function baseOf(filename: string): string {
  * browser invent one from the URL, which is worse than a generic label.
  */
 export function applyNameTemplate(template: string, context: NameContext): string {
-  const sourceBase = toLegalBase(baseOf(context.source)) || ANONYMOUS_BASE;
+  const sourceBase = toLegalBase(context.sourceBase ?? baseOf(context.source)) || ANONYMOUS_BASE;
   // `{name}` last on purpose: a source called `{date}.md` is legal on macOS and Linux, and if its
   // value were substituted first the following passes would expand the braces that came from the
   // file name. Rendered after them, those braces stay the literal text they are.

@@ -573,14 +573,16 @@ table.matrix {
 }
 
 .matrix .mx-page,
-.matrix .mx-step {
+.matrix .mx-hub {
   font-weight: 700;
 }
 
-/* The 21 cells with a page of their own are the only links in the grid, and the tint behind a cell means
-   "reachable", not "clickable" — so the link cannot rely on colour alone. An underline says it on its own,
-   and it survives both colour-blind readers and a screen that renders `--brand-dark` next to `--ink`. */
-.matrix .mx-page {
+/* Every open cell is a link, and the tint behind a cell means "reachable", not "clickable" — so the
+   link cannot rely on colour alone. An underline says it on its own, and it survives both colour-blind
+   readers and a screen that renders `--brand-dark` next to `--ink`. The digit stays the loud glyph; the
+   underline says the digit is a door. */
+.matrix .mx-page,
+.matrix .mx-hub {
   display: block;
   color: var(--brand-dark);
   text-decoration: underline;
@@ -589,7 +591,8 @@ table.matrix {
   text-underline-offset: 3px;
 }
 
-.matrix .mx-page:hover {
+.matrix .mx-page:hover,
+.matrix .mx-hub:hover {
   text-decoration-thickness: 2px;
 }
 
@@ -640,6 +643,193 @@ table.matrix {
   clip-path: inset(50%);
   white-space: nowrap;
   border: 0;
+}
+
+/* The filter row is three toggles, not a form: `aria-pressed` carries the state, and only the pressed
+   pill is filled so the current view reads at a glance. */
+.mx-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 4px;
+}
+
+.mx-filter button {
+  padding: 7px 13px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--paper);
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: 13.5px;
+  cursor: pointer;
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+
+.mx-filter button:hover {
+  border-color: var(--brand-line);
+  background: var(--brand-soft);
+  color: var(--brand-dark);
+}
+
+.mx-filter button[aria-pressed='true'] {
+  border-color: var(--brand);
+  background: var(--brand-soft);
+  color: var(--brand-dark);
+  font-weight: 700;
+}
+
+.mx-filter button:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+/* Dimming, never hiding: a filtered-out cell is still a true route, and the legend above the grid keeps
+   describing it. Opacity rather than `display: none` so the grid keeps its shape and the reader keeps
+   their place in it. */
+.matrix .mx-filtered {
+  opacity: 0.28;
+}
+
+.matrix .mx-filtered a {
+  text-decoration-color: transparent;
+}
+
+/* The route strip under the readout repeats the chain as chips. It starts empty, so the box keeps one
+   row of height and the page does not jump the first time a cell is reached. The container is
+   `aria-hidden`, so the stagger below can never become a second announcement. */
+.mx-trail {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+  align-items: center;
+  min-height: 32px;
+  margin: 8px 0 0;
+}
+
+.js .mx-trail .chip,
+.js .mx-trail .arrow {
+  opacity: 0;
+  transform: translateY(4px);
+  transition:
+    opacity var(--dur-mid) var(--ease-out),
+    transform var(--dur-mid) var(--ease-out);
+}
+
+.js .mx-trail.on .chip,
+.js .mx-trail.on .arrow {
+  opacity: 1;
+  transform: none;
+}
+
+/* ============ Source-format hub pages ============ */
+/* One card per target: the target, the chain it runs, what survives, and the link to the full page
+   when one exists. Cards without a pair page carry the `#to-*` anchor the matrix's hub cells open;
+   the shared `:target` rule above scrolls them clear of the sticky header, and this border says which
+   one was asked for. */
+.hub-routes {
+  display: grid;
+  gap: 14px;
+  padding: 0;
+  margin: 18px 0 0;
+  list-style: none;
+}
+
+.hub-route {
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--paper);
+  box-shadow: var(--shadow-sm);
+}
+
+.hub-route:target {
+  border-color: var(--brand-line);
+  box-shadow: 0 0 0 3px var(--brand-soft);
+}
+
+.hub-route-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  align-items: baseline;
+  justify-content: space-between;
+  margin: 0 0 4px;
+}
+
+.hub-route-target {
+  font-size: 16.5px;
+  font-weight: 700;
+}
+
+.hub-route .route-steps {
+  margin: 8px 0 10px;
+}
+
+.hub-route > p:last-child {
+  margin-bottom: 0;
+}
+
+.hub-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  padding: 0;
+  margin: 12px 0 0;
+  list-style: none;
+}
+
+.hub-links li {
+  margin: 0;
+}
+
+.hub-links a {
+  color: var(--ink-soft);
+}
+
+.hub-links a:hover {
+  color: var(--brand);
+}
+
+/* ============ Index: source-format cards ============ */
+.hub-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+  gap: 14px;
+  padding: 0;
+  margin: 18px 0 0;
+  list-style: none;
+}
+
+.hub-card {
+  padding: 14px 16px;
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--paper-alt);
+}
+
+.hub-card-title {
+  display: block;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.hub-card p {
+  margin: 6px 0 0;
+  color: var(--ink-soft);
+  font-size: 14px;
+}
+
+.hub-card-targets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  align-items: baseline;
+  font-size: 13.5px;
 }
 
 .site-foot {
@@ -720,7 +910,10 @@ table.matrix {
     transform var(--dur-mid) var(--ease-out);
 }
 
-.js .route-card.reveal.in .route-steps > * {
+/* The route chips are stepped in for any route block that has been revealed — the pair page's single
+   route card and the hub page's list of routes both sit inside a `.reveal` section, and keying on that
+   section means a hub stops shipping invisible chains. */
+.js .reveal.in .route-steps > * {
   opacity: 1;
   transform: none;
 }
@@ -951,10 +1144,21 @@ table.matrix {
   }
 
   /* A scroll container on paper clips to its box and prints the columns that happened to be in view.
-     Printing shows the whole grid, which is the one thing a reader might actually want on paper. */
+     Printing shows the whole grid, which is the one thing a reader might actually want on paper. The
+     filter's dimming is undone as well: the paper carries every route, not whichever the screen was
+     narrowed to at the moment of printing. */
   .matrix-scroll {
     overflow: visible;
     box-shadow: none;
+  }
+
+  .matrix .mx-filtered {
+    opacity: 1;
+  }
+
+  .mx-filter,
+  .mx-trail {
+    display: none;
   }
 
   body::after {

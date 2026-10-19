@@ -11,7 +11,8 @@ import type { FileFormat } from '~/utils/core/types';
 import HistoryTrendChart from '~/components/shared/HistoryTrendChart.vue';
 
 const emit = defineEmits<{
-  (e: 'reuse', payload: { sourceFormat: FileFormat; targetFormat: FileFormat }): void;
+  /** The whole record: reuse restores the target *and* the settings the batch ran with. */
+  (e: 'reuse', record: HistoryRecord): void;
 }>();
 
 const { records, removeRecord, clear, restoreRecords, exportData, importData } = useHistory();
@@ -102,10 +103,7 @@ function fileNamesTooltip(record: HistoryRecord): string {
 }
 
 function handleReuse(record: HistoryRecord): void {
-  emit('reuse', {
-    sourceFormat: record.sourceFormat,
-    targetFormat: record.targetFormat,
-  });
+  emit('reuse', record);
 }
 
 /**
@@ -378,6 +376,12 @@ async function handleImportChange(e: Event): Promise<void> {
                  `name.md + 3` — and the source size would ask the reader to compare two numbers
                  about a conversion that is already over. -->
             <span class="history-size">{{ formatSize(record.resultSize) }}</span>
+            <!-- Only merged-image records carry this; an ordinary record prints nothing here. -->
+            <span
+              v-if="record.pageCount"
+              class="history-pages"
+              >{{ t('history.pages', { count: record.pageCount }) }}</span
+            >
             <!-- Presence check, not non-zero: an older record has no field and prints no cell, while a
                  batch measured at 0 ms prints the same `< 0.1 s` the results panel just showed. Going
                  through `durationText` rather than the raw field keeps one more case honest — a value
@@ -554,7 +558,8 @@ async function handleImportChange(e: Event): Promise<void> {
    duration are both short, bounded strings, and the only variable-width thing on this line is the
    filename they sit behind. */
 .history-size,
-.history-duration {
+.history-duration,
+.history-pages {
   flex-shrink: 0;
   font-variant-numeric: tabular-nums;
 }

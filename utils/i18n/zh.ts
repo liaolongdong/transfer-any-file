@@ -3,6 +3,8 @@ export default {
   common: {
     close: '关闭',
     cancel: '取消',
+    /** Joins a list of formats in running text, e.g. "PNG、JPG". */
+    listSeparator: '、',
   },
 
   // App / brand — the Chinese half of `_locales/zh_CN`'s extensionName, so the header, the tab title
@@ -167,11 +169,20 @@ export default {
     save: '保存为预设',
     needTarget: '请先选择目标格式',
     remove: '删除预设 {name}',
+    edit: '编辑预设 {name}',
+    editTitle: '编辑预设',
+    editName: '预设名称',
+    editSummary: '目标与输出参数',
+    editHint: '目标与参数在主界面调整好后，点「用当前设置更新」写进预设；这里只改名称。',
+    useCurrent: '用当前设置更新',
+    saveName: '保存名称',
     saved: '已保存预设「{name}」',
     removed: '已删除预设「{name}」',
+    updated: '已更新预设「{name}」',
     // 卡片是先进内存再写盘的，写盘失败时页面看起来和成功一模一样，刷新后卡片消失才露出来。
     saveFailed: '预设「{name}」已加到本页，但未能写入本地存储，刷新后会消失',
     removeFailed: '预设「{name}」已从本页移除，但未能写入本地存储，刷新后会重新出现',
+    updateFailed: '预设「{name}」未能更新，改动已撤回',
     pending: '已记住预设，上传匹配文件后自动应用',
     unavailable: '当前文件无法转换为该预设的目标格式',
     limit: '预设数量已达上限（{max}）',
@@ -188,6 +199,11 @@ export default {
     inProgress: '正在转换中，请稍候...',
     currentFile: '正在处理: {name}',
     stepProgress: '步骤 {current} / {total}',
+    // 合并模式把整批折成一次转换，进度只能按页报；上限与 ~/utils/core/image-pdf 的
+    // MAX_MERGED_PAGES 同值，文案里的数字由调用侧插入，避免两处各写一遍。
+    mergeImages: '合并为一份 PDF',
+    mergeImagesHint: '按列表顺序，每张图片一页（最多 {max} 张），只输出一个 PDF 文件',
+    mergeProgress: '第 {index} / {total} 张',
     // 批次结束而标签页不在前台时的标题标记（~/utils/core/tab-attention），前缀位置保证不被截掉。
     // 纯文本而非符号图形：界面文案全站没有 emoji，离线包也不带头像字体，装了反倒在别的系统上渲染成方框
     tabDone: '[完成] {title}',
@@ -216,6 +232,9 @@ export default {
     sizeTotals: '合计 {source} → {result}',
     elapsed: '耗时 {time}',
     doneNone: '转换失败',
+    staleNotice:
+      '当前目标是 {current}，下面这些结果来自 {stale}。下载仍按各自格式进行；点「开始转换」会按新目标重新生成。',
+    mergedSummary: '{images} 张图片 → 1 份 PDF（{pages} 页）',
     cancelledPartial: '转换已取消，已完成 {done} / {total} 个文件',
     cancelledNone: '转换已取消，未转换任何文件',
     download: '下载文件',
@@ -251,7 +270,15 @@ export default {
     empty: '暂无转换记录',
     reuse: '复用此格式',
     reuseUnavailable: '当前文件无法转换为该格式',
-    reusePending: '已记住目标格式，上传匹配文件后自动应用',
+    reusePending: '已记住目标 {target}{details}，上传匹配文件后自动应用',
+    reuseApplied: '已应用目标 {target}{details}',
+    reuseDetailOptions: '，输出参数：{options}',
+    reuseDetailTemplate: '，文件名模板：{template}',
+    paramQuality: '质量 {value}%',
+    paramMaxEdge: '最长边 {value} px',
+    paramDpi: '{value} DPI',
+    paramTargetSize: '目标体积 {value} KB',
+    pages: '{count} 页',
     clear: '清空历史',
     clearConfirm: '确定要清空所有转换历史吗？清空后 5 秒内可以撤销。',
     delete: '删除',
@@ -335,6 +362,8 @@ export default {
     // 两条页数上限分开写：转图片这条路有「页码范围」可以自救，提取文本没有，能给的下一步不同。
     pdfTooManyImagePages: '要渲染的页数过多，请用「页码范围」只选择需要的页，或先拆分这个 PDF',
     pdfTooManyPages: '这个 PDF 页数过多，无法一次性提取全部文本，请先拆分后再转换',
+    // 合并模式的页数上限在这里是整批的硬边界，不像 PDF 输入那样能靠页码范围自救——只能减文件。
+    mergeTooManyPages: '要合并的图片过多，无法一次写入同一份 PDF，请减少文件后再试',
     xlsxEmpty: 'XLSX 文件中没有工作表',
     // 序列化器按 !ref 的矩形逐格走，伪造的维度可以远大于真实数据量；上限按实际单元格范围算，
     // 触顶说明这份表在这个浏览器里转不动，而不是文件损坏。

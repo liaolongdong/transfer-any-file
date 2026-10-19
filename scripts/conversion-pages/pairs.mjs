@@ -87,8 +87,10 @@ export const SOCIAL_IMAGE_ALT =
  * generator now enforces, so this date and that budget have to move together. The 2026-10-17 revision
  * corrects two claims that had gone false: TXT→MD no longer says "strict UTF-8" (the decoder now accepts
  * UTF-16 and GB18030/GBK), and HTML→PNG now discloses the full-page height ceiling that makes it fail.
+ * The 2026-10-20 revision adds eight pages — HTML→DOCX, HTML→MD, HTML→TXT, WebP→PNG, WebP→PDF,
+ * GIF→JPEG, XLSX→HTML and PNG→HTML — so the date moves with them.
  */
-export const PAGES_UPDATED = '2026-10-19';
+export const PAGES_UPDATED = '2026-10-20';
 
 /**
  * The date the first conversion page entered the repository, used as `datePublished` for every entry that
@@ -1301,8 +1303,8 @@ export const PAIRS = [
       en: 'PNG to PDF without redrawing a pixel — page is the image',
     },
     desc: {
-      zh: '浏览器本地把 PNG 装进单页 PDF：常规路径不重画像素，页面尺寸由图像像素换算，横竖自动。一批最多 200 个，各自一个 PDF。',
-      en: 'Put a PNG into a one-page PDF locally: the normal path never re-draws pixels, the page takes its size and orientation from the image. 200 files per batch.',
+      zh: '浏览器本地把 PNG 装进 PDF：常规路径不重画像素，页面尺寸由图像像素换算，横竖自动。一批最多 200 张，默认各自一个 PDF，也可勾选合并成一份多页 PDF。',
+      en: 'Put PNGs into PDFs locally: pixels are embedded, not redrawn, and each page takes its image’s size and orientation. One PDF each, or one merged multi-page PDF.',
     },
     lede: {
       zh: '这条链路与别的路不太一样：它是「把这张 PNG 放进 PDF 容器」，不是「重画一遍再塞进去」。像素一个都不丢，产物是无损的。但无损不等于不变大——PDF 用自己的流格式重存这些像素，实测几张截图的产物落在原 PNG 的 1.1–1.3 倍，画面越碎越接近 1.5 倍。要压体积请在图片侧解决（换 WebP、缩最长边），别指望这一转。页面尺寸直接由图像像素按 96 dpi 换算成点（px × 72 ÷ 96），宽大于高就自动横向，于是它不是 A4：一张 2560×1440 的截图进去，出来的 PDF 就是一页 2560×1440 大小的纸。打印时需要选「适合页面」。',
@@ -1314,26 +1316,28 @@ export const PAIRS = [
         '页面尺寸按图像像素在 96 dpi 下换算（px × 72 ÷ 96 点），横图自动横向',
         '唯一放弃无损的情形是超过 8192 px 的图——那时先等比重采样再嵌入，否则浏览器画不出来',
         '解码失败或尺寸为 0 的坏图报该文件的错误，而不是给回一张空白 PDF',
-        '一批最多 200 个文件、单个 100 MB 上限，各自一个 PDF，可一起打包成 ZIP',
+        '一批最多 200 个文件、单个 100 MB 上限；默认各自一个 PDF，勾选「合并为一份 PDF」后整批按列表顺序写成一份（每张一页，最多 200 页）',
       ],
       en: [
         'No redraw on the normal path: the PNG is written into the PDF as a lossless stream, pixel-for-pixel the file you gave it',
         'The page is sized from the image pixels at 96 dpi (px × 72 ÷ 96 points), landscape automatically when it is wider than tall',
         'The one case that gives up losslessness is a side above 8192 px, which is resampled before embedding — otherwise the browser cannot draw it',
         'A file that will not decode, or reports zero size, raises its own error instead of handing back a blank PDF',
-        'Up to 200 files per batch and 100 MB each, one PDF per file, downloadable together as one ZIP',
+        'Up to 200 files per batch and 100 MB each — one PDF per file by default, or one PDF for the whole batch in list order with “Merge into one PDF” ticked (one page per image, up to 200 pages)',
       ],
     },
     limits: {
       zh: [
         '页面不是 A4：它就是那张图的尺寸，打印或拼册时要靠「适合页面」',
-        '不做多页合并——一批 20 张得到 20 个 PDF，不是一个 20 页的 PDF',
+        '默认不做多页合并——不勾选「合并为一份 PDF」时，一批 20 张得到 20 个 PDF；勾选后是一份 20 页的 PDF，任一张解码失败则整批不产出',
+        '合并后每页仍是各自的像素尺寸，不会统一成 A4，不同尺寸的图在同一份 PDF 里各占一页',
         'PDF 里没有文字层：源图本来也只有像素，搜索与复制都无从下手',
         '目标是 PDF 时输出参数面板不出现（面板只为图片目标显示），所以这里不能设 DPI 或最长边',
       ],
       en: [
         'The page is not A4 — it is the picture’s own size, so printing and imposition rely on “fit to page”',
-        'No merging: a batch of 20 images gives 20 PDFs, not one PDF of 20 pages',
+        'No merging by default — a batch of 20 images without the box ticked still gives 20 PDFs; with “Merge into one PDF” ticked they become one 20-page PDF, and if any image fails to decode nothing is produced at all',
+        'Merged pages keep their own pixel dimensions rather than becoming A4, so differently sized images simply each take a page in the same PDF',
         'There is no text layer, because the source had only pixels; searching and copying have nothing to work on',
         'The output panel is not shown for a PDF target (it exists for image targets), so DPI and longest edge are not adjustable here',
       ],
@@ -1341,10 +1345,12 @@ export const PAIRS = [
     notes: {
       zh: [
         '结果文件名默认在源名后加日期与时间，模板可在偏好设置里改；一批多个文件时可一次打包成 ZIP',
+        '手上是一组要交出去的图？勾选「合并为一份 PDF」，整批按列表顺序装订成一份，文件名带 -merged；开关默认关闭，所以单张转换的行为与以前完全一样',
         '需要「一张图一页 A4」的排法：先转 PDF 再在打印时选适合页面，或把图放进 HTML 走 HTML → PDF（那条按 A4 分页）',
       ],
       en: [
         'Names default to the source name plus date and time, with the pattern editable in preferences; several files can come back as one ZIP',
+        'Handing over a set of images? Tick “Merge into one PDF” and the batch becomes one document in list order, named with a -merged suffix; the box is off by default, so a single conversion behaves exactly as before',
         'For a “one image per A4 page” layout: print the PDF with fit-to-page, or place the image in HTML and take the HTML → PDF route, which paginates on A4',
       ],
     },
@@ -1352,8 +1358,8 @@ export const PAIRS = [
       {
         q: { zh: '能把多张 PNG 合成一个 PDF 吗？', en: 'Can several PNGs become one PDF?' },
         a: {
-          zh: '不能。转换是逐文件进行的，一个输入对应一个 PDF；本项目没有把多个 PDF 拼成一个的能力。需要合册时请用 PDF 侧的工具，或直接打印 ZIP 里的多个文件。',
-          en: 'No. Conversion is per file — one input, one PDF — and there is no capability here to join PDFs. For a booklet use a PDF-side tool, or print the several files out of the ZIP.',
+          zh: '能，勾选「合并为一份 PDF」即可：整批都是 PNG / JPEG / WebP / BMP / GIF 且目标为 PDF 时，目标选择器下方会出现这个开关；勾上之后整批按列表顺序写成一份 PDF，每张一页（最多 200 页），文件名带 -merged。它默认关闭，所以一次只转一张时拿到的仍是一份单页 PDF；任意一张解码失败，整批都不产出，失败清单会点名是哪个文件。',
+          en: 'Yes — tick “Merge into one PDF”. The box appears when every file is a PNG / JPEG / WebP / BMP / GIF and the target is PDF; the whole batch then becomes one PDF, one page per image in list order (up to 200 pages), named with a -merged suffix. It is off by default, so a single image still gives one single-page PDF; if any image fails to decode, nothing is produced and the failure list names the file.',
         },
       },
       {
@@ -1382,8 +1388,8 @@ export const PAIRS = [
       en: 'JPEG to PDF — one photo per page, through one re-encode',
     },
     desc: {
-      zh: '浏览器本地把 .jpg 装进单页 PDF：页面按像素尺寸换算、横竖自动。这条路解码后再编码一次，PNG 那条则不重编码，两者是有损与无损的对照。',
-      en: 'Put a .jpg into a one-page PDF locally, sized from its pixels with orientation handled. This route decodes and re-encodes once; the PNG route does not.',
+      zh: '浏览器本地把 .jpg 装进 PDF：页面按像素尺寸换算、横竖自动。这条路解码后再编码一次，PNG 那条则不重编码，两者是有损与无损的对照；默认一张一份，也可勾选合并成一份多页 PDF。',
+      en: 'Put .jpg files into PDFs locally, sized from their pixels. This route re-encodes once; the PNG route does not. One PDF each, or one merged multi-page PDF.',
     },
     lede: {
       zh: '同样是图片进 PDF，JPEG 这条与 PNG 这条的区别就在「有没有重画一遍」。这条路把图解码到画布、先铺纯白、再按 JPEG 档编出来交给容器——尺寸上限与统一底色都是在这一步处理的。多数照片在这一步看不太出差别，但它确实是第二次有损编码；要尽量少损失，就先转 PNG、再由 PNG 出 PDF。页面尺寸按像素在 96 dpi 下换算，所以也不是 A4。',
@@ -1395,38 +1401,38 @@ export const PAIRS = [
         '重编码按 JPEG 载荷交给容器（质量参数 0.92 由编码器执行），照片类产物体积可控',
         '画布先铺纯白再画，不会出现黑底或来路不明的底色',
         '超过 8192 px 的图先等比缩进上限，而不是静默裁切',
-        '一批最多 200 张、单个 100 MB 上限，各自一个 PDF，结果可一次打包成 ZIP',
+        '一批最多 200 张、单个 100 MB 上限；默认各自一个 PDF，勾选「合并为一份 PDF」后整批按列表顺序写成一份（每张一页，最多 200 页）',
       ],
       en: [
         'One picture per page: the page is computed from the pixels at 96 dpi and goes landscape when it is wider than tall',
         'The re-encode is handed to the container as a JPEG stream (the encoder is given 0.92), so photographic output stays a manageable size',
         'The canvas is filled pure white before the picture is drawn, so there is no black background and no browser-dependent one',
         'A side above 8192 px is scaled inside the limit first rather than silently clipped',
-        'Up to 200 files per batch and 100 MB each, one PDF per file, downloadable as one ZIP',
+        'Up to 200 files per batch and 100 MB each — one PDF per file by default, or one PDF for the whole batch in list order with “Merge into one PDF” ticked (one page per image, up to 200 pages)',
       ],
     },
     limits: {
       zh: [
         '这是第二次有损编码：追求保真请先转 PNG，再走 PNG → PDF（那条不重编码）',
-        '不合并多页——一批 N 张就是 N 个 PDF，本项目没有拼 PDF 的能力',
+        '默认不合并：不勾选「合并为一份 PDF」时，一批 N 张就是 N 个 PDF；勾选后是一份 N 页的 PDF，任一张失败则整批不产出',
         '没有文字层：PDF 里的图搜不到、也复制不出文字',
         '页面不是 A4，且目标是 PDF 时输出参数面板不出现（DPI 只对 PDF 来源有意义）',
       ],
       en: [
         'It is a second lossy pass: for fidelity convert to PNG first and take PNG → PDF, which embeds without re-encoding',
-        'No merging — N files are N PDFs, because joining PDFs is not something this extension does',
+        'No merging by default — N files without the box ticked are N PDFs; ticked, they become one N-page PDF, and one bad image fails the whole group instead of producing a partial document',
         'No text layer, so the picture cannot be searched or copied as text out of the PDF',
         'The page is not A4, and no output panel is offered for a PDF target (DPI means something only when the source is a PDF)',
       ],
     },
     notes: {
       zh: [
-        '典型用法是一批照片或截图各自变成一个可直接发送的单页 PDF',
-        '单个文件失败只报该文件的错误，批次里其余继续；结果文件名默认在源名后加日期与时间',
+        '典型用法是一批照片或截图各自变成一个可直接发送的单页 PDF；要合订成一份就勾选「合并为一份 PDF」，顺序与文件列表一致',
+        '不合并时单个文件失败只报该文件的错误，批次里其余继续；合并开启时任一失败会中止整批并在失败清单点名，结果文件名默认在源名后加日期与时间',
       ],
       en: [
-        'The typical use is a set of photos or screenshots, each becoming a one-page PDF you can send on its own',
-        'One bad file reports only itself while the batch continues, and names default to the source name plus date and time',
+        'The typical use is a set of photos or screenshots, each becoming a one-page PDF you can send on its own; tick “Merge into one PDF” to bind them into one document in list order',
+        'Without merging, one bad file reports only itself while the batch continues; with merging on, the first failure stops the whole group and the failure list names the file — names default to the source name plus date and time',
       ],
     },
     faq: [
@@ -1447,8 +1453,8 @@ export const PAIRS = [
       {
         q: { zh: '能不能一次把 50 张照片装成一个 PDF？', en: 'Can 50 photos go into one PDF at once?' },
         a: {
-          zh: '不能，转换按文件一对一。要合册就用 PDF 侧的工具；本项目能给你的是 50 个单页 PDF 和一个装它们的 ZIP。',
-          en: 'No — conversion is one-to-one per file. Use a PDF-side tool for a booklet; what this gives you is 50 one-page PDFs and the ZIP that carries them.',
+          zh: '能，勾选「合并为一份 PDF」就行：整批都是图片且目标为 PDF 时，目标选择器下方会出现这个开关；勾上之后 50 张照片按列表顺序写成一份 50 页 PDF，文件名带 -merged。不勾选时仍是 50 个单页 PDF 加一个装它们的 ZIP，与以前完全一样；任意一张解码失败，整批都不产出。',
+          en: 'Yes — tick “Merge into one PDF”. The box appears when every file is an image and the target is PDF; the 50 photos then become one 50-page PDF in list order, named with a -merged suffix. Left unticked you still get 50 one-page PDFs and the ZIP that carries them, exactly as before; if any image fails to decode, nothing is produced.',
         },
       },
     ],
@@ -3090,6 +3096,664 @@ export const PAIRS = [
         a: {
           zh: '这条路径读的是严格解码链，不是宽进严出的猜测：任一编码能严格表示这批字节就按它解，全都不覆盖才报解码失败——猜错的解码是不可逆的。所以国内 Excel 的 GBK / GB18030 文件可以直接转，改了扩展名的压缩二进制（PNG / GIF / ZIP 那一类）会被挡在门口。真遇到报解码失败，先用能指定编码的工具转存成 UTF-8，再拿来转。',
           en: 'This route reads through a strict chain, not a permissive guess: whichever of UTF-16, UTF-8, GB18030 and GBK can represent the bytes exactly wins, and only when none can does it report a decode failure — a wrong decoding cannot be undone. So a GBK or GB18030 file from a Chinese Excel converts as-is, while a compressed binary wearing a text extension (a PNG, GIF or ZIP renamed .txt) is stopped at the door. If you do hit the failure, re-save as UTF-8 with a tool that lets you name the encoding, then convert it.',
+        },
+      },
+    ],
+  },
+  {
+    slug: 'html-to-docx',
+    from: 'html',
+    to: 'docx',
+    shot: 'batch-results',
+    published: '2026-10-20',
+    title: {
+      zh: 'HTML 转 Word（.docx）——离线打包，结构跟着走',
+      en: 'HTML to Word (.docx) offline — structure survives',
+    },
+    desc: {
+      zh: '在浏览器本地把 .html 打包成 .docx：标题、列表、表格、链接与内联图示成为 Word 里的真实内容；远程子资源在打包前剥掉，Word 打开时不会替你联网。',
+      en: 'Pack an HTML page into a real .docx in your browser: headings, lists, tables and diagrams survive, and remote subresources are stripped before Word opens it.',
+    },
+    lede: {
+      zh: '网页存档、导出笔记、内部系统里复制出来的一段 HTML，要交给只收 Word 的人。这条路径用 html-docx-js 把净化后的 HTML 打进 .docx 的 altChunk，Word 打开文件时按自己的 HTML 子集渲染成段落——文字可选中、可编辑、可批注。打包前有两道处理：内联 SVG 先栅格化成 PNG（净化器的 html 配置不含 svg 标签，不先转换会把图整块删掉），随后剥掉所有远程子资源，包括 `//host/x.png` 这种协议相对地址。链路完全在本机完成。',
+      en: 'A saved page, an exported note, a block of HTML copied out of an internal tool — and the recipient only accepts Word. This route packs sanitized HTML into the .docx as an altChunk, which Word renders into paragraphs when the file is opened: text stays selectable, editable and commentable. Two passes run before packing: inline SVG is rasterized to PNG first (the sanitizer’s html profile carries no svg tag, so skipping that step would delete the diagram outright), and every remote subresource is then stripped, protocol-relative `//host/x.png` included. The whole route runs locally.',
+    },
+    keeps: {
+      zh: [
+        '标题、段落、有序与无序列表、表格、引用、加粗斜体与链接，成为 Word 里的真实内容（不是整页截图）',
+        '内联 SVG 先转成 PNG 再打包，图示不会在净化那一步被整块删掉',
+        '纯文本链接保留：`<a href>` 是正文内容，不是子资源，剥离时不碰它',
+        '一批最多 200 个文件、单个 100 MB，可与其它源格式混批',
+      ],
+      en: [
+        'Headings, paragraphs, ordered and unordered lists, tables, quotes, emphasis and links arrive as real Word content — not as a screenshot of the page',
+        'Inline SVG is turned into PNG before packing, so a diagram is not deleted wholesale by the sanitizer',
+        'Plain links survive: an `<a href>` is content, not a subresource, and the strip pass leaves it alone',
+        'Up to 200 files per batch at 100 MB each, mixable with other source formats',
+      ],
+    },
+    limits: {
+      zh: [
+        '远程图片、样式表与字体在打包前被剥掉：Word 打开文档时不该替你发起网络请求。图片要么以 data URI 内嵌，要么以相对路径原样保留——相对资源不会随包内嵌',
+        '版式不是逐像素复刻：Word 用自己的 HTML 子集与文档主题渲染，复杂 CSS（绝对定位、浮动、网格、媒体查询）会退化，页边距与字体由 Word 决定',
+        '产物依赖 Word 对 altChunk 的支持；少数不处理 altChunk 的阅读器可能显示不出正文，交付前请用目标环境打开确认',
+        '脚本与事件处理器在净化时被移除，依赖 JavaScript 才有内容的页面只会剩下静态标记',
+      ],
+      en: [
+        'Remote images, stylesheets and fonts are stripped before packing: Word must not issue a network request while opening your file. Images either arrive as data URIs or stay as relative paths — relative resources are not embedded into the package',
+        'Layout is not reproduced pixel for pixel: Word renders the markup through its own HTML subset and document theme, so complex CSS (absolute positioning, floats, grid, media queries) degrades, and margins and fonts come from Word',
+        'The result depends on Word supporting altChunk; a reader that does not handle altChunk may show no body text, so open the file in the target environment before delivery',
+        'Scripts and event handlers are removed by the sanitizer, so a page whose content only exists after JavaScript keeps just its static markup',
+      ],
+    },
+    notes: {
+      zh: [
+        '这条与 Markdown → Word 的取舍得不同：那条先把标记解析成语义化 HTML，这条直接打包你给的 HTML 结构；源里有内联样式时，Word 认得出的那部分会跟着走',
+        '同一份 HTML 还能接着转 Markdown、纯文本或 PDF；PDF 那条是整页渲染、没有文字层，与这条正好互补',
+        '远程资源被剥掉这件事会在产物里如实体现，不会假装图片还在',
+      ],
+      en: [
+        'This differs from Markdown → Word: that route parses markers into semantic HTML first, while this one packs the HTML structure you supply; inline styles survive to the extent Word recognises them',
+        'The same HTML can carry on to Markdown, plain text or PDF; the PDF route renders whole pages with no text layer, which complements this one',
+        'Stripped remote resources are reflected honestly in the result — nothing pretends the images are still there',
+      ],
+    },
+    faq: [
+      {
+        q: { zh: 'Word 打开时会联网吗？', en: 'Will Word go online when it opens the file?' },
+        a: {
+          zh: '不会。指向 http(s) 的图片、样式表与字体在打包前就被剥掉，协议相对地址也不例外；文档里只剩内嵌数据与相对路径。链接本身保留，只有你主动点它才会打开浏览器。',
+          en: 'No. Images, stylesheets and fonts behind http(s) URLs are stripped before packing, protocol-relative addresses included; only embedded data and relative paths remain. Links stay, but only a click of yours opens the browser.',
+        },
+      },
+      {
+        q: { zh: '内联 SVG 图会变成什么？', en: 'What happens to an inline SVG diagram?' },
+        a: {
+          zh: '在打包前栅格化成 PNG。净化器为移除可执行标记所用的 html 配置里没有 svg 标签，所以顺序必须是“先栅格化、再净化”；否则一张图会在结果里整块消失，而转换仍报成功。',
+          en: 'It is rasterized to PNG before packing. The sanitizer’s html profile, which exists to remove executable markup, carries no svg tag, so the order has to be rasterize-then-sanitize; otherwise the diagram disappears from the result while the conversion still reports success.',
+        },
+      },
+      {
+        q: { zh: '为什么打开后排版和浏览器里不一样？', en: 'Why does the layout differ from the browser?' },
+        a: {
+          zh: '因为渲染它的是 Word，不是浏览器。这条路径把结构交给 Word，样式只保留 Word 认得出的那部分；绝对定位、浮动与媒体查询这类浏览器版式没有对应物，页边距与字体也来自 Word 的文档主题。',
+          en: 'Because Word renders it, not a browser. This route hands the structure to Word and keeps only the styling Word understands; absolute positioning, floats and media queries have no counterpart, and margins and fonts come from Word’s document theme.',
+        },
+      },
+    ],
+  },
+  {
+    slug: 'html-to-md',
+    from: 'html',
+    to: 'md',
+    shot: 'preview-edit',
+    published: '2026-10-20',
+    title: {
+      zh: 'HTML 转 Markdown——表格、任务清单与图示都保住',
+      en: 'HTML to Markdown offline — tables and tasks kept',
+    },
+    desc: {
+      zh: '浏览器本地把 HTML 转成 GFM：标题、列表、表格与任务复选框保留，内联 SVG 先栅格化成 PNG，图片仍写成 Markdown 链接。',
+      en: 'Turn an HTML page into GFM in your browser: headings, lists, tables and task checkboxes survive, inline SVG becomes a PNG, images stay as links.',
+    },
+    lede: {
+      zh: '把一篇网页、导出的笔记或富文本片段收进 Markdown 仓库，最怕的是表格被整块吞掉、复选框连行一起消失。这条路径用 Turndown 生成 ATX 标题与围栏代码块，并为表格补了一条 GFM 规则：整张表一次性序列化，单元格文本压平、竖线转义、短行补齐；任务列表的复选框在 `<li>` 里时写成 `[x] ` / `[ ] `。内联 SVG 在转换前先栅格化成 `data:image/png`，否则 Turndown 没有对应规则，整张图只剩几个孤立的文字节点。',
+      en: 'Moving a page, an exported note or a rich-text fragment into a Markdown repository usually goes wrong in two places: the table disappears wholesale and the checkbox takes its line with it. This route uses Turndown for ATX headings and fenced code, and adds a GFM rule for tables: the whole table is serialized at once, cell text is flattened, pipes are escaped and short rows are padded. A checkbox inside an `<li>` becomes `[x] ` / `[ ] `. Inline SVG is rasterized to `data:image/png` before conversion — Turndown has no rule for it, and without that step a diagram collapses to a handful of disconnected text nodes.',
+    },
+    keeps: {
+      zh: [
+        '标题、列表、强调、删除线、引用块、围栏代码块与行内代码，按 GFM 语法输出',
+        '表格按 GFM 管道表输出；单元格内的竖线会转义，长短不齐的行按表头列数补齐',
+        '`<li>` 里的任务复选框写成 `[x] ` / `[ ] `，列表层级由 Turndown 的列表规则保留',
+        '图片保留为 `![alt](src)`；内联 SVG 先栅格化成 PNG data URI 再写成图片链接',
+        '一批最多 200 个文件、单个 100 MB',
+      ],
+      en: [
+        'Headings, lists, emphasis, strikethrough, quotes, fenced code blocks and inline code come out as GFM',
+        'Tables become GFM pipe tables; pipes inside cells are escaped and ragged rows are padded to the header’s column count',
+        'A checkbox inside an `<li>` becomes `[x] ` / `[ ] `, with list nesting left to Turndown’s list rules',
+        'Images stay as `![alt](src)`; inline SVG is rasterized to a PNG data URI and written as an image link',
+        'Up to 200 files per batch at 100 MB each',
+      ],
+    },
+    limits: {
+      zh: [
+        '单元格内的行内格式被压平成纯文本：一张表里的加粗、链接与代码样式不会带进 Markdown（这是保住整张表的代价）',
+        '嵌套表格只按外层处理，内层内容以文本并入外层单元格；HTML 的 `<div>`、class、内联样式与 CSS 全部丢弃',
+        '远程图片不会被下载，但会原样写成 `![](https://…)`：扩展自身不发起请求，打开这份 Markdown 的编辑器或预览器可能去取图',
+        '不是可逆转换：HTML → Markdown → HTML 回不到原页面，结构、样式与脚本都不会复原',
+        '内联 SVG 栅格化后是位图，矢量可编辑性丢失',
+      ],
+      en: [
+        'Inline formatting inside a cell is flattened to text: bold, links and code styling within a table do not reach the Markdown — the price of keeping the table intact',
+        'Nested tables are handled through the outer table only, with inner content merged into the outer cell as text; `<div>`, classes, inline styles and CSS are all dropped',
+        'Remote images are not downloaded, but they are written out as `![](https://…)`: the extension makes no request, while the editor or previewer you open the Markdown with may fetch them',
+        'It is not reversible: HTML → Markdown → HTML does not return the original page; structure, styling and scripts do not come back',
+        'A rasterized inline SVG is a bitmap, so vector editability is lost',
+      ],
+    },
+    notes: {
+      zh: [
+        '适合把文档站、邮件与富文本导出收进仓库；需要保留完整版式时改走 HTML → PDF（整页渲染，但没有文字层）',
+        '同一份 HTML 还能转 Word 或纯文本；那两条分别保留 Word 结构与阅读顺序，与这条的取舍不同',
+      ],
+      en: [
+        'Good for pulling docs sites, emails and rich-text exports into a repository; when the full layout matters, take HTML → PDF instead (whole-page rendering, but no text layer)',
+        'The same HTML can go to Word or plain text; those routes keep Word structure and reading order respectively, with different trade-offs',
+      ],
+    },
+    faq: [
+      {
+        q: { zh: '表格里的加粗为什么没了？', en: 'Why did the bold text inside my table disappear?' },
+        a: {
+          zh: '因为整张表由一条规则一次性序列化，单元格取的是 textContent 再压平空白。这样做换来的是表格结构一定不丢；若逐格保留行内标记，嵌套表格与短行就会把输出撑破。',
+          en: 'Because the whole table is serialized by one rule, and each cell is reduced to its textContent with whitespace flattened. That is what guarantees the table structure survives; preserving inline markup cell by cell would break the output on nested tables and ragged rows.',
+        },
+      },
+      {
+        q: { zh: '内联 SVG 会怎样？', en: 'What happens to inline SVG?' },
+        a: {
+          zh: '先离屏渲染成 PNG，再写成 `![alt](data:image/png;base64,…)`。没有这一步时 Turndown 会把整个 `<svg>` 子树压成几个文字节点，图就没了。位图意味着不能再在 Markdown 里编辑矢量。',
+          en: 'It is rendered offscreen to PNG first, then written as `![alt](data:image/png;base64,…)`. Without that step Turndown flattens the whole `<svg>` subtree into a few text nodes and the diagram is gone. Being a bitmap, it can no longer be edited as a vector inside the Markdown.',
+        },
+      },
+      {
+        q: { zh: '转换时会不会去抓网页里的图片？', en: 'Does the conversion fetch the page’s images?' },
+        a: {
+          zh: '不会。扩展没有 host 权限，转换器只把 `<img src>` 写进 Markdown。之后你用某个编辑器打开这份 .md，若它选择去取远程图片，那是那个软件的请求，不是这一次转换发出的。',
+          en: 'No. The extension has no host permissions, and the converter only writes `<img src>` into the Markdown. If the editor you later open the .md with chooses to fetch a remote image, that request belongs to that software, not to this conversion.',
+        },
+      },
+    ],
+  },
+  {
+    slug: 'webp-to-png',
+    from: 'webp',
+    to: 'png',
+    shot: 'batch-results',
+    published: '2026-10-20',
+    title: {
+      zh: 'WebP 转 PNG——透明保留，本地重编码',
+      en: 'WebP to PNG offline — transparency kept',
+    },
+    desc: {
+      zh: '在浏览器里把 .webp 解码并重编码为 PNG，透明通道原样保留；可批量、可限制最长边，文件不上传。',
+      en: 'Decode a .webp in your browser and re-encode it as a PNG with transparency intact. Batch it, cap the long edge, no upload.',
+    },
+    lede: {
+      zh: 'WebP 省带宽，但不是每个编辑器、印刷流程或旧系统都收。这条路径把图片解码到 `<canvas>`，再编码成 PNG：PNG 分支不铺白底，所以带透明度的 WebP 转过去仍然是透明背景。解码后若最长边超过 8192 px 会先等比缩小（浏览器画布的单边上限），输出面板里的“最长边”也会在这一步生效；PNG 是无损容器，质量与目标体积两个参数对它不作用。',
+      en: 'WebP saves bandwidth, but not every editor, print pipeline or legacy system accepts it. This route decodes the image into a `<canvas>` and encodes PNG: the PNG branch adds no white fill, so a WebP with transparency stays transparent. If the long edge exceeds 8192 px after decoding it is scaled down proportionally first (the browser’s per-side canvas ceiling), and the “max edge” output setting applies at this step too. PNG is lossless, so the quality and target-size levers do not act on it.',
+    },
+    keeps: {
+      zh: [
+        '像素内容按原分辨率重编码（除非触发 8192 px 单边上限，或你设置了更小的最长边）',
+        '透明通道保留：PNG 分支不铺白底，alpha 原样写进产物',
+        '批量：一批最多 200 个文件、单个 100 MB，可一次转完',
+        '图片输出参数里的最长边对这条路径生效',
+      ],
+      en: [
+        'Pixels are re-encoded at the original resolution unless the 8192 px per-side ceiling or a smaller max-edge setting applies',
+        'Transparency is kept: the PNG branch adds no white fill, so alpha is written through',
+        'Batch: up to 200 files per batch and 100 MB per file',
+        'The max-edge output setting takes effect on this route',
+      ],
+    },
+    limits: {
+      zh: [
+        '动图 WebP 只画第一帧：`drawImage` 只取一帧，而多帧检测只覆盖 GIF，所以这条路径不会为动图 WebP 单独给出丢帧提示',
+        '重编码会改变字节：这是解码再编码，不是容器换壳；无损 PNG 通常比原 WebP 大，差距取决于画面',
+        'EXIF 方向、ICC 配置等元数据不随 canvas 走；浏览器解码时已按方向摆正，但其它元数据不会写回',
+        '被 8192 px 上限缩过的图无法从产物里恢复原尺寸',
+      ],
+      en: [
+        'Animated WebP keeps the first frame only: `drawImage` takes one frame, while multi-frame detection covers GIF alone, so this route gives no lost-frame notice for an animated WebP',
+        'Re-encoding changes the bytes: this is decode-then-encode, not a container swap; a lossless PNG is usually larger than the source WebP',
+        'Metadata such as EXIF orientation and ICC profiles does not travel through the canvas; orientation is already applied at decode time, but the other fields are not written back',
+        'An image scaled down by the 8192 px ceiling cannot be restored from the result',
+      ],
+    },
+    notes: {
+      zh: [
+        '要保留动画，这条路径不对：它只取首帧。反过来，PNG → WebP 也走同一条画布路径',
+        '同一张图还能转 JPEG（透明会被白底取代）或 PDF（一页一图）；尺寸与格式的取舍各自写在对应页',
+      ],
+      en: [
+        'This route is not for keeping animation: it takes the first frame. In the other direction, PNG → WebP takes the same canvas path',
+        'The same image can go to JPEG (transparency replaced by white) or PDF (one image per page); each page spells out its own trade-offs',
+      ],
+    },
+    faq: [
+      {
+        q: { zh: '透明背景会变白吗？', en: 'Will the transparent background turn white?' },
+        a: {
+          zh: '不会。转 PNG 的分支不铺白底，alpha 通道保留。只有目标是 JPEG 时才会先铺白，因为 JPEG 没有透明通道。',
+          en: 'No. The PNG branch adds no white fill and keeps the alpha channel. White is laid down only for a JPEG target, which has no alpha channel.',
+        },
+      },
+      {
+        q: { zh: '为什么转出来的 PNG 比 WebP 大？', en: 'Why is the PNG larger than the WebP?' },
+        a: {
+          zh: '因为这是一次完整的解码再编码，不是改扩展名。WebP 用有损或更高效的压缩，PNG 是无损容器；画面越复杂，差距越明显。',
+          en: 'Because this is a full decode and re-encode, not a renamed file. WebP uses lossy or more efficient compression while PNG is a lossless container; busier images widen the gap.',
+        },
+      },
+      {
+        q: { zh: '我的图超过 8192 像素会怎样？', en: 'What if my image is larger than 8192 pixels?' },
+        a: {
+          zh: '浏览器单边画布上限是 8192 px，超过时按比例缩到上限再编码；你也可以在输出参数里把最长边设得更小。需要原尺寸时请先确认原图尺寸，产物不会标注它被缩过。',
+          en: 'The browser’s per-side canvas ceiling is 8192 px; anything larger is scaled down proportionally before encoding, and you can set a smaller max edge in the output options. Check the source dimensions first if you need full size — the result does not label itself as downscaled.',
+        },
+      },
+    ],
+  },
+  {
+    slug: 'gif-to-jpg',
+    from: 'gif',
+    to: 'jpg',
+    shot: 'batch-results',
+    published: '2026-10-20',
+    title: {
+      zh: 'GIF 转 JPEG——首帧、白底、本地完成',
+      en: 'GIF to JPEG offline — first frame on white',
+    },
+    desc: {
+      zh: '把 .gif 解成静态 .jpg：浏览器取第一帧，铺白底后重编码；多帧 GIF 会在结果里如实标记丢帧，文件不上传。',
+      en: 'Turn a .gif into a still .jpg in the browser: the first frame is flattened onto white and re-encoded, and extra frames are reported as lost.',
+    },
+    lede: {
+      zh: 'GIF 常被当成“会动的图片”，但很多接收方只想要一张静态封面。这条路径用 `<img>` 解码出第一帧，画到画布上，再编码成 JPEG。JPEG 没有 alpha 通道，所以编码前会先铺满白底——这不是丢像素，而是把透明区域按白纸处理。若输入确实是多帧 GIF（按块结构数到第二个 image descriptor 就判定），结果会带上丢帧标记，界面里明确写出“其它帧没有保留”，而不是悄悄交出一张静帧。',
+      en: 'A GIF is often used as “the moving picture”, while the recipient just wants a still cover. This route decodes the first frame through `<img>`, draws it to a canvas and encodes JPEG. JPEG has no alpha channel, so the canvas is filled white first — not lost pixels, but treating transparent areas as white paper. If the input really has more than one frame (the block structure is walked until a second image descriptor appears), the result carries a lost-frames flag and the UI says so instead of quietly handing back a still.',
+    },
+    keeps: {
+      zh: [
+        '第一帧的全部像素，按原尺寸重编码（触发 8192 px 单边上限时等比缩小）',
+        '透明区域按白底落地，颜色不串到别的像素',
+        '多帧 GIF 的丢帧会在结果里标记，界面如实披露',
+        'JPEG 的质量、目标体积与最长边参数在这条路径上生效；一批最多 200 个文件',
+      ],
+      en: [
+        'Every pixel of the first frame, re-encoded at the original size unless the 8192 px per-side ceiling applies',
+        'Transparent areas land on white, with no colour bleeding into other pixels',
+        'A multi-frame GIF carries a lost-frames flag, surfaced in the UI',
+        'Quality, target size and max edge apply on this route; up to 200 files per batch',
+      ],
+    },
+    limits: {
+      zh: [
+        '动画不会保留：产物是一张静态 JPEG。需要动图时不要走这条',
+        '透明丢失：alpha 被白底取代，半透明像素会与白色混合',
+        'JPEG 有损：反复转换会累积压缩损失',
+        '多帧检测只覆盖 GIF；APNG 与动图 WebP 不在这条路径的检测范围内，但它们同样只会走一帧',
+      ],
+      en: [
+        'Animation is not kept: the result is a still JPEG, so do not take this route for a moving image',
+        'Transparency is lost: alpha is replaced by white, and semi-transparent pixels blend with it',
+        'JPEG is lossy, so repeated conversions accumulate compression loss',
+        'Multi-frame detection covers GIF only; APNG and animated WebP are outside its scope here, though they too contribute a single frame',
+      ],
+    },
+    notes: {
+      zh: [
+        '想要透明背景就别选 JPEG：GIF → PNG 保留 alpha，只有确实需要 JPEG 时才接受白底',
+        'GIF 还能直接铺成一页 PDF（一页一图、无文字层）；那条同样披露丢帧',
+      ],
+      en: [
+        'For a transparent background, do not pick JPEG: GIF → PNG keeps alpha, and white is only the price of genuinely needing JPEG',
+        'A GIF can also become a one-page PDF (one image per page, no text layer); that route discloses the lost frames as well',
+      ],
+    },
+    faq: [
+      {
+        q: { zh: '为什么只剩一帧？', en: 'Why do I get a single frame?' },
+        a: {
+          zh: '静态 JPEG 存不下时间轴。浏览器在这里通过 `<img>` 只解码第一帧；工具会先判断 GIF 是否真的多帧，是的话在结果里标记丢帧，避免把“静帧”当成完整转换。',
+          en: 'A still JPEG has nowhere to store a timeline. The browser decodes the first frame through `<img>`; the tool first checks whether the GIF really has multiple frames and flags the loss when it does, rather than presenting a still as the complete conversion.',
+        },
+      },
+      {
+        q: { zh: '透明背景去哪了？', en: 'Where did the transparency go?' },
+        a: {
+          zh: '被白底取代了。JPEG 没有透明通道，编码前画布会填满白色；半透明像素会与白色混合。要保留透明，请选 GIF → PNG。',
+          en: 'It was replaced by white. JPEG has no alpha channel, so the canvas is filled white before encoding and semi-transparent pixels blend with it. To keep transparency, choose GIF → PNG.',
+        },
+      },
+      {
+        q: { zh: '质量参数会生效吗？', en: 'Do the quality settings apply?' },
+        a: {
+          zh: '会。JPEG 是这条路径最终写出的格式，输出参数里的质量、目标体积与最长边都在最后编码时生效。',
+          en: 'Yes. JPEG is the format this route finally writes, so quality, target size and max edge from the output settings all act at the final encode.',
+        },
+      },
+    ],
+  },
+  {
+    slug: 'webp-to-pdf',
+    from: 'webp',
+    to: 'pdf',
+    shot: 'batch-results',
+    published: '2026-10-20',
+    title: {
+      zh: 'WebP 转 PDF——一页一图，按像素定页面',
+      en: 'WebP to PDF offline — one page, exact pixel size',
+    },
+    desc: {
+      zh: '在浏览器里把 .webp 铺成一页 PDF：页面尺寸按图片像素换算，透明铺白，整页只有图像、没有文字层。',
+      en: 'Put a .webp on a PDF page sized to its pixels, in your browser. Transparency is flattened onto white and no text layer is added.',
+    },
+    lede: {
+      zh: '把一张 WebP 交成 PDF，通常是为了进打印流程或塞进只收 PDF 的系统。这条路径先解码图片，铺白底（PDF 页面没有透明概念），非 JPEG 源统一编码成 PNG，再由 jsPDF 以图片自身比例建页：宽高按 96 DPI 换算成点（×0.75），横图用横向页面、竖图用纵向页面，图像铺满整页、不留页边距。单张转换时 PDF 里只有这一张图，没有文字层；勾选「合并为一份 PDF」时整批各占一页，顺序与文件列表一致。',
+      en: 'Handing a WebP over as a PDF usually means a print pipeline or a system that only accepts PDFs. This route decodes the image, fills white (a PDF page has no transparency), encodes non-JPEG sources as PNG, and has jsPDF create a page at the image’s own aspect: width and height are converted from 96 DPI to points (×0.75), landscape for wide images and portrait for tall ones, with the image filling the page and no margins. A single conversion holds that one image and no text layer; tick “Merge into one PDF” and the batch takes one page each, in list order.',
+    },
+    keeps: {
+      zh: [
+        '页面比例与图片一致：宽高由像素按 96 DPI 换算成点，横竖方向自动选择',
+        '透明区域以白底落地，不会变成黑色或杂色',
+        '大图先按 8192 px 单边上限等比缩小，再写进 PDF',
+        '图像铺满整页、不留页边距；默认每张图产出一份 PDF，勾选「合并为一份 PDF」后整批写成一份（每张一页，最多 200 页）',
+      ],
+      en: [
+        'The page matches the image: width and height are converted from pixels at 96 DPI to points, with orientation chosen automatically',
+        'Transparent areas land on white rather than black or noise',
+        'Oversized images are scaled to the 8192 px per-side ceiling first',
+        'The image fills the page with no margins; each input produces its own PDF by default, or the whole batch becomes one document with “Merge into one PDF” ticked (one page per image, up to 200 pages)',
+      ],
+    },
+    limits: {
+      zh: [
+        '没有文字层：这是图像 PDF，文字不可搜索、不可选中、不可复制',
+        '默认一个输入对应一份 PDF；勾选「合并为一份 PDF」后才把整批合成一份，任一张失败则整批不产出',
+        '动图 WebP 只取第一帧，而且多帧检测只覆盖 GIF，动图 WebP 不会单独提示',
+        '透明被白底取代；EXIF 与 ICC 等元数据不会写进 PDF',
+        '页面尺寸是像素按 96 DPI 的名义尺寸，打印机可能再按“适合纸张”缩放一次',
+      ],
+      en: [
+        'No text layer: this is an image PDF, so text cannot be searched, selected or copied',
+        'One input gives one PDF by default; ticking “Merge into one PDF” turns the whole batch into one document, and one bad image fails the entire group',
+        'Animated WebP contributes its first frame only, and multi-frame detection covers GIF alone, so an animated WebP gets no separate notice',
+        'Transparency is replaced by white; metadata such as EXIF and ICC does not enter the PDF',
+        'The page is the nominal size of the pixels at 96 DPI, so a printer may scale it again to fit paper',
+      ],
+    },
+    notes: {
+      zh: [
+        '要可搜索的文字，请从有文字层的源（HTML / Word / Markdown）转 PDF；图片转 PDF 天生只有像素',
+        '要把一组 WebP 交成一份文档，勾选「合并为一份 PDF」即可；同一张 WebP 还能转 PNG（保留透明）或 JPEG（白底、有损），输出参数里的质量与体积不作用于 PDF',
+      ],
+      en: [
+        'For searchable text, start from a source that has a text layer (HTML, Word, Markdown); an image-to-PDF route is pixels by nature',
+        'To hand over a set of WebP files as one document, tick “Merge into one PDF”; the same WebP can also go to PNG (transparency kept) or JPEG (white background, lossy), and the quality and target-size settings do not act on PDF',
+      ],
+    },
+    faq: [
+      {
+        q: { zh: 'PDF 里的文字能搜索吗？', en: 'Can text in the PDF be searched?' },
+        a: {
+          zh: '不能。这份 PDF 是一张完整的图片铺在页面上，不包含文字层。需要可搜索的文字，请从 HTML、Word 或 Markdown 出发。',
+          en: 'No. The PDF is one complete image laid on the page and carries no text layer. For searchable text, start from HTML, Word or Markdown.',
+        },
+      },
+      {
+        q: { zh: '页面尺寸是怎么定的？', en: 'How is the page size determined?' },
+        a: {
+          zh: '按图片像素以 96 DPI 换算成点：宽高各乘 0.75，横图用横向、竖图用纵向，图像铺满整页。它不是 A4 或 Letter，打印机可能会再缩放一次。',
+          en: 'From the image’s pixels at 96 DPI: width and height are multiplied by 0.75, wide images get a landscape page and tall ones portrait, and the image fills the page. It is not A4 or Letter, and a printer may scale it again.',
+        },
+      },
+      {
+        q: { zh: '透明背景会怎样？', en: 'What happens to a transparent background?' },
+        a: {
+          zh: '变成白色。PDF 页面没有透明通道，编码前画布会先铺白底；半透明像素与白色混合。',
+          en: 'It becomes white. A PDF page has no alpha channel, so the canvas is filled white before encoding and semi-transparent pixels blend with it.',
+        },
+      },
+    ],
+  },
+  {
+    slug: 'html-to-txt',
+    from: 'html',
+    to: 'txt',
+    shot: 'preview-edit',
+    published: '2026-10-20',
+    title: {
+      zh: 'HTML 转纯文本——按阅读顺序抽取，不上传',
+      en: 'HTML to plain text offline — in reading order',
+    },
+    desc: {
+      zh: '在浏览器里从 HTML 抽取可读文本：块级元素换行，列表保留编号，链接保留 URL，表格单元格用制表符分隔。',
+      en: 'Extract readable text from an HTML page in the browser: blocks become line breaks, lists keep their numbers, links keep their URLs.',
+    },
+    lede: {
+      zh: '把一封邮件、一篇文档站页面或一段富文本变成纯文本，难点不是去标签，而是保住阅读顺序。这条路径先用 DOMParser 解析，再递归遍历：`script` / `style` / `noscript` 整块丢弃，`<br>` 转换行，图片按 `alt` 写成 `[Image: …]`，有序列表按位置编号并尊重 `start`，嵌套列表每层缩进两个空格，链接在文字后追加 ` [href]`（页内锚点与 `mailto:` 除外），表格单元格以制表符分隔。最后把三个以上连续换行压成两个。',
+      en: 'Turning an email, a docs page or a rich-text fragment into plain text is less about deleting tags than about preserving reading order. This route parses with DOMParser and walks the tree: `script` / `style` / `noscript` are dropped wholesale, `<br>` becomes a newline, images become `[Image: …]` from their `alt`, ordered lists are numbered by position and honour `start`, nested lists indent two spaces per level, links append ` [href]` after their text (in-page anchors and `mailto:` excluded), and table cells are separated by tabs. Runs of three or more newlines collapse to two at the end.',
+    },
+    keeps: {
+      zh: [
+        '有序列表按实际位置编号，并尊重 `start`；嵌套层级用两空格缩进表示（最多 6 层）',
+        '链接保留 URL，写在链接文字之后；`#` 锚点与 `mailto:` 不追加',
+        '图片用 `alt` 写成 `[Image: alt]`，没有 alt 时写 `[Image]`',
+        '表格按行输出，单元格之间用制表符分隔',
+        '复杂 HTML 的解析交给 DOMParser，实体、嵌套与畸形标记都不会让文本错位',
+      ],
+      en: [
+        'Ordered lists are numbered by position and honour `start`; nesting is shown with two spaces per level, capped at six',
+        'Links keep their URL after the link text; `#` anchors and `mailto:` are not appended',
+        'Images become `[Image: alt]` from their alt text, or `[Image]` when there is none',
+        'Tables come out row by row with tabs between cells',
+        'DOMParser handles the HTML, so entities, nesting and malformed markup do not shift the text',
+      ],
+    },
+    limits: {
+      zh: [
+        '不执行 CSS：`display:none` 或隐藏区域里的文字仍会被抽取，判断“可见”不是这一层的职责',
+        '表格只做制表符分隔，不做列对齐；合并单元格、列宽与表头语义都不会保留',
+        '列表只处理有序与无序两种：`type`（字母 / 罗马数字）与 `reversed` 被忽略，编号一律用十进制位置表示',
+        '版式、颜色、字号与图片像素全部丢失，产物是纯文本',
+        '脚本动态生成的内容不在 HTML 里，也就不会被抽出来',
+      ],
+      en: [
+        'CSS is not executed: text inside `display:none` or hidden regions is still extracted, because deciding what is visible is not this layer’s job',
+        'Tables get tabs, not alignment; merged cells, column widths and header semantics are not preserved',
+        'Only ordered and unordered lists are handled: `type` (letters, roman numerals) and `reversed` are ignored, and numbering is always decimal position',
+        'Layout, colour, font size and image pixels are all gone — the result is plain text',
+        'Content generated by scripts is not in the HTML, so it cannot be extracted',
+      ],
+    },
+    notes: {
+      zh: [
+        '适合做全文检索、给命令行工具喂输入，或把网页正文贴进邮件与工单',
+        '同一份 HTML 还能转 Markdown（保留结构）或 Word（保留可编辑段落）；纯文本这条只保留阅读顺序',
+      ],
+      en: [
+        'Good for full-text search, feeding a command-line tool, or pasting a page’s body into an email or a ticket',
+        'The same HTML can go to Markdown (structure kept) or Word (editable paragraphs); the plain-text route keeps only reading order',
+      ],
+    },
+    faq: [
+      {
+        q: { zh: '列表编号为什么还在？', en: 'Why are the list numbers still there?' },
+        a: {
+          zh: '编号不是文本节点，而是由 `<li>` 的位置生成的。这条路径按位置补上 `1.`、`2.`，并尊重 `<ol start>`；不补的话，一份编号步骤会变成一串没有顺序的句子。',
+          en: 'The numbers are not text nodes; they are generated from each `<li>`’s position. This route writes `1.`, `2.` from that position and honours `<ol start>`; without it, a numbered procedure would become a run of sentences with no order.',
+        },
+      },
+      {
+        q: { zh: '隐藏的文字也会被抽出来吗？', en: 'Is hidden text extracted too?' },
+        a: {
+          zh: '会。这一层只按标签结构走，不读 CSS，也不判断元素是否被 `display:none` 隐藏；它回答的是“HTML 里写了什么”，不是“浏览器里看见什么”。',
+          en: 'Yes. This layer walks the tag structure without reading CSS or checking `display:none`; it answers “what the HTML says”, not “what the browser shows”.',
+        },
+      },
+      {
+        q: { zh: '图片为什么变成 [Image]？', en: 'Why do images become [Image]?' },
+        a: {
+          zh: '纯文本存不下图片。有 `alt` 时写成 `[Image: alt]`，没有时写 `[Image]`；这是提醒读者原位置有一张图，而不是把图片内容转成文字。',
+          en: 'Plain text cannot hold an image. With alt text it becomes `[Image: alt]`, without it `[Image]`; the marker tells the reader an image sits there, rather than transcribing its content.',
+        },
+      },
+    ],
+  },
+  {
+    slug: 'xlsx-to-html',
+    from: 'xlsx',
+    to: 'html',
+    shot: 'batch-files',
+    published: '2026-10-20',
+    title: {
+      zh: 'Excel 转 HTML——每个工作表一张表，本地生成',
+      en: 'Excel to HTML offline — one table per sheet',
+    },
+    desc: {
+      zh: '在浏览器里把 .xlsx 变成独立 HTML：每个工作表一张表并带表名标题，日期落成文本，产物不含脚本。',
+      en: 'Turn .xlsx into a standalone HTML page in your browser: one table per sheet with a heading, dates as text, and no scripts in the output.',
+    },
+    lede: {
+      zh: '需要把表格贴进内网、邮件或静态站点时，Excel 的公式与样式反而成了负担。这条路径用 SheetJS 读工作簿（`cellDates` 标记日期、统一 `dateNF` 决定渲染格式），把每个工作表转成一张 HTML 表：多张表时每张前加 `<h2>工作表名</h2>`，只保留表格片段，再整体过一遍 DOMPurify，最后包成带字符集与标题的完整文档。产物是单个 .html，所有工作表都在里面，没有脚本、没有外部依赖。',
+      en: 'When a table has to go into an intranet page, an email or a static site, Excel’s formulas and styling become baggage. This route reads the workbook with SheetJS (`cellDates` flags dates and one `dateNF` decides how they render), turns each sheet into an HTML table, puts an `<h2>` with the sheet name in front of each when there is more than one, keeps only table fragments, sanitizes the whole thing with DOMPurify and wraps it into a full document with a charset and title. The result is one .html with every sheet inside, no scripts and no external dependencies.',
+    },
+    keeps: {
+      zh: [
+        '每个工作表都导出，多表时用 `<h2>` 标出表名，不会只给你第一张',
+        '单元格值按显示文本落地：日期由统一格式渲染成文本，不做本地化猜测',
+        '公式单元格取工作簿里缓存的计算结果，HTML 里不写公式本身',
+        '产物是一个独立完整的 .html（声明字符集与标题），双击即可离线打开',
+        '一批最多 200 个文件、单个 100 MB',
+      ],
+      en: [
+        'Every sheet is exported, with an `<h2>` naming each one when there are several — never just the first',
+        'Cell values land as displayed text: dates are rendered through one fixed format rather than a locale guess',
+        'Formula cells carry the cached result stored in the workbook; the formula itself is not written into the HTML',
+        'The output is one complete .html with a charset and title that opens offline on a double-click',
+        'Up to 200 files per batch at 100 MB each',
+      ],
+    },
+    limits: {
+      zh: [
+        '不带 Excel 的视觉样式：字体、填充色、边框、行高列宽、条件格式与冻结窗格都不会出现',
+        '工作簿里的图片、图表与批注不进入 HTML——表格序列化只处理单元格',
+        '多工作表一定合并进同一个 HTML；要“一表一文件”请走 Excel → CSV（多表会打成 ZIP）',
+        '不给 Excel 回读：HTML 是单向出口，要回到表格请用 CSV → Excel',
+      ],
+      en: [
+        'Excel’s visual styling does not come along: fonts, fills, borders, row heights and column widths, conditional formatting and frozen panes are absent',
+        'Images, charts and comments inside the workbook do not enter the HTML — the table serializer handles cells',
+        'Multiple sheets always share one HTML; for one file per sheet, use Excel → CSV, which packs them into a ZIP',
+        'Excel cannot read it back: HTML is a one-way exit, so return to a spreadsheet through CSV → Excel',
+      ],
+    },
+    notes: {
+      zh: [
+        '适合把报表、名单与导出数据发布成可离线打开的静态页',
+        '要保留单元格里的原始值给下游程序，CSV 或 JSON 更合适；这条路径面向“给人看”',
+        '同一份 .xlsx 还能转 PDF（整页渲染、无文字层）或 CSV',
+      ],
+      en: [
+        'Good for publishing a report, a roster or an export as a static page that opens offline',
+        'For raw cell values feeding another program, CSV or JSON fits better; this route is aimed at people reading',
+        'The same .xlsx can go to PDF (whole-page rendering, no text layer) or CSV',
+      ],
+    },
+    faq: [
+      {
+        q: { zh: '日期为什么变成了文本？', en: 'Why did dates become text?' },
+        a: {
+          zh: 'Excel 的日期本质是一个带格式的数字。这条路径在解析时把日期单元格标记出来，再按统一格式渲染成文本，避免出现 45296 这样的序列号；代价是失去了 Excel 里的区域化显示。',
+          en: 'An Excel date is a number with a format. This route flags date cells while parsing and renders them through one fixed format, so a serial like 45296 does not leak through; the cost is Excel’s locale-specific display.',
+        },
+      },
+      {
+        q: { zh: '多个工作表会分开下载吗？', en: 'Are multiple sheets downloaded separately?' },
+        a: {
+          zh: '不会。它们按顺序进入同一个 HTML，每张前面有 `<h2>` 表名；想一表一个文件，请用 Excel → CSV，那条会把多表打包成 ZIP。',
+          en: 'No. They enter one HTML in order, each preceded by an `<h2>` with its name; for one file per sheet, use Excel → CSV, which packs them into a ZIP.',
+        },
+      },
+      {
+        q: { zh: '样式和图表去哪了？', en: 'Where did the styling and charts go?' },
+        a: {
+          zh: '都没有进入产物。表格序列化只输出单元格文本与表格结构，Excel 的字体、颜色、条件格式、图片与图表不在其中；这是“变成网页表格”而不是“把 Excel 截图成网页”。',
+          en: 'Neither made it into the result. The table serializer writes cell text and table structure only; Excel’s fonts, colours, conditional formatting, images and charts are not part of it. This turns the workbook into a web table, not into a screenshot of Excel.',
+        },
+      },
+    ],
+  },
+  {
+    slug: 'png-to-html',
+    from: 'png',
+    to: 'html',
+    shot: 'batch-results',
+    published: '2026-10-20',
+    title: {
+      zh: 'PNG 转 HTML——原始字节内嵌，透明与像素不丢',
+      en: 'PNG to HTML offline — the original bytes, embedded',
+    },
+    desc: {
+      zh: '把 .png 包成单图 HTML：原始字节以 data URI 内嵌，不重编码，透明与像素原样保留，文件可离线打开。',
+      en: 'Wrap a .png in a one-image HTML page with its original bytes as a data URI: no re-encode, transparency intact, and it opens anywhere.',
+    },
+    lede: {
+      zh: '需要把一张图交给“只收网页”的地方——邮件模板、内网文章、单文件归档——最稳的做法是不碰像素。这条路径用 FileReader 把上传的 PNG 字节直接读成 data URI，写进一个 `<img src>`：没有 canvas、没有重编码，透明通道与原始像素一个字节都不变。`alt` 与 `title` 取源文件名（做 HTML 转义），页面自带居中版式与 `max-width: 100%`，窄屏上按比例缩显，但内嵌的仍是原始分辨率。',
+      en: 'When an image has to go somewhere that only accepts a web page — an email template, an intranet article, a single-file archive — the safest move is not to touch the pixels. This route reads the uploaded PNG’s bytes into a data URI with FileReader and writes them into one `<img src>`: no canvas, no re-encode, with alpha and every original pixel unchanged. `alt` and `title` come from the source file name (HTML-escaped), and the page centres the image with `max-width: 100%`, so it scales down on narrow screens while the embedded data keeps its full resolution.',
+    },
+    keeps: {
+      zh: [
+        '原始字节：不做解码与重编码，透明、像素与 PNG 自带的元数据都在',
+        '`alt` / `title` 取源文件名并做转义，读屏与悬停都有说明',
+        '单文件自包含：图片以 data URI 内嵌，没有外部引用，断网也能打开',
+        '页面在窄屏上按比例缩显，不改变内嵌的分辨率',
+        '一批最多 200 个文件、单个 100 MB',
+      ],
+      en: [
+        'The original bytes: no decode or re-encode, so alpha, pixels and the PNG’s own metadata all remain',
+        '`alt` and `title` come from the source file name and are escaped, giving both screen readers and hover a label',
+        'Self-contained in one file: the image is a data URI, with no external reference, and opens offline',
+        'The page scales the image down on narrow screens without changing the embedded resolution',
+        'Up to 200 files per batch at 100 MB each',
+      ],
+    },
+    limits: {
+      zh: [
+        '体积会变大：base64 让图片部分约为原字节的 4/3，再加一层 HTML 包装；这是“单文件自包含”的代价',
+        '没有重编码也就没有优化：无法借这次转换降分辨率、换格式或压体积；需要那些请走 PNG → JPEG / WebP',
+        '`alt` 只有文件名，不是对画面内容的描述；要让读屏用户知道图里是什么，请下载后自行改写',
+        'PNG 之外的源（JPEG / WebP / BMP / GIF）走同一条包装路径，但这一页只描述 PNG 的行为',
+      ],
+      en: [
+        'The file grows: base64 makes the image portion about 4/3 of the original bytes, plus the HTML wrapper — the cost of a self-contained file',
+        'No re-encode means no optimisation: this route cannot downscale, change format or shrink the file; use PNG → JPEG or WebP for that',
+        '`alt` is only the file name, not a description of the picture; rewrite it afterwards if screen-reader users need to know what is shown',
+        'Sources other than PNG (JPEG, WebP, BMP, GIF) take the same wrapping path, but this page describes the PNG behaviour only',
+      ],
+    },
+    notes: {
+      zh: [
+        '适合单文件交付、离线归档，以及把图塞进不允许外链的富文本编辑器',
+        '需要更小的体积或 JPEG / WebP 格式，请走图片转换；需要可搜索文字，得从有文字层的源出发',
+      ],
+      en: [
+        'Good for single-file delivery, offline archiving and rich-text editors that refuse external links',
+        'For a smaller file or JPEG / WebP, take an image conversion; for searchable text, start from a source with a text layer',
+      ],
+    },
+    faq: [
+      {
+        q: { zh: '图片会被压缩吗？', en: 'Is the image compressed?' },
+        a: {
+          zh: '不会。这条路径直接内嵌原始字节，不经过 canvas；体积变大是因为 base64 编码约 4/3 的膨胀与 HTML 包装，不是因为重新压缩。',
+          en: 'No. This route embeds the original bytes without touching a canvas; the larger file comes from base64’s roughly 4/3 expansion plus the HTML wrapper, not from re-compression.',
+        },
+      },
+      {
+        q: { zh: '透明背景还在吗？', en: 'Is the transparent background still there?' },
+        a: {
+          zh: '在。没有解码再编码这一步，alpha 通道与原始 PNG 完全一致；页面样式也不会给它加底色。',
+          en: 'Yes. There is no decode-then-encode step, so the alpha channel matches the original PNG exactly, and the page styling adds no background colour.',
+        },
+      },
+      {
+        q: { zh: '能把原图从 HTML 里取回来吗？', en: 'Can the original image be recovered from the HTML?' },
+        a: {
+          zh: '能。`<img src>` 里的 data URI 就是原始 PNG 字节的 base64；把它解码出来与上传的文件逐字节相同。',
+          en: 'Yes. The data URI in `<img src>` is the base64 of the original PNG bytes; decoding it yields a file byte-identical to the one uploaded.',
         },
       },
     ],

@@ -1,15 +1,16 @@
-import { ref, shallowRef, computed, h } from 'vue';
-import type { Ref, ShallowRef, ComputedRef } from 'vue';
+import { ref, computed, h } from 'vue';
+import type { ComputedRef, Ref } from 'vue';
 import { saveAs } from 'file-saver';
 import { FileFormat } from '~/utils/core/types';
-import type { ConvertContext, ConvertResult } from '~/utils/core/types';
+import type { BatchResult, ConvertContext, ConvertResult } from '~/utils/core/types';
 import { converterRegistry } from '~/utils/core/registry';
 import { getBlockedReason } from '~/utils/core/conversion-policy';
 import { isImageOutputFormat, optionsForStep } from '~/utils/core/output-options';
 import { detectFormat } from '~/utils/core/file-detect';
 import { useOutputOptions } from '~/composables/useOutputOptions';
 import { useNameTemplate } from '~/composables/useNameTemplate';
-import { applyNameTemplate } from '~/utils/core/name-template';
+import { applyNameTemplate, baseOf } from '~/utils/core/name-template';
+import { MERGEABLE_IMAGE_FORMATS, MAX_MERGED_PAGES, MergedPdfPageError, buildMergedPdf } from '~/utils/core/image-pdf';
 import { usePdfPages } from '~/composables/usePdfPages';
 import { useHistory } from '~/composables/useHistory';
 import { useRecentTargets } from '~/composables/useRecentTargets';
@@ -57,6 +58,14 @@ export interface ConversionFailure {
    * (or re-run the right one twice) and show the user a duplicate of a file that already worked.
    */
   fileIndex?: number;
+  /**
+   * Every source index a single failure covers, for a merged-image PDF.
+   *
+   * The merged builder is atomic: one unreadable image discards the whole document, so "retry this
+   * failure" has to re-run every page, not just `fileIndex` (which merely names the image that
+   * broke). Absent on ordinary per-file failures.
+   */
+  retryIndexes?: number[];
 }
 
 /**
@@ -120,7 +129,7 @@ export function useConversion() {
   const isConverting: Ref<boolean> = ref(false);
   const error: Ref<string | null> = ref(null);
 
-  const batchResults: Ref<ConvertResult[]> = ref([]);
+  const batchResults: Ref<BatchResult[]> = ref([]);
   const batchFailures: Ref<ConversionFailure[]> = ref([]);
   const currentIndex: Ref<number> = ref(-1);
   const completedCount: Ref<number> = ref(0);
@@ -179,6 +188,17 @@ export function useConversion() {
    * and a cancel pressed before the first file finished shows nothing at all.
    */
   const cancelled: Ref<boolean> = ref(false);
+  /**
+   * Whether the next run should write all selected images into one PDF.
+   *
+   * Kept in memory rather than storage on purpose: it describes this batch, not a preference, and a
+   * remembered "merge" would silently turn the next unrelated image batch into one document. The
+   * flag survives a target switch (the checkbox hides, the choice stays) and is only read while
+   * {@link canMergeImages} holds, so a stale `true` cannot produce a half-merged result.
+   */
+  const mergeImages: Ref<boolean> = ref(false);
+  /** Position inside a merged run, 1-based, for the "image i of N" line. `null` outside one. */
+  const mergeProgress: Ref<{ index: number; total: number } | null> = ref(null);
 
   // Undo: snapshot of the previous successful batch (results + failures + target).
   // null when nothing to undo. The snapshot is only meaningful for the file set and
@@ -187,30 +207,49 @@ export function useConversion() {
   // hasUndo stays true and undo() restores results belonging to files that are no
   // longer selected. It is overwritten whenever a new convert() replaces a populated batch.
   interface BatchSnapshot {
-    results: ConvertResult[];
+    results: BatchResult[];
     failures: ConversionFailure[];
     completedCount: number;
     currentIndex: number;
     target: FileFormat;
-    owners: File[];
   }
   const previousBatch: Ref<BatchSnapshot | null> = ref(null);
 
   /**
-   * The source `File` behind each entry of `batchResults`, index-aligned.
+   * The entries on screen belong to a target the user has since moved away from.
    *
-   * `ConvertResult` deliberately carries no source identity — its `filename` is rebuilt from the
-   * source basename plus the new extension — so once a file leaves the batch nothing is left to say
-   * which result was its. Without this array the only honest response to an edit of the file list
-   * is to throw every result away; with it, just the orphaned rows go.
-   *
-   * Reactive because the results panel needs that same alignment: it keys its rows on the source
-   * file (output names collide once a retry merges two batches' worth of rows) and reads the
-   * original byte count off it to report how much the batch actually shrank. `shallowRef` because
-   * every write below replaces the whole array — the alternatives would have Vue walk a list of
-   * `File` objects it can never observe anyway.
+   * Kept as a derived fact rather than a second flag: the entries themselves are the source of
+   * truth, and a stored boolean would have to be invalidated on every write path. The panel uses
+   * this to explain why a card says PNG while the selector says JPG.
    */
-  const resultOwners: ShallowRef<File[]> = shallowRef([]);
+  const resultsStale: ComputedRef<boolean> = computed(() => {
+    const target = targetFormat.value;
+    return target !== null && batchResults.value.some(entry => entry.target !== target);
+  });
+
+  /**
+   * Whether merging is available for the current batch: PDF target, more than one file, and every
+   * source one of the bitmap formats the shared image→PDF pipeline can encode.
+   *
+   * SVG is excluded because it arrives through the rasterizing route rather than this pipeline; a
+   * mixed batch with one SVG therefore cannot merge, which is the honest answer rather than a page
+   * silently rendered by different rules.
+   */
+  const canMergeImages: ComputedRef<boolean> = computed(() => {
+    if (targetFormat.value !== FileFormat.PDF) return false;
+    const formats = sourceFormats.value;
+    if (formats.length < 2 || formats.length > MAX_MERGED_PAGES) return false;
+    return formats.every(format => format !== null && MERGEABLE_IMAGE_FORMATS.has(format));
+  });
+
+  /**
+   * Turn merge mode on or off. Only the checkbox writes this; the effective decision is
+   * `mergeImages && canMergeImages` inside `convert()`, so turning it on cannot outlive the
+   * conditions that made it legal.
+   */
+  function setMergeImages(value: boolean): void {
+    mergeImages.value = value;
+  }
 
   let abortController: AbortController | null = null;
   // Re-entrancy lock covering the pre-conversion confirm dialog: `isConverting` only turns true
@@ -274,8 +313,8 @@ export function useConversion() {
     plannedSteps.value = 0;
     stepsDone.value = 0;
     elapsedMs.value = null;
+    mergeProgress.value = null;
     previousBatch.value = null;
-    resultOwners.value = [];
   }
 
   /**
@@ -309,16 +348,23 @@ export function useConversion() {
     // Identity, not name: two files in one batch can be called `report.md`, and `uniqueName` only
     // makes the *output* names distinct, so matching rows by name can drop the wrong one.
     const newIndexByFile = new Map(files.map((file, index) => [file, index] as const));
-    const keptResults: ConvertResult[] = [];
-    const keptOwners: File[] = [];
-    batchResults.value.forEach((result, index) => {
-      const owner = resultOwners.value[index];
-      if (owner !== undefined && newIndexByFile.has(owner)) {
-        keptResults.push(result);
-        keptOwners.push(owner);
-      }
-    });
+    // An entry survives while ANY of its owners is still selected. For an ordinary one-owner row
+    // that is the old rule; for a merged PDF it is the only correct one — the PDF still describes
+    // the remaining images, so dropping it because one page's source left would destroy the output
+    // of files the user kept.
+    const keptResults = batchResults.value.filter(entry => entry.owners.some(owner => newIndexByFile.has(owner)));
     const keptFailures = batchFailures.value.flatMap(failure => {
+      // A merged failure is a statement about the whole group: with one member removed, "retry
+      // these" would write a different document than the one that failed, so the row goes away as a
+      // unit instead of surviving with a shorter group.
+      if (failure.retryIndexes) {
+        const group = failure.retryIndexes.map(index => newIndexByFile.get(previousFiles[index]));
+        if (group.some(index => index === undefined)) return [];
+        const remappedGroup = group as number[];
+        const failing =
+          failure.fileIndex === undefined ? undefined : newIndexByFile.get(previousFiles[failure.fileIndex]);
+        return [{ ...failure, fileIndex: failing ?? remappedGroup[0], retryIndexes: remappedGroup }];
+      }
       // A row that never got a `fileIndex` says nothing about which file it came from, so it cannot
       // be shown to be stale. `retryFailedFiles` already skips it and 重新转换 drops it.
       if (failure.fileIndex === undefined) return [failure];
@@ -327,7 +373,6 @@ export function useConversion() {
     });
 
     batchResults.value = keptResults;
-    resultOwners.value = keptOwners;
     batchFailures.value = keptFailures;
     // What is left is a finished batch over the surviving files, so the counters follow it. The
     // progress bar itself is gated on `isConverting`, so only the rows and the retry set matter.
@@ -341,21 +386,41 @@ export function useConversion() {
     previousBatch.value = null;
   }
 
+  /**
+   * Pick a new target without destroying a batch that is still worth reading.
+   *
+   * Switching PNG → JPG to compare outputs used to wipe the PNG results the moment the selector
+   * moved, so comparing cost a full re-run. The entries now carry their own target, which makes
+   * "the results stay, the selector moves on" a coherent state: downloads keep using the format
+   * each row was actually encoded to (`resultsStale` drives the explanation on screen). A target
+   * the current files cannot reach still clears everything — those results and this selection
+   * cannot coexist for the next run.
+   *
+   * A new run replaces the entries exactly as before; nothing re-runs on a selector change.
+   */
   function setTargetFormat(format: FileFormat): void {
     targetFormat.value = format;
-    batchResults.value = [];
-    resultOwners.value = [];
-    batchFailures.value = [];
     error.value = null;
     cancelled.value = false;
     currentStep.value = 0;
     stepTotal.value = 0;
-    // `setTargetFormat` does not go through `clearBatchState`, so its own zeroing has to name these
-    // three too — otherwise the previous batch's denominator stays on screen across a target change.
+    // The previous batch's denominator must not stay on screen; the counters describe a run, and
+    // no run is in flight after a selection change.
     plannedSteps.value = 0;
     stepsDone.value = 0;
-    elapsedMs.value = null;
-    previousBatch.value = null;
+    mergeProgress.value = null;
+
+    if (batchResults.value.length === 0 && batchFailures.value.length === 0) {
+      elapsedMs.value = null;
+      previousBatch.value = null;
+      return;
+    }
+    if (!availableTargets.value.includes(format)) {
+      batchResults.value = [];
+      batchFailures.value = [];
+      elapsedMs.value = null;
+      previousBatch.value = null;
+    }
   }
 
   /**
@@ -449,8 +514,9 @@ export function useConversion() {
         failures: [...batchFailures.value],
         completedCount: completedCount.value,
         currentIndex: currentIndex.value,
-        target: targetFormat.value,
-        owners: [...resultOwners.value],
+        // The selector may have moved on from what the visible entries were encoded to. Undo
+        // restores the batch, so it has to restore the selection that batch belongs to as well.
+        target: batchResults.value[0]?.target ?? targetFormat.value,
       };
     } else {
       previousBatch.value = null;
@@ -501,8 +567,7 @@ export function useConversion() {
     const signal = controller.signal;
     abortController = controller;
 
-    const results: ConvertResult[] = [];
-    const owners: File[] = [];
+    const results: BatchResult[] = [];
     const failures: ConversionFailure[] = [];
     // History accounting follows what actually converted: a failed file must not inflate the
     // stored fileCount / fileNames / source size of an otherwise successful batch.
@@ -541,11 +606,99 @@ export function useConversion() {
       return name;
     }
 
+    // Decided from the snapshots above, not from `canMergeImages`: that computed reads the *live*
+    // selection, and the file list can be edited while the confirmation dialog is open. The batch
+    // that was confirmed is the one this flag has to describe.
+    const mergeRequested =
+      mergeImages.value &&
+      target === FileFormat.PDF &&
+      files.length > 1 &&
+      files.length <= MAX_MERGED_PAGES &&
+      formats.every(format => format !== null && MERGEABLE_IMAGE_FORMATS.has(format));
+
+    /**
+     * Write the whole selection into one PDF and publish it as a single batch result.
+     *
+     * Atomic on purpose: `buildMergedPdf` prepares one page at a time and discards the document on
+     * the first bad image, so the failure branch records one row naming that image and every index
+     * the retry must re-run. A cancel is not a failure — it leaves no row, no result and therefore
+     * no history, because the batch never produced a file.
+     */
+    async function runMergedBatch(): Promise<void> {
+      const mergedFormats = formats.filter((format): format is FileFormat => format !== null);
+      const images = files.map((file, index) => ({ file, from: mergedFormats[index] }));
+      try {
+        const output = await buildMergedPdf(images, signal, (index, total) => {
+          currentIndex.value = index;
+          mergeProgress.value = { index: index + 1, total };
+          // One image is one unit of work in this mode; the bar is fed from the same pair the
+          // ordinary path uses rather than from a second progress channel.
+          stepsDone.value = index;
+          completedCount.value = index;
+          currentStep.value = 1;
+          stepTotal.value = 1;
+        });
+
+        // `{name}` resolves to the first image plus `-merged`, so a template that only uses
+        // `{name}` still cannot collide with a single-image PDF of that same file. A template with
+        // no `{name}` is taken as the user wrote it — appending a suffix there would edit a name
+        // they spelled out.
+        const outputBase = applyNameTemplate(batchNameTemplate, {
+          source: files[0].name,
+          sourceBase: `${baseOf(files[0].name)}-merged`,
+          index: 1,
+          target: batchTarget,
+          date: new Date(),
+        });
+
+        results.push({
+          result: {
+            blob: output.blob,
+            filename: `${outputBase}.pdf`,
+            lostFrames: output.lostFrames,
+          },
+          owners: files,
+          // The builder only ever writes a PDF; naming it from the live selection would let a
+          // mid-run target change label the file as something it is not.
+          target: FileFormat.PDF,
+          sourceFormats: mergedFormats,
+          merged: { pageCount: output.pageCount },
+        });
+        for (let i = 0; i < files.length; i++) {
+          converted.push({ name: files[i].name, size: files[i].size, format: mergedFormats[i] });
+        }
+        stepsDone.value = plannedSteps.value;
+        completedCount.value = files.length;
+      } catch (e) {
+        // The user asked to stop; a diagnostic row would be describing work they abandoned.
+        if (signal.aborted) return;
+        // The remaining pages will never run, so the denominator is spent rather than left short.
+        stepsDone.value = plannedSteps.value;
+        completedCount.value = files.length;
+        const failingIndex = e instanceof MergedPdfPageError ? e.index : Math.max(0, currentIndex.value);
+        const failingFile = files[failingIndex] ?? files[0];
+        const failure: ConversionFailure = {
+          fileName: failingFile.name,
+          reason: e instanceof Error && e.message ? e.message : 'errors.unknown',
+          path: [mergedFormats[failingIndex] ?? mergedFormats[0], FileFormat.PDF],
+          failedStep: 1,
+          detail: causeDetailOf(e instanceof MergedPdfPageError ? e.inner : e),
+          fileIndex: failingIndex,
+          retryIndexes: files.map((_, index) => index),
+        };
+        failures.push(failure);
+        batchFailures.value.push(failure);
+      }
+    }
+
     try {
       // Stamped inside the `try` so the epoch guard below and the history record read the same
       // number: the batch loop's span, nothing else.
       const batchStartedAt = Date.now();
-      for (let i = 0; i < files.length; i++) {
+      if (mergeRequested) await runMergedBatch();
+      // A merged run has already written the batch's one result; walking the files again would add
+      // a second PDF per image, so the per-file loop is skipped wholesale rather than emptied.
+      for (let i = 0; !mergeRequested && i < files.length; i++) {
         if (signal.aborted) break;
         currentIndex.value = i;
         const file = files[i];
@@ -631,13 +784,17 @@ export function useConversion() {
           if (signal.aborted) break;
 
           results.push({
-            blob: currentBlob,
-            filename: uniqueName(file.name, outExt, i + 1),
-            lostFrames,
-            svgRasterized,
-            imagesDropped,
+            result: {
+              blob: currentBlob,
+              filename: uniqueName(file.name, outExt, i + 1),
+              lostFrames,
+              svgRasterized,
+              imagesDropped,
+            },
+            owners: [file],
+            target,
+            sourceFormats: [format],
           });
-          owners.push(file);
           converted.push({ name: file.name, size: file.size, format });
         } catch (e) {
           // A cancel surfacing from inside a long step is not a failure of that file: the user
@@ -671,7 +828,6 @@ export function useConversion() {
       // batch's results back would resurrect a results panel for files that are gone.
       if (workspaceEpoch === epochAtConfirm) {
         batchResults.value = results;
-        resultOwners.value = owners;
       }
 
       // Record successful conversions in history (metadata only, no blob); a storage failure
@@ -680,11 +836,14 @@ export function useConversion() {
       if (converted.length > 0) {
         try {
           const totalSourceSize = converted.reduce((sum, c) => sum + c.size, 0);
-          const totalResultSize = results.reduce((sum, r) => sum + r.blob.size, 0);
+          const totalResultSize = results.reduce((sum, entry) => sum + entry.result.blob.size, 0);
           // For a batch, fold the remaining count into the stored name so the raw
           // history field stays self-describing (UI and tooltip both render it as-is).
           const firstName = converted[0].name;
           const batchName = converted.length > 1 ? `${firstName} + ${converted.length - 1}` : firstName;
+          // Read from the entry rather than from `mergeRequested`: the page count is what the
+          // builder actually wrote, and a future multi-result path would still get this right.
+          const mergedEntry = results.find(entry => entry.merged);
           await addRecord({
             fileName: batchName,
             // Full list alongside the label so search and the row tooltip can reach the
@@ -696,6 +855,14 @@ export function useConversion() {
             resultSize: totalResultSize,
             fileCount: converted.length,
             durationMs: batchDurationMs,
+            // Snapshot, not a live read: "reuse" must reproduce the batch that is recorded here,
+            // including the pattern it was named with. `batchOptions` is already undefined for a
+            // non-image target, which is exactly the rule the type documents.
+            settings: {
+              nameTemplate: batchNameTemplate,
+              ...(batchOptions ? { outputOptions: batchOptions } : {}),
+            },
+            ...(mergedEntry?.merged ? { pageCount: mergedEntry.merged.pageCount } : {}),
           });
         } catch {
           // History is best-effort; ignore storage errors
@@ -718,17 +885,21 @@ export function useConversion() {
         currentIndex.value = -1;
         currentStep.value = 0;
         stepTotal.value = 0;
+        mergeProgress.value = null;
         // Desktop notification on natural completion (skip when user cancelled or batch was empty).
         // The composable internally no-ops if permission is missing or the tab is already focused.
+        // Counted by owners, not entries: a merged PDF is one result written from N images, and
+        // "1 file converted" (or "0 of 1") would understate what just happened.
+        const producedCount = results.reduce((sum, entry) => sum + entry.owners.length, 0);
         if (!wasCancelled && (results.length > 0 || failures.length > 0)) {
           const title = t('prefs.notificationTitle');
           let body: string;
           if (failures.length === 0) {
-            body = t('prefs.notificationBodyAllOk', { count: results.length });
+            body = t('prefs.notificationBodyAllOk', { count: producedCount });
           } else if (results.length === 0) {
             body = t('prefs.notificationBodyAllFail', { count: failures.length });
           } else {
-            body = t('prefs.notificationBodyPartial', { ok: results.length, fail: failures.length });
+            body = t('prefs.notificationBodyPartial', { ok: producedCount, fail: failures.length });
           }
           // No onClick handler: useNotification already calls window.focus() before
           // invoking it, so passing one would focus the window twice.
@@ -748,9 +919,9 @@ export function useConversion() {
   }
 
   function downloadResult(index: number = 0): void {
-    const r = batchResults.value[index];
-    if (!r) return;
-    saveAs(r.blob, r.filename);
+    const entry = batchResults.value[index];
+    if (!entry) return;
+    saveAs(entry.result.blob, entry.result.filename);
   }
 
   /** Bundle all results into a single ZIP so the browser fires one download.
@@ -792,12 +963,13 @@ export function useConversion() {
         });
         (async () => {
           try {
-            for (const r of items) {
-              const entry = isZipCompressible(r.filename)
-                ? new ZipDeflate(r.filename, { level: 6 })
-                : new ZipPassThrough(r.filename);
+            for (const item of items) {
+              const file = item.result;
+              const entry = isZipCompressible(file.filename)
+                ? new ZipDeflate(file.filename, { level: 6 })
+                : new ZipPassThrough(file.filename);
               zipStream.add(entry);
-              entry.push(new Uint8Array(await r.blob.arrayBuffer()), true);
+              entry.push(new Uint8Array(await file.blob.arrayBuffer()), true);
             }
             zipStream.end();
           } catch (e) {
@@ -840,14 +1012,15 @@ export function useConversion() {
     const indexes = [
       ...new Set(
         batchFailures.value
-          .map(f => f.fileIndex)
-          .filter((i): i is number => i !== undefined && i >= 0 && i < sourceFiles.value.length),
+          // A merged failure names one image but retries the whole group it belonged to; the group
+          // is what `convert()` has to be handed again, or the rebuilt PDF loses pages.
+          .flatMap(f => f.retryIndexes ?? (f.fileIndex === undefined ? [] : [f.fileIndex]))
+          .filter(i => i !== undefined && i >= 0 && i < sourceFiles.value.length),
       ),
     ].sort((a, b) => a - b);
     if (indexes.length === 0) return { ran: false, recovered: 0, stillFailing: 0 };
 
     const heldResults = [...batchResults.value];
-    const heldOwners = [...resultOwners.value];
     const heldFailures = [...batchFailures.value];
     const heldFiles = [...sourceFiles.value];
     const heldFormats = [...sourceFormats.value];
@@ -858,8 +1031,7 @@ export function useConversion() {
       failures: [...heldFailures],
       completedCount: completedCount.value,
       currentIndex: currentIndex.value,
-      target,
-      owners: [...heldOwners],
+      target: heldResults[0]?.target ?? target,
     };
     const epochAtRetry = workspaceEpoch;
 
@@ -884,7 +1056,6 @@ export function useConversion() {
           sourceFiles.value = heldFiles;
           sourceFormats.value = heldFormats;
           batchResults.value = heldResults;
-          resultOwners.value = heldOwners;
           batchFailures.value = heldFailures;
           cancelled.value = heldCancelled;
         }
@@ -896,17 +1067,19 @@ export function useConversion() {
       sourceFiles.value = heldFiles;
       sourceFormats.value = heldFormats;
       batchResults.value = [...heldResults, ...batchResults.value];
-      resultOwners.value = [...heldOwners, ...resultOwners.value];
       // `convert()` numbered the failures it just produced against the subset it was handed, and by
       // now the workspace is back to the full list — so those numbers point at the wrong files. A
       // second retry without this would re-run an already-successful file and leave the still-broken
       // one on screen. Translating here keeps `fileIndex` meaning exactly one thing: a position in
       // `sourceFiles`, which is what every reader of it assumes.
-      batchFailures.value = batchFailures.value.map(failure =>
-        failure.fileIndex === undefined || failure.fileIndex >= indexes.length
-          ? failure
-          : { ...failure, fileIndex: indexes[failure.fileIndex] },
-      );
+      batchFailures.value = batchFailures.value.map(failure => {
+        const remap = (index: number) => (index >= 0 && index < indexes.length ? indexes[index] : index);
+        return {
+          ...failure,
+          fileIndex: failure.fileIndex === undefined ? undefined : remap(failure.fileIndex),
+          retryIndexes: failure.retryIndexes?.map(remap),
+        };
+      });
       previousBatch.value = snapshot;
       return {
         ran: true,
@@ -918,9 +1091,17 @@ export function useConversion() {
     }
   }
 
+  /**
+   * Replace the payload of one entry after an in-panel edit (currently: rewriting a text result).
+   *
+   * `owners`, `target`, `sourceFormats` and `merged` are deliberately carried over: they describe
+   * where the entry came from, not what its bytes are, and an edit that re-derived them from the
+   * new `ConvertResult` would drop the merged metadata and the disclosure fields the panel reads.
+   */
   function updateResult(index: number, newResult: ConvertResult): void {
-    if (index >= 0 && index < batchResults.value.length) {
-      batchResults.value[index] = newResult;
+    const entry = batchResults.value[index];
+    if (entry) {
+      batchResults.value[index] = { ...entry, result: newResult };
     }
   }
 
@@ -938,6 +1119,7 @@ export function useConversion() {
     sourceFiles.value = [];
     sourceFormats.value = [];
     isConverting.value = false;
+    mergeImages.value = false;
     clearBatchState();
   }
 
@@ -949,7 +1131,6 @@ export function useConversion() {
     const snap = previousBatch.value;
     if (!snap) return false;
     batchResults.value = snap.results;
-    resultOwners.value = snap.owners;
     batchFailures.value = snap.failures;
     completedCount.value = snap.completedCount;
     currentIndex.value = snap.currentIndex;
@@ -983,7 +1164,7 @@ export function useConversion() {
     cancelled,
     error,
     batchResults,
-    resultOwners,
+    resultsStale,
     batchFailures,
     currentIndex,
     completedCount,
@@ -995,6 +1176,10 @@ export function useConversion() {
     isPackaging,
     isRetrying,
     totalCount,
+    mergeImages,
+    canMergeImages,
+    mergeProgress,
+    setMergeImages,
     setFiles,
     setTargetFormat,
     convert,

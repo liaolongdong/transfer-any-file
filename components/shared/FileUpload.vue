@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, defineAsyncComponent } from 'vue';
+import { ref, computed, watch, nextTick, onMounted, onUnmounted, defineAsyncComponent } from 'vue';
 import type { Component } from 'vue';
 import { UploadFilled, Delete, Plus, Picture, Document, Grid, View } from '@element-plus/icons-vue';
 import { FileFormat } from '~/utils/core/types';
@@ -40,6 +40,111 @@ const selectedFiles = ref<File[]>([]);
 const detectedFormats = ref<(FileFormat | null)[]>([]);
 const isDragging = ref(false);
 const appendMode = ref(false);
+
+/**
+ * Fixed-height windowing for the staged-file list.
+ *
+ * `content-visibility` on the rows only skips their layout and paint; the 200-row batch still spent
+ * its long task mounting 200 rows × (name + tag + two `el-button`s). Above the threshold below, only
+ * the rows near the viewport are mounted, with two spacer divs keeping the list exactly as tall as
+ * the full one. Below it, every row is rendered as before — the phone-book semantics this costs
+ * (Ctrl+F does not see an unmounted name, and Tab cannot reach an unmounted row's buttons) are only
+ * accepted for batches that are already past the point of reading row by row.
+ *
+ * Heights are fixed by the CSS: 54px for the first row, 55px for every row that carries the 1px
+ * separator, so the spacers can be computed without measuring anything.
+ */
+const WINDOW_THRESHOLD = 100;
+const FIRST_ROW_HEIGHT = 54;
+const ROW_HEIGHT = 55;
+const WINDOW_OVERSCAN = 16;
+
+const listEl = ref<HTMLElement | null>(null);
+const headerEl = ref<HTMLElement | null>(null);
+const windowStart = ref(0);
+const windowEnd = ref(0);
+let windowFrame = 0;
+
+const windowed = computed(() => selectedFiles.value.length > WINDOW_THRESHOLD);
+
+const visibleStart = computed(() => (windowed.value ? windowStart.value : 0));
+const visibleEnd = computed(() => (windowed.value ? windowEnd.value : selectedFiles.value.length));
+
+const visibleRows = computed(() => {
+  const start = visibleStart.value;
+  return selectedFiles.value.slice(start, visibleEnd.value).map((file, index) => ({
+    file,
+    index: start + index,
+    format: detectedFormats.value[start + index] ?? null,
+  }));
+});
+
+/** Border-box height of `count` rows starting at index 0, separator included. */
+function rowsHeight(count: number): number {
+  return count <= 0 ? 0 : FIRST_ROW_HEIGHT + ROW_HEIGHT * (count - 1);
+}
+
+const topSpacer = computed(() => rowsHeight(visibleStart.value));
+const bottomSpacer = computed(() => Math.max(0, rowsHeight(selectedFiles.value.length) - rowsHeight(visibleEnd.value)));
+
+function windowSpan(): number {
+  return Math.ceil(window.innerHeight / ROW_HEIGHT) + 1 + WINDOW_OVERSCAN * 2;
+}
+
+/**
+ * Recompute the slice from the list's own position rather than from the rendered rows: with zero
+ * rows mounted the row container has no usable top, while the list and its header are always in flow
+ * and keep the position the full list would have.
+ */
+function updateWindow(): void {
+  const count = selectedFiles.value.length;
+  if (count <= WINDOW_THRESHOLD) {
+    windowStart.value = 0;
+    windowEnd.value = count;
+    return;
+  }
+  const list = listEl.value;
+  const header = headerEl.value;
+  if (!list || !header) return;
+  const rowsTop = list.getBoundingClientRect().top + list.clientTop + header.offsetHeight;
+  // The overscan is split above and below the viewport: mounting only below leaves a scroll-up
+  // showing spacer for the frame between the scroll event and this update. The lower clamp keeps
+  // a full window at the end of the list instead of a handful of rows.
+  const span = windowSpan();
+  const visible = Math.floor(Math.max(0, -rowsTop) / ROW_HEIGHT);
+  const start = Math.max(0, Math.min(visible - WINDOW_OVERSCAN, count - span));
+  windowStart.value = start;
+  windowEnd.value = Math.min(count, start + span);
+}
+
+function scheduleWindow(): void {
+  if (!windowed.value || windowFrame) return;
+  windowFrame = requestAnimationFrame(() => {
+    windowFrame = 0;
+    updateWindow();
+  });
+}
+
+/**
+ * Give a freshly replaced list a first window before it paints. Without this the first render has
+ * `windowEnd === 0` and mounts spacers only, so the rows would arrive a frame late — exactly the
+ * frame the measurement is about.
+ */
+function primeWindow(count: number): void {
+  if (count <= WINDOW_THRESHOLD) return;
+  if (windowEnd.value > windowStart.value && windowStart.value < count) return;
+  windowStart.value = 0;
+  windowEnd.value = Math.min(count, windowSpan());
+}
+
+watch(
+  () => selectedFiles.value.length,
+  async () => {
+    updateWindow();
+    await nextTick();
+    updateWindow();
+  },
+);
 
 const acceptExtensions = [...SUPPORTED_EXTENSIONS, '.zip'].join(',');
 // Shared platform detection — see ~/utils/core/platform for why UA sniffing alone is
@@ -99,10 +204,15 @@ function handlePaste(event: ClipboardEvent): void {
 
 onMounted(() => {
   document.addEventListener('paste', handlePaste);
+  window.addEventListener('scroll', scheduleWindow, { passive: true });
+  window.addEventListener('resize', scheduleWindow);
 });
 
 onUnmounted(() => {
   document.removeEventListener('paste', handlePaste);
+  window.removeEventListener('scroll', scheduleWindow);
+  window.removeEventListener('resize', scheduleWindow);
+  if (windowFrame) cancelAnimationFrame(windowFrame);
 });
 
 function triggerFileInput(append = false): void {
@@ -328,6 +438,7 @@ async function expandAndApply(files: File[]): Promise<void> {
   }
   selectedFiles.value = next;
   detectedFormats.value = next.map(f => detectFormat(f));
+  primeWindow(next.length);
   const unknownCount = detectedFormats.value.filter(f => f === null).length;
   if (unknownCount > 0) {
     ElMessage.warning(t('upload.unknownFormatNotice', { count: unknownCount }));
@@ -515,13 +626,12 @@ defineExpose({
         v-if="selectedFiles.length > 0"
         class="fat-expand file-list-expand"
       >
-        <TransitionGroup
-          name="fat-list"
-          tag="div"
+        <div
+          ref="listEl"
           class="file-list"
         >
           <div
-            key="header"
+            ref="headerEl"
             class="file-list-header"
           >
             <span>{{ t('upload.selectedCount', { count: selectedFiles.length }) }}</span>
@@ -552,59 +662,84 @@ defineExpose({
             </span>
           </div>
           <div
-            v-for="(file, index) in selectedFiles"
-            :key="rowKey(file)"
-            class="file-item"
+            v-if="topSpacer > 0"
+            class="file-spacer"
+            aria-hidden="true"
+            :style="{ height: `${topSpacer}px` }"
+          />
+          <!-- `css` goes off once the list is windowed. Every window shift unmounts and mounts edge
+               rows, and a CSS leave transition keeps the unmounted row in flow for the double-rAF it
+               runs through — which the spacer heights do not account for. It also replayed the
+               shared enter fade on rows a scrollbar jump revealed. Move classes stay on: a user
+               deletion still closes the gap smoothly. -->
+          <TransitionGroup
+            name="fat-list"
+            tag="div"
+            class="file-rows"
+            :css="!windowed"
           >
-            <el-icon
-              class="file-icon"
-              :size="18"
-              color="var(--fat-text-secondary)"
+            <div
+              v-for="row in visibleRows"
+              :key="rowKey(row.file)"
+              class="file-item"
+              :class="{ 'file-item--divided': row.index > 0 }"
             >
-              <component :is="getFileIcon(detectedFormats[index])" />
-            </el-icon>
-            <div class="file-details">
-              <span class="file-name">{{ file.name }}</span>
-              <span class="file-meta">
-                {{ formatSize(file.size) }}
-                <el-tag
-                  v-if="detectedFormats[index]"
-                  size="small"
-                  type="primary"
-                  style="margin-left: var(--fat-space-xs)"
-                >
-                  {{ getFormatLabelSafe(detectedFormats[index]) }}
-                </el-tag>
-                <el-tag
-                  v-else
-                  size="small"
-                  type="danger"
-                  style="margin-left: var(--fat-space-xs)"
-                >
-                  {{ t('upload.unknownFormat') }}
-                </el-tag>
-              </span>
+              <el-icon
+                class="file-icon"
+                :size="18"
+                color="var(--fat-text-secondary)"
+              >
+                <component :is="getFileIcon(row.format)" />
+              </el-icon>
+              <div class="file-details">
+                <span class="file-name">{{ row.file.name }}</span>
+                <span class="file-meta">
+                  {{ formatSize(row.file.size) }}
+                  <el-tag
+                    v-if="row.format"
+                    size="small"
+                    type="primary"
+                    style="margin-left: var(--fat-space-xs)"
+                  >
+                    {{ getFormatLabelSafe(row.format) }}
+                  </el-tag>
+                  <el-tag
+                    v-else
+                    size="small"
+                    type="danger"
+                    style="margin-left: var(--fat-space-xs)"
+                  >
+                    {{ t('upload.unknownFormat') }}
+                  </el-tag>
+                </span>
+              </div>
+              <el-button
+                v-if="row.format"
+                :icon="View"
+                size="small"
+                text
+                type="primary"
+                :title="t('upload.preview')"
+                :aria-label="t('a11y.preview')"
+                @click.stop="previewFile(row.index)"
+              />
+              <el-button
+                :icon="Delete"
+                size="small"
+                text
+                type="danger"
+                :aria-label="t('a11y.remove')"
+                @click.stop="removeFile(row.index)"
+              />
             </div>
-            <el-button
-              v-if="detectedFormats[index]"
-              :icon="View"
-              size="small"
-              text
-              type="primary"
-              :title="t('upload.preview')"
-              :aria-label="t('a11y.preview')"
-              @click.stop="previewFile(index)"
-            />
-            <el-button
-              :icon="Delete"
-              size="small"
-              text
-              type="danger"
-              :aria-label="t('a11y.remove')"
-              @click.stop="removeFile(index)"
-            />
-          </div>
-        </TransitionGroup>
+          </TransitionGroup>
+          <div
+            v-if="bottomSpacer > 0"
+            class="file-spacer"
+            aria-hidden="true"
+            :style="{ height: `${bottomSpacer}px` }"
+          />
+        </div>
       </div>
     </Transition>
 
@@ -737,7 +872,17 @@ defineExpose({
   gap: var(--fat-space-xs);
 }
 
+/* A batch can hold 200 rows, and every one of them used to be laid out and painted at insertion —
+   the offscreen ones included. `content-visibility: auto` skips that work until a row approaches the
+   viewport, and `contain-intrinsic-size` keeps the scrollbar honest in the meantime. 38px is the
+   *content* height of a row (54px border-box minus the 8px padding above and below); the 1px separator
+   `.file-item + .file-item` adds is a border, so it does not belong here. The `auto` keyword makes
+   Chrome replace the placeholder with the real height once a row has been rendered. Scroll produced
+   no long tasks in either direction (measured 2026-10-20 on a 200-file batch), so this is about the
+   initial batch, not scrolling. */
 .file-item {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 38px;
   display: flex;
   align-items: center;
   gap: var(--fat-space-sm);
@@ -749,8 +894,23 @@ defineExpose({
   background: var(--fat-bg-hover);
 }
 
-.file-item + .file-item {
+/* The separator used to come from `.file-item + .file-item`. With a window mounted at an
+   arbitrary start index, sibling position no longer tells a row whether the full list would
+   divide it from the row above — the first mounted row of a scrolled window lost its line, and
+   its 1px is part of the spacer arithmetic (first row 54px, every divided row 55px). The class
+   carries the absolute index instead, so both window edges keep the exact full-list geometry. */
+.file-item--divided {
   border-top: 1px solid var(--fat-border-light);
+}
+
+/* Unmounted stand-ins. Their height comes from `rowsHeight()`, which follows the same 54/55 row
+   geometry, so the list keeps the height — and therefore the scrollbar and the scroll position the
+   user is aiming at — it would have with all 200 rows in flow. `content-visibility` keeps rendered
+   offscreen rows out of layout; these keep them out of the DOM, which is what removes the per-row
+   mount cost (measured 2026-10-20 on the CV-only build: the 200-row batch still spent 171.7 ms in
+   program code and 39.0 ms in the Vue render helper). */
+.file-spacer {
+  pointer-events: none;
 }
 
 .file-icon {
