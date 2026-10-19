@@ -11,6 +11,19 @@ Release PR is not by itself a release.
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-10-19
+
+### Added
+
+- **site**: The site gets its first interactive page: `tools/file-diff.html` is now published as (`dd8bf65`)
+- **ui**: Two more workbench state swaps now use the established transition vocabulary — the (`f2ce7e1`)
+- **ui**: The "14 formats, 48+ conversion paths" line moved from the workbench footer into the empty drop (`781887a`)
+
+### Fixed
+
+- **ui**: Review findings landed: the history panel's empty states now animate in only, because the (`b9cb63f`)
+- **site**: The privacy policy now describes the site's own interactive page — what it reads, where the (`50592fd`)
+
 ## [1.2.1] - 2026-10-18
 
 ### Fixed
