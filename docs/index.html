@@ -227,7 +227,7 @@
             "alternateName": ["Transfer Any File — Offline File Format Converter", "文件格式任意转换助手"],
             "softwareVersion": "1.2.1",
             "datePublished": "2026-09-07",
-            "dateModified": "2026-10-17",
+            "dateModified": "2026-10-19",
             "applicationCategory": "UtilitiesApplication",
             "applicationSubCategory": "File Format Converter",
             "keywords": "offline file format converter, file converter chrome extension, markdown to pdf, word to pdf, csv to excel, json to csv, png to webp, svg to png, html to docx, batch file conversion, convert files without uploading, local-first, privacy",
@@ -1481,6 +1481,31 @@
 
       .grid-2 {
         grid-template-columns: repeat(auto-fit, minmax(min(100%, 330px), 1fr));
+      }
+
+      /* The one action on this page a visitor can take without installing anything. It sits under the
+         capability grid rather than inside it: the extension does not diff files, so a card among the cards
+         above would claim a feature this product does not have. */
+      .try-line {
+        margin: 22px 0 0;
+        padding: 14px 18px;
+        border: 1px solid var(--brand-line);
+        border-radius: var(--radius-sm);
+        background: var(--brand-soft);
+        color: var(--ink-soft);
+        font-size: 14px;
+        text-align: center;
+      }
+
+      .try-line a {
+        color: var(--brand);
+        font-weight: 600;
+        text-decoration: underline;
+        text-underline-offset: 3px;
+      }
+
+      .try-line a:hover {
+        color: var(--brand-dark);
       }
 
       .card {
@@ -6018,6 +6043,15 @@
               </p>
             </article>
           </div>
+          <p class="try-line">
+            <span lang="zh-CN"
+              >不用先装也能试：<a href="diff/">在自己的浏览器里比较两个文件</a
+              >，行级与词级差异、并排与统一视图。不上传、不需要联网。</span
+            ><span lang="en"
+              >Try something before installing: <a href="diff/">diff two files inside your own browser</a> — line and
+              word-level changes, split or unified view. Nothing is uploaded and it needs no network.</span
+            >
+          </p>
         </div>
       </section>
 
@@ -7747,21 +7781,24 @@ pnpm build</code><button
           </div>
           <p class="updated">
             <span lang="zh-CN"
-              ><strong>版本 1.2.0 · 本页最后更新 2026-10-17。</strong>文中全部数字从代码取证：14 种格式来自
+              ><strong>版本 1.2.0 · 本页最后更新 2026-10-19。</strong>文中全部数字从代码取证：14 种格式来自
               <code>FileFormat</code> 枚举，48 条路径与 143 个可达组合来自转换器注册表的邻接图，116 个可选组合是 143
               减去 <code>utils/core/conversion-policy.ts</code> 置灰的 27 个，3.83 MB 来自
               <code>pnpm build</code> 输出，权限与上限来自 manifest 与源码常量。截图与推广图由
               <code>pnpm assets:capture</code> 从构建产物生成；<code>docs/convert/</code> 的 35 张配对页与 1 个索引页由
-              <code>pnpm pages:render</code> 生成，与 <code>docs/sitemap.xml</code> 同步。</span
+              <code>pnpm pages:render</code> 生成，与 <code>docs/sitemap.xml</code> 同步；本页上方那张文件对比是
+              <code>tools/file-diff.html</code> 的逐字节副本，由同一条命令发布到 <code>docs/diff/</code>。</span
             >
             <span lang="en"
-              ><strong>Version 1.2.0 · page last updated 2026-10-17.</strong> Every number on this page is taken from
+              ><strong>Version 1.2.0 · page last updated 2026-10-19.</strong> Every number on this page is taken from
               the code: 14 formats from the <code>FileFormat</code> enum, 48 routes and 143 reachable combinations from
               the converter registry's adjacency graph, and 116 selectable combinations — that is 143 minus the 27 pairs
               <code>utils/core/conversion-policy.ts</code> greys out. 3.83 MB comes from <code>pnpm build</code> output,
               permissions and limits from the manifest and source constants. Screenshots are generated from the built
               bundle by <code>pnpm assets:capture</code>, and the per-pair pages — 35 of them, plus an index — come from
-              <code>pnpm pages:render</code>, which writes the sitemap they are listed in.</span
+              <code>pnpm pages:render</code>, which writes the sitemap they are listed in. The file-diff page above is a
+              byte-for-byte copy of <code>tools/file-diff.html</code>, published to <code>docs/diff/</code> by that same
+              command.</span
             >
           </p>
         </div>
@@ -8079,7 +8116,7 @@ pnpm build</code><button
               </a>
             </span>
             <span>
-              <span lang="zh-CN">最后更新 2026-10-17 · </span><span lang="en">Last updated 2026-10-17 · </span
+              <span lang="zh-CN">最后更新 2026-10-19 · </span><span lang="en">Last updated 2026-10-19 · </span
               ><a
                 href="https://github.com/liaolongdong/transfer-any-file/blob/main/CHANGELOG.md"
                 rel="noopener"

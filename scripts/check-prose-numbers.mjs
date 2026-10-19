@@ -523,6 +523,10 @@ const DOCS = [
   // Both languages sit in the same file with no switching, so a stale count there is both a broken
   // claim and a store-disclosure mismatch.
   'docs/privacy.html',
+  // The interactive page is a byte-for-byte copy of `tools/file-diff.html`, and its share metadata quotes the
+  // format count in the `og:image:alt` (the same sentence the product page and the privacy policy use). It is
+  // outside `generatedPages('convert')`, so naming it is the only way it enters the fact check.
+  'docs/diff/index.html',
   // The published post and the generated pair pages quote the same closure numbers as the product
   // page does. `pnpm pages:check` compares their bytes against their data source, which catches a
   // source that moved without a rebuild — it says nothing about whether the source is *true*, so

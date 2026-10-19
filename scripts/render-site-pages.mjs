@@ -29,6 +29,10 @@
  *
  * The emitted HTML is excluded from Prettier (see `.prettierignore`): it is a generated artifact, so
  * `--check` is the guard that catches both editing it by hand and forgetting to re-run this script.
+ * `docs/diff/index.html` is the one output that is not Prettier-ignored: it is a byte-for-byte copy of
+ * `tools/file-diff.html`, which is Prettier-clean at its source, so `format:check` covers it too — two
+ * guards on the same bytes is the better failure mode than one, and a formatting change would show up as
+ * a `--check` failure rather than as a silent rewrite of the copy.
  */
 
 import fs from 'node:fs';
@@ -47,6 +51,14 @@ import {
 const ROOT = path.resolve(import.meta.dirname, '..');
 const OUT_DIR = path.join(ROOT, 'docs', 'convert');
 const SITEMAP = path.join(ROOT, 'docs', 'sitemap.xml');
+// `tools/file-diff.html` is the only source for the one page on this site that takes a file as input, and
+// `docs/diff/index.html` is a byte-for-byte copy of it. That is not tidiness: `check-offline.mjs` and
+// `check-remote-code.mjs` name `tools` in their scan directories and deliberately do not name `docs`, so
+// the copy can never be ahead of what the guards actually opened. `--check` then compares those bytes
+// against the source on every run, which is what makes the copy a guarded artifact rather than a file
+// nobody reads.
+const DIFF_SRC = path.join(ROOT, 'tools', 'file-diff.html');
+const DIFF_OUT = path.join(ROOT, 'docs', 'diff', 'index.html');
 const CHECK = process.argv.includes('--check');
 
 /**
@@ -956,6 +968,7 @@ function chrome(depth) {
       <nav class="site-nav" aria-label="Site">
         <a href="${up}">${bi('产品说明', 'Product')}</a>
         <a href="${up}convert/">${bi(CONVERT_CRUMB.zh, CONVERT_CRUMB.en)}</a>
+        <a href="${up}diff/">${bi('文件对比', 'File diff')}</a>
         <a href="${up}blog/">${bi('博客', 'Blog')}</a>
         <a href="${SITE.repo}" rel="noopener" target="_blank">GitHub</a>
       </nav>
@@ -1490,7 +1503,7 @@ ${lists}
 const STATIC_PAGES = {
   home: {
     path: '/',
-    updated: '2026-10-17',
+    updated: '2026-10-19',
     changefreq: 'monthly',
     priority: '1.0',
     file: 'docs/index.html',
@@ -1520,6 +1533,21 @@ const STATIC_PAGES = {
     priority: '0.6',
     file: 'docs/privacy.html',
     dateClaims: [/最后更新[：:]?\s*(\d{4}-\d{2}-\d{2})/g, /Last updated:\s*(\d{4}-\d{2}-\d{2})/g],
+  },
+  // The date claims are read out of `tools/file-diff.html` rather than out of the copy, because the two are
+  // byte-identical and `--check` already enforces that — pointing here is what lets a tree without
+  // `docs/diff/` render at all, instead of deadlocking on a file only this script creates.
+  diff: {
+    path: '/diff/',
+    updated: '2026-10-19',
+    changefreq: 'monthly',
+    priority: '0.7',
+    file: 'tools/file-diff.html',
+    dateClaims: [
+      /"dateModified":\s*"(\d{4}-\d{2}-\d{2})"/g,
+      /最后更新[：:]?\s*(\d{4}-\d{2}-\d{2})/g,
+      /Last updated:\s*(\d{4}-\d{2}-\d{2})/gi,
+    ],
   },
 };
 
@@ -1556,6 +1584,93 @@ function validateStaticDates() {
     if (claims === 0) {
       fail(`${entry.file} carries no date for any pattern of STATIC_PAGES.${key} — the check has gone blind`);
     }
+  }
+}
+
+/**
+ * Check the site chrome that `tools/file-diff.html` carries for itself.
+ *
+ * The copy is byte-for-byte identical to the source, so every statement here is also a statement about a
+ * public URL — and none of it is covered by the two offline guards, which look for network shapes, not for
+ * a page that points its own canonical somewhere else. Each check is a failure mode the byte copy cannot
+ * catch on its own: an absolute URL written by hand and left behind when the repo moved, a nav label that
+ * exists in one language only, an entrance state whose `.js` gate went missing (which would hand every
+ * crawler that does not run the script an invisible page).
+ */
+function validateDiffPage() {
+  const source = fs.existsSync(DIFF_SRC) ? fs.readFileSync(DIFF_SRC, 'utf8') : null;
+  if (source === null) {
+    fail(`${DIFF_SRC} is missing, so the site page ${STATIC_PAGES.diff.path} cannot be produced`);
+    return;
+  }
+
+  /**
+   * Find exactly one capture of `pattern` and return it, failing on zero or on several.
+   *
+   * @param {RegExp} pattern
+   * @param {string} what
+   * @returns {string | null}
+   */
+  const exactlyOne = (pattern, what) => {
+    const hits = [...source.matchAll(pattern)];
+    if (hits.length !== 1) {
+      fail(
+        `tools/file-diff.html carries ${hits.length} ${what}, expected exactly 1 — ` +
+          'a page may not answer that question twice, and zero means the published copy ships without it',
+      );
+      return null;
+    }
+    return hits[0][1];
+  };
+
+  const expected = `${SITE.origin}/diff/`;
+  const canonical = exactlyOne(/rel="canonical"\s+href="([^"]+)"/g, 'canonical link');
+  if (canonical !== null && canonical !== expected) {
+    fail(`tools/file-diff.html canonicalises to ${canonical}, but this site serves the page at ${expected}`);
+  }
+  const ogUrl = exactlyOne(/property="og:url"\s+content="([^"]+)"/g, 'og:url');
+  if (ogUrl !== null && ogUrl !== expected) {
+    fail(`tools/file-diff.html shares ${ogUrl}, but canonicalises to ${expected} — those are one claim`);
+  }
+  if (!source.includes(`"@id": "${expected}"`)) {
+    fail(`tools/file-diff.html has no JSON-LD node with @id ${expected}, so the graph describes another URL`);
+  }
+  // The short form (bare item ID under `/detail/`) is the convention inside this repository; the slug form
+  // belongs to the sibling repos' cross-link cards. A paste of the long form here would read fine and
+  // break that convention on a public page. See `.github/CHROMEWEBSTORE.md` → 现网状态.
+  const store = exactlyOne(/class="install"\s+href="([^"]+)"/g, 'store install link');
+  if (store !== null && store !== SITE.store) {
+    fail(`tools/file-diff.html points its install button at ${store}, but SITE.store is ${SITE.store}`);
+  }
+
+  // Every string the site chrome adds goes through this page's own dictionary, in both languages, and is
+  // actually referenced from the markup. Half a key would render an empty `<a>` on the published page.
+  for (const key of [
+    'sitebarHome',
+    'sitebarConvert',
+    'sitebarCurrent',
+    'sitebarInstall',
+    'sitebarAria',
+    'footUpdated',
+  ]) {
+    const pair = new RegExp(`${key}:\\s*\\[\\s*(['"])(.*?)\\1,\\s*(['"])(.*?)\\3`).exec(source);
+    if (!pair) {
+      fail(`tools/file-diff.html has no DICT.${key} written as ['…', '…'] — the site bar would render empty`);
+      continue;
+    }
+    if (!pair[2].trim() || !pair[4].trim()) {
+      fail(`tools/file-diff.html DICT.${key} has an empty language — the site bar would render half-translated`);
+      continue;
+    }
+    if (!source.includes(`data-i18n="${key}"`) && !source.includes(`data-i18n-aria="${key}"`)) {
+      fail(`tools/file-diff.html defines DICT.${key} but no element carries it, so the string never reaches the page`);
+    }
+  }
+
+  // The degradation gate. Every entrance state on this page is written under `.js`; without the class
+  // being added before first paint, `opacity: 0` is the page a crawler reads.
+  if (!source.includes("classList.add('js')")) {
+    fail('tools/file-diff.html no longer adds the `js` class, so its gated entrance states become invisible content');
   }
 }
 
@@ -1749,7 +1864,7 @@ function renderSitemap() {
     changefreq: 'monthly',
     priority: '0.8',
   }));
-  const urls = [STATIC_PAGES.home, index, ...pairs, STATIC_PAGES.blog, STATIC_PAGES.privacy]
+  const urls = [STATIC_PAGES.home, index, ...pairs, STATIC_PAGES.blog, STATIC_PAGES.privacy, STATIC_PAGES.diff]
     .map(
       entry => `  <url>
     <loc>${SITE.origin}${entry.path}</loc>
@@ -1779,6 +1894,7 @@ validateScreenshots();
 validateStaticDates();
 validateFaqRail();
 validateLinkMirrors();
+validateDiffPage();
 for (const pair of PAIRS) {
   const chain = validatePair(pair);
   // A pair whose shot key is unknown is skipped for the same reason a pair without a route is: writing
@@ -1790,6 +1906,10 @@ for (const pair of PAIRS) {
 if (errors.length === 0) {
   files.set(path.join(OUT_DIR, 'index.html'), renderIndex());
   files.set(SITEMAP, renderSitemap());
+  // The byte copy. Registering it here — rather than writing it from a separate step — is what puts it
+  // inside the `--check` comparison below; a copy written outside `files` would be committed once and
+  // then drift forever, with the guard printing OK over a file it never opened.
+  files.set(DIFF_OUT, fs.readFileSync(DIFF_SRC, 'utf8'));
 }
 
 if (errors.length > 0) {
@@ -1810,8 +1930,22 @@ if (CHECK) {
   process.exit(0);
 }
 
-fs.mkdirSync(OUT_DIR, { recursive: true });
-for (const [file, html] of files) fs.writeFileSync(file, html);
-console.log(
-  `wrote ${files.size} files (${files.size - 1} under ${path.relative(ROOT, OUT_DIR)}, plus docs/sitemap.xml)`,
-);
+for (const [file, html] of files) {
+  // Per destination rather than one `OUT_DIR`: the copy lives in `docs/diff/`, which this script also has
+  // to create, and a directory list maintained by hand is how a third output directory ships broken.
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, html);
+}
+// Derived from the map rather than from `files.size - 1`: the sentence used to assert that everything not
+// in `docs/convert` was the sitemap, which stopped being true the moment a third destination appeared. A
+// summary computed from what was actually written cannot go stale.
+const perDirectory = new Map();
+for (const [file] of files) {
+  const dir = path.relative(ROOT, path.dirname(file));
+  perDirectory.set(dir, (perDirectory.get(dir) ?? 0) + 1);
+}
+const breakdown = [...perDirectory]
+  .sort((a, b) => a[0].localeCompare(b[0]))
+  .map(([dir, count]) => `${count} in ${dir}`)
+  .join(', ');
+console.log(`wrote ${files.size} files — ${breakdown}`);

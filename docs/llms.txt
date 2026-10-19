@@ -9,6 +9,7 @@ Category: productivity / file conversion. Price: free, no paid tier, no ads, no 
 
 - [Product page](https://liaolongdong.github.io/transfer-any-file/): Formats, how a conversion is routed, features, comparison with online converters, install steps, FAQ, technical details, contact
 - [Privacy policy](https://liaolongdong.github.io/transfer-any-file/privacy.html): Bilingual (EN / 简体中文) — no data collection, no transmission, on-device storage only
+- [File diff](https://liaolongdong.github.io/transfer-any-file/diff/): Interactive — drop in two files (or paste two texts) and the line and word-level diff is computed in the visitor's own browser. The only page on this site that takes a file as input; it is a byte-for-byte copy of `tools/file-diff.html`, which is the file the offline guards actually open, and no code in it issues a request
 
 ## Route-by-route detail
 

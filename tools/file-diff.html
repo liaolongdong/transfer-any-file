@@ -10,11 +10,130 @@
       name="color-scheme"
       content="light dark"
     />
-    <title>文件对比 · 离线差异查看器</title>
+    <title>文件差异对比 · 离线，不上传</title>
     <meta
       name="description"
       content="完全离线的两个文件差异对比：行级与词级差异、并排与 unified 视图、折叠相同内容、复制补丁。文件只在本机处理。"
     />
+    <!-- Site attribution lives in this file, not in the generator: `docs/diff/index.html` is a byte-for-byte
+         copy of it, so the two source-layer offline guards keep scanning exactly what the site serves. That
+         invariant is only worth having if these URLs are absolute — a relative link could not be identical
+         under `file://` (repo) and under `/transfer-any-file/diff/` (Pages) at the same time. -->
+    <link
+      rel="canonical"
+      href="https://liaolongdong.github.io/transfer-any-file/diff/"
+    />
+    <!-- The other three pages on this site declare `assets/icon-mark.png`; pointing here at that file
+         would give the page its first external dependency and make the repo-local `file://` copy reach
+         the network. An empty data URL declares "there is no icon" instead, which is what keeps both
+         properties: no `/favicon.ico` 404 from the browser, and nothing this page needs to fetch. -->
+    <link
+      rel="icon"
+      href="data:,"
+    />
+    <meta
+      property="og:type"
+      content="website"
+    />
+    <meta
+      property="og:site_name"
+      content="Transfer Any File"
+    />
+    <meta
+      property="og:url"
+      content="https://liaolongdong.github.io/transfer-any-file/diff/"
+    />
+    <meta
+      property="og:title"
+      content="文件差异对比 · 离线，不上传"
+    />
+    <meta
+      property="og:description"
+      content="两个文件在本页内存里比较：行级与词级差异、并排与统一视图、折叠相同内容、复制补丁文本。不上传、不写盘、不需要联网。"
+    />
+    <meta
+      property="og:image"
+      content="https://liaolongdong.github.io/transfer-any-file/assets/store/github-social-preview.png"
+    />
+    <meta
+      property="og:image:width"
+      content="1280"
+    />
+    <meta
+      property="og:image:height"
+      content="640"
+    />
+    <meta
+      property="og:image:alt"
+      content='Transfer Any File brand mark and the headline "Convert 14 file formats without uploading a byte" beside a screenshot of the workbench converting a Markdown file to HTML.'
+    />
+    <meta
+      name="twitter:card"
+      content="summary_large_image"
+    />
+    <meta
+      name="twitter:title"
+      content="文件差异对比 · 离线，不上传"
+    />
+    <meta
+      name="twitter:description"
+      content="两个文件在本页内存里比较：行级与词级差异、并排与统一视图、折叠相同内容、复制补丁文本。"
+    />
+    <meta
+      name="twitter:image"
+      content="https://liaolongdong.github.io/transfer-any-file/assets/store/github-social-preview.png"
+    />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebApplication",
+            "@id": "https://liaolongdong.github.io/transfer-any-file/diff/",
+            "name": "文件差异对比",
+            "alternateName": "File Diff",
+            "url": "https://liaolongdong.github.io/transfer-any-file/diff/",
+            "dateModified": "2026-10-19",
+            "inLanguage": ["zh-CN", "en"],
+            "browserRequirements": "Requires a JavaScript-enabled browser. Works without a server: the page can also be opened from a local file.",
+            "description": [
+              {
+                "@language": "zh-CN",
+                "@value": "完全离线的两个文件差异对比：行级与词级差异、并排与 unified 视图、折叠相同内容、复制补丁。文件只在本机处理。"
+              },
+              {
+                "@language": "en",
+                "@value": "An offline diff viewer for two files or two pasted texts: line and word-level changes, split and unified views, collapsible unchanged runs, and a copyable patch. Nothing is uploaded."
+              }
+            ],
+            "isPartOf": {
+              "@type": "WebSite",
+              "@id": "https://liaolongdong.github.io/transfer-any-file/#app",
+              "url": "https://liaolongdong.github.io/transfer-any-file/"
+            },
+            "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+            "license": "https://spdx.org/licenses/MIT.html"
+          },
+          {
+            "@type": "BreadcrumbList",
+            "itemListElement": [
+              {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "Transfer Any File",
+                "item": "https://liaolongdong.github.io/transfer-any-file/"
+              },
+              {
+                "@type": "ListItem",
+                "position": 2,
+                "name": "文件差异对比",
+                "item": "https://liaolongdong.github.io/transfer-any-file/diff/"
+              }
+            ]
+          }
+        ]
+      }
+    </script>
     <script>
       // Resolved before first paint so the page never flashes the wrong language or theme. Both are
       // preferences read from localStorage when it is available; under file:// some browsers refuse
@@ -38,6 +157,42 @@
           theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
         }
         document.documentElement.dataset.theme = theme;
+        // Every entrance state is gated on `.js`, the same gate `docs/index.html` and `content.css` use:
+        // a client that parses the CSS but never runs the script must not be shown an invisible page.
+        // Search and AI crawlers are exactly that kind of client.
+        document.documentElement.classList.add('js');
+        // Narrow the share metadata to the resolved language while the head is still being parsed, so a
+        // reader never sees the fallback string in a link preview. The bilingual values baked into the
+        // markup above stay as the no-JavaScript fallback. `<title>` is left to `applyStaticText()`,
+        // which already owns it; the two strings match `COPY.title` here, and only this table and that
+        // dictionary can drift apart — a third copy in the JSON-LD would be a third answer to "what is
+        // this page called", which is why the `WebApplication.name` stays in Chinese (the served default).
+        var COPY = {
+          zh: {
+            title: '文件差异对比 · 离线，不上传',
+            description:
+              '两个文件在本页内存里比较：行级与词级差异、并排与统一视图、折叠相同内容、复制补丁文本。不上传、不写盘、不需要联网。',
+          },
+          en: {
+            title: 'Compare Two Files — Offline, Nothing Uploaded',
+            description:
+              'Diff two files or two pasted texts inside this page: line and word-level changes, split or unified view, collapsed unchanged runs, copyable patch. No upload, no disk write, no network.',
+          },
+        };
+        var copy = COPY[locale === 'en' ? 'en' : 'zh'];
+        /**
+         * @param {string} selector
+         * @param {string} value
+         */
+        function setMeta(selector, value) {
+          var node = document.querySelector(selector);
+          if (node) node.setAttribute('content', value);
+        }
+        setMeta('meta[property="og:title"]', copy.title);
+        setMeta('meta[property="og:description"]', copy.description);
+        setMeta('meta[name="twitter:title"]', copy.title);
+        setMeta('meta[name="twitter:description"]', copy.description);
+        setMeta('meta[name="description"]', copy.description);
       })();
     </script>
     <style>
@@ -212,7 +367,12 @@
         border: 1px dashed var(--fd-border);
         border-radius: var(--fd-radius);
         background: var(--fd-card);
-        transition: border-color 0.18s ease;
+        /* The hot state changes two properties and this rule only handed over one, so the background
+           snapped while the border eased. No `transform` here: a pane holds editable text, and scaling
+           it would blur the caret and the glyph run for the length of the transition. */
+        transition:
+          border-color 0.18s ease,
+          background-color 0.18s ease;
       }
 
       .pane.filled {
@@ -641,10 +801,176 @@
         border: 0;
       }
 
+      /* ============ Site chrome ============ */
+      /* The bar that turns a reader of this page into a user of the extension. It carries no colour of
+         its own — every value comes from the `--fd-*` tokens above, so the light/dark pair stays a single
+         decision and the page keeps being its own visual island (it does not load `content.css`). */
+      .sitebar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px 16px;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 14px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid var(--fd-border);
+        font-size: 13px;
+      }
+
+      .crumbs {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        color: var(--fd-text-secondary);
+      }
+
+      .crumbs li + li::before {
+        content: '/';
+        margin-right: 6px;
+        color: var(--fd-gutter);
+      }
+
+      .crumbs a {
+        color: var(--fd-text-secondary);
+        text-decoration: none;
+        transition: color 0.18s ease;
+      }
+
+      .crumbs a:hover {
+        color: var(--fd-primary);
+        text-decoration: underline;
+      }
+
+      .crumbs .here {
+        color: var(--fd-text-regular);
+      }
+
+      .sitebar .install {
+        padding: 6px 12px;
+        border: 1px solid var(--fd-primary);
+        border-radius: var(--fd-radius-sm);
+        background: var(--fd-primary);
+        color: #fff;
+        font-weight: 600;
+        text-decoration: none;
+        white-space: nowrap;
+        transition:
+          transform 0.16s ease,
+          box-shadow 0.16s ease;
+      }
+
+      html[data-theme='dark'] .sitebar .install {
+        color: #0b1220;
+      }
+
+      .sitebar .install:hover {
+        transform: translateY(-1px);
+        box-shadow: var(--fd-shadow);
+      }
+
+      /* ============ Motion ============ */
+      /* Three one-shot movements, transform and opacity only, nothing longer than 240 ms and nothing that
+         loops — an unattended tab must cost no CPU, and `prefers-reduced-motion` is an outward promise of
+         this site. The diff body is deliberately absent from this list: its rows are virtualised by
+         `renderWindow()`, so a per-row entrance would replay on every scroll and become an animation
+         storm. What gets to move once is the stats bar, which appears a single time per comparison.
+         All of it sits behind `.js`, the class the head script adds before first paint, so a client that
+         never runs the observer is shown the finished page rather than a blank one. */
+      @keyframes fd-rise {
+        from {
+          opacity: 0;
+          transform: translateY(8px);
+        }
+
+        to {
+          opacity: 1;
+          transform: none;
+        }
+      }
+
+      @keyframes fd-veil-in {
+        from {
+          opacity: 0;
+        }
+
+        to {
+          opacity: 1;
+        }
+      }
+
+      @keyframes fd-swap {
+        from {
+          opacity: 0.55;
+        }
+
+        to {
+          opacity: 1;
+        }
+      }
+
+      .js .stats:not([hidden]) .stat {
+        animation: fd-rise 220ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+      }
+
+      /* Six chips, 45 ms apart: the last one lands inside 450 ms, which is still one gesture, not a show.
+         Adding a seventh rule here would push it past that, so the count is a budget, not a preference. */
+      .js .stats:not([hidden]) .stat:nth-child(2) {
+        animation-delay: 45ms;
+      }
+
+      .js .stats:not([hidden]) .stat:nth-child(3) {
+        animation-delay: 90ms;
+      }
+
+      .js .stats:not([hidden]) .stat:nth-child(4) {
+        animation-delay: 135ms;
+      }
+
+      .js .stats:not([hidden]) .stat:nth-child(5) {
+        animation-delay: 180ms;
+      }
+
+      .js .stats:not([hidden]) .stat:nth-child(6) {
+        animation-delay: 225ms;
+      }
+
+      .js .dropveil.show {
+        animation: fd-veil-in 140ms ease both;
+      }
+
+      .js .diff-scroll.fd-swap {
+        animation: fd-swap 160ms ease both;
+      }
+
+      .foot-updated {
+        color: var(--fd-text-secondary);
+        font-size: 12px;
+      }
+
       @media (prefers-reduced-motion: reduce) {
         * {
           transition-duration: 0.01ms !important;
           animation-duration: 0.01ms !important;
+          transition-delay: 0ms !important;
+          animation-delay: 0ms !important;
+        }
+
+        /* Zeroing the duration alone is not enough: `both` still paints the `from` frame, and a reader in
+           this mode would briefly see an invisible stats bar. Kill the animations outright and land every
+           start state on its end state — the same two layers `docs/assets/content.css` has to write. */
+        .js .stats:not([hidden]) .stat,
+        .js .dropveil.show,
+        .js .diff-scroll.fd-swap {
+          animation: none !important;
+          opacity: 1 !important;
+          transform: none !important;
+        }
+
+        .sitebar .install:hover {
+          transform: none;
         }
       }
     </style>
@@ -652,6 +978,40 @@
 
   <body>
     <div class="wrap">
+      <!-- The one route from a reader who found this page to the extension it belongs to. Written here
+           rather than injected by the generator so it can go through `applyStaticText()` like every other
+           string on the page, and so the copy stays byte-for-byte identical to what the guards scanned. -->
+      <nav
+        class="sitebar"
+        data-i18n-aria="sitebarAria"
+      >
+        <ol class="crumbs">
+          <li>
+            <a
+              href="https://liaolongdong.github.io/transfer-any-file/"
+              data-i18n="sitebarHome"
+            ></a>
+          </li>
+          <li>
+            <a
+              href="https://liaolongdong.github.io/transfer-any-file/convert/"
+              data-i18n="sitebarConvert"
+            ></a>
+          </li>
+          <li
+            class="here"
+            aria-current="page"
+            data-i18n="sitebarCurrent"
+          ></li>
+        </ol>
+        <a
+          class="install"
+          href="https://chromewebstore.google.com/detail/blkdmpkcaceicinkhindniepbbbaekkb"
+          rel="noopener"
+          target="_blank"
+          data-i18n="sitebarInstall"
+        ></a>
+      </nav>
       <header class="masthead">
         <div>
           <h1 data-i18n="appTitle"></h1>
@@ -972,6 +1332,10 @@
       <footer class="foot">
         <p data-i18n="footPrivacy"></p>
         <p data-i18n="footNote"></p>
+        <p
+          class="foot-updated"
+          data-i18n="footUpdated"
+        ></p>
       </footer>
     </div>
 
@@ -1020,7 +1384,16 @@
          * Text
          * ------------------------------------------------------------------ */
         var DICT = {
-          appTitle: ['文件差异对比 · 离线', 'File Diff · offline'],
+          appTitle: ['文件差异对比 · 离线，不上传', 'Compare Two Files — Offline, Nothing Uploaded'],
+          // The site chrome. These four keys are what `validateDiffPage()` in
+          // `scripts/render-site-pages.mjs` checks on both languages: a page published at
+          // `/transfer-any-file/diff/` with a half-translated nav bar is exactly the drift that
+          // byte-for-byte copying would otherwise smuggle through.
+          sitebarHome: ['产品说明', 'Product page'],
+          sitebarConvert: ['转换一览', 'Conversion routes'],
+          sitebarCurrent: ['文件对比', 'File diff'],
+          sitebarInstall: ['从 Chrome 应用商店安装', 'Install from the Chrome Web Store'],
+          sitebarAria: ['站点导航', 'Site navigation'],
           appTagline: [
             '两个文件、两段文本的行级与词级差异，全部在你本机完成。',
             'Line and word differences between two files or two texts, computed entirely on your machine.',
@@ -1117,9 +1490,13 @@
             'Privacy: files are read into this page’s memory only — no upload, no disk write, no history. Closing the tab discards them.',
           ],
           footNote: [
-            '本页是仓库自带的离线小工具（tools/file-diff.html），不随浏览器扩展发布，也不需要联网。项目见 README。',
-            'This page is a repository-bundled offline utility (tools/file-diff.html). It is not part of the browser extension and needs no network. See the README for the project.',
+            '本页是仓库自带的离线小工具（tools/file-diff.html），发布在这个站点上，但不随浏览器扩展分发，也不需要联网。',
+            'This page is a repository-bundled offline utility (tools/file-diff.html), published on this site. It is not part of the browser extension and needs no network.',
           ],
+          // One of the three date claims `validateStaticDates()` cross-checks against
+          // `STATIC_PAGES.diff.updated`, alongside `"dateModified"` above and this very string in the
+          // English value. Changing the date means changing all three at once, or the render stops.
+          footUpdated: ['最后更新：2026-10-19', 'Last updated: 2026-10-19'],
           wordSkipped: ['（超长行：仅行级差异）', '(very long line: line-level diff only)'],
           unexpectedError: [
             '页面出现异常：{msg}。输入仍然保留，可重试或清空。',
@@ -2095,6 +2472,95 @@
           return row.kind === 'eq';
         }
 
+        /**
+         * In-flight tweens keyed by node, so a second compare replaces the first instead of queueing
+         * behind it. A plain Map is enough and no leak: the six stat nodes are static markup and live as
+         * long as the document, so the table can never grow past six entries.
+         */
+        var tweens = new Map();
+        var TWEEN_MS = 320;
+        // The view `layout()` last drew, so a genuine switch can be told apart from a re-layout. `null`
+        // marks the first call, which must not fade.
+        var lastLayoutView = null;
+
+        /** @returns {boolean} Whether motion should be skipped entirely for this reader. */
+        function motionReduced() {
+          return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        }
+
+        /**
+         * Write a stat, counting up from whatever it last showed.
+         *
+         * The tween is presentation only and must never be load-bearing: under
+         * `prefers-reduced-motion`, on a first write, or when the value did not change, the final text is
+         * written synchronously. It does not count up from zero on that first write, for two reasons: the
+         * reveal is already animated by the `fd-rise` stagger, and that stagger puts the last chip on
+         * screen at 445 ms — a 320 ms tween would be over before the number it is animating is visible.
+         * Every intermediate frame goes through the same `format` the final value uses, so a frame is
+         * always a number this page would really print — never a raw float or a missing separator.
+         *
+         * @param {string} id
+         * @param {number} value
+         * @param {(n: number) => string} format
+         */
+        function setStat(id, value, format) {
+          var node = el(id);
+          var finalText = format(value);
+          var running = tweens.get(node);
+          if (running) window.cancelAnimationFrame(running.raf);
+          // Count from what is on screen, not from the previous call's target. The stats bar is written
+          // twice during one reveal — `reportStats()` and then `layout()` — so a tween that resumed from
+          // the earlier target would jump ahead of the frame the reader is actually looking at and then
+          // come back, which is the opposite of what a count-up is for.
+          var from = running ? running.shown : value;
+          var entry = { value: value, shown: from, raf: 0 };
+          tweens.set(node, entry);
+          if (from === value || motionReduced()) {
+            entry.shown = value;
+            node.textContent = finalText;
+            return;
+          }
+          var started = window.performance.now();
+          node.textContent = format(from);
+          var tick = function () {
+            var progress = (window.performance.now() - started) / TWEEN_MS;
+            if (progress >= 1) {
+              entry.shown = value;
+              entry.raf = 0;
+              node.textContent = finalText;
+              return;
+            }
+            // Cubic ease-out: the last few hundred units should land, not crawl.
+            var eased = 1 - Math.pow(1 - progress, 3);
+            entry.shown = from + (value - from) * eased;
+            node.textContent = format(entry.shown);
+            entry.raf = window.requestAnimationFrame(tick);
+          };
+          entry.raf = window.requestAnimationFrame(tick);
+        }
+
+        /** Integer stats share one formatter so the frames match the final string's shape. */
+        function formatCountStat(value) {
+          return formatCount(Math.round(value));
+        }
+
+        /**
+         * One-shot fade over the diff body when the reader switches between split and unified.
+         *
+         * Not a per-row animation: `renderWindow()` virtualises the rows, so anything keyed to a row would
+         * replay on scroll. The class is removed when it finishes so a repeated switch restarts it —
+         * re-adding a class within the same frame does not.
+         */
+        function flashViewSwap() {
+          if (motionReduced()) return;
+          var shell = el('diffScroll');
+          if (!shell) return;
+          shell.classList.remove('fd-swap');
+          window.requestAnimationFrame(function () {
+            shell.classList.add('fd-swap');
+          });
+        }
+
         function reportStats(rows, totalA, totalB, ms) {
           var added = 0;
           var removed = 0;
@@ -2107,11 +2573,15 @@
           }
           var maxLines = Math.max(totalA, totalB, 1);
           el('statsBar').hidden = false;
-          el('statAdded').textContent = formatCount(added);
-          el('statRemoved').textContent = formatCount(removed);
-          el('statSame').textContent = formatCount(same);
-          el('statSim').textContent = Math.round((same / maxLines) * 100) + '%';
-          el('statMs').textContent = ms < 10 ? ms.toFixed(1) : formatCount(Math.round(ms));
+          setStat('statAdded', added, formatCountStat);
+          setStat('statRemoved', removed, formatCountStat);
+          setStat('statSame', same, formatCountStat);
+          setStat('statSim', (same / maxLines) * 100, function (value) {
+            return Math.round(value) + '%';
+          });
+          setStat('statMs', ms, function (value) {
+            return value < 10 ? value.toFixed(1) : formatCountStat(value);
+          });
         }
 
         /**
@@ -2183,8 +2653,13 @@
           state.offsets = offsets;
           spacer.style.height = offsets[rows.length] + 'px';
           el('emptyState').hidden = rows.length > 0;
+          var previousView = lastLayoutView;
+          lastLayoutView = opt.view;
+          // Only a real switch moves the panel. `layout()` also runs on option changes, on resize and on
+          // expand / collapse, and fading the body through those would read as a glitch, not as feedback.
+          if (previousView !== null && previousView !== opt.view) flashViewSwap();
           document.documentElement.dataset.view = opt.view;
-          el('statHunks').textContent = String(state.hunks.length);
+          setStat('statHunks', state.hunks.length, formatCountStat);
           ensurePool();
           renderWindow(true);
           updateButtonAvailability();
@@ -2834,6 +3309,12 @@
 
         scroller.addEventListener('scroll', function () {
           renderWindow(false);
+        });
+
+        // Drop the swap class once it has played, so the next switch restarts the animation instead of
+        // silently doing nothing. `animationend` bubbles, hence the name check.
+        scroller.addEventListener('animationend', function (event) {
+          if (event.animationName === 'fd-swap') scroller.classList.remove('fd-swap');
         });
 
         var resizeTimer = 0;

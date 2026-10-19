@@ -88,7 +88,7 @@ export const SOCIAL_IMAGE_ALT =
  * corrects two claims that had gone false: TXT→MD no longer says "strict UTF-8" (the decoder now accepts
  * UTF-16 and GB18030/GBK), and HTML→PNG now discloses the full-page height ceiling that makes it fail.
  */
-export const PAGES_UPDATED = '2026-10-17';
+export const PAGES_UPDATED = '2026-10-19';
 
 /**
  * The date the first conversion page entered the repository, used as `datePublished` for every entry that
