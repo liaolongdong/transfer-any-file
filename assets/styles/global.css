@@ -415,12 +415,12 @@ body {
 }
 
 /* The same swap, animated only on the way in. Used where a departing element is a hazard rather than a
-   nicety: `ConversionProgress`'s error alert is read by selector in the suite — 15 places take its text
-   (5 `page.$eval('.el-alert__title')`, 10 in-page `querySelector('.el-alert__title')`) and every one of
-   them takes the *first* match — so holding a superseded title in the DOM for one duration would let the
-   next batch read the previous batch's error. Instant removal is the same call
-   `<TransitionGroup name="fat-list">` already makes below, for the same reason — a leaving element that
-   still answers the selector is worse than no animation. */
+   nicety: both of its surfaces are read by selector in the suite, and every one of those reads takes the
+   *first* match — `.el-alert__title` at 15 places (5 `page.$eval`, 10 in-page `querySelector`), and
+   `.history-empty` at 2 (`scripts/e2e-test.mjs:5223` and `:5305`). Holding a superseded node in the DOM
+   for one duration would let the next state read the previous one's text. Instant removal is the same
+   call `<TransitionGroup name="fat-list">` already makes below, for the same reason — a leaving element
+   that still answers the selector is worse than no animation. */
 .fat-fade-in-enter-active {
   transition: opacity var(--fat-duration-base) var(--fat-ease-standard);
 }

@@ -1653,7 +1653,9 @@ function validateDiffPage() {
     'sitebarAria',
     'footUpdated',
   ]) {
-    const pair = new RegExp(`${key}:\\s*\\[\\s*(['"])(.*?)\\1,\\s*(['"])(.*?)\\3`).exec(source);
+    // `s` so a Prettier re-flow of a long dictionary entry cannot turn this check into a false red:
+    // the pair may wrap between the two values, and a dotless pattern would report "no entry".
+    const pair = new RegExp(`${key}:\\s*\\[\\s*(['"])(.*?)\\1,\\s*(['"])(.*?)\\3`, 's').exec(source);
     if (!pair) {
       fail(`tools/file-diff.html has no DICT.${key} written as ['…', '…'] — the site bar would render empty`);
       continue;

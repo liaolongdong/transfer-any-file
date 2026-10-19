@@ -13,7 +13,7 @@
     <title>文件差异对比 · 离线，不上传</title>
     <meta
       name="description"
-      content="完全离线的两个文件差异对比：行级与词级差异、并排与 unified 视图、折叠相同内容、复制补丁。文件只在本机处理。"
+      content="完全离线的两个文件差异对比：行级与词级差异、并排与统一视图、折叠相同内容、复制补丁文本。文件只在本机处理，不上传、不需要联网。"
     />
     <!-- Site attribution lives in this file, not in the generator: `docs/diff/index.html` is a byte-for-byte
          copy of it, so the two source-layer offline guards keep scanning exactly what the site serves. That
@@ -49,7 +49,7 @@
     />
     <meta
       property="og:description"
-      content="两个文件在本页内存里比较：行级与词级差异、并排与统一视图、折叠相同内容、复制补丁文本。不上传、不写盘、不需要联网。"
+      content="完全离线的两个文件差异对比：行级与词级差异、并排与统一视图、折叠相同内容、复制补丁文本。文件只在本机处理，不上传、不需要联网。"
     />
     <meta
       property="og:image"
@@ -77,7 +77,7 @@
     />
     <meta
       name="twitter:description"
-      content="两个文件在本页内存里比较：行级与词级差异、并排与统一视图、折叠相同内容、复制补丁文本。"
+      content="完全离线的两个文件差异对比：行级与词级差异、并排与统一视图、折叠相同内容、复制补丁文本。文件只在本机处理，不上传、不需要联网。"
     />
     <meta
       name="twitter:image"
@@ -99,11 +99,11 @@
             "description": [
               {
                 "@language": "zh-CN",
-                "@value": "完全离线的两个文件差异对比：行级与词级差异、并排与 unified 视图、折叠相同内容、复制补丁。文件只在本机处理。"
+                "@value": "完全离线的两个文件差异对比：行级与词级差异、并排与统一视图、折叠相同内容、复制补丁文本。文件只在本机处理，不上传、不需要联网。"
               },
               {
                 "@language": "en",
-                "@value": "An offline diff viewer for two files or two pasted texts: line and word-level changes, split and unified views, collapsible unchanged runs, and a copyable patch. Nothing is uploaded."
+                "@value": "An offline diff of two files: line and word-level changes, split and unified views, collapsible unchanged runs, and a copyable patch. Files never leave your machine."
               }
             ],
             "isPartOf": {
@@ -171,12 +171,12 @@
           zh: {
             title: '文件差异对比 · 离线，不上传',
             description:
-              '两个文件在本页内存里比较：行级与词级差异、并排与统一视图、折叠相同内容、复制补丁文本。不上传、不写盘、不需要联网。',
+              '完全离线的两个文件差异对比：行级与词级差异、并排与统一视图、折叠相同内容、复制补丁文本。文件只在本机处理，不上传、不需要联网。',
           },
           en: {
             title: 'Compare Two Files — Offline, Nothing Uploaded',
             description:
-              'Diff two files or two pasted texts inside this page: line and word-level changes, split or unified view, collapsed unchanged runs, copyable patch. No upload, no disk write, no network.',
+              'An offline diff of two files: line and word-level changes, split and unified views, collapsible unchanged runs, and a copyable patch. Files never leave your machine.',
           },
         };
         var copy = COPY[locale === 'en' ? 'en' : 'zh'];
@@ -802,9 +802,12 @@
       }
 
       /* ============ Site chrome ============ */
-      /* The bar that turns a reader of this page into a user of the extension. It carries no colour of
-         its own — every value comes from the `--fd-*` tokens above, so the light/dark pair stays a single
-         decision and the page keeps being its own visual island (it does not load `content.css`). */
+      /* The bar that turns a reader of this page into a user of the extension. Every colour comes from
+         the `--fd-*` tokens above except the install button's ink, which repeats the two literals
+         `.btn.primary` already uses (`#fff` on light, `#0b1220` on dark) — this page has no on-primary
+         token to reference, and inventing one here while `.btn.primary` keeps its literals would leave
+         two answers to "what colour sits on the brand blue". The page stays its own visual island: it
+         does not load `content.css`. */
       .sitebar {
         display: flex;
         flex-wrap: wrap;
@@ -872,11 +875,14 @@
       }
 
       /* ============ Motion ============ */
-      /* Three one-shot movements, transform and opacity only, nothing longer than 240 ms and nothing that
-         loops — an unattended tab must cost no CPU, and `prefers-reduced-motion` is an outward promise of
-         this site. The diff body is deliberately absent from this list: its rows are virtualised by
-         `renderWindow()`, so a per-row entrance would replay on every scroll and become an animation
-         storm. What gets to move once is the stats bar, which appears a single time per comparison.
+      /* Three one-shot movements, transform and opacity only, each under 240 ms and none of them looping
+         — an unattended tab must cost no CPU, and `prefers-reduced-motion` is an outward promise of this
+         site. The stagger is the exception to the per-movement budget and it is bounded: six chips, the
+         last starting at 225 ms and landing at 445 ms after the reveal. The diff body is deliberately
+         absent from this list: its rows are virtualised by `renderWindow()`, so a per-row entrance would
+         replay on every scroll and become an animation storm. What gets to move once is the stats bar —
+         once per *reveal*, not per comparison: it is only re-hidden when an input goes missing, so
+         back-to-back compares re-run the numbers (and the count-up) without re-running the rise.
          All of it sits behind `.js`, the class the head script adds before first paint, so a client that
          never runs the observer is shown the finished page rather than a blank one. */
       @keyframes fd-rise {

@@ -304,8 +304,10 @@ async function handleImportChange(e: Event): Promise<void> {
     <!-- Three sibling conditions rather than one `v-if / v-else-if / v-else` chain, because each empty
          state needs its own `<Transition>` child to toggle — see `vue/require-toggle-inside-transition`.
          They cannot overlap: the first holds exactly when there is no record at all, the second when
-         there are records but the filter left none, the third when the filter left some. -->
-    <Transition name="fat-fade">
+         there are records but the filter left none, the third when the filter left some. `fat-fade-in`
+         and not `fat-fade` because the suite reads `.history-empty` by first match
+         (`scripts/e2e-test.mjs:5223`, `:5305`) — a state that fades out is still that match. -->
+    <Transition name="fat-fade-in">
       <div
         v-if="!hasRecords"
         class="history-empty"
@@ -325,7 +327,7 @@ async function handleImportChange(e: Event): Promise<void> {
       </div>
     </Transition>
 
-    <Transition name="fat-fade">
+    <Transition name="fat-fade-in">
       <div
         v-if="hasRecords && filteredRecords.length === 0"
         class="history-empty"
