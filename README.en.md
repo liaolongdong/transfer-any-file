@@ -215,6 +215,7 @@ Summarised from the typical behaviour of each class of tool rather than one spec
 - All conversions run **100% locally** in the extension page — the load-bearing fact is that no first-party source file issues a request (`fetch`, `XMLHttpRequest`, `WebSocket`, `EventSource` and `sendBeacon` appear nowhere in `entrypoints/`, `components/`, `composables/` or `utils/`, asserted by `pnpm verify:offline`). On top of that, the manifest declares no host permissions and registers no content scripts, so the request paths sitting unused inside third-party converter libraries can neither read a response nor reach any site's data
 - The only permission requested is `storage`, used for history (file names, formats, sizes — never contents) and preferences
 - No analytics, no tracking, no account, no ads, no paid tier
+- Want to test the claim before installing: [File diff](https://liaolongdong.github.io/transfer-any-file/diff/) is the one page on this site that asks for a file of yours — two files are read into the page's own memory and compared line by line and word by word. The code shipped with it issues no request at all, and no extension is needed (its source is `tools/file-diff.html` in this repository, and what is served is a byte-for-byte copy of it)
 - Full text: [privacy policy (online, bilingual)](https://liaolongdong.github.io/transfer-any-file/privacy.html) (repository source `docs/privacy.html`) · store-facing answers: [`CHROMEWEBSTORE.md`](.github/CHROMEWEBSTORE.md)
 
 ## 📥 Installation and usage

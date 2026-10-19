@@ -236,6 +236,7 @@ _图上可达但语义不成立，因此置灰并说明原因，而不是等你�
 - 所有转换 **100% 在本地** 的扩展页面内完成——这是可验证的核心事实：第一方源码中没有任何一处发起请求（`entrypoints/`、`components/`、`composables/`、`utils/` 里找不到 `fetch`、`XMLHttpRequest`、`WebSocket`、`EventSource`、`sendBeacon`，由 `pnpm verify:offline` 断言）。在此之上，manifest 不声明任何 host 权限、也不注册 content script，因此第三方转换库里那些从未被调用的请求路径即使被走到，也读不到任何响应、碰不到任何网站的数据
 - 仅申请 `storage` 一项权限，用于保存历史（文件名、格式、体积——绝不含文件内容）与偏好设置
 - 无统计埋点、无追踪、无账号、无广告、无付费版
+- 想先自己验一次再装：[文件对比](https://liaolongdong.github.io/transfer-any-file/diff/) 是这个站点上唯一一张要你放入自己文件的页面——两个文件被读进页面自己的内存做行级与词级比对，它自带的代码不发起任何请求，也不需要装扩展（同一份源码就是仓库里的 `tools/file-diff.html`，发布的是它的逐字节副本）
 - 完整文本：[隐私政策（在线，中英双语）](https://liaolongdong.github.io/transfer-any-file/privacy.html)（仓库源文件 `docs/privacy.html`） · 面向商店的披露答复：[`CHROMEWEBSTORE.md`](.github/CHROMEWEBSTORE.md)
 
 ## 📥 安装与上手

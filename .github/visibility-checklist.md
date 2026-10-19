@@ -384,6 +384,16 @@ sitemap），本轮只回填了体积数字、没有推进那组日期，所以�
   仍是 3,830,068——两次构建之间源码只差注释与文档，所以「e2e 与 `verify-extension` 测的就是最终这一份」是
   量出来的，不是靠「注释不进包」推出来的。
 
+- **站点有了第一张能放入自己文件的页面，而它的源仍在两道守卫的射程内。** `tools/file-diff.html`（2,865 → 3,346 行，106,632 → 126,414 B）现在自带站点归属：canonical、OG 一组、`WebApplication` + `BreadcrumbList`、面包屑加安装 CTA 的 `<nav class="sitebar">`、页脚「最后更新」行，全部写绝对地址 `https://…/transfer-any-file/…`，所以 `file://`（仓库本地用）与 Pages（公网用）两种宿主下同一份字节都成立。`scripts/render-site-pages.mjs` 把它**逐字节复制**成 `docs/diff/index.html`（`cmp` 无差），并把这条副本注册进 `files`——注册点必须早于 `--check` 分支，否则守卫对这个文件失明（那个分支不枚举目录，实测本文件的 `readdirSync` 出现 0 次）。`STATIC_PAGES.diff.dateClaims` 读的是**源**而不是副本：两者字节相同，而指向副本会让一棵还没有 `docs/diff/` 的树永远渲染不出来。入口四处对齐：`chrome()` 的 `site-nav` 加一颗 `/diff/`（一处改动覆盖 36 张生成页）、产品页 `#features` 下方一条 `.try-line`、`docs/llms.txt` 一行、`docs/404.html` 一个入口；`PAGES_UPDATED` 与 `STATIC_PAGES.home.updated` 一起推到 10-19，页内五处日期读数同批改，两处「2026-10-17 实测」是记录不是主张、不动。
+
+  新守卫**有牙**这件事当场验了两次，认的是「红在该红的那一句」而不是「跑过了就行」：把源的 canonical 改成 `https://example.invalid/diff/`，`pages:check` 回 `✗ tools/file-diff.html canonicalises to …, but this site serves the page at …` 且 `exit=1`，还原后 `md5` 与改前逐字相同、`--check` 回 0；给副本多追加一个换行，`--check` 点名 `docs/diff/index.html` 且 `exit=1`，`pages:render` 之后 `cmp` 无差。
+
+  真浏览器一侧用 Playwright（`channel:'chrome'`）在这张页上跑了 26/26（一次性探针 `.test-tmp/diffprobe/page-check.mjs`，**不在套件里**）：http 与 `file://` 两种宿主都零 pageerror、除文档自身之外零请求（`<link rel="icon" href="data:,">` 是为了不再让浏览器去打一个 404 的 `/favicon.ico`，同时不给这张页添加第一个外部依赖——站点另外三张页用的是 `assets/icon-mark.png`，这里刻意不同）；`载入示例` 走通真实比较，读数 hunks 4 / added 4 / removed 4 / same 19 / 83%；**播动画那一份收敛到不播动画那一份的读数**（`statMs` 除外——它量的是比较耗时，跨轮本就该不同），reduce 档零中间帧、`animationName=none` 且起始态直接是终态。这一轮从这条实测里拔出一处真缺陷：初版补间从「上一次写入的**目标**」起跳，而一次揭示会写两次（`reportStats()` 与 `layout()`），屏幕上就先跳过头再收回来；改成从**当前显示值**起跳之后轨迹读作 `1 ⟶ 2 ⟶ 3 ⟶ 4`。同一形状的另一条教训：断言 `.stat` 的动画必须在 `#statsBar:not([hidden])` **之后**读，规则写的是 `.stats:not([hidden]) .stat`，藏着的时候读到 `none` 与动效偏好无关。
+
+  素材**没有重拍**，逐条理由：工作台那两条淡入只改入场状态，落定像素不变，而被拍的是 `workbench-empty` / `batch-files` / `history` 三屏的静止态；count-up 整条都在站点页上，`assets:capture` 那 24 张里没有一张渲染它。所以「重拍」这轮只会让九张图跟着墙钟时间戳走，不会多证明任何东西。
+
+  这一轮跑过的门禁：`lint:all`、`pages:check`（**38 文件**）、`verify:meta`、两道离线守卫（源码层 95 文件、产物层 manifest 只有 `storage`）、两道远程代码守卫、`verify:paths`、`verify:numbers`（**23 项事实 × 57 份散文**，新增的第 57 份就是 `docs/diff/index.html`，它不在 `generatedPages('convert')` 那一路、只能点名收进 `DOCS`）、`verify:listing`、`verify:release-ci`、`build`，全量 e2e **358/358**（88 张截图，零失败零跳过，断言总数一格未动，因此那十句对外散文也没动）。产物 **3,843,223 B / 65 个文件**，比改动前那一棵树（同一台机器 `git worktree add --detach /tmp/taf-head HEAD` + `wxt prepare` + `wxt build` 独立建出的 **3,842,846 B / 65 个文件**）多 **377 B**。**注意这一格**：`Σ` 对两份都打印 3.84 MB，也就是说 3.83 → 3.84 的跨界发生在本轮之前的 `main` 上，README / 产品页 / 商店表里那 16 处「3.83 MB」是上一轮就该回填的账，本轮不动它们；跨轮比字节要用排序尺寸多重集，别拿两份打印值直接相减（见 `bundle-size-proof-method`）。
+
 ## 3. 收下改动：这一节记的是提交账，不是提交计划
 
 这一节原先给的是 2026-09-19 那一轮（配对页与博客页改成数据源生成）的两条 `git commit`。那些提交早就落地了，
