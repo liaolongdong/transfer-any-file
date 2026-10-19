@@ -29,6 +29,13 @@
 >   「1.0.0 版本——首次提交商店。」）。下面的粘贴块已经没有那两行：详情区自己就显示版本号，而那一行是对**这一次提交**
 >   的陈述，一旦再传新包就成了公开 listing 上的错账——发布 API 写不了商品文案，所以它不会自己变对，只能等下一次
 >   手工编辑后台时按这里的块替换掉。
+> - **一处待提交**：2026-10-18 流水线已经把 **1.2.1 的包传上去**（回执 `uploadState=SUCCEEDED`，商店从包里读到的
+>   版本号就是 1.2.1；版本预检那一步当时读回的线上版本是 1.0.0），**但没有提审**——仓库变量 `CWS_AUTO_SUBMIT` 未设，
+>   `store_submit` 作业连排队都没排（fail-closed），`publishedItemRevisionStatus` 至今仍是 1.0.0。所以下一次动作是
+>   在开发者后台的 Package 页点「提交审核」，**不需要重传包**：提审发布的就是刚上传的那个 revision。先把上面那两处
+>   （商品文案的替换、数据披露的勾选）在后台改好再点更划算——审核看的是这次提交的整体，而文案字段 API 写不了。
+>   GitHub 侧的 `v1.2.1` 是本仓库**第一个** tag 与第一个 Release，由所有者身份手推：仓库没配 `RELEASE_PAT`，
+>   `release-prepare.yml` 的 `Push the tag` 只报了 warning，而 `GITHUB_TOKEN` 推的标签按 GitHub 的规则不会触发 `release.yml`。
 >
 > 因此本文件从这一刻起是**现网列表的镜像 + 下一次提交的手术单**，而不只是可提交素材包：
 > 每个字段仍要复制进 [Chrome Developer Dashboard](https://chrome.google.com/webstore/devconsole)，
