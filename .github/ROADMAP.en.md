@@ -4,7 +4,7 @@
 
 This is not a list of promises — it is the judgement already being applied, written down so people know where help is welcome. Every item below comes from an actual measurement (defects from a repro, features from the last link in a chain that already works). Nothing here is scheduled because it sounds nice.
 
-## Already in (on `main`, not yet released)
+## Already in (on `main`, shipped inside 1.2.1 — the store still serves 1.0.0)
 
 - **PDF page selection**: converting a PDF to images can be limited to the pages you name; empty still means the whole document.
 - **Narrow-window usability**: the comparison view stacks once the two columns would be clipped and the divider rotates with it; this also fixed the older bug where the drag gesture was swallowed by the preview iframe.
@@ -14,7 +14,9 @@ This is not a list of promises — it is the judgement already being applied, wr
 - **Controllable output file names**: a placeholder template set in preferences (`{name}` `{date}` `{time}` `{index}` `{target}`); leaving it empty falls back to "source name + target extension". Batches and multi-step chains no longer collide.
 - **Drop a folder in**: drag a directory into the workbench and only the convertible files inside it are read, with no new permissions. Depth and entry counts are capped, and the part that got cut off is stated in the interface instead of silently dropped.
 
-All of that exists only on `main`: the repository has never been tagged, and the GitHub Releases page is empty, because a release first has to get through the Chrome Web Store queue (see the rejection log in `CHROMEWEBSTORE.md`). `1.0.0` is the manifest version, not a version that has shipped.
+- **A page on the site you can use without installing anything**: `/diff/` compares two files (or two pasted texts) line by line and word by word inside your own browser. It is the only page on this site that asks for a file of yours, which makes it the only place where "offline" can be verified on the spot — the source is still `tools/file-diff.html` in the repository, what is published is a byte-for-byte copy of it, and the two offline guards scan exactly those bytes.
+
+All of that lives only on `main`. **Release position, read from the remote on 2026-10-19**: the repository has one tag, `v1.2.1`, and the GitHub Releases page holds exactly that one release — 1.1.0 and 1.2.0 reached the changelog and `package.json` but left no tag and no release behind. The manifest version is **1.2.1**, no longer 1.0.0. The store still serves 1.0.0: the 1.2.1 package uploaded successfully through the pipeline but was not queued for review under the current settings, so the next store action is clicking "Submit for review" in the console rather than repackaging (the four live values are authoritative in the 「现网状态」 block at the top of `.github/CHROMEWEBSTORE.md`).
 
 ## Next
 

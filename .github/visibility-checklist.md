@@ -398,6 +398,17 @@ sitemap），本轮只回填了体积数字、没有推进那组日期，所以�
 
   这一笔之后重跑的门禁：`verify:numbers`（23 × 57，`exit=0`）、`pages:check`（38 文件，`exit=0`）、`pnpm format:check`、`pnpm lint:style`；产物没有变化（只动文档），所以按第 3 节那条自证规则**不需要**重跑 e2e——判据是「这一笔没进源码」，不是「体积数字很小」。
 
+- **与上游撞车的一次记录（方法教训，不是缺陷）**：上面那一格「16 处 3.83 → 3.84」是**重复劳动**——`84bbfe5`
+  （10-18，PR #22 `docs/size-384`）在 main 上已经做过同一件回填，且 `docs/index.html` 那 6 处的 needle 与
+  替换文本**逐字相同**（比对的是 `gh api .../commits/84bbfe5` 返回的 patch，不是记忆）。看不见它的原因是
+  **本会话的 `origin/main` 是会话开始时的陈旧缓存**：`git fetch` 直连 github.com:443 超时（这台机器的代理
+  65532 当时没在听），而那条命令被 `| tail` 的退出码报成了成功。合并时无冲突风险（同一位置的同一改动），
+  但**下一轮开工前要先确认真取到了上游**：`gh api repos/…/commits?sha=main` 走 api.github.com 是通的，
+  它能一次性回答「这条账上游做了没有、`origin/main` 现在指向哪」，比 `git ls-remote` 可靠。
+  同一时段上游还有 `3cc2b69`：把「1.2.1 已上传、未提审」写进了 `CHROMEWEBSTORE.md` 的现网状态块，
+  所以本轮 ROADMAP 那句发版位置陈述与它同源、不矛盾（排队提审那一步由仓库变量控制，实测
+  `actions/variables` 返回 `total_count: 0`，即 `CWS_AUTO_SUBMIT` 至今未设）。
+
 ## 3. 收下改动：这一节记的是提交账，不是提交计划
 
 这一节原先给的是 2026-09-19 那一轮（配对页与博客页改成数据源生成）的两条 `git commit`。那些提交早就落地了，
