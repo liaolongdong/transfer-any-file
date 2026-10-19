@@ -426,6 +426,22 @@ sitemap），本轮只回填了体积数字、没有推进那组日期，所以�
   没有留档，多半是中途一次构建的值被抄进了终稿），已按能复现的 3,843,197 B / 351 B 改写；3,842,846 B 那一格是
   隔离工作树独立建出的读数，本轮没有重建它，差值只能按两份读数相减记。
 
+  **推到远端之后的现场（2026-10-19 晚，全部向 API 取，不是本地推断）**：`main` 由 `a31e793` 快进到 `ff61868`
+  （90 个文件），`ff61868` 上那条 CI 三个 job 全绿（Lint & Type Check / Build Extension / E2E Tests），
+  `Deploy GitHub Pages` 成功——线上 `https://…/transfer-any-file/diff/` 的 md5 与仓库里 `docs/diff/index.html`
+  逐字节相同（`0435cc1bb06034f0dd93c60a001a4edc`），所以「逐字节相同」这条不变量在 Pages 上也成立。
+  `Release Prepare` 同时成功并开出 **PR #23「1.3.0 发布准备」**（head `5c0b47f`、base `ff61868`、40 个文件）。
+  远端标签仍只有 `v1.2.1` 一枚——`v1.3.0` 要等那张 PR 被合并才推，而合并它归所有者。
+  **一张要人点一次的图**：PR #23 的 CI 停在 `completed / action_required`，那条 run 的 `event=pull_request`、
+  head 是 `github-actions[bot]` 推上去的 `5c0b47f`，而且 `commits/5c0b47f/check-runs` 返回**空**——没有失败的检查，
+  只有一场从没跑过的。两条 REST 批准端点用带 `repo` + `workflow` scope 的 classic PAT 都回 404
+  （`POST .../approve-workflow-run`、`PUT .../approve`），所以这不是凭据不够，是这一步没有公开 API，只能人在
+  Actions 页面按「Approve and run」。`mergeable_state=unstable` 就是这个空档，读成「检查挂了」是错的。
+  **推送路由**：那一段时间 `github.com:443` 整面超时而 `api.github.com` 正常（系统代理写着 65532 却没进程在听），
+  最后一次 `git push origin main` 以 exit=128 失败，改 `git push ssh://git@ssh.github.com:443/<owner>/<repo>.git main:main`
+  一次推成——不改 remote、不动 `git config`；推完用 `gh api .../branches/main` 核实，再 `git fetch` 同一个 SSH 地址
+  把本地 `origin/*` 对上，否则 `git status -sb` 会拿着陈旧缓存报「ahead 18」。
+
 - **工作台那行「支持 14 种格式，48+ 转换路径」从页脚挪进空态拖放区。** 判据不是审美：那行字回答的是「我这格式能不能转」，
   而这个疑问在**放入文件之前**产生；页脚在 900px 高的窗口里位于折叠区之外，等于从来没被读到。顶栏不是落点——它不
   sticky，且已经载着副标题（价值主张那一行）。放文件之后目标下拉列出的是这批文件真正可达的目标，那本来就是比全局
