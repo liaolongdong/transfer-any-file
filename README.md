@@ -79,7 +79,7 @@
   <a href="docs/assets/screenshots/workbench-empty.png"><img src="docs/assets/screenshots/workbench-empty.png" alt="空白的工作台：邀请拖入文件的上传区、旁边的目标格式选择器，以及下方的历史记录卡片" width="49%" /></a>
   <a href="docs/assets/screenshots/batch-files.png"><img src="docs/assets/screenshots/batch-files.png" alt="工作台中已加入三个混合格式文件：sample.md、sample.csv 与 sample.xlsx，目标格式选为 HTML" width="49%" /></a>
   <br />
-  <sub><b>左：拖入、选格式，在你自己电脑上转换</b>（页脚给出格式数与路径数）｜ <b>右：Markdown、CSV、Excel 一次转完</b>（每个文件各自求出到公共目标的路径）</sub>
+  <sub><b>左：拖入、选格式，在你自己电脑上转换</b>（拖放区给出格式数与路径数）｜ <b>右：Markdown、CSV、Excel 一次转完</b>（每个文件各自求出到公共目标的路径）</sub>
 </p>
 
 <p align="center">

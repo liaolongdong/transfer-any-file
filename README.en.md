@@ -80,7 +80,7 @@ Most "free online converter" sites ask you to upload the file first. That is fin
   <a href="docs/assets/screenshots/workbench-empty.png"><img src="docs/assets/screenshots/workbench-empty.png" alt="The empty workbench: a drop zone inviting files, a target-format picker beside it, and the history card below" width="49%" /></a>
   <a href="docs/assets/screenshots/batch-files.png"><img src="docs/assets/screenshots/batch-files.png" alt="Three mixed-format files staged in the workbench: sample.md, sample.csv and sample.xlsx, with HTML selected as the target format" width="49%" /></a>
   <br />
-  <sub><b>Left: drop, pick a format, convert on your own machine</b> (the footer derives the format and route counts) ｜ <b>Right: Markdown, CSV and Excel in one run</b> (each file resolves its own route to the shared target)</sub>
+  <sub><b>Left: drop, pick a format, convert on your own machine</b> (the drop zone shows the format and route counts) ｜ <b>Right: Markdown, CSV and Excel in one run</b> (each file resolves its own route to the shared target)</sub>
 </p>
 
 <p align="center">

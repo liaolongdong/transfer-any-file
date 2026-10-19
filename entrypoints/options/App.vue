@@ -425,6 +425,8 @@ onUnmounted(() => {
             <FileUpload
               ref="fileUploadRef"
               :disabled="isConverting"
+              :formats="formatCount"
+              :paths="pathCount"
               @update:files="handleFilesUpdate"
             />
           </div>
@@ -627,10 +629,6 @@ onUnmounted(() => {
         </div>
       </main>
 
-      <footer class="footer">
-        {{ t('footer.stats', { formats: formatCount, paths: pathCount }) }}
-      </footer>
-
       <Transition name="fat-fade">
         <div
           v-if="isWorkspaceDragging"
@@ -831,19 +829,10 @@ onUnmounted(() => {
   margin-top: var(--fat-space-xs);
 }
 
-.footer {
-  max-width: 1200px;
-  margin: 0 auto;
-  text-align: center;
-  padding: var(--fat-space-lg);
-  font-size: 12px;
-  color: var(--fat-text-secondary);
-}
-
 /* Theme and light/dark switching rewrite every `--fat-*` colour in one frame. The interactive
    surfaces already tween their colours, so a theme change visibly fell apart into two groups: the
-   buttons, chips and inputs slid over 0.18s while the page, the topbar, the cards and the footer
-   snapped instantly. These are the permanently-painted surfaces that carry the theme, and they were
+   buttons, chips and inputs slid over 0.18s while the page, the topbar and the cards snapped
+   instantly. These are the permanently-painted surfaces that carry the theme, and they were
    the ones left out.
    Three named properties rather than `--fat-transition`: that shorthand also carries `transform`,
    and `.card` is the element the `card` transition below animates — a competing transform transition
@@ -852,8 +841,7 @@ onUnmounted(() => {
    stays inside the settle window the contrast measurements in `scripts/e2e-test.mjs` wait out. */
 .workbench,
 .topbar,
-.card,
-.footer {
+.card {
   transition:
     background-color var(--fat-duration-slow) var(--fat-ease-standard),
     border-color var(--fat-duration-slow) var(--fat-ease-standard),

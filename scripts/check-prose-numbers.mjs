@@ -266,7 +266,10 @@ const FACTS = [
     value: baseline.edgeCount,
     what: 'registered direct edges in the converter graph',
     patterns: [
-      /(\d+)\+?\s*条(?:直接|注册|直连|转换)?路[径由]/,
+      // The measure word is optional: the workbench itself writes "48+ 转换路径" (no 条), and every
+      // document that quotes that line verbatim was invisible to this pattern. Requiring 条 meant a
+      // UI string could be quoted in three places and guarded in none.
+      /(\d+)\+?\s*条?(?:直接|注册|直连|转换)?路[径由]/,
       // `direct` and `registered` are optional here because the English prose drops them: the
       // README badge says "48+ routes", the feature table says "48 edges", the mermaid label says
       // "48+ direct routes". Requiring the qualifier made the whole English side of this fact blind

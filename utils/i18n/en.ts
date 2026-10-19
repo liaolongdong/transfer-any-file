@@ -18,6 +18,7 @@ const en: typeof zh = {
     drop: 'Drop files or a folder here, or click to select',
     replace: 'Click or drag to replace files',
     pasteHint: 'You can also paste an image or text with {key}',
+    stats: '{formats} formats supported, {paths}+ conversion paths',
     selectedCount: '{count} file(s) selected',
     unknownFormat: 'Unknown format',
     unknownFormatNotice: '{count} file(s) have an unrecognized format and cannot be converted',
@@ -367,10 +368,6 @@ const en: typeof zh = {
     // Accessible names for controls with no visible label (el-select, etc.)
     targetFormat: 'Target format',
     historyFormatFilter: 'Filter history by format',
-  },
-
-  footer: {
-    stats: '{formats} formats supported, {paths}+ conversion paths',
   },
 };
 

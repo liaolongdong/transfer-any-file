@@ -303,9 +303,9 @@ async function captureScreens(locale, outDir) {
   await page.waitForSelector('.drop-zone', { timeout: 20000 });
   await page.waitForTimeout(900);
 
-  // Evidence for the listing copy: the footer publishes the registry's own counts.
-  const footer = await page.$eval('.footer', el => (el.textContent || '').trim()).catch(() => '');
-  console.log(`  · [${locale}] workbench footer reports: "${footer}"`);
+  // Evidence for the listing copy: the drop zone publishes the registry's own counts.
+  const footer = await page.$eval('.drop-stats', el => (el.textContent || '').trim()).catch(() => '');
+  console.log(`  · [${locale}] workbench drop zone reports: "${footer}"`);
 
   await page.screenshot({ path: path.join(outDir, 'workbench-empty.png') });
   console.log(`  ✓ ${shotLabel(outDir, 'workbench-empty.png')}`);

@@ -21,8 +21,12 @@ const props = withDefaults(
     multiple?: boolean;
     /** Blocks all file intake (click/drop/paste), e.g. while converting */
     disabled?: boolean;
+    /** Registry counts rendered under the drop hint. Passed in rather than computed here because the
+     * workbench's own numbers are the provenance the outward docs cite for "14 formats / 48+ paths". */
+    formats?: number;
+    paths?: number;
   }>(),
-  { multiple: true, disabled: false },
+  { multiple: true, disabled: false, formats: 0, paths: 0 },
 );
 
 const emit = defineEmits<{
@@ -486,6 +490,14 @@ defineExpose({
       </el-icon>
       <p class="drop-text">{{ dropText }}</p>
       <p class="paste-hint">{{ t('upload.pasteHint', { key: pasteKey }) }}</p>
+      <!-- A zero would be a lie, and an empty registry is reachable if this ever renders before
+           `initConverters()` — so the line is gated on both counts, not printed as "0 formats". -->
+      <p
+        v-if="formats > 0 && paths > 0"
+        class="drop-stats"
+      >
+        {{ t('upload.stats', { formats, paths }) }}
+      </p>
     </div>
     <input
       id="file-upload-input"
@@ -662,6 +674,16 @@ defineExpose({
 }
 
 .paste-hint {
+  color: var(--fat-text-secondary);
+  margin: var(--fat-space-xs) 0 0;
+  font-size: 12px;
+}
+
+/* The capability line sits with the drop hint rather than in a page footer: the doubt it answers
+   ("我这格式能不能转") arises before anything is placed, and the footer was below the fold in a
+   900px window. Same ink and size as its sibling above, so the contrast contract keeps sampling
+   one shape — `.drop-stats` took `.footer`'s place in that list. */
+.drop-stats {
   color: var(--fat-text-secondary);
   margin: var(--fat-space-xs) 0 0;
   font-size: 12px;

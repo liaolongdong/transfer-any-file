@@ -21,6 +21,9 @@ export default {
     drop: '拖拽文件或文件夹到此处，或点击选择文件',
     replace: '点击或拖拽以替换文件',
     pasteHint: '也可以直接 {key} 粘贴图片或文本',
+    /** Rendered in the empty drop zone, not the page footer: the doubt it answers ("我这格式能不能转")
+     arises before a file is placed, and the footer sits below the fold on a 900px window. */
+    stats: '支持 {formats} 种格式，{paths}+ 转换路径',
     selectedCount: '已选择 {count} 个文件',
     unknownFormat: '未知格式',
     unknownFormatNotice: '有 {count} 个文件无法识别格式，将无法转换',
@@ -385,7 +388,4 @@ export default {
   },
 
   // Footer
-  footer: {
-    stats: '支持 {formats} 种格式，{paths}+ 转换路径',
-  },
 };

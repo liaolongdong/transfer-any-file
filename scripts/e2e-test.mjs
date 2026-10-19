@@ -967,12 +967,12 @@ async function run() {
   await page.screenshot({ path: shot('01-initial.png'), fullPage: true });
   ok('Options page loaded');
 
-  // Check footer stats
-  const footerText = await page.$eval('.footer', el => el.textContent).catch(() => '');
+  // Check the capability line in the empty drop zone
+  const footerText = await page.$eval('.drop-stats', el => el.textContent).catch(() => '');
   if (footerText.includes('14') && footerText.includes('48')) {
-    ok('Footer shows 14 formats, 48+ paths');
+    ok('Drop zone shows 14 formats, 48+ paths');
   } else {
-    fail('Footer stats', `unexpected: "${footerText}"`);
+    fail('Drop zone stats', `unexpected: "${footerText}"`);
   }
 
   // <html lang> must already match the stored locale before any interaction: screen
@@ -4512,9 +4512,9 @@ async function run() {
       const titleEn = await page.title();
       if (titleEn === 'Transfer Any File · Conversion Workbench') ok('Tab title follows the switch to English');
       else fail('Document title after switch', `"${titleEn}"`);
-      const footerEn = await page.$eval('.footer', el => el.textContent).catch(() => '');
+      const footerEn = await page.$eval('.drop-stats', el => el.textContent).catch(() => '');
       if (footerEn.includes('formats supported')) ok('Strings re-render in English without a reload');
-      else fail('English UI', `footer read "${footerEn.trim()}"`);
+      else fail('English UI', `drop zone read "${footerEn.trim()}"`);
       await page.screenshot({ path: shot(`${String(shotIdx++).padStart(2, '0')}-english-ui.png`), fullPage: true });
     } finally {
       // Restoring here rather than after the assertions is the only thing that keeps a starved
@@ -4526,7 +4526,7 @@ async function run() {
     }
 
     const langZh = await page.evaluate(() => document.documentElement.lang);
-    const footerZh = await page.$eval('.footer', el => el.textContent).catch(() => '');
+    const footerZh = await page.$eval('.drop-stats', el => el.textContent).catch(() => '');
     if (langZh === 'zh-CN' && footerZh.includes('格式')) ok('Switching back restores zh and the Chinese strings');
     else fail('Chinese restore', `lang="${langZh}", footer="${footerZh.trim()}"`);
   } catch (e) {
@@ -4608,7 +4608,7 @@ async function run() {
       // Not covered here: --fat-text-placeholder itself, which stays on input placeholders,
       // disabled controls and decoration whose state is carried by an ARIA attribute, all three
       // exempt from 1.4.3.
-      const INFO_TEXT = ['.drop-text', '.paste-hint', '.file-list-header', '.file-meta', '.footer'];
+      const INFO_TEXT = ['.drop-text', '.paste-hint', '.file-list-header', '.file-meta', '.drop-stats'];
       const fi2 = await page.$('input[type="file"]');
       if (!fi2) throw new Error('file input not found');
       await fi2.setInputFiles(path.join(FIXTURE_PATH, 'sample.txt'));
