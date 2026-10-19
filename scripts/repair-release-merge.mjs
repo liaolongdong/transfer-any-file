@@ -20,7 +20,12 @@
  * 2. 重建后全文条目总数与分支那份相同（不弄丢、不弄多——开发过程中正是它拦住了「末组之后的旧条目被
  *    当成块间散文整段搬进未发布区」这一版写法）；
  * 3. 版本小节之后的历史区两侧逐字相同（不同=分支上改过已发布版本的正文，那没有确定答案，交给人判——
- *    这种情况下另一份也不写，成对的文件只修一份等于把它们拆成两种形状）；
+ *    这种情况下另一份也不写，成对的文件只修一份等于把它们拆成两种形状）。**前提：这一场合里真的有提升。**
+ *    已发布那侧把版本标题当「本轮新插的那一节」跳过去取下一节，未发布那侧则从 `## [未发布]` 直接撞到同一节，
+ *    所以两侧没有提升时（功能分支追 `main`，本仓库最常见的合并）这两段切片差一整节、恒红——2026-10-19 实测
+ *    拿同一个 ref 跟自己比都报「历史区不一致」。那条路不跳过检查，改走自证：合并结果的文件头、未发布区与
+ *    版本小节三处必须逐字节等于「两侧之一的文件头」接「分支那份的未发布区」接「已发布那侧从版本标题起的尾部」，
+ *    对不上照样红（见 `checkNoPromotionShape`）。
  * 4. 中英两份的版本条数与未发布条数各自相等（`CHANGELOG.md` / `CHANGELOG.en.md` 成对的约定）；
  * 5. 重建结果不比工作树少条目（工作树多出来的那些既不在 `MERGE_HEAD` 也不在 `ORIG_HEAD`，
  *    是合并现场手写的——这时重建等于把它们抹掉，而前四条都在两份 ref 之间守恒，看不见这一格）。
@@ -148,7 +153,7 @@ function unreleasedAnchor(lines, file, ref) {
 
 function versionHeadingIndex(lines, from, file, ref) {
   for (let i = from; i < lines.length; i += 1) if (VERSION_HEADING_RE.test(lines[i])) return i;
-  fail(`${ref}:${file} 的未发布小节之后没有版本标题——这一侧真的是发布提交吗？`);
+  fail(`${ref}:${file} 的未发布小节之后没有版本标题——重建与自证都以那一节为界，缺它就没有可比的对象`);
   return -1;
 }
 
@@ -195,6 +200,39 @@ function pickUnreleased(lines, from, to, versionKeys) {
   return trimTrailingBlanks(picked);
 }
 
+/**
+ * 「这一场合不含发布提交」那一路的自证：合并结果应当等于**分支那份的未发布区**接**已发布那侧从版本标题起的尾部**，
+ * 而文件头（H1 与那行语言切换）必须仍像两侧中的某一份。
+ *
+ * 这一路不能只写「跳过」：功能分支追 `main` 是本仓库最常见的合并，而那种合并里没有提升，断言 1–5 全都
+ * 建立在「有提升」这个前提上——直接返回就等于这条守卫在最常见的一类合并上完全不设防。换成能用的判据之后，
+ * 它仍然会在「合并把未发布区弄丢了 / 把某一节改动了」时红，只是不再因为两侧对不齐而恒红。
+ *
+ * 文件头单独说，是因为它在 `## [未发布]` **之上**，三方合并对它没有「该跟哪一侧」的答案：只不许它是
+ * 两侧之外的第三种东西。（评审实测出这一格的：先前只比未发布区与尾部，把两份的 H1 与语言切换行一起改坏
+ * 仍然打印「逐字节自证通过」。）
+ *
+ * @returns 对不上的那半格叫什么；三半都对得上时返回 null
+ */
+function checkNoPromotionShape(file, { released, unreleased, versionIdx, relAnchor, devAnchor, devBodyEnd }) {
+  const worktree = fs.readFileSync(file, 'utf8').split('\n');
+  const wtAnchor = unreleasedAnchor(worktree, file, '工作树');
+  const wtVersionIdx = versionHeadingIndex(worktree, wtAnchor + 1, file, '工作树');
+  const head = worktree.slice(0, wtAnchor).join('\n');
+  if (head !== unreleased.slice(0, devAnchor).join('\n') && head !== released.slice(0, relAnchor).join('\n')) {
+    return `文件头既不像 ${unreleasedRef} 那份、也不像 ${releasedRef} 那份`;
+  }
+  if (
+    worktree.slice(wtAnchor + 1, wtVersionIdx).join('\n') !== unreleased.slice(devAnchor + 1, devBodyEnd).join('\n')
+  ) {
+    return `未发布区与 ${unreleasedRef} 那份不同`;
+  }
+  if (worktree.slice(wtVersionIdx).join('\n') !== released.slice(versionIdx).join('\n')) {
+    return `版本小节与 ${releasedRef} 那份不同`;
+  }
+  return null;
+}
+
 /** 算出某个文件的正确内容与读数；返回 null 表示这一份需要人工判断（断言 3）。 */
 function build(file) {
   const released = gitShow(releasedRef, file).split('\n');
@@ -207,6 +245,22 @@ function build(file) {
 
   const relBodyEnd = nextSectionStart(released, versionIdx + 1);
   const devBodyEnd = nextSectionStart(unreleased, devAnchor + 1);
+
+  // 这一场合可能根本没有发布提交，而断言 3 的对齐方式假设它有：已发布那侧把版本标题当作「本轮新插的那一节」
+  // 跳过去取它的下一节，未发布那侧则是从 `## [未发布]` 直接撞到同一节。于是两侧切片差**一整节**，
+  // 哪怕两份 ref 的这份文件逐字节相同也会红（2026-10-19 实测：拿同一个 ref 跟自己比都报「历史区不一致」）。
+  // 判据只看**位置**：两侧在 `## [未发布]` 之后的第一格是同一节 = 之间没有提升 = 重建的对象不存在。
+  // 不拿「那一行在分支文件里出现过」当判据（评审指出那样扫得穿到历史区，正文里独占一行引用过某个版本标题
+  // 就会把真提升误判成「不含发布提交」——本文件头记的 `## [未发布]` 那句引用就是这种形状）。
+  // 走这条路也不跳过检查，改成自证合并结果（见 `checkNoPromotionShape`）。
+  if ((unreleased[devBodyEnd] ?? '').trim() === versionHeading) {
+    return {
+      file,
+      noPromotion: true,
+      versionHeading,
+      bad: checkNoPromotionShape(file, { released, unreleased, versionIdx, relAnchor, devAnchor, devBodyEnd }),
+    };
+  }
 
   // 断言 3：历史区两侧逐字相同，否则重建没有依据。
   if (released.slice(relBodyEnd).join('\n') !== unreleased.slice(devBodyEnd).join('\n')) {
@@ -263,10 +317,15 @@ function build(file) {
  */
 const reports = [];
 const manual = [];
+const noPromotion = [];
 for (const file of FILES) {
   const built = build(file);
   if (!built) {
     manual.push(file);
+    continue;
+  }
+  if (built.noPromotion) {
+    noPromotion.push(built);
     continue;
   }
   // 断言 2：全文条目总数守恒。
@@ -274,6 +333,36 @@ for (const file of FILES) {
     fail(`${file}: 条目总数 ${built.totalBefore} → ${built.totalAfter}，重建弄丢或弄多了内容，一个字都不写`);
   }
   reports.push(built);
+}
+
+// 「不含发布提交」那一路的出口：两份必须同判（成对的约定），然后各自自证合并结果。
+// 只有两份都对得上才绿；任何一份对不上都失败，并说清是哪半格——那种形状要么是 main 上直接写了
+// 未发布条目（合并做并集，正常，但要人看一眼），要么就是这一场真的把未发布区弄丢了。
+if (noPromotion.length > 0) {
+  if (reports.length > 0 || manual.length > 0) {
+    fail(
+      `两份不同判：${noPromotion.map(item => item.file).join(' 与 ')} 里没有发布提交，` +
+        '另一份走的是别的路（有提升，或需要人工判断）——成对的文件必须同形，请把两份一起人工核对（本脚本一个字都没写）',
+    );
+  }
+  const bad = noPromotion.filter(item => item.bad);
+  if (bad.length > 0) {
+    fail(
+      `${bad.map(item => `${item.file}: ${item.bad}`).join('；')}——这一场不含发布提交，所以没有机械答案可重建；` +
+        '若那是 `main` 上直接写的未发布条目（合并会做并集），确认内容无误后手工放过',
+    );
+  }
+  // 两份各自的首节可能不同（那是这两份文件本来就不成对，与这一场合无关），所以不拿其中一份的标题去替两份说话。
+  const headings = [...new Set(noPromotion.map(item => item.versionHeading))];
+  const pairing =
+    headings.length === 1
+      ? `${headings[0]} 在两侧同在一节`
+      : `两份各自同在一节的那一格不同（${headings.join(' / ')}）——那是这两份文件本来就不成对，不是这一场合造成的`;
+  process.stdout.write(
+    `${noPromotion.map(item => item.file).join(' 与 ')} 无需重建：${pairing}。这一场合不含发布提交；` +
+      `合并结果的文件头、未发布区与版本小节三处已逐字节核过（对照「${unreleasedRef} 的未发布区 + ${releasedRef} 的版本小节」）。\n`,
+  );
+  process.exit(0);
 }
 
 // 断言 3 的出口：任何一份需要人工判断，另一份也**不写**，交人把两份一起合。

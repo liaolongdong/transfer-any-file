@@ -175,13 +175,15 @@ GitHub 托管 runner 的 **6 小时**（两个不同的钟，见 FAQ Q9）；Fre
 
    ```bash
    git merge --no-commit --no-ff main
-   node scripts/repair-release-merge.mjs --check   # 红 = 这次合并把发布记录合错了
+   node scripts/repair-release-merge.mjs --check   # 红 = 这次合并把发布记录合错了，或那条自证没过
    node scripts/repair-release-merge.mjs           # 重建两份 CHANGELOG，再 git commit 那个合并
    ```
 
    `git` 在这里**不报冲突也不报错**，`## [未发布]` 却会清空、本轮条目被划进刚发布的那一版名下，而且没有
    任何门禁为此变红。形状、实测读数与那五条断言见 `.github/visibility-checklist.md` 的 4.2。
    分支是发版当口才从 `main` 切出来的（两侧未发布区是同一份）时不需要这一步，`--check` 会直接报绿。
+   **绿有两种**，读的人要分清：「检查通过：未发布与已发布小节分界正确」（这一场有提升，五条断言过了）与
+   「无需重建：…这一场合不含发布提交」（功能分支追 `main` 那一类，改走文件头 + 未发布区 + 版本小节的逐字节自证）。
 
 ---
 
@@ -267,7 +269,8 @@ pnpm release:cut           # = --write --commit --tag —— 落地：改四份�
 - **合回长期分支之后，`## [未发布]` 空了、刚发布那一版的小节比发布时多出几条。** `git merge` 在这道关口
   既 exit 0、也不留冲突标记（两处插入点相邻但不在同一行），而 CI 里没有一条断言看得出这件事。修法就是
   第二节第 7 条：合并现场先 `node scripts/repair-release-merge.mjs --check`，红了再跑不带 `--check` 的那条
-  重建——落盘前五条守恒断言任一不过，它一个字都不写。形状与实测读数见 `.github/visibility-checklist.md` 的 4.2。
+  重建——落盘前五条守恒断言任一不过，它一个字都不写；那五条都以「这一场里有一次提升」为前提，没有提升的
+  一场（功能分支追 `main`）改走逐字节自证，同样不放过。形状与实测读数见 `.github/visibility-checklist.md` 的 4.2。
 - 同一张表里「`版本预检跳过`」那一行的前提是「条目还没建」。**条目 2026-10-02 已在架**（线上 1.0.0），
   所以现在真读到空版本号应当当成异常去查：凭据、网络，或者商店响应的形状变了。第三种情形下
   `item-version` 是**故意**弃权的（认不出 `distributionChannels[].crxVersion` 就不猜），为的是把原因留在
@@ -347,7 +350,9 @@ pnpm release:cut           # = --write --commit --tag —— 落地：改四份�
 - 分支保护的实际配置（本仓库若已要求状态检查通过）会直接影响 1.3 节的退路是否够用。
 - **已经真跑过的只有三处**。前两处是 2026-10-02，都在隔离副本里、没有碰远端：`release.mjs --write` 在 `main`
   上产出的那份发布提交（**当时只改三份文件**，`## [未发布]` 与它那 150 条之间插标题），以及第二节第 7 条那个
-  「绿着合错」的合并形状与 `scripts/repair-release-merge.mjs` 对它的重建（含五条断言各自被变异触发）。
+  「绿着合错」的合并形状与 `scripts/repair-release-merge.mjs` 对它的重建（含五条断言各自被变异触发；
+  2026-10-19 给「不含发布提交」那一路补了四次变异——文件头、未发布区、版本小节各一次，加中英首节不成对那一格——
+  并反向确认它没把真提升放过去，包括「分支历史区深处塞一行同名标题」这种能把旧判据带走的形状）。
   第三处是 2026-10-18，在 `git worktree` 的 detached 副本里跑 `--write --allow-dirty`（1.2.0 → 1.2.1），
   四种形状各自落在该落的地方：happy path 写 `package.json` 1.2.1、`docs/index.html` 的 `#app
 softwareVersion` 1.2.1 与双语区块各 23 行，随后 `node scripts/check-package-meta.mjs` 在同一棵树上绿；
@@ -370,7 +375,8 @@ softwareVersion` 1.2.1 与双语区块各 23 行，随后 `node scripts/check-pa
 - **上面那两条命令的契约守卫**：`scripts/check-release-ci.mjs`（`pnpm verify:release-ci`，形状与判定表在文件里，
   改判定就要同批改那张表）
 - **发版后把 `main` 合回长期分支时的重建工具**：`scripts/repair-release-merge.mjs`（`--check` 只报告，不带
-  `--check` 才写盘；默认读 `MERGE_HEAD` 与 `ORIG_HEAD`，也可以给显式 ref）
+  `--check` 才写盘；默认读 `MERGE_HEAD` 与 `ORIG_HEAD`，也可以给显式 ref。有提升的那一场走五条守恒断言，
+  没有提升的那一场走「文件头 + 分支的未发布区 + 已发布那侧的版本小节」逐字节自证，两种绿在输出里点名）
 - **上架手册（凭据、手工建条目、商店字段）**：`.github/CWS_PUBLISHING_GUIDE.md` / `.en.md`
 - **商店文案与首次上架手工步骤**：`CHROMEWEBSTORE.md`
 - **提交类型如何影响版本号与 changelog**：`CONTRIBUTING.md` → 值得先知道的约定 → 「提交信息就是发布说明的数据源」（英文对照在 `CONTRIBUTING.en.md`）

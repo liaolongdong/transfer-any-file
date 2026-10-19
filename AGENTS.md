@@ -137,7 +137,7 @@
   `echo "- $receipt"`；在 shell 里再拼一次 `商店回执：` 前缀，step summary 就渲染成「商店回执：商店回执：」，或者把
   标签贴到一句并不是回执的话前面。判定一律走退出码（0 放行 / 10 跳过 / 20 拦下），不去匹配句子。
   `pnpm verify:release-ci` 钉的就是这两侧的契约，改任一侧都要跑它。
-- **把 `main` 合回长期分支会静默合错两份 CHANGELOG**：发布提交在 `## [未发布]` 与它那 150 条之间插版本标题，开发分支往同一小节的各分组**开头**插新条目——两处插入相邻但不在同一行，于是 `git merge` exit 0、不留冲突标记、打印「Automatic merge went well」，而未发布区被清空、本轮条目划到刚发布的那一版名下，且**没有任何一道门禁为此变红**（CI 里既没有「未发布区非空」也没有「版本小节等于发布时那一版」）。合并现场跑 `node scripts/repair-release-merge.mjs --check`：红了就用不带 `--check` 的那条重建，它以 `MERGE_HEAD` 与 `ORIG_HEAD` 两份权威输入重建，落盘前五条守恒断言任一不过就一个字都不写。发版序列与实测读数见 `.github/visibility-checklist.md` 的 4.2 与 `.github/RELEASE_AUTOMATION.md` 第二节第 7 条。
+- **把 `main` 合回长期分支会静默合错两份 CHANGELOG**：发布提交在 `## [未发布]` 与它那 150 条之间插版本标题，开发分支往同一小节的各分组**开头**插新条目——两处插入相邻但不在同一行，于是 `git merge` exit 0、不留冲突标记、打印「Automatic merge went well」，而未发布区被清空、本轮条目划到刚发布的那一版名下，且**没有任何一道门禁为此变红**（CI 里既没有「未发布区非空」也没有「版本小节等于发布时那一版」）。合并现场跑 `node scripts/repair-release-merge.mjs --check`：红了就用不带 `--check` 的那条重建，它以 `MERGE_HEAD` 与 `ORIG_HEAD` 两份权威输入重建，落盘前五条守恒断言任一不过就一个字都不写。**那五条都以「这一场里有一次提升」为前提**；没有提升的一场（功能分支追 `main`，本仓库最常见的合并）改走逐字节自证——文件头必须仍像两侧之一，未发布区必须等于分支那份，版本小节必须等于已发布那侧那份，两种绿在输出里点名，别把它们读成同一件事。发版序列与实测读数见 `.github/visibility-checklist.md` 的 4.2 与 `.github/RELEASE_AUTOMATION.md` 第二节第 7 条。
 - **「离线」与「无远程托管代码」是两条独立主张，前者不蕴含后者。** 两道离线守卫都读不到第三方压缩产物的文本：
   `verify:offline:source` 只看第一方源码，`verify:offline` 只断言 manifest 权限集合。1.0.0 第三次被拒（2026-09-21，
   内容政策 / Manifest V3 远程托管代码）就是从这里穿过去的——jsPDF 的 cdnjs script 注入与 pdf.js 的 import 文本包装器
