@@ -392,7 +392,11 @@ sitemap），本轮只回填了体积数字、没有推进那组日期，所以�
 
   素材**没有重拍**，逐条理由：工作台那两条淡入只改入场状态，落定像素不变，而被拍的是 `workbench-empty` / `batch-files` / `history` 三屏的静止态；count-up 整条都在站点页上，`assets:capture` 那 24 张里没有一张渲染它。所以「重拍」这轮只会让九张图跟着墙钟时间戳走，不会多证明任何东西。
 
-  这一轮跑过的门禁：`lint:all`、`pages:check`（**38 文件**）、`verify:meta`、两道离线守卫（源码层 95 文件、产物层 manifest 只有 `storage`）、两道远程代码守卫、`verify:paths`、`verify:numbers`（**23 项事实 × 57 份散文**，新增的第 57 份就是 `docs/diff/index.html`，它不在 `generatedPages('convert')` 那一路、只能点名收进 `DOCS`）、`verify:listing`、`verify:release-ci`、`build`，全量 e2e **358/358**（88 张截图，零失败零跳过，断言总数一格未动，因此那十句对外散文也没动）。产物 **3,843,223 B / 65 个文件**，比改动前那一棵树（同一台机器 `git worktree add --detach /tmp/taf-head HEAD` + `wxt prepare` + `wxt build` 独立建出的 **3,842,846 B / 65 个文件**）多 **377 B**。**注意这一格**：`Σ` 对两份都打印 3.84 MB，也就是说 3.83 → 3.84 的跨界发生在本轮之前的 `main` 上，README / 产品页 / 商店表里那 16 处「3.83 MB」是上一轮就该回填的账，本轮不动它们；跨轮比字节要用排序尺寸多重集，别拿两份打印值直接相减（见 `bundle-size-proof-method`）。
+  这一轮跑过的门禁：`lint:all`、`pages:check`（**38 文件**）、`verify:meta`、两道离线守卫（源码层 95 文件、产物层 manifest 只有 `storage`）、两道远程代码守卫、`verify:paths`、`verify:numbers`（**23 项事实 × 57 份散文**，新增的第 57 份就是 `docs/diff/index.html`，它不在 `generatedPages('convert')` 那一路、只能点名收进 `DOCS`）、`verify:listing`、`verify:release-ci`、`build`，全量 e2e **358/358**（88 张截图，零失败零跳过，断言总数一格未动，因此那十句对外散文也没动）。产物 **3,843,223 B / 65 个文件**，比改动前那一棵树（同一台机器 `git worktree add --detach /tmp/taf-head HEAD` + `wxt prepare` + `wxt build` 独立建出的 **3,842,846 B / 65 个文件**）多 **377 B**。**`Σ` 对两份都打印 3.84 MB**——3.83 → 3.84 的跨界发生在本轮之前的 `main` 上，所以那 16 处对外体积字样在同一轮里被一次性回填（见下面那一格），跨轮比字节要用排序尺寸多重集，别拿两份打印值直接相减（见 `bundle-size-proof-method`）。
+
+- **把上一轮欠的体积账一次结掉：16 处「3.83 MB」→「3.84 MB」。** 载体清单与 10-01 那格不同，本轮实测的分布是 `docs/index.html` **6 处**（指标卡、中英取证句各一、取证注释那一行、两处 JS 注释里把标签文字当标识符引用的字样）、`CONTRIBUTING.md` 与 `.en.md` 各一、`docs/llms.txt`、`docs/blog/index.html` 中英两处、`docs/promo/{community-posts.md×2, community-posts.en.md, wechat-article.md, blog-article.en.md}` 五处。**README 与 `.github/CHROMEWEBSTORE.md` 一处也没有**（前者用徽章、后者那格是历史陈述）——我上面那句把 README 和商店表列进载体是错的，按实测改在这里。回填用脚本做，每个 needle 在**自己那份文件里**必须恰好命中一次、否则整体不写盘：`docs/index.html` 里 GitHub octicon 的 `d=` 路径含 `1.23.82`，批量 replaceAll 会连它一起换（回填后该路径仍 1 处命中，已自证）。历史陈述一格未动：清单第 99 / 113 / 141 / 158 / 160 / 162 / 178 / 220 / 234 / 323 / 334 / 382 行是各轮当时的读数。同一笔还把 `docs/index.html` 那两句可见版本章从 **1.2.0 对齐到 1.2.1**（`verify:meta` 只守 JSON-LD 那个 `softwareVersion`——它是从 `package.json` 现读的——所以可见文字与它不一致时没有门会变红；这轮把页脚日期推到 10-19 之后，同一句里既写「1.2.0」又写「最后更新 2026-10-19」就是自己打自己）。
+
+  这一笔之后重跑的门禁：`verify:numbers`（23 × 57，`exit=0`）、`pages:check`（38 文件，`exit=0`）、`pnpm format:check`、`pnpm lint:style`；产物没有变化（只动文档），所以按第 3 节那条自证规则**不需要**重跑 e2e——判据是「这一笔没进源码」，不是「体积数字很小」。
 
 ## 3. 收下改动：这一节记的是提交账，不是提交计划
 
@@ -464,7 +468,7 @@ pnpm build && pnpm verify:offline && pnpm verify:remote-code   # 产物层两条
 **3,830,068 B / 65 个文件**（+19 B，2026-10-03 图片压缩这一笔的构建；上一格 3,830,049 是 `7e313c8` 那一轮收口时
 的重建，两格之间只有这一处源码变化）。
 这两个数是数出来的：`.output/chrome-mv3` 下每个普通文件各算一格字节，相加得 3,830,068，计数得 65——
-`pnpm build` 末尾那行 `Σ Total size` 只给到 3.83 MB，取整边界之内的增减它看不见。读数不一样就说明动到了
+`pnpm build` 末尾那行 `Σ Total size` 只给到 3.84 MB，取整边界之内的增减它看不见。读数不一样就说明动到了
 扩展源码，回头确认是不是有意为之。
 
 提交前再确认一次工作树里没有别人的东西（与并发会话共享目录时尤其）：

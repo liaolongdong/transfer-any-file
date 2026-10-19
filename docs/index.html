@@ -211,7 +211,7 @@
       · 143 combinations -> BFS closure over the same graph (utils/core/registry.ts)
       · 116 selectable   -> 143 minus the 27 pairs utils/core/conversion-policy.ts greys out
                             (24 image -> text/data + 3 PDF -> data)
-      · 3.83 MB          -> `pnpm build` total output size
+      · 3.84 MB          -> `pnpm build` total output size
     -->
     <script
       type="application/ld+json"
@@ -4058,7 +4058,7 @@
               class="metric metric-size"
               data-onview="in"
             >
-              <b>3.83&nbsp;MB</b>
+              <b>3.84&nbsp;MB</b>
               <span class="label"><span lang="zh-CN">完整包体</span><span lang="en">whole bundle</span></span>
               <span
                 class="size-bar"
@@ -4312,13 +4312,13 @@
             <table class="matrix">
               <caption>
                 <span lang="zh-CN"
-                  >文件格式任意转换助手 1.2.0 的实际转换能力（从 utils/converters/
+                  >文件格式任意转换助手 1.2.1 的实际转换能力（从 utils/converters/
                   注册表直接推导，非估计值）。三个格式列互不重叠，相加正好等于「可达」：「一步直达」是已注册转换器的目标，「经链路到达」只列链路可达且仍然可选的目标，「被置灰」列同样链路可达、但被语义策略禁用的组合（图片
                   → 文本 / 数据：没有文字层，除非接 OCR；PDF → 表格 / JSON：PDF
                   不携带表格结构）。被置灰的全部是多步链路目标，因为没有任何一条已注册的直连转换被策略禁用。去掉「被置灰」即为「可选」。</span
                 >
                 <span lang="en"
-                  >Actual conversion capability in Transfer Any File 1.2.0, derived from the converter registry rather
+                  >Actual conversion capability in Transfer Any File 1.2.1, derived from the converter registry rather
                   than estimated. The three format columns do not overlap, and together they add up to "Reachable":
                   "Direct targets" are registered converters, "Reached via a chain" lists only chain-reachable targets
                   that stay selectable, and "Greyed out" holds the chain-reachable pairs the semantic policy disables
@@ -7747,7 +7747,7 @@ pnpm build</code><button
                 <span lang="zh-CN"
                   >一套 Playwright 端到端套件加载真正的构建产物，用仓库内的夹具跑完各类转换场景、批量与
                   ZIP、取消与改键、预览与编辑、图片输出参数与转换预设、PDF 选页、输出文件名模板、历史与偏好，共 358
-                  项断言全部通过（1.2.0 之后的未发布构建，2026-10-17 实测）；另在 6 主题 × 浅/深共 12
+                  项断言全部通过（1.2.1 之后的未发布构建，2026-10-19 实测）；另在 6 主题 × 浅/深共 12
                   种组合下逐项校验五组对比度：顶栏文字、主按钮文字（常态 / 悬停 / 按下）、焦点环、正文信息文字，以及
                   Element Plus 浅色效果的警示框与格式标签。CI 每次推送跑 lint + build + e2e。</span
                 >
@@ -7755,8 +7755,8 @@ pnpm build</code><button
                   >A Playwright end-to-end suite drives the actual build output over the repository fixtures — every
                   conversion scenario, batching and ZIP handling, cancellation and shortcut rebinding, preview and
                   editing, image output parameters and conversion presets, PDF page selection, output file-name
-                  patterns, history and preferences — with 358/358 assertions passing (the unreleased build after 1.2.0,
-                  measured 2026-10-17). It also checks five contrast pairs — topbar text, the primary button's label in
+                  patterns, history and preferences — with 358/358 assertions passing (the unreleased build after 1.2.1,
+                  measured 2026-10-19). It also checks five contrast pairs — topbar text, the primary button's label in
                   its rest, hover and pressed states, the focus ring, informational text such as the drop hint and file
                   sizes, and the ink Element Plus paints on its light-effect alerts and per-file format tags — in all 12
                   theme × light/dark combinations. CI runs lint, build and e2e on every push.</span
@@ -7781,19 +7781,19 @@ pnpm build</code><button
           </div>
           <p class="updated">
             <span lang="zh-CN"
-              ><strong>版本 1.2.0 · 本页最后更新 2026-10-19。</strong>文中全部数字从代码取证：14 种格式来自
+              ><strong>版本 1.2.1 · 本页最后更新 2026-10-19。</strong>文中全部数字从代码取证：14 种格式来自
               <code>FileFormat</code> 枚举，48 条路径与 143 个可达组合来自转换器注册表的邻接图，116 个可选组合是 143
-              减去 <code>utils/core/conversion-policy.ts</code> 置灰的 27 个，3.83 MB 来自
+              减去 <code>utils/core/conversion-policy.ts</code> 置灰的 27 个，3.84 MB 来自
               <code>pnpm build</code> 输出，权限与上限来自 manifest 与源码常量。截图与推广图由
               <code>pnpm assets:capture</code> 从构建产物生成；<code>docs/convert/</code> 的 35 张配对页与 1 个索引页由
               <code>pnpm pages:render</code> 生成，与 <code>docs/sitemap.xml</code> 同步；本页上方那张文件对比是
               <code>tools/file-diff.html</code> 的逐字节副本，由同一条命令发布到 <code>docs/diff/</code>。</span
             >
             <span lang="en"
-              ><strong>Version 1.2.0 · page last updated 2026-10-19.</strong> Every number on this page is taken from
+              ><strong>Version 1.2.1 · page last updated 2026-10-19.</strong> Every number on this page is taken from
               the code: 14 formats from the <code>FileFormat</code> enum, 48 routes and 143 reachable combinations from
               the converter registry's adjacency graph, and 116 selectable combinations — that is 143 minus the 27 pairs
-              <code>utils/core/conversion-policy.ts</code> greys out. 3.83 MB comes from <code>pnpm build</code> output,
+              <code>utils/core/conversion-policy.ts</code> greys out. 3.84 MB comes from <code>pnpm build</code> output,
               permissions and limits from the manifest and source constants. Screenshots are generated from the built
               bundle by <code>pnpm assets:capture</code>, and the per-pair pages — 35 of them, plus an index — come from
               <code>pnpm pages:render</code>, which writes the sitemap they are listed in. The file-diff page above is a
@@ -8121,7 +8121,7 @@ pnpm build</code><button
                 href="https://github.com/liaolongdong/transfer-any-file/blob/main/CHANGELOG.md"
                 rel="noopener"
                 target="_blank"
-                >v1.2.0</a
+                >v1.2.1</a
               >
             </span>
           </div>
@@ -8513,7 +8513,7 @@ pnpm build</code><button
         }
 
         // ---- Roll the metric band up, once, as it comes into view ----------
-        // Only bare integers are touched: "3.83 MB" is a measurement with a unit, not a tally, and
+        // Only bare integers are touched: "3.84 MB" is a measurement with a unit, not a tally, and
         // rolling it would advertise a precision the build does not have. The real value stays in the
         // HTML, so crawlers, no-JS readers and reduced-motion readers all see the answer immediately.
         var metricNums = Array.prototype.slice.call(document.querySelectorAll('.metric b')).filter(function (el) {
@@ -8678,7 +8678,7 @@ pnpm build</code><button
 
         // ---- One-pass scroll reveals declared in the markup -------------------
         // data-onview names the class an element gains the first time it is 35% in view:
-        // the size bar under "3.83 MB" (in) and the light sweep over the comparison column
+        // the size bar under "3.84 MB" (in) and the light sweep over the comparison column
         // (shine). Both classes only arm finite animations, so reduced-motion readers get
         // the end state directly and there is nothing to unsee.
         var onView = Array.prototype.slice.call(document.querySelectorAll('[data-onview]'));
