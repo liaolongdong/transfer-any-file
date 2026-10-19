@@ -52,13 +52,17 @@ const { t } = useI18n();
         :total="stepTotal ?? 0"
       />
     </div>
-    <el-alert
-      v-if="error"
-      :title="error"
-      type="error"
-      :closable="false"
-      show-icon
-    />
+    <!-- Enter only: see `.fat-fade-in` in `global.css`. A leaving alert that still answers
+         `.el-alert__title` would be read by the next batch instead of the one it belongs to. -->
+    <Transition name="fat-fade-in">
+      <el-alert
+        v-if="error"
+        :title="error"
+        type="error"
+        :closable="false"
+        show-icon
+      />
+    </Transition>
   </div>
 </template>
 

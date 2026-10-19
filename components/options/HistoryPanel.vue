@@ -301,41 +301,49 @@ async function handleImportChange(e: Event): Promise<void> {
       </el-select>
     </div>
 
-    <div
-      v-if="!hasRecords"
-      class="history-empty"
-    >
-      {{ t('history.empty') }}
-      <!-- Export and clear live in the head row, which only exists while there are
-           records — but import is the way back from a mistaken 清空, so it has to stay
-           reachable from the empty state it produces. -->
-      <el-button
-        text
-        size="small"
-        type="primary"
-        @click="triggerImport"
+    <!-- Three sibling conditions rather than one `v-if / v-else-if / v-else` chain, because each empty
+         state needs its own `<Transition>` child to toggle — see `vue/require-toggle-inside-transition`.
+         They cannot overlap: the first holds exactly when there is no record at all, the second when
+         there are records but the filter left none, the third when the filter left some. -->
+    <Transition name="fat-fade">
+      <div
+        v-if="!hasRecords"
+        class="history-empty"
       >
-        {{ t('history.import') }}
-      </el-button>
-    </div>
+        {{ t('history.empty') }}
+        <!-- Export and clear live in the head row, which only exists while there are
+             records — but import is the way back from a mistaken 清空, so it has to stay
+             reachable from the empty state it produces. -->
+        <el-button
+          text
+          size="small"
+          type="primary"
+          @click="triggerImport"
+        >
+          {{ t('history.import') }}
+        </el-button>
+      </div>
+    </Transition>
 
-    <div
-      v-else-if="filteredRecords.length === 0"
-      class="history-empty"
-    >
-      {{ t('history.noMatch') }}
-      <el-button
-        text
-        size="small"
-        type="primary"
-        @click="resetFilter"
+    <Transition name="fat-fade">
+      <div
+        v-if="hasRecords && filteredRecords.length === 0"
+        class="history-empty"
       >
-        {{ t('history.filterAll') }}
-      </el-button>
-    </div>
+        {{ t('history.noMatch') }}
+        <el-button
+          text
+          size="small"
+          type="primary"
+          @click="resetFilter"
+        >
+          {{ t('history.filterAll') }}
+        </el-button>
+      </div>
+    </Transition>
 
     <TransitionGroup
-      v-else
+      v-if="hasRecords && filteredRecords.length > 0"
       tag="ul"
       name="fat-list"
       class="history-list"
