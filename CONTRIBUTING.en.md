@@ -31,11 +31,13 @@ The three steps above are the minimal loop; the full list is here. The package m
 
 ```bash
 pnpm dev              # dev mode with hot reload (WXT)
-pnpm build            # production build to .output/chrome-mv3
-pnpm package          # zip for distribution
+pnpm build            # production build to .output/chrome-mv3, and the store zip via postbuild
+pnpm package          # run wxt zip again on its own (unnecessary after a build unless you only want the zip)
 pnpm typecheck        # vue-tsc
-pnpm lint             # eslint
+pnpm lint             # eslint (--max-warnings 0: a warning fails the run)
+pnpm lint:fix         # eslint --fix
 pnpm lint:style       # stylelint (assets/**/*.css and .vue)
+pnpm lint:style:fix   # stylelint --fix
 pnpm format           # prettier --write over the repository
 pnpm format:check     # prettier --check over the repository (no writes)
 pnpm lint:all         # typecheck + eslint + stylelint + format:check
@@ -48,7 +50,7 @@ pnpm verify:numbers   # every number in the outward prose equals the one in the 
 pnpm test:e2e         # build + Playwright suite over fixtures/
 pnpm assets:capture   # regenerate store/README screenshots + promo graphics (needs pnpm build first)
 node scripts/render-demo-gif.mjs   # re-record the demo GIF at the top of the README (needs pnpm build, plus ffmpeg on PATH)
-node scripts/render-icons.mjs   # re-render both icon tiers from assets/*.svg
+pnpm icons:build      # re-render both icon tiers from assets/*.svg (= node scripts/render-icons.mjs)
 node scripts/verify-extension.mjs   # load the package into a real browser: worker, _locales resolution, first-screen chunks, egress
 pnpm release:plan     # plan only: next version, both changelog entries, which commits count as noise (writes nothing)
 pnpm release:cut      # cut locally: edit those four written files + re-render the generated pages + the release commit + the lightweight tag (no push)
