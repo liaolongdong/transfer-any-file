@@ -552,10 +552,6 @@ export const HUBS = [
         zh: '文本按字面转义后放进 `<pre>`：换行与空格保留，`<` 与 `&` 变成实体，不会被当作标签执行；不识别标题、列表或表格。',
         en: 'The text is escaped literally into `<pre>`: line breaks and spaces survive, `<` and `&` become entities and are never executed, and no heading, list or table is inferred.',
       },
-      docx: {
-        zh: '先转成 `<pre>` HTML 再写入 Word：保留换行与空格，整段使用等宽字体；不推断标题、列表或表格。',
-        en: 'The text goes through `<pre>` HTML into Word: line breaks and spaces survive, the whole body uses a monospace face, and no heading, list or table is inferred.',
-      },
       xlsx: {
         zh: '只有当整段文本是合法 JSON 数组时才走得通：TXT→HTML 后按 JSON 读取，再转成表格。普通文本没有表格结构，会以错误结束。',
         en: 'It only works when the whole text is a valid JSON array: after TXT→HTML the content is read as JSON and turned into a sheet. Ordinary prose has no table structure and ends in an error.',
@@ -654,10 +650,6 @@ export const HUBS = [
       docx: {
         zh: '查看器 HTML 写入 Word：层级缩进与键值关系保留，语法颜色退化为文字样式；大文档会分页。',
         en: 'The viewer HTML goes into Word: levels and key-value relationships survive, syntax colours fall back to text styling, and a large document spans pages.',
-      },
-      pdf: {
-        zh: 'JSON 查看器渲染成 A4 页面写入 PDF：长行折行、长文档分页；PDF 是图像页面，JSON 文本不可选中。',
-        en: 'The viewer is rendered into A4 pages and written to PDF: long lines wrap and long documents span pages, but the result is page images with no selectable JSON text.',
       },
       txt: {
         zh: '按查看器的文本顺序提取键与值，缩进保留到可读的程度；标点与换行由渲染结构决定，不保证能重新解析为 JSON。',

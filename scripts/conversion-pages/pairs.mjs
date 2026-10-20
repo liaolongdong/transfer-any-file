@@ -5222,4 +5222,210 @@ export const PAIRS = [
       },
     ],
   },
+  {
+    slug: 'txt-to-word',
+    from: 'txt',
+    to: 'docx',
+    shot: 'batch-results',
+    published: '2026-10-21',
+    title: {
+      zh: 'TXT 转 Word 文档——离线、可批量、不上传',
+      en: 'TXT to Word document offline, in batches, no upload',
+    },
+    desc: {
+      zh: '把纯文本变成 Word 打得开的 .docx：换行、缩进与制表符原样保留，排版交给 Word。批量、可预览、零网络请求，不经过任何在线转换服务。',
+      en: 'A plain-text file becomes a .docx Word opens: line breaks, indentation and tabs preserved, layout left to Word. Fully offline, never sent to a service.',
+    },
+    lede: {
+      zh: '「把 txt 丢进 Word」看起来是最简单的一步，真正决定结果的是产物里放了什么。这条链路先按纯文本的老规矩把文件转成 HTML：转义 `&`、`<`、`>`，把每个换行写成 `<br>`，整段包在 `<pre>` 里；再由 HTML 转 Word 把这份 HTML 封装成 MHTML altChunk 塞进 .docx——也就是说**排版发生在 Word 打开它的那一刻**，不是由扩展硬编码一份 XML。换来的是行与缩进的忠实保留，代价是不同 Word / LibreOffice 版本的观感可能不同。这条路上没有任何字体、页边距或颜色可继承：源文件本来就没有这些对象。',
+      en: '“Turn a txt into Word” sounds like the easiest step in the world, and what decides the result is what the artefact actually contains. This route first converts the file with plain text’s own rules: `&`, `<` and `>` are escaped, every newline becomes `<br>`, and the block is wrapped in `<pre>`; HTML to Word then packages that document as an MHTML altChunk inside the .docx — which means **the layout happens when Word opens it**, rather than being hardcoded into XML this extension assembles. The reward is faithful lines and indentation; the price is that different Word and LibreOffice builds can present it differently. Nothing is inherited on the way: the source file has no fonts, margins or colours to carry over.',
+    },
+    keeps: {
+      zh: [
+        '每一行换行都成为 Word 里的一个换行，不会被折进同一段——日志、清单、代码片段转出去还是一行一条',
+        '前导空格与制表符按 `<pre>` 的规矩原样保留，ASCII 画的表格和缩进层级转过去还认得出来',
+        '文本里的 `&`、`<`、`>` 是作为字符出现的，不会被当成标签吃掉；文件名会写进文档标题',
+        '编码不是前提：先按 BOM 与 NUL 分布嗅探 UTF-16，再依次尝试 UTF-8 → GB18030 → GBK；四种都读不出文本时直接报错，不产出一份乱码 .docx',
+      ],
+      en: [
+        'Every newline becomes a newline in Word instead of being folded into one paragraph, so logs, checklists and code snippets still read one item per line',
+        'Leading spaces and tabs are preserved exactly as `<pre>` holds them, so an ASCII table or an indented outline is still recognisable after the conversion',
+        'The `&`, `<` and `>` inside your text appear as characters rather than being swallowed as markup, and the file’s own name becomes the document title',
+        'The encoding is not a precondition: UTF-16 is sniffed from the BOM and the NUL pattern first, then UTF-8 → GB18030 → GBK are tried, and a file none of them can read fails instead of shipping a mojibake .docx',
+      ],
+    },
+    limits: {
+      zh: [
+        '排版由 Word 决定：产物里是封装好的 altChunk，Word 打开时才渲染，所以行距、字体回退与分页位置在不同软件、不同版本之间会有差异——它不是字节级固定的版式',
+        '没有任何样式可继承：字号、字体、颜色、页边距全部取 Word 的默认值，想要样式请先在 Word 里加，或改走 Markdown 转 Word 让结构（标题、列表、表格）先进文档',
+        '超长的一行不会被自动折断：`<pre>` 保留原样，宽行在 Word 里可能超出页宽。数据宽表请走 CSV 或 Excel 路线',
+        '不生成图片、目录、页眉页脚或任何对象——纯文本里没有这些东西，转换也不会替你把它们凭空造出来',
+        '一批最多 200 个文件、单个上限 100 MB；产物是 .docx 容器，多个文件一起转会打包成 ZIP 供一次拿走',
+      ],
+      en: [
+        'Word owns the layout: the artefact holds a packaged altChunk and Word renders it when the file opens, so line spacing, font fallback and where pages break can differ across applications and versions — this is not a byte-fixed layout',
+        'No styling is inherited: size, face, colour and margins all come from Word’s defaults. Style it in Word afterwards, or take Markdown to Word so structure (headings, lists, tables) enters the document first',
+        'A very long line is not auto-wrapped: `<pre>` keeps it as written, so a wide row can run past the page. Data tables belong on the CSV or Excel route',
+        'No images, table of contents, headers or footers are generated — plain text contains none, and the conversion does not invent them for you',
+        'Up to 200 files per batch and 100 MB per file; the artefact is a .docx container, and several files together are handed over as one ZIP',
+      ],
+    },
+    notes: {
+      zh: [
+        '想要一份真正能排版的文档：TXT → Markdown → Word，标题、列表与表格会以结构进文档，而不是当成一整块等宽文字',
+        '想要一页纸的图片或 PDF：TXT → PDF 走的是整页渲染成位图的路线，产物没有文字层，选中不了文字',
+        '手上其实是数据表，只是存成了 .txt：先把分隔符当 CSV 读（TXT → CSV 或直接用 .csv），再转 Excel，列位置才稳',
+      ],
+      en: [
+        'For a document you really want to lay out: TXT to Markdown to Word, so headings, lists and tables enter as structure rather than as one block of monospaced text',
+        'For a page image or PDF: TXT to PDF renders the whole page to bitmaps, so that artefact has no text layer and its words cannot be selected',
+        'If the file is actually a data table stored as .txt: read the separator as CSV first (TXT to CSV, or just use the .csv), then go to Excel, where the column positions stay put',
+      ],
+    },
+    faq: [
+      {
+        q: {
+          zh: '为什么排版要到 Word 打开时才定？',
+          en: 'Why is the layout decided when Word opens the file?',
+        },
+        a: {
+          zh: '因为产物里封的是 MHTML altChunk：Word 按自己的 HTML 引擎渲染它。这样换来的是换行与缩进的忠实保留，也不必由扩展去拼一份 Word 的 XML 正文——代价就是不同软件的观感差异，这是刻意选的那一侧。',
+          en: 'Because the file carries an MHTML altChunk: Word renders it with its own HTML engine. That buys faithful lines and indentation without this extension hand-assembling WordprocessingML, and the price is that viewers can differ — the side deliberately chosen.',
+        },
+      },
+      {
+        q: {
+          zh: '日志里有几百行，会丢吗？',
+          en: 'My log runs to hundreds of lines — will any be lost?',
+        },
+        a: {
+          zh: '不丢。每个换行都写成 `<br>`，整段作为等宽块交给 Word；文本一个字符都不会被当标签解析（`&`、`<`、`>` 都先转义）。真正要注意的是超宽的单行不会被自动折行。',
+          en: 'None. Every newline becomes a `<br>` and the whole block is handed over as monospaced content; not one character is parsed as markup, because `&`, `<` and `>` are escaped first. The thing to watch is a very long line, which is not auto-wrapped.',
+        },
+      },
+      {
+        q: {
+          zh: '中文和 emoji 会正常显示吗？',
+          en: 'Do Chinese text and emoji survive?',
+        },
+        a: {
+          zh: '内容按 UTF-8 保留，不会替换成问号；实际用到的字形由 Word 的字体回退决定。如果某类字符在你的 Word 里显示成方框，那是字体问题，重转一次不会改变结果。',
+          en: 'The bytes stay UTF-8 and are not replaced with question marks; which glyphs you actually see is Word’s font fallback. If a character renders as a box in your Word, that is a font matter, and converting again changes nothing.',
+        },
+      },
+      {
+        q: {
+          zh: '合同或病历这类文本会经过服务器吗？',
+          en: 'Do contracts or medical notes ever pass through a server?',
+        },
+        a: {
+          zh: '不会。读文本、生成 HTML、封装 .docx 都在扩展自己的标签页里完成，只申请 storage 权限、没有 host 权限，产物里也没有把远端资源当代码执行的路径。',
+          en: 'No. Reading the text, building the HTML and packaging the .docx all happen inside the extension’s own tab: the storage permission only, no host permissions, and no path in the bundle that executes remotely hosted code.',
+        },
+      },
+    ],
+  },
+  {
+    slug: 'json-to-pdf',
+    from: 'json',
+    to: 'pdf',
+    shot: 'batch-results',
+    published: '2026-10-21',
+    title: {
+      zh: 'JSON 转 PDF——离线、带语法配色、不上传',
+      en: 'JSON to PDF offline, syntax coloured, no upload',
+    },
+    desc: {
+      zh: '先把 JSON 渲染成可折叠的语法高亮查看器，再把这份页面按 A4 分页写成 PDF。产物是位图、没有文字层，但结构与配色都在。',
+      en: 'JSON becomes a collapsible, colour-coded viewer, and that page is captured to A4 pages inside a PDF — an image with no text layer, structure and colours intact.',
+    },
+    lede: {
+      zh: '这条路是两步合成的，产物形态由后一步决定。前一步把 JSON 渲染成语法高亮的可折叠查看器：键、字符串、数字、布尔与 null 各有颜色，对象与数组带 `Object(n)` / `Array(n)` 的计数摘要，并且**默认全部展开**——所以折叠状态的节点不会被裁掉。后一步把这份 HTML 净化后离屏渲染成整页画布，再按 A4 切成多页写进 PDF。因此产物是「查看器的分页截图」：看起来像文档，但每个字都是位图，不能选中、不能被搜索。也正因为整页要一次渲染，它有高度上限：超过约 32768 px 会报「页面过高」，而不是给你一份被静默截断的 PDF。',
+      en: 'This route is two steps, and the second one decides what you get. The first renders the JSON as a collapsible, syntax-coloured viewer: keys, strings, numbers, booleans and null each take a colour, objects and arrays carry an `Object(n)` / `Array(n)` count, and everything is **expanded by default**, so nothing hidden behind a collapsed node is left out. The second renders that document off-screen onto a page canvas, slices it into A4 pages and writes them into a PDF. So the artefact is a paginated picture of the viewer: it looks like a document, yet every glyph is a bitmap — nothing can be selected or searched. Because the whole page must be rendered in one pass, it has a height ceiling: past roughly 32768 px the job reports an over-tall page instead of handing you a silently truncated PDF.',
+    },
+    keeps: {
+      zh: [
+        '层级与配色进画面：缩进、键名颜色、`Object(n)` / `Array(n)` 计数都留在 PDF 里，默认展开所以没有藏在折叠状态下的内容被漏掉',
+        '按 A4 分页：长文档得到多页 PDF，页与页之间是整页位图切片，而不是把内容压扁挤进一页',
+        '渲染面宽度固定 800 px，与工作台预览同一套版式，所以「看到的」与「转出来的」是同一张页面',
+        '不可信内容在渲染前净化：JSON 里的字符串只作为文本呈现，渲染边界还会剥掉远程子资源引用，产物不会在打开时替你去取网络上的东西',
+      ],
+      en: [
+        'Hierarchy and colour reach the page: indentation, key colours and the `Object(n)` / `Array(n)` counts stay in the PDF, and the default-expanded state means nothing hidden behind a collapsed node is left out',
+        'A4 slicing: a long document yields several pages of whole-page bitmaps rather than being squeezed flat into one',
+        'The render surface is 800 px wide, the same layout the workbench preview uses, so what you saw and what comes out are the same page',
+        'Untrusted content is sanitised before rendering: strings appear as text only, and the render boundary strips remote subresource references, so the artefact never goes fetching on your behalf when it opens',
+      ],
+    },
+    limits: {
+      zh: [
+        '没有文字层：PDF 里每个字都是位图，不能选中、复制或被搜索引擎检索。要文字请用 JSON 转 HTML（浏览器里可直接打印）或转 TXT',
+        '高度上限：整页捕获约 32768 px，深结构或超大 JSON 全部展开后很容易超过，这时报「页面过高」并让你分段，而不是静默截断',
+        '分辨率按页高自动降档（2 / 1.5 / 1 倍像素比），特别高的文档字迹会比短文档更软',
+        '等宽但非编辑器：长键名与长值会按 800 px 版式折行，列的位置不保证与编辑器里逐字符对齐',
+        '解析不了的 JSON 直接报错，不会给你一份空白 PDF；单个文件上限 100 MB、一批最多 200 个',
+      ],
+      en: [
+        'No text layer: every glyph in the PDF is a bitmap, so nothing can be selected, copied or searched. For text, take JSON to HTML (printable from the browser) or to TXT',
+        'A height ceiling: whole-page capture tops out near 32768 px, and a deep or huge JSON fully expanded easily exceeds it — the job then reports an over-tall page and tells you to split, instead of truncating quietly',
+        'Resolution steps down with page height (2 / 1.5 / 1 pixel ratio), so a very tall document comes out softer than a short one',
+        'Monospaced, not an editor: long keys and long values wrap to the 800 px layout, so columns are not guaranteed to line up character-for-character',
+        'JSON that cannot be parsed fails outright rather than producing a blank PDF; 100 MB per file and 200 files per batch',
+      ],
+    },
+    notes: {
+      zh: [
+        '要的是能全文检索的档案：走 JSON 转 HTML，浏览器里直接 Ctrl+P 打印，得到带文字层的 PDF',
+        '要的是当图表存档：走 JSON 转 PNG，一张图看完整个结构',
+        '要的是能继续筛排的表格数据：先把 JSON 转 CSV 或 Excel，再决定要不要出 PDF',
+      ],
+      en: [
+        'For a searchable archive: take JSON to HTML and print it from the browser, which yields a PDF with a real text layer',
+        'For a picture of the structure to file away: take JSON to PNG, one image showing the whole tree',
+        'For data you still want to filter: convert JSON to CSV or Excel first, then decide whether a PDF is the right end product',
+      ],
+    },
+    faq: [
+      {
+        q: {
+          zh: 'PDF 里的文字能搜索或复制吗？',
+          en: 'Can I search or copy the text in that PDF?',
+        },
+        a: {
+          zh: '不能。这条链路的终点是「整页渲染成位图再按 A4 分页」，产物不含文字层，也无法嵌入字体子集。这么选的代价是可搜索性，换来的是不需要把查看器的排版权交给字体嵌入逻辑——要文字层就转 HTML 再自行打印。',
+          en: 'No. The route ends at “render the page to a bitmap, slice it into A4”, so the artefact has no text layer and no embedded font subsets. The cost is searchability; what it avoids is handing the viewer’s typography to a font-embedding step. For a text layer, convert to HTML and print it yourself.',
+        },
+      },
+      {
+        q: {
+          zh: '为什么报「页面过高」而不是给我一份截断的 PDF？',
+          en: 'Why does it report an over-tall page instead of just truncating?',
+        },
+        a: {
+          zh: '整页捕获的上限约 32768 px，浏览器在远超这个高度时返回的往往是空白画布——那种「成功但全白」比一条明确的错误难查得多。所以这里选择当场失败并提示分段（或改转 HTML / PNG）。',
+          en: 'Whole-page capture caps out near 32768 px, and browsers well beyond that return a blank canvas — “succeeded, but all white” is far harder to diagnose than a clear error. So this fails loudly and suggests splitting, or going to HTML / PNG instead.',
+        },
+      },
+      {
+        q: {
+          zh: '折叠起来的那些节点会不出现在 PDF 里吗？',
+          en: 'Will nodes I collapsed be missing from the PDF?',
+        },
+        a: {
+          zh: '不会。查看器渲染时所有对象与数组都是展开状态，PDF 拍到的是完整的树——包括很深的一层。反过来说，这也正是高度容易吃满的原因。',
+          en: 'No. The viewer renders every object and array expanded, so the PDF captures the whole tree, however deep. That is exactly why the page height runs away, too.',
+        },
+      },
+      {
+        q: {
+          zh: '接口返回的原始 JSON 会外发吗？',
+          en: 'Is the raw JSON from an API ever sent anywhere?',
+        },
+        a: {
+          zh: '不会。解析、渲染、净化、分页、写 PDF 全在扩展自己的标签页里完成，只申请 storage 权限、没有 host 权限，全程零网络请求。',
+          en: 'No. Parsing, rendering, sanitising, slicing and writing the PDF all happen inside the extension’s own tab: the storage permission only, no host permissions, and no requests at any point.',
+        },
+      },
+    ],
+  },
 ];
