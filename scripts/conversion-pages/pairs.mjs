@@ -6287,4 +6287,190 @@ export const PAIRS = [
       },
     ],
   },
+  {
+    slug: 'txt-to-json',
+    from: 'txt',
+    to: 'json',
+    shot: 'batch-results',
+    published: '2026-10-21',
+    title: {
+      zh: 'TXT 转 JSON——离线、把文本里的 JSON 排好、不上传',
+      en: 'TXT to JSON offline — format JSON inside a text file',
+    },
+    desc: {
+      zh: '`.txt` 里其实是一段 JSON：解析后按两级缩进重排，数字与布尔保持类型，不是 JSON 就报错而不是包成字符串。全程离线。',
+      en: 'JSON saved as .txt comes back indented two spaces, with numbers and booleans still themselves. Prose fails instead of being wrapped into a string. Offline.',
+    },
+    lede: {
+      zh: '很多人手里的 JSON 就存成 `.txt`——从聊天工具、日志系统或旧编辑器里拿出来时，扩展名总是先丢。这一条走两步：TXT 先整段包进一个 `<pre>`（只转义 `&`、`<`、`>`，把换行写成 `<br>`，文档标题取你的文件名），随后 HTML→JSON 发现文档里没有表格，就退一步把那个 `<pre>` 的文字当 JSON 解析，再用两级缩进重新写出。两个结果因此顺带得到：一份 minify 成一整行的数据变成可读的层级；类型是解析出来的类型——数字仍是数字、布尔仍是布尔、`null` 仍是 `null`，这与「从表格里取值」那条路相反，那里值一律是字符串。退一步也意味着边界清楚：**整段必须是合法 JSON**。带 `//` 注释、尾逗号或单引号的那一种会报解析错误，而不是把原文包成一个字符串塞进结果；普通文章、日志行同理。编码判定在第一步就做：先按 BOM 与 NUL 的奇偶形状认 UTF-16，再依次试严格的 UTF-8、GB18030、GBK，四种都不像文本就明确报错，不会产出乱码。全程在这个标签页里完成，只有 storage 权限，没有任何网络请求。',
+      en: 'A lot of JSON lives in files named `.txt` — the extension is the first thing lost when data comes out of a chat app, a log viewer or an old editor. This route is two steps: the text is wrapped whole into a `<pre>` (only `&`, `<` and `>` are escaped, line breaks become `<br>`, and the document title is your file name), then HTML to JSON, finding no table in the document, falls back to reading that `<pre>` as JSON and writes it out again indented two spaces. Two results come with it: data minified onto one line becomes a readable hierarchy, and the types are the parsed ones — numbers stay numbers, booleans stay booleans, `null` stays `null`, which is the opposite of the table route, where every value is a string. The same fallback marks the boundary clearly: **the whole text has to be valid JSON**. A file with `//` comments, trailing commas or single quotes reports a parse error instead of having its contents wrapped into one string, and so does ordinary prose or log lines. Encoding is settled in the first step: UTF-16 from its BOM or NUL parity, then strict UTF-8, GB18030 and GBK in order, with an explicit failure when the bytes are not text at all. All of it runs in this tab on the storage permission only, with no network request.',
+    },
+    keeps: {
+      zh: [
+        '原文是 JSON 就按两级缩进重排：挤成一整行的 minify 数据，转完就是能读的层级',
+        '类型是解析出来的类型：数字、布尔与 `null` 保持原样，不会被统一收成字符串',
+        '嵌套原样保留：对象套数组、数组套对象都还在结果里，不会被摊平',
+        '编码先判形状：UTF-16（BOM 或 NUL 奇偶）、UTF-8、GB18030、GBK 逐条严格解，四个都不像文本就报错而不是产出乱码',
+      ],
+      en: [
+        'JSON in, two-space indentation out: data minified onto one line comes back as a readable hierarchy',
+        'The types are the parsed ones — numbers, booleans and `null` stay themselves instead of collapsing into strings',
+        'Nesting survives as it is: objects inside arrays, arrays inside objects, never flattened',
+        'Encoding is settled by shape first: UTF-16 by BOM or NUL parity, then strict UTF-8, GB18030 and GBK, failing outright when the bytes are not text',
+      ],
+    },
+    limits: {
+      zh: [
+        '认的是「整段是 JSON」：文章、日志、以文字写成的表格都会停在解析错误，原文不会被包成一个字符串交给你',
+        '换行不带着走：TXT→HTML 把 `\n` 写成 `<br>`，取回的是 `textContent`——JSON 语法不依赖换行所以照常解析，但你自己排的空行与缩进不会原样出现',
+        '值里的换行只有写成 `\n` 那一种转义才留得住：JSON 字符串里裸的换行本来就不合法，这一层不替它补',
+        '重复键按 JSON 解析的既有语义只留最后一个（`{"a":1,"a":2}` 出来是 `2`），这一层不合并也不报错',
+        '超长整数按 JavaScript 的 number 处理：20 位账号那一种在解析那一刻就可能变成科学计数，要保字符请走 CSV / Excel 那两条按值取数的路',
+      ],
+      en: [
+        'What it reads is “the whole text is JSON”: essays, logs and tables written as words stop at a parse error, and the text is not handed back wrapped in a string',
+        'Line breaks do not travel: TXT to HTML turns `\n` into `<br>` and the read-back is `textContent`, so JSON parses anyway, but the blank lines and indentation you typed are not reproduced',
+        'A newline inside a value survives only as the `\n` escape: a bare one was never valid JSON, and this layer does not patch it',
+        'Duplicate keys follow the parser’s own rule and keep the last one (`{"a":1,"a":2}` yields `2`) — no merging, no warning',
+        'Huge integers go through JavaScript’s number: a 20-digit account can become exponential notation at parse time, so keep the characters by taking the CSV or Excel route instead',
+      ],
+    },
+    notes: {
+      zh: [
+        '转完只想看：JSON→HTML 能把这份数据渲染成可折叠的网页树，键与值各自着色',
+        '要表格：如果那段 JSON 是对象数组，走 TXT→CSV 或 TXT→Excel，键就是表头与列',
+        '文本本身不是 JSON：走 TXT→HTML / PDF / Word，它们保留等宽排版，不假装认得数据',
+      ],
+      en: [
+        'To read it afterwards: JSON to HTML renders the data as a collapsible web tree with keyed colours',
+        'For a table: if that JSON is an array of objects, take TXT to CSV or TXT to Excel, where the keys become headers',
+        'For text that is not JSON: use TXT to HTML, PDF or Word, which keep the monospace layout instead of pretending there is data',
+      ],
+    },
+    faq: [
+      {
+        q: {
+          zh: '我的 JSON 存成了 `.txt`，转出来和原文件一样吗？',
+          en: 'My JSON is saved as `.txt` — is the result the same file?',
+        },
+        a: {
+          zh: '值一样，排版不一样。结果按两级缩进重新写出，所以原来手工排的空行、制表符对齐都不会保留；类型、顺序与嵌套都不变。要「一字不改」，那就不需要转，直接改扩展名即可。',
+          en: 'Same values, different layout. The result is rewritten with two-space indentation, so hand-typed blank lines and tab alignment do not survive, while types, order and nesting do. For bytes that must not change, renaming the file is the honest answer.',
+        },
+      },
+      {
+        q: {
+          zh: '为什么我这份「看起来就是 JSON」却转失败了？',
+          en: 'It looks like JSON — why did it fail?',
+        },
+        a: {
+          zh: '最常见的三种都不是合法 JSON：`//` 或 `/* */` 注释、最后一项后面的尾逗号、用单引号包字符串。`JSON.parse` 一律拒绝，这条路也就如实报错，不会猜你的意思、更不会把整段文字包成字符串装作成功。',
+          en: 'The three usual suspects are not valid JSON: `//` or `/* */` comments, the comma after the last item, and single-quoted strings. `JSON.parse` rejects all three, and this route reports that plainly instead of guessing what you meant or wrapping the text in a string to look like a success.',
+        },
+      },
+      {
+        q: {
+          zh: '这一步会把文件发给谁吗？',
+          en: 'Does this step send the file anywhere?',
+        },
+        a: {
+          zh: '不会。读的是文件自己的字节，两步都在扩展的标签页里，扩展只有 storage 权限、没有 host 权限；构建后的产物另有两道离线守卫逐条检查。',
+          en: 'No. The file’s own bytes are read, both steps run inside the extension’s tab, the manifest carries the storage permission and no host permission, and two offline guards audit the built artifact.',
+        },
+      },
+    ],
+  },
+  {
+    slug: 'txt-to-csv',
+    from: 'txt',
+    to: 'csv',
+    shot: 'batch-results',
+    published: '2026-10-21',
+    title: {
+      zh: 'TXT 转 CSV——离线、JSON 数组变表格、不上传',
+      en: 'TXT to CSV offline — a JSON array becomes a table',
+    },
+    desc: {
+      zh: '`.txt` 里是一段 JSON 数组时：键名取并集当表头、每条记录一行，没有键的元素写进合成的 `_value` 列而不是丢掉。全程离线。',
+      en: 'A JSON array saved as .txt becomes a table: union keys as headers, one row per record, and bare values caught by a `_value` column instead of dropped. Offline.',
+    },
+    lede: {
+      zh: '这条路和 TXT→JSON 共用第一步（文本整段包进 `<pre>`），中间那步把 `<pre>` 里的文字当 JSON 解析，最后由 JSON→CSV 把数组摊成表。所以成立的条件写在两步里：**文本得是一段 JSON 数组**。对象数组最顺：表头是所有记录键名的并集，某条记录没有的键留空格而不是整体左移；元素里没有键可挂（顶层是字符串或数字、或数组套数组）时，会加一列合成的 `_value` 把它们接住——本项目对这条的判断是「1000 条记录只写出 980 行还报成功」比多一列难看严重得多，所以宁可多一列。嵌套对象与数组在其单元里写成 JSON 文本，值不会被拆成多行。写出的 CSV 带 UTF-8 BOM（`json→csv` 那一步加的三个字节），数字按值写而不是按显示文本写：`1727000000000` 出来是完整一串，不会变成 `1.727E+12`；反过来，以 `=`、`+`、`-`、`@` 开头的**字符串**值会带一个防执行的前缀，因为导出后被人双击打开时那些字符正是公式的起手式。日期串不猜格式：`2024-01-05` 与 `1/2` 都按写下的字符落地。全程在这个标签页里，只有 storage 权限。',
+      en: 'This route shares its first step with TXT to JSON (the text is wrapped whole in a `<pre>`), the middle step parses that `<pre>` as JSON, and JSON to CSV spreads the array into a table. So the conditions sit in those two steps: **the text has to be a JSON array**. An array of objects travels best — the header is the union of every record’s keys, and a key one record lacks becomes a blank cell rather than shifting the row left. When an element has no keys to hang anything on (top-level strings or numbers, arrays inside arrays), a synthetic `_value` column catches them: this project’s position is that 1 000 records writing 980 rows while reporting success is far worse than one extra column. Nested objects and arrays are written as JSON text inside their cell, so a value is never split across rows. The CSV carries a UTF-8 BOM (the three bytes the JSON to CSV step writes) and writes values rather than display text: `1727000000000` lands as the whole string of digits instead of `1.727E+12`, while a **string** beginning with `=`, `+`, `-` or `@` gains an anti-execution prefix, because those are exactly the characters a formula starts with once someone double-clicks the file. Dates are not guessed: `2024-01-05` and `1/2` keep the characters written. All of it in this tab, storage permission only.',
+    },
+    keeps: {
+      zh: [
+        '表头是所有记录键名的并集：某条记录没有的键留空格，后面的列不会整体左移',
+        '没有键可挂的元素写进合成的 `_value` 列——顶层标量与嵌套数组都不丢，1000 条记录就出 1000 行',
+        '嵌套对象与数组在其单元里写成 JSON 文本，一条记录占一行',
+        '产物带 UTF-8 BOM，数字按值写出：时间戳与雪花 ID 保持完整一串，不会变成科学计数',
+      ],
+      en: [
+        'The header is the union of every record’s keys, so a key missing from one record leaves a blank cell instead of shifting its columns',
+        'Elements with no keys go into a synthetic `_value` column — top-level scalars and nested arrays are neither dropped nor silently skipped, so 1 000 records make 1 000 rows',
+        'Nested objects and arrays are written as JSON text inside their cell, keeping one record per row',
+        'The artifact carries a UTF-8 BOM and writes values, not display text: timestamps and snowflake IDs stay the full string instead of going exponential',
+      ],
+    },
+    limits: {
+      zh: [
+        '文本必须是合法 JSON **数组**：对象会在中间那步被拒（界面报「JSON 内容必须是包含数据的数组才能转换为 CSV」），普通文章连第一步都过不去',
+        '空数组 `[]` 与全空对象 `[{}]` 报错而不是给一份只有表头、没有内容的 CSV',
+        '换行不带着走：`\n` 在第一步变成 `<br>`，JSON 语法不依赖它所以照常解析，但你手工排的版式不会保留',
+        '以 `=`、`+`、`-`、`@` 开头的字符串值会带一个前导的防执行字符；被判为数字的负数不受影响',
+        '值里的日期不会被识别：`2024-01-05` 出来还是那串字符——这一族刻意不猜格式，因为猜就把 `1/2` 变成了 2001 年 1 月 2 日',
+      ],
+      en: [
+        'The text must be a valid JSON **array**: an object is refused by the middle step, with the interface reporting “JSON must be an array containing data to convert to CSV”, and prose never gets past the first',
+        'An empty array `[]` or an all-empty-object `[{}]` reports failure rather than handing back a header-only file',
+        'Line breaks do not travel: the first step turns `\n` into `<br>`, which JSON does not depend on, so your own layout is not preserved',
+        'A string value starting with `=`, `+`, `-` or `@` gains a leading anti-execution character; negative numbers typed as numbers are untouched',
+        'Dates inside values are not recognised: `2024-01-05` stays those characters, because guessing is how `1/2` became 2 January 2001',
+      ],
+    },
+    notes: {
+      zh: [
+        '只要一份排好版的 JSON：走 TXT→JSON，同一份输入、少一步',
+        '要的是工作簿而不是 CSV：TXT→Excel 走同一条链的最后一步，并按「值回得来才是数字」的规则取数',
+        '文本不是 JSON：这条链无法凭空造出列，请看 TXT→HTML / PDF / Word 那几条保留排版的路',
+      ],
+      en: [
+        'For tidy JSON only: TXT to JSON is the same input one step shorter',
+        'For a workbook instead of CSV: TXT to Excel shares this chain’s last step and applies the round-trip typing rule',
+        'For text that is not JSON: no columns can be invented here, so take the TXT to HTML, PDF or Word routes that keep the layout',
+      ],
+    },
+    faq: [
+      {
+        q: {
+          zh: '我的 txt 每行一条记录，为什么不按行切成列？',
+          en: 'My text file is one record per line — why not split it by lines?',
+        },
+        a: {
+          zh: '因为「按行切」要先猜列在哪里：同一个文件里可能是制表符、多个空格、逗号或竖线，猜错就整列错位，而且没有一种猜测能让所有 txt 都对。这条路只认 JSON 那种自带结构的数据；其他文本请先另存为 CSV 或用能明确分隔的格式。',
+          en: 'Because splitting by lines means guessing where the columns are: the same file might use tabs, runs of spaces, commas or pipes, and a wrong guess shifts every column with no rule that works for all text. This route reads only data that arrives structured, i.e. JSON; save as CSV first, or use a format with an explicit delimiter.',
+        },
+      },
+      {
+        q: {
+          zh: '`_value` 那一列是什么，为什么会出现？',
+          en: 'What is that `_value` column and why does it appear?',
+        },
+        a: {
+          zh: '它是给「没有键可挂」的元素准备的合成列：`["a","b"]` 这种标量数组、或 `[{"a":1},"note"]` 里那条 `"note"`。没有它，这些元素只能被丢掉或让整行列数错位——所以宁可多一列。若你的记录本来就用了 `_value` 这个名字，合成列会退到 `_value_2`，两者都保住。',
+          en: 'It is the synthetic column for elements with no keys to hang on: a scalar array like `["a","b"]`, or the `"note"` in `[{"a":1},"note"]`. Without it those elements would be dropped or would shift every row’s columns, so one extra column is the cheaper outcome. If your records already use `_value`, the synthetic one becomes `_value_2` and both survive.',
+        },
+      },
+      {
+        q: {
+          zh: 'Excel 打开这份 CSV 会乱码吗？',
+          en: 'Will Excel open this CSV as mojibake?',
+        },
+        a: {
+          zh: '产物开头带三个字节 `EF BB BF`——那是 UTF-8 BOM，由 JSON→CSV 那一步写上。带 BOM 是让读表格的软件认出 UTF-8 的常见做法；若你的软件仍按地区代码页解释字节，用它的导入向导手工指定 UTF-8 更稳。',
+          en: 'The artifact opens with the three bytes `EF BB BF` — a UTF-8 BOM, written by the JSON to CSV step. Emitting one is the usual way to help a spreadsheet reader settle on UTF-8; if your reader still applies a regional code page, name UTF-8 in its import wizard.',
+        },
+      },
+    ],
+  },
 ];

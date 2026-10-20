@@ -532,14 +532,6 @@ export const HUBS = [
         zh: '只有当整段文本是合法 JSON 数组时才走得通：TXT→HTML 后按 JSON 读取，再转成表格。普通文本没有表格结构，会以错误结束。',
         en: 'It only works when the whole text is a valid JSON array: after TXT→HTML the content is read as JSON and turned into a sheet. Ordinary prose has no table structure and ends in an error.',
       },
-      csv: {
-        zh: '同样要求文本是合法 JSON 数组；对象数组的键成为 CSV 表头。不是 JSON 的纯文本无法建立列，转换会失败。',
-        en: 'The text must again be a valid JSON array, with the keys of its objects becoming CSV headers. Prose that is not JSON cannot supply columns, so the route fails.',
-      },
-      json: {
-        zh: '把 `<pre>` 里的文本当作 JSON 解析并格式化：原文本身是 JSON 时得到缩进版本；不是 JSON 时报解析错误，原文不会被包成一个字符串。',
-        en: 'The text inside `<pre>` is parsed as JSON and pretty-printed: JSON input comes back indented, and non-JSON reports a parse error instead of wrapping the text in a string.',
-      },
       png: {
         zh: '按等宽 `<pre>` 排版整页渲染成 PNG，空白与换行保留；高度超过 32768 px 时报错而不是截断。',
         en: 'The monospace `<pre>` layout is captured whole as PNG, preserving whitespace and line breaks; past 32768 px of height the route fails rather than truncating.',
