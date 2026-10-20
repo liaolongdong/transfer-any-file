@@ -52,7 +52,7 @@
 以后再补跑的成本（本机需要手动装过 ffmpeg 与 chromium 二进制）：
 
 ```bash
-pnpm test:e2e        # = wxt build + node scripts/e2e-test.mjs，断言基线 421 条
+pnpm test:e2e        # = wxt build + node scripts/e2e-test.mjs，断言基线 427 条
 ```
 
 **2026-09-29 这一轮（JSON 预览的树 / 数组表 / 搜索 + 仓库外的对比页）跑满了 e2e，改在 `E2E_HEADLESS=true` 下跑**：
@@ -605,6 +605,46 @@ rgb(241,245,249)` 就是它；修法是内联 `transition: none !important`，�
 
   跑这一轮的机器不干净：起手 load 90（并发会话的 Chrome for Testing 在 52% CPU），所以定案轮等到 26 才开跑，
   全程 `E2E_HEADLESS=true`；变异轮与定案轮之间隔了一次 `pnpm build`，两次都现读产物层守卫。
+
+- **10-21 第二轮（SEO：配对页 49 → 55）。** 接着上一批再加六条链路：TXT→PDF、Word→TXT、GIF→PDF、
+  SVG→HTML、CSV→HTML、Excel→TXT。`pages:render` 这一轮的拦截比上一轮温和（没有超预算的句子），
+  但照样按名字要账：六段 hub `targets` 必须撤、`docs/index.html` 的 `.pairs` 网格与 `docs/llms.txt`
+  必须同批加链接，还多拦了一条——**`published` 比 `PAGES_UPDATED` 新就失败**，理由是 sitemap 的
+  `lastmod` 与页面自称的发布日期说的是同一个 URL，两者不能互相打脸。于是站点更新日期随内容一起动，
+  这正是 `PAGES_UPDATED` 那段注释写的规矩。
+
+  核查那一轮这次抓得更狠（**5 条不实 + 5 条夸大 + 5 条漏写**），几条会直接误导用户：
+  `xlsx→txt` 写「合并区其余格是空字段、列不错位」——`make_html_row` 对被覆盖的格子直接 `continue`，
+  一个 `<td>` 都不产，合并区右边的列整体左移；`csv→html` 写「页面自带横向滚动」——`DOCUMENT_CSS`
+  只给 `pre` 写了 `overflow-x:auto`，列少时是断行挤进去；`gif→pdf` 写「结果卡写明哪些文件是动图」
+  「失败自动重试整组」——`lostFrames` 是整批一个布尔（`image-pdf.ts` 里 `||=` 折叠）、提示只有一句，
+  重试是界面上整组重来；`docx→txt` 写「不是本扩展自己产出的 altChunk 才报错」——没有这个分叉，
+  `errors.docxEmpty` 在还原之后统一抛。补写的五条里最值钱的是 `boundWorkbook` 的格子预算
+  （每表 50 万 / 每簿 100 万，超过报错而不是截断）与 `txt→pdf` 的采样台阶（>4000 CSS px 降到 1 倍，
+  长日志比短文件糊一档）。
+
+- **10-21 第三轮（安全：SVG→HTML 的产物不再带远程引用，421 → 427）。** 上一批写 `svg→html` 文案时，
+  我照被撤下的 hub 那句话写了「外部引用不取字节」。核查没放过它，实测也没放过它：
+  **DOMPurify 的 `svg` + `svgFilters` 配置只管可执行 markup，不管网络**——`<image href>`、`feImage href`、
+  `fill="url(https://…)"`、`style="…url(...)"`、样式里的 `url()` 与 `@import` 全都留在产物里。
+  这条链路的特别之处是**没有人在我们这边渲染它**，是用户双击打开那张 HTML，于是请求由用户的浏览器发出。
+  取证：一张带四个远程目标的 SVG 走完整链路 → 下载产物 → 用同一台浏览器打开，
+  **修之前打 4 次、修之后 0 次**（`/track-*` 命中数由本地服务器现记，不是推断）。
+
+  修法是一行复用，不新写第二套逻辑：`wrapHtmlDocument(...)` 之后过一遍 `stripRemoteResources`
+  （它本来就覆盖 `image` / `feimage` / `use` 的 href、`background` / `ping`、`srcdoc`、`srcset`、
+  meta refresh、动画标签与 CSS 的 `url()` / `@import` / `image-set()`）。这与仓库立过的两条边界同源：
+  `html-to-docx.ts`「Word 打开文件时不该替你发请求」、`html-raster.ts`「sandboxed srcdoc iframe
+  即使禁脚本也会取子资源」——**同一规则漏了第三个出口**，而漏的原因和上次一样：那两处都有人渲染，
+  只有这一处是交给用户打开。副产物是 SMIL 也一并解决：svg 配置允许 `animateTransform` /
+  `animateMotion` / `animateColor`（只禁 `animate` 与 `set`），`ANIMATION_TAGS` 把它们整块删掉。
+
+  新节 `SVG HTML Subresource Egress` 六条：一个向量一个标记，另三条是**必须不被误删**的对照
+  （内联 `<svg>`、`url(#g)` 与 `data:image/png;base64,`、`.marker-box` 规则与 `<title>` 里的源文件名）。
+  牙齿当场验过：把那一行改回 `await wrapped.text()` 重跑，该红的三条各自报出自己的数
+  （5 个 canary URL 全在、动画元素在、样式里的远程 `url()` 在），该绿的三条照旧绿；装回用备份件 `mv`，
+  `shasum -a 256` 与动手前逐字相同。定案轮 `427/427、0 红 0 跳过、94 张截图`，基线由这一轮自己写下
+  （套件末尾那句 `the prose was held to 421` 就是它催我去同步那十句的）。素材没重拍：工作台像素不变。
 
 ## 3. 收下改动：这一节记的是提交账，不是提交计划
 

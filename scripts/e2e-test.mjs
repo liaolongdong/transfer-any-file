@@ -2290,6 +2290,110 @@ async function run() {
   }
 
   // ═══════════════════════════════════════════
+  //  F-1b — SVG→HTML must not hand the user a document that fetches when opened
+  // ═══════════════════════════════════════════
+
+  if (section('SVG HTML Subresource Egress')) {
+    try {
+      // One marker per vector that reaches `stripRemoteResources` on this path, plus two references that
+      // must *survive*: a document whose local gradient and data: image also went missing would pass a
+      // "no remote URL" assertion while quietly destroying the picture. Two of the six markers below
+      // (`background=` and the animation's `to=`) are cut by the DOMPurify profile rather than by the
+      // strip — they stay in the fixture because the claim under test is about the delivered document,
+      // and a future profile change would otherwise open a hole no one looks at.
+      const svgEgress = [
+        '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="120" height="120" viewBox="0 0 120 120">',
+        '  <defs><linearGradient id="g"><stop offset="0" stop-color="#f00"/><stop offset="1" stop-color="#0f0"/></linearGradient></defs>',
+        '  <style>.marker-box { fill: #333; } .bg { background: url("http://canary.invalid/track-css-url.png"); }</style>',
+        '  <rect class="marker-box" width="40" height="40" fill="url(#g)"/>',
+        '  <image href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==" x="50" y="0" width="10" height="10"/>',
+        '  <image href="http://canary.invalid/track-image.png" x="0" y="50" width="10" height="10"/>',
+        '  <image xlink:href="http://canary.invalid/track-xlink.png" x="15" y="50" width="10" height="10"/>',
+        '  <rect x="30" y="50" width="10" height="10" fill="url(http://canary.invalid/track-fill.svg#g)"/>',
+        '  <rect x="45" y="50" width="10" height="10" style="fill: url(http://canary.invalid/track-style.svg#g)"/>',
+        '  <rect x="60" y="50" width="10" height="10" background="http://canary.invalid/track-bg.png"/>',
+        '  <animateTransform attributeName="fill" to="url(http://canary.invalid/track-anim.svg#g)" dur="1s"/>',
+        '</svg>',
+      ].join('\n');
+
+      await resetWorkbench(page);
+      const fi = await page.$('input[type="file"]');
+      await fi.setInputFiles({
+        name: 'svg-egress.svg',
+        mimeType: 'image/svg+xml',
+        buffer: Buffer.from(svgEgress, 'utf8'),
+      });
+      await page.waitForTimeout(1000);
+      await pickTarget(page, 'HTML (.html)');
+      await (await page.$('.convert-btn')).click();
+      await page.waitForFunction(
+        () => {
+          const alert = document.querySelector('.el-alert__title');
+          return alert && alert.textContent.length > 0;
+        },
+        undefined,
+        { timeout: 30000 },
+      );
+      await page.waitForTimeout(500);
+
+      // Nothing here can be asserted from the network: the converter issues no request itself, and it
+      // is the user's browser that would resolve these URLs the moment they open the file.
+      const html = await downloadBatchArtifact(page);
+
+      if (/<svg[\s>]/.test(html)) {
+        ok(`SVG→HTML hands over a document still carrying the inline graphic (${html.length} bytes)`);
+      } else {
+        fail('SVG HTML Subresource Egress', 'no inline <svg> in the artifact — the probes below prove nothing');
+      }
+
+      const survivors = [...html.matchAll(/https?:\/\/canary\.invalid\/[^\s"')]+/g)].map(m => m[0]);
+      if (survivors.length === 0) {
+        ok('Every remote URL that survives the profile is cut before the document ships (5 vectors)');
+      } else {
+        fail('SVG egress', `the delivered document would fetch on open: ${JSON.stringify(survivors)}`);
+      }
+
+      const animationLeft = /<(animate|animateTransform|animateColor|animateMotion|set)\b/i.test(html);
+      if (!animationLeft) {
+        ok('The SMIL animation elements the profile keeps are removed with them');
+      } else {
+        fail('SVG egress', 'an animation element survived into the delivered document');
+      }
+
+      const localKept = html.includes('url(#g)') && html.includes('data:image/png;base64,');
+      if (localKept) {
+        ok('A local gradient reference and an embedded data: image both survive the strip');
+      } else {
+        fail(
+          'SVG egress strip is over-eager',
+          `url(#g)=${html.includes('url(#g)')} data:image=${html.includes('data:image/png;base64,')}`,
+        );
+      }
+
+      const cssKept = html.includes('.marker-box') && !html.includes('track-css-url');
+      if (cssKept) {
+        ok('The document keeps its own stylesheet while the remote rule inside it is cut');
+      } else {
+        fail('SVG egress CSS', `.marker-box=${html.includes('.marker-box')} remote=${html.includes('track-css-url')}`);
+      }
+
+      const titleKept = /<title>/.test(html) && /svg-egress/.test(html);
+      if (titleKept) {
+        ok('The wrapper document is intact after the round trip (title still names the source file)');
+      } else {
+        fail('SVG egress wrapper', 'the delivered document lost its <title> or the source name in it');
+      }
+
+      await page.screenshot({
+        path: shot(`${String(shotIdx++).padStart(2, '0')}-svg-egress.png`),
+        fullPage: true,
+      });
+    } catch (e) {
+      fail('SVG HTML Subresource Egress', e.message);
+    }
+  }
+
+  // ═══════════════════════════════════════════
   //  F-9 — inline SVG in markdown must survive md→html, and its active content must not
   // ═══════════════════════════════════════════
 
