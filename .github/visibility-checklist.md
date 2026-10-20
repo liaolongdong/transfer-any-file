@@ -869,6 +869,25 @@ rgb(241,245,249)` 就是它；修法是内联 `transition: none !important`，�
   `verify:remote-code`、`verify:meta` 全 rc=0，`.output` 里搜不到两个 slug。断言数仍 **452**，素材不重拍。
   **SEO 缺口现 44 格**。
 
+- **10-21 第十五轮（json→Markdown、html→Excel，72 → 74 张页）。** 这一轮的价值在**又抓到一条先于本页存在的
+  对外错账**并把它替换掉：hub 里 `json.md` 那句写着「对象、数组与标量变成**标题、列表或代码块**结构」——
+  中间那步 `json>html` 产出的其实只有 `div` / `span` / `details` / `summary`，Turndown 对没有规则的标记
+  只摘标记留文字，所以产物里既没有 `#` 也没有 `-` 更没有围栏。判法不是推理而是**直接量**：把查看器那一层
+  真实形状的标记喂给本仓依赖的 `turndown`（Node 里就能跑，不需要 DOM），实测输出
+  `Object(2)` / 空行 / `{` / 空行 / `"a": 1,` / 空行 / `"b": "hi"` / 空行 / `}`——一行一段、键与顺序都在、
+  缩进不在（层深由 CSS `margin-left` 表达）。新页把「不会生成文档结构」写成核心事实，并在 notes 与 FAQ 里
+  把要管道表的用户指回 HTML→Markdown 与 Excel→Markdown。
+  `html→Excel` 一格则全部沿用今天已经量过的四条：值保真规则（十进制形状 + `String(Number(x)) === x` +
+  有效数字 ≤ 15）、`z = '@'` 在写出的 `xl/styles.xml` 里就是 `numFmtId="49"`、并集列与缺键空格、
+  多张表（含嵌套表）撞「只接受数组」那道闸、产物单 sheet 且表名沿用读取结果。
+
+  两条 hub 摘要按镜像规则摘除，其中 `json.md` 那条是**被替换的错误主张**，`html.xlsx` 那条复核后与新页一致。
+  四镜像齐备。验证：`pages:render` **91** 文件、`pages:check` 逐字节一致、`verify:numbers`（23 事实 ×
+  **96** 文档）、`lint:all`、`build`、产物层两条离线守卫、`verify:meta` 全 rc=0，`.output` 里搜不到两个 slug。
+  断言数仍 **452**，素材不重拍。推送时遇到一次 `HTTP/2 stream 1 was not closed cleanly`（exit 128），
+  按既有办法改 `-c http.version=HTTP/1.1 -c http.postBuffer=1` 重试一次即成功，并用 API 核实远端 sha。
+  **SEO 缺口现 42 格**。
+
 ## 3. 收下改动：这一节记的是提交账，不是提交计划
 
 这一节原先给的是 2026-09-19 那一轮（配对页与博客页改成数据源生成）的两条 `git commit`。那些提交早就落地了，
