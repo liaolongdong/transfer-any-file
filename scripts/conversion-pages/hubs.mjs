@@ -80,10 +80,6 @@ export const HUBS = [
         zh: 'Markdown 表格经 HTML 与 JSON 中转后写成工作表：首行当表头，单元格只保留文本；标题、段落与列表没有单元格可落，不进入结果。',
         en: 'Markdown tables travel through HTML and JSON into a worksheet: the first row becomes headers and cells keep their text. Headings, paragraphs and lists have no cell to land in and do not appear.',
       },
-      txt: {
-        zh: '按文档顺序提取可读文字：标题、段落、列表与链接文字依次换行，列表编号由 DOM 结构重新生成，脚本与样式整段丢弃；链接地址附在文字后。',
-        en: 'Readable text is extracted in document order: headings, paragraphs, lists and link text each break the line, list numbers are rebuilt from the DOM, and scripts and styles are dropped whole. Link addresses follow their text.',
-      },
       json: {
         zh: 'Markdown 表格写成对象数组：首行是键，每个单元格是字符串；多张表按所在的小标题分组。没有表格时，代码块里的 JSON 会被格式化返回，其它正文报错。',
         en: 'Markdown tables become arrays of objects: the first row supplies keys and every cell is a string; several tables are grouped under their headings. With no table, a JSON code block is pretty-printed, and other prose fails.',
@@ -544,10 +540,6 @@ export const HUBS = [
       },
     ],
     targets: {
-      html: {
-        zh: '文本按字面转义后放进 `<pre>`：换行与空格保留，`<` 与 `&` 变成实体，不会被当作标签执行；不识别标题、列表或表格。',
-        en: 'The text is escaped literally into `<pre>`: line breaks and spaces survive, `<` and `&` become entities and are never executed, and no heading, list or table is inferred.',
-      },
       xlsx: {
         zh: '只有当整段文本是合法 JSON 数组时才走得通：TXT→HTML 后按 JSON 读取，再转成表格。普通文本没有表格结构，会以错误结束。',
         en: 'It only works when the whole text is a valid JSON array: after TXT→HTML the content is read as JSON and turned into a sheet. Ordinary prose has no table structure and ends in an error.',

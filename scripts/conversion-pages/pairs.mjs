@@ -5707,4 +5707,200 @@ export const PAIRS = [
       },
     ],
   },
+  {
+    slug: 'markdown-to-txt',
+    from: 'md',
+    to: 'txt',
+    shot: 'batch-results',
+    published: '2026-10-21',
+    title: {
+      zh: 'Markdown 转纯文本——离线、按阅读顺序、不上传',
+      en: 'Markdown to plain text offline, in reading order, no upload',
+    },
+    desc: {
+      zh: '去掉记号、留下阅读顺序：标题变成一行文字，链接把地址附在文字后，列表按位置重新编号。全程离线，不经过服务器。',
+      en: 'Strip the markup: headings become lines, links keep their URL after the text, and ordered lists are renumbered. Offline — nothing is uploaded.',
+    },
+    lede: {
+      zh: '很多地方只吃纯文本——工单系统、聊天的代码框以外、另一个编辑器的查找替换。这条路先把 Markdown 渲染成 HTML，再从那份 DOM 里按阅读顺序抽文字。实测一篇含标题、列表、表格、链接与图片的文档，得到的是：`# 标题` 变成一行「标题」，`**粗**` 与 `` `代码` `` 只剩文字，`- 项目` 变成**没有符号的一行**，有序列表按位置重新编号并给嵌套层每层两个空格，链接写成 `文字 [https://…]`，图片写成 `[Image: 替代文字]`。也就是说，这一层保的是「谁在谁前面、谁属于哪一层」，而不是「哪一段是几级标题」。表格是这步最容易意外的地方：实测每个单元格各占一行、后面跟一个制表符，因为渲染器会在单元格之间写换行、而提取器照抄。',
+      en: 'Plenty of destinations accept nothing but plain text — ticket systems, the parts of a chat outside its code box, another editor’s find-and-replace. This route renders the Markdown to HTML first, then walks that DOM in reading order. Measured on a document holding a heading, lists, a table, a link and an image: `# Title` becomes the single line “Title”, `**bold**` and `` `code` `` keep only their words, `- item` becomes **a line with no bullet**, ordered lists are renumbered by position with two spaces of indent per nesting level, a link becomes `text [https://…]`, and an image becomes `[Image: alt text]`. What this layer preserves is who comes before whom and what nests inside what — not which paragraph was a level-two heading. Tables are where people get surprised: measured, every cell lands on its own line followed by a tab, because the renderer writes newlines between cells and the extractor copies them.',
+    },
+    keeps: {
+      zh: [
+        '阅读顺序与层级：标题、段落、列表项依次换行，嵌套列表每层缩进两个空格（最多 6 层，再深也不会把结构抹平）',
+        '有序列表按位置重新编号，并尊重 `start`（`start="3"` 的列表从 3 开始），列表项不会被并进上一段',
+        '链接把地址留在文字后面（`文字 [https://…]`），页内锚点与 `mailto:` 则只留文字',
+        '图片用 `alt` 写成 `[Image: 替代文字]`，没有 alt 时写 `[Image]`，不会整个消失',
+      ],
+      en: [
+        'Reading order and nesting: headings, paragraphs and list items each break the line, nested lists indent two spaces per level, capped at six, so structure is never flattened away',
+        'Ordered lists are numbered by position and honour `start` (a list starting at 3 begins at 3), and an item is never merged into the paragraph above it',
+        'A link keeps its address after the text as `text [https://…]`; in-page anchors and `mailto:` contribute text only',
+        'Images become `[Image: alt text]` from their alt attribute, or `[Image]` when there is none, so nothing simply vanishes',
+      ],
+    },
+    limits: {
+      zh: [
+        '无序列表的项目符号不保留：`- ` 与 `* ` 都会变成一行干净文字，靠换行表示「这是一条列表」',
+        '表格不成行：实测单元格各占一行、后面跟一个制表符（渲染器在单元格之间写换行、提取器照抄）。要留表格请用 Markdown 转 HTML 或转 Word',
+        '记号一律消失：标题层级、加粗、斜体、行内代码、围栏代码块的 ``` 都不进产物；任务清单的复选框也只剩后面的文字',
+        '不执行 CSS，也不判断可见性：`display:none` 区域的文字照样会被抽出来；脚本与 `<style>` 整段丢弃',
+        '产物是 UTF-8 纯文本、不带 BOM；三个以上连续换行压成两个，首尾空白被清掉',
+      ],
+      en: [
+        'Bullets do not survive: both `- ` and `* ` become a clean line, and the line break alone says “this was a list”',
+        'Tables do not stay on one line: measured, each cell lands on its own line followed by a tab, because the renderer writes newlines between cells and the extractor copies them. Use Markdown to HTML or to Word to keep a table',
+        'All notation disappears: heading levels, bold, italic, inline code and fenced ``` markers are not in the output, and a task list keeps only the words after its checkbox',
+        'Nothing about CSS or visibility is judged: text hidden by `display:none` is still extracted, while `script` and `<style>` are dropped whole',
+        'The artefact is UTF-8 plain text without a BOM; runs of three or more newlines collapse to two and the ends are trimmed',
+      ],
+    },
+    notes: {
+      zh: [
+        '要去掉记号但**保留表格**：走 Markdown 转 HTML（管道表成为真的 `<table>`）或转 Word',
+        '要的是能打印、版式固定的成品：Markdown 转 PDF（整页渲染成图片，没有文字层）',
+        '反方向也通：纯文本转 Markdown 会把整篇包进一个代码块，代码块长度不足时自动加长围栏，不会截断内容',
+      ],
+      en: [
+        'To drop the notation but keep the table: take Markdown to HTML (the pipe table becomes a real `<table>`) or to Word',
+        'For a fixed, printable artefact: Markdown to PDF, which renders whole pages to images and has no text layer',
+        'The way back is deliberately lossy-safe: TXT to Markdown wraps the whole file in a code fence, lengthening it when the content already contains backticks, so nothing is cut off',
+      ],
+    },
+    faq: [
+      {
+        q: {
+          zh: '项目符号和标题层级都会没有吗？',
+          en: 'Do the bullets and heading levels really disappear?',
+        },
+        a: {
+          zh: '是。这一层的产物是纯文本，没有表示「二级标题」或「这一项是列表项」的语法，所以只留下换行、缩进与编号。要是你需要保住层级语义，选 Markdown 转 HTML 或转 Word。',
+          en: 'Yes. Plain text has no syntax for “this was a level-two heading” or “this line is a list item”, so what remains is line breaks, indentation and numbering. If that semantics matters, take Markdown to HTML or to Word.',
+        },
+      },
+      {
+        q: {
+          zh: '表格转出来为什么一格一行？',
+          en: 'Why does my table come out one cell per line?',
+        },
+        a: {
+          zh: '因为中间那步渲染器会在单元格之间写换行，而文字提取会把换行照抄进去（实测 `Name\t\nValue\t\n`）。同一条提取用在紧凑排版的表格上就是一行一条记录——差别只在源 HTML 的写法。要留表格请用转 HTML 或转 Word。',
+          en: 'The renderer in the middle step writes newlines between cells, and the extractor copies them (measured: `Name\t\nValue\t\n`). The same extraction on a compactly formatted table gives one record per line — the difference is entirely how the source HTML is written. Keep the table by going to HTML or Word.',
+        },
+      },
+      {
+        q: {
+          zh: 'README 里有敏感链接，转完会漏出去吗？',
+          en: 'My README has private links — could converting leak them?',
+        },
+        a: {
+          zh: '不会。渲染与提取都在扩展自己的标签页里完成，产物里也不请求网络；只申请 storage 权限、没有 host 权限。链接地址反而会被显式保留在文字后面，所以转出后可见范围由你决定。',
+          en: 'No. Rendering and extraction happen inside the extension’s own tab, the artefact requests nothing, and the manifest carries the storage permission only. Link addresses are kept visibly after their text, so you decide who sees the result.',
+        },
+      },
+    ],
+  },
+  {
+    slug: 'txt-to-html',
+    from: 'txt',
+    to: 'html',
+    shot: 'batch-results',
+    published: '2026-10-21',
+    title: {
+      zh: 'TXT 转 HTML 页面——离线、原样转义、不上传',
+      en: 'TXT to HTML page offline, escaped as written, no upload',
+    },
+    desc: {
+      zh: '把纯文本包成一个能直接打开的 HTML 页面：字符逐一转义、换行保留为 `<br>`、整段落在 `<pre>` 里，不把任何内容当标记解释。',
+      en: 'Plain text becomes an HTML page you can open: characters escaped, line breaks kept, the body wrapped in `<pre>` with nothing interpreted as markup.',
+    },
+    lede: {
+      zh: '手里是一份日志、一段代码输出或一个转义过的文本，想让它「在浏览器里像它自己」——要的是网页外壳，不是重新排版。这条路只做三件事：把 `&`、`<`、`>` 转成实体，把每个换行写成 `<br>`，然后把整段放进一个 `<pre>`；文档标题取你自己的文件名。所以它与 Markdown 那条路的关键区别是**不解释任何记号**：`# 井号` 就是井号，`* 星号` 就是星号，贴 HTML 片段也只会以字符显示，不会被执行。产物是自包含的单份 HTML，双击就能打开，也可以继续被本扩展转成 Word、PDF 或图片。',
+      en: 'Sometimes what you have is a log, a code dump or an escaped blob of text, and you want it to behave like itself in a browser — a page wrapper, not a re-layout. This route does three things and no more: `&`, `<` and `>` become entities, every newline becomes `<br>`, and the whole block is placed inside a single `<pre>`, with your own file name as the page title. The difference from the Markdown route is that **no notation is interpreted**: `# hash` stays a hash, `* star` stays a star, and pasted HTML shows up as characters instead of running. The artefact is one self-contained page you can double-click, and it can go on through this extension to Word, PDF or an image.',
+    },
+    keeps: {
+      zh: [
+        '换行与连续空格：`<pre>` 原样保留缩进、对齐与制表符，日志和代码块的形状不变',
+        '字符按字面呈现：`&`、`<`、`>` 转成实体，贴进去的标签只会显示为文字，不会成为活的标记',
+        '文档标题取你自己的文件名，浏览器标签页与收藏里认得出来',
+        '编码不是前提：先按 BOM 与 NUL 分布嗅探 UTF-16，再依次尝试 UTF-8 → GB18030 → GBK；四种都读不出文本时直接报错，不产出一份乱码页面',
+      ],
+      en: [
+        'Line breaks and runs of spaces: `<pre>` keeps indentation, alignment and tabs, so a log or code dump holds its shape',
+        'Characters appear literally: `&`, `<` and `>` become entities, so markup pasted in stays visible text and never becomes live markup',
+        'The document title comes from your own file name, so the browser tab and a bookmark still identify it',
+        'The encoding is not a precondition: UTF-16 is sniffed from the BOM and the NUL pattern first, then UTF-8 → GB18030 → GBK, and a file none of them can read fails instead of shipping a mojibake page',
+      ],
+    },
+    limits: {
+      zh: [
+        '不识别 Markdown：`#`、`-`、`|`、围栏反引号都只是字符，想要标题与表格请用 TXT 转 Markdown 或直接写 .md',
+        '整篇是一个 `<pre>` 块：没有标题层级、没有列表结构，屏幕阅读器读到的就是一大段等宽预格式化文字',
+        '超长的行不会被折：`<pre>` 保持原样，窄窗口里可能出现横向滚动条（要自动折行请自行改 CSS 或走 Word 路线）',
+        '产物只带默认版式（字体与留白来自文档自身的样式表），不带目录、高亮、行号这些编辑器功能',
+        '一批最多 200 个文件、单个上限 100 MB；多份一起转逐个产出各自的 .html，想一次拿走就打成一个 ZIP',
+      ],
+      en: [
+        'No Markdown is read: `#`, `-`, `|` and backtick fences stay characters — use TXT to Markdown, or write .md, when you want headings and tables',
+        'The file is one `<pre>` block: no heading levels and no list structure, so a screen reader meets a single run of monospaced preformatted text',
+        'Long lines are not wrapped: `<pre>` keeps them, so a narrow window can show a horizontal scrollbar (adjust the CSS yourself, or take the Word route)',
+        'The page carries default typography only — fonts and padding from the document’s own stylesheet, with no table of contents, syntax highlighting or line numbers',
+        'Up to 200 files per batch and 100 MB each; several files yield one .html apiece and can be taken as a single ZIP',
+      ],
+    },
+    notes: {
+      zh: [
+        '想要带配色与折叠的结构化视图：那是 JSON 转 HTML 或 CSV 转 HTML 在做的事，这条只保证「像它自己」',
+        '想给纯文本加上结构与样式再交付：TXT → Markdown → Word（或 → HTML 后自行编辑），比直接包一层 `<pre>` 更可排印',
+        '只想打印或存档：TXT → PDF 会把整页渲染成图片，产物没有文字层，选中不了文字',
+      ],
+      en: [
+        'For a structured view with colour and folding: that is JSON to HTML or CSV to HTML — this route only promises “behaves like itself”',
+        'To give plain text structure and styling before delivery: TXT to Markdown to Word (or to HTML and edit) typesets better than one `<pre>` wrapper',
+        'To print or archive it: TXT to PDF renders whole pages to images, so that artefact has no text layer and its words cannot be selected',
+      ],
+    },
+    faq: [
+      {
+        q: {
+          zh: '我在文本里贴了一段 HTML，会被执行吗？',
+          en: 'I pasted HTML into the text — will it execute?',
+        },
+        a: {
+          zh: '不会。`<` 与 `&` 在写出前就被转成实体，脚本与标签在产物里只是可见字符；这也是这条路径的核心保证。',
+          en: 'No. `<` and `&` are turned into entities before the file is written, so scripts and tags remain visible characters in the artefact — that is the point of this route.',
+        },
+      },
+      {
+        q: {
+          zh: '为什么 `# 第一章` 没变成标题？',
+          en: 'Why didn’t “# Chapter 1” become a heading?',
+        },
+        a: {
+          zh: '因为这条路径读的是纯文本，不解释任何记号——`#` 就是字符。要标题层级，走 TXT 转 Markdown（它会整段包成代码块，所以更稳的做法是自己写 .md）或直接准备 .md 文件。',
+          en: 'Because this route reads plain text and interprets no notation — `#` is a character. For headings, go TXT to Markdown (which wraps the file as a code block, so authoring .md directly is steadier) or start from a .md file.',
+        },
+      },
+      {
+        q: {
+          zh: '日志里的中文和旧编码文件能正常显示吗？',
+          en: 'Will Chinese text and old-encoding logs display correctly?',
+        },
+        a: {
+          zh: '按 UTF-8 → GB18030 → GBK 依次尝试（并先嗅探 UTF-16），老编辑器导出的 GBK 日志也能读进来；实在读不出就直接报错，不给一份乱码页面。',
+          en: 'UTF-8 → GB18030 → GBK are tried in turn, with UTF-16 sniffed first, so a GBK log from an older editor still reads; if nothing matches it fails rather than producing a page of mojibake.',
+        },
+      },
+      {
+        q: {
+          zh: '这份日志会被上传吗？',
+          en: 'Is this log uploaded anywhere?',
+        },
+        a: {
+          zh: '不会。读取、转义、包页全在扩展自己的标签页里完成，只申请 storage 权限、没有 host 权限，全程零网络请求。',
+          en: 'No. Reading, escaping and wrapping all happen inside the extension’s own tab: the storage permission only, no host permissions, and no requests at any point.',
+        },
+      },
+    ],
+  },
 ];
