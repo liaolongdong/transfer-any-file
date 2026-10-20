@@ -783,6 +783,26 @@ rgb(241,245,249)` 就是它；修法是内联 `transition: none !important`，�
   `lint:all`、`build`、产物层 `verify:offline` / `verify:remote-code` 全 rc=0，实测 `.output` 里搜不到
   `*-to-txt.html`。不动运行时，断言数仍 **452**，素材不重拍。**缺口现 53 格**。
 
+- **10-21 第十轮（第 64 张页：JSON→Word；顺带撤掉第四条无法本机认证的对外断言）。** 产物形状在上一批就已
+  实测：一个含 `[Content_Types].xml` 与 `/word/document.xml` 的 OPC 容器，里面带的是查看器那份 HTML 的
+  **MHTML altChunk**——所以新页写的是「排版发生在 Word 打开它的那一刻」，并**只承诺结构与文字完整带走**，
+  明确不承诺配色与折叠表现（本机没有 Word 可代为认证它的 HTML 引擎采纳哪些 CSS；"Word 渲染效果" 在本仓是
+  已知未验证项）。因新建页面按「同一事实不在 hub 与页面各写一份」摘除的那格，原文写着
+  「语法颜色退化为文字样式」——那是**一个关于 Word 行为的正面断言，我们没有任何本机证据**，属同类第 4 条
+  （前三条：`html→xlsx` 多表各成一工作表、`json→txt` 缩进保留到可读的程度、`html→txt` 表格按行输出）。
+  四条同因：hub 摘要、配对页、`llms.txt` 是三份独立 prose，**没有任何守卫互相比对**，只有「先量产物、
+  再写句子」挡得住。页内同时给了替代方案（要表格走 CSV / Excel；介意版式一致性就转 PDF 或 HTML；
+  交付前自己在 Word 里打开确认一次）。
+
+  实测数字：**81 文件 / 64 张页**，`verify:numbers` 读到 **86** 份文档（上一批 80 文件 / 63 页 / 85 文档）。
+  一处记账瑕疵如实记：`71498fa` 的提交信息里「`pages:render` __ 文件」那格因取数脚本抓空而留白，
+  正确值就是本段的 81 / 86；不改写已推送的提交信息（`--amend` 不在授权内），在此补正。
+
+  验证：`pages:render` 与 `pages:check` 逐字节一致、`verify:numbers`、`lint:all`、`build`、产物层
+  `verify:offline` / `verify:remote-code` 全 rc=0；`.output/chrome-mv3` 里搜不到该 slug。不动运行时，
+  断言数仍 **452**，素材不重拍。**SEO 缺口现 52 格**。推送第一发 `Empty reply from server`，按 API 核实
+  远端未动后原样重试成功。
+
 ## 3. 收下改动：这一节记的是提交账，不是提交计划
 
 这一节原先给的是 2026-09-19 那一轮（配对页与博客页改成数据源生成）的两条 `git commit`。那些提交早就落地了，
