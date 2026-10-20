@@ -5428,4 +5428,190 @@ export const PAIRS = [
       },
     ],
   },
+  {
+    slug: 'json-to-txt',
+    from: 'json',
+    to: 'txt',
+    shot: 'batch-results',
+    published: '2026-10-21',
+    title: {
+      zh: 'JSON 转纯文本——离线、逐行可读、不上传',
+      en: 'JSON to plain text offline, readable line by line, no upload',
+    },
+    desc: {
+      zh: '把 JSON 变成结构查看器那份可读文字：每个键值各占一行、引号保留，配色与缩进不带过去。全程离线，文件不出本机。',
+      en: 'JSON becomes the viewer’s readable text: one key and value per line, quotes kept, colour and indentation lost. Fully offline — nothing is uploaded.',
+    },
+    lede: {
+      zh: '想要「能读的 JSON」但不想要 HTML 那层壳，这条路的产物就是一段纯文本。它是两步合成的：先把 JSON 渲染成可折叠的语法高亮查看器，再从那份页面里提取可读文字。实测一份三条记录的对象数组，拿到的是这样的形状——`[ Array(3){ Object(4)"name": "Alice",` 然后每个键各占一行、以 `},` 分隔、末尾收一个 `]`。也就是说：层级、数组与对象的**计数摘要**（`Array(3)`、`Object(4)`）会以文字留下来，字符串带引号、数字与布尔不带；而查看器里的缩进是 CSS 边距、颜色是样式，**都不会变成字符**。所以它适合贴进工单、聊天或纯文本笔记，不适合当成缩进良好的 JSON 副本——那份直接用原文件就好。',
+      en: 'Sometimes you want readable JSON without the HTML wrapper, and this route hands back plain text. It is two steps: the file is rendered as a collapsible, syntax-coloured viewer, and the readable text is then extracted out of that page. Measured on an array of three objects, the result starts `[ Array(3){ Object(4)"name": "Alice",`, each key lands on its own line, records are separated by `},` and the file closes with `]`. So the structure and the `Array(3)` / `Object(4)` count summaries survive as words, strings keep their quotes while numbers and booleans do not — and the viewer’s indentation is a CSS margin and its colours are styles, which means **neither becomes a character**. Good for a ticket, a chat message or a notes file; not a substitute for a nicely indented JSON copy, which is what the original already is.',
+    },
+    keeps: {
+      zh: [
+        '逐行结构：每个键值对占一行，对象之间以 `},` 分开，数组与对象的开头带着 `Array(n)` / `Object(n)` 的计数摘要',
+        '值按 JSON 类型呈现：字符串带引号，数字、布尔与 `null` 不带——所以 `30` 与 `"30"` 在文本里仍然分得开',
+        '中文、emoji 与其他非 ASCII 字符按 UTF-8 原样保留，不会被转义成 `\\uXXXX`',
+        '提取只读文字：脚本、样式这些节点整段不进入结果，页面里指向网络的引用也从不被请求',
+      ],
+      en: [
+        'Line by line: one key and value per line, records separated by `},`, and arrays and objects carry their `Array(n)` / `Object(n)` count at the opening',
+        'Values keep their JSON type in the text: strings are quoted while numbers, booleans and `null` are not, so `30` and `"30"` stay distinguishable',
+        'Chinese text, emoji and other non-ASCII characters survive as UTF-8 and are not escaped into `\\uXXXX`',
+        'Only text is extracted: script and style nodes never enter the result, and nothing the page points at on the network is ever fetched',
+      ],
+    },
+    limits: {
+      zh: [
+        '没有缩进：查看器的层级是 CSS 边距与 `<details>` 折叠，不是空格或制表符，所以纯文本里只有换行表示层级',
+        '没有配色与折叠交互：颜色与「点开看」都随 HTML 一起消失，只剩结构与摘要文字',
+        '键的顺序与源文件一致，但对象内的键不会被重排或补全——缺的键就是没有那一行',
+        '深层嵌套或超大文档会产出一段极长的文本：它是整份一次写出的，不做分页也不截断（要翻页就留在 HTML 那份）',
+        '解析不了的 JSON 直接报错，不会给你一段半截文字；单个文件上限 100 MB、一批最多 200 个',
+      ],
+      en: [
+        'No indentation: the viewer’s hierarchy is a CSS margin and `<details>` folding rather than spaces or tabs, so in plain text only line breaks mark depth',
+        'No colour and no folding: the palette and the click-to-open behaviour leave with the HTML, and structure plus the count summaries are all that remains as words',
+        'Key order follows the source, but nothing is invented or reordered inside an object — a key a record lacks simply has no line',
+        'A deep or huge document yields a very long piece of text: it is written out whole, without pagination or truncation (stay on the HTML when you need to skim)',
+        'JSON that cannot be parsed fails instead of returning half a file; 100 MB per file and 200 files per batch',
+      ],
+    },
+    notes: {
+      zh: [
+        '要的是能对着屏幕读并顺手折叠：走 JSON 转 HTML，同一份内容、带配色与折叠，还能在浏览器里直接打印',
+        '要的是能贴进表格或文档：JSON 转 CSV（对象数组按键取并集，缺的键留空）或转 Word',
+        '只想取某个字段的值：本项目不做 JSONPath / jq 那类查询——转成 HTML 用浏览器搜索，或本地用命令行工具更合适',
+      ],
+      en: [
+        'To read it on screen with folding and colour: take JSON to HTML — same content, plus the palette and click-to-open, printable straight from the browser',
+        'To paste it into a table or document: take JSON to CSV (an array of objects becomes columns from the union of keys, missing ones left empty) or to Word',
+        'To pull out one field’s value: this project does not do JSONPath or jq-style queries — search the HTML output in a browser, or use a command-line tool locally',
+      ],
+    },
+    faq: [
+      {
+        q: {
+          zh: '转出来的文本还是缩进良好的 JSON 吗？',
+          en: 'Is the result nicely indented JSON?',
+        },
+        a: {
+          zh: '不是。产物是查看器那份内容的文字提取，层级靠换行与 `Array(n)` / `Object(n)` 摘要表达，而不是靠空格。要规整缩进的 JSON，直接用源文件（工作台可预览并编辑文本），或用命令行 `jq .`。',
+          en: 'No. The artefact is text extracted from the viewer, so depth shows as line breaks and `Array(n)` / `Object(n)` counts rather than as spaces. For indented JSON, use the source file (the workbench previews and lets you edit text) or `jq .` on the command line.',
+        },
+      },
+      {
+        q: {
+          zh: '那行 `Object(4)` 是什么？会不会污染数据？',
+          en: 'What is that `Object(4)` — does it pollute the data?',
+        },
+        a: {
+          zh: '它是查看器给每个对象与数组的计数摘要，随文字一起被提取出来（实测：`[ Array(3){ Object(4)"name": "Alice",`）。它是给人读的辅助信息，但如果你要把文本再喂回程序，请选 JSON 转 CSV 或直接保留 .json。',
+          en: 'It is the viewer’s count summary for each object and array, extracted along with the text (measured: `[ Array(3){ Object(4)"name": "Alice",`). It exists to be read by a person; if the text is going back into a program, take JSON to CSV or keep the .json instead.',
+        },
+      },
+      {
+        q: {
+          zh: '含 token 或身份证号的 JSON 会离开这台电脑吗？',
+          en: 'Does JSON containing tokens or ID numbers ever leave this machine?',
+        },
+        a: {
+          zh: '不会。解析、渲染、提取文字都在扩展自己的标签页里完成，只申请 storage 权限、没有 host 权限，产物里也没有把远端资源当代码执行的路径。',
+          en: 'No. Parsing, rendering and text extraction all happen inside the extension’s own tab: the storage permission only, no host permissions, and no path in the bundle that executes remotely hosted code.',
+        },
+      },
+    ],
+  },
+  {
+    slug: 'csv-to-txt',
+    from: 'csv',
+    to: 'txt',
+    shot: 'batch-results',
+    published: '2026-10-21',
+    title: {
+      zh: 'CSV 转纯文本——离线、制表符分隔、不上传',
+      en: 'CSV to plain text offline, tab separated, no upload',
+    },
+    desc: {
+      zh: '把 CSV 变成制表符分隔的纯文本：一行一条记录、值原样保留，贴进聊天记录或纯文本编辑器都不散列。全程离线，不经过服务器。',
+      en: 'A CSV becomes tab-separated plain text: one record per line, values as written, so it pastes into chat or a text editor without breaking columns.',
+    },
+    lede: {
+      zh: '逗号分隔的表格贴进聊天窗口经常就散了——值里有个逗号就整行错位。这条路先把 CSV 交给 SheetJS 的解析器（引号里的逗号、字段内换行都按 CSV 语法算成一个单元格），渲染成 HTML 表格，再从表格里提取文字：单元格之间以制表符分隔、一行一条记录、首行也照样是一行。实测一份四列的表得到 `名称\\t数量\\t单价\\t\\n苹果\\t3\\t5.5\\t\\n…`，也就是每行末尾会多出一个制表符（提取实现如此，只有文件最后一行被去尾空白清掉）。值本身不做任何加工：`00123` 还是 `00123`，`2024-01-05` 不会被换成日期序列号。',
+      en: 'Pasting comma-separated data into a chat window usually breaks it: one comma inside a value and the row is misaligned. This route first hands the CSV to SheetJS’s parser — a quoted comma or a newline inside a field stays one cell — renders it as an HTML table, and then extracts text from that table: cells separated by tabs, one record per line, the first row treated as just another row. Measured on a four-column sheet, the output is `名称\\t数量\\t单价\\t\\n苹果\\t3\\t5.5\\t\\n…`, i.e. each line carries a trailing tab as well (that is how the extraction works; only the file’s last row loses it to trimming). Values are not touched: `00123` stays `00123`, and `2024-01-05` is not turned into a date serial.',
+    },
+    keeps: {
+      zh: [
+        '单元格之间是制表符、每行一条记录：贴进纯文本编辑器、聊天窗口或对齐齐宽字体的终端里都不会因值内逗号而错位',
+        '首行不被当表头消耗（不像 CSV 转 JSON 那样用它给列命名），一份 20 行的表转出去还是 20 行',
+        '值按文件里的字符原样呈现：前导零、连字符、分数样式的 `1/2` 都不会被重新解释',
+        '带引号的逗号、字段内换行、成对引号转义都按 CSV 语法解析成一个单元格，而不是按逗号切字符串',
+      ],
+      en: [
+        'Tabs between cells and one record per line: pasted into a text editor, a chat window or a monospaced terminal, a comma inside a value cannot shift the row',
+        'The first row is not spent naming columns (unlike CSV to JSON), so a 20-row sheet still yields 20 lines',
+        'Values appear as the file’s own characters: leading zeros, hyphens and fraction-looking `1/2` are not reinterpreted',
+        'Quoted commas, newlines inside a field and doubled quote escapes all parse into one cell under CSV’s grammar rather than a string split on commas',
+      ],
+    },
+    limits: {
+      zh: [
+        '每行末尾多一个制表符：提取时每个单元格都跟一个制表符，只有文件最后一行被去尾空白清掉。看着像「对齐的表」，要拿去当 TSV 用请自己去掉行尾制表符',
+        '字段内的换行会被折进那一行：纯文本一行就是一条记录，跨行的值不再保留原排版（要留住换行就走 CSV 转 HTML）',
+        '产物是 UTF-8 **不带 BOM**：Windows 记事本一类按本地编码猜的工具可能把中文显示成乱码，遇到这种情况请用 CSV 转 Excel 或直接留 .csv',
+        '没有任何样式：字体、列宽、合并、数字格式都不存在，源文件本来也没有',
+        '空单元格保留为相邻的两个制表符（不是省略），所以列位置对得齐；一批最多 200 个文件、单个上限 100 MB，多份逐个产出各自的 .txt',
+      ],
+      en: [
+        'A trailing tab ends each line: every cell contributes one, and only the file’s last row loses it to trimming. It reads as an aligned table, but strip the trailing tabs before treating it as real TSV',
+        'Newlines inside a field get folded into the line: plain text is one record per line, so the original layout inside a cell is not kept (take CSV to HTML to preserve them)',
+        'The artefact is UTF-8 **without a BOM**: tools that guess a local encoding can render Chinese as mojibake — use CSV to Excel, or keep the .csv, when that happens',
+        'No styling at all: fonts, column widths, merges and number formats do not exist here, and the source file never had them',
+        'Empty cells stay as adjacent tabs rather than vanishing, so columns still line up; up to 200 files per batch and 100 MB each, several files yielding one .txt apiece',
+      ],
+    },
+    notes: {
+      zh: [
+        '要的是能继续算的数据表：走 CSV 转 Excel，或直接保留 .csv——纯文本这一格是给人读和贴的，不给程序解析用',
+        '要的是能排版的表格：CSV 转 Markdown（管道表，格子里的竖线会被转义）或 CSV 转 HTML、转 Word',
+        '只想看看有几行、字段是什么：CSV 转 JSON 会拿首行当键名，逐条对象更好读，但行数与列序仍以这份 CSV 为准',
+      ],
+      en: [
+        'For data you still want to compute on: take CSV to Excel, or keep the .csv — this plain-text step is for reading and pasting, not for a program to parse',
+        'For a table that keeps its layout: CSV to Markdown (a pipe table, with pipes inside cells escaped), or CSV to HTML or Word',
+        'To see how many rows there are and what the fields are: CSV to JSON spends the first row on key names and reads better per record, but the row count and column order still come from this CSV',
+      ],
+    },
+    faq: [
+      {
+        q: {
+          zh: '这算是一份 TSV 吗？',
+          en: 'Is this a TSV file?',
+        },
+        a: {
+          zh: '形状像但不严格：每行末尾多一个制表符（最后一行除外），也没有 TSV 的引号规则。当「贴进聊天里的对齐文本」用它正好；要真 TSV，请自己去掉行尾制表符，或直接以 .csv 交付。',
+          en: 'Close but not strict: every line but the last ends with an extra tab, and there are no TSV quoting rules. As aligned text to paste into a chat it is exactly right; for real TSV, strip the trailing tabs or ship the .csv.',
+        },
+      },
+      {
+        q: {
+          zh: '值里有逗号或换行会怎样？',
+          en: 'What about commas or newlines inside a value?',
+        },
+        a: {
+          zh: '逗号没问题——那正是先按 CSV 语法解析的原因，一个带引号的逗号不会把行拆开。换行会被折进那一行，因为纯文本一行就是一条记录；这类值请走 CSV 转 HTML 或转 Excel。',
+          en: 'Commas are fine — that is precisely why the file is parsed under CSV grammar first, so a quoted comma cannot split the row. Newlines fold into the line, because plain text is one record per line; take CSV to HTML or Excel for those values.',
+        },
+      },
+      {
+        q: {
+          zh: '订单或名单这类表格数据会被上传吗？',
+          en: 'Is order or contact data ever uploaded?',
+        },
+        a: {
+          zh: '不会。解析 CSV、生成表格、提取文字都在扩展自己的标签页里完成，只申请 storage 权限、没有 host 权限，全程零网络请求。',
+          en: 'No. Parsing the CSV, building the table and extracting the text all happen inside the extension’s own tab: the storage permission only, no host permissions, and no requests at any point.',
+        },
+      },
+    ],
+  },
 ];

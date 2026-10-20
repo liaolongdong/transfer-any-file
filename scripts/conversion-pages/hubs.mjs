@@ -469,10 +469,6 @@ export const HUBS = [
         zh: 'CSV 先转 HTML 再转 Word：一张表写入文档，首行是表头；列宽自适应，字体与配色取文档默认值，不沿用 CSV 来源的任何样式。',
         en: 'The CSV goes through HTML into Word: one table with the first row as headers, adaptive column widths and the document’s default type and colours, with no styling carried over from the CSV.',
       },
-      txt: {
-        zh: '按行提取表格文本：单元格之间以制表符分隔，行末换行，表头与数据没有额外标记；空单元格保留为相邻制表符。',
-        en: 'Table text is extracted row by row: tabs between cells, a newline at the end of each row, no extra marker for headers, and empty cells left as adjacent tabs.',
-      },
       png: {
         zh: '整张表渲染成一张 PNG；宽表整体缩放以适应画布，行数过多导致高度超过 32768 px 时失败并说明。',
         en: 'The whole table is captured as one PNG with wide sheets scaled to fit. A table tall enough to pass 32768 px fails with an explanation.',
@@ -650,10 +646,6 @@ export const HUBS = [
       docx: {
         zh: '查看器 HTML 写入 Word：层级缩进与键值关系保留，语法颜色退化为文字样式；大文档会分页。',
         en: 'The viewer HTML goes into Word: levels and key-value relationships survive, syntax colours fall back to text styling, and a large document spans pages.',
-      },
-      txt: {
-        zh: '按查看器的文本顺序提取键与值，缩进保留到可读的程度；标点与换行由渲染结构决定，不保证能重新解析为 JSON。',
-        en: 'Keys and values are extracted in the viewer’s text order with readable indentation; punctuation and line breaks follow the rendering and do not guarantee a parseable JSON file.',
       },
       png: {
         zh: '整份 JSON 查看器渲染成一张长图，按页面布局换行；高度超过 32768 px 时失败并说明，不静默截断。',
