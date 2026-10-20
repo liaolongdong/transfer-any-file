@@ -207,6 +207,21 @@ body {
   outline-offset: 1px !important;
 }
 
+/* Element Plus draws its own rings for the controls whose real input is visually hidden — the
+   switch, the checkbox and the segmented radio buttons — and paints them with its primary, not
+   with `--fat-focus-ring`. Measured on the built bundle across all six themes in both modes: only
+   one combination falls under 3:1, but it is the light `green` theme, where `--el-color-primary`
+   is `#10b981` while this file's own token resolves to `--fat-primary-active` (`#059669`). All
+   three families measured 2.54:1 on a card and 2.42:1 on the workbench surface before this rule
+   and 3.77 / 3.60 after it, which is what the `Hidden-Input Focus Rings` e2e section pins.
+   The selectors are Element Plus's verbatim, so geometry and offset stay theirs and only the
+   colour joins the contract every other control already keeps. */
+.el-switch__input:focus-visible ~ .el-switch__core,
+.el-checkbox input:focus-visible + .el-checkbox__inner,
+.el-radio-button__original-radio:focus-visible + .el-radio-button__inner {
+  outline-color: var(--fat-focus-ring) !important;
+}
+
 /* Dark mode button enhancements (primary is handled by the token scale above) */
 :root[data-mode='dark'] .el-button--default {
   border-color: var(--fat-border) !important;

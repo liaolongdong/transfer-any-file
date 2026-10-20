@@ -260,6 +260,7 @@ const notifyStatusKey = computed<string>(() => {
         <span class="pref-label notify-label">{{ t('prefs.notifyOnComplete') }}</span>
         <el-switch
           :model-value="notifyEnabled"
+          :aria-label="t('prefs.notifyOnComplete')"
           :disabled="notifyPermission === 'denied'"
           @update:model-value="handleNotifyToggle"
         />

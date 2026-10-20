@@ -7020,6 +7020,215 @@ async function run() {
     fail('Skip link & focus ring', e.message);
   }
 
+  // ═══════════════════════════════════════════
+  //  FOCUS RINGS ON VISUALLY-HIDDEN INPUTS
+  // ═══════════════════════════════════════════
+
+  if (section('Hidden-Input Focus Rings')) {
+    // The switch, the checkbox and the segmented radio buttons all focus a transparent input and
+    // paint the ring on a *sibling* proxy, so the global `:focus-visible` rule cannot reach them and
+    // Element Plus's own declaration decides the colour. It uses its primary, not --fat-focus-ring,
+    // and light + green is the one combination where the two disagree enough to matter: measured on
+    // the built bundle before the override, the focused switch drew #10b981 at 2.54:1 on the popover
+    // (2.42:1 on the workbench surface) while the token this app certifies at 3:1 resolves to
+    // #059669. Every other theme and mode passed on Element Plus's colour, so only a colour
+    // comparison — not a geometry check — can tell the fixed build from the broken one.
+    const ringPage = await browser.newPage();
+    trackPageErrors(ringPage);
+    await ringPage.setViewportSize({ width: 1280, height: 900 });
+    await ringPage.addInitScript(mockChromeStorage());
+    // The notify switch is `:disabled` while the browser reports notifications as denied, and a
+    // disabled control leaves the tab ring entirely — that would redden this section's two name
+    // checks for a reason that has nothing to do with the product. Headless hosts differ on the real
+    // value, so the permission state is pinned rather than observed.
+    await ringPage.addInitScript(`(() => {
+      if (!window.Notification) return;
+      try {
+        Object.defineProperty(window.Notification, 'permission', { value: 'default', configurable: true });
+      } catch {
+        // The host will not let the property be redefined; the walk below reports how many switches it found.
+      }
+    })();`);
+    try {
+      await ringPage.goto(`http://localhost:${PORT}/options.html`);
+      await ringPage.waitForTimeout(1800);
+      await applyTheme(ringPage, 'light', 'green');
+
+      // Both controls are earned through the product's own paths rather than seeded: the radio group
+      // sits behind `v-if="hasRecords"` and the merge checkbox behind the merge-eligibility rule, so
+      // a history record and a two-image batch with a PDF target are what make them exist.
+      let ri = await ringPage.waitForSelector('input[type="file"]', { state: 'attached', timeout: 10000 });
+      await ri.setInputFiles(path.join(FIXTURE_PATH, 'sample.csv'));
+      await ringPage.waitForTimeout(1000);
+      await pickTarget(ringPage, 'Text (.txt)');
+      await (await ringPage.$('.convert-btn')).click();
+      await ringPage.waitForSelector('.result-download .el-alert__title', { timeout: 45000 });
+      await resetWorkbench(ringPage);
+
+      ri = await ringPage.waitForSelector('input[type="file"]', { state: 'attached', timeout: 10000 });
+      await ri.setInputFiles([path.join(FIXTURE_PATH, 'sample.bmp'), path.join(FIXTURE_PATH, 'sample.gif')]);
+      await ringPage.waitForTimeout(1200);
+      await pickTarget(ringPage, 'PDF (.pdf)');
+      await ringPage.locator('.topbar .el-button.is-circle').first().click();
+      await ringPage.waitForTimeout(600);
+
+      const readHiddenRing = `(function () {
+        const a = document.activeElement;
+        const cls = a && a.classList ? Array.from(a.classList).join(' ') : '';
+        const kind = cls.includes('el-switch__input') ? 'switch'
+          : cls.includes('el-checkbox__original') ? 'checkbox'
+          : cls.includes('el-radio-button__original-radio') ? 'radio' : null;
+        if (!kind) return null;
+        const box = a.closest('.el-switch, .el-checkbox, .el-radio-button');
+        const proxy = box.querySelector('.el-switch__core, .el-checkbox__inner, .el-radio-button__inner');
+        // Same caveat the skip-link section documents: outline-color is one of the properties
+        // tokens.css transitions, so a read in the task that moved focus returns an interpolation
+        // frame — width still medium, colour still currentcolor.
+        for (const animation of proxy.getAnimations({ subtree: true })) {
+          try { animation.finish(); } catch { /* a looping animation has no end value */ }
+        }
+        const cs = getComputedStyle(proxy);
+        const rgbOf = value => {
+          const scratch = document.createElement('span');
+          scratch.style.color = value;
+          scratch.style.display = 'none';
+          document.documentElement.append(scratch);
+          const rgb = getComputedStyle(scratch).color;
+          scratch.remove();
+          return rgb;
+        };
+        const root = getComputedStyle(document.documentElement);
+        // The ring's backdrop is the surface behind the *control*, not the proxy's own fill: the
+        // 1px offset band shows that surface on both of its edges.
+        let surface = '';
+        for (let p = box.parentElement; p && p !== document.documentElement; p = p.parentElement) {
+          const bg = getComputedStyle(p).backgroundColor;
+          const m = /rgba?\\(([^)]+)\\)/.exec(bg);
+          if (m && !(m[1].split(',').length === 4 && parseFloat(m[1].split(',')[3]) === 0)) { surface = bg; break; }
+        }
+        return {
+          kind,
+          style: cs.outlineStyle,
+          width: cs.outlineWidth,
+          color: cs.outlineColor,
+          surface,
+          label: (box.textContent || '').replace(/\\s+/g, ' ').trim().slice(0, 18),
+          // The proxy holds the ring; the *input* holds the name. A screen reader announces this
+          // control by that name and nothing else, and the switch renders no label wrapper, so an
+          // aria-label is the only thing that can name it. (No backticks anywhere in here: this
+          // whole function body is a template literal evaluated in the page.)
+          name:
+            (a.getAttribute('aria-label') || (a.closest('label') ? a.closest('label').textContent : '') || '')
+              .replace(/\\s+/g, ' ')
+              .trim(),
+          rowLabel: (() => {
+            const row = a.closest('.notify-row');
+            const lab = row ? row.querySelector('.pref-label') : null;
+            return lab ? lab.textContent.replace(/\\s+/g, ' ').trim() : '';
+          })(),
+          fromToken: rgbOf(root.getPropertyValue('--fat-focus-ring').trim()),
+          epPrimary: rgbOf(root.getPropertyValue('--el-color-primary').trim()),
+          // The raw tokens, kept alongside the resolved colours: rgbOf('') sets no style at all,
+          // so a missing custom property would otherwise compare a real ring against the inherited
+          // text colour and still look like a pass. (Nothing in this function body may contain a
+          // backtick: the whole thing is a template literal that the page evaluates.)
+          tokenVar: root.getPropertyValue('--fat-focus-ring').trim(),
+          epVar: root.getPropertyValue('--el-color-primary').trim(),
+        };
+      })()`;
+
+      const controls = [];
+      const seen = new Set();
+      // Four is the expected yield: two switches (the popover's), one merge checkbox, one radio
+      // segment — `el-radio-group` moves its tabindex between segments, so three buttons contribute
+      // one tab stop. Reading inside `sampleWithoutMotion` because the theme flip animates the
+      // ancestor surfaces as well as the ring, and wall time is not a synchronisation point here.
+      await sampleWithoutMotion(ringPage, async () => {
+        await ringPage.evaluate(() => document.activeElement && document.activeElement.blur());
+        for (let i = 0; i < 160 && controls.length < 4; i++) {
+          await ringPage.keyboard.press('Tab');
+          const hit = await ringPage.evaluate(readHiddenRing);
+          if (!hit) continue;
+          const key = `${hit.kind}|${hit.name}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          controls.push(hit);
+        }
+      });
+      const families = {};
+      for (const c of controls) if (!families[c.kind]) families[c.kind] = c;
+
+      for (const kind of ['switch', 'checkbox', 'radio']) {
+        const f = families[kind];
+        if (!f) {
+          fail(`${kind} focus`, 'a Tab walk of the whole page never focused one of these controls');
+          continue;
+        }
+        if (f.style === 'solid' && f.width === '2px') ok(`[green light] ${kind} ring on "${f.label}" is 2px solid`);
+        else fail(`${kind} ring geometry`, `${f.style} ${f.width} on "${f.label}"`);
+        if (f.color === f.fromToken) ok(`${kind} ring resolves to --fat-focus-ring (${f.color})`);
+        else
+          fail(
+            `${kind} ring colour`,
+            `expected ${f.fromToken}, got ${f.color} — Element Plus's primary is ${f.epPrimary}`,
+          );
+        const ratio = f.surface ? contrast(f.color, f.surface) : Number.NaN;
+        if (!f.surface) fail(`${kind} ring contrast`, `no painted backdrop above the control (colour ${f.color})`);
+        else if (ratio >= 3) ok(`${kind} ring meets 3:1 against ${f.surface} (${ratio.toFixed(2)}:1)`);
+        else fail(`${kind} ring contrast`, `${ratio.toFixed(2)}:1 of ${f.color} on ${f.surface}`);
+      }
+
+      // The other half of "keyboard-reachable": a control nobody can name is a control a screen
+      // reader reports as "switch, off" with no subject. The notify switch used to be exactly that —
+      // its row's label is a sibling `<span>`, and Element Plus's switch renders no `<label>`.
+      const unnamed = controls.filter(c => !c.name);
+      if (controls.length >= 4 && unnamed.length === 0)
+        ok(
+          `every hidden-input control reached by Tab has an accessible name (${controls
+            .map(c => `${c.kind}="${c.name.slice(0, 14)}"`)
+            .join(', ')})`,
+        );
+      else
+        fail(
+          'Accessible name',
+          unnamed.length
+            ? `${unnamed.length} unnamed: ${unnamed.map(c => `${c.kind} "${c.label}"`).join(', ')}`
+            : `only ${controls.length} controls found; 4 is the expected yield`,
+        );
+
+      const switches = controls.filter(c => c.kind === 'switch');
+      const offLabel = switches.filter(s => !s.rowLabel || s.name !== s.rowLabel);
+      if (switches.length >= 2 && offLabel.length === 0)
+        ok(
+          `both switches are named by their own row's visible label ("${switches[0].rowLabel}" / "${switches[1].rowLabel}")`,
+        );
+      else
+        fail(
+          'Switch name vs visible label',
+          `${switches.length} switch(es) reached, ${offLabel.length} mismatched: ${offLabel
+            .map(s => `"${s.name}" vs "${s.rowLabel}"`)
+            .join(', ')}`,
+        );
+
+      // Without this the section could pass on a theme where the two colours are the same, which
+      // would make the override unobservable and the eight assertions above vacuous.
+      const any = families.switch || families.checkbox || families.radio;
+      if (any && any.tokenVar && any.epVar && any.color !== any.epPrimary)
+        ok(`the two tokens really disagree in light/green (${any.color} vs Element Plus's ${any.epPrimary})`);
+      else
+        fail(
+          'Theme setup for the ring check',
+          any && (!any.tokenVar || !any.epVar)
+            ? `a token resolved to nothing (focus-ring="${any.tokenVar}", primary="${any.epVar}")`
+            : `the ring paints exactly Element Plus's primary (${any ? any.color : 'unread'}), so the override is not observable`,
+        );
+    } catch (e) {
+      fail('Hidden-input focus rings', e.message);
+    } finally {
+      await ringPage.close();
+    }
+  }
+
   section('Tab Marker for a Batch That Finishes Off-screen');
   try {
     // F6. The desktop notification is opt-in *and* suppresses itself while this tab is focused, so

@@ -52,7 +52,7 @@
 以后再补跑的成本（本机需要手动装过 ffmpeg 与 chromium 二进制）：
 
 ```bash
-pnpm test:e2e        # = wxt build + node scripts/e2e-test.mjs，断言基线 432 条
+pnpm test:e2e        # = wxt build + node scripts/e2e-test.mjs，断言基线 444 条
 ```
 
 **2026-09-29 这一轮（JSON 预览的树 / 数组表 / 搜索 + 仓库外的对比页）跑满了 e2e，改在 `E2E_HEADLESS=true` 下跑**：
@@ -666,6 +666,42 @@ rgb(241,245,249)` 就是它；修法是内联 `transition: none !important`，�
   产物」），并修掉一处中英混排的手滑（「不需要 accompanying 的 images 目录」）。定案轮
   `432/432、0 红 0 跳过`，基线由这一轮自己写下，十句对外载数同批 427 → 432。素材没重拍：改的是产物字节，
   工作台像素不变。
+
+- **10-21 第五轮（UX/无障碍：焦点环的「谁来画」与开关的「叫什么名」，432 → 444）。** 用真键盘把工作台走了一遍 Tab：空态 6
+  个、排队两个文件后 14 个、跑完一批后 28 个、偏好面板展开 42 个可见可聚焦控件，逐个都进得去（第一版量具报的
+  5 个「不可达」是量具自己造的——环从点击处起算，跳过链接与触发按钮落在环的另一侧，空态那一档 6 个全绿可以反证）。
+  真缺口在**代理元素**那一类：`el-switch` / `el-checkbox` / `el-radio-button` 把焦点放在一个尺寸为 0 的透明
+  `input` 上，环画在**兄弟**代理节点上，所以 `global.css` 那条全局 `:focus-visible` 够不着——环色由 Element Plus
+  自带的 `--el-switch-on-color` / `--el-checkbox-input-border-color-hover` /
+  `--el-radio-button-checked-border-color` 决定，而它们的值都是 `--el-color-primary`，不是本仓库认证到 3:1 的
+  `--fat-focus-ring`。12 组主题×模式实测只有**浅绿**过不了线：`#10b981` 在卡片上 2.54:1、在工作台面上
+  2.42:1，同一处 `--fat-focus-ring` 是 `#059669`（3.77 / 3.60）。这个主题的 `--fat-primary` 本来就不够 3:1，
+  所以 tokens.css 早把它自己的环指到 `--fat-primary-active`——只是这三族绕过了那一步。修法一条规则，选择器逐字
+  抄 Element Plus，几何（2px / offset 1px）不动，只把 `outline-color` 并回 token。
+
+  同一趟 Tab 走到第二个出口：偏好面板里那两枚 `el-switch`，**一枚有 aria-label、一枚没有**。通知开关的行标签是一个
+  兄弟 `<span class="pref-label">`，而 Element Plus 的 switch 不套 `<label>`，所以读屏软件念出来是「切换，已关闭」
+  ——没有主语。修法一行、用现成的 key（`prefs.notifyOnComplete`），中英两份早就在了，不涉及新增文案；取证就是同一次
+  走查的前后两读数：改之前那枚的 accessible name 实测是空串，改之后是「转换完成后发送桌面通知」。
+
+  新节 `Hidden-Input Focus Rings` 十二条：三族各三条（几何 / 等于 token / ≥3:1），两核名字（走到的四枚控件都得有
+  可读名字；两枚开关的名字必须等于同行那个可见标签），加一格「这两色在本主题必须真的不同」防空转。牙齿当场验过：
+  把选择器改成不匹配的类名重跑，三族的颜色与对比度各自变红（`got rgb(16,185,129)`、`2.54:1`）加上那格守卫共 7 条红，
+  几何三条照旧绿；改回后 12 条全绿。名字那两核不靠摘规则验——改之前那枚开关的 `aria-label` 本就不存在，空串是同一次
+  走查实测到的。
+
+  **测量自己的一次假信号，记下来**：`outline-color` 在 tokens.css 的过渡清单里，第一版读数把**过渡中途的插值帧**
+  当成了结论，于是报出「checkbox 的环是 3px currentColor、radio 只有 1px 灰边」——都不存在。对代理节点上的动画逐个
+  finish 之后，三族都是干净的 2px solid。e2e 里沿用了 `Skip Link & Focus Ring` 那节早就写下的同一条警告（focus 与
+  read 必须分两次往返）。
+
+  同批把产物里所有 `:focus-visible{…outline…}` 规则枚举了一遍收口：其余要么直接用 token（`.el-button` /
+  `.el-input__wrapper` / `.el-select__wrapper` / `.collapsible-head` / preset / json / theme-item /
+  shortcut），要么是本应用**根本不渲染**的控件（纯 `el-radio`；`el-tag__close` ——两处 `el-tag` 都没开
+  `closable`），所以没有顺手加规则。素材没重拍：鼠标焦点不触发 `:focus-visible`，工作台像素不变。
+  **留给下一轮的一条**（属于交互改动，要先问）：偏好弹层默认不抢焦点环，键盘用户得先走完一整页才进得去弹层
+  ——`el-popover` 的 `trap-focus` 能关掉这段距离，但那是改交互语义。定案轮 `444/444、0 红 0 跳过`，
+  基线由这一轮自己写下，十句对外载数同批 432 → 444。
 
 ## 3. 收下改动：这一节记的是提交账，不是提交计划
 
