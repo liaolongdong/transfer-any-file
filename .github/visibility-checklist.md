@@ -831,6 +831,26 @@ rgb(241,245,249)` 就是它；修法是内联 `transition: none !important`，�
   `verify:numbers`（23 事实 × **90** 文档）、`lint:all`、`build`、产物层 `verify:offline` / `verify:remote-code`
   全 rc=0，`.output` 里搜不到两个 slug。不动运行时，断言数仍 **452**，素材不重拍。**SEO 缺口现 48 格**。
 
+- **10-21 第十三轮（Markdown 族收口两格：md→JSON、md→Excel，68 → 70 张页）。** 这一轮真正值得记的是
+  **只读评审派一次拦下四处错账**，全部落在「写得太满」的那一类句子上：① 「`##` 是 `<h2>` 的唯一来源」错——
+  setext 式下划线标题与文档里直接写下的 `<h2>` 同样进键位，而真正让配对可预测的事实是「包装文档不插入任何标题」
+  （`utils/core/html-document.ts` 的模板只有 `<title>` / `<style>` / `<body>`）与「按**出现顺序**配对」；
+  ② 「值一律是字符串」只对表格那一步成立，代码块回退走 `JSON.parse`、类型是文档本来写的，两处收窄成
+  「表格那一步的值」；③ `Sheet1` 与「Excel 打开时自己再猜一遍」被删——前者是 SheetJS 读取默认名、仓库里
+  没有实测记录，后者是对消费端软件行为的断言，都改写成产物侧事实；④ 公式护栏要写成「产物中该格的值确实以一个
+  ' 开头」，不能写成 Excel 的显示行为。
+  三处补测把改完的句子重新钉住：`z = '@'` 在写出的 `xl/styles.xml` 里就是 `cellXfs` 的 `numFmtId="49"`
+  （对 `xlsx@0.18.5` 现测，此前只有注释背书）；marked 的 GFM 表头确实渲染成 `<thead>` 里的 `<th>`；
+  json→csv 写的 UTF-8 BOM 确实被 `TextDecoder` 剥掉（`ef bb bf 61 2c 62` 解出 3 个码点）。
+  `-42` 因 `DECIMAL_SHAPE` 允许前导 `-` 先被判成数字、不吃前缀，`+33` 不是十进制形状、留文本并被加护栏——
+  这条顺序（先取数后护栏）写在 `csv-to-xlsx.ts:45-47`，页里按它写，不按「危险前缀一律加引号」的想当然写。
+
+  两条 hub 摘要（md 的 json、md 的 xlsx）按镜像规则摘除，复核后与新页一致，属正常清理，**不计入前十轮那四条
+  无本机证据的断言**。四镜像齐备（`docs/llms.txt` 的 md→JSON 那句随 ② 一起收窄）。验证：`pages:render`
+  **87** 文件、`pages:check` 逐字节一致、`verify:numbers`（23 事实 × **92** 文档）、`lint:all`、`build`、
+  产物层 `verify:offline` / `verify:remote-code`、`verify:meta` 全 rc=0，`.output` 里搜不到两个 slug。
+  只动站点数据源与生成页，不碰运行时，断言数仍 **452**，素材不重拍。**SEO 缺口现 46 格**。
+
 ## 3. 收下改动：这一节记的是提交账，不是提交计划
 
 这一节原先给的是 2026-09-19 那一轮（配对页与博客页改成数据源生成）的两条 `git commit`。那些提交早就落地了，
