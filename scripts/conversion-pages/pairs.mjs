@@ -2331,9 +2331,10 @@ export const PAIRS = [
         '标题层级：样式名为 Heading 1–4 的段落映射为 `<h1>`–`<h4>`，标题（Title）与小标题（Subtitle）也各归其位',
         '有序与无序列表、粗体与斜体（含以字符样式命名的 Strong / Emphasis）、超链接',
         '表格：mammoth 默认会把表格结构写成 `<table>`，单元格内容随行内格式一起过来',
-        '文档内的图片读成 data URI 内联进 HTML——所以这一个文件本身是完整的，不需要 accompanying 的 images 目录',
+        '文档内的图片读成 data URI 内联进 HTML——所以这一个文件本身是完整的，不需要另附一个 images 目录',
         '输出前经 DOMPurify 的 html 白名单净化，脚本与事件属性不会进产物；`target` 属性被显式保留，链接仍可在新标签打开',
-        '如果这份 .docx 本身就是本扩展 HTML → DOCX 的产物（altChunk 包装），空结果时会识别并救回内嵌的那份 HTML',
+        '远程子资源在写文件前被剥掉：`<img src="http://…">`、样式里的 `url()` 与 `@import` 都不留，所以这张页面被打开时不会替你发请求（链接本身是正文，留着）',
+        '如果这份 .docx 里塞着内嵌的 MHT 块（altChunk——本扩展自己的 HTML → DOCX 产物就是这种形状），空结果时会识别并救回内嵌的那份 HTML',
       ],
       en: [
         'Heading levels: paragraphs styled Heading 1–4 map to `<h1>`–`<h4>`, and Title and Subtitle each land where they belong',
@@ -2341,7 +2342,8 @@ export const PAIRS = [
         'Tables: mammoth writes table structure as `<table>` by default, with cell content travelling alongside its inline formatting',
         'Images inside the document are read out as data URIs inlined into the HTML, so the single file is complete and needs no companion images folder',
         'The output passes DOMPurify’s html profile before it is written, so scripts and event attributes do not reach the file; the `target` attribute is kept on purpose so links still open in a new tab',
-        'If the .docx was itself produced by this extension’s HTML → DOCX route (an altChunk wrapper), an empty result triggers recovery of the embedded HTML',
+        'Remote subresources are cut before the file is written — `<img src="http://…">`, `url()` and `@import` in styles — so the page issues no request on your behalf when you open it. A link is content, and stays',
+        'If the .docx carries an embedded MHT part (an altChunk — which is exactly what this extension’s own HTML → DOCX output is), an empty result triggers recovery of that embedded HTML',
       ],
     },
     limits: {

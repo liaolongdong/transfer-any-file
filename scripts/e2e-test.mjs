@@ -5,6 +5,7 @@ import { deflateSync } from 'node:zlib';
 import path from 'path';
 import fs from 'fs';
 import http from 'http';
+import os from 'os';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const EXTENSION_PATH = path.resolve(__dirname, '../.output/chrome-mv3');
@@ -2390,6 +2391,144 @@ async function run() {
       });
     } catch (e) {
       fail('SVG HTML Subresource Egress', e.message);
+    }
+  }
+
+  // ═══════════════════════════════════════════
+  //  F-1c — a .docx whose altChunk holds remote markup must not become a page that fetches
+  // ═══════════════════════════════════════════
+
+  if (section('DOCX AltChunk Egress')) {
+    try {
+      // Built here rather than committed as a fixture: the interesting part is four XML files and one
+      // MHT, and a binary in `fixtures/` would hide exactly the line under test (the remote `<img>`).
+      // Mammoth cannot read this shape, so it is the altChunk recovery path that runs — and that path
+      // hands over markup this extension never wrote.
+      const { zipSync, strToU8 } = await import('fflate');
+      const canaryUrl = `http://127.0.0.1:${PORT}/canary/altchunk-img.png`;
+      const mht = [
+        'MIME-Version: 1.0',
+        'Content-Type: multipart/related; type="text/html"; boundary="----=_tafe2"',
+        '',
+        '------=_tafe2',
+        'Content-Type: text/html; charset="utf-8"',
+        'Content-Location: file:///C:/fake/document.html',
+        'Content-Transfer-Encoding: quoted-printable',
+        '',
+        `<html><body><h1>Recovered body</h1><p>plain text that must survive</p>` +
+          `<img src="${canaryUrl}" alt="remote"><img src="data:image/png;base64,iVBORw0KGgo=" alt="local"></body></html>`,
+        '------=_tafe2--',
+        '',
+      ].join('\r\n');
+      const docx = zipSync(
+        {
+          '[Content_Types].xml': strToU8(
+            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+              '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' +
+              '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
+              '<Default Extension="xml" ContentType="application/xml"/>' +
+              '<Default Extension="mht" ContentType="message/rfc822"/>' +
+              '<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>',
+          ),
+          '_rels/.rels': strToU8(
+            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+              '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+              '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>',
+          ),
+          'word/document.xml': strToU8(
+            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+              '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" ' +
+              'xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math" ' +
+              'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">' +
+              '<w:body><m:altChunk r:id="chunk1"/><w:sectPr/></w:body></w:document>',
+          ),
+          'word/_rels/document.xml.rels': strToU8(
+            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+              '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+              '<Relationship Id="chunk1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/aFChunk" Target="afchunk.mht"/></Relationships>',
+          ),
+          'word/afchunk.mht': strToU8(mht),
+        },
+        { level: 6 },
+      );
+
+      await resetWorkbench(page);
+      const fi = await page.$('input[type="file"]');
+      await fi.setInputFiles({
+        name: 'altchunk-remote.docx',
+        mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        buffer: Buffer.from(docx),
+      });
+      await page.waitForTimeout(1200);
+      const tag = await page.$eval('.file-item .el-tag--primary', el => el.textContent.trim()).catch(() => '');
+      await pickTarget(page, 'HTML (.html)');
+      await (await page.$('.convert-btn')).click();
+      await page.waitForFunction(
+        () => {
+          const alert = document.querySelector('.el-alert__title');
+          return alert && alert.textContent.length > 0;
+        },
+        undefined,
+        { timeout: 30000 },
+      );
+      await page.waitForTimeout(500);
+
+      if (tag.includes('Word')) {
+        ok(`The altChunk document is recognised as Word (${tag})`);
+      } else {
+        fail('DOCX AltChunk Egress', `format tag was "${tag}" — the route below may not be the one under test`);
+      }
+
+      const html = await downloadBatchArtifact(page);
+      const recovered = html.includes('Recovered body');
+      if (recovered) {
+        ok('The altChunk body was recovered, so the probes below read the path that carries remote markup');
+      } else {
+        fail('DOCX AltChunk Egress', 'no recovered body in the artifact — nothing was tested');
+      }
+      if (!html.includes('/canary/')) {
+        ok('No remote reference from the embedded HTML survives into the delivered document');
+      } else {
+        fail(
+          'DOCX egress',
+          `the delivered page would fetch: ${JSON.stringify([...html.matchAll(/\/canary\/[^"' )]+/g)].map(m => m[0]))}`,
+        );
+      }
+      const localKept = html.includes('plain text that must survive') && html.includes('data:image/png;base64,');
+      if (localKept) {
+        ok('The document’s own text and its embedded data: image both survive the strip');
+      } else {
+        fail(
+          'DOCX egress strip is over-eager',
+          `text=${html.includes('plain text that must survive')} dataImage=${html.includes('data:image/png;base64,')}`,
+        );
+      }
+
+      // The claim is about what happens when the user opens the file, so open it. The converter itself
+      // never issues a request — only the renderer does, which is what the byte-level check above
+      // cannot see on its own.
+      if (recovered) {
+        const out = path.join(os.tmpdir(), `taf-altchunk-${Date.now()}.html`);
+        fs.writeFileSync(out, html, 'latin1');
+        canaryHits.length = 0;
+        const viewer = await browser.newPage();
+        await viewer.goto(`file://${out}`).catch(() => {});
+        await viewer.waitForTimeout(2000);
+        await viewer.close();
+        fs.rmSync(out, { force: true });
+        if (canaryHits.length === 0) {
+          ok('Opening the delivered page issues no request at all (measured against the harness server)');
+        } else {
+          fail('DOCX egress', `opening the delivered page fetched ${JSON.stringify(canaryHits)}`);
+        }
+      }
+
+      await page.screenshot({
+        path: shot(`${String(shotIdx++).padStart(2, '0')}-docx-altchunk-egress.png`),
+        fullPage: true,
+      });
+    } catch (e) {
+      fail('DOCX AltChunk Egress', e.message);
     }
   }
 

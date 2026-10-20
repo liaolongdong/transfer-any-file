@@ -52,7 +52,7 @@
 以后再补跑的成本（本机需要手动装过 ffmpeg 与 chromium 二进制）：
 
 ```bash
-pnpm test:e2e        # = wxt build + node scripts/e2e-test.mjs，断言基线 427 条
+pnpm test:e2e        # = wxt build + node scripts/e2e-test.mjs，断言基线 432 条
 ```
 
 **2026-09-29 这一轮（JSON 预览的树 / 数组表 / 搜索 + 仓库外的对比页）跑满了 e2e，改在 `E2E_HEADLESS=true` 下跑**：
@@ -645,6 +645,27 @@ rgb(241,245,249)` 就是它；修法是内联 `transition: none !important`，�
   （5 个 canary URL 全在、动画元素在、样式里的远程 `url()` 在），该绿的三条照旧绿；装回用备份件 `mv`，
   `shasum -a 256` 与动手前逐字相同。定案轮 `427/427、0 红 0 跳过、94 张截图`，基线由这一轮自己写下
   （套件末尾那句 `the prose was held to 421` 就是它催我去同步那十句的）。素材没重拍：工作台像素不变。
+
+- **10-21 第四轮（安全：同一类缺口的第二个出口，427 → 432）。** 上一笔修完 SVG→HTML 之后，顺着「这份
+  markup 会被谁渲染」把其余出口又查了一遍，`docx-to-html` 的 **altChunk 还原路径**是同一类洞：mammoth 读不了
+  altChunk 文档，于是走 `extractAltChunkHtml` 把内嵌 MHT 里的 HTML **原样**交出来，随后只过 DOMPurify
+  （它的职责是可执行 markup，远程 URL 是它明确保留的）。手工造一份第三方形状的 `.docx`（`word/afchunk.mht`
+  里放一张 `<img src="http://…">`，fflate 现拼，不进 `fixtures/`——二进制夹具会正好藏掉被测的那一行）：
+  **转换出的 `.html` 一打开就打那个地址**。修法和 SVG 那笔同一条：`wrapHtmlDocument` 之后过
+  `stripRemoteResources`。为什么这条该剥而 `md-to-html` 不该剥：**看远程引用是内容还是附带物**——
+  Markdown 作者写 `![](http…)` 就是要那张远程图，剥掉等于把功能做坏；altChunk 里的是另一个工具塞进来的
+  不透明 markup，与 SVG 同形。这条判据连同取证方法写进记忆，避免下一轮顺手给四个文件都加 strip。
+
+  新节 `DOCX AltChunk Egress` 五条（识别为 Word / 正文确实被还原 / 产物里没有 canary / 文档自己的文字与
+  data URI 都还在 / **打开产物实测 0 次请求**）。牙齿当场验过：把那一行改回 `await wrapped.text()` 重跑，
+  该红的两条各自报出证据（`the delivered page would fetch: ["/canary/altchunk-img.png"]`、
+  `opening the delivered page fetched [...]`），该绿的三条（识别、还原、本地内容保留）照旧绿——
+  后者正是「钝刀全删」骗不过去的那一格。装回用备份件 `mv`，`shasum -a 256` 与动手前逐字相同。
+
+  同批把 `docx-to-html` 那页的文案补齐（远程子资源在写文件前剥掉、altChunk 还原是通用的而不是「只认自家
+  产物」），并修掉一处中英混排的手滑（「不需要 accompanying 的 images 目录」）。定案轮
+  `432/432、0 红 0 跳过`，基线由这一轮自己写下，十句对外载数同批 427 → 432。素材没重拍：改的是产物字节，
+  工作台像素不变。
 
 ## 3. 收下改动：这一节记的是提交账，不是提交计划
 
