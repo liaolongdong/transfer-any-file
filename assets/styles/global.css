@@ -135,13 +135,13 @@ body {
   color: var(--fat-on-btn-solid) !important;
 }
 
-.el-button--primary:hover {
+.el-button--primary:not(.is-disabled):hover {
   background: var(--fat-btn-solid-hover) !important;
   border-color: var(--fat-btn-solid-hover) !important;
   color: var(--fat-on-btn-solid) !important;
 }
 
-.el-button--primary:active {
+.el-button--primary:not(.is-disabled):active {
   background: var(--fat-btn-solid-active) !important;
   border-color: var(--fat-btn-solid-active) !important;
   color: var(--fat-on-btn-solid) !important;
@@ -225,6 +225,30 @@ body {
 
 :root[data-mode='dark'] .el-button--text:hover {
   color: var(--fat-primary-hover) !important;
+}
+
+/* Disabled buttons. The enabled rules above are `!important` and Element Plus's disabled
+   colours are not, so a disabled button used to keep the accent fill and label — measured
+   2026-10-20: `.convert-btn` with no target painted the same #2563eb as the enabled one, and
+   a text button mid-conversion came out transparent with a white label on a white card, i.e.
+   invisible. The primary hover / active rules carry `:not(.is-disabled)` so a disabled button
+   never lights up under the pointer, and this block supplies the off look: the muted fill
+   `--fat-surface-2`, the border `--fat-border`, and `--fat-text-placeholder`, the ink the
+   token file reserves for disabled controls. `.is-loading` is carved out — a button that is
+   disabled *while* loading (the convert and download buttons pass both props) has to stay in
+   the accent fill, because that state is live, not off. `:root` lifts the block over the
+   dark-mode rules above without depending on source order.
+   One selector is enough because EP builds the class as `ns.m(type)` with `type` defaulting to
+   `""`: an untyped `<el-button>` carries no `el-button--default`, and the `text` / `link` /
+   `plain` props add `is-text` / `is-link` / `is-plain` beside the type modifier rather than
+   replacing it. So `--primary` covers every solid button in the workbench, chip-shaped variants
+   included — which is how those variants already look when enabled, under the rules above.
+   The `.el-button--default` and `.el-button--text` selectors that remain in this file match no
+   element today; they are pre-existing and left alone here. */
+:root .el-button--primary.is-disabled:not(.is-loading) {
+  background: var(--fat-surface-2) !important;
+  border-color: var(--fat-border) !important;
+  color: var(--fat-text-placeholder) !important;
 }
 
 /* Large-batch confirmation dialog. The markup is a VNode built in useConversion.ts and the

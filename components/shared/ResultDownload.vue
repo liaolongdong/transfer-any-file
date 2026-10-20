@@ -433,6 +433,15 @@ function openPreview(result: ConvertResult): void {
   min-width: 0;
 }
 
+/* Element Plus centres the status icon against the whole alert, and this alert grows with its
+   content — a batch with a file list and a note measures ~119px tall. The 28px icon then floats to
+   the vertical middle (measured 2026-10-20: icon top 604 vs title top 566), reading as if it
+   belonged to the fourth row rather than the title. Top-aligning puts it back beside its title;
+   the small single-line alert in this card is unaffected because there the content box is one line. */
+.result-download :deep(.el-alert) {
+  align-items: flex-start;
+}
+
 /* Same containment as `.file-item` in `FileUpload`, for the same reason: a 200-file batch appends
    one result row per file, and rows below the fold have no reason to be painted. 24px is the
    measured border-box height; `auto` lets Chrome remember the real one. The row still animates

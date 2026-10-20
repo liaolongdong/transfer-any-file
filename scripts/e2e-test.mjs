@@ -5241,6 +5241,202 @@ async function run() {
   }
 
   // ═══════════════════════════════════════════
+  //  DISABLED BUTTON STATES
+  // ═══════════════════════════════════════════
+
+  // The enabled rules in `global.css` are `!important`, and Element Plus's disabled colours are
+  // not — so a disabled button used to paint the accent fill anyway (measured 2026-10-20: the
+  // no-target convert button was the same #2563eb as the enabled one, and 追加文件 mid-conversion
+  // came out transparent with a white label on a white card, i.e. invisible). This section pins
+  // both halves: disabled takes the muted tokens in light and dark, an enabled or loading button
+  // keeps the accent fill. Its own page, because the first read needs the freshly staged,
+  // no-target state and the last one moves the viewport.
+  if (section('Disabled Button States')) {
+    const dPage = await browser.newPage();
+    tolerateScreenshotTimeout(dPage);
+    trackPageErrors(dPage);
+    try {
+      await dPage.setViewportSize({ width: 1280, height: 900 });
+      await dPage.addInitScript(mockChromeStorage());
+      await dPage.goto(`http://localhost:${PORT}/options.html`);
+      await dPage.waitForTimeout(1200);
+
+      // The buttons plus the five tokens the disabled rules are written against, resolved on the
+      // page rather than hard-coded, so a token edit moves both sides of the comparison together.
+      const readStates = () =>
+        sampleWithoutMotion(dPage, () =>
+          dPage.evaluate(() => {
+            const read = sel => {
+              const el = document.querySelector(sel);
+              if (!el) return null;
+              const cs = getComputedStyle(el);
+              return { cls: el.className, bg: cs.backgroundColor, color: cs.color, border: cs.borderColor };
+            };
+            const probe = document.createElement('div');
+            document.body.appendChild(probe);
+            // The reduced-motion blanket writes `transition-duration: … !important` on `*`, so a
+            // probe element that changes `color` transitions it — and a read in the same task as the
+            // assignment returns the *previous* token. That is how a 2026-10-20 run printed all five
+            // tokens as the first one (`want rgb(241,245,249) / rgb(241,245,249) / …`). Inline
+            // `!important` outranks the stylesheet's, which is what makes the read immediate.
+            probe.style.setProperty('transition', 'none', 'important');
+            const token = name => {
+              probe.style.color = `var(${name})`;
+              return getComputedStyle(probe).color;
+            };
+            const tokens = {
+              fill: token('--fat-surface-2'),
+              ink: token('--fat-text-placeholder'),
+              accent: token('--fat-btn-solid'),
+              onAccent: token('--fat-on-btn-solid'),
+              border: token('--fat-border'),
+            };
+            probe.remove();
+            // Distinctness is the self-check for the stale-read shape above: surface, placeholder,
+            // accent and border are different colours in the blue pair this section runs (the only
+            // pair it reads), so a probe that collapses them into one value has to be the instrument,
+            // not the button.
+            if (new Set(Object.values(tokens)).size < 3) {
+              throw new Error(`token probe resolved ${JSON.stringify(tokens)} — stale reads, not a UI defect`);
+            }
+            return { convert: read('.convert-btn'), addFiles: read('.add-files-btn'), tokens };
+          }),
+        );
+
+      const fi = await dPage.waitForSelector('input[type="file"]', { state: 'attached', timeout: 10000 });
+      await fi.setInputFiles(path.join(FIXTURE_PATH, 'sample.docx'));
+      await dPage.waitForSelector('.convert-btn.is-disabled', { timeout: 5000 });
+
+      for (const mode of ['light', 'dark']) {
+        const { convert, tokens } = await changeWithoutMotion(dPage, async () => {
+          await applyTheme(dPage, mode, 'blue');
+          await dPage.waitForTimeout(150);
+          return readStates();
+        });
+        if (convert && convert.bg === tokens.fill && convert.color === tokens.ink && convert.border === tokens.border) {
+          ok(`[blue ${mode}] a disabled primary button takes the muted tokens`);
+        } else {
+          fail(
+            `[blue ${mode}] disabled primary button`,
+            `bg ${convert?.bg} / ink ${convert?.color} / border ${convert?.border}, want ${tokens.fill} / ${tokens.ink} / ${tokens.border}`,
+          );
+        }
+      }
+
+      await dPage.hover('.convert-btn');
+      const hovered = await readStates();
+      if (hovered.convert.bg === hovered.tokens.fill) ok('A disabled primary button stays muted under the pointer');
+      else fail('Disabled button under the pointer', `bg ${hovered.convert.bg}, want ${hovered.tokens.fill}`);
+
+      await pickTarget(dPage, 'PDF (.pdf)');
+      await dPage.waitForFunction(
+        () => {
+          const button = document.querySelector('.convert-btn');
+          return !!button && !button.disabled;
+        },
+        undefined,
+        { timeout: 8000 },
+      );
+      const enabled = await readStates();
+      if (enabled.convert.bg === enabled.tokens.accent && enabled.convert.color === enabled.tokens.onAccent)
+        ok('An enabled primary button keeps the accent fill');
+      else
+        fail(
+          'Enabled primary button',
+          `bg ${enabled.convert.bg} / ink ${enabled.convert.color}, want ${enabled.tokens.accent} / ${enabled.tokens.onAccent}`,
+        );
+
+      // Mid-conversion the convert button carries `is-disabled` and `is-loading` at once. The
+      // disabled rule carves `.is-loading` out on purpose: this state is live, not off, and the
+      // carve-out is invisible if it silently flips the label to muted grey.
+      await dPage.click('.convert-btn');
+      await dPage.waitForFunction(
+        () => document.querySelector('.convert-btn')?.classList.contains('is-loading'),
+        undefined,
+        { timeout: 15000 },
+      );
+      const running = await readStates();
+      if (running.convert.bg === running.tokens.accent && running.convert.color === running.tokens.onAccent)
+        ok('The converting button keeps its accent fill while loading');
+      else
+        fail(
+          'Loading button fill',
+          `bg ${running.convert.bg} / ink ${running.convert.color}, want ${running.tokens.accent}`,
+        );
+      const add = running.addFiles;
+      if (add && add.bg === running.tokens.fill && add.color === running.tokens.ink)
+        ok('A disabled text button keeps a visible muted fill mid-conversion');
+      else
+        fail(
+          'Disabled text button',
+          `bg ${add?.bg} / ink ${add?.color}, want ${running.tokens.fill} / ${running.tokens.ink}`,
+        );
+
+      // Element Plus centres the status icon against the alert's whole box, and this alert grows with
+      // its content — measured 119px tall, icon top 604 vs title top 566 before the fix, 566/566 after.
+      // `:not(.el-alert--info)` is what makes this the batch alert: `staleNotice` renders an info alert
+      // *above* it whenever kept results are stale, and a bare `.el-alert` would then measure that box
+      // (`.result-note` is the note paragraph inside the content, not a class on the alert itself).
+      // The height floor keeps the ±1 px test honest — in a one-line alert centring and top-aligning
+      // coincide, so passing there would prove nothing.
+      await dPage.waitForSelector('.result-download .el-alert:not(.el-alert--info) .el-alert__title', {
+        timeout: 30000,
+      });
+      const align = await sampleWithoutMotion(dPage, () =>
+        dPage.evaluate(() => {
+          const alert = document.querySelector('.result-download .el-alert:not(.el-alert--info)');
+          const icon = alert.querySelector('.el-alert__icon');
+          const title = alert.querySelector('.el-alert__title');
+          const top = el => Math.round(el.getBoundingClientRect().top);
+          return { alertH: Math.round(alert.getBoundingClientRect().height), iconTop: top(icon), titleTop: top(title) };
+        }),
+      );
+      if (align.alertH >= 60 && Math.abs(align.iconTop - align.titleTop) <= 1)
+        ok('The result status icon sits beside its title');
+      else
+        fail(
+          'Result alert icon alignment',
+          `icon top ${align.iconTop} vs title top ${align.titleTop} in a ${align.alertH}px alert (need ≥ 60px)`,
+        );
+
+      // One toolbar row needs ~415px in the wider locale (measured in English), and the card's
+      // `overflow: hidden` hides what does not fit — at 360px the sync checkbox hung half past the
+      // card edge with `document.scrollWidth` still reading 360, so nothing looked scrollable.
+      await dPage.setViewportSize({ width: 360, height: 800 });
+      await dPage.waitForTimeout(400);
+      const bar = await sampleWithoutMotion(dPage, () =>
+        dPage.evaluate(() => {
+          const t = document.querySelector('.comparison-toolbar');
+          const vm = t.querySelector('.view-modes');
+          const st = t.querySelector('.sync-toggle');
+          const card = t.closest('.card') ?? t.parentElement;
+          const r = el => el.getBoundingClientRect();
+          return {
+            syncRight: Math.round(r(st).right),
+            cardRight: Math.round(r(card).right),
+            wrapped: r(st).top >= r(vm).bottom - 2,
+          };
+        }),
+      );
+      if (bar.wrapped && bar.syncRight <= bar.cardRight + 1)
+        ok('At 360px the comparison toolbar wraps instead of clipping the sync checkbox');
+      else
+        fail(
+          'Comparison toolbar at 360px',
+          `wrapped=${bar.wrapped}, sync right ${bar.syncRight} vs card right ${bar.cardRight}`,
+        );
+      await dPage.screenshot({
+        path: shot(`${String(shotIdx++).padStart(2, '0')}-narrow-toolbar.png`),
+        fullPage: true,
+      });
+    } catch (e) {
+      fail('Disabled button states', e.message);
+    } finally {
+      await dPage.close().catch(() => {});
+    }
+  }
+
+  // ═══════════════════════════════════════════
   //  INFORMATION TEXT CONTRAST
   // ═══════════════════════════════════════════
 

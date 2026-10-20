@@ -52,7 +52,7 @@
 以后再补跑的成本（本机需要手动装过 ffmpeg 与 chromium 二进制）：
 
 ```bash
-pnpm test:e2e        # = pnpm build + node scripts/e2e-test.mjs，断言基线 402 条
+pnpm test:e2e        # = wxt build + node scripts/e2e-test.mjs，断言基线 410 条
 ```
 
 **2026-09-29 这一轮（JSON 预览的树 / 数组表 / 搜索 + 仓库外的对比页）跑满了 e2e，改在 `E2E_HEADLESS=true` 下跑**：
@@ -467,6 +467,53 @@ sitemap），本轮只回填了体积数字、没有推进那组日期，所以�
   `.paste-hint` 同为 `rgb(91,107,128)`、`.footer` 命中 0、首屏 405 ms）——**探针自己的 staging 步骤超时是探针的
   `chrome.storage` mock 太糙，不是应用坏了**；这条区别只有对照着看才分得出来。判据照旧：先 `uptime` + `ps` 看谁在
   吃机器、再查夹具脏不脏，**不要去抬超时**（见 `8176a67` 那条「别去抬那个 30 s」）。
+
+- **10-20 这一轮（三处禁用态 / 对齐 / 窄屏缺陷 + `Disabled Button States` 一节）**：定案轮 **410/410、0 红 0 跳过、
+  92 张截图**，基线由这一轮自己写下 402 → 410，十句对外散文同批跟上（`docs/index.html` 中英各一、
+  `docs/blog/index.html` 中英各一、`docs/promo/{community-posts.md×2, community-posts.en.md, wechat-article.md,
+blog-article.en.md}` 五处），加本节第 55 行那句「断言基线 N 条」——那一句不在 `verify:numbers` 的四条 pattern
+  射程内，只能手改，别指望门替我看见。同一行那串等式也跟 `452d006` 对齐了（`pnpm test:e2e` 现在是
+  `wxt build + node scripts/e2e-test.mjs`，绕开新加的 postbuild，不再每轮多打一次 zip）。同批把 `release.yml`
+  的 Release 标题改成 `$TAG`（线上 `v1.2.1` 那条已用 `gh release edit` 同步改名并由 API 回读自证），
+  dry-run 摘要那行跟上，那一步已无用的 `VERSION` 摘掉。
+
+  三处缺陷都带读数：无目标时 `.convert-btn` 与可用态同为 `#2563eb`（可用态规则是 `!important`，EP 的禁用色不是，
+  所以禁用态照旧吃主题实色）；转换中的 `.add-files-btn` 白底白字（文本按钮禁用后背景透明、标签仍是
+  `--fat-on-btn-solid`）；119px 高的结果告警里图标顶 604 对标题顶 566；360px 下 sync 右缘 420 越过卡片右缘 344
+  而 `document.scrollWidth` 仍报 360——`overflow: clip` 是静默裁切，永远不会出滚动条。
+
+  **两条方法账，比缺陷本身更值钱**：(1) 新那一节的令牌探针会撒谎——减动效那条 `*` blanket 给探针元素也上了过渡，
+  同一 task 内连续读五个令牌，后四个读到的是上一个值，红字里那串 `want rgb(241,245,249) / rgb(241,245,249) /
+rgb(241,245,249)` 就是它；修法是内联 `transition: none !important`，再加一条「五令牌至少三种不同」的自检，
+  让量具坏的时候自己报名。(2) 裸调 `section()` 而不写 `if (section(...))` 会被 `E2E_ONLY` 穿透——那一节在子集
+  运行里照跑，而 `skippedSections` 不为它 +1，于是「非完整轮不写基线」那道闸一起失效。
+
+  **负载形态（五轮全量，红三轮、绿两轮）**：红的三轮形状各不相同——第一轮 54 条散在互不相关的章节（`PDF→JPG`
+  30 s `waitForFunction` 超时、109 次 20 s 截图超时），第二轮红到 38 条被我中途停掉，第三轮只剩 6 条、全部落在
+  历史那几节（读到过渡中的行数 `50 → 52`、未落盘的写 `expected 51`、筛选与搜索各读到一份旧列表）。吃 CPU 的
+  是桌面上两个 Qoder 实例、同机另一会话的门禁运行，以及我派出的只读评审 agent（它们只跑 `pnpm` 就能把 1 分钟
+  load 顶到 184，而 `ps` 里看不到一个热进程——负载记账看的是排队深度，不是 %CPU 列），不是套件也不是应用。
+  两轮全绿：修正评审意见之前一轮 410/410（也是它第一次把基线从 402 写成 410），评审修正之后**定案轮**再 410/410。
+  中间还有一格值得记：我第一次把「同一 task 里连续读到旧值」的探针 bug 判成了 UI 缺陷，红字里那串
+  `want rgb(241,245,249) / rgb(241,245,249)` 才是真相。历史几节单独跑（`E2E_ONLY=history,batch-member`）
+  `exit=0`，这就是「量具问题」与「应用问题」的分判证据，判据仍是上一格那条：先 `ps` 看谁在吃机器，
+  再 `E2E_ONLY` 定向复现，**不抬超时**。
+
+  **素材这一格要改口径**：`assets:capture` 在同一棵干净树上连跑两次，**28/28 张 PNG 全不相同**（连 `icon.png`
+  与 `workbench-empty.png` 都在内），所以「重拍后的字节差」不能用来把改动归因到某张图。本轮提交 15 张，记的是
+  「最后一次运行的产出」这个事实，不是「这些像素是我搬的」。归因改用确定性取值：干净树与改动树各跑一次 DOM 探针，
+  只有 `保存为预设`（primary + plain、禁用）两格从 `rgb(37,99,235)` / `rgb(109,158,246)` 变成
+  `rgb(241,245,249)` / `rgb(24,24,37)`。一处预测被当场推翻：空工作台**不渲染** `.convert-btn`（那颗按钮是 staged
+  之后才出现的），所以 `workbench-empty` 与 `screen-01*` 逐字节未变；我先前用 `getBoundingClientRect()` 判「在画面
+  内」是错的——折叠卡片里的元素矩形照样非零，要判可见得读 `visibility` / `opacity`。
+
+  `.el-button--text` 那一族四条选择器在本项目匹配不到任何元素（EP 2.14.3 给文本按钮发的是
+  `el-button--primary is-text`，仓库里没有 `type="text"`），本轮只把同族规则一起加上 `:not(.is-disabled)`，
+  真正拦住「禁用还点亮」的是 `--primary` 那条；那四条该不该一并删是另一笔账，删之前要先证没有别的宿主版本发这个类。
+  本轮跑过的门禁：`lint:all`（含 `--max-warnings 0`）、`build`、`verify:meta`、两层离线（96 个第一方文件 /
+  产物 manifest 权限恰为 `["storage"]`）、两层远程代码、`verify:paths`（48 边 / 182 对）、`pages:check`
+  （60 文件）、`verify:listing`、`verify:numbers`（23 事实 × 65 散文）、`verify:release-ci`、全量 e2e，
+  全部 `rc=0`；退出码逐个现捕——管道会把它们吞成 `tail` 的 0，这一轮我自己先踩过一次。
 
 ## 3. 收下改动：这一节记的是提交账，不是提交计划
 
