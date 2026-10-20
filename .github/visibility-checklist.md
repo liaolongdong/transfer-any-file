@@ -888,6 +888,21 @@ rgb(241,245,249)` 就是它；修法是内联 `transition: none !important`，�
   按既有办法改 `-c http.version=HTTP/1.1 -c http.postBuffer=1` 重试一次即成功，并用 API 核实远端 sha。
   **SEO 缺口现 42 格**。
 
+- **10-21 第十六轮（json→PNG、json→JPG，74 → 76 张页；页面与本轮记账同一笔提交）。** 这一格的价值在把
+  **路由里的显式取舍写成用户读得懂的区别**：同一份 `json>html` 查看器，PNG 走 `html>png` 得到一张整页长图，
+  而 JPG 走 `html>pdf → pdf>jpg` 得到 A4 分页——不是实现顺带的后果，而是 `html-to-png.ts` 上那句
+  `edgePreference: 10` 与 `html-to-pdf.ts:14` 的注释写明的选择（`html→png→jpg` 只会交回一条按页面宽度排布的
+  长带）。第二条真实后果是**只损失一次**：中间那份 PDF 的页面是逐页 `toDataURL('image/png')` 嵌进去的无损位图
+  （`html-to-pdf.ts:75`），压缩只发生在最后交给 JPEG 的那一次。第三条与 PNG 共享：整页高度上限 32768 px
+  （`MAX_CANVAS_EDGE × 4`）超限报错，因为远超时浏览器交回的是空白画布——「成功但全白」比一条错误难查得多。
+  PNG 页里的两条「不承诺」也照实写：图里没有可复制的文字、不承诺能再解析回 JSON；质量档对无损的 PNG 不起作用，
+  能调的是最长边与目标尺寸（`clampQuality` / `clampMaxEdge` 在编码处再钳一次，因为它们也会从存储里来）。
+
+  hub 摘除 json 的 `png` 与 `jpg` 两条摘要（复核后与新页一致，属正常镜像清理，**不计入前十轮那四条无本机证据的
+  断言**）。四镜像齐备。验证：`pages:render` 93 文件、`pages:check` 逐字节一致、`verify:numbers`（23 事实 ×
+  98 文档）、`lint:all`、`build`、产物层 `verify:offline` / `verify:remote-code`、`verify:meta` 全 rc=0。
+  运行时零改动，断言数仍 **452**，素材不重拍。**SEO 缺口现 40 格**。
+
 ## 3. 收下改动：这一节记的是提交账，不是提交计划
 
 这一节原先给的是 2026-09-19 那一轮（配对页与博客页改成数据源生成）的两条 `git commit`。那些提交早就落地了，

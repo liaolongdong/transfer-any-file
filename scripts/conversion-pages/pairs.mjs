@@ -6659,4 +6659,190 @@ export const PAIRS = [
       },
     ],
   },
+  {
+    slug: 'json-to-png',
+    from: 'json',
+    to: 'png',
+    shot: 'batch-results',
+    published: '2026-10-21',
+    title: {
+      zh: 'JSON 转 PNG——离线、一份整页长图、不上传',
+      en: 'JSON to PNG offline — one tall image, no upload',
+    },
+    desc: {
+      zh: '先把 JSON 渲染成可折叠的查看器，再把整页无损截成一张 PNG：换行由排版决定，高度超过 32768 px 就报错而不是截断。全程离线。',
+      en: 'The viewer is captured whole into one lossless PNG: wrapping follows the layout, and past 32768 px of height it fails instead of truncating. Offline.',
+    },
+    lede: {
+      zh: '要一张能贴进文档、截图工具又截不全的 JSON，这条路比截屏省事：`json>html` 先把解析后的值序列化成自带样式的查看器（每个字面量一行，对象与数组各是一个默认展开的 `<details>`，摘要写着 `Object(4)` / `Array(n)`，键、字符串、数字、布尔与 `null` 五类各自着色），`html>png` 再把净化后的文档离屏渲染成整页画布、无损编码成 PNG。两件事跟着走：**折行由排版而不是字符决定**——长字符串在页面宽度处断开，图里看到的是断开的样子；**颜色与层深是像素不是标记**——着色来自内联样式表，缩进来自 `margin-left`，所以它看起来像界面，而不像数据。上限是一条明确的失败而不是悄悄变短：单次整页捕获的高度上限是 32768 px（`MAX_CANVAS_EDGE × 4`），超出报「渲染高度过大」，因为浏览器在远超此高度时返回的是**空白画布**，那种「成功但全白」比一条错误难查得多。查看器不含任何指向网络的引用，所以这一路没有「图片取不到」可披露。输出参数在编码处按同一套边界再钳一次，最长边会重采样，而质量档只作用于有损编码——PNG 是无损的。全程在这个标签页里完成，只有 storage 权限。',
+      en: 'When the JSON is longer than any screenshot you can take, this route is shorter than one: `json>html` serialises the parsed value into a self-styled viewer (one line per literal, every object and array a `<details>` that opens by default with `Object(4)` / `Array(n)` in its summary, keys, strings, numbers, booleans and `null` each coloured), and `html>png` renders that sanitised document offscreen and encodes the whole page losslessly as PNG. Two things follow. **Wrapping is decided by layout, not by characters**: a long string breaks at the page width, so the picture shows the broken-up text. **Colour and depth are pixels, not markup**: the palette comes from an inline stylesheet and the indentation from `margin-left`, so it looks like an interface rather than like data. The ceiling is an explicit failure instead of a quiet shortening: one capture is bounded at 32768 px of height (`MAX_CANVAS_EDGE × 4`) and past it the route reports “too tall to render”, because a browser returns a **blank canvas** well beyond that, and a white “success” is far harder to diagnose than an error. The viewer carries no remote reference, so this route has no image it could fail to fetch. Output options are re-clamped against the same bounds at encode time and the longest edge resamples, while a quality setting means anything only to a lossy encoder — PNG is lossless. All of it inside this tab on the storage permission.',
+    },
+    keeps: {
+      zh: [
+        '整页一次捕获：不必滚动截屏再拼接，一份长 JSON 就是一张图',
+        '无损编码：着色边界与细线不糊，等宽字形放大后仍是那个字形',
+        '排版原样进图：折叠摘要、缩进与语法着色都是渲染出来的样子，与浏览器里看到的一致',
+        '没有远程引用也就没有静默丢失：查看器由本扩展自己写出，产物里不存在取不到的图片',
+      ],
+      en: [
+        'One capture for the whole page: no scrolling and no stitching — a long JSON becomes one image',
+        'Lossless encoding: colour edges and thin rules stay clean, and monospace glyphs survive being zoomed',
+        'The layout goes into the picture as rendered: fold summaries, indentation and syntax colouring look as they do in the browser',
+        'No remote references means nothing silently missing: the extension writes the viewer itself, so there is no image the artifact could fail to fetch',
+      ],
+    },
+    limits: {
+      zh: [
+        '高度上限 32768 px：超限直接失败并说明，不给被截短的图，也不给那片空白画布',
+        '文字在图里不是文字：PNG 是位图，产物里的键与值不能选中、搜索或复制',
+        '长字符串按页面宽度折行，所以看到的是折过的样子；要留原文请走 JSON→TXT 或就留在 `.json`',
+        '质量档对 PNG 不起作用（无损），能调的是最长边与目标尺寸，它们在编码前重采样',
+        '图片是给人看的快照，不承诺能再解析回 JSON',
+      ],
+      en: [
+        'A 32768 px height ceiling: past it the route fails with an explanation rather than handing back a trimmed image (or that blank canvas)',
+        'Text inside the picture is not text: a PNG has no keys or values to select, search or copy',
+        'Long strings wrap at the page width, so what you see is already broken up; take JSON to TXT or keep the `.json` for the original run',
+        'A quality setting does nothing for PNG, which is lossless; the longest edge and target size do apply, resampling before encoding',
+        'The image is a snapshot for people to read, with no promise that it parses back to JSON',
+      ],
+    },
+    notes: {
+      zh: [
+        '要能翻页的成品文档：JSON→PDF 走同一条渲染链，分页在那边',
+        '要小体积的分享图：JSON→JPG 按 A4 分页逐页编码，长文件会出 ZIP',
+        '要可复制、可搜索的文本：JSON→HTML 或 JSON→TXT，图片这一路只负责看起来像界面',
+      ],
+      en: [
+        'For a paged document: JSON to PDF shares the rendering chain, with pagination on that side',
+        'For smaller shareable pictures: JSON to JPG encodes A4 pages one by one, with long files arriving as a ZIP',
+        'For copyable, searchable text: JSON to HTML or TXT — the image route only promises it looks like the interface',
+      ],
+    },
+    faq: [
+      {
+        q: {
+          zh: '为什么我的长 JSON 转出来是一张很高的图，而不是很多页？',
+          en: 'Why does one long JSON become one very tall image instead of pages?',
+        },
+        a: {
+          zh: '因为 PNG 这一路是「整页捕获」：净化后的文档一次性渲染成一张画布，高度由内容决定，只有 32768 px 的上限。分页是 PDF 那条路的形状（JSON→PDF 与 JSON→JPG 都经它），两边刻意不同——一张长图适合贴进聊天，分页适合打印。',
+          en: 'Because the PNG route is a whole-page capture: the sanitised document becomes one canvas whose height follows the content, bounded at 32768 px. Paging is the shape of the PDF route (JSON to PDF and JSON to JPG both go through it), and the difference is deliberate — a tall image pastes into a chat, pages print.',
+        },
+      },
+      {
+        q: {
+          zh: '转出来的图能复制文字吗？',
+          en: 'Can text be copied out of the picture?',
+        },
+        a: {
+          zh: '不能。本扩展没有「从图里读回文字」那一步，PNG 产物也没有文字层，只有像素。要能选中与搜索的结果，请走 HTML、TXT 或 Markdown——它们用的正是这条链的前两步。',
+          en: 'No. There is no step here that reads words back out of an image, and the PNG carries no text layer, only pixels. For something selectable and searchable take HTML, TXT or Markdown, which use the first two steps of this very chain.',
+        },
+      },
+      {
+        q: {
+          zh: '很大很大的 JSON 会不会被悄悄截掉？',
+          en: 'Does a very large JSON get quietly trimmed?',
+        },
+        a: {
+          zh: '不会，两处都朝「如实说」设计：查看器序列化有行数与长度预算，触顶时界面会写明实际读了多少；整页高度超过 32768 px 时报错，而不是交付空白画布或被截短的图。',
+          en: 'No. Both ends are built to say what happened: the viewer works under line and length budgets and the interface states how much it actually read when one is hit, and past 32768 px of page height the route fails instead of delivering a blank canvas or a trimmed image.',
+        },
+      },
+    ],
+  },
+  {
+    slug: 'json-to-jpg',
+    from: 'json',
+    to: 'jpg',
+    shot: 'batch-results',
+    published: '2026-10-21',
+    title: {
+      zh: 'JSON 转 JPG——离线、A4 分页逐页编码、不上传',
+      en: 'JSON to JPG offline — A4 pages, no upload',
+    },
+    desc: {
+      zh: 'JSON 先渲染成查看器，再按 A4 分页写成无损页面、逐页编码成 JPEG：多页会打包成 ZIP，长文件一页一张。全程离线。',
+      en: 'JSON renders as the viewer, is written as lossless A4 pages, then each page is encoded to JPEG: several pages arrive in a ZIP. Fully offline.',
+    },
+    lede: {
+      zh: '这条路的形状与 PNG 那一格不同，而且差别是**路由里写明的**：`json>html` 之后，同为图片目标的 JPEG 先走 `html>pdf` 再走 `pdf>jpg`，而不是「截一张长图再压缩」。理由写在 `html-to-pdf.ts` 的注释里——`html→png→jpg` 交回的是按页面宽度排布的一条长带，而一份要分享或打印的 JSON 快照通常需要页边界；所以这条链在终点相同的比较里显式让 `html>pdf` 优先（`edgePreference`）。产物有三个具体后果：**一页一图**，长文件出多张并以 ZIP 交付；**中间那份 PDF 的页面是无损位图**（逐页 PNG 数据 URL 再嵌进文档），有损只发生在最后那一次 JPEG 编码；**折行仍由页面宽度决定**，长字符串在页内断开，断开的样子进图。可调的是质量与最长边，编码前按 `clampQuality` / `clampMaxEdge` 再钳一次，因为它们也可能来自存储而不是这次点选。与 PNG 那一格共享的边界也还在：整页渲染高度上限 32768 px、查看器不含远程引用、图片里没有可复制的文字。全过程在这个标签页里完成，只有 storage 权限。',
+      en: 'This route has a different shape from the PNG page, and the difference is **stated in the routing**: after `json>html`, a JPEG target goes through `html>pdf` and then `pdf>jpg` rather than “capture one tall image and compress it”. The reason is in the comment at `html-to-pdf.ts` — `html→png→jpg` hands back a single strip laid out at page width, while a JSON snapshot meant for sharing or printing usually wants page boundaries, so the tie between the two image ends is broken explicitly in favour of `html>pdf` (`edgePreference`). Three concrete consequences: **one image per page**, so a long file yields several pictures delivered in a ZIP; **the PDF in the middle carries lossless bitmaps** (each page is PNG data URL before it is embedded), so the only lossy step is the final JPEG encode; and **layout still decides wrapping**, since long strings break inside the page and that broken-up look is what gets imaged. Quality and the longest edge are adjustable and re-clamped before encoding by `clampQuality` / `clampMaxEdge`, because those values can also arrive from storage rather than from this click. The boundaries shared with the PNG page remain: a 32768 px ceiling on rendered page height, a viewer with no remote reference, and no copyable text inside an image. All of it inside this tab on the storage permission.',
+    },
+    keeps: {
+      zh: [
+        '按 A4 分页、一页一 JPEG：每张都是完整的一页，而不是一条被切开的长带',
+        '只有一次有损：中间那份 PDF 的页面是无损 PNG，压缩只发生在最后交给 JPEG 的那一次',
+        '语法着色与折叠摘要按渲染结果进图，看起来就是你在浏览器里看到的那份查看器',
+        '质量与最长边可调，并在编码前按同一套边界再钳一次（存储里的值也钳）',
+      ],
+      en: [
+        'A4 pages, one JPEG each: every picture is a whole page rather than a slice of one long strip',
+        'Only one lossy step: the PDF in the middle holds lossless PNG pages, so compression happens once, on the way out',
+        'Syntax colouring and fold summaries enter the image as rendered, so it looks like the viewer you saw in the browser',
+        'Quality and the longest edge are adjustable and re-clamped against the same bounds before encoding, including values coming from storage',
+      ],
+    },
+    limits: {
+      zh: [
+        '多页会打包成 ZIP：一份长 JSON 可能出十几张编号图片，只想要一张长图请走 JSON→PNG',
+        'JPEG 是有损的：等宽字形的细边与语法着色的小面积色块会留下压缩痕迹，低对比的那类最敏感',
+        '文字进图就不可选：产物没有文字层，不能搜索也不能复制；要这些请走 JSON→TXT / HTML / Markdown',
+        '整页渲染高度上限 32768 px 仍然适用，超限报错而不是交付被截短的内容',
+        '不承诺能再解析回 JSON：这一格交付的是给人看的快照，不是数据交换格式',
+      ],
+      en: [
+        'Several pages arrive as a ZIP: a long JSON can produce a dozen numbered pictures, so take JSON to PNG when you want one tall image',
+        'JPEG is lossy: thin monospace edges and the small colour fields of syntax highlighting show artefacts, and low-contrast pairs suffer most',
+        'Text inside an image is not selectable: there is no text layer to search or copy; take JSON to TXT, HTML or Markdown for that',
+        'The 32768 px ceiling on rendered page height still applies, and exceeding it reports failure instead of delivering trimmed content',
+        'No promise that it parses back to JSON: this page delivers a snapshot for people to read, not a data format',
+      ],
+    },
+    notes: {
+      zh: [
+        '想要一张不分页的长图：JSON→PNG，同一条渲染链的另一半',
+        '想要成品文档：JSON→PDF，页面就是文档本身、还能继续打印',
+        '想要小体积又可读：先看 JSON→HTML 的渲染，再决定是截长图还是分页',
+      ],
+      en: [
+        'For one unpaginated tall image: JSON to PNG, the other half of the same rendering chain',
+        'For a finished document: JSON to PDF, whose pages are the artifact and still print',
+        'For the smallest readable result: look at JSON to HTML first, then decide between a tall shot and pages',
+      ],
+    },
+    faq: [
+      {
+        q: {
+          zh: '为什么不干脆把长图压成 JPEG，而要分页？',
+          en: 'Why page it instead of just compressing the tall image?',
+        },
+        a: {
+          zh: '因为那条路交回的是按页面宽度排布的一条长带：单张超高图在聊天工具与打印里都难用。这条取舍是路由里显式写的（同分的图片终点让 `html>pdf` 优先），不是实现顺带的后果。',
+          en: 'Because that route hands back a single strip laid out at page width, and one very tall picture is awkward both in chat and in print. The choice is written into the routing (the tie between image ends favours `html>pdf`), not an accident of implementation.',
+        },
+      },
+      {
+        q: {
+          zh: '一次有损和两次有损，差别在哪里？',
+          en: 'One lossy step or two — where is the difference?',
+        },
+        a: {
+          zh: '中间那份 PDF 的页面是无损 PNG，所以文字与色块在渲染之后只被 JPEG 编过一次。若中间先出 JPEG 再出 JPEG，细字与着色边界会被压两次——这条链刻意避开那种形状。',
+          en: 'The PDF in the middle holds lossless PNG pages, so your glyphs and colour fields are JPEG-encoded exactly once after rendering. Going JPEG to JPEG would crush thin strokes and highlight edges twice, which is the shape this chain avoids.',
+        },
+      },
+      {
+        q: {
+          zh: '长文件会得到几个文件？',
+          en: 'How many files does a long document produce?',
+        },
+        a: {
+          zh: '一页一张，张数由排版后的总高度除以页高决定；两张以上时产物是一个 ZIP。想要单份文件，请走 JSON→PNG（一张长图）或 JSON→PDF（一份文档）。',
+          en: 'One picture per page, the count set by the laid-out height divided by page height, and two or more arrive inside a ZIP. For a single file take JSON to PNG (one tall image) or JSON to PDF (one document).',
+        },
+      },
+    ],
+  },
 ];

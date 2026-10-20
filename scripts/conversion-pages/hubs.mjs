@@ -603,14 +603,6 @@ export const HUBS = [
       },
     ],
     targets: {
-      png: {
-        zh: '整份 JSON 查看器渲染成一张长图，按页面布局换行；高度超过 32768 px 时失败并说明，不静默截断。',
-        en: 'The whole JSON viewer is captured as one long image with layout-driven wrapping; past 32768 px of height it fails with an explanation rather than truncating.',
-      },
-      jpg: {
-        zh: '按 A4 分页后逐页编码 JPEG，多页 ZIP；长 JSON 会跨很多页，适合分享快照。',
-        en: 'It is sliced into A4 pages and encoded as JPEG, with several pages in a ZIP. Long JSON spans many pages, which suits sharing a snapshot.',
-      },
       webp: {
         zh: '与 JPEG 相同的分页路径，终点 WebP；多页 ZIP，体积更小但对文字有损。',
         en: 'The same pagination as JPEG, encoded as WebP; several pages arrive as a ZIP, smaller but lossy on text.',
