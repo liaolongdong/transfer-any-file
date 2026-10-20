@@ -643,10 +643,6 @@ export const HUBS = [
         zh: 'JSON 渲染成可折叠的查看器 HTML：对象、数组与标量按层级着色；这是展示用的标记，不是能再次解析回 JSON 的源文件。',
         en: 'JSON becomes a collapsible viewer in HTML, with objects, arrays and scalars coloured by level. It is markup for reading, not a source file that parses back into JSON.',
       },
-      docx: {
-        zh: '查看器 HTML 写入 Word：层级缩进与键值关系保留，语法颜色退化为文字样式；大文档会分页。',
-        en: 'The viewer HTML goes into Word: levels and key-value relationships survive, syntax colours fall back to text styling, and a large document spans pages.',
-      },
       png: {
         zh: '整份 JSON 查看器渲染成一张长图，按页面布局换行；高度超过 32768 px 时失败并说明，不静默截断。',
         en: 'The whole JSON viewer is captured as one long image with layout-driven wrapping; past 32768 px of height it fails with an explanation rather than truncating.',

@@ -5614,4 +5614,97 @@ export const PAIRS = [
       },
     ],
   },
+  {
+    slug: 'json-to-word',
+    from: 'json',
+    to: 'docx',
+    shot: 'batch-results',
+    published: '2026-10-21',
+    title: {
+      zh: 'JSON 转 Word 文档——离线、可批量、不上传',
+      en: 'JSON to Word document offline, in batches, no upload',
+    },
+    desc: {
+      zh: '把 JSON 的结构交给 .docx：产物里带的是那份可折叠查看器的 HTML，Word 打开时才排版。全程离线，文件不出本机。',
+      en: 'JSON becomes a .docx carrying the structure viewer’s own HTML: Word lays it out when the file opens. Fully offline — nothing is uploaded.',
+    },
+    lede: {
+      zh: '「把 JSON 变成 Word」在这条路上不是一句口号，而是一个明确的取舍：先由 JSON 生成可折叠、带语法着色的查看器 HTML，再把这份 HTML **原样封装**进 .docx 的一个 MHTML altChunk 部件里（实测产物是一个含 `[Content_Types].xml` 与 `/word/document.xml` 的 OPC 容器）。也就是说，扩展不自己去拼 Word 的 XML 正文，排版发生在 **Word 打开文件的那一刻**——这与 TXT 转 Word、HTML 转 Word 是同一条机制。好处是结构与层级完整带过去，且不需要在本机实现一份 OOXML 写入器；代价是最终观感由 Word 的 HTML 引擎决定，我们无法在本机替它保证颜色与折叠的表现。',
+      en: '“JSON into Word” on this route is a concrete trade-off rather than a slogan: the file first becomes a collapsible, syntax-coloured viewer, and that HTML is packaged **as it stands** into one MHTML altChunk part inside the .docx (measured: the artefact is an OPC container holding `[Content_Types].xml` and `/word/document.xml`). In other words, this extension does not assemble WordprocessingML itself — layout happens **when Word opens the file**, the same mechanism as TXT to Word and HTML to Word. What that buys is structure and hierarchy carried across whole, without a hand-written OOXML writer on the client; what it costs is that Word’s HTML engine decides the result, and nothing on this machine can promise how colour or folding will look there.',
+    },
+    keeps: {
+      zh: [
+        '结构与层级完整带走：键、值、对象与数组的嵌套关系来自同一份查看器 HTML，不会被压成一整段等宽文字',
+        '计数摘要以文字形式留在文档里（实测形如 `Array(3)`、`Object(4)`），所以「这里本来有几项」在纸面上也读得到',
+        '字符串带引号、数字与布尔不带，`null` 原样写出；中文与非 ASCII 按 UTF-8 保留，不会变问号',
+        '产物是真正的 .docx 容器而不是改了扩展名的 HTML：Word 在「最近使用的文档」里认得它，也能直接附件发送',
+      ],
+      en: [
+        'Structure and hierarchy travel intact: keys, values and the nesting of objects and arrays come from the same viewer HTML rather than being flattened into one block of monospaced text',
+        'The count summaries stay in the document as words (measured shapes like `Array(3)` and `Object(4)`), so “how many items were here” is still readable on paper',
+        'Strings keep their quotes while numbers and booleans do not, `null` is written as itself, and Chinese or other non-ASCII text survives as UTF-8 instead of turning into question marks',
+        'The artefact is a real .docx container rather than HTML wearing a new extension: Word recognises it in recent documents and it attaches to mail as expected',
+      ],
+    },
+    limits: {
+      zh: [
+        '**排版由 Word 决定**：altChunk 是「把 HTML 交给 Word 渲染」，所以字体、行距、分页位置都取决于打开它的那一份 Word；同一份文件在 LibreOffice 或 Google Docs 里可能不同',
+        '语法配色与折叠属于尽力而为：颜色是 CSS，能不能被 Word 的 HTML 引擎采纳我们不在本机替你保证；折叠依赖 `<details>`，Word 可能按普通段落展开呈现',
+        '不做「按记录成表」：文档里是树形视图，不是一张可以筛选排序的表。要表格请用 JSON 转 CSV（对象数组按键取并集）或转 Excel',
+        '没有文字层之外的检索保证：能在 Word 里搜到的只是文档里那些文字，结构与计数摘要也在其中；深结构文档篇幅可观，翻页是常态',
+        '解析不了的 JSON 直接报错，不产出一份空文档；单个文件上限 100 MB、一批最多 200 个，多份一起转会打包成 ZIP',
+      ],
+      en: [
+        '**Word owns the layout**: an altChunk means “hand the HTML to Word to render”, so face, line spacing and where pages break depend on the Word that opens the file — the same document can look different in LibreOffice or Google Docs',
+        'Syntax colour and folding are best-effort: colours live in CSS, which we do not certify against Word’s HTML engine from this machine, and folding depends on `<details>`, which Word may present as ordinary expanded paragraphs',
+        'No “records into a table”: the document holds a tree view, not something to filter and sort. For a table, take JSON to CSV (an array of objects becomes columns from the union of keys) or to Excel',
+        'No search guarantee beyond words: what is findable in Word is the text in the document, count summaries included, and a deep structure runs to pages',
+        'JSON that cannot be parsed fails instead of producing an empty document; 100 MB per file and 200 files per batch, several files handed over as one ZIP',
+      ],
+    },
+    notes: {
+      zh: [
+        '要在 Word 里继续编辑成一份正式文档：先 JSON 转 Markdown 再转 Word，或直接 JSON 转 HTML 后由 Word 打开，都能拿到更可预测的段落结构',
+        '要的是一张能算的表：走 JSON 转 CSV 或转 Excel；要一份能归档的完整树：JSON 转 PDF 或转 HTML',
+        '这份 .docx 只在 Word 里才见到最终版式：交付前请自己打开确认一次，尤其是包含配色或需要折叠层级的场合',
+      ],
+      en: [
+        'To keep editing it as a formal document in Word: JSON to Markdown to Word, or JSON to HTML opened by Word, both give more predictable paragraph structure',
+        'For a table you can compute on: take JSON to CSV or to Excel; for an archivable full tree: JSON to PDF or to HTML',
+        'The .docx only shows its final layout inside Word: open it once before delivery, especially where colour or collapsed levels matter',
+      ],
+    },
+    faq: [
+      {
+        q: {
+          zh: '为什么不在本地直接生成 Word 的 XML？',
+          en: 'Why not generate Word’s XML locally instead?',
+        },
+        a: {
+          zh: '因为那要在浏览器里自己实现并长期维护一份 OOXML 写入器，而 altChunk 让 Word 用它自己的引擎渲染同一份 HTML。这一步是刻意的取舍：结构完整带走、代码不多一份，代价是版式归 Word 而不是归我们。',
+          en: 'Because that means implementing and maintaining an OOXML writer inside the browser, whereas an altChunk lets Word render the same HTML with its own engine. The trade is deliberate: structure travels whole and no extra writer ships, and in exchange layout belongs to Word rather than to us.',
+        },
+      },
+      {
+        q: {
+          zh: '颜色会丢吗？',
+          en: 'Will the syntax colours be lost?',
+        },
+        a: {
+          zh: '不好保证。颜色写在 CSS 里，altChunk 交给 Word 的 HTML 引擎解释，本机没有 Word 可以替你验证它到底采纳哪些——所以页面只承诺「结构与文字完整带走」，不承诺配色一致。介意这点就走 JSON 转 PDF（画面一致但不能改字）或转 HTML。',
+          en: 'It cannot be promised. Colours live in CSS and the altChunk hands them to Word’s HTML engine, and there is no Word on this machine to certify which rules it honours — so the page promises structure and text, not a matching palette. If that matters, take JSON to PDF (same picture, no editing) or to HTML.',
+        },
+      },
+      {
+        q: {
+          zh: '接口返回的原始 JSON 会外发吗？',
+          en: 'Does the raw API response ever leave the machine?',
+        },
+        a: {
+          zh: '不会。解析、渲染、封装 .docx 都在扩展自己的标签页里完成，只申请 storage 权限、没有 host 权限，产物里也没有把远端资源当代码执行的路径。',
+          en: 'No. Parsing, rendering and packaging the .docx all happen inside the extension’s own tab: the storage permission only, no host permissions, and no path in the bundle that executes remotely hosted code.',
+        },
+      },
+    ],
+  },
 ];
