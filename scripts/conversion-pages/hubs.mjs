@@ -76,10 +76,6 @@ export const HUBS = [
       },
     ],
     targets: {
-      png: {
-        zh: '把渲染后的整页拍成一张 PNG：宽度跟随页面布局，高度随内容增长；超过 32768 px 会报「页面过高」，不静默截断。取不到字节的图片按张数披露。',
-        en: 'The rendered page is captured as one PNG: width follows the layout and height grows with the content. Past 32768 px the route reports an over-tall page instead of truncating silently, and images without bytes are counted.',
-      },
       jpg: {
         zh: '先按 A4 切成多页，再把每一页编码成 JPEG；多页结果打包成 ZIP，透明区域铺白。长文档得到的是一组页面图，而不是一张压扁的长条。',
         en: 'The document is sliced into A4 pages and each page is encoded as JPEG; several pages arrive as a ZIP, with transparent areas filled white. A long document yields a set of page images rather than one flattened strip.',

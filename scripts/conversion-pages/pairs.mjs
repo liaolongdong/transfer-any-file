@@ -6845,4 +6845,97 @@ export const PAIRS = [
       },
     ],
   },
+  {
+    slug: 'markdown-to-png',
+    from: 'md',
+    to: 'png',
+    shot: 'batch-results',
+    published: '2026-10-21',
+    title: {
+      zh: 'Markdown 转 PNG——离线、整篇排成长图、不上传',
+      en: 'Markdown to PNG offline — the whole document as one image',
+    },
+    desc: {
+      zh: 'Markdown 先按 GFM 渲染成带样式的 HTML，再无损截成一张长图：表格有条纹、行内 SVG 图形保留。高度超过 32768 px 会报错而不是截断。',
+      en: 'GFM renders to styled HTML, then the page is captured losslessly: striped tables and inline SVG diagrams survive the trip. Past 32768 px it fails, not trims.',
+    },
+    lede: {
+      zh: '想把一份 README 或笔记「原样」甩进聊天工具，又不想对方那里的 Markdown 渲染器改掉排版，一张图比一段文字可靠。这条路两步：`md>html` 用 marked 按 GFM 渲染（`gfm: true`，所以管道符表格、删除线、任务清单、自动链接都被认出；`breaks: false`，段落里单个换行仍是续行），渲染结果先过 DOMPurify（html + svg 两套 profile，因此**文档里内联的 SVG 图形不会被当垃圾删掉**——那是架构图与示意图最常见的写法），再由 `wrapHtmlDocument` 套上这份扩展自带的样式表；`html>png` 把净化后的文档离屏渲染成整页画布并无损编码成 PNG。图里看到的排版因此是这套样式决定的：正文最大宽度 800 px 居中、行高 1.7，表格 `border-collapse`、每个单元 1px 实线边框与内边距，表头与偶数行各带一层浅底，代码块是浅灰圆角块，`h1` 带一条下边线。三条边界照实说：**引用了网络地址或相邻路径的图片取不到字节**，因为渲染前先剥掉子资源引用（这既是离线主张也是渲染前提），结果卡会按张数披露丢了几张，被替换处留虚线方框；**整页高度上限是 32768 px**（`MAX_CANVAS_EDGE × 4`），超出报「渲染高度过大」而不是交付空白画布或被截短的图；**图里的文字不是文字**，PNG 没有文字层，不能选中、搜索或复制。全过程在这个标签页里完成，只有 storage 权限。',
+      en: 'When a README or a note has to land in a chat exactly as it reads — with nobody else’s Markdown renderer changing the typography — one picture is more dependable than a block of text. Two steps: `md>html` renders through marked as GFM (`gfm: true`, so pipe tables, strikethrough, task lists and autolinks are recognised, while `breaks: false` keeps a single newline a soft wrap), the markup passes DOMPurify with the html and svg profiles, so **an inline SVG diagram is not deleted as junk** (the usual way people draw architecture sketches), and `wrapHtmlDocument` wraps it in the stylesheet this extension ships; `html>png` then renders the sanitised document offscreen and encodes the whole page losslessly as PNG. That stylesheet is what the picture shows: an 800 px centred measure with 1.7 line height, `border-collapse` tables with a 1px rule and padding on every cell, a tinted header row and alternating rows, code blocks as light rounded panels, `h1` underlined. Three boundaries, stated plainly: **images referenced by network address or a sibling path have no bytes available**, because sub-resource references are stripped before rendering (the offline guarantee and the rendering precondition are the same act), the result card discloses how many were lost and each replaced reference keeps a dashed placeholder; **one capture is bounded at 32768 px of height** (`MAX_CANVAS_EDGE × 4`) and past that the route reports “too tall to render” instead of delivering a blank canvas or a trimmed image; and **text in the picture is not text** — a PNG has no text layer, so nothing can be selected, searched or copied. All of it inside this tab on the storage permission.',
+    },
+    keeps: {
+      zh: [
+        '排版进图而不是文字进图：表头条纹、代码块底色、`h1` 下边线都按自带的样式表渲染出来',
+        '行内 SVG 图形保留：html + svg 两套净化 profile，架构图不会因为「不是 HTML 标记」被整块删掉',
+        'GFM 表格按表格渲染：管道符语法变成有边框与条纹的表，而不是一排竖线',
+        '无损编码：细线、小字号与色块边缘不糊，缩放查看时仍然锐利',
+      ],
+      en: [
+        'The layout goes into the image: table striping, code-panel fills and the `h1` rule render exactly as the bundled stylesheet says',
+        'Inline SVG diagrams survive: the html and svg sanitising profiles mean an architecture sketch is not deleted for being markup',
+        'GFM tables render as tables, with borders and striping rather than a run of vertical bars',
+        'Lossless encoding: thin rules, small type and colour fields stay crisp when the picture is zoomed',
+      ],
+    },
+    limits: {
+      zh: [
+        '整页高度上限 32768 px：超长文档会报错并说明，不给被截短的图；要分页请走 Markdown→PDF 或 Markdown→JPG',
+        '引用的远程与相邻路径图片取不到字节：渲染前会剥掉这些引用，结果卡按张数披露，被替换的位置留虚线方框',
+        '图里的文字不可复制：没有文字层，不能选中、搜索或无障碍朗读出来',
+        '质量档对 PNG 不起作用（无损），能调的是最长边与目标尺寸，它们在编码前重采样',
+        '等宽代码块按 800 px 正文宽度排版，超长行会横向溢出到面板内部而不是折行——那是样式表的行为，图片忠实拍下',
+      ],
+      en: [
+        'A 32768 px height ceiling: an over-long document fails with an explanation rather than a trimmed picture; take Markdown to PDF or JPG for pages',
+        'Images pointed at by a network address or a sibling path have no bytes: those references are stripped before rendering, the result card says how many were lost, and each replaced spot keeps a dashed placeholder',
+        'Text inside the image cannot be copied: there is no text layer to select, search or read aloud',
+        'A quality setting does nothing for PNG, which is lossless; the longest edge and target size do apply, resampling before encoding',
+        'Monospace code lays out inside the 800 px measure and very long lines overflow the panel rather than wrapping; that is the stylesheet’s behaviour and the image reproduces it faithfully',
+      ],
+    },
+    notes: {
+      zh: [
+        '要能打印或分页的成品：Markdown→PDF，页面就是文档本身',
+        '要小体积的分享图：Markdown→JPG 走同一条渲染链再分页逐张有损编码',
+        '要能复制与搜索的文本：Markdown→HTML、TXT 或 Word，图片这一路负责的是「看起来就是我写的」',
+      ],
+      en: [
+        'For something printable and paginated: Markdown to PDF, where the pages are the document',
+        'For smaller shareable pictures: Markdown to JPG shares this rendering chain and then encodes pages lossily one by one',
+        'For copyable, searchable text: Markdown to HTML, TXT or Word — the image route is for looking exactly like what you wrote',
+      ],
+    },
+    faq: [
+      {
+        q: {
+          zh: '我的文档里有 Mermaid 画的图，会变成什么？',
+          en: 'What happens to a Mermaid diagram in my document?',
+        },
+        a: {
+          zh: '取决于它在源文件里长什么样。已经被渲染成内联 `<svg>` 的图会保留并出现在图里（净化用的是 html + svg 两套 profile）；仍是 ```mermaid 围栏源码的那一种，这一步只负责渲染 Markdown，不会替你把它画出来，产物里看到的就是代码块文字。',
+          en: 'It depends on what is in the source. A diagram already written as inline `<svg>` is kept and shows up, because sanitising uses the html and svg profiles together. One still written as a ```mermaid fence is not drawn for you — this step renders Markdown, so the picture shows the code block’s text.',
+        },
+      },
+      {
+        q: {
+          zh: '为什么图片位置是空的，还多了一块虚线框？',
+          en: 'Why is an image slot empty, with a dashed box there?',
+        },
+        a: {
+          zh: '因为那些字节本来就不在文件里。这条路完全离线，渲染前会剥掉指向网络与相邻路径的子资源引用（否则「打开一张图就发了四次请求」会变成事实），替换掉的位置留一个虚线方框，结果卡按张数写明丢了几张。把图片另存进同一个目录并不能绕过它——剥的是引用，不是文件。',
+          en: 'Because those bytes were never in the file. The route is fully offline and strips sub-resource references to the network and to sibling paths before rendering — otherwise “open one image and fire four requests” would be true — so replaced slots keep a dashed box and the result card states how many were lost. Putting the images next to the file does not avoid it: what is removed is the reference, not the file.',
+        },
+      },
+      {
+        q: {
+          zh: '一份很长的 Markdown 会出几张图？',
+          en: 'How many images does a long Markdown file produce?',
+        },
+        a: {
+          zh: '一张：整页捕获是一整块画布，高度由内容决定，上限 32768 px，超出就报错。想要一页一张的形状，请走 Markdown→PDF 或 Markdown→JPG。',
+          en: 'One: a whole-page capture is a single canvas whose height follows the content, bounded at 32768 px, and beyond that the route fails. For one picture per page take Markdown to PDF or JPG.',
+        },
+      },
+    ],
+  },
 ];

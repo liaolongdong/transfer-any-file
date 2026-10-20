@@ -903,6 +903,18 @@ rgb(241,245,249)` 就是它；修法是内联 `transition: none !important`，�
   98 文档）、`lint:all`、`build`、产物层 `verify:offline` / `verify:remote-code`、`verify:meta` 全 rc=0。
   运行时零改动，断言数仍 **452**，素材不重拍。**SEO 缺口现 40 格**。
 
+- **10-21 第十七轮（md→PNG，76 → 77 张页；页面、四镜像与记账同一笔提交）。** 这张页把「排版是谁决定的」讲清楚：
+  `md>html` 之后进图的是 `wrapHtmlDocument` 自带样式表的形状——正文最大宽度 800 px、`border-collapse` 表格每格 1px 实线、
+  表头与偶数行各带浅底、代码块是浅灰圆角块、`h1` 带下边线（逐条对 `utils/core/html-document.ts` 的 `DOCUMENT_CSS`），
+  `html>png` 只负责把这份文档整页捕获成无损 PNG。第二条是本仓特有的正向事实：行内 SVG 图形不会被删，因为净化用的是
+  html + svg + svgFilters 三套 profile（`md-to-html.ts` 里那段注释记的就是「曾经只用 html 把整张图删掉」）。反向的三条
+  边界照实写：指向网络与相邻路径的图片取不到字节（渲染前剥子资源引用，替换处留虚线方框、结果卡按张数披露）、整页高度
+  32768 px 超限报错、图里没有可复制的文字。FAQ 那条「把图片放进同目录也绕不过」说的是「剥的是引用不是文件」——这是
+  用户最容易误读成 bug 的形状。`markdown` hub 的 `png` 摘要块按镜像规则摘除——就是它被守卫拒绝的那一格：本轮第一次跑 `pages:render` 时报「hub targets describes png, which is not an open target without a pair page」，我先把它当成「没有块」，是报错本身纠正了我。
+  四镜像齐备。验证：`pages:render` 94 文件、`pages:check` 逐字节一致、`verify:numbers`（23 事实 × 99 文档）、`lint:all`、
+  `build`、产物层 `verify:offline` / `verify:remote-code`、`verify:meta` 全 rc=0，`.output` 搜不到新 slug。运行时零改动，
+  断言数仍 **452**，素材不重拍。**SEO 缺口现 39 格**。
+
 ## 3. 收下改动：这一节记的是提交账，不是提交计划
 
 这一节原先给的是 2026-09-19 那一轮（配对页与博客页改成数据源生成）的两条 `git commit`。那些提交早就落地了，
