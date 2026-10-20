@@ -87,10 +87,11 @@ export const SOCIAL_IMAGE_ALT =
  * generator now enforces, so this date and that budget have to move together. The 2026-10-17 revision
  * corrects two claims that had gone false: TXT→MD no longer says "strict UTF-8" (the decoder now accepts
  * UTF-16 and GB18030/GBK), and HTML→PNG now discloses the full-page height ceiling that makes it fail.
+ * The 2026-10-21 revision adds six more — TXT→PDF, DOCX→TXT, GIF→PDF, SVG→HTML, CSV→HTML and XLSX→TXT.
  * The 2026-10-20 revision adds eight pages — HTML→DOCX, HTML→MD, HTML→TXT, WebP→PNG, WebP→PDF,
  * GIF→JPEG, XLSX→HTML and PNG→HTML — so the date moves with them.
  */
-export const PAGES_UPDATED = '2026-10-20';
+export const PAGES_UPDATED = '2026-10-21';
 
 /**
  * The date the first conversion page entered the repository, used as `datePublished` for every entry that
@@ -4266,6 +4267,553 @@ export const PAIRS = [
         a: {
           zh: '不会。扩展只有 storage 权限、没有 host 权限，产物里也没有把远端资源当代码执行的路径；包装与打包都在标签页内完成。',
           en: 'No. The extension has the storage permission only and no host permissions, the bundle carries no path that executes remotely hosted code, and wrapping and packing both happen inside the tab.',
+        },
+      },
+    ],
+  },
+  {
+    slug: 'txt-to-pdf',
+    from: 'txt',
+    to: 'pdf',
+    shot: 'batch-files',
+    published: '2026-10-21',
+    title: {
+      zh: 'TXT 转 PDF——等宽原样排版，本地离线',
+      en: 'TXT to PDF offline — spacing kept as written',
+    },
+    desc: {
+      zh: '在浏览器里把 .txt 排成 PDF：整篇进一个 <pre> 块，缩进与对齐照原样保留，再按 A4 切页。不上传、不联网。',
+      en: 'The whole file goes into one <pre> block, so indentation survives, then it is cut into A4 pages. Offline, in your browser.',
+    },
+    lede: {
+      zh: '日志、合同草稿、带表格对齐的纯文本笔记，用 Word 打开一次就被重排一次；要交出去的往往是一份「打印出来跟屏幕上一样」的 PDF。这条链路是 TXT → HTML → PDF：整篇文本被转义后放进一个 `<pre>` 块（换行写成 `<br>`），于是空格对齐、代码缩进、表格列宽都按文件里的样子排；再把整页渲染成画布，按 A4 切成若干页。它保的是**排版的形状**，代价是产出的 PDF 没有文字层。',
+      en: 'A log, a draft contract, or notes aligned with spaces get re-flowed the moment a word processor opens them, while what has to be handed over is something that prints the way it looks on screen. This route is TXT → HTML → PDF: the whole file is escaped into a single `<pre>` block (newlines written as `<br>`), so space alignment, code indentation and column widths keep the shape they have in the file; that page is then rendered and cut into A4 pages. What it preserves is the layout, and the price is a PDF with no text layer.',
+    },
+    keeps: {
+      zh: [
+        '等宽呈现与空白：整篇进 `<pre>`，行首缩进、列对齐、ASCII 表格都按文件里的字符位置排',
+        '换行照文件走，不做「智能折行」——每一行在 PDF 里还是那一行（超出页面宽度的部分见限制那栏）',
+        '编码不是前提：按 UTF-8 → GB18030 → GBK 依次严格解码，老编辑器导出的 GBK 文本也读得进来',
+        '整页按 A4 的宽高比切成多页，长文件往下翻页而不是被截断',
+      ],
+      en: [
+        'Monospace and whitespace: the file lands in a `<pre>`, so leading indentation, column alignment and ASCII tables sit where the characters put them',
+        'Line breaks are the file’s own — nothing is re-wrapped “intelligently”, so a line stays a line (what happens past the page width is in the limits)',
+        'The encoding is not a precondition: input is decoded UTF-8 → GB18030 → GBK, so a GBK file from an older editor still reads',
+        'The rendered page is cut at the A4 aspect ratio, so a long file continues onto further pages instead of being truncated',
+      ],
+    },
+    limits: {
+      zh: [
+        '产出的 PDF 是渲染出来的图像，没有文字层：不能选中、搜索不到，也不能复制进别处——要能选字的交付物，这份给不了',
+        '版面宽度固定 800 px，不随内容变宽：一行比这更长时，靠右侧的那几个字符进不了画面',
+        '分页按固定高度切，不保证把一行整个留在同一页；跨页的那一行会上下各留一半',
+        '四种编码都解不出文本时直接报错，不产出一份乱码 PDF；解出的是「像文本」的字节（比如全是 CJK 的 UTF-16 被按 GB18030 蒙对）另有控制字符闸门拦着',
+        '超过约 4000 CSS px 高的整页按 1 倍采样（更矮的用 1.5 或 2 倍），所以一份很长的日志会比一份短文件糊一档——这是画布上限换来的取舍，不报错',
+        '整页高度超过 32768 px 会明确报错而不是给你一张截半的文件',
+      ],
+      en: [
+        'The PDF is a rendered image with no text layer: nothing can be selected or searched, and none of it copies out — a selectable deliverable is not what this route produces',
+        'The surface stays 800 px wide regardless of content, so the right-hand characters of a longer line never reach the picture',
+        'Pages are cut at a fixed height, so a line can straddle the break and end up split across two pages',
+        'If none of the four encodings yields text, it fails rather than producing a PDF of mojibake; a control-character gate also rejects bytes that only look like text',
+        'A page taller than about 4000 CSS px is captured at 1× sampling (shorter ones at 1.5× or 2×), so a very long log comes out one notch softer than a short file — a trade for the canvas ceiling, not an error',
+        'Page height past 32768 px is an explicit error, not a silently truncated picture',
+      ],
+    },
+    notes: {
+      zh: [
+        '一批最多 200 个文件，单个文件上限 100 MB；多个 .txt 一起转逐个产出各自的 .pdf，想一次拿走就打成一个 ZIP',
+        '要的是「能选字的 PDF」就别走这条：目前这条路交的是排版形状。只想把文本变成可再编辑的标记语言，走 TXT 转 Markdown 或 TXT 转 HTML',
+      ],
+      en: [
+        'Up to 200 files per batch and 100 MB per file; several .txt files yield one .pdf each, and the set can be taken as a single ZIP',
+        'If selectable text in the PDF is the requirement, this is not the route — it delivers layout. To make the text editable markup instead, take TXT to Markdown or TXT to HTML',
+      ],
+    },
+    faq: [
+      {
+        q: { zh: '为什么 PDF 里的字选不中？', en: 'Why can’t I select the text in the PDF?' },
+        a: {
+          zh: '因为这条链路把整页渲染成图像再铺到 A4 上——这正是它能锁住空格对齐的原因。要一份能选中、可搜索的 PDF，需要的是把字形写成文本对象的那类工具，本扩展全部在浏览器里画，交的是渲染结果。',
+          en: 'Because the route renders the page to an image and lays that on A4 — which is exactly why the space alignment holds. A selectable, searchable PDF needs a tool that writes glyphs as text objects; everything here is drawn in the browser and delivers the rendered result.',
+        },
+      },
+      {
+        q: {
+          zh: '我的日志一行有 300 个字符，会被折行吗？',
+          en: 'My log lines are 300 characters wide — will they wrap?',
+        },
+        a: {
+          zh: '不会折，也不会缩排：版面宽度固定在 800 px，超出一行的部分留在画面之外，所以那种文件建议先按列切窄一点（或转成 CSV / Excel 再看）。这是「不重排」这个主张的另一面——它既不替你断行，也不替你挤字。',
+          en: 'It neither wraps nor squeezes: the surface is fixed at 800 px, so what hangs past it stays out of the picture. For that kind of file, narrow the columns first (or take the CSV / Excel route and look there). It is the other face of «no re-flowing» — the route will not break your lines or compress your glyphs for you.',
+        },
+      },
+      {
+        q: {
+          zh: '服务器日志要转 PDF，文件会离开本机吗？',
+          en: 'If I turn a server log into a PDF, does the file leave my machine?',
+        },
+        a: {
+          zh: '不会。扩展只申请 storage 权限、没有 host 权限，产物里也没有从网络取来的代码；读文件、解码、排版、写 PDF 都在标签页内完成。日志里有什么，只有你知道。',
+          en: 'No. The extension asks for the storage permission only, has no host permissions and ships no remotely hosted code; reading, decoding, laying out and writing the PDF all happen inside the tab. Whatever is in the log stays where you can see it.',
+        },
+      },
+    ],
+  },
+  {
+    slug: 'docx-to-txt',
+    from: 'docx',
+    to: 'txt',
+    shot: 'preview-edit',
+    published: '2026-10-21',
+    title: {
+      zh: 'Word 转纯文本（.docx → .txt）——离线、保编号与表格',
+      en: 'Word to plain text (.docx → .txt) offline',
+    },
+    desc: {
+      zh: '在浏览器里把 .docx 读成纯文本：有序列表按位置重新编号、表格写成制表符分隔的行、链接以 [url] 附在文字后。全程离线。',
+      en: 'Headings become lines, ordered lists are renumbered by position, tables come out tab-separated and links follow as [url]. Offline, in the tab.',
+    },
+    lede: {
+      zh: '要把一份 Word 文档塞进只吃纯文本的地方——工单系统、终端输出、diff 对比、另一个编辑器的正文框——需要的是「去掉样式但留下结构」，而不是把整篇变成一串没有换行的字。这条链路是 Word → HTML → 纯文本：mammoth 先把文档变成语义化 HTML，再由一个遍历 DOM 的提取器写成文本。因此它比「正则去掉标签」那类做法多保住几样东西：编号、表格的分列、列表的层级，以及链接的地址本身。',
+      en: 'Pasting a Word document somewhere that only accepts plain text — a ticket, a terminal, a diff, another editor’s body field — needs the styles gone but the structure kept, not one long unbroken line. This route is Word → HTML → plain text: mammoth turns the document into semantic HTML and a DOM walk writes it out as text. That is why it keeps several things a regex tag-stripper loses: numbering, table columns, list nesting, and the link targets themselves.',
+    },
+    keeps: {
+      zh: [
+        '有序列表按位置重新写出 `1.` `2.`：编号不是文档里的文字，正则式提取会把带编号的步骤变成无编号的段落，这里不会',
+        '表格写成制表符分隔的行（每个单元格后一个制表符，行末换行），粘进别的表格或对齐文本编辑器还能分列',
+        '嵌套列表按层缩进两个空格（最深取到 6 层，再深只是不再多缩，编号仍继续），纯文本里唯一的层级线索就是缩进',
+        '链接把地址附在文字后面（`文字 [https://…]`），锚点与 mailto: 不附——它们本来就不是外部地址',
+      ],
+      en: [
+        'Ordered lists are rewritten as `1.` `2.` from each item’s position: numbering is not text in the document, so a regex extraction turns a numbered procedure into an unnumbered one and this does not',
+        'Tables become tab-separated rows (a tab after each cell, a newline at the row end), so they still split into columns when pasted elsewhere',
+        'Nested lists indent two spaces per level, capped at six — deeper nesting stops gaining blanks but keeps counting, since indentation is the only hierarchy plain text has',
+        'Links carry their target after the words (`text [https://…]`); in-page anchors and mailto: do not, because neither is an outside address',
+      ],
+    },
+    limits: {
+      zh: [
+        '版式全部让位给文本：字体、字号、颜色、页边距、分栏都不在产物里，图片只留下 `[Image]` 或 `[Image: 替代文字]` 这样一行',
+        'Word 的「从 N 开始」与逐段重启的编号不会带过来——HTML 那一步不写 `start`，所以列表总是从 1 开始数',
+        '脚注与批注会变成上标的「↑」与正文末尾多出的一段编号列表：那是转换层写进 HTML 的结构，纯文本只能照抄',
+        '列表的 `type`（字母 / 罗马数字）与 `reversed` 被忽略——纯文本没有可回读的那种编号，位置才是信息',
+        '靠脚本或域代码动态生成的内容（目录、交叉引用、字段结果）取到的是文档里存的静态文字，域代码本身不进产物',
+        '两条路都读不出内容时（正文为空，且没有可还原的内嵌 MHT）直接报「没有可转换的内容」，而不是交出一份空文件报成功',
+      ],
+      en: [
+        'Layout gives way to text: fonts, sizes, colours, margins and columns are not in the output, and a picture leaves behind one line — `[Image]` or `[Image: alt text]`',
+        'A list set to “start at N”, or one that restarts mid-document, does not survive that far: the HTML step carries no `start`, so numbering always begins at 1',
+        'Footnotes and comments arrive as a superscript `↑` plus a numbered list appended to the end — that is how the HTML step represents them, and plain text can only copy it',
+        'A list’s `type` (letters, roman numerals) and `reversed` are ignored: plain text has no numbering scheme to read back, so position is the information',
+        'Anything a field or script generates dynamically (a table of contents, cross-references) comes across as the static text stored in the document; the field code itself does not travel',
+        'When neither pass yields a body — no readable text, and no embedded MHT that can be recovered — it fails with «no convertible content» rather than reporting success on an empty file',
+      ],
+    },
+    notes: {
+      zh: [
+        '一批最多 200 个文件，单个文件上限 100 MB；多个 .docx 一起转逐个产出各自的 .txt，想一次拿走就打成一个 ZIP',
+        '本扩展自己产出的 .docx（HTML 转 Word 那条路的 altChunk 文档）也能读回来：mammoth 处理不了 altChunk，所以有一道专门的还原步骤去把内嵌正文取出来',
+        '要保留结构而不仅是文本，走 Word 转 HTML 或 Word 转 Markdown；要「长得跟原件一样」，走 Word 转 PDF',
+      ],
+      en: [
+        'Up to 200 files per batch and 100 MB per file; several .docx files yield one .txt each, and the set can be taken as a single ZIP',
+        'Files this extension produced itself (the altChunk documents from HTML to Word) read back too: mammoth ignores altChunk, so there is a dedicated recovery step that pulls the embedded body out',
+        'For structure rather than bare text, take Word to HTML or Word to Markdown; for something that looks like the original, take Word to PDF',
+      ],
+    },
+    faq: [
+      {
+        q: { zh: '表格会变成一串没有分隔的文字吗？', en: 'Will the table collapse into one run of text?' },
+        a: {
+          zh: '不会。每个单元格后面写一个制表符、每行末尾换行，所以粘进支持制表符的地方还能分列。要的是真正的表格文件，那就走 Word 转 Excel 或先转 HTML。',
+          en: 'No. Each cell is followed by a tab and each row ends with a newline, so pasting into anything tab-aware still gives you columns. For a real table file, take Word to Excel or go through HTML.',
+        },
+      },
+      {
+        q: {
+          zh: '为什么目录的页码没了？',
+          en: 'Why did the table of contents lose its page numbers?',
+        },
+        a: {
+          zh: 'Word 的目录是域：页码由 Word 在打开时重算，文档里存的是上一次的静态文字。这条链路读的是文档里存的东西，所以目录会变成一行行文本（可能带着旧页码），而不是一个能更新的目录。要能更新的目录，得留在 Word 格式里。',
+          en: 'A Word table of contents is a field: Word recomputes the page numbers when it opens the file, and what is stored is last run’s static text. This route reads what is stored, so the contents comes out as lines of text — possibly with stale numbers — rather than a live table. A table of contents that updates has to stay in Word.',
+        },
+      },
+      {
+        q: {
+          zh: '合同的 Word 转成文本，会被上传吗？',
+          en: 'If I turn a contract into text, is it uploaded?',
+        },
+        a: {
+          zh: '不会。解析（mammoth）与提取都在扩展的标签页里跑，manifest 只有 storage 权限、没有 host 权限，产物里也没有把远端资源当代码执行的路径；除了你拖进来的文件，没有别的数据来源。',
+          en: 'No. Parsing (mammoth) and extraction both run inside the extension’s tab; the manifest carries the storage permission and no host permissions, and the bundle ships no path that executes remotely hosted code. Apart from the files you drop in, there is no other source of data.',
+        },
+      },
+    ],
+  },
+  {
+    slug: 'gif-to-pdf',
+    from: 'gif',
+    to: 'pdf',
+    shot: 'batch-results',
+    published: '2026-10-21',
+    title: {
+      zh: 'GIF 转 PDF——取首帧铺页，本地离线',
+      en: 'GIF to PDF offline — first frame, laid on a page',
+    },
+    desc: {
+      zh: '在浏览器里把 .gif 写成 PDF：取第一帧重编码到白底、页面按像素尺寸生成，动图会在结果里说明丢了帧。不上传。',
+      en: 'The first frame is re-encoded onto white and laid on a page sized to its pixels; an animated source says so in the result. Nothing uploaded.',
+    },
+    lede: {
+      zh: '手里是一张 GIF——可能是截图录制的动图首帧、表情包、或者从设计稿导出的示意——要交的地方只收 PDF。这条链路是 GIF → PDF，一步到位：浏览器解出第一帧，重编码成 PNG 写进一页，页面尺寸跟着像素走（96 dpi 换算成 pt，横图自动横向）。动图会丢帧，这件事结果卡会写明（整批一处提示），而不是让你打开文件才发现只剩一帧。',
+      en: 'A GIF on hand — the first frame of a screen recording, a sticker, a diagram export — and the destination only accepts PDF. This route is GIF → PDF in one step: the browser decodes the first frame, re-encodes it as PNG and writes it onto a page sized to those pixels (96 dpi converted to pt, wide images turning landscape). Frames after the first are lost, and the result card says so for the batch rather than leaving you to discover it in the finished document.',
+    },
+    keeps: {
+      zh: [
+        '首帧的像素：GIF 走画布重编码到白底，所以透明区域在 PDF 里是白的而不是黑的或花的',
+        '页面尺寸跟着图片像素走，不会把一张小图塞进 A4 的固定栏宽里再留出大片空白',
+        '一批可以合并为一份多页 PDF：GIF 在可合并的位图之列，按列表顺序逐张写页（最多 200 页）',
+        '帧数是查过的：只有真的带第二帧的 GIF 才会让整批结果带上丢帧提示，单帧文件不会被误报',
+      ],
+      en: [
+        'The first frame’s pixels: GIF is re-encoded through a canvas onto white, so transparent areas come out white in the PDF rather than black or mottled',
+        'The page is sized from the image’s pixels instead of squeezing a small picture into a fixed A4 column of whitespace',
+        'A batch can be merged into one multi-page PDF — GIF is one of the formats the merge accepts — written page by page in list order (200 pages maximum)',
+        'The frame count is actually checked — the block structure is walked for a second image descriptor — so a single-frame file never triggers the batch’s lost-frames note',
+      ],
+    },
+    limits: {
+      zh: [
+        '只取第一帧：动画的时间轴不进 PDF（PDF 里的图像页没有帧可播），要留动画请继续用 GIF 或转成视频',
+        '产出的 PDF 是图像页，没有文字层：图里的字不能选中、搜索不到',
+        '超过 8192 px 的边会被等比缩到上限再写页——不报错，但像素比原件少',
+        '合并模式下任一张解码失败，整组不产出（不会给你一份缺页的文档），界面上的重试是整组一起重来；中途取消则整份文档丢弃',
+      ],
+      en: [
+        'Only the first frame: a PDF image page has no timeline to play, so keep the GIF — or a video — if the animation is the content',
+        'The PDF is image pages with no text layer: text inside the picture cannot be selected or searched',
+        'An edge past 8192 px is scaled down proportionally before the page is written — no error, but fewer pixels than the source',
+        'In merged mode, one undecodable image produces no document at all (never a PDF with a page silently missing), and retrying takes the whole group again; cancelling discards the document',
+      ],
+    },
+    notes: {
+      zh: [
+        '一批最多 200 个文件，单个文件上限 100 MB；不勾选合并时，多个 .gif 逐个产出各自的 .pdf',
+        '只是想换图片格式，走 GIF 转 PNG 或 GIF 转 JPG 更省事（同样是首帧）；转 PDF 的价值在于「一页一图」的交付形状',
+      ],
+      en: [
+        'Up to 200 files per batch and 100 MB per file; without the merge ticked, several .gif files yield one .pdf each',
+        'For another picture format, GIF to PNG or GIF to JPG is the shorter path (also the first frame) — the PDF route exists for the one-page-per-image delivery shape',
+      ],
+    },
+    faq: [
+      {
+        q: { zh: '动图真的只剩一张吗？', en: 'Does an animated GIF really come down to one image?' },
+        a: {
+          zh: '是。浏览器把 GIF 解成一张位图时取的就是首帧，PDF 那一步没有可播的时间轴可用。所以只有真的带第二帧的 GIF（查的是块结构里的第二个 image descriptor）会让结果卡带上丢帧提示，让你决定是不是该换条路。',
+          en: 'Yes. Decoding a GIF to a bitmap already takes the first frame, and a PDF page has no timeline to play. So the lost-frames note appears only for a GIF that really has a second image descriptor — the block structure is walked for it — and you can decide there whether a different route fits.',
+        },
+      },
+      {
+        q: {
+          zh: '为什么透明背景变成白色？',
+          en: 'Why did a transparent background turn white?',
+        },
+        a: {
+          zh: 'GIF 要经过画布重编码，而画布是白底填充的——PDF 里没有「透明图像页」这种可依赖的形状，留成透明在多数阅读器上会读成黑。要保留透明，请走 GIF 转 PNG。',
+          en: 'GIF goes through a canvas that is filled white first. A PDF image page has no dependable notion of transparency, and left transparent it reads as black in many viewers. To keep transparency, take GIF to PNG.',
+        },
+      },
+      {
+        q: {
+          zh: '表情包要放进文档，文件会外发吗？',
+          en: 'If I put a sticker into a document, does the file leave my machine?',
+        },
+        a: {
+          zh: '不会。解码、重编码、写页全在扩展的标签页里完成，只申请 storage 权限、没有 host 权限，产物里也没有从网络取来的代码。把 PDF 发出去那一步是你自己的动作。',
+          en: 'No. Decoding, re-encoding and writing the page all happen in the extension’s tab; it asks for the storage permission only, has no host permissions, and the bundle carries no remotely hosted code. Sending the PDF on is your own step.',
+        },
+      },
+    ],
+  },
+  {
+    slug: 'svg-to-html',
+    from: 'svg',
+    to: 'html',
+    shot: 'preview-edit',
+    published: '2026-10-21',
+    title: {
+      zh: 'SVG 转 HTML——矢量留在页面里，本地离线',
+      en: 'SVG to HTML offline — the artwork stays vector',
+    },
+    desc: {
+      zh: '在浏览器里把 .svg 包成一份能直接打开的 HTML：图形仍是矢量，缩放不失真；脚本与事件属性在净化时被剥掉。不上传。',
+      en: 'The SVG is wrapped in a page you can open, and it stays vector — zoomable, with scripts and event attributes removed by sanitising. Nothing uploaded.',
+    },
+    lede: {
+      zh: '一张 SVG 想放进网页、邮件正文预览、或者只是想在浏览器里看清楚它画了什么，最省事的做法是有一张能直接打开的 HTML。这条链路是 SVG → HTML，一步到位，而且**不栅格化**：图形作为矢量留在页面里，放大看到的是路径而不是像素。净化用的是保留 svg 与 svgFilters 的配置——渐变、滤镜这些可见结果留下，脚本与事件处理器去掉。要位图请走 SVG 转 PNG；要进 Word 或 PDF，那两条路会先栅格化。',
+      en: 'Getting an SVG into a web page, an email preview, or simply seeing clearly what it draws is easiest as an HTML file you can open. This route is SVG → HTML in one step, and it does not rasterise: the artwork stays vector, so zooming shows paths rather than pixels. The sanitising profile keeps `svg` and `svgFilters` — gradients and filters survive, scripts and event handlers do not. For a bitmap take SVG to PNG; the Word and PDF routes rasterise first.',
+    },
+    keeps: {
+      zh: [
+        '矢量本身：路径、形状、渐变、滤镜与文字的可见结果都按 SVG 原样进页面，放大不产生锯齿或马赛克（不被带过去的那几类写在限制里）',
+        '自适应显示：页面里图形居中、`max-width: 100%`，窄窗口下不会撑出横向滚动条',
+        '净化只砍活动性内容：走的是保留 svg 与 svgFilters 的配置，脚本与 `on*` 事件属性被去掉，绘图能力留下',
+        '文档标题取你自己的文件名，中英两边都不额外加一句「PNG image」这类不属于你选的语言的说明',
+      ],
+      en: [
+        'The vectors themselves: paths, shapes, gradients, filters and text enter the page as drawn, so zooming produces no jaggies or mosaic — the elements that do not travel are listed under limits',
+        'It fits the window: the graphic is centred with `max-width: 100%`, so a narrow viewport does not gain a horizontal scrollbar',
+        'Sanitising only cuts active content: the profile keeps `svg` and `svgFilters`, so scripts and `on*` handlers go while the drawing stays',
+        'The document title is your own file name, with no extra sentence in a language you did not pick',
+      ],
+    },
+    limits: {
+      zh: [
+        '活动性内容整类不留：`<script>`、事件属性，以及 `<use>`、`<foreignObject>`、`<font-face*>` 与 SMIL 动画标签都在净化这一步被删掉——靠「点开才展开」「动画驱动」的那部分不会动，这是刻意的安全取舍，不是丢件',
+        '外部引用在写文件之前就被剥掉：`<image href>`、`feImage`、`fill="url(…)"`、样式里的 `url()` 与 `@import` 都不留，所以产出的 HTML 打开时不会替你发任何请求；缺的那部分按缺的样子显示',
+        '如果净化后什么都不剩，直接报「图片解码失败」而不是给你一张空白页面报成功',
+        '依赖 `<use>` 的雪碧图会画不出东西：`<symbol>` 的定义留着，引用它的那一层被删——图标符号表这类文件更适合先转 PNG 再交',
+        '要位图（放进只收图片的地方、或者要固定像素尺寸），走 SVG 转 PNG / JPG / WebP；要进文档，走 SVG 转 Word 或 SVG 转 PDF——那几条会先栅格化',
+      ],
+      en: [
+        'Nothing active survives: `<script>`, event attributes and the element classes the sanitizer disallows — `<use>`, `<foreignObject>`, `<font-face*>` and the SMIL animation elements — are all removed, so anything that expanded on click or moved by animation stays still. That is a deliberate safety trade-off, not a lost asset',
+        'Outside references are removed before the file is written: `<image href>`, `feImage`, `fill="url(…)"` and every `url()` / `@import` in the styles are cut, so the delivered page issues no request when you open it — and the gap it leaves shows as a gap',
+        'If nothing is left after sanitising, it fails with «image decode failed» instead of handing you a blank page marked as success',
+        'A sprite sheet built on `<use>` comes out blank: the `<symbol>` definitions stay, the layer that references them is removed — for an icon sheet, convert to PNG first',
+        'For a bitmap (somewhere that only takes pictures, or fixed pixel dimensions) take SVG to PNG / JPG / WebP; for documents take SVG to Word or SVG to PDF — those rasterise first',
+      ],
+    },
+    notes: {
+      zh: [
+        '一批最多 200 个文件，单个文件上限 100 MB；多个 .svg 一起转逐个产出各自的 .html，想一次拿走就打成一个 ZIP',
+        '反过来那条路也在：HTML 转 SVG 不存在，但 HTML 里的内联 SVG 在转 Word 时会被逐个栅格化成 PNG 保留下来（不然净化器会把图整块删掉）',
+      ],
+      en: [
+        'Up to 200 files per batch and 100 MB per file; several .svg files yield one .html each, and the set can be taken as a single ZIP',
+        'The other direction is covered differently: there is no HTML to SVG route, but an inline SVG inside HTML is rasterised to PNG one by one on the way into Word — otherwise the sanitizer would delete the diagram outright',
+      ],
+    },
+    faq: [
+      {
+        q: {
+          zh: '转出来的 HTML 里图还是矢量的吗？',
+          en: 'Is the artwork still vector in the resulting HTML?',
+        },
+        a: {
+          zh: '是。这条链路只做「净化 + 包一层文档」，不画到画布上，所以放大看到的是清晰的路径。这也是它与 SVG 转 PNG、SVG 转 Word、SVG 转 PDF 最实际的区别——那三条都会先栅格化。',
+          en: 'Yes. The route only sanitises and wraps the markup in a document; nothing is painted to a canvas, so zooming shows clean paths. That is the practical difference from SVG to PNG, SVG to Word and SVG to PDF — all three rasterise first.',
+        },
+      },
+      {
+        q: {
+          zh: '从别处下载的 SVG 敢直接转吗？',
+          en: 'Is it safe to convert an SVG downloaded from somewhere else?',
+        },
+        a: {
+          zh: '比直接双击打开安全。产物里的 SVG 先经 DOMPurify 按 svg + svgFilters 配置净化，脚本与事件属性被剥掉；产出的 HTML 也不去取任何远端资源。最坏情况是画得不一样，而不是执行里面的代码。',
+          en: 'Safer than double-clicking it. The SVG is sanitised through DOMPurify with the svg + svgFilters profiles, which strip scripts and event attributes, and the page fetches no remote resource. Worst case for an SVG of unknown origin is that it looks different, not that its code runs.',
+        },
+      },
+      {
+        q: {
+          zh: '图标库要批量包成页面，文件会外发吗？',
+          en: 'If I wrap an icon set in pages, do the files leave my machine?',
+        },
+        a: {
+          zh: '不会。读文件、净化、写页面都在扩展的标签页里完成，只申请 storage 权限、没有 host 权限，产物里也没有从网络取来的代码。',
+          en: 'No. Reading, sanitising and writing the page all happen inside the extension’s tab: the storage permission only, no host permissions, and no remotely hosted code in the bundle.',
+        },
+      },
+    ],
+  },
+  {
+    slug: 'csv-to-html',
+    from: 'csv',
+    to: 'html',
+    shot: 'batch-results',
+    published: '2026-10-21',
+    title: {
+      zh: 'CSV 转 HTML 表格——离线、可批量、不上传',
+      en: 'CSV to HTML table offline, in batches, no upload',
+    },
+    desc: {
+      zh: '在浏览器里把 .csv 变成一张真的 HTML 表格：带引号的逗号与字段内换行按一个单元格处理，值原样呈现。批量、可预览、零网络请求。',
+      en: 'A real HTML table from your .csv: quoted commas and newlines inside a field stay one cell, and values print as written. Batch, previewable, zero requests.',
+    },
+    lede: {
+      zh: '把 CSV 贴进网页，最省事的办法是转成一张 `<table>`；用「按逗号切一行」的脚本做这件事，会在第一个带引号的逗号上翻车。这条链路交给 SheetJS 的 CSV 解析器：引号、字段内换行、列序都按 CSV 的规矩处理，再把每张表写成 HTML 表格并包成一份能直接打开的文档。值按文件里的字符原样呈现——不做类型推断，所以日期不会被改写成 `1/5/24`。',
+      en: 'Pasting a CSV into a web page means turning it into a `<table>`, and the quick script that splits each line on commas fails at the first quoted comma. This route hands that job to SheetJS’s CSV parser — quotes, newlines inside a field and column order all follow CSV’s rules — writes each sheet as an HTML table and wraps it in a document you can open. Values print as the file’s own characters, with no type inference, so a date is not rewritten into `1/5/24`.',
+    },
+    keeps: {
+      zh: [
+        '带引号的逗号、字段内的换行、成对的引号转义，都按 CSV 的语法解析成一个单元格，不是按逗号切字符串',
+        '每一行都写成表格里的一行，第一行也在内——不像 CSV 转 JSON 会拿首行当键名；列序与文件里一致',
+        '值原样呈现：按 raw 模式读取，单元格里那串字符就是最终看到的文本',
+        '编码不是前提：按 UTF-8 → GB18030 → GBK 依次尝试解码，老编辑器导出的 GBK 文件也读得进来',
+      ],
+      en: [
+        'Quoted commas, newlines inside a field and doubled quote escapes all parse into one cell under CSV’s grammar, rather than a string split on commas',
+        'Every row becomes a table row, the first included — unlike CSV to JSON, which spends row one on key names — and columns keep file order',
+        'Values print as written: the file is read raw, so the characters in the field are the text you get',
+        'The encoding is not a precondition: input is decoded UTF-8 → GB18030 → GBK, so a GBK file from an older editor still reads',
+      ],
+    },
+    limits: {
+      zh: [
+        '只产表格结构：CSV 本身不带样式，所以字体、列宽、单元格颜色都不会出现（页面用的是文档的默认样式）',
+        '数值不会被「翻译」：`00123` 还是 `00123`，`1-5` 还是 `1-5`——好处是不被改错，代价是它不替你做类型化',
+        '列少而文字长时按词断行挤进页面宽度；列多到每格的内边距撑过页面时，表格会比页面宽，需要横向滚动——两种都不丢数据，但都不是替你重排',
+        '一张表最多读 50 万格、整个工作簿最多 100 万格，超过直接报错，不会给你一份截断的页面',
+        '四种编码都读不出文本时直接报错，不产出一份乱码页面',
+      ],
+      en: [
+        'Structure only: a CSV carries no styling, so no fonts, column widths or cell colours appear — the page uses the document’s default stylesheet',
+        'Nothing is “translated”: `00123` stays `00123` and `1-5` stays `1-5` — the benefit is not being misread, the cost is no typing',
+        'Few wide columns wrap inside the page width; once the per-cell padding floor exceeds it the table grows past the page and needs a sideways scroll — neither case loses data, and neither one re-flows your content for you',
+        'At most 500,000 cells per sheet and 1,000,000 per workbook are read; past that it fails rather than shipping a truncated page',
+        'If none of the four encodings yields text, it fails rather than producing a page of mojibake',
+      ],
+    },
+    notes: {
+      zh: [
+        '一批最多 200 个文件，单个文件上限 100 MB；多个 .csv 一起转逐个产出各自的 .html，想一次拿走就打成一个 ZIP',
+        '产出的 HTML 还能接着转：转 Word（表格进文档）、转 PDF（整页渲染、没有文字层）、转 Markdown（管道表）',
+        '要的是能再计算的数据表，走 CSV 转 Excel；要对象数组，走 CSV 转 JSON（那条会把首行当键名）',
+      ],
+      en: [
+        'Up to 200 files per batch and 100 MB per file; several .csv files yield one .html each, and the set can be taken as a single ZIP',
+        'The HTML carries on: to Word (tables into a document), to PDF (rendered pages, no text layer), to Markdown (a pipe table)',
+        'For data you can keep computing on, take CSV to Excel; for objects, take CSV to JSON — that route spends row one on key names',
+      ],
+    },
+    faq: [
+      {
+        q: {
+          zh: '字段里有逗号和换行，会切错吗？',
+          en: 'My fields contain commas and newlines — will they split wrong?',
+        },
+        a: {
+          zh: '不会。分隔与引号交给 SheetJS 的 CSV 解析器，不是把一行按逗号 split，所以 `"a,b"` 是一个单元格、字段内的换行也留在同一个单元格里。要导出时保持这个形状，走 HTML 转 CSV 或 Excel 转 CSV 那两条。',
+          en: 'No. Splitting is SheetJS’s CSV parser rather than a string split on commas, so `"a,b"` is one cell and a newline inside a field stays inside it. To write that shape back out, take HTML to CSV or Excel to CSV.',
+        },
+      },
+      {
+        q: {
+          zh: '为什么日期前面没有变成斜杠写法？',
+          en: 'Why has a date not been rewritten into slashes?',
+        },
+        a: {
+          zh: '因为这条链路按 raw 模式读，值就是文件里那串字符。类型推断会把 `2024-01-05` 变成日期序列号再打印成 `1/5/24`——那是「看起来更聪明但可能改错」的典型。要数字与日期被真正类型化的产物，走 CSV 转 JSON。',
+          en: 'Because the file is read raw, so a value is the characters in the file. Type inference would turn `2024-01-05` into a date serial and print it as `1/5/24` — the classic «cleverer but possibly wrong». For genuinely typed output, take CSV to JSON.',
+        },
+      },
+      {
+        q: {
+          zh: '客户名单要转成网页，数据会外发吗？',
+          en: 'If I turn a customer list into a page, does the data leave my machine?',
+        },
+        a: {
+          zh: '不会。解析与写页面都在扩展的标签页里完成，只申请 storage 权限、没有 host 权限，产出的文档也不引用任何远端资源；除了你拖进来的文件，没有别的数据来源。',
+          en: 'No. Parsing and page writing both happen in the extension’s tab; it asks for the storage permission only, has no host permissions, and the produced document references no remote resource. Apart from the files you drop in, there is no other source of data.',
+        },
+      },
+    ],
+  },
+  {
+    slug: 'xlsx-to-txt',
+    from: 'xlsx',
+    to: 'txt',
+    shot: 'preview-edit',
+    published: '2026-10-21',
+    title: {
+      zh: 'Excel 转纯文本（.xlsx → .txt）——离线、制表符分隔',
+      en: 'Excel to plain text (.xlsx → .txt) offline, tab-separated',
+    },
+    desc: {
+      zh: '在浏览器里把 .xlsx 读成纯文本：按工作表顺序逐行取单元格文本，同行以制表符分隔；日期归一，空单元格留空。',
+      en: 'Cell text in worksheet order, tabs between cells in a row and a newline between rows. Dates normalised, empty cells left empty.',
+    },
+    lede: {
+      zh: '工单系统、邮件正文、另一个编辑器的查找替换——很多地方只吃一段纯文本，而你手里是一张 Excel。这条链路是 Excel → HTML → 纯文本：每张工作表先写成一张 HTML 表格，再由提取器把行写成一行文本、单元格之间放制表符。它保的是「哪一格属于哪一行哪一列」这件事，代价是公式、样式与图表都不进产物。',
+      en: 'A ticket, an email body, another editor’s find-and-replace — plenty of places take only plain text, and what you have is a spreadsheet. This route is Excel → HTML → plain text: each worksheet becomes an HTML table and the extractor writes rows as lines with tabs between cells. What survives is which cell belongs to which row and column; what does not is formulas, styling and charts.',
+    },
+    keeps: {
+      zh: [
+        '按工作表顺序逐行读取：同一行的单元格之间以制表符分隔，行末换行，列序与原表一致',
+        '日期单元格先按工作簿自己的格式归一再写文本，避免 `1/5/24` 这种跨地区会读错的写法',
+        '数据矩形内的空单元格保留为「相邻两个制表符」，所以中间的列不会错位；行尾那几格若整表都没写过值，则随稀疏边界一起不在产物里',
+        '多张表的工作簿里，每张表前有一行以表名为内容的标题；表格之外不存在别的东西可读',
+      ],
+      en: [
+        'Cell text is read in worksheet order: tabs between the cells of a row, a newline at the row end, columns in the sheet’s order',
+        'Date cells are normalised from the workbook’s own format before they are written, so `1/5/24`-style ambiguity does not appear',
+        'An empty cell inside the used range stays an empty field — two adjacent tabs — so the middle columns keep their places; trailing blanks past the sheet’s own extent are not written at all',
+        'In a multi-sheet workbook each table is introduced by a line carrying the sheet name; there is nothing outside the tables to read',
+      ],
+    },
+    limits: {
+      zh: [
+        '公式不进产物：读到的是算完之后的值。要留在电子表格里继续算，走 Excel 转 CSV 或 Excel 转 Excel',
+        '图表、条件格式、单元格底色与字体、列宽都不在纯文本里——它们本来就没有文本表示',
+        '表名只是正文里的一行文字，不会成为可寻址的分隔（要一张表一个文件，走 Excel 转 CSV，那条给的是 ZIP）',
+        '单元格内的换行（Alt + 回车）会写成真正的换行，所以一行工作表在文本里可能占好几行',
+        '一张表最多读 50 万格、整个工作簿最多 100 万格，超过直接报错，不会给你一份截断的文本',
+        '工作表名恰好是 `toString`、`constructor` 这类原型上的名字时，读取按不继承原型的自有属性处理，不会因为「看着像有表」就把空表当成有内容',
+      ],
+      en: [
+        'Formulas do not travel: what is read is the computed value. To keep computing, take Excel to CSV or stay inside spreadsheet formats',
+        'Charts, conditional formatting, cell fills, fonts and column widths have no plain-text representation and are not in the output',
+        'A sheet name is one line of text, not an addressable separator — for one file per sheet, take Excel to CSV, which packages them as a ZIP',
+        'A newline inside a cell (Alt+Enter) is written as a newline, so one worksheet row can occupy several text lines',
+        'At most 500,000 cells per sheet and 1,000,000 per workbook are read; past that it fails rather than handing back a truncated text',
+        'A sheet named `toString` or `constructor` is read through own properties rather than the prototype chain, so a lookalike name cannot make an empty sheet appear to hold content',
+      ],
+    },
+    notes: {
+      zh: [
+        '一批最多 200 个文件，单个文件上限 100 MB；多个 .xlsx 一起转逐个产出各自的 .txt，想一次拿走就打成一个 ZIP',
+        '要更「像数据」的产物：Excel 转 CSV（每表一个文件、打包成 ZIP）、Excel 转 JSON（一份文件、多表按表名分组）',
+        '要能贴回可编辑表格的产物：Excel 转 HTML 或 Excel 转 Markdown（管道表）',
+      ],
+      en: [
+        'Up to 200 files per batch and 100 MB per file; several .xlsx files yield one .txt each, and the set can be taken as a single ZIP',
+        'For something more like data: Excel to CSV (one file per sheet, packaged as a ZIP) or Excel to JSON (one file, sheets grouped by name)',
+        'For something you can paste back as an editable table: Excel to HTML or Excel to Markdown (a pipe table)',
+      ],
+    },
+    faq: [
+      {
+        q: {
+          zh: '为什么不直接导出 CSV？',
+          en: 'Why not just export a CSV instead?',
+        },
+        a: {
+          zh: '如果你要的是「能被表格软件再读进去」，CSV 确实更合适——它带引号转义，多张表会一张一个文件。纯文本这一条服务的是另一种场景：粘进一个只接受文本的框里、并且希望列还能用制表符对齐。两种产物的用途不同，不是替代关系。',
+          en: 'If the target is something a spreadsheet can read back, CSV is the better fit — it quotes and escapes, and a multi-sheet workbook arrives as one file per sheet. Plain text serves the other case: pasting into a box that takes only text, with columns still aligned by tabs. Different jobs, not substitutes.',
+        },
+      },
+      {
+        q: {
+          zh: '合并单元格会变成什么？',
+          en: 'What happens to merged cells?',
+        },
+        a: {
+          zh: '合并的信息在 HTML 那一步以 colspan / rowspan 保留，但纯文本没有「跨列」这个概念，而且被覆盖的那几格根本不产生单元格——于是合并区右边的列会整体左移一格。要列位置稳定，先取消合并再转（或直接走 Excel 转 CSV）。',
+          en: 'The merge survives as far as the HTML step, as colspan / rowspan, but plain text has no notion of spanning and the covered cells emit nothing at all — so the columns right of a merge shift one place left. Unmerge first for stable columns, or take Excel to CSV.',
+        },
+      },
+      {
+        q: {
+          zh: '工资表要转文本，数据会外发吗？',
+          en: 'If I turn a payroll sheet into text, does the data leave my machine?',
+        },
+        a: {
+          zh: '不会。读工作簿、生成表格、提取文本都在扩展的标签页里完成，只申请 storage 权限、没有 host 权限，产物里也没有把远端资源当代码执行的路径。',
+          en: 'No. Reading the workbook, building the table and extracting the text all happen inside the extension’s tab: the storage permission only, no host permissions, and no path in the bundle that executes remotely hosted code.',
         },
       },
     ],

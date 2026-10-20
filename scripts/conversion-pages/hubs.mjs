@@ -261,10 +261,6 @@ export const HUBS = [
         zh: '表格行写成 CSV，单元格只保留文本；合并单元格按解析后的网格展开，样式、批注与修订全部丢失。',
         en: 'Table rows become CSV with text-only cells; merged cells expand into the parsed grid, and styling, comments and tracked changes are lost.',
       },
-      txt: {
-        zh: '按文档顺序提取文字：标题、段落、列表与表格逐块换行，列表编号重新生成；图片变成占位标记，页眉页脚与批注不属于正文。',
-        en: 'Text is extracted in document order: headings, paragraphs, lists and tables each break the line, list numbers are rebuilt, images become placeholders, and headers, footers and comments stay out.',
-      },
       json: {
         zh: '文档里的表格转成对象数组；没有表格时，正文中的 JSON 代码块可以被读出，否则报「没有表格结构」。',
         en: 'Tables become arrays of objects; with no table, a JSON code block in the body can still be read, and otherwise the route reports that no table structure exists.',
@@ -406,10 +402,6 @@ export const HUBS = [
         zh: '每个工作表先变成带标题的 HTML 表格，再序列化为 Markdown 管道表；单元格只保留显示文本，公式、颜色、列宽与合并信息不进入结果。',
         en: 'Each worksheet becomes a titled HTML table and then a Markdown pipe table; cells keep display text only, while formulas, colours, column widths and merges stay behind.',
       },
-      txt: {
-        zh: '按工作表顺序读取单元格文本，同一行以制表符分隔、行间换行；日期规范化，空单元格留空，表格之外的内容不存在。',
-        en: 'Cell text is read in worksheet order, with tabs between cells in a row and a newline between rows. Dates are normalised, empty cells stay empty, and nothing outside the tables exists to read.',
-      },
       png: {
         zh: '整本工作簿渲染成一页长图：每个工作表一张带标题的表格，宽表整体缩放；超过 32768 px 高度会报错而不是截断。',
         en: 'The workbook is captured as one long image: a titled table per worksheet, with wide sheets scaled to fit. Past 32768 px of height the route fails instead of truncating.',
@@ -488,10 +480,6 @@ export const HUBS = [
       md: {
         zh: 'CSV 先转成 HTML 表格，再输出 Markdown 管道表：首行成为表头分隔线，单元格里的 `|` 会被转义。CSV 没有标题层级，结果只有一张表。',
         en: 'The CSV becomes an HTML table and then a Markdown pipe table: the first row supplies the header rule and any `|` in a cell is escaped. A CSV has no heading hierarchy, so the result is one table.',
-      },
-      html: {
-        zh: '每个 CSV 变成一张标准 `<table>`，首行当表头；值按原样保留，日期与科学计数法不经过显示格式重写。',
-        en: 'Each CSV becomes a standard `<table>` with the first row as headers, and values stay as found — dates and scientific notation are not rewritten through display formatting.',
       },
       docx: {
         zh: 'CSV 先转 HTML 再转 Word：一张表写入文档，首行是表头；列宽自适应，字体与配色取文档默认值，不沿用 CSV 来源的任何样式。',
@@ -583,10 +571,6 @@ export const HUBS = [
       docx: {
         zh: '先转成 `<pre>` HTML 再写入 Word：保留换行与空格，整段使用等宽字体；不推断标题、列表或表格。',
         en: 'The text goes through `<pre>` HTML into Word: line breaks and spaces survive, the whole body uses a monospace face, and no heading, list or table is inferred.',
-      },
-      pdf: {
-        zh: '等宽文本渲染成 A4 页面写入 PDF；长文档分页。PDF 里是图像页面，文字不可选中，也不会被搜索到。',
-        en: 'Monospace text is rendered into A4 pages and written to PDF, with long documents spanning pages. The PDF holds page images: the text is neither selectable nor searchable.',
       },
       xlsx: {
         zh: '只有当整段文本是合法 JSON 数组时才走得通：TXT→HTML 后按 JSON 读取，再转成表格。普通文本没有表格结构，会以错误结束。',
@@ -1082,10 +1066,6 @@ export const HUBS = [
         zh: '写入 Word 的是首帧位图，动画丢失；多帧文件的结果会带「丢帧」披露。',
         en: 'Word receives a bitmap of the first frame and the animation is lost; a multi-frame source carries the frame-loss disclosure on its result.',
       },
-      pdf: {
-        zh: '只取首帧、铺白底后写入一页 PDF；动画与后续帧丢失，页面尺寸取首帧图片本身。',
-        en: 'Only the first frame is taken, filled white and written as one PDF page; the animation and later frames are lost, and the page is sized to that first frame.',
-      },
       webp: {
         zh: '取首帧后编码 WebP，动画不保留；透明像素按输出设置处理，多帧文件的结果带丢帧披露。',
         en: 'The first frame is encoded as WebP and the animation is not kept; transparent pixels follow the output settings, and a multi-frame source carries the frame-loss disclosure.',
@@ -1156,10 +1136,6 @@ export const HUBS = [
       md: {
         zh: 'SVG 先栅格化成 PNG 再嵌入 HTML，最后转成 Markdown 图片语法：矢量结构丢失，得到的是位图；含远程资源的引用不会下载。',
         en: 'The SVG is rasterised to PNG, embedded in HTML and written as Markdown image syntax: the vector structure is replaced by a bitmap, and remote references are not downloaded.',
-      },
-      html: {
-        zh: 'SVG 以标记嵌入 HTML，脚本与事件处理器在净化时删除；外部引用的图片、字体与 `<use>` 不取字节。浏览器显示的是矢量图。',
-        en: 'The SVG enters HTML as markup with scripts and event handlers removed during sanitisation; external images, fonts and `<use>` references are not fetched. The browser renders it as vector.',
       },
       docx: {
         zh: 'SVG 栅格化为 PNG 后写入 Word：文档里是位图，失去缩放无损性；脚本与外链在栅格化前被剥离。',
