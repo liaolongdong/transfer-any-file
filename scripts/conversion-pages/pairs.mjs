@@ -3526,22 +3526,22 @@ export const PAIRS = [
       en: 'Extract readable text from an HTML page in the browser: blocks become line breaks, lists keep their numbers, links keep their URLs.',
     },
     lede: {
-      zh: '把一封邮件、一篇文档站页面或一段富文本变成纯文本，难点不是去标签，而是保住阅读顺序。这条路径先用 DOMParser 解析，再递归遍历：`script` / `style` / `noscript` 整块丢弃，`<br>` 转换行，图片按 `alt` 写成 `[Image: …]`，有序列表按位置编号并尊重 `start`，嵌套列表每层缩进两个空格，链接在文字后追加 ` [href]`（页内锚点与 `mailto:` 除外），表格单元格以制表符分隔。最后把三个以上连续换行压成两个。',
-      en: 'Turning an email, a docs page or a rich-text fragment into plain text is less about deleting tags than about preserving reading order. This route parses with DOMParser and walks the tree: `script` / `style` / `noscript` are dropped wholesale, `<br>` becomes a newline, images become `[Image: …]` from their `alt`, ordered lists are numbered by position and honour `start`, nested lists indent two spaces per level, links append ` [href]` after their text (in-page anchors and `mailto:` excluded), and table cells are separated by tabs. Runs of three or more newlines collapse to two at the end.',
+      zh: '把一封邮件、一篇文档站页面或一段富文本变成纯文本，难点不是去标签，而是保住阅读顺序。这条路径先用 DOMParser 解析，再递归遍历：`script` / `style` / `noscript` 整块丢弃，`<br>` 转换行，图片按 `alt` 写成 `[Image: …]`，有序列表按位置编号并尊重 `start`，嵌套列表每层缩进两个空格，链接在文字后追加 ` [href]`（页内锚点与 `mailto:` 除外），表格的每个单元格后面跟一个制表符，而单元格之间的换行也会照抄进文本：紧凑排版的表格是一行一条记录，源码里换行排版的表格会一格一行。最后把三个以上连续换行压成两个。',
+      en: 'Turning an email, a docs page or a rich-text fragment into plain text is less about deleting tags than about preserving reading order. This route parses with DOMParser and walks the tree: `script` / `style` / `noscript` are dropped wholesale, `<br>` becomes a newline, images become `[Image: …]` from their `alt`, ordered lists are numbered by position and honour `start`, nested lists indent two spaces per level, links append ` [href]` after their text (in-page anchors and `mailto:` excluded), and each table cell is followed by a tab — newlines between cells in the source are copied into the text too, so a compact table gives one record per line while a source-formatted one gives one cell per line. Runs of three or more newlines collapse to two at the end.',
     },
     keeps: {
       zh: [
         '有序列表按实际位置编号，并尊重 `start`；嵌套层级用两空格缩进表示（最多 6 层）',
         '链接保留 URL，写在链接文字之后；`#` 锚点与 `mailto:` 不追加',
         '图片用 `alt` 写成 `[Image: alt]`，没有 alt 时写 `[Image]`',
-        '表格按行输出，单元格之间用制表符分隔',
+        '每个单元格后面都跟一个制表符；单元格之间没有换行的表格（例如本扩展自己生成的 HTML 表格）会一行一条记录，而源码里换行排版的表格（marked、美化过的 HTML）会让每格各占一行',
         '复杂 HTML 的解析交给 DOMParser，实体、嵌套与畸形标记都不会让文本错位',
       ],
       en: [
         'Ordered lists are numbered by position and honour `start`; nesting is shown with two spaces per level, capped at six',
         'Links keep their URL after the link text; `#` anchors and `mailto:` are not appended',
         'Images become `[Image: alt]` from their alt text, or `[Image]` when there is none',
-        'Tables come out row by row with tabs between cells',
+        'Every cell is followed by a tab; a table whose cells are not separated by newlines in the source (the HTML this extension itself writes) comes out one record per line, while a source-formatted table (marked, pretty-printed HTML) yields one cell per line',
         'DOMParser handles the HTML, so entities, nesting and malformed markup do not shift the text',
       ],
     },
