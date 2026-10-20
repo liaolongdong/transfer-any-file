@@ -6099,4 +6099,192 @@ export const PAIRS = [
       },
     ],
   },
+  {
+    slug: 'markdown-to-json',
+    from: 'md',
+    to: 'json',
+    shot: 'batch-results',
+    published: '2026-10-21',
+    title: {
+      zh: 'Markdown 转 JSON——离线、表格变成对象、不上传',
+      en: 'Markdown to JSON offline — tables become objects, no upload',
+    },
+    desc: {
+      zh: '把 Markdown 表格变成对象数组：表头行给出键名，两张以上按 `##` 小标题分组，没有表格时读代码块。全程离线，不请求图片与脚本。',
+      en: 'Turn Markdown tables into objects: the GFM header row supplies keys, and several tables group under their `##` headings. Offline, no uploads.',
+    },
+    lede: {
+      zh: 'Markdown 里最像数据的是表格，最想要的数据格式是 JSON。这一条走两步：先把文档按 GFM 渲染成 HTML（`gfm: true`，所以管道符表格、删除线、任务清单、自动链接都被认出；`breaks: false`，段落里单个换行仍然是续行而不是换行），渲染结果先过 DOMPurify（html + svg 两套 profile，行内的 SVG 图形不会被当垃圾删掉），再交给只解析不执行的 DOMParser 取表格。表格读法是：首行给出键名，其余每行一个对象，取行取格都限定在「这张表自己」的作用域里，所以 `<strong>`、链接、嵌套标记只剩文字，套在单元格里的小表格也不会把它的行摊成外层数据行。文档里两张以上时结果不再是数组，而是一个以 `<h2>` 文字为键的对象——`##` 小标题是这些 `h2` 最常见的来源（setext 式的下划线标题、直接写在文档里的 `<h2>` 也算），而包装文档自己不插入任何标题，所以键与表格的配对完全由文档里真实的 `h2` 决定。一张表也没有时退一步：围栏代码块渲染成 `<pre>`，里面的 JSON 原样解析；再退一步按整页文字尝试；都不成就报错，不返回空数组。全过程在标签页里完成，Markdown 引用的图片一个字节都不会被取。',
+      en: 'The most data-shaped thing in a Markdown file is its table, and the most useful data shape out of it is JSON. This route is two steps: the document is rendered to HTML as GFM (`gfm: true`, so pipe tables, strikethrough, task lists and autolinks are all recognised, while `breaks: false` keeps a single newline a soft wrap rather than a line break), the markup passes DOMPurify (the html and svg profiles, so an inline SVG diagram is not deleted as junk), and a non-executing DOMParser then reads the tables. In a table the first row supplies the keys and every later row becomes one object, with rows and cells read inside a “this table only” scope — so `<strong>`, links and nested markup leave only words, and a small table inside a cell cannot contribute its rows to the outer one. Two or more tables make the result an object rather than an array, keyed by the text of the document’s `<h2>` elements: a `##` heading is the usual source of those (a setext underline or an `<h2>` written straight into the document counts too), and the document wrapper inserts no heading of its own, so the pairing is decided entirely by real `<h2>` text. With no table at all it falls back one step and parses a fenced code block (which renders as `<pre>`) as JSON, then tries the page’s whole text, and otherwise reports failure instead of handing back an empty array. None of it touches the network: images the Markdown points at are never fetched.',
+    },
+    keeps: {
+      zh: [
+        '表格按 GFM 语法识别：表头行给出键名，每一条数据行成为一个对象，表头行自己不会混进结果',
+        '只看这张表自己：单元格里的 `**粗体**`、链接与嵌套标记只留下文字，表格套在单元格里也不会凭空多出记录',
+        '两张以上的表按 `##` 小标题分组：键就是文档里真实的 `h2` 文字，包装文档不会插入自己的标题来捣乱',
+        '没有表格时读代码块：围栏代码块渲染成 `<pre>`，被包在里面的 JSON 能原样救回来',
+      ],
+      en: [
+        'Tables are read as GFM syntax: the header row names the keys, each data row becomes one object, and the header row itself never appears in the result',
+        'Only the table’s own rows and cells are read, so `**bold**`, links and nested markup leave words behind and a table inside a cell adds no phantom records',
+        'Two or more tables group under the `##` headings: the keys are the document’s real `<h2>` text, since the wrapper inserts no heading of its own',
+        'With no table, a fenced code block is read: it renders as `<pre>`, so JSON someone wrapped in a code fence comes back as it stands',
+      ],
+    },
+    limits: {
+      zh: [
+        '分组键与表格按**出现顺序**配对，不是「就近的标题」：两张表之间多写一个不带表格的 `##` 小节，后面的键就整体错位；标题不够时退到 `Sheet2` 这类名字',
+        '代码块回退只看文档里第一个 `<pre>`：它排在真正的 JSON 块之前就会解析失败，即使后面那块是合法 JSON',
+        '表格那一步的值一律是字符串：JSON 里不会出现真数字与真日期，`00424`、`1,234`、`2024-01-05` 都按写下的字符保留（代码块回退不同——它把那段文字按 JSON 解析，里面的类型就是文档本来写的）',
+        '键的三处坑：表头里重复或空白的格子互相覆盖；比表头多出的单元格被丢掉，比表头短的行不会补键；图片单元是空值（`<img>` 没有文字，`alt` 也不进结果），链接地址不保留',
+        '两张表转不成 CSV / Excel：这一步给出的是对象，而 JSON 转 CSV 只接受数组，会报「JSON 内容必须是包含数据的数组才能转换为 CSV」——单张表才走得下去',
+      ],
+      en: [
+        'Grouping keys pair with tables by **document order**, not by “nearest heading”: one extra `##` section between two tables shifts every later key; when there are too few headings the name falls back to `Sheet2`',
+        'The code-block fallback reads only the first `<pre>` in the document, so a block ahead of the real JSON fails the parse even when the later one is valid',
+        'Values taken from a table are always strings: no real numbers or dates appear in the JSON, and `00424`, `1,234` and `2024-01-05` keep the characters you wrote (the code-block fallback differs — it parses that text as JSON, so the types inside it are the document’s own)',
+        'Three key pitfalls: a repeated or blank header cell overwrites its twin; cells beyond the header row are dropped and short rows gain no keys; an image cell is empty (`<img>` carries no text, `alt` included) and link addresses are not kept',
+        'Two tables do not reach CSV or Excel: this step hands on an object, and JSON to CSV accepts arrays only, reporting “JSON must be an array containing data to convert to CSV” — only a single table travels on',
+      ],
+    },
+    notes: {
+      zh: [
+        '要的是能继续算的数据：接到 JSON 转 CSV 或转 Excel，两张表请拆成两个文件逐张转，别让分组对象撞上「只接受数组」那道闸',
+        '要的是给人看的文档：Markdown 转 HTML、Word、PDF 都能直接走，不必绕这一圈 JSON',
+        '要的是纯文字：看 Markdown 转 TXT 那张页的说明，表格在那里会散成按阅读顺序排列的行，与这里的对象结构是两种取舍',
+      ],
+      en: [
+        'For data you can compute on: carry the JSON on to CSV or Excel, splitting two tables into two files so the grouped object never meets the “arrays only” gate',
+        'For a document someone reads: Markdown goes to HTML, Word or PDF directly, without this JSON detour',
+        'For plain text: see the Markdown to TXT page — there the table loosens into reading-order lines, a different trade from the objects here',
+      ],
+    },
+    faq: [
+      {
+        q: {
+          zh: '我的 Markdown 里有两张表，会得到什么？',
+          en: 'My Markdown has two tables — what do I get?',
+        },
+        a: {
+          zh: '一个对象，不是数组：键按出现顺序配上文档里的 `<h2>` 文字（Markdown 里通常就是写在那张表上面的 `##`，标题不够时退到 `Sheet2` 这类名字），值各是自己那张表的对象数组。要两份彼此独立的数组，就把两张表放进两个文件分别转。',
+          en: 'An object rather than an array: the keys are the document’s `<h2>` text matched in document order (in Markdown, usually the `##` you wrote above the table; names fall back to `Sheet2` when there are too few), each holding its own array of objects. For two independent arrays, put the tables in two files and convert separately.',
+        },
+      },
+      {
+        q: {
+          zh: '单元格里写了 `**加粗**` 和一个链接，JSON 里是什么？',
+          en: 'A cell has `**bold**` and a link — what lands in the JSON?',
+        },
+        a: {
+          zh: '只有文字。表格单元取的是渲染后元素的 `textContent` 并去掉首尾空白，所以标记与 `href` 都不进结果；图片单元因为没有文字而落成空字符串。需要保留链接地址，请先转成 HTML，那里 `href` 还在。',
+          en: 'Words only. A cell comes from the rendered element’s `textContent` with the ends trimmed, so markup and `href` contribute nothing and an image cell becomes an empty string. Keep the addresses by converting to HTML first — there the `href` survives.',
+        },
+      },
+      {
+        q: {
+          zh: '这条路要先把 Markdown 渲染成 HTML，会去加载文档里引用的图片吗？',
+          en: 'This route renders HTML on the way — does it fetch the images the document references?',
+        },
+        a: {
+          zh: '不会。marked 只在内存里把字符串变成 HTML 文本，DOMPurify 净化后交给 DOMParser（只解析、不执行），扩展也只有 storage 权限、没有 host 权限，所以指向网络的地址在整个过程里一次都没被请求。',
+          en: 'No. marked turns the string into HTML text in memory, DOMPurify sanitises it, DOMParser parses without executing, and with the storage permission only and no host permissions, no address the document points at is ever requested.',
+        },
+      },
+    ],
+  },
+  {
+    slug: 'markdown-to-excel',
+    from: 'md',
+    to: 'xlsx',
+    shot: 'batch-results',
+    published: '2026-10-21',
+    title: {
+      zh: 'Markdown 表格转 Excel——离线、按写下的字符落地、不上传',
+      en: 'Markdown table to Excel offline — values kept, no upload',
+    },
+    desc: {
+      zh: 'Markdown 表格经 HTML、JSON、CSV 三步落进一张工作表：15 位以内的数字变可求和，`00424`、日期串和 16 位以上的账号保持原字符，`=` 开头加护栏。全程离线。',
+      en: 'A GFM table lands in a worksheet via JSON and CSV: numbers become summable, 00424 and 16-digit IDs stay text, and a leading = is disarmed. Offline.',
+    },
+    lede: {
+      zh: '四步的链：Markdown 按 GFM 渲染成 HTML（表格是管道符语法，表头行渲染成 `<thead>` 里的 `<th>`），从 HTML 里按「首行给键名、每行一个对象」取出 JSON，再把 JSON 摊成 CSV（列取所有记录键名的并集），最后由 CSV 写进工作表。真正决定产物形态的是最后一步：读取用的是 `raw: true`，SheetJS 的类型推断器因此完全碰不到数据，`00424` 不会缩成 `424`、`2024-01-05` 不会变成序列号 `45296.33…`、`1/2` 不会变成 2001 年 1 月 2 日；随后只有一道规则把该是数字的格子还回去——十进制形状、`String(Number(x)) === x` 逐字节回得来、且有效数字不超过 15 位。16 位以上刻意留在文本，因为 Excel 只渲染 15 位有效数字，`4111111111111111` 变成数字后打开就是 `4.11111111111111E+15`，那是同一件事晚一步发生。仍是文本的格子再套一层公式护栏，并把数字格式钉成文本——写出的 `xl/styles.xml` 里，那一格用的就是内置格式号 49。上一步 CSV 写的 UTF-8 BOM 在这一步解码时被 TextDecoder 剥掉，所以第一个表头不会带上不可见的 U+FEFF。全程离线，四步都在这个标签页里。',
+      en: 'A four-step chain: the Markdown renders to HTML as GFM (the pipe table’s header row renders as `<th>` inside `<thead>`), JSON is lifted out of that HTML by “first row names the keys, every later row is one object”, the JSON is spread into CSV (columns are the union of every record’s keys), and the CSV is written into a worksheet. The last step is where the artifact’s shape is decided. It reads with `raw: true`, so SheetJS’s type inferrer never touches the data: `00424` does not shrink to `424`, `2024-01-05` does not become the serial `45296.33…`, and `1/2` does not become 2 January 2001. One rule then gives back the number type where it truly was one — decimal shape, `String(Number(x)) === x` returning the exact characters, and at most 15 significant digits. Sixteen and above deliberately stay text, because Excel renders only 15 significant digits and `4111111111111111` opens as `4.11111111111111E+15` once it is a number: the same loss, one step later. Cells still holding text then get the formula guard and a pinned text number format — in the written `xl/styles.xml` that cell carries the built-in format id 49. The UTF-8 BOM the CSV step wrote is stripped by TextDecoder while reading, so the first header never carries an invisible U+FEFF. All four steps run in this tab, offline.',
+    },
+    keeps: {
+      zh: [
+        '表头行成为工作表第一行，每条数据行一行；产物只有一张工作表，表名沿用读取那份 CSV 时得到的名字，而不是这一步新造的',
+        '数字只在字节能逐字回来时才是数字：`1727000000000` 变可求和的数，`00424`、`1/2`、`2024-01-05` 保持写下的字符',
+        '16 位以上的长数字留在文本，因为 Excel 只渲染 15 位有效数字；15 位以内一律不受影响',
+        '最终仍是文本的格子加公式护栏，并把数字格式钉成文本（写出的样式表里那一格就是内置格式号 49）；负数已被判为数字，不会被多加前缀',
+      ],
+      en: [
+        'The header row becomes the worksheet’s first row and each data row one row; the artifact holds a single sheet, named whatever the CSV read produced rather than a name this step invents',
+        'A value is a number only when its bytes come back exactly: `1727000000000` becomes summable, while `00424`, `1/2` and `2024-01-05` keep the characters written',
+        'Numbers of 16 or more significant digits stay text because Excel renders 15; nothing at or below 15 digits is touched',
+        'Cells that remain text get the formula guard and a pinned text number format — the written styles sheet gives that cell the built-in format id 49; a negative number is already typed as a number and gains no prefix',
+      ],
+    },
+    limits: {
+      zh: [
+        '两张以上的表转不成 Excel：中间那份 JSON 是以 `<h2>` 文字为键的对象，而 JSON 转 CSV 只接受数组，整批报「JSON 内容必须是包含数据的数组才能转换为 CSV」——把每张表放进各自的文件',
+        '不会有多张工作表：这条链一次只吃得下一张表，产物永远单 sheet',
+        '列由表头行定名：比表头多出的单元格被丢掉，比表头短的行不会补键；表头里重复或空白的格子互相覆盖；`colspan` / `rowspan` 不展开，被覆盖的格子不产生值',
+        '值在中间那步全是字符串，靠最后一步的取数规则回头判数字：`1,234.50`、`¥100`、`45%`、`+33` 都不是十进制形状，留在文本',
+        "护栏写在字符本身里：以 `=` `+` `-` `@` 开头又仍是文本的格子，产物中该格的值确实以一个 ' 开头（普通文字不受影响）——它换来的是「打开不会被当公式算」",
+        '图片与链接只留文字：`![图](a.png)` 的单元格是空值，`[文字](链接)` 只写「文字」；样式、脚本、任务清单的复选框都不进工作表',
+      ],
+      en: [
+        'Two or more tables do not reach Excel: the intermediate JSON is an object keyed by the document’s `<h2>` text, JSON to CSV accepts arrays only, and the batch fails with “JSON must be an array containing data to convert to CSV” — give each table its own file',
+        'There is no multi-sheet output: this chain eats one table at a time, so the artifact is always a single sheet',
+        'The header row names the columns: cells beyond it are dropped, short rows gain no keys, a repeated or blank header overwrites its twin, and `colspan` / `rowspan` are not expanded — covered cells produce no value',
+        'Values are strings in the middle step and only re-typed at the last: `1,234.50`, `¥100`, `45%` and `+33` are not decimal-shaped and stay text',
+        "The guard lives in the characters themselves: a text cell beginning with `=`, `+`, `-` or `@` holds a leading ' in the written file (ordinary words are untouched), which is what keeps it from being computed as a formula on open",
+        'Images and links leave words only: a `![图](a.png)` cell is empty, `[text](url)` writes “text”, and styling, scripts and task-list checkboxes contribute nothing to the sheet',
+      ],
+    },
+    notes: {
+      zh: [
+        '只想看数据、不需要电子表格：Markdown 转 JSON 或转 CSV，多张表的限制在那两页各自写着',
+        '要给人阅读的成品：Markdown 转 Word、PDF 或 HTML，排版与样式都在那边',
+        '反方向读回工作表：Excel 转 CSV / JSON / Markdown，多 sheet 会按 sheet 各自成段',
+      ],
+      en: [
+        'For the data without a spreadsheet: Markdown to JSON or to CSV, each page stating its own multi-table limit',
+        'For something someone reads: Markdown to Word, PDF or HTML, where the layout lives',
+        'Coming the other way: Excel to CSV, JSON or Markdown, with each worksheet getting its own section',
+      ],
+    },
+    faq: [
+      {
+        q: {
+          zh: 'Markdown 表格里的数字，进到 Excel 会变成什么？',
+          en: 'What happens to the numbers in my Markdown table?',
+        },
+        a: {
+          zh: '看它写下的字符：十进制形状、能逐字节回得来、有效数字不超过 15 位的变成真数字，可以求和；`00424`、`2024-01-05`、`1/2`、16 位的卡号都留在文本，并钉住文本格式（写出的那一格是内置格式号 49）。',
+          en: 'It depends on the characters written: decimal-shaped values that round-trip byte for byte with at most 15 significant digits become real, summable numbers; `00424`, `2024-01-05`, `1/2` and a 16-digit card number stay text, pinned to the built-in text number format.',
+        },
+      },
+      {
+        q: {
+          zh: '为什么两张表就报错，一张就没事？',
+          en: 'Why does one table work and two fail?',
+        },
+        a: {
+          zh: '因为中间那步 HTML 转 JSON 对单张表给数组、对多张表给「标题 → 数组」的对象，而对象撞上 JSON 转 CSV 那道「必须是数组」的闸。要两张表，就把它们拆到两个 Markdown 文件里分别转，各自出一份 xlsx。',
+          en: 'Because the HTML-to-JSON step in the middle yields an array for one table but an object of “heading → array” for several, and that object meets CSV’s “arrays only” gate. For two tables, split them into two Markdown files and convert separately, producing one workbook each.',
+        },
+      },
+      {
+        q: {
+          zh: '四步都在本地跑吗？文件会不会经过网络？',
+          en: 'Do all four steps run locally? Can the file touch the network?',
+        },
+        a: {
+          zh: '四步都在扩展自己的标签页里完成，用的库（marked、DOMPurify、SheetJS 等）全部打进包里。扩展只申请 storage 权限、没有 host 权限，构建后的产物另有两道离线守卫盯着，所以既没有上传，也没有下载。',
+          en: 'All four steps run inside the extension’s own tab, with every library (marked, DOMPurify, SheetJS) bundled in. The extension requests the storage permission and no host permissions, and two offline guards audit the built artifact, so nothing is uploaded and nothing is fetched.',
+        },
+      },
+    ],
+  },
 ];

@@ -76,14 +76,6 @@ export const HUBS = [
       },
     ],
     targets: {
-      xlsx: {
-        zh: 'Markdown 表格经 HTML 与 JSON 中转后写成工作表：首行当表头，单元格只保留文本；标题、段落与列表没有单元格可落，不进入结果。',
-        en: 'Markdown tables travel through HTML and JSON into a worksheet: the first row becomes headers and cells keep their text. Headings, paragraphs and lists have no cell to land in and do not appear.',
-      },
-      json: {
-        zh: 'Markdown 表格写成对象数组：首行是键，每个单元格是字符串；多张表按所在的小标题分组。没有表格时，代码块里的 JSON 会被格式化返回，其它正文报错。',
-        en: 'Markdown tables become arrays of objects: the first row supplies keys and every cell is a string; several tables are grouped under their headings. With no table, a JSON code block is pretty-printed, and other prose fails.',
-      },
       png: {
         zh: '把渲染后的整页拍成一张 PNG：宽度跟随页面布局，高度随内容增长；超过 32768 px 会报「页面过高」，不静默截断。取不到字节的图片按张数披露。',
         en: 'The rendered page is captured as one PNG: width follows the layout and height grows with the content. Past 32768 px the route reports an over-tall page instead of truncating silently, and images without bytes are counted.',
