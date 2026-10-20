@@ -5903,4 +5903,200 @@ export const PAIRS = [
       },
     ],
   },
+  {
+    slug: 'json-to-html',
+    from: 'json',
+    to: 'html',
+    shot: 'batch-results',
+    published: '2026-10-21',
+    title: {
+      zh: 'JSON 转 HTML 查看器——离线、可折叠、不上传',
+      en: 'JSON to HTML viewer offline, collapsible, no upload',
+    },
+    desc: {
+      zh: '把 JSON 变成一份能双击打开的自包含网页：可折叠的层级树、按类型着色、数组与对象带计数，值全部作为转义文字呈现。',
+      en: 'JSON becomes a self-contained page you can double-click: a collapsible tree, colour by type, array and object counts, every value escaped as text.',
+    },
+    lede: {
+      zh: '一坨压成一行的 JSON 用编辑器看很累，而在线格式化器要把数据交出去。这条路把 JSON 解析后渲染成一棵折叠树：键、字符串、数字、布尔与 `null` 各有独立样式，每个对象与数组都是一个默认展开的 `<details>`，摘要写着 `Object(4)`、`Array(3)`，空对象与空数组直接收成 `{}`、`[]`。所有名字与值都经过转义后作为**文字**写出，所以产物里没有能被浏览器执行的标记，也没有任何指向网络的引用——文件本身也只带一份内联样式表。渲染器是显式栈的迭代实现，这一点是刻意的：递归版本在解析成功之后仍会在很深的结构上把栈耗尽，把一次正常转换报成 `RangeError`。',
+      en: 'A JSON blob squeezed onto one line is painful in an editor, and an online formatter asks you to hand over the data first. This route parses the file and renders a collapsible tree: keys, strings, numbers, booleans and `null` each get their own style, every object and array is a `<details>` expanded by default whose summary reads `Object(4)` or `Array(3)`, and empty ones collapse to `{}` and `[]`. Names and values are escaped and written as **text**, so the artefact contains no markup the browser can execute and no reference to the network — the file carries one inline stylesheet and nothing else. The renderer is an explicit-stack loop rather than recursion, deliberately so: the recursive version kept exhausting the stack on very deep documents after a successful parse, turning an ordinary conversion into a `RangeError`.',
+    },
+    keeps: {
+      zh: [
+        '类型可分辨：键、字符串、数字、布尔与 `null` 各自着色，不必靠引号去猜 `30` 与 `"30"` 是不是同一个东西',
+        '计数随行：折叠状态下也看得见 `Object(4)` / `Array(n)`，「这里有几项」不用展开就知道',
+        '值按文字写出：所有名字与标量都先转义，产物里没有可执行标记，也没有远程引用，双击打开不会替你请求任何东西',
+        '深结构不再炸栈：渲染走显式栈的迭代实现，几百层嵌套的文档也只会得到一份很长的页面，而不是 `RangeError`',
+      ],
+      en: [
+        'Types stay distinguishable: keys, strings, numbers, booleans and `null` are coloured separately, so nobody has to guess from quotes whether `30` and `"30"` are the same thing',
+        'Counts travel with the node: `Object(4)` / `Array(n)` are visible even while collapsed, so “how many items here” needs no clicking',
+        'Values are written as text: names and scalars are escaped first, so the artefact carries no executable markup and no remote reference — double-clicking it asks the network for nothing',
+        'Deep structures no longer blow the stack: the renderer walks an explicit work list, so a document hundreds of levels deep yields a long page instead of a `RangeError`',
+      ],
+    },
+    limits: {
+      zh: [
+        '默认全部展开：折叠能力在文件里（`<details>`），但初打开时树是全开的，超大文档会得到一屏接一屏的内容',
+        '产物是给人看的展示物，不是可再解析的数据源：里面没有原始字节顺序与缩进，也没有「哪层是数组哪层是对象」的可编程语义',
+        '搜索与折叠操作只有浏览器自带的：产物没有本工作台预览面板里的搜索框、计数器与表格视图',
+        '不做的加工：不排序键、不去重、不展开 JSON 字符串里嵌套的 JSON、也不按字段做表格投影（那是预览里的表格视图）',
+        '非法 JSON 直接报错而不是尽力修复；输入按严格解码链读取（UTF-16 嗅探 + UTF-8 → GB18030 → GBK），读不出文本时报错而非产出乱码',
+      ],
+      en: [
+        'Everything starts expanded: the folding exists in the file as `<details>`, but the tree opens fully, so a huge document is a lot of scrolling',
+        'The artefact is for reading, not for parsing back: key order and indentation are not preserved as data, and there is no machine-readable meaning in which level was an array',
+        'Searching and collapsing are the browser’s own: the file has none of the workbench preview’s search box, match counter or table projection',
+        'No processing is done: keys are not sorted, nothing is de-duplicated, JSON inside a string is not unpacked, and no per-field table projection happens (that is the preview’s table view)',
+        'Invalid JSON fails instead of being repaired; input goes through the strict decode chain (UTF-16 sniffing plus UTF-8 → GB18030 → GBK) and fails rather than producing mojibake',
+      ],
+    },
+    notes: {
+      zh: [
+        '要能筛排的数据表：JSON 转 CSV（对象数组按键取并集，缺的键留空）或转 Excel',
+        '要一份可归档、可打印的快照：JSON 转 PDF（整页渲染成图片，没有文字层）或转 Word',
+        '只想在浏览器里读着看却不需要文件：工作台预览自带搜索、可见行计数与数组表视图，比产物更适合翻阅',
+      ],
+      en: [
+        'For data you can filter and sort: JSON to CSV (an array of objects becomes columns from the union of keys, missing ones empty) or to Excel',
+        'For an archivable, printable snapshot: JSON to PDF — whole pages of bitmaps with no text layer — or to Word',
+        'To read it in the browser without needing a file: the workbench preview has search, a visible-row count and an array table view, which suits skimming better than the artefact does',
+      ],
+    },
+    faq: [
+      {
+        q: {
+          zh: '这个 HTML 里会不会藏着我数据里的脚本？',
+          en: 'Can a script inside my data survive into the HTML?',
+        },
+        a: {
+          zh: '不会。键与值都是先转义再写出的文字，`<script>` 之类只会显示成字符；文件里也没有任何指向网络的引用。这也是本项目对「不可信输入」的统一做法：渲染边界先净化或转义。',
+          en: 'No. Names and values are escaped before they are written, so `<script>` shows up as characters, and the file references nothing on the network. That is the project’s standing rule for untrusted input: sanitise or escape at the rendering boundary first.',
+        },
+      },
+      {
+        q: {
+          zh: '为什么打开后没有搜索框？',
+          en: 'Why is there no search box in the file?',
+        },
+        a: {
+          zh: '产物是纯静态展示标记，搜索、匹配计数与数组表视图属于工作台的预览面板。要用浏览器的 Ctrl+F，或者回到工作台里预览。',
+          en: 'The artefact is static presentation markup; search, match counts and the array table view belong to the workbench preview. Use the browser’s Ctrl+F, or preview inside the workbench.',
+        },
+      },
+      {
+        q: {
+          zh: '很大的 JSON（几十 MB）能转吗？',
+          en: 'Will a very large JSON file (tens of MB) convert?',
+        },
+        a: {
+          zh: '能试，但有界：单个文件上限 100 MB、一批最多 200 个。深结构不会再炸栈，但产物会是非常长的一页——真要翻阅建议先在源头分段，或改用转 CSV / Excel。',
+          en: 'You can try: 100 MB per file and 200 files per batch. Deep structures no longer exhaust the stack, but the result is a very long page — for real skimming, split the source or take CSV / Excel instead.',
+        },
+      },
+      {
+        q: {
+          zh: '数据会离开这台电脑吗？',
+          en: 'Does the data ever leave this machine?',
+        },
+        a: {
+          zh: '不会。解析、着色、折叠标记全部在扩展自己的标签页里完成，只申请 storage 权限、没有 host 权限，全程零网络请求。',
+          en: 'No. Parsing, colouring and the folding markup all happen inside the extension’s own tab: the storage permission only, no host permissions, and no requests at any point.',
+        },
+      },
+    ],
+  },
+  {
+    slug: 'html-to-json',
+    from: 'html',
+    to: 'json',
+    shot: 'batch-results',
+    published: '2026-10-21',
+    title: {
+      zh: 'HTML 转 JSON——离线、表格成对象、不上传',
+      en: 'HTML to JSON offline — tables become objects, no upload',
+    },
+    desc: {
+      zh: '把网页里的 `<table>` 变成对象数组：首行当键名，`<th>` 与 `<td>` 都算一格；多张表按小标题分组。全程离线，页面里不请求任何东西。',
+      en: 'Turn a page’s `<table>` into objects: the first row supplies keys, `th` and `td` both count, and several tables group by heading. Offline — nothing is fetched.',
+    },
+    lede: {
+      zh: '从保存下来的网页、邮件或富文本里取数据，最省事的结果是一份能喂给程序的 JSON。这条路只认文档里的 `<table>`：首行给出键名，其余每行成为一个对象；取行取格都用「只看这张表自己」的作用域，所以表头用 `<th>` 写的文档不会因为只读 `<td>` 而整列左移，表格套在单元格里也不会把内层的行摊平成外层的数据行。没有表格时会退一步：把 `<pre>` / `<code>` 里的内容当 JSON 解析（那是从代码块救回数据的常用一路），再不行就报错，不返回空结果。整个过程在标签页里完成——解析用 DOMParser，它只解析不执行，页面里指向网络的图片与脚本一概不会被请求。',
+      en: 'When the data lives in a saved page, an email or a rich-text blob, the useful result is JSON a program can read. This route looks only at the document’s `<table>` elements: the first row supplies the keys and each later row becomes an object. Rows and cells are read with a “this table only” scope, so a page whose header row is written with `<th>` cannot shift every value one column left, and a table nested inside a cell does not have its rows flattened into the outer table’s data. With no table at all it falls back one step and parses the text of a `<pre>` / `<code>` block as JSON — the usual way to rescue data out of a code block — and otherwise reports failure rather than handing back an empty result. None of it reaches the network: DOMParser parses without executing, and images or scripts the page points at are never fetched.',
+    },
+    keeps: {
+      zh: [
+        '首行给键名、每行一个对象；`<th>` 与 `<td>` 同等对待，用 `<th>` 写表头的规范文档不会因此错位',
+        '只看这张表自己：内层表格的行不会混进外层数据行，文档里表格套表格也不会凭空多出记录',
+        '单元格取 `textContent` 并去掉首尾空白：链接与嵌套标记只剩文字，样式与结构不会污染值',
+        '没有表格时读 `<pre>` / `<code>`：一份被包进代码块的 JSON 还能原样救回来',
+      ],
+      en: [
+        'The first row names the keys and each later row becomes an object, with `th` and `td` treated alike, so a properly written header cannot shift the values',
+        'Only the table’s own rows are read, so a nested table contributes neither rows nor phantom records to the outer one',
+        'Cells come from `textContent` with the ends trimmed: links and nested markup leave only words, so styling and structure cannot contaminate values',
+        'With no table, `<pre>` / `<code>` is read: JSON that someone wrapped in a code block can be rescued as it stands',
+      ],
+    },
+    limits: {
+      zh: [
+        '多张表不再是一个数组：两张以上会输出以文档小标题为键的**对象**（标题不足时用 `Sheet2` 这类名字），顺序按文档而不是按语义',
+        '列数由首行决定：某行比表头多出的单元格会被丢掉，缺的列不会补键；表头里重复或为空的格子会互相覆盖，跨 `colspan` 的表头只算一格',
+        '合并区不展开：被 `colspan` / `rowspan` 覆盖的格子不产生值，所以那一行的列会左移（要稳定的列位置，先在源文件里取消合并）',
+        '值一律是字符串：JSON 里不会有真数字与真日期；`colspan`、`scope`、样式、脚本、表单与图片都不进结果，链接地址也不保留',
+        '畸形或空表格不会静默产出 `[]`：解析不出可用记录时报错；空数组、对象数组、混形数组这些情况请按 JSON 转 CSV 那条的 `_value` 规则去看',
+      ],
+      en: [
+        'Several tables are no longer one array: two or more produce an **object** keyed by the document’s headings (falling back to names like `Sheet2`), in document order rather than semantic order',
+        'The first row defines the columns: cells beyond it are dropped, short rows do not gain keys, a repeated or empty header overwrites its twin, and a header spanning `colspan` counts once',
+        'Merged ranges are not expanded: cells covered by `colspan` / `rowspan` produce no value, so that row’s columns shift left — unmerge in the source for stable positions',
+        'Every value is a string: no real numbers or dates in the JSON; `colspan`, `scope`, styles, scripts, form controls and images leave nothing behind, and link addresses are not kept',
+        'A malformed or empty table does not quietly yield `[]` — it reports failure; for arrays of mixed or scalar shapes, see the `_value` rule on the JSON to CSV route',
+      ],
+    },
+    notes: {
+      zh: [
+        '要的是能继续算的表格：取到 JSON 之后走 JSON 转 CSV 或转 Excel；多张表请先逐张转，别让分组对象撞上「只接受数组」那道闸',
+        '要的是可读的网页或文档：直接 HTML 转 Word、转 PDF 或转 Markdown，不必先绕 JSON',
+        '只想留一份可复查的原始数据：HTML 转 TXT 会按阅读顺序抽文字，比 JSON 更贴近页面看到的内容',
+      ],
+      en: [
+        'For a table you can compute on: take the JSON on to CSV or Excel, and convert several tables one at a time so the grouped object never meets the “arrays only” gate',
+        'For something readable: go HTML to Word, to PDF or to Markdown directly instead of routing through JSON',
+        'To keep the page as it reads: HTML to TXT extracts words in reading order, which stays closer to the page than JSON does',
+      ],
+    },
+    faq: [
+      {
+        q: {
+          zh: '我的页面里有三张表，会得到什么？',
+          en: 'My page has three tables — what do I get?',
+        },
+        a: {
+          zh: '一个对象，而不是数组：键取每张表前面的小标题（没有足够的标题时退到 `Sheet2` 这类名字），值分别是各自的对象数组。要三份彼此独立的数组，就把表分开到三个文件里逐张转。',
+          en: 'An object rather than an array: the keys come from the headings above each table (falling back to names like `Sheet2` when there are not enough), each holding its own array of objects. For three independent arrays, split them into three files and convert one at a time.',
+        },
+      },
+      {
+        q: {
+          zh: '转出来的数字为什么带引号？',
+          en: 'Why are the numbers quoted?',
+        },
+        a: {
+          zh: '因为 HTML 单元格里只有文字，这一层不做类型猜测——猜过就把 `00123` 变成 `123`、把 `1/2` 变成日期。需要真数字，请在下游按列自己转（本项目在 CSV / Excel 那几条路上刻意保留原字符）。',
+          en: 'Because a cell holds words, and this layer guesses no types — guessing is how `00123` becomes `123` and `1/2` becomes a date. Convert per column downstream when you need numbers; the CSV and Excel routes here deliberately keep the file’s own characters.',
+        },
+      },
+      {
+        q: {
+          zh: '打开那份 HTML 会加载它引用的图片和脚本吗？',
+          en: 'Does opening that page fetch the images and scripts it references?',
+        },
+        a: {
+          zh: '不会。这里读取的是文件自己的字节，解析用 DOMParser（只解析、不执行），扩展也只有 storage 权限、没有 host 权限，因此产物里指向网络的地址同样不会被请求。',
+          en: 'No. The file’s own bytes are read, parsing goes through DOMParser (which parses without executing), and with the storage permission only and no host permissions, addresses inside the page are never fetched either.',
+        },
+      },
+    ],
+  },
 ];
