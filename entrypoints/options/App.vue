@@ -911,14 +911,24 @@ onUnmounted(() => {
 
 .result-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--fat-space-sm);
   margin-top: var(--fat-space-sm);
 }
 
 /* Three slots when a batch lost a file, two when it did not; `flex: 1` on all of them keeps 重新转换
-   and 撤销 in the same place either way. Element Plus buttons are `white-space: nowrap`, so the labels
-   set the row's minimum width and the short Chinese strings leave room to spare at the ≤640px
-   breakpoint — no wrap rule needed, and none of the existing buttons moved. */
+   and 撤销 in the same place either way. Wrap is unconditional because it is inert while the row fits
+   (`flex: 1` means `1 1 0%`, so the break decision uses each label's min-content width, and
+   `.reset-btn`'s `width: 100%` never wins the main size). Measured 2026-10-20 with a batch that lost
+   one file (`重新转换` + `重试失败项 (1)` / `Convert Again` + `Retry failed files (1)`): the Chinese pair
+   fits at every width — at 360px it spans 29..331 inside a 302px row and at 320px 29..291 inside 262px,
+   `scrollWidth` equal to the row both times. Element Plus buttons are `white-space: nowrap`, so the
+   English pair does not fit: at 360px it needed 309px and overhung its own box by 7px, and at 320px it
+   reached x=338 against a card ending at 304, which grew the whole page to `scrollWidth` 338 inside a
+   320px viewport. The suite reproduces that last case with a classic scrollbar in place — with the rule
+   deleted it printed `retry right 338 vs card right 300, document scrollWidth 337 vs clientWidth 316` —
+   and with wrap both locales report `scrollWidth == clientWidth` at 360, 320 and every wider step, the
+   layout at 390px and above unchanged in both. */
 .result-actions .reset-btn,
 .result-actions .retry-btn,
 .result-actions .undo-btn {

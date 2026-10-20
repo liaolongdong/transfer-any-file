@@ -580,4 +580,21 @@ async function handleImportChange(e: Event): Promise<void> {
 .hidden-file-input {
   display: none;
 }
+
+/* Both children of this row refuse to shrink — `.history-trend` is `flex: 0 0 auto` (a 120px svg)
+   and `.history-head-actions` is `flex-shrink: 0` (three `nowrap` labels) — and the card body that
+   holds them is `overflow: clip`. Measured 2026-10-20 at 480px the 清空历史 button already sits
+   16px past the clip box, and from 430px down its centre stops hit-testing, i.e. the button to
+   empty your history cannot be clicked. `document.scrollWidth` still equals the viewport width at
+   every one of those sizes, so no scrollbar ever appears to say so. Let the actions drop under the
+   chart instead: after the fix the three labels measured 29..297 at 360px, i.e. they need ~268px and
+   the clipped body gives them ~314px, so one wrapped line is enough. Same shape and same threshold
+   as `.comparison-toolbar`. With the rule deleted again for a mutation check, the suite printed
+   `wrap=nowrap, last button right 479 vs clip right 343`, which is the same overhang measured
+   independently in a one-off probe. */
+@media (width <= 480px) {
+  .history-head {
+    flex-wrap: wrap;
+  }
+}
 </style>

@@ -5399,6 +5399,25 @@ async function run() {
           `icon top ${align.iconTop} vs title top ${align.titleTop} in a ${align.alertH}px alert (need ≥ 60px)`,
         );
 
+      // A second batch on this page: the history head only draws its trend chart from >= 2 records,
+      // and the chart is the half that used to push the actions row past the card's clip box. Then
+      // every collapsed card is opened by reading `aria-expanded` rather than toggling blindly, so
+      // the row below is measured in the state a user actually sees.
+      await dPage.click('.convert-btn');
+      await dPage.waitForTimeout(800);
+      await dPage.waitForFunction(
+        () => {
+          const button = document.querySelector('.convert-btn');
+          return !!button && !button.classList.contains('is-loading');
+        },
+        undefined,
+        { timeout: 40000 },
+      );
+      await dPage.evaluate(() => {
+        for (const head of document.querySelectorAll('.collapsible-head[aria-expanded="false"]')) head.click();
+      });
+      await dPage.waitForTimeout(700);
+
       // One toolbar row needs ~415px in the wider locale (measured in English), and the card's
       // `overflow: hidden` hides what does not fit — at 360px the sync checkbox hung half past the
       // card edge with `document.scrollWidth` still reading 360, so nothing looked scrollable.
@@ -5429,6 +5448,104 @@ async function run() {
         path: shot(`${String(shotIdx++).padStart(2, '0')}-narrow-toolbar.png`),
         fullPage: true,
       });
+
+      // The two rows that refuse to shrink. `history-head` is a 120px chart plus three `nowrap`
+      // labels inside a card body that is `overflow: clip`; `result-actions` is `flex: 1` slots whose
+      // English labels need 309px where the row offers 302 (measured 2026-10-20: at 320px the pair
+      // reached x=338 past a card ending at 304, and the page grew to scrollWidth 338). Both wrap now,
+      // so the last control stays inside its container at 360px instead of sitting out of reach.
+      const rows = await sampleWithoutMotion(dPage, () =>
+        dPage.evaluate(() => {
+          const clipRight = el => {
+            let n = el.parentElement;
+            while (n) {
+              const cs = getComputedStyle(n);
+              if (/hidden|clip|auto|scroll/.test(cs.overflowX + ' ' + cs.overflowY)) {
+                return Math.round(n.getBoundingClientRect().right - (parseFloat(cs.borderRightWidth) || 0));
+              }
+              n = n.parentElement;
+            }
+            return Number.NaN;
+          };
+          const head = document.querySelector('.history-head');
+          const acts = document.querySelector('.result-actions');
+          const btns = head ? [...head.querySelectorAll('button')] : [];
+          const last = btns[btns.length - 1];
+          // `.history-trend`, not `svg`: the export / import / clear buttons each carry an `el-icon`
+          // that renders an `<svg>` too, so a bare svg probe would report the chart as present even
+          // with one record — and with no chart the row has no overhang to fail on.
+          const trend = head ? head.querySelector('.history-trend') : null;
+          return {
+            headWrap: head ? getComputedStyle(head).flexWrap : 'no .history-head',
+            lastRight: last ? Math.round(last.getBoundingClientRect().right) : Number.NaN,
+            headClip: head ? clipRight(head) : Number.NaN,
+            chart: !!trend,
+            actsWrap: acts ? getComputedStyle(acts).flexWrap : 'no .result-actions',
+          };
+        }),
+      );
+      if (rows.chart && rows.headWrap === 'wrap' && rows.lastRight <= rows.headClip + 1)
+        ok('At 360px the history head wraps its actions under the chart instead of past the card');
+      else
+        fail(
+          'History head at 360px',
+          `chart=${rows.chart}, wrap=${rows.headWrap}, last button right ${rows.lastRight} vs clip right ${rows.headClip}`,
+        );
+      if (rows.actsWrap === 'wrap')
+        ok('The result actions row can wrap, which is what keeps the wider locale inside the card');
+      else fail('Result actions row wrap', `flex-wrap is ${rows.actsWrap}, not wrap`);
+
+      // …and here is the wider locale itself. The Chinese pair fits at every width (measured: two
+      // slots span 29..331 inside a 302px row at 360px), so a `flex-wrap` pin alone would never have
+      // touched the defect. This page is seeded English and stages a batch that loses one file, which
+      // is what renders the second slot; before the fix that pair needed 309px where the row offered
+      // 302 at 360px, and at 320px it reached x=338 past a card ending at 304 while the page grew to
+      // scrollWidth 338. Only class-based selectors — nothing here reads a Chinese string.
+      const ePage = await browser.newPage();
+      tolerateScreenshotTimeout(ePage);
+      trackPageErrors(ePage);
+      try {
+        await ePage.setViewportSize({ width: 1280, height: 900 });
+        await ePage.addInitScript(mockChromeStorage({ 'fat:locale': 'en' }));
+        await ePage.goto(`http://localhost:${PORT}/options.html`);
+        await ePage.waitForTimeout(1200);
+        const eFi = await ePage.waitForSelector('input[type="file"]', { state: 'attached', timeout: 10000 });
+        await eFi.setInputFiles([
+          {
+            name: 'sample.md',
+            mimeType: 'text/markdown',
+            buffer: fs.readFileSync(path.join(FIXTURE_PATH, 'sample.md')),
+          },
+          { name: 'broken.bmp', mimeType: 'image/bmp', buffer: Buffer.from('this is not a bitmap') },
+        ]);
+        await ePage.waitForTimeout(1000);
+        await pickTarget(ePage, 'PDF (.pdf)');
+        await ePage.click('.convert-btn');
+        await ePage.waitForSelector('.result-actions .retry-btn', { timeout: 60000 });
+        await ePage.setViewportSize({ width: 320, height: 800 });
+        await ePage.waitForTimeout(450);
+        const wide = await sampleWithoutMotion(ePage, () =>
+          ePage.evaluate(() => {
+            const retry = document.querySelector('.result-actions .retry-btn');
+            const card = retry.closest('.card') ?? retry.parentElement;
+            return {
+              retryRight: Math.round(retry.getBoundingClientRect().right),
+              cardRight: Math.round(card.getBoundingClientRect().right),
+              docScroll: document.documentElement.scrollWidth,
+              innerWidth: document.documentElement.clientWidth,
+            };
+          }),
+        );
+        if (wide.retryRight <= wide.cardRight && wide.docScroll <= wide.innerWidth)
+          ok('At 320px the English action row stays inside its card and does not widen the page');
+        else
+          fail(
+            'Result actions at 320px (en)',
+            `retry right ${wide.retryRight} vs card right ${wide.cardRight}, document scrollWidth ${wide.docScroll} vs clientWidth ${wide.innerWidth}`,
+          );
+      } finally {
+        await ePage.close().catch(() => {});
+      }
     } catch (e) {
       fail('Disabled button states', e.message);
     } finally {

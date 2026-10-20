@@ -52,7 +52,7 @@
 以后再补跑的成本（本机需要手动装过 ffmpeg 与 chromium 二进制）：
 
 ```bash
-pnpm test:e2e        # = wxt build + node scripts/e2e-test.mjs，断言基线 410 条
+pnpm test:e2e        # = wxt build + node scripts/e2e-test.mjs，断言基线 413 条
 ```
 
 **2026-09-29 这一轮（JSON 预览的树 / 数组表 / 搜索 + 仓库外的对比页）跑满了 e2e，改在 `E2E_HEADLESS=true` 下跑**：
@@ -514,6 +514,20 @@ rgb(241,245,249)` 就是它；修法是内联 `transition: none !important`，�
   产物 manifest 权限恰为 `["storage"]`）、两层远程代码、`verify:paths`（48 边 / 182 对）、`pages:check`
   （60 文件）、`verify:listing`、`verify:numbers`（23 事实 × 65 散文）、`verify:release-ci`、全量 e2e，
   全部 `rc=0`；退出码逐个现捕——管道会把它们吞成 `tail` 的 0，这一轮我自己先踩过一次。
+
+- **同日第二轮（窄屏两行不肯缩的控件）：413/413、92 张截图、基线 410 → 413。** 上一轮派出去的只读窄屏审计给了五处候选，本轮**逐处实测**，结果不是一边倒的：
+
+  _成立两处_。`HistoryPanel.vue` 的 `.history-head` 与已修的工具栏同形——趋势图 `flex: 0 0 auto`（120px svg）加三枚 `nowrap` 文本按钮 `flex-shrink: 0`，祖先 `.collapsible-body` 是 `overflow: clip`：480px 起「清空历史」就压出框 16px，**430px 及以下它的中心命中测试落到 null，也就是清空历史这个动作点不到**，而 `document.scrollWidth` 从头到尾等于视口宽（360/390/430/480 全是），所以永不出滚动条。`entrypoints/options/App.vue` 的 `.result-actions` 是另一回事：中文两个槽位放得下（360px 下 29..331 落在 302px 的行里、`scrollWidth` 与行宽相等，320px 下 29..291 落在 262px 里），**英文放不下**——`Convert Again` + `Retry failed files (1)` 在 360px 需要 309px、超出自己盒子 7px，320px 则伸到 x=338 而卡片止于 304，于是整页 `scrollWidth` 涨到 338。两处都改成可换行（历史那行只在 ≤480px 换，结果那行不加断点，因为在放得下的宽度上 wrap 本来就是惰性的），改完两个语种在 360 与 320 都是 `scrollWidth == clientWidth`。
+
+  _证伪三处_，记下来免得下一轮重新怀疑：审计说工具栏在 481–520 那一段仍会被裁——实测 520/560/640 一个违规都没有（`.comparison-toolbar` 四个控件、零越框）；说 `PreferencesMenu` 的 `.theme-grid` 缺 `minmax(0, …)` 会顶破 320px 的弹层——实测三轨各 92.66px、标签 `nowrap` 但只有 33px 宽，`overflow-x: visible` 且没有越界；说 `.file-list-header` 在 360px 只剩 ~9px 余量——实测中文 360/320 都在框内。审计的算术推算与真实几何差得比预期远，**这就是「候选要先实测」那条纪律的用处**。
+
+  本轮也推翻了我自己写进注释的一个数：给 `.result-actions` 补 wrap 时我先在注释里写了「中文在 360px 占 29..246」——那是没测过就落进文件的数字，随后用两个语种各跑一遍才拿到真值（中文 29..331 / 29..291），注释按实测改写。量具也错了一次：命中测试若不先 `scrollIntoView`，视口外的控件一律报不可点，于是 1280px 上「三个按钮全 NOHIT」是仪器假阳而不是缺陷；修正后 `.history-head` 与 `.comparison-toolbar` 在宽视口都是 `hit=ok`。
+
+  三条新断言并入 `Disabled Button States` 那一节。评审在这节里抓到一个**我自己造的真空**：那条历史断言的前置条件是 `head.querySelector('svg')` 代表「趋势图已渲染」，而那一行三枚 `el-button :icon` 各自也渲染 `<svg>`——所以只要 `.history-head` 存在它就恒 true，「没图就没有越框对象」这道保险形同没写，跑绿跑红都抓不到它（它一直绿）。改成指向组件自己的类名 `.history-trend`（挂在 `v-if="records.length >= 2"` 上），并按要求在本节里真跑第二批转换。另一条教训同型：只钉 `getComputedStyle(...).flexWrap === 'wrap'` 测不到英文那一格（中文两个槽位在任何宽度都放得下），于是另起一页按 `fat:locale: 'en'` 种子、用「一个文件转换失败」的真实批次断结局。
+
+  **牙齿当场验过**：把两条 wrap 规则同时摘掉重跑，三条断言各自报出自己的数——`wrap=nowrap, last button right 479 vs clip right 343`、`flex-wrap is nowrap`、`retry right 338 vs card right 300, document scrollWidth 337 vs clientWidth 316`；装回来之后 `413/413` 零失败零跳过，基线由这一轮自己写下。摘规则用的是一次性编辑、按原样装回，不用 `git checkout`（共享工作树里那会连别人的改动一起抹）。
+
+  定案之前的三轮都值记一笔：第一轮在 `History import size cap` 处报 `ENOSPC: no space left on device`——本机磁盘当时只剩 40 Mi，清掉自己的可再生输出（`.test-screenshots` 37 MB 与本会话的探针/日志）后回到 3.1 Gi；第二轮红在 `Merged image PDF: the merge finished before the cancel landed`，那是**取消与完成抢跑**的计时判据，且该节在本节之前跑，与本轮的 CSS 无关（转换进行中那张卡根本不挂载），单跑该节 `248/248 rc=0`；第三轮把整轮改成 `E2E_HEADLESS=true` 才走通——有头模式下 IDE 的渲染进程把合成饿到每张 `fullPage` 截图超时 20 s，一轮里 17 次超时把 30 条断言拖成 9 分钟，这与第 462-469 行那一格同源：**先 `df` + `ps` 看是谁在吃机器，不抬超时、不改判据**。素材**没重拍**：这两条规则只在 ≤480px 与「放不下」时生效，被拍的是 1280×800 的静止屏，逐条判据见 [[asset-recapture-trigger]]。
 
 ## 3. 收下改动：这一节记的是提交账，不是提交计划
 
