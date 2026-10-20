@@ -4842,28 +4842,28 @@ export const PAIRS = [
       zh: [
         '带引号的逗号、字段内的换行、成对的引号转义，都按 CSV 的语法解析成一个单元格，而不是按逗号切字符串',
         '管道表的结构完整：首行紧跟一行 `---` 分隔线，其余每行一条记录，列数按最宽的一行补齐，短行不会把整张表挤歪',
-        '单元格里的竖线写成 `\\|`、反斜杠写成 `\\`，所以内容本身不会把表撑破',
-        '编码不是前提：按 UTF-8 → GB18030 → GBK 依次尝试解码，老编辑器导出的 GBK 文件也读得进来',
+        '单元格里的竖线写成 `\\|`、反斜杠成对写，所以内容本身不会把表撑破',
+        '编码不是前提：先按 BOM 与 NUL 分布嗅探 UTF-16，再依次尝试 UTF-8 → GB18030 → GBK，老编辑器导出的 GBK 文件也读得进来',
       ],
       en: [
         'Quoted commas, newlines inside a field and doubled quote escapes all parse into one cell under CSV’s grammar, rather than a string split on commas',
         'The pipe table keeps its shape: the first row is followed by a `---` rule, every other row is a record, and rows are padded to the widest one so a short row cannot skew the table',
-        'A pipe in a cell is written as `\\|` and a backslash is escaped, so the content itself cannot break the table apart',
-        'The encoding is not a precondition: input is decoded UTF-8 → GB18030 → GBK, so a GBK file from an older editor still reads',
+        'A pipe in a cell is written as `\\|` and a backslash is doubled, so the content itself cannot break the table apart',
+        'The encoding is not a precondition: UTF-16 is sniffed first from the BOM and the NUL pattern, then UTF-8 → GB18030 → GBK are tried, so a GBK file from an older editor still reads',
       ],
     },
     limits: {
       zh: [
         '结果就是一张表：CSV 没有标题层级，也没有段落，所以 Markdown 里不会多出说明文字——想要前后有正文，先在 Markdown 里自己写',
         '单元格里的换行与连续空白折成一个空格：管道表不能跨行，文字还在，版式没了',
-        '格子里的行内格式不保留：那一格取的是纯文字，所以加粗、链接地址、图片都只剩文字',
+        '格子里的行内格式不保留：那一格取的是纯文字，所以加粗与链接地址消失、链接只剩锚文本；图片没有文字可取，那一格就成了空的',
         '数值不会被「翻译」：`00123` 还是 `00123`，`1-5` 还是 `1-5`——好处是不被改错，代价是它不替你做类型化',
         '一张表最多读 50 万格、整个工作簿最多 100 万格，超过直接报错；四种编码都读不出文本时也报错，不会给你一份乱码文档',
       ],
       en: [
         'The result is one table and nothing else: a CSV has no heading hierarchy and no prose, so no explanatory text appears around it — write that in the Markdown yourself',
         'Newlines and runs of whitespace inside a cell collapse to one space: a pipe table cannot span lines, so the words survive and the layout does not',
-        'Inline formatting inside a cell is not carried over — the cell contributes plain text, so bold, link addresses and images come out as words',
+        'Inline formatting inside a cell is not carried over: the cell contributes plain text, so bold and link addresses disappear and a link keeps only its anchor text, while an image has no text to give — that cell comes out empty',
         'Nothing is “translated”: `00123` stays `00123` and `1-5` stays `1-5` — the benefit is not being misread, the cost is no typing',
         'At most 500,000 cells per sheet and 1,000,000 per workbook are read, and past that it fails; if none of the four encodings yields text it fails too, rather than shipping mojibake',
       ],
@@ -4871,12 +4871,12 @@ export const PAIRS = [
     notes: {
       zh: [
         '一批最多 200 个文件，单个文件上限 100 MB；多个 .csv 一起转逐个产出各自的 .md，想一次拿走就打成一个 ZIP',
-        '转好的表格还能回转：Markdown 转 CSV、转 JSON、转 Excel 都在同一条链路里，往返都以首行为表头',
+        '转好的表格还能回转：Markdown 转 CSV、转 JSON、转 Excel 走的都是同一条链，其中经 JSON 的那几步会把首行当列名用掉',
         '格子里必须有换行或行内格式的话，走 CSV 转 HTML 或转 Word——管道表表达不了这些，那两条不需要先把它压平',
       ],
       en: [
         'Up to 200 files per batch and 100 MB per file; several .csv files yield one .md each, and the set can be taken as a single ZIP',
-        'The table goes back the other way: Markdown to CSV, to JSON and to Excel all sit in the same chain, each treating the first row as headers',
+        'The table goes back the other way: Markdown to CSV, to JSON and to Excel all sit in the same chain, and the steps that pass through JSON spend the first row on column names',
         'If a cell must keep a line break or inline formatting, take CSV to HTML or to Word — a pipe table cannot express those, and neither route has to flatten the cell first',
       ],
     },
@@ -4938,37 +4938,37 @@ export const PAIRS = [
       en: 'A pipe table becomes a CSV you can compute on: first row as column names, values written as values, and a BOM so Excel opens the file without mojibake.',
     },
     lede: {
-      zh: '表格写进 Markdown 容易，想再拿回电子表格里算就麻烦了。这条链路把 Markdown 先渲染成 HTML，再从 `<table>` 提取记录：首行给列名，其余每行一个对象，最后按**值**写成 CSV——不走显示格式，所以 `1727000000000` 不会变成 `1.727E+12`、`true` 不会变成 `TRUE`。正文（标题、段落、列表）没有单元格可落，不参与结果；但如果整篇没有表格，代码块里的一段 JSON 数组也会被读进来。',
-      en: 'Getting a table into Markdown is easy; getting it back into a spreadsheet to compute on is not. This route renders the Markdown to HTML, then reads records out of the `<table>`: the first row supplies column names, every other row becomes an object, and the CSV is written from **values** — not display text — so `1727000000000` is not rewritten as `1.727E+12` and `true` does not become `TRUE`. Headings, paragraphs and lists have no cell to land in and are not part of the result, but with no table at all, a JSON array inside a code block is read instead.',
+      zh: '表格写进 Markdown 容易，想再拿回电子表格里算就麻烦了。这条链路把 Markdown 先渲染成 HTML，再从 `<table>` 提取记录：首行给列名，其余每行一个对象，最后按**值**写成 CSV、不走显示格式——这条链上每个格子本来就是表格里的文本，所以 `2024-01-05` 不会被改写成日期序列号。正文（标题、段落、列表）没有单元格可落，不参与结果；但如果整篇没有表格，代码块里的一段 JSON 数组也会被读进来。',
+      en: 'Getting a table into Markdown is easy; getting it back into a spreadsheet to compute on is not. This route renders the Markdown to HTML, then reads records out of the `<table>`: the first row supplies column names, every other row becomes an object, and the CSV is written from **values** rather than display text — and on this route every cell is already the table’s own text, so `2024-01-05` is not rewritten into a date serial. Headings, paragraphs and lists have no cell to land in and are not part of the result, but with no table at all, a JSON array inside a code block is read instead.',
     },
     keeps: {
       zh: [
         '首行当列名、其余行当记录，键的顺序就按表头那一行；不同行列数不一致时取所有行键名的并集，缺的格子写空值',
-        '按值序列化：数字、长整数、布尔都不会被显示格式重写（这条是量出来的，`sheet_to_csv` 那种会把时间戳变成科学计数法）',
+        '按值写出、不走显示格式：这条链上每个格子本来就是表格里的文本，所以不存在「日期被改成序列号」那一类二次加工',
         '文件开头带 UTF-8 BOM，Excel 双击就是正常中文，不需要「导入向导」',
-        '以 `=`、`+`、`-`、`@` 开头的文本会被加一个前导单引号，防止这份 CSV 再被 Excel 当公式执行',
+        '以 `=`、`+`、`-`、`@` 或制表符 / 回车开头的文本会被加一个前导单引号，防止这份 CSV 再被 Excel 当公式执行——代价是那一格不是逐字节原样',
       ],
       en: [
         'The first row supplies column names and the rest are records, keys in header order; when rows disagree the keys are unioned and a missing cell is written empty',
-        'Serialised from values: numbers, long integers and booleans are never rewritten by a display format — measured, since the text-based alternative turned timestamps into scientific notation',
+        'Written from values rather than display text: every cell on this route is already the table’s own text, so nothing is reformatted on the way out',
         'The file starts with a UTF-8 BOM, so a double-click in Excel shows Chinese correctly without an import wizard',
-        'Text that begins with `=`, `+`, `-` or `@` is prefixed with an apostrophe so the CSV cannot be re-evaluated as a formula by Excel',
+        'Text beginning with `=`, `+`, `-`, `@`, a tab or a carriage return is prefixed with an apostrophe so the CSV cannot be re-evaluated as a formula by Excel — the cost is that such a cell is not a byte-for-byte copy',
       ],
     },
     limits: {
       zh: [
         '只有表格（或一段能当 JSON 数组读的代码块）能变成 CSV：整篇没有可解析的结构时直接报错，不会产出一份空文件',
         '多张表不行：HTML 转 JSON 那一步会把多张表并成「按小标题分组」的一个对象，而 JSON 转 CSV 只吃数组，于是报「JSON 不是数组」。要一张一张拿，先把它们分开转',
-        '只有表头那一行能定列名：某行多出的单元格会被丢掉，缺的列写空——列位置不稳时先补齐表头',
+        '列名只由首行给：某行多出的单元格会被丢掉，缺的列写空；首行里有重复或为空的表头会互相覆盖（同名的后一格赢），跨 `colspan` 的表头也只算一格，所以表头要写干净',
         '格子里的链接只剩文字，地址不进 CSV；加粗、行内代码也只剩内容本身',
-        '表格里再套一张表时，内层的内容被当作那一格的文字压平，不会单独成列',
+        '表格套在单元格里，等于文档里就有两张表：与「多张表」同一格——中转步把它们并成一个分组对象，CSV 那一步拒绝，整次转换报错',
       ],
       en: [
         'Only a table — or a code block that parses as a JSON array — becomes CSV: with nothing parseable in the document it fails rather than writing an empty file',
         'Several tables do not work: the HTML-to-JSON step merges them into one object keyed by their headings, and JSON-to-CSV accepts only arrays, so it reports “not an array”. Convert them one at a time',
-        'The header row alone defines the columns: a row with extra cells has them dropped, a row with fewer gets empty columns — even the header out first for stable positions',
+        'The first row alone names the columns: extra cells in a later row are dropped and missing ones come out empty, a repeated or empty header overwrites its twin (the later cell wins), and a header spanning `colspan` counts as one cell — so write the header row cleanly',
         'A link inside a cell contributes its words only, so the address is not in the CSV, and bold or inline code arrive flattened',
-        'A table nested inside a cell is flattened into that cell’s text rather than becoming columns of its own',
+        'A table nested inside a cell is a second table as far as this route is concerned: the middle step merges the two into one grouped object and the CSV stage refuses it, so the conversion fails the same way several tables do',
       ],
     },
     notes: {
@@ -5000,8 +5000,8 @@ export const PAIRS = [
           en: 'Will a number in a cell come out in scientific notation?',
         },
         a: {
-          zh: '不会。这份 CSV 是按单元格的值写的，不走显示格式——实测那条按文本走的路会把 `1727000000000` 写成 `1.727E+12`、把 `true` 写成 `TRUE`，这条不会。',
-          en: 'No. The CSV is written from each cell’s value rather than its display text — the measured text-based alternative wrote `1727000000000` as `1.727E+12` and `true` as `TRUE`; this route does not.',
+          zh: '不会。这条链上的格子本来就是表格里的文本，写 CSV 时按值原样落地，不走显示格式；表格单元格里也不存在「被 Excel 认出是数字再改写」这一步，因为值从 HTML 取出来就已经是字符串了。',
+          en: 'No. Every cell on this route is the table’s own text, and the CSV writes those values as they are, without a display format — there is no step where Excel recognises a number and rewrites it, because the value read out of the HTML is already a string.',
         },
       },
       {
@@ -5041,34 +5041,34 @@ export const PAIRS = [
       en: 'A table from a saved page becomes a CSV you can compute on: first row headers, `th` and `td` both count as cells, and no remote reference is ever fetched.',
     },
     lede: {
-      zh: '网页存下来的是 HTML，想拿数据还得自己刮。这条链路只认文档里的 `<table>`：首行给出列名，其余每行一条记录，按值写成 CSV。取行取格都用「只看这张表自己」的作用域去读，所以表格套在单元格里时，内层那一堆 `<tr>` 不会被当成外层的数据行；表头用 `<th>` 写的文档也不会因为只读 `<td>` 而整列左移。链接取文字、脚本与样式不进结果，而页面里指向网络的图片与字体一概不会被请求——扩展本身也只有 storage 权限。',
-      en: 'A saved page is HTML, and the data inside it still has to be scraped. This route reads only the `<table>` elements: the first row supplies column names, each other row becomes a record, and the CSV is written from values. Rows and cells are read with a “this table only” scope, so a table nested inside a cell does not have its rows mistaken for the outer table’s data, and a document whose header row is written with `th` does not shift a whole column left. Links contribute their text, scripts and styles are not part of the result, and nothing a page points at on the network is ever requested — the extension carries only the storage permission.',
+      zh: '网页存下来的是 HTML，想拿数据还得自己刮。这条链路只认文档里的 `<table>`：首行给出列名，其余每行一条记录，按值写成 CSV。取行取格都用「只看这张表自己」的作用域去读，所以内层表格的行不会被当成外层的数据行，表头用 `<th>` 写的文档也不会因为只读 `<td>` 而整列左移。链接取文字、表格外的脚本与样式变不成行，而页面里指向网络的图片与字体一概不会被请求——扩展本身也只有 storage 权限。',
+      en: 'A saved page is HTML, and the data inside it still has to be scraped. This route reads only the `<table>` elements: the first row supplies column names, each other row becomes a record, and the CSV is written from values. Rows and cells are read with a “this table only” scope, so a table nested inside a cell does not have its rows mistaken for the outer table’s data, and a document whose header row is written with `th` does not shift a whole column left. Links contribute their text, scripts and styles outside the tables never become a row, and nothing a page points at on the network is ever requested — the extension itself carries only the storage permission.',
     },
     keeps: {
       zh: [
         '首行当列名、其余行当记录；`<th>` 和 `<td>` 都算一格，所以用 `<th>` 写表头的文档不会整列左移',
-        '只取这张表自己的行与格：表格里再套表格时，内层的行不会被摊平成外层的数据行',
-        '按值序列化，日期与数字不经过显示格式重写，文件开头带 UTF-8 BOM，Excel 双击就正常',
+        '只取这张表自己的行与格：内层的行不会被摊平成外层的数据行（但内层那张表本身也算一张表，见下面的限制）',
+        '按值写出、不走显示格式：格子本来就是页面里的文本；文件开头带 UTF-8 BOM，实测 `2024-01-05` 与 `1727000000000` 都原样落地',
         '没有 `<table>` 时会退一步读 `<pre>` / `<code>` 里的 JSON，能解析成数组就有 CSV；解析不了直接报错，不给空文件',
       ],
       en: [
         'The first row supplies column names and the rest are records, with both `th` and `td` counting as cells, so a header written as `th` cannot shift the row one column left',
-        'Only the table’s own rows and cells are taken, so a nested table does not have its rows flattened into the outer table’s data',
-        'Serialised from values — dates and numbers are not rewritten by a display format — and the file starts with a UTF-8 BOM so a double-click in Excel is correct',
+        'Only the table’s own rows and cells are taken, so an inner table’s rows are never flattened into the outer table’s data — though that inner table still counts as a second table, which the limits below come back to',
+        'Written from values rather than display text — the cells are the page’s own text — and the file starts with a UTF-8 BOM: measured, `2024-01-05` and `1727000000000` arrive exactly as written',
         'With no `<table>` at all, a JSON array inside `<pre>` / `<code>` is read instead; anything unparseable is reported rather than an empty file',
       ],
     },
     limits: {
       zh: [
-        '一次只认一张表：页面里有两张以上时，中间那一步会把它们并成「按 `<h2>` 分组」的对象，而 CSV 只接受数组，于是报错。要逐张拿，先各存成一份只含一张表的 HTML',
-        '列数由首行决定：某行比表头多的单元格会被丢掉，少的列写空',
+        '一次只认一张表：页面里有两张以上（**表格套在单元格里也算两张**）时，中间那一步会把它们并成一个按文档里小标题顺序分组的对象（标题不够就用 `Sheet2` 这类名字），而 CSV 只接受数组，于是整次转换报错。要逐张拿，先各存成一份只含一张表的 HTML',
+        '列数由首行决定：某行比表头多的单元格会被丢掉，少的列写空；首行里重复或为空的表头会互相覆盖，跨 `colspan` 的表头只算一格',
         '链接只剩文字，`href` 不进 CSV；表单控件与图片没有文字可贡献，脚本与样式也变不成行',
         '以 `=`、`+`、`-`、`@` 开头的文本会被加一个前导单引号，防止这份 CSV 再被 Excel 当公式执行——所以它不是逐字节原样',
         '读文档用的是宽松解码：脏字节不会变成正文，但也没有「编码猜错就报错」这道闸，编码很怪的旧文件请自己先确认',
       ],
       en: [
-        'One table at a time: with two or more on the page, the middle step merges them into an object keyed by their `<h2>` and CSV accepts only arrays, so it fails. Save one table per file to take them separately',
-        'The first row defines the columns: a row with more cells than the header has the extras dropped, a row with fewer gets empty columns',
+        'One table at a time: with two or more — and a table nested inside a cell counts as a second one — the middle step merges them into one object keyed by the document’s headings in order, falling back to names like `Sheet2` when there are not enough, and CSV accepts only arrays, so the whole conversion fails. Save one table per file to take them separately',
+        'The first row defines the columns: a row with more cells than the header has the extras dropped and a row with fewer gets empty columns, a repeated or empty header overwrites its twin, and a header spanning `colspan` counts once',
         'A link contributes its text, so the `href` is not in the CSV, form controls and images have no text to contribute, and scripts and styles never become a row',
         'Text starting with `=`, `+`, `-` or `@` is prefixed with an apostrophe so the CSV cannot be re-evaluated as a formula, which means it is not a byte-for-byte copy',
         'The document is read with a lenient decoder: stray bytes do not become text, but there is no “fail if the encoding cannot be guessed” gate, so confirm a badly mangled old file yourself',
@@ -5078,12 +5078,12 @@ export const PAIRS = [
       zh: [
         '一批最多 200 个文件，单个文件上限 100 MB；多个 .html 一起转逐个产出各自的 .csv，想一次拿走就打成一个 ZIP',
         '要的是 JSON 对象而不是 CSV，走 HTML 转 JSON——那条能吃多张表（按 `<h2>` 分组成一个对象）',
-        '要的是能再算的工作表而不是纯文本，走 HTML 转 Excel：多张表各成一张工作表，命名同一条提取逻辑',
+        '要的是能再算的工作表而不是纯文本，走 HTML 转 Excel——但那是同一条链的延伸（HTML → JSON → CSV → Excel），所以「多张表」在那里同样被拒绝，只在页面只含一张表时好用',
       ],
       en: [
         'Up to 200 files per batch and 100 MB per file; several .html files yield one .csv each, and the set can be taken as a single ZIP',
         'For JSON objects rather than CSV rows, take HTML to JSON — that route does accept several tables, grouping them under their `<h2>` headings',
-        'For a workbook you can keep computing in, take HTML to Excel: each table becomes its own worksheet with the same extraction logic',
+        'For a workbook you can keep computing in, take HTML to Excel — but that is the same chain extended (HTML → JSON → CSV → Excel), so several tables are refused there too and it works when the page holds one table',
       ],
     },
     faq: [
@@ -5093,8 +5093,8 @@ export const PAIRS = [
           en: 'The page has several tables — can they all become one CSV?',
         },
         a: {
-          zh: '不能。多张表在 HTML 转 JSON 那一步会并成一个按 `<h2>` 分组的对象，而 JSON 转 CSV 只接受数组，所以会明确报错。想全拿就分别存成只含一张表的 HTML，或者改走 HTML 转 Excel / 转 JSON。',
-          en: 'No. Several tables are merged by the HTML-to-JSON step into an object keyed by `<h2>`, and JSON-to-CSV accepts only arrays, so it fails with a clear message. Save one table per file, or take HTML to Excel or to JSON instead.',
+          zh: '不能。多张表在 HTML 转 JSON 那一步会并成一个按文档小标题顺序分组的对象，而 JSON 转 CSV 只接受数组，所以会明确报错。想全拿就分别存成只含一张表的 HTML，或者改走 HTML 转 JSON（那条能吃多张表）。',
+          en: 'No. Several tables are merged by the HTML-to-JSON step into an object keyed by the document’s headings in order, and JSON-to-CSV accepts only arrays, so it fails with a clear message. Save one table per file, or take HTML to JSON instead — that route does accept several tables.',
         },
       },
       {

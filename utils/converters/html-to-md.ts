@@ -18,7 +18,9 @@ function tableToMarkdown(table: HTMLTableElement): string {
   const columns = Math.max(0, ...grid.map(cells => cells.length));
   if (columns === 0) return '';
   const line = (cells: string[]) => `| ${cells.join(' | ')} |\n`;
-  // Ragged rows are legal HTML but break GFM rendering; short rows pad, the header row defines the count.
+  // Ragged rows are legal HTML but break GFM rendering; short rows pad to the widest row in the
+  // table, which is what GFM's fixed column count needs. The header row alone would under-count
+  // whenever a data row carries an extra cell.
   const rows = grid.map(cells => line([...cells, ...Array<string>(columns - cells.length).fill('')]));
   const separator = line(Array.from({ length: columns }, () => '---'));
   const [header, ...body] = rows;

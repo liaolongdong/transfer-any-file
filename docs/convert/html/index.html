@@ -181,7 +181,7 @@
               <span class="arrow" aria-hidden="true">→</span><span class="chip"><span lang="zh-CN">CSV</span><span lang="en">CSV</span></span>
               <span class="arrow" aria-hidden="true">→</span><span class="chip"><span lang="zh-CN">Excel (.xlsx)</span><span lang="en">Excel (.xlsx)</span></span>
               </p>
-              <p><span lang="zh-CN">页面里的 `&lt;table&gt;` 变成工作表：首行当表头，其余行当记录；多张表按前面的 `&lt;h2&gt;` 命名。布局、CSS 与脚本都不进入表格。</span><span lang="en">Each `&lt;table&gt;` becomes a worksheet: the first row supplies headers and the rest become records, with several tables named after the preceding `&lt;h2&gt;`. Layout, CSS and scripts never enter the sheet.</span></p>
+              <p><span lang="zh-CN">页面里的 `&lt;table&gt;` 经 JSON 与 CSV 中转写成工作表：首行当列名，其余行当记录；布局、CSS 与脚本都不进入表格。多张表在这条链的中转步会合成一个分组对象，而 CSV 那一步只接受数组，于是整次转换报错——要逐张拿，先各存成只含一张表的 HTML。</span><span lang="en">A `&lt;table&gt;` on the page reaches the workbook through JSON and CSV: the first row supplies column names and the rest become records, with layout, CSS and scripts left out. Several tables are merged into one grouped object at the middle step, which the CSV stage rejects as “not an array”, so the whole conversion fails — save one table per file to take them separately.</span></p>
               
             </li>
             <li class="hub-route">

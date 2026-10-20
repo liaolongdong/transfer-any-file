@@ -152,8 +152,8 @@
             <ul>
         <li><span lang="zh-CN">带引号的逗号、字段内的换行、成对的引号转义，都按 CSV 的语法解析成一个单元格，而不是按逗号切字符串</span><span lang="en">Quoted commas, newlines inside a field and doubled quote escapes all parse into one cell under CSV’s grammar, rather than a string split on commas</span></li>
         <li><span lang="zh-CN">管道表的结构完整：首行紧跟一行 `---` 分隔线，其余每行一条记录，列数按最宽的一行补齐，短行不会把整张表挤歪</span><span lang="en">The pipe table keeps its shape: the first row is followed by a `---` rule, every other row is a record, and rows are padded to the widest one so a short row cannot skew the table</span></li>
-        <li><span lang="zh-CN">单元格里的竖线写成 `\|`、反斜杠写成 `\`，所以内容本身不会把表撑破</span><span lang="en">A pipe in a cell is written as `\|` and a backslash is escaped, so the content itself cannot break the table apart</span></li>
-        <li><span lang="zh-CN">编码不是前提：按 UTF-8 → GB18030 → GBK 依次尝试解码，老编辑器导出的 GBK 文件也读得进来</span><span lang="en">The encoding is not a precondition: input is decoded UTF-8 → GB18030 → GBK, so a GBK file from an older editor still reads</span></li>
+        <li><span lang="zh-CN">单元格里的竖线写成 `\|`、反斜杠成对写，所以内容本身不会把表撑破</span><span lang="en">A pipe in a cell is written as `\|` and a backslash is doubled, so the content itself cannot break the table apart</span></li>
+        <li><span lang="zh-CN">编码不是前提：先按 BOM 与 NUL 分布嗅探 UTF-16，再依次尝试 UTF-8 → GB18030 → GBK，老编辑器导出的 GBK 文件也读得进来</span><span lang="en">The encoding is not a precondition: UTF-16 is sniffed first from the BOM and the NUL pattern, then UTF-8 → GB18030 → GBK are tried, so a GBK file from an older editor still reads</span></li>
             </ul>
           </section>
           <section id="limits" class="reveal">
@@ -161,7 +161,7 @@
             <ul class="limits">
         <li><span lang="zh-CN">结果就是一张表：CSV 没有标题层级，也没有段落，所以 Markdown 里不会多出说明文字——想要前后有正文，先在 Markdown 里自己写</span><span lang="en">The result is one table and nothing else: a CSV has no heading hierarchy and no prose, so no explanatory text appears around it — write that in the Markdown yourself</span></li>
         <li><span lang="zh-CN">单元格里的换行与连续空白折成一个空格：管道表不能跨行，文字还在，版式没了</span><span lang="en">Newlines and runs of whitespace inside a cell collapse to one space: a pipe table cannot span lines, so the words survive and the layout does not</span></li>
-        <li><span lang="zh-CN">格子里的行内格式不保留：那一格取的是纯文字，所以加粗、链接地址、图片都只剩文字</span><span lang="en">Inline formatting inside a cell is not carried over — the cell contributes plain text, so bold, link addresses and images come out as words</span></li>
+        <li><span lang="zh-CN">格子里的行内格式不保留：那一格取的是纯文字，所以加粗与链接地址消失、链接只剩锚文本；图片没有文字可取，那一格就成了空的</span><span lang="en">Inline formatting inside a cell is not carried over: the cell contributes plain text, so bold and link addresses disappear and a link keeps only its anchor text, while an image has no text to give — that cell comes out empty</span></li>
         <li><span lang="zh-CN">数值不会被「翻译」：`00123` 还是 `00123`，`1-5` 还是 `1-5`——好处是不被改错，代价是它不替你做类型化</span><span lang="en">Nothing is “translated”: `00123` stays `00123` and `1-5` stays `1-5` — the benefit is not being misread, the cost is no typing</span></li>
         <li><span lang="zh-CN">一张表最多读 50 万格、整个工作簿最多 100 万格，超过直接报错；四种编码都读不出文本时也报错，不会给你一份乱码文档</span><span lang="en">At most 500,000 cells per sheet and 1,000,000 per workbook are read, and past that it fails; if none of the four encodings yields text it fails too, rather than shipping mojibake</span></li>
             </ul>
@@ -170,7 +170,7 @@
       <h2><span lang="zh-CN">实操提示</span><span lang="en">Working with it</span></h2>
             <ul>
         <li><span lang="zh-CN">一批最多 200 个文件，单个文件上限 100 MB；多个 .csv 一起转逐个产出各自的 .md，想一次拿走就打成一个 ZIP</span><span lang="en">Up to 200 files per batch and 100 MB per file; several .csv files yield one .md each, and the set can be taken as a single ZIP</span></li>
-        <li><span lang="zh-CN">转好的表格还能回转：Markdown 转 CSV、转 JSON、转 Excel 都在同一条链路里，往返都以首行为表头</span><span lang="en">The table goes back the other way: Markdown to CSV, to JSON and to Excel all sit in the same chain, each treating the first row as headers</span></li>
+        <li><span lang="zh-CN">转好的表格还能回转：Markdown 转 CSV、转 JSON、转 Excel 走的都是同一条链，其中经 JSON 的那几步会把首行当列名用掉</span><span lang="en">The table goes back the other way: Markdown to CSV, to JSON and to Excel all sit in the same chain, and the steps that pass through JSON spend the first row on column names</span></li>
         <li><span lang="zh-CN">格子里必须有换行或行内格式的话，走 CSV 转 HTML 或转 Word——管道表表达不了这些，那两条不需要先把它压平</span><span lang="en">If a cell must keep a line break or inline formatting, take CSV to HTML or to Word — a pipe table cannot express those, and neither route has to flatten the cell first</span></li>
             </ul>
           </section>

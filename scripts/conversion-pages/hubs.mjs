@@ -167,8 +167,8 @@ export const HUBS = [
     ],
     targets: {
       xlsx: {
-        zh: '页面里的 `<table>` 变成工作表：首行当表头，其余行当记录；多张表按前面的 `<h2>` 命名。布局、CSS 与脚本都不进入表格。',
-        en: 'Each `<table>` becomes a worksheet: the first row supplies headers and the rest become records, with several tables named after the preceding `<h2>`. Layout, CSS and scripts never enter the sheet.',
+        zh: '页面里的 `<table>` 经 JSON 与 CSV 中转写成工作表：首行当列名，其余行当记录；布局、CSS 与脚本都不进入表格。多张表在这条链的中转步会合成一个分组对象，而 CSV 那一步只接受数组，于是整次转换报错——要逐张拿，先各存成只含一张表的 HTML。',
+        en: 'A `<table>` on the page reaches the workbook through JSON and CSV: the first row supplies column names and the rest become records, with layout, CSS and scripts left out. Several tables are merged into one grouped object at the middle step, which the CSV stage rejects as “not an array”, so the whole conversion fails — save one table per file to take them separately.',
       },
       json: {
         zh: '表格转对象数组；多张表输出以 `<h2>` 为键的对象。没有表格时会把 `<pre>` / `<code>` 的内容当 JSON 解析，失败即报错，不返回空结果。',
