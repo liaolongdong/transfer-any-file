@@ -80,10 +80,6 @@ export const HUBS = [
         zh: 'Markdown 表格经 HTML 与 JSON 中转后写成工作表：首行当表头，单元格只保留文本；标题、段落与列表没有单元格可落，不进入结果。',
         en: 'Markdown tables travel through HTML and JSON into a worksheet: the first row becomes headers and cells keep their text. Headings, paragraphs and lists have no cell to land in and do not appear.',
       },
-      csv: {
-        zh: '只有 Markdown 表格（或一段可当作 JSON 数组读取的代码块）能变成 CSV 行；普通正文建不起列，转换会报错而不是产出空文件。',
-        en: 'Only a Markdown table, or a code block that parses as a JSON array, becomes CSV rows. Ordinary prose has no columns to fill, so the route fails instead of writing an empty file.',
-      },
       txt: {
         zh: '按文档顺序提取可读文字：标题、段落、列表与链接文字依次换行，列表编号由 DOM 结构重新生成，脚本与样式整段丢弃；链接地址附在文字后。',
         en: 'Readable text is extracted in document order: headings, paragraphs, lists and link text each break the line, list numbers are rebuilt from the DOM, and scripts and styles are dropped whole. Link addresses follow their text.',
@@ -173,10 +169,6 @@ export const HUBS = [
       xlsx: {
         zh: '页面里的 `<table>` 变成工作表：首行当表头，其余行当记录；多张表按前面的 `<h2>` 命名。布局、CSS 与脚本都不进入表格。',
         en: 'Each `<table>` becomes a worksheet: the first row supplies headers and the rest become records, with several tables named after the preceding `<h2>`. Layout, CSS and scripts never enter the sheet.',
-      },
-      csv: {
-        zh: '表格写成 CSV：首行表头，单元格取文本值并按值序列化，日期与数字不经过显示格式重写。没有表格时只尝试代码块里的 JSON 数组。',
-        en: 'Tables become CSV: the first row is the header, cells are serialised from their values rather than display text, and dates and numbers are not rewritten. With no table, only a JSON array in a code block is considered.',
       },
       json: {
         zh: '表格转对象数组；多张表输出以 `<h2>` 为键的对象。没有表格时会把 `<pre>` / `<code>` 的内容当 JSON 解析，失败即报错，不返回空结果。',
@@ -477,10 +469,6 @@ export const HUBS = [
       },
     ],
     targets: {
-      md: {
-        zh: 'CSV 先转成 HTML 表格，再输出 Markdown 管道表：首行成为表头分隔线，单元格里的 `|` 会被转义。CSV 没有标题层级，结果只有一张表。',
-        en: 'The CSV becomes an HTML table and then a Markdown pipe table: the first row supplies the header rule and any `|` in a cell is escaped. A CSV has no heading hierarchy, so the result is one table.',
-      },
       docx: {
         zh: 'CSV 先转 HTML 再转 Word：一张表写入文档，首行是表头；列宽自适应，字体与配色取文档默认值，不沿用 CSV 来源的任何样式。',
         en: 'The CSV goes through HTML into Word: one table with the first row as headers, adaptive column widths and the document’s default type and colours, with no styling carried over from the CSV.',
