@@ -249,6 +249,30 @@ async function copySourcePath(): Promise<void> {
   text-align: right;
 }
 
+/* The grid scrolls sideways by design (`width: max-content`), and the ordinal is the only thing that
+   says which row a reader is on: measured at a 360 px viewport over 14 columns, 600 px of scrollLeft
+   used to carry this cell to x = −570. The backgrounds are not decoration — the zebra lives on the
+   `tr`, so a transparent sticky cell would let the scrolled text show through it. `--el-bg-color` is
+   what `.el-dialog` paints with in all 12 theme × mode combinations (white in the six light, #1e1e2e
+   in the six dark), which is why the odd row cannot simply inherit. */
+.json-grid tbody th.json-index {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--el-bg-color);
+}
+
+.json-grid tbody tr:nth-child(even) th.json-index {
+  background: var(--fat-surface-2);
+}
+
+.json-grid thead th.json-index {
+  /* `thead th` is already sticky to the top of this same scroller; the corner cell has to stick to the
+     left too and sit above the pinned body cells, which share its stacking context and come later. */
+  left: 0;
+  z-index: 2;
+}
+
 .json-grid tbody tr:nth-child(even) {
   background: var(--fat-surface-2);
 }

@@ -2976,6 +2976,114 @@ async function run() {
   }
 
   // ═══════════════════════════════════════════
+  //  STICKY JSON ROW ORDINALS (the array table scrolls sideways; the row number must not)
+  // ═══════════════════════════════════════════
+
+  if (section('Sticky JSON Row Ordinals')) {
+    try {
+      // A payload wide enough that `width: max-content` really overflows the pane: without that, every
+      // assertion below passes vacuously on a grid that never scrolls.
+      const columns = Array.from({ length: 14 }, (_, i) => `字段名称${i + 1}（这一列名字挺长的）`);
+      const wide = {
+        name: 'wide-ordinals.csv',
+        mimeType: 'text/csv',
+        buffer: Buffer.from(
+          [columns.join(','), ...[1, 2, 3, 4].map(r => columns.map((_, c) => `值${r}-${c}`).join(','))].join('\n'),
+          'utf8',
+        ),
+      };
+
+      await resetWorkbench(page);
+      await convertFile(page, wide, 'JSON (.json)');
+      await page.click('.result-item button[title="预览"]');
+      await page.waitForSelector('.preview-dialog .json-row', { timeout: 15000 });
+      await page.click('.preview-dialog .el-radio-button__inner:has-text("数组表")');
+      await page.waitForSelector('.preview-dialog .json-grid', { timeout: 15000 });
+      await page.waitForTimeout(400);
+
+      const m = await page.evaluate(() => {
+        const sc = document.querySelector('.json-table-scroll');
+        const idx = document.querySelector('.json-grid tbody th.json-index');
+        const evenIdx = document.querySelector('.json-grid tbody tr:nth-child(even) th.json-index');
+        const head = document.querySelector('.json-grid thead th.json-index');
+        const data = document.querySelector('.json-grid tbody tr').children[1];
+        const cs = getComputedStyle(idx);
+        const rect = el => el.getBoundingClientRect();
+        const before = { idxX: rect(idx).x, dataX: rect(data).x };
+        sc.scrollLeft = 600;
+        const ir = rect(idx);
+        const hit = document.elementFromPoint(ir.left + ir.width / 2, ir.top + ir.height / 2);
+        const out = {
+          overflow: sc.scrollWidth - sc.clientWidth,
+          scrollLeft: sc.scrollLeft,
+          position: cs.position,
+          left: cs.left,
+          pinnedDelta: rect(idx).x - rect(sc).left,
+          dataDelta: rect(data).x - before.dataX,
+          hitIsPinned: !!(hit && hit.closest('th.json-index')),
+          oddBg: cs.backgroundColor,
+          evenBg: getComputedStyle(evenIdx).backgroundColor,
+          dialogBg: getComputedStyle(document.querySelector('.el-dialog')).backgroundColor,
+          surface2: getComputedStyle(document.documentElement).getPropertyValue('--fat-surface-2').trim(),
+          headTopDelta: rect(head).top - rect(sc).top,
+        };
+        sc.scrollLeft = 0;
+        return out;
+      });
+
+      const sameColor = (a, b) => {
+        const x = parseColor(a);
+        const y = parseColor(b);
+        return !!x && !!y && x.join(',') === y.join(',');
+      };
+      const checks = [
+        [
+          `The array grid really scrolls sideways (${String(m.overflow)} px past the pane), so pinning has something to pin against`,
+          m.overflow >= 400,
+        ],
+        [
+          `The ordinal cell is pinned to the scroller (position ${m.position}, left ${m.left})`,
+          m.position === 'sticky' && m.left === '0px',
+        ],
+        [
+          `It stays at the pane's left edge under 600 px of scroll (Δ ${m.pinnedDelta.toFixed(2)} px)`,
+          Math.abs(m.pinnedDelta) <= 1.5,
+        ],
+        [
+          `A data column moved the whole distance (Δ ${m.dataDelta.toFixed(0)} px), so the scroll was real`,
+          Math.abs(m.dataDelta + 600) <= 2,
+        ],
+        ['Nothing scrolls over it: the hit test at its centre returns the pinned cell', m.hitIsPinned === true],
+        // The backdrop is the other half of the fix: the zebra lives on the `tr`, so a transparent sticky
+        // cell would let the scrolled text show through it. Compared against what the dialog itself
+        // paints with and against the token the even rows use — never against a hardcoded colour.
+        [`An odd row's pinned cell paints the dialog's own surface (${m.oddBg})`, sameColor(m.oddBg, m.dialogBg)],
+        [
+          `An even row's pinned cell keeps the zebra colour (${m.evenBg} = --fat-surface-2 ${m.surface2})`,
+          sameColor(m.evenBg, m.surface2),
+        ],
+        [
+          `The header's corner cell stays at the top too (Δ ${m.headTopDelta.toFixed(2)} px)`,
+          Math.abs(m.headTopDelta) <= 1.5,
+        ],
+      ];
+      for (const [claim, holds] of checks) {
+        if (holds) ok(claim);
+        else fail('Sticky JSON Row Ordinals', `claim did not hold: ${claim}`);
+      }
+
+      await page.screenshot({
+        path: shot(`${String(shotIdx++).padStart(2, '0')}-json-ordinals-sticky.png`),
+        fullPage: true,
+      });
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(300);
+    } catch (e) {
+      fail('Sticky JSON Row Ordinals', e.message);
+    }
+  }
+
+  // ═══════════════════════════════════════════
   //  HTML→MD TABLE ROUNDTRIP (regression: default Turndown rules dropped tables)
   // ═══════════════════════════════════════════
 
