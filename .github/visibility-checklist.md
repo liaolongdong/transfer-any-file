@@ -529,6 +529,55 @@ rgb(241,245,249)` 就是它；修法是内联 `transition: none !important`，�
 
   定案之前的三轮都值记一笔：第一轮在 `History import size cap` 处报 `ENOSPC: no space left on device`——本机磁盘当时只剩 40 Mi，清掉自己的可再生输出（`.test-screenshots` 37 MB 与本会话的探针/日志）后回到 3.1 Gi；第二轮红在 `Merged image PDF: the merge finished before the cancel landed`，那是**取消与完成抢跑**的计时判据，且该节在本节之前跑，与本轮的 CSS 无关（转换进行中那张卡根本不挂载），单跑该节 `248/248 rc=0`；第三轮把整轮改成 `E2E_HEADLESS=true` 才走通——有头模式下 IDE 的渲染进程把合成饿到每张 `fullPage` 截图超时 20 s，一轮里 17 次超时把 30 条断言拖成 9 分钟，这与第 462-469 行那一格同源：**先 `df` + `ps` 看是谁在吃机器，不抬超时、不改判据**。素材**没重拍**：这两条规则只在 ≤480px 与「放不下」时生效，被拍的是 1280×800 的静止屏，逐条判据见 [[asset-recapture-trigger]]。
 
+- **同日第三轮（SEO：六张配对页 43 → 49）。** 上一轮窄屏批次收口后，把机会清单里那条「下轮 = N2 扩容」做了：往
+  `scripts/conversion-pages/pairs.mjs` 加 `csv-to-pdf`、`excel-to-word`、`pdf-to-markdown`、`svg-to-pdf`、
+  `word-to-png`、`webp-to-word` 六条（143 条可达配对里，界面实际提供的 116 个组合此前只有 43 张页）。
+  每条都写满 `title` / `desc` / `lede` / `keeps` / `limits` / `notes` / `faq` 的中英两套，取材只从实现来——
+  写之前读了 `data-to-html.ts`、`pdf-to-html.ts`、`html-to-pdf.ts`、`svg-raster-common.ts`、`image-to-html.ts`、
+  `html-to-docx.ts` 与 `image-pdf.ts`。即便如此，**第一稿仍有 11 条主张与实现不符、另有 4 处漏写或只写了含糊的一半**（表里 15 行），
+  全部由落笔后的逐条核查拦下——这一格才是这批真正值得复用的部分。
+
+  这一轮最值钱的不是页面，是**守卫把「文案能怎么写」变成了「文案只能这么写」**：`pnpm pages:render` 第一次跑就拦了
+  12 条——英文标题 61/76/64/71 字符超 60 的 SERP 预算、英文描述 163–201 超 160（「Google 只渲染这么多，剩下的爬虫读不到」），
+  以及六条 hub 重复陈述（`targets` 只服务于「没有自己页面的那条路」，页面一立，hub 里那段必须撤，否则同一个事实两处写、
+  将来必然不一致）。改完再跑，又拦了**孤儿页面**：`docs/index.html` 的 `.pairs` 网格与 `docs/llms.txt` 里没链接的页面直接判失败。
+  三条链一起看完的结论是：这套生成站没有「先上线再补一致性」这一步，写不进数据源的话就印不出来。
+
+  本轮跑过的守卫（逐个现捕退出码，全部 `rc=0`）：`pages:render` → **66 个文件**（`docs/convert/` 50 张）→
+  `pages:check`（66 文件等于数据源渲染结果）→ `verify:numbers`（23 事实 × **71** 份散文，新增的 6 份自动进射程）→
+  `lint:all` → `build`（产物 `.output/chrome-mv3` 内 `convert/*.html`、`sitemap.xml`、`llms.txt` 命中 **0**）→
+  两层离线、两层远程代码、`verify:meta`、`verify:paths`（48 边 / 182 对，未变）、`verify:listing`、`verify:release-ci`。
+  e2e 与素材**都没重跑/没重拍**，判据是同一条：这一笔没进扩展源码（动的只有 `scripts/conversion-pages/*` 与站点页），
+  产物字节由 `build` 与两道产物层守卫现读。
+
+  核查那一道的产出（每条都自己回到实现取证，不是照抄核查意见）：
+
+  | 第一稿写的                                          | 实现实际做的                                                                                               | 取证                                                             |
+  | --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+  | CSV 的日期「解析阶段先归一」                        | CSV 按 `raw: true` 读，根本没有归一那一步；归一是 XLSX 那条                                                | `utils/converters/data-to-html.ts:57`                            |
+  | 「表头行不会与数据行合并」                          | `sheet_to_html` 不产 `<th>`，首行也照写成一格                                                              | 本机 `node -e` 造表跑 `sheet_to_html`，`HAS_TH false`            |
+  | 「列多时按页面宽度缩放」（继承自被撤下的 hub 文案） | 版面固定 `RENDER_WIDTH = 800`，`toCanvas({ width: RENDER_WIDTH })`，不随列数变宽                           | `utils/core/html-raster.ts:7,309`                                |
+  | 「多于五个或 20 MB 就弹确认」                       | 还要 `confirmConvertEnabled` 为真，偏好里可以关掉（默认开）                                                | `composables/useConversion.ts:458`                               |
+  | 「合并单元格被摊平成普通格子」                      | `make_html_row` 按 `!merges` 写 `colspan`/`rowspan`，且这两个属性在 DOMPurify 的 html 白名单里，净化后仍在 | `node_modules/xlsx/xlsx.mjs:20976-20977` + 同一条 `node -e` 实测 |
+  | 「多 sheet 转 JSON 也打成一包」                     | JSON 是**一份**文件、按表名分组；只有 CSV 那条给 ZIP                                                       | `utils/converters/xlsx-to-json.ts:38-41`                         |
+  | 「产出是 Word 原生表格」                            | `asBlob` 打的是 MHT **altChunk**，Word 打开时才渲染；沿用 `html-to-docx` 那页既有口径                      | `utils/converters/html-to-docx.ts:17-21`                         |
+  | 「文本项按位置排序，不靠 PDF 内部顺序」             | `getTextContent()` 没开 `sort: true`：只按 y 归行、按 x 补空格，行序仍是读出来的顺序                       | `utils/converters/pdf-to-html.ts:264,302-309`                    |
+  | 「标题层级不会带过来」                              | 会：书签命中的行按 `depth + 1` 落成 h1–h6（深度取到 5），无书签时短而整行大写的行升成 `<h2>`               | `pdf-to-html.ts:59,127,167,179,250`                              |
+  | 「可以勾『合并为一份 PDF』把一批 SVG 并成多页」     | SVG 不在可合并集合里（注释就写明它走另一条栅格化路），那道开关对 SVG 批次根本不出现                        | `utils/core/image-pdf.ts:20-27`、`useConversion.ts:242`          |
+  | 「剥 `foreignObject` 与外部实体」                   | `stripSvgActiveContent` 只删 `<script>` 与 `on*`；「在净化过的文档里栅格化」也改回真实形状——走 `<img>`     | `utils/core/svg-raster-common.ts:13-20`                          |
+  | 「WebP 进 Word 打开即显示」                         | 转换器不转码，画不画得出来取决于那款 Word 对 WebP 的支持——这正是被撤下的 hub 文案已经写明的那格            | `hubs.mjs` 本轮删除的 `webp.targets.docx`                        |
+  | 漏写：A4 分页可能把一行切成两半                     | `sliceHeightPx` 是固定高度切，不做行对齐                                                                   | `utils/converters/html-to-pdf.ts:39,48-55`                       |
+  | 漏写：页与页之间在 Markdown 里是一条 `* * *`        | 页末写 `<hr>`，turndown 默认 `hr: '* * *'`，且 `html-to-md` 没另加 `hr` 规则                               | `pdf-to-html.ts:332`、`turndown.cjs.js:581`                      |
+  | 含糊：「整页高度有上限」                            | 上限是 `MAX_CANVAS_EDGE × 4` = 32768 px；另补一条：空文档是 `errors.docxEmpty` 直接失败，不交空白图        | `utils/core/html-raster.ts:28`、`docx-to-html.ts:66`             |
+
+  一般式：**「读过源文件」不等于「读的是这一条链路经过的那几个分支」**——这 15 条里没有一条是凭格式名编的，全是从相邻链路的
+  形状借来的（XLSX 的归一安到 CSV 头上、PDF 的 `sort` 安到归行头上、CSV→JSON 的「首行当键名」反过来安到 HTML 头上）。
+  所以文案落笔后必须再来一遍逐条对回，而且**能实测的就实测**（`sheet_to_html` 那两条是 `node -e` 直接跑出来的，不是读出来的）。
+
+  一笔欠账写在这里、别当成已完成：`AGENTS.md` 与 `.qoder/rules/wxt-rules.md` 里那些复述守卫输出的句子
+  （「`docs/convert/` 的 36 个生成页」「比对 57 份对外散文」）**在本轮之前就已经老化**——`verify:numbers` 不守这些数字，
+  它只打印给自己看。本轮实测是 50 张配对页 / 71 份散文；下一次动这两份文件时按当时输出重取，别照抄这一格。
+
 ## 3. 收下改动：这一节记的是提交账，不是提交计划
 
 这一节原先给的是 2026-09-19 那一轮（配对页与博客页改成数据源生成）的两条 `git commit`。那些提交早就落地了，

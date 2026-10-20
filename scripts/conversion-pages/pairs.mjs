@@ -3758,4 +3758,516 @@ export const PAIRS = [
       },
     ],
   },
+  {
+    slug: 'csv-to-pdf',
+    from: 'csv',
+    to: 'pdf',
+    shot: 'batch-files',
+    published: '2026-10-20',
+    title: {
+      zh: 'CSV 转 PDF（.pdf）——表格铺成 A4，本地完成',
+      en: 'CSV to PDF (.pdf) offline — your table on A4 pages',
+    },
+    desc: {
+      zh: '在浏览器里把 .csv 排成 PDF 表格：先解析成 HTML 表格，再按 A4 切成多页。数字与日期按单元格原样呈现，全程不上传。',
+      en: 'Turn a .csv into a PDF in your browser: parsed into an HTML table, then sliced into A4 pages. A rendered image, with no text layer and no upload.',
+    },
+    lede: {
+      zh: '导出的 CSV 往往是「给人看的表」，而收的人只想要一个能直接打印、排版不会跑的文件。这条链路是 CSV → HTML → PDF：先用 SheetJS 把每一行读成表格，再把整张表格渲染成 A4 并切成若干页。它解决的是分发环节的问题——不是把 CSV 变成可再编辑的数据（那一步是 CSV 转 Excel），而是让它长得像一份正式表格。全程在标签页里完成，没有服务器、没有排队。',
+      en: 'A CSV you exported is a table for the eye, but the person you send it to often wants something printable whose layout will not move. This route is CSV → HTML → PDF: SheetJS reads each row into a table, the table is rendered, and the result is cut into A4 pages. It answers the delivery problem, not the re-editing one (that is CSV to Excel) — and every step happens in the tab, with no server and no queue.',
+    },
+    keeps: {
+      zh: [
+        '每一行都写成表格里的一行，第一行也在内——不像 CSV 转 JSON 会拿首行当键名；列序与文件里一致',
+        '按原文读取：单元格里那串字符就是最终呈现，不会被类型推断改写成 `1/5/24` 或一串序列号',
+        '编码不是前提：输入按 UTF-8 → GB18030 → GBK 依次尝试解码，老编辑器导出的 GBK 文件也读得进来',
+        '整张表先在 800 px 宽的版面上排好，再按 A4 的宽高比切成若干页，长表往下翻页而不是被裁掉',
+      ],
+      en: [
+        'Every row becomes a table row, the first one included — unlike CSV to JSON, which spends row one on key names; columns stay in file order',
+        'The file’s own characters are what gets printed: the CSV is read raw, so type inference cannot rewrite values into `1/5/24` or a serial number',
+        'The encoding is not a precondition: input is decoded UTF-8 → GB18030 → GBK, so a GBK file saved by an older editor still reads',
+        'The table is laid out once on an 800 px surface, then cut into pages at the A4 aspect ratio, so a long table continues onto the next page',
+      ],
+    },
+    limits: {
+      zh: [
+        '产出的 PDF 是渲染出来的图像，没有文字层：文字不能选中、搜索不到，也过不了 OCR 之外的提取工具',
+        '样式不跟过来——字体、列宽、单元格颜色由渲染时的默认版式决定，CSV 里也没有这些信息可给',
+        '版面宽度固定在 800 px，不随列数变宽：比这更宽的表，靠右侧的那几列进不了画面，列多时先转 Excel',
+        '分页按固定高度切，不保证把一行整个留在同一页——跨页的那一行会上下各留一半',
+        '四字节 emoji 与生僻字取决于系统字体是否装了那一枚字形；缺字形时渲染成方框是浏览器的行为，不是转换出错',
+      ],
+      en: [
+        'The PDF is a rendered image with no text layer: text cannot be selected or searched, and extraction tools will not find it either',
+        'Styling does not follow — fonts, column widths and cell colours come from the default layout at render time, and a .csv has none to give',
+        'The surface stays 800 px wide no matter how many columns there are: the right-hand columns of a wider table never reach the picture, so take Excel for that case',
+        'Pages are cut at a fixed height, so a row can straddle the break and end up split between two pages',
+        'Emoji and rare glyphs depend on whether a font covering that code point is installed; a tofu box is the browser’s doing, not a conversion error',
+      ],
+    },
+    notes: {
+      zh: [
+        '一批最多 200 个文件，单个文件上限 100 MB；多个 .csv 一起转会逐个产出各自的 .pdf，想一次拿走就打成一个 ZIP',
+        '文件多于五个或总量超过 20 MB 时，只要偏好里的大批次确认还开着（默认开着），工作台会先要一次确认',
+      ],
+      en: [
+        'Up to 200 files per batch and 100 MB per file; several .csv files yield one .pdf each, and the whole set can be taken as a single ZIP',
+        'Batches over five files or 20 MB ask for one confirmation first, as long as the large-batch confirmation is still on in preferences — it is by default',
+      ],
+    },
+    faq: [
+      {
+        q: { zh: '转出来的 PDF 能选中文字吗？', en: 'Can I select the text in the resulting PDF?' },
+        a: {
+          zh: '不能。这条链路把表格渲染成图像再铺到 A4 页上，所以没有文字层——这是它能锁住版式的代价。要一份能选中、可搜索的 PDF，目前这条路给不了；要的是能再编辑的数据，走 CSV 转 Excel。',
+          en: 'No. The route renders the table to an image and lays that on A4 pages, so there is no text layer — the price of pinning the layout. If you need selectable, searchable text this route cannot give it; if you need data you can keep editing, take the CSV to Excel route.',
+        },
+      },
+      {
+        q: {
+          zh: '逗号在字段里、带引号的多行单元格，能正确切开吗？',
+          en: 'Do quoted commas and multi-line cells parse correctly?',
+        },
+        a: {
+          zh: '能。分隔与引号交给 SheetJS 的 CSV 解析，不靠字符串按逗号 split，所以带引号的逗号、字段内换行都按一个单元格处理。解码那一步另有闸门：四种编码都读不出文本时宁可报错，也不会交出一份乱码。',
+          en: 'Yes. Splitting is SheetJS’s CSV parser, not a string split on commas, so quoted commas and a newline inside a field stay one cell. The decoding step has its own gate: if none of the encodings yields text, it errors instead of handing you mojibake.',
+        },
+      },
+      {
+        q: {
+          zh: '表格是客户名单，文件会离开本机吗？',
+          en: 'If the table is a customer list, does the file leave my machine?',
+        },
+        a: {
+          zh: '不会。扩展只申请 storage 权限、没有 host 权限，产物里也没有从网络取来的代码；读文件、解析、渲染、写 PDF 全在标签页内完成。',
+          en: 'No. The extension asks for the storage permission only, has no host permissions and ships no remotely hosted code; reading, parsing, rendering and writing the PDF all happen inside the tab.',
+        },
+      },
+    ],
+  },
+  {
+    slug: 'excel-to-word',
+    from: 'xlsx',
+    to: 'docx',
+    shot: 'batch-results',
+    published: '2026-10-20',
+    title: {
+      zh: 'Excel 转 Word（.xlsx → .docx）——每张表进文档，本地不上传',
+      en: 'Excel to Word (.xlsx → .docx) offline, one table per sheet',
+    },
+    desc: {
+      zh: '在工作台里把 .xlsx 转成 .docx：每个工作表写成一张 Word 表格，多表时带上表名标题。值保真、可编辑，全程离线。',
+      en: 'Each worksheet becomes an editable Word table, named when there is more than one. Values are kept; styling is not. Offline, in your browser.',
+    },
+    lede: {
+      zh: '把一张表从 Excel 搬进 Word，常见做法是复制粘贴然后手工对齐列宽，或者截一张图贴进去——前者费时，后者不可编辑。这条链路是 Excel → HTML → Word：读工作簿时把每张表写成 HTML 表格，再作为 altChunk 打进 .docx，Word 打开文件时按这份表格渲染——单元格可以改、可以排序、可以加批注，不是贴进去的一张截图。多个工作表会各自成表，并在前面带一行表名，不用你回去核对它是哪一张。',
+      en: 'Moving a sheet from Excel into Word usually means paste-and-re-fit the columns, or paste a screenshot that nobody can edit. This route is Excel → HTML → Word: each worksheet is written out as an HTML table and packed into the .docx as an altChunk, which Word renders when the file opens — cells can be edited, sorted and commented, and nothing is a pasted picture. Several sheets each keep their own table, preceded by a line naming it, so nothing has to be checked back against the workbook.',
+    },
+    keeps: {
+      zh: [
+        '每个工作表一张 Word 表格；工作簿有多张表时，每张表前有一行以表名为内容的标题',
+        '单元格里的值按读到的样子呈现，日期单元格先按工作簿自己的格式归一，再渲染，避免 `1/5/24` 这种跨地区会读错的写法',
+        '合并单元格写成 HTML 的 colspan / rowspan，不是摊平成一片普通格子；行列顺序按原表',
+        '每一行都照常写出一行，第一行不会被当作表头吃掉（这一点与 CSV 转 JSON 不同，那里首行变成了键名）',
+      ],
+      en: [
+        'One Word table per worksheet; in a multi-sheet workbook each table is introduced by a heading carrying the sheet name',
+        'Cell values render as read, with date cells normalised from the workbook’s own format first so `1/5/24`-style ambiguity does not survive the trip',
+        'Merged cells go out as HTML colspan / rowspan rather than flattening into ordinary cells, and rows and columns keep the sheet’s order',
+        'Every row is written as a row, the first included — unlike CSV to JSON, where row one is spent on key names',
+      ],
+    },
+    limits: {
+      zh: [
+        '只带表格正文：图表、条件格式、单元格底色与字体、列宽都不在产物里（HTML 那一步只保留表格本身）',
+        '公式不会跟过来——读的是算完之后的值；要保公式就得继续在 Excel 格式之间转（例如 Excel 转 CSV 会明确把公式落成值）',
+        '正文是装进 .docx 的 altChunk、由 Word 打开时渲染的，所以产物依赖 Word 对 altChunk 的支持；不处理它的阅读器可能显示不出正文，交付前请在目标环境打开确认',
+        '表名只是正文里的一行标题，不会变成 Word 的章节导航',
+        '工作表名恰好是 `toString`、`constructor` 这类原型上的名字时，读取按不继承原型的自有属性处理，不会因为「看着像有表」就把空表当成有内容',
+      ],
+      en: [
+        'Only the table body travels: charts, conditional formatting, cell fills, fonts and column widths are not in the output — the HTML step keeps tables and nothing else',
+        'Formulas do not follow: what is read is the computed value. Stay inside spreadsheet formats if formulas must survive (and note that Excel to CSV writes values on purpose)',
+        'The body rides inside the .docx as an altChunk that Word renders when it opens the file, so the result depends on Word supporting altChunk; a reader that does not may show no body text, so open it in the target environment before delivery',
+        'A sheet name is one heading in the body, not an entry in Word’s navigation',
+        'A sheet named `toString` or `constructor` is read through own properties rather than the prototype chain, so a lookalike name cannot make an empty sheet appear to hold content',
+      ],
+    },
+    notes: {
+      zh: [
+        '一批最多 200 个文件，单个文件上限 100 MB；多 sheet 的工作簿转成 CSV 时给的是 ZIP（一张表一个文件），转成 Word 时是同一份文档里的多张表——两条路的产出形状不同，按用途挑',
+        '同一个工作簿转成 JSON 是**一份**文件，多张表按表名分组写在里面；要「一张表一个文件」就走 CSV 那条',
+      ],
+      en: [
+        'Up to 200 files per batch and 100 MB per file; a multi-sheet workbook goes to CSV as a ZIP (one file per sheet) but to Word as several tables inside one document — pick by what the receiver needs',
+        'The same workbook converted to JSON stays **one** file, with sheets grouped under their names, so if the downstream system wants one file per sheet, CSV is the route',
+      ],
+    },
+    faq: [
+      {
+        q: { zh: '转出来的 Word 表格能编辑吗？', en: 'Is the resulting Word table editable?' },
+        a: {
+          zh: '能。Word 打开文件时把内嵌的那份表格渲染出来，之后单元格可以改、可以插删行、可以排序、可以加批注。前提是它的 altChunk 处理正常——个别阅读器不处理这一层，那种情况下正文会显示不出来，交付前先在目标环境打开看一眼。要的是「看起来一样但不用改」的交付物，那就走 Excel 转 PDF——但那份 PDF 是渲染出来的图像，没有文字层。',
+          en: 'Yes. Word renders the embedded table when it opens the file, after which cells can be edited, rows inserted or deleted, sorted and commented — provided its altChunk handling works, and a reader that ignores altChunk shows no body at all, so open it in the target environment before delivery. If you only need something that looks right and will not be edited, that is the Excel to PDF route instead, whose PDF is a rendered image with no text layer.',
+        },
+      },
+      {
+        q: { zh: '为什么列宽和颜色都没了？', en: 'Why did the column widths and colours disappear?' },
+        a: {
+          zh: '这条链路经手的是 HTML 表格，而它只承载表格的内容与结构；列宽、字体、底色这些属于 Excel 的呈现层，不会由 HTML 那一步带过去，到了 Word 里就由文档主题决定。要留住版式，用 PDF 那条；要在 Word 里重排，转完之后套 Word 的表格样式比还原原件更省事。',
+          en: 'The route passes through an HTML table, and that carries content and structure only. Widths, fonts and fills belong to Excel’s presentation layer, are not transported by the HTML step, and in Word come out of the document theme. Keep the layout on the PDF route; if the table is going to be re-styled in Word anyway, applying a Word table style after conversion beats trying to restore the original.',
+        },
+      },
+      {
+        q: {
+          zh: '工资表要转成 Word，数据会外发吗？',
+          en: 'If I turn a payroll sheet into Word, does the data leave my machine?',
+        },
+        a: {
+          zh: '不会。整条链路是浏览器里的 JavaScript：读工作簿、生成表格、打包 .docx 都在扩展的标签页内完成，没有网络请求、没有服务端，也没有外部进程。',
+          en: 'No. The whole route is JavaScript in the browser — reading the workbook, building the table and packing the .docx happen inside the extension’s tab: no request, no server, no external process.',
+        },
+      },
+    ],
+  },
+  {
+    slug: 'pdf-to-markdown',
+    from: 'pdf',
+    to: 'md',
+    shot: 'preview-edit',
+    published: '2026-10-20',
+    title: {
+      zh: 'PDF 转 Markdown——抽文字、留链接，离线完成',
+      en: 'PDF to Markdown offline — text out, links kept',
+    },
+    desc: {
+      zh: '在浏览器里把 .pdf 的文字读出来写成 Markdown：文本项按位置归行，书签命中的行成为标题，链接注释还原成真链接。不 OCR、不上传。',
+      en: 'Extract a PDF’s text into Markdown in your browser, with link annotations restored as links. No OCR, no layout kept, nothing uploaded.',
+    },
+    lede: {
+      zh: '要把一份 PDF 里的内容接着写进 README、笔记或工单，需要的是文字，而不是一张图片。这条链路是 PDF → HTML → Markdown：pdf.js 读出页面上的文本项、按位置把它们归成行，链接注释按协议白名单还原，最后由 Turndown 写成 Markdown。因此它对「能选中文字的 PDF」效果最好；扫描出来的图片型 PDF 里并没有文字可抽，那种文件需要的是 OCR，而不是转换。',
+      en: 'Getting content out of a PDF and into a README, a note or a ticket needs text, not a picture. This route is PDF → HTML → Markdown: pdf.js reads the text items on each page and assembles them into lines by position, link annotations come back as links behind a scheme allowlist, and Turndown writes the Markdown. That makes it good for PDFs whose text you can already select — a scanned PDF holds no text to extract, and what that needs is OCR, not conversion.',
+    },
+    keeps: {
+      zh: [
+        '文字逐个文本项读出，按 y 坐标归成行、按 x 间距补空格——不靠把整页拍成图片再认字',
+        '文档自带书签时，书签标题命中的那几行写成对应层级的标题（最深取到第六层）；没有书签时，短而整行大写的行会被认成二级标题',
+        'PDF 里的链接注释还原成 Markdown 链接；协议不在白名单内的宁可不还原，也不留一个点开就跳走的地址',
+        '表格如果本身是以文字排出来的，会作为文本行带过来',
+        '产出是纯文本的 .md，可以直接进版本库、贴进笔记或聊天窗口',
+      ],
+      en: [
+        'Text is read item by item and assembled into lines by their vertical position, with spaces filled in from the horizontal gaps — no page image is recognised first',
+        'Where the document carries bookmarks, the lines whose title matches one become headings at that depth (down to six levels); with no outline, a short line that is entirely capitals becomes an h2',
+        'Link annotations become Markdown links, and only for schemes on the allowlist — a link that would jump somewhere unexpected is left out rather than carried through',
+        'A table that is genuinely made of text comes across as text lines',
+        'The output is plain-text .md, so it can go straight into a repository, a note or a chat window',
+      ],
+    },
+    limits: {
+      zh: [
+        '不做 OCR：图片型 PDF（扫描、拍照、打印成图片的）读不出文字，产出会接近空而不报错——这是「按内容形状办事」的取舍，不是失败',
+        '行的先后取 pdf.js 给出的顺序，不做全局排序：多栏或文字绕排时，位置相近的行会按读出顺序串起来，所以这类文件需要人工归位',
+        '标题层级只在书签或整行大写这两种形状下出现，多数 PDF 的正文全部落成普通段落；字号、颜色与分栏宽度不带过来',
+        '页面上的图与矢量图形不进 Markdown（这条链路只走文字，也正因为如此它比整页栅格化快得多）',
+        '页与页之间写成一条 Markdown 分隔线（`* * *`），页码若印在页面上则作为普通文本行留在原处；脚注没有对应物',
+      ],
+      en: [
+        'No OCR: an image-only PDF (scanned, photographed, printed to a bitmap) has no text to read, so the result comes out close to empty without an error — a shape-of-content trade-off, not a failure',
+        'Row order is the order pdf.js hands back, with no global sort: on multi-column or wrapped text, nearby lines string together in read order, so those files need tidying by hand',
+        'Heading levels appear only from bookmarks or an all-caps line; most PDFs come out as plain paragraphs, and type sizes, colours and column widths do not survive',
+        'Images and vector artwork on the page do not enter the Markdown — this route is text-only, which is also why it is far cheaper than rasterising the page',
+        'Pages are separated by a Markdown rule (`* * *`), a printed page number stays behind as an ordinary text line, and footnotes have no counterpart',
+      ],
+    },
+    notes: {
+      zh: [
+        '一批最多 200 个文件，单个文件上限 100 MB；一条链路最多读 1000 页，超过会直接报错并说明要把文件拆开，而不是半途而废',
+        '多个 PDF 一起转会逐个产出各自的 .md，想一次拿走就打成一个 ZIP',
+        '要的是「长得跟原件一样」而不是文字，那一条路是 PDF 转图片；想把 PDF 变成能改的文档，走 PDF 转 Word',
+      ],
+      en: [
+        'Up to 200 files per batch and 100 MB per file; one conversion reads at most 1000 pages and asks you to split the file beyond that rather than stopping halfway',
+        'Several PDFs yield one .md each, and the set can be taken as a single ZIP',
+        'If the goal is that it looks like the original, that is the PDF to image route; if it is a document you can keep editing, take PDF to Word',
+      ],
+    },
+    faq: [
+      {
+        q: { zh: '扫描件能转成 Markdown 吗？', en: 'Can a scanned document become Markdown?' },
+        a: {
+          zh: '不能。扫描件每一页是一张图片，里面没有可读的文字项，所以产出接近空白。要先把图片识别成文字（OCR），而这件事本扩展刻意不做——它不联网、也不带模型，与其给一份不可靠的结果，不如让你知道这条路到不了。',
+          en: 'No. A scan is one image per page with no text items to read, so the result comes out nearly empty. Getting text out of it means OCR, which this extension deliberately does not do: it has no network and ships no model, and an unreliable transcript is worse than a route that says where it stops.',
+        },
+      },
+      {
+        q: { zh: '为什么段落顺序乱了？', en: 'Why is the paragraph order wrong?' },
+        a: {
+          zh: '最常见的原因是原件用了多栏或文字绕排：这一步只按 y 坐标把文本项归成行，行的先后仍是 pdf.js 读出来的顺序，不做全局排序，所以「先左栏后右栏」这种阅读顺序推不出来。这种文件转出来后建议当作素材用——人工归位比再造一个排版引擎轻。',
+          en: 'The usual cause is multiple columns or text that wraps around an object: lines are assembled from the vertical position of each item, but their order is the one pdf.js read out, with no global sort — so «left column first, then right» is not something this step can infer. Treat the output as raw material for such files; tidying it by hand is lighter than shipping a layout engine.',
+        },
+      },
+      {
+        q: {
+          zh: '合同的 PDF 转成 Markdown，内容会被上传吗？',
+          en: 'If I turn a contract PDF into Markdown, is it uploaded?',
+        },
+        a: {
+          zh: '不会。读 PDF 的 pdf.js、写 Markdown 的转换器都在扩展页面里跑，manifest 只有 storage 权限、没有 host 权限，产物里也没有把远端资源当代码执行的死路径；除了用户自己拖进来的文件，没有别的数据来源。',
+          en: 'No. pdf.js and the Markdown writer both run inside the extension page; the manifest carries the storage permission and no host permissions, and the bundle ships no path that executes remotely hosted code. Apart from the files you drop in, there is no other source of data.',
+        },
+      },
+    ],
+  },
+  {
+    slug: 'svg-to-pdf',
+    from: 'svg',
+    to: 'pdf',
+    shot: 'batch-files',
+    published: '2026-10-20',
+    title: {
+      zh: 'SVG 转 PDF——先栅格化再铺页，本地离线',
+      en: 'SVG to PDF offline — rasterised, then laid on a page',
+    },
+    desc: {
+      zh: '在浏览器里把 .svg 转成 .pdf：SVG 先归一化并栅格化成 PNG，再按像素尺寸铺成一页。不联网、不上传，脚本内容先剥除。',
+      en: 'The SVG is normalised, stripped of active content and rasterised to a bitmap page sized to its pixels. No vector, no text layer.',
+    },
+    lede: {
+      zh: '图标、示意图、图表常常以 SVG 存着，而要交出去的地方要的是 PDF。这条链路是 SVG → PNG → PDF：先把 viewBox 归一、把活动性内容剥掉，再栅格化成位图，最后按像素尺寸铺成一页 A4 之外的「图即页面」。要知道它的取舍：产出里没有矢量，PDF 放大后是像素，文字不再是可编辑的文本——它适合「把这张图交出去」，不适合「交一份能改的图」。',
+      en: 'Icons, diagrams and charts live as SVG, while the thing asking for them wants a PDF. This route is SVG → PNG → PDF: the viewBox is normalised, active content is stripped, the result is rasterised to a bitmap, and that bitmap is laid on a page sized to its pixels. Know the trade-off: nothing in the PDF is vector, zooming shows pixels, and text is not editable text. It answers «send this picture over», not «send a drawing I can still edit».',
+    },
+    keeps: {
+      zh: [
+        '看得见的形状与颜色：栅格化在浏览器自己的 SVG 渲染上完成，包括渐变、描边与滤镜的可见结果',
+        '页面尺寸跟着图片像素走（96 dpi 换算成 pt），横长的图自动用横向页，不会把一张窄图塞进固定栏宽再留出大片空白',
+        '尺寸取 `width`/`height` 或 `viewBox`；两者都没写时按 1024×1024 兜底，而不是在栅格化那一步失败',
+      ],
+      en: [
+        'The shapes and colours you can see: rasterisation uses the browser’s own SVG rendering, so gradients, strokes and filter results come across as rendered',
+        'The page is sized from the bitmap’s pixels (96 dpi converted to pt) and turns landscape when the image is wide, instead of squeezing a narrow graphic into a fixed column of whitespace',
+        'Size comes from `width`/`height` or the `viewBox`; when neither is written, a 1024×1024 square is used rather than failing at the rasterising step',
+      ],
+    },
+    limits: {
+      zh: [
+        '产物是位图页：没有矢量路径，PDF 里也认不出文字——要能改的图形请继续用 SVG，要矢量 PDF 这条路给不了',
+        '栅格化前会剥掉 `<script>` 元素与 `on*` 事件属性，绘制本身又走 `<img>`（浏览器在这个上下文里不执行脚本、也不取外部子资源）。所以靠动画或外部引用才画得出来的那部分，转出来会缺——这是刻意的安全取舍，不是丢件',
+        '超大画布会被等比缩到浏览器能安全栅格化的范围内（`fitToMaxDim`）：不报错，但你拿到的像素比 viewBox 声明的要少',
+        '字体取决于本机装了什么：原件指定而本机没有的字体会由替代字形渲染，字宽因此可能不同',
+      ],
+      en: [
+        'The page is a bitmap: no vector paths, and no text the PDF can recognise. Keep working in SVG if the artwork must stay editable; a vector PDF is not what this route can give',
+        'Before rasterising, `<script>` elements and `on*` handler attributes are removed, and the drawing itself happens in an `<img>` context, where the browser neither runs scripts nor fetches external subresources. Anything an animation or an outside reference was contributing is missing from the result — a deliberate safety trade-off, not a lost asset',
+        'An oversized canvas is scaled down proportionally to a size a browser can rasterise safely (`fitToMaxDim`): there is no error, but you get fewer pixels than the viewBox asked for',
+        'Fonts depend on what is installed: a typeface the original names but this machine lacks is rendered with a substitute, so metrics can shift',
+      ],
+    },
+    notes: {
+      zh: [
+        '一批最多 200 个文件，单个文件上限 100 MB；多个 .svg 一起转会逐个产出各自的 .pdf。「合并为一份 PDF」那个开关对 SVG 批次不出现——SVG 要先经栅格化这一站，合并那条路只收已经是位图的格式',
+        '想把一批图并成一份多页 PDF，先把 SVG 转 PNG 再走 PNG 合并；只是想换格式而不是换容器，走 SVG 转 PNG 或 SVG 转 WebP 更省事',
+      ],
+      en: [
+        'Up to 200 files per batch and 100 MB per file; several .svg files yield one .pdf each. The merge-into-one-PDF switch does not appear for an SVG batch: merging only accepts formats that are already bitmaps, and SVG has a rasterising stop first',
+        'To gather a set into one multi-page document, convert the SVGs to PNG and merge those; if you only need a different picture format, SVG to PNG or SVG to WebP is less work',
+      ],
+    },
+    faq: [
+      {
+        q: { zh: '转出来的 PDF 能放大不失真吗？', en: 'Does the PDF stay sharp when zoomed?' },
+        a: {
+          zh: '不能。这条链路先把 SVG 栅格化成位图再铺页，放大看到的是像素。需要可无限放大的 PDF，得由能直接输出矢量 PDF 的工具来做；本扩展全部在浏览器里画，交付的是渲染结果。',
+          en: 'No. The route rasterises the SVG first, so zooming shows pixels. Infinitely scalable PDF output needs a tool that writes vector PDF directly; everything here is drawn in the browser and delivers the rendered result.',
+        },
+      },
+      {
+        q: { zh: '从别处拿到的 SVG 也敢转吗？', en: 'Is it safe to convert an SVG from somewhere else?' },
+        a: {
+          zh: '转换前先剥脚本与事件属性，绘制又走 `<img>`——浏览器在这个上下文里不执行 SVG 里的脚本，也不加载它引用的外部东西。所以「来源不明」的 SVG 最坏是画得不一样，而不是执行里面的代码。',
+          en: 'Scripts and event attributes are removed before conversion, and the drawing goes through an `<img>` — a context in which the browser runs no SVG script and loads nothing the file references. Worst case for an SVG of unknown origin is that it looks different, not that its code executes.',
+        },
+      },
+      {
+        q: {
+          zh: '图标要交给外包做印前，文件会外发吗？',
+          en: 'If I hand an icon to a print vendor, does the file leave my machine?',
+        },
+        a: {
+          zh: '转换这一步不会。扩展只有 storage 权限、没有 host 权限，读文件、剥脚本、栅格化、写 PDF 都在标签页内完成；把 PDF 发出去那一步是你自己的事。',
+          en: 'The conversion does not. The extension holds the storage permission only and no host permissions; reading, stripping, rasterising and writing the PDF all happen in the tab. Sending the PDF on is your own step.',
+        },
+      },
+    ],
+  },
+  {
+    slug: 'word-to-png',
+    from: 'docx',
+    to: 'png',
+    shot: 'preview-edit',
+    published: '2026-10-20',
+    title: {
+      zh: 'Word 转 PNG（.docx → .png）——整页一张图，离线',
+      en: 'Word to PNG (.docx → .png) offline, the page as an image',
+    },
+    desc: {
+      zh: '在浏览器里把 .docx 渲染成一张 PNG：先由 mammoth 生成语义化 HTML，再整页画到画布上导出。可指定最长边，全程不上传。',
+      en: 'A .docx renders through HTML to one long PNG, sized by the longest edge you set. Pixels, not selectable text; nothing is uploaded.',
+    },
+    lede: {
+      zh: '要贴进聊天窗口、工单或幻灯片的，往往不是「那份 Word」，而是它第一眼的样子。这条链路是 Word → HTML → PNG：mammoth 先把文档变成语义化 HTML（标题、列表、表格、内嵌图片），再把整页画到画布上导出成一张图。它产的是「一页到底」的一张长图，不是每页一张——好处是一眼看完、坏处是版式不会照 Word 的来。',
+      en: 'What goes into a chat window, a ticket or a slide is rarely «that Word file» but the first thing it looks like. This route is Word → HTML → PNG: mammoth turns the document into semantic HTML — headings, lists, tables, embedded images — and the whole page is drawn to a canvas and exported as one image. You get a single strip running to the end of the document, not one image per page: good for taking it in at a glance, and it will not follow Word’s pagination.',
+    },
+    keeps: {
+      zh: [
+        '标题、有序与无序列表、表格、加粗与斜体都按语义结构画进图里；命名样式里的 Heading 1–4 与 Title / Subtitle 会落成对应层级的标题',
+        '以 data URI 内嵌的图片随文档一起渲染；相对路径引用不到字节时，结果会按张数说明丢了哪几张，而不是悄悄留白',
+        '最长边可以指定（输出图片参数里的那一格），适合贴进宽度受限的地方；它按几何等比缩，不改版式',
+        '文档解析不出内容时会直接报「没有可转换的内容」，而不是交出一张空白 PNG 报成功',
+      ],
+      en: [
+        'Headings, ordered and unordered lists, tables, bold and italic all reach the image as structure; the named styles Heading 1–4, Title and Subtitle land as those heading levels',
+        'Images embedded as data URIs render with the document; where a relative reference cannot be resolved, the result says how many were dropped instead of quietly leaving blanks',
+        'The longest edge is settable (the output option for it), which is what you want where width is fixed — it scales geometrically and leaves the layout alone',
+        'A document with nothing convertible fails with «no convertible content» rather than handing back a blank PNG marked as success',
+      ],
+    },
+    limits: {
+      zh: [
+        '一张到底的长图，不按 Word 的分页走：想要「每页一张图」，先走 Word 转 PDF，再把 PDF 整本转图片——后者按 PDF 的页出一组图（多页打成一个 ZIP），而那份分页是浏览器排的，不是 Word 的',
+        '版式由渲染用的那套默认样式决定（正文最大宽度 800 px、自己的字号阶梯与配色），Word 里的页边距、分栏与主题不会照搬',
+        '图里是像素，文字不能选中；要可再编辑请走 Word 转 HTML 或 Word 转 Markdown',
+        '整页高度超过 32768 px 会明确报错而不是截一半——浏览器远超该高度时交回的是空白画布，「成功但全白」比一条错误难查得多',
+      ],
+      en: [
+        'One long strip, not Word’s pagination: for one image per page, take Word to PDF first and then convert that PDF to images — that route works page by page (several pages arrive as a ZIP), and its pages are laid out by the browser, not by Word',
+        'Layout comes from the default stylesheet used at render time — an 800 px measure with its own type scale and colours — so Word’s margins, columns and theme are not copied',
+        'The image is pixels, so its text is not selectable. For something still editable, use Word to HTML or Word to Markdown',
+        'Going past 32768 px of page height is an error rather than a truncated picture — far above that a browser returns a blank canvas, and «succeeded but all white» is much harder to diagnose than a clear failure',
+      ],
+    },
+    notes: {
+      zh: [
+        '一批最多 200 个文件，单个文件上限 100 MB；多个 .docx 一起转会逐个产出各自的 PNG',
+        '同一份文档还能接着转：Word 转 PDF（交付用）、Word 转 HTML（要保留结构与可编辑性时用）、Word 转 Markdown（进仓库或笔记时用）',
+      ],
+      en: [
+        'Up to 200 files per batch and 100 MB per file; several .docx files produce one PNG each',
+        'The same document can carry on: Word to PDF for delivery, Word to HTML when structure and editability matter, Word to Markdown for repositories and notes',
+      ],
+    },
+    faq: [
+      {
+        q: { zh: '能得到「每页一张 PNG」吗？', en: 'Can I get one PNG per page?' },
+        a: {
+          zh: '这条链路给不了——它把整篇文档画成一张图。要每页一张，走两步：Word 转 PDF，再 PDF 转图片，后者会按 PDF 的页出一组图（多页时打成一个 ZIP）。',
+          en: 'Not on this route, which draws the whole document as one image. Do it in two steps: Word to PDF, then PDF to image — that one works page by page and packages several pages as a ZIP.',
+        },
+      },
+      {
+        q: { zh: '图片里的字能复制吗？', en: 'Can the text in the image be copied?' },
+        a: {
+          zh: '不能，PNG 是位图。要复制文字就用 Word 转 HTML 或 Word 转 Markdown；这条路的目的是「把文档的样子发出去」。',
+          en: 'No — a PNG is a bitmap. For copyable text use Word to HTML or Word to Markdown; this route exists to send the document’s appearance.',
+        },
+      },
+      {
+        q: {
+          zh: '合同要贴进工单，文件会外发吗？',
+          en: 'If I attach a contract to a ticket, does the file leave my machine?',
+        },
+        a: {
+          zh: '转换这一步不会：只申请 storage 权限、没有 host 权限，产物里没有从网络取来的代码，解析与渲染都在标签页里完成。附到工单上那一步是你自己的动作。',
+          en: 'The conversion does not: the storage permission only, no host permissions, no remotely hosted code in the bundle, and parsing and rendering both happen in the tab. Attaching it to a ticket is your own action.',
+        },
+      },
+    ],
+  },
+  {
+    slug: 'webp-to-word',
+    from: 'webp',
+    to: 'docx',
+    shot: 'batch-results',
+    published: '2026-10-20',
+    title: {
+      zh: 'WebP 转 Word（.webp → .docx）——图片进文档，离线完成',
+      en: 'WebP to Word (.webp → .docx) offline — image inside the file',
+    },
+    desc: {
+      zh: '在浏览器里把 .webp 放进一份 .docx：图片字节原样内嵌，不另附文件、不发请求。图不是文字，Word 显示与否取决于它的 WebP 支持。',
+      en: 'The WebP goes inside the .docx as raw bytes — no file alongside, nothing fetched. Whether Word paints a WebP depends on its own support.',
+    },
+    lede: {
+      zh: '手里是一张 WebP，要交的却是 Word 文档——常见于收到的截图、下载的素材、翻拍的白板。这条链路是 WebP → HTML → Word：先把图片以 data URI 包进一个居中的 HTML 文档，再作为 altChunk 打进 .docx，字节随文档走。因此它交付的是「图片在文档里」，不是「图片里的文字被认出来」：要文字得靠 OCR，而本扩展不做 OCR。另一件要说在前面的事：转换器不转码，WebP 能不能被画出来，取决于打开它的那款 Word。',
+      en: 'You have a WebP and the deliverable is a Word document — a screenshot someone sent, a downloaded asset, a photo of a whiteboard. This route is WebP → HTML → Word: the image is wrapped as a data URI in a centred HTML document and packed into the .docx as an altChunk, bytes travelling inside. What it delivers is «the image is in the document», not «the text in the image was recognised» — that is OCR, which this extension does not do. One more thing said up front: nothing is transcoded, so whether the picture appears depends on the Word that opens it.',
+    },
+    keeps: {
+      zh: [
+        '图片字节原样内嵌：不是重新压缩，也不是截图重画，文档里那张就是原文件',
+        '图在 .docx 内部，不需要把图片文件放在旁边，也不会去取任何网络地址',
+        '在文档里以居中块呈现，按 Word 自己的方式缩放',
+      ],
+      en: [
+        'The image bytes go in as they are: not re-compressed and not redrawn as a screenshot — the file inside is the one you gave',
+        'The picture lives inside the .docx, so nothing has to sit alongside it and no address is fetched',
+        'It appears as a centred block, scaled by Word’s own rules',
+      ],
+    },
+    limits: {
+      zh: [
+        '转换器不转码：WebP 的字节直接进文档，而 Word 对 WebP 的支持随版本与平台不同。要「任何版本的 Word 都画得出来」，先走 WebP 转 PNG，再 PNG 转 Word',
+        '正文是装进 .docx 的 altChunk、由 Word 打开时渲染的，所以产物依赖 Word 对 altChunk 的支持；不处理它的阅读器可能整份都显示不出来，交付前请在目标环境打开确认',
+        '不会把图里的文字变成可编辑文本：产物里那是一张图，Word 认不出字。需要文字就得先做 OCR，而这一步本扩展刻意不做（不联网、不带模型）',
+        '透明区域交给 Word 的页面底色，不做预设的铺白或铺黑',
+        '一次一张：多个 .webp 一起转会逐个产出各自的 .docx；想把几张图收进同一份文档，先用「图片合并为一份 PDF」再走 PDF 转 Word',
+      ],
+      en: [
+        'Nothing is transcoded: the WebP bytes go straight in, and Word’s WebP support varies by version and platform. For “renders in any Word”, take WebP to PNG first and then PNG to Word',
+        'The body rides inside the .docx as an altChunk that Word renders when it opens the file, so the result depends on Word supporting altChunk; a reader that does not may show nothing at all, so open it in the target environment before delivery',
+        'Text inside the picture does not become editable text: the document holds an image, and Word cannot read it out. That needs OCR first, which this extension deliberately does not do (no network, no model)',
+        'Transparent areas are left to the page colour Word uses; no white or black matte is forced on',
+        'One image per document: several .webp files yield one .docx each. To gather several into one document, merge them into a PDF first (images → merged PDF) and then take PDF to Word',
+      ],
+    },
+    notes: {
+      zh: [
+        '一批最多 200 个文件，单个文件上限 100 MB；文件多于五个或总量超过 20 MB 时，只要偏好里的大批次确认还开着（默认开着），会先要一次确认',
+        '只是想换个格式继续传图，走 WebP 转 JPG 或 WebP 转 PNG 更直接；转 Word 的价值在于「图片进文档」这个交付形状',
+      ],
+      en: [
+        'Up to 200 files per batch and 100 MB per file; over five files or 20 MB it asks once first, as long as the large-batch confirmation is still on in preferences — it is by default',
+        'If you only need a different picture format, WebP to JPG or WebP to PNG is the shorter path — the value here is the «image inside a document» shape',
+      ],
+    },
+    faq: [
+      {
+        q: { zh: 'Word 里的图片会不会变成「链接的文件」？', en: 'Will the image end up as a linked file in Word?' },
+        a: {
+          zh: '不会。图片以 data URI 内嵌进文档，随 .docx 一起走，把文件发给别人不需要另附图片，Word 也不会为打开它去读旁边的路径或网络地址。',
+          en: 'No. The image is embedded as a data URI and travels inside the .docx, so there is nothing to attach alongside the file and Word does not read a local path or an address to open it.',
+        },
+      },
+      {
+        q: {
+          zh: '截图里的表格能被转成可编辑的 Word 表格吗？',
+          en: 'Can a table in a screenshot become an editable Word table?',
+        },
+        a: {
+          zh: '不能，那需要图像里的文字识别（OCR）。这条路交的是「表格的图在 Word 里」；要可编辑的表，把内容重打一遍或走 CSV / Excel 那些数据格式的路。',
+          en: 'No — that is optical character recognition, and this route does not do it. What you get is «the picture of the table, inside Word». For an editable table, retype it or come in through the CSV / Excel data routes.',
+        },
+      },
+      {
+        q: {
+          zh: '白板照片要进会议纪要文档，会外发吗？',
+          en: 'If a whiteboard photo goes into a meeting-notes document, is it uploaded?',
+        },
+        a: {
+          zh: '不会。扩展只有 storage 权限、没有 host 权限，产物里也没有把远端资源当代码执行的路径；包装与打包都在标签页内完成。',
+          en: 'No. The extension has the storage permission only and no host permissions, the bundle carries no path that executes remotely hosted code, and wrapping and packing both happen inside the tab.',
+        },
+      },
+    ],
+  },
 ];

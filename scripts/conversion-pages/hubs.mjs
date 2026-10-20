@@ -269,10 +269,6 @@ export const HUBS = [
         zh: '文档里的表格转成对象数组；没有表格时，正文中的 JSON 代码块可以被读出，否则报「没有表格结构」。',
         en: 'Tables become arrays of objects; with no table, a JSON code block in the body can still be read, and otherwise the route reports that no table structure exists.',
       },
-      png: {
-        zh: '先还原成 HTML 再整页渲染：版式按语义结构重排，不保证与 Word 的原始分页一致；页面高度超过 32768 px 会失败并说明。',
-        en: 'The document is rebuilt as HTML and captured whole: layout follows semantic structure, not Word’s original pagination, and a page taller than 32768 px fails with an explanation.',
-      },
       jpg: {
         zh: '渲染后按 A4 分页、逐页编码 JPEG，多页打包 ZIP；分页来自浏览器排版，不沿用 Word 的页面设置。',
         en: 'The rendering is sliced into A4 pages and encoded as JPEG, with several pages in a ZIP. Pagination comes from the browser’s layout, not from Word’s page setup.',
@@ -343,12 +339,7 @@ export const HUBS = [
         },
       },
     ],
-    targets: {
-      md: {
-        zh: '先提取文字层再序列化为 Markdown：段落重排为文本块，标题层级只在能从字号与位置推断时出现；原始换行、分栏与表格网格不保留。',
-        en: 'The text layer is extracted and serialised as Markdown: paragraphs reflow into blocks and heading levels appear only when type size and position allow the guess. Original line breaks, columns and table grids do not survive.',
-      },
-    },
+    targets: {},
   },
   {
     from: 'xlsx',
@@ -414,10 +405,6 @@ export const HUBS = [
       md: {
         zh: '每个工作表先变成带标题的 HTML 表格，再序列化为 Markdown 管道表；单元格只保留显示文本，公式、颜色、列宽与合并信息不进入结果。',
         en: 'Each worksheet becomes a titled HTML table and then a Markdown pipe table; cells keep display text only, while formulas, colours, column widths and merges stay behind.',
-      },
-      docx: {
-        zh: '多工作表写成「一个小标题加一张表」的结构，日期按工作簿格式规范化；公式结果按值写入，公式本身不保留。',
-        en: 'Several worksheets become a heading plus a table each, with dates normalised from the workbook format. Formula results are written as values and the formulas themselves do not survive.',
       },
       txt: {
         zh: '按工作表顺序读取单元格文本，同一行以制表符分隔、行间换行；日期规范化，空单元格留空，表格之外的内容不存在。',
@@ -509,10 +496,6 @@ export const HUBS = [
       docx: {
         zh: 'CSV 先转 HTML 再转 Word：一张表写入文档，首行是表头；列宽自适应，字体与配色取文档默认值，不沿用 CSV 来源的任何样式。',
         en: 'The CSV goes through HTML into Word: one table with the first row as headers, adaptive column widths and the document’s default type and colours, with no styling carried over from the CSV.',
-      },
-      pdf: {
-        zh: '表格渲染成 A4 页面后写入 PDF；列多时按页面宽度缩放，长表跨页。PDF 里是排版的图像页面，不是可编辑表格。',
-        en: 'The table is rendered into A4 pages and written to PDF: wide tables scale to the page and long ones span pages. The PDF holds laid-out page images, not an editable table.',
       },
       txt: {
         zh: '按行提取表格文本：单元格之间以制表符分隔，行末换行，表头与数据没有额外标记；空单元格保留为相邻制表符。',
@@ -941,10 +924,6 @@ export const HUBS = [
         zh: '原样嵌入 WebP 的 data URI，浏览器能直接显示；不转码、不重编码，像素与源文件一致。',
         en: 'The WebP data URI is embedded as-is and the browser displays it directly; nothing is transcoded or re-encoded, so the pixels match the source.',
       },
-      docx: {
-        zh: 'Word 能否显示取决于它对 WebP 的支持；转换器只把原始字节嵌进去，不转成 PNG，也不提供文字层。',
-        en: 'Whether Word displays it depends on its WebP support; the converter embeds the original bytes without converting to PNG and offers no text layer.',
-      },
     },
   },
   {
@@ -1185,10 +1164,6 @@ export const HUBS = [
       docx: {
         zh: 'SVG 栅格化为 PNG 后写入 Word：文档里是位图，失去缩放无损性；脚本与外链在栅格化前被剥离。',
         en: 'The SVG is rasterised to PNG and written to Word: the document holds a bitmap that no longer scales losslessly, with scripts and external links stripped before rasterising.',
-      },
-      pdf: {
-        zh: 'SVG 先按画布栅格化为 PNG，再写入 PDF 页面；页面尺寸取位图尺寸，矢量文字不可选。',
-        en: 'The SVG is rasterised to PNG on a canvas and written as a PDF page sized to that bitmap; the vector text is not selectable.',
       },
     },
   },
