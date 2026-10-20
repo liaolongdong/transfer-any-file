@@ -154,10 +154,6 @@ export const HUBS = [
       },
     ],
     targets: {
-      xlsx: {
-        zh: '页面里的 `<table>` 经 JSON 与 CSV 中转写成工作表：首行当列名，其余行当记录；布局、CSS 与脚本都不进入表格。多张表在这条链的中转步会合成一个分组对象，而 CSV 那一步只接受数组，于是整次转换报错——要逐张拿，先各存成只含一张表的 HTML。',
-        en: 'A `<table>` on the page reaches the workbook through JSON and CSV: the first row supplies column names and the rest become records, with layout, CSS and scripts left out. Several tables are merged into one grouped object at the middle step, which the CSV stage rejects as “not an array”, so the whole conversion fails — save one table per file to take them separately.',
-      },
       jpg: {
         zh: '整页按 A4 切片后逐页编码 JPEG，多页输出 ZIP；透明区域铺白。脚本不会执行，远程图片与字体不取字节。',
         en: 'The whole page is sliced into A4 pages and each is encoded as JPEG, with several pages in a ZIP and transparent areas filled white. Scripts do not run, and remote images and fonts are not fetched.',
@@ -607,10 +603,6 @@ export const HUBS = [
       },
     ],
     targets: {
-      md: {
-        zh: 'JSON 先渲染成带语法着色的 HTML 查看器，再转成 Markdown：对象、数组与标量变成标题、列表或代码块结构，原始缩进与键顺序不保证保留。',
-        en: 'JSON is rendered as a syntax-coloured HTML viewer and then serialised as Markdown: objects, arrays and scalars become headings, lists or code blocks, with original indentation and key order not guaranteed.',
-      },
       png: {
         zh: '整份 JSON 查看器渲染成一张长图，按页面布局换行；高度超过 32768 px 时失败并说明，不静默截断。',
         en: 'The whole JSON viewer is captured as one long image with layout-driven wrapping; past 32768 px of height it fails with an explanation rather than truncating.',
