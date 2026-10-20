@@ -5119,4 +5119,107 @@ export const PAIRS = [
       },
     ],
   },
+  {
+    slug: 'excel-to-markdown',
+    from: 'xlsx',
+    to: 'md',
+    shot: 'batch-results',
+    published: '2026-10-21',
+    title: {
+      zh: 'Excel 转 Markdown 表格——离线、多工作表、不上传',
+      en: 'Excel to Markdown table offline, multi-sheet, no upload',
+    },
+    desc: {
+      zh: '把工作簿写成管道表：每个工作表一张表并冠一行小标题，日期按 ISO 文本落地，合并区与样式按纯文本的规矩取舍。批量、可预览、零网络请求。',
+      en: 'A workbook becomes pipe tables — one per worksheet under its own heading, dates as ISO text, merges handled as plain text allows. Batch and fully offline.',
+    },
+    lede: {
+      zh: '把 Excel 贴进 README、Issue 或文档里，需要的是一张 Markdown 管道表。这条链路先把工作簿写成 HTML 表格（SheetJS 的 `sheet_to_html`，日期格在此之前已被改成 ISO 文本），再交给 Markdown 的表格规则输出。多工作表在这里是**支持**的：每个表前面会写一行 `## 工作表名`，各成一表——终点是 Markdown，不经过「只接受数组」那一闸，所以不会像 HTML 转 CSV 那样在多张表上失败。代价也说清楚：管道表没有跨列，合并区被覆盖的格子根本不产生单元格，右边整排会左移一格。',
+      en: 'Putting a spreadsheet into a README, an issue or a document means a Markdown pipe table. This route first writes the workbook as HTML tables (SheetJS’s `sheet_to_html`, with date cells already turned into ISO text) and then lets the Markdown table rule emit them. Multiple worksheets are **supported** here: each one gets a `## Sheet name` line above its table, because the endpoint is Markdown and never passes the “arrays only” gate that makes HTML to CSV fail on several tables. The cost is stated plainly: a pipe table has no column spanning, and the cells a merge covers emit nothing, so everything right of a merge shifts one column left.',
+    },
+    keeps: {
+      zh: [
+        '每个工作表一张管道表，多 sheet 时前面各写一行 `## 工作表名`——多张表在这条路上是正常输出，不是错误',
+        '日期按 ISO 文本落地（`2024-01-05`，带时间的是 `2024-01-05 14:30:00`），不会被改回序列号；作者显式设定的显示格式照原样保留',
+        '单元格取的是工作簿里的值与显示文本，所以公式那格给的是算好的数，不是 `=SUM(...)`',
+        '首行后紧跟 `---` 分隔线，列数按最宽的一行补齐；格子里的竖线写成 `\\|`、反斜杠成对写，内容撑不破表',
+      ],
+      en: [
+        'One pipe table per worksheet, each preceded by a `## Sheet name` line when the workbook holds several — multiple tables are a normal result on this route, not an error',
+        'Dates land as ISO text (`2024-01-05`, or `2024-01-05 14:30:00` with a time) instead of being rewritten into serials, and a format the workbook author set explicitly is respected rather than overridden',
+        'Cells carry the sheet’s value and display text, so a formula cell gives the computed number rather than `=SUM(...)`',
+        'The first row is followed by the `---` rule and rows are padded to the widest one; a pipe in a cell becomes `\\|` and a backslash is doubled, so content cannot break the table',
+      ],
+    },
+    limits: {
+      zh: [
+        '合并单元格左移：HTML 那一步用 colspan / rowspan 表达合并，但纯文本没有跨列概念，被覆盖的格子一个都不产生，于是合并区右边的列整体左移一格——要列位置稳定，先取消合并再转',
+        '图片、图表、批注、条件格式与样式都不在 SheetJS 读出的单元格里：它们不是「在这里被丢掉」，而是从来没进过这一步',
+        '格子里的换行与连续空白折成单空格，行内格式也不保留——管道表一行就是一行',
+        '表头行里重复或为空的表头会互相覆盖（同名的后一格赢），首行没写到的列不会存在',
+        '一张表最多读 50 万格、整个工作簿最多 100 万格，超过直接报错，不会给一张截断的表',
+      ],
+      en: [
+        'Merged ranges shift columns: the HTML step expresses them as colspan / rowspan, but plain text has no spanning and the covered cells emit nothing, so the columns right of a merge shift one place left — unmerge first for stable positions',
+        'Images, charts, comments, conditional formatting and styling are not in the cell grid SheetJS reads: they are not lost at this step, they never entered it',
+        'Newlines and runs of whitespace inside a cell collapse to one space and inline formatting is not carried over — one pipe-table row is one line',
+        'A repeated or empty entry in the header row overwrites its twin (the later cell wins), and a column the first row does not name will not exist',
+        'At most 500,000 cells per sheet and 1,000,000 per workbook are read; past that it fails rather than emitting a truncated table',
+      ],
+    },
+    notes: {
+      zh: [
+        '一批最多 200 个文件，单个文件上限 100 MB；多个工作簿逐个产出各自的 .md，想一次拿走就打成一个 ZIP',
+        '要的是能排版的成品文档而不是表格，走 Excel 转 Word；只要第一个工作表的纯文本，走 Excel 转文本',
+        '想让数据进 CSV 或 JSON：Excel 转 CSV 会把每个工作表写成一份 CSV 打包 ZIP，Excel 转 JSON 则一个文件按工作表名分组——那两条都不经过 HTML 提取，所以也不会撞上「多张表」那道闸',
+      ],
+      en: [
+        'Up to 200 files per batch and 100 MB per file; several workbooks yield one .md each, and the set can be taken as a single ZIP',
+        'For a document that keeps its layout, take Excel to Word; for the first sheet as plain text, take Excel to Text',
+        'For the data as CSV or JSON: Excel to CSV writes one CSV per worksheet inside a ZIP, and Excel to JSON returns one file grouped by sheet name — neither goes through HTML extraction, so neither meets the “several tables” gate either',
+      ],
+    },
+    faq: [
+      {
+        q: {
+          zh: '工作簿里有五个工作表，会不会像 HTML 转 CSV 那样失败？',
+          en: 'Five worksheets in the workbook — will it fail like HTML to CSV does?',
+        },
+        a: {
+          zh: '不会。那条失败是因为多张表会被并成一个分组对象，而 CSV 那一步只接受数组；这条的终点是 Markdown，每张表各成一段并冠一行小标题，没有那道闸。',
+          en: 'No. That route fails because several tables merge into one grouped object and the CSV stage accepts only arrays. This endpoint is Markdown: each table becomes its own section under a heading line, and there is no such gate.',
+        },
+      },
+      {
+        q: {
+          zh: '合并过的单元格会变成什么？',
+          en: 'What does a merged cell become?',
+        },
+        a: {
+          zh: '合并区只有左上那一格有内容，其余格子根本不产出——所以合并区右边的列会整体左移一格，Markdown 管道表也没有跨列的写法。想让列位置不变，先在源文件里取消合并。',
+          en: 'Only the top-left cell of a merged range carries content and the covered cells emit nothing, so the columns to the right shift one place left — and a pipe table has no syntax for spanning anyway. Unmerge in the source file to keep column positions.',
+        },
+      },
+      {
+        q: {
+          zh: '公式那一格会给公式还是结果？',
+          en: 'Does a formula cell give the formula or the result?',
+        },
+        a: {
+          zh: '给结果：工作簿存下的显示文本 / 计算值。公式本身不会进文本类产物，需要公式就保留那份 .xlsx。',
+          en: 'The result — the display text or value the workbook stores. Formulas do not travel into text artefacts, so keep the .xlsx if you need them.',
+        },
+      },
+      {
+        q: {
+          zh: '含个人信息的表会在本机以外处理吗？',
+          en: 'Is a sheet containing personal data processed anywhere off this machine?',
+        },
+        a: {
+          zh: '不会。读工作簿、生成表格、写 Markdown 都在扩展自己的标签页里完成，只申请 storage 权限、没有 host 权限，全程零网络请求。',
+          en: 'No. Reading the workbook, building the tables and writing the Markdown all happen inside the extension’s own tab: the storage permission only, no host permissions, and no requests at any point.',
+        },
+      },
+    ],
+  },
 ];

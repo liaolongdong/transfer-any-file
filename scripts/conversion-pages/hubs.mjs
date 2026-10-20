@@ -390,10 +390,6 @@ export const HUBS = [
       },
     ],
     targets: {
-      md: {
-        zh: '每个工作表先变成带标题的 HTML 表格，再序列化为 Markdown 管道表；单元格只保留显示文本，公式、颜色、列宽与合并信息不进入结果。',
-        en: 'Each worksheet becomes a titled HTML table and then a Markdown pipe table; cells keep display text only, while formulas, colours, column widths and merges stay behind.',
-      },
       png: {
         zh: '整本工作簿渲染成一页长图：每个工作表一张带标题的表格，宽表整体缩放；超过 32768 px 高度会报错而不是截断。',
         en: 'The workbook is captured as one long image: a titled table per worksheet, with wide sheets scaled to fit. Past 32768 px of height the route fails instead of truncating.',
