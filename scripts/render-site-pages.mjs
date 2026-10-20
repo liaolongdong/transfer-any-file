@@ -2213,6 +2213,9 @@ function validateDiffPage() {
   if (ogUrl !== null && ogUrl !== expected) {
     fail(`tools/file-diff.html shares ${ogUrl}, but canonicalises to ${expected} — those are one claim`);
   }
+  // The prose block carries an in-page anchor so the site can point readers at the explanation instead
+  // of the tool. A duplicate id would send `#about` to whichever copy the browser met last.
+  exactlyOne(/(id="about")/g, 'about anchor');
   if (!source.includes(`"@id": "${expected}"`)) {
     fail(`tools/file-diff.html has no JSON-LD node with @id ${expected}, so the graph describes another URL`);
   }
