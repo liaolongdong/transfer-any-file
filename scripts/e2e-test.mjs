@@ -7229,6 +7229,83 @@ async function run() {
     }
   }
 
+  // ═══════════════════════════════════════════
+  //  TABLE-SHAPE ROUTE BOUNDARIES
+  // ═══════════════════════════════════════════
+
+  if (section('Table Boundary Routes')) {
+    // The five table landing pages make their claims about *shape*, not bytes: one table becomes a CSV,
+    // two tables (including a table nested inside a cell — `querySelectorAll('table')` counts it) do not,
+    // and a multi-sheet workbook becomes several Markdown tables without meeting that gate at all. The
+    // second of those three was written wrong the first time and corrected only after a review, which is
+    // exactly the kind of outward claim a document check cannot catch. So the boundaries run here.
+    const oneTable =
+      '<html><body><table><tr><th>date</th><th>amount</th></tr>' +
+      '<tr><td>2024-01-05</td><td>1727000000000</td></tr><tr><td>=1+1</td><td>7</td></tr></table></body></html>';
+    const twoTables =
+      '<html><body><h2>A</h2><table><tr><th>k</th></tr><tr><td>1</td></tr></table>' +
+      '<h2>B</h2><table><tr><th>k</th></tr><tr><td>2</td></tr></table></body></html>';
+    const nestedTable =
+      '<html><body><table><tr><td>outer<a>x</a></td><td><table><tr><th>in</th></tr><tr><td>2</td></tr></table></td></tr></table></body></html>';
+    const htmlDoc = body => ({ name: 'probe.html', mimeType: 'text/html', buffer: Buffer.from(body, 'utf8') });
+    const failureReason = () => page.$eval('.failure-item .failure-reason', el => el.textContent).catch(() => '');
+
+    try {
+      await resetWorkbench(page);
+      const ok1 = await convertFile(page, htmlDoc(oneTable), 'CSV (.csv)');
+      if (ok1.alertTitle.includes('完成')) ok('Single HTML table converts to CSV');
+      else fail('HTML table to CSV', `alert reads "${ok1.alertTitle}"`);
+
+      // latin1 on purpose: the fixture is ASCII, so the byte comparison below is about the writer rather
+      // than about decoding. BOM, the header row, an untouched long integer, and the formula guard.
+      const csvText = await downloadBatchArtifact(page);
+      const bytes = Buffer.from(csvText, 'latin1');
+      if (bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf) ok('CSV artifact carries the UTF-8 BOM');
+      else fail('CSV BOM', `first three bytes are ${[...bytes.subarray(0, 3)].join(',')}`);
+      if (csvText.includes('date,amount') && csvText.includes('1727000000000') && !/1\.7\d?E\+12/.test(csvText))
+        ok(`Header row and long integer written as values (${csvText.replace(/^\ufeff/, '').split('\n')[1]})`);
+      else fail('CSV value fidelity', `body reads ${JSON.stringify(csvText.slice(0, 120))}`);
+      if (csvText.includes("'=1+1")) ok('A cell starting with = is exported behind the formula guard');
+      else fail('CSV formula guard', `expected "'=1+1" in ${JSON.stringify(csvText.slice(0, 120))}`);
+
+      await resetWorkbench(page);
+      const two = await convertFile(page, htmlDoc(twoTables), 'CSV (.csv)');
+      const twoReason = await failureReason();
+      if (two.alertTitle.includes('失败') && twoReason.includes('数组'))
+        ok(`Two tables are refused with the array reason ("${twoReason.trim().slice(0, 40)}")`);
+      else fail('Multi-table boundary', `alert "${two.alertTitle}", reason "${twoReason.trim().slice(0, 60)}"`);
+
+      await resetWorkbench(page);
+      const nested = await convertFile(page, htmlDoc(nestedTable), 'CSV (.csv)');
+      const nestedReason = await failureReason();
+      if (nested.alertTitle.includes('失败') && nestedReason.includes('数组'))
+        ok('A table nested in a cell counts as the second table and is refused the same way');
+      else
+        fail(
+          'Nested-table boundary',
+          `alert "${nested.alertTitle}", reason "${nestedReason.trim().slice(0, 60)}" — the pages say this fails`,
+        );
+
+      await resetWorkbench(page);
+      const md = await convertFile(page, 'sample.xlsx', 'Markdown (.md)');
+      if (md.alertTitle.includes('完成')) ok('Multi-sheet workbook converts to Markdown');
+      else fail('XLSX to Markdown', `alert reads "${md.alertTitle}"`);
+      const mdText = await downloadBatchArtifact(page);
+      const headings = (mdText.match(/^## /gm) || []).length;
+      // The separator row is the only line that starts with the pipe and then only `---` cells, so the
+      // count is per table rather than per column (the earlier `\|\s*-{3,}` pattern matched every cell
+      // of it and reported four for two tables).
+      const rules = (mdText.match(/^\| ---/gm) || []).length;
+      if (headings === 2 && rules === 2)
+        ok(`Each worksheet became its own table under its own heading (${headings} headings, ${rules} tables)`);
+      else fail('Multi-sheet Markdown shape', `${headings} "## " lines and ${rules} separator rows, expected 2 and 2`);
+    } catch (e) {
+      fail('Table boundary routes', e.message);
+    } finally {
+      await resetWorkbench(page).catch(() => {});
+    }
+  }
+
   section('Tab Marker for a Batch That Finishes Off-screen');
   try {
     // F6. The desktop notification is opt-in *and* suppresses itself while this tab is focused, so
