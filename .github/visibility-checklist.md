@@ -914,6 +914,20 @@ rgb(241,245,249)` 就是它；修法是内联 `transition: none !important`，�
   四镜像齐备。验证：`pages:render` 94 文件、`pages:check` 逐字节一致、`verify:numbers`（23 事实 × 99 文档）、`lint:all`、
   `build`、产物层 `verify:offline` / `verify:remote-code`、`verify:meta` 全 rc=0，`.output` 搜不到新 slug。运行时零改动，
   断言数仍 **452**，素材不重拍。**SEO 缺口现 39 格**。
+- **10-21 第十八轮（csv→Word、csv→PNG，77 → 79 张页）。** 这一格又推翻**两条先于页面存在的 hub 主张**，都出自同一次实测：
+  用本仓 `xlsx` 在 Node 里跑 `sheet_to_html`（`raw: true` 与不加 raw 各一份），产物**每一行都是 `<tr><td …>`，没有 `<thead>` 也没有 `<th>**
+——于是 csv hub 那句「首行是表头」不成立，csv→Word 页里改成「第一行不带表头语义，想要标题行外观请在 Word 里勾或自己套样式」；同一份实测还显示
+不加 raw 时 `2024-01-05`写成`data-t="n" data-v="45296.33383101852"`而显示文本是`1/5/24`，加 raw 后 `data-v` 与显示文本都是原字符。
+第二条被推翻的是「宽表整体缩放以适应画布」：`DOCUMENT_CSS`里表格是`width: 100%`+`border-collapse`、正文 800 px 且 `word-wrap: break-word`，
+所以宽表是**挤窄换行**而不是缩放，页里照这个写；顺带把「条纹按行序落、第一行是白底」这条从两处实测合出来的结论写明（没有 `<th>`，而样式表的浅底挂在 `<th>`与`:nth-child(even)`上）。
+csv→Word 的另一组事实回读自`html-to-docx.ts`：正文以 MHT altChunk 内嵌 ⇒ 排版归 Word；`stripRemoteResources`在净化之后跑（Word 会在用户机器上解析这段标记，
+远程`<img>` 就是别的程序发出的跟踪像素，落在 CSP 与离线守卫都看不见的位置）；内联 SVG 必须在净化**之前**栅格化（`html`profile 没有任何 svg 标签，
+曾经失败成「有效的空 .docx + 批次报成功」）；打包失败报`errors.docxGen` 而不交出打不开的文件。
+
+  四镜像齐备。SERP 预算这一轮拦下 csv→PNG 的英文描述（165 字符），删掉开头的 "The table is" 才放行。实测计数写进账而不是预测：
+  `pages:render` 96 文件、`verify:numbers` 23 事实 × 101 文档、`pages:check` 逐字节一致、`lint:all`、`build`、产物层 `verify:offline` /
+  `verify:remote-code`、`verify:meta` 全 rc=0，`.output` 里搜不到两个 slug。运行时零改动，断言数仍 **452**，素材不重拍。
+  **SEO 缺口现 37 格**。
 
 ## 3. 收下改动：这一节记的是提交账，不是提交计划
 

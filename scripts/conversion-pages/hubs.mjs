@@ -441,14 +441,6 @@ export const HUBS = [
       },
     ],
     targets: {
-      docx: {
-        zh: 'CSV 先转 HTML 再转 Word：一张表写入文档，首行是表头；列宽自适应，字体与配色取文档默认值，不沿用 CSV 来源的任何样式。',
-        en: 'The CSV goes through HTML into Word: one table with the first row as headers, adaptive column widths and the document’s default type and colours, with no styling carried over from the CSV.',
-      },
-      png: {
-        zh: '整张表渲染成一张 PNG；宽表整体缩放以适应画布，行数过多导致高度超过 32768 px 时失败并说明。',
-        en: 'The whole table is captured as one PNG with wide sheets scaled to fit. A table tall enough to pass 32768 px fails with an explanation.',
-      },
       jpg: {
         zh: '按 A4 分页后逐页编码 JPEG，长表跨页、多页 ZIP；压缩对文字边缘有损，适合预览而非存档。',
         en: 'It is sliced into A4 pages and encoded as JPEG, with long tables spanning pages and several pages in a ZIP. Compression softens text edges, so this suits previews rather than archives.',

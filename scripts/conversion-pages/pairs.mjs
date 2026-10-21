@@ -6938,4 +6938,190 @@ export const PAIRS = [
       },
     ],
   },
+  {
+    slug: 'csv-to-docx',
+    from: 'csv',
+    to: 'docx',
+    shot: 'batch-results',
+    published: '2026-10-21',
+    title: {
+      zh: 'CSV 转 Word——离线、值按写下的字符落地、不上传',
+      en: 'CSV to Word offline — values keep their characters',
+    },
+    desc: {
+      zh: 'CSV 先按 `raw: true` 读成一张 HTML 表，再打包成 Word 文档：`00424`、`2024-01-05` 保持写下的字符，排版由 Word 决定。全程离线。',
+      en: 'The CSV is read with raw: true into an HTML table, then packed as a Word file whose layout Word itself decides: 00424 and 2024-01-05 stay as written. Offline.',
+    },
+    lede: {
+      zh: '两步：`csv>html` 用 `XLSX.read(text, { type: "string", raw: true })` 把文件读成一张表，再交给 `sheet_to_html`；`html>docx` 把这份文档交给 `asBlob` 打成一份真的 `.docx` 容器，内容是一段 MHT altChunk——也就是说**排版发生在 Word 里**，字体、列宽、配色都归打开它的那款软件，不归这条链。`raw: true` 是唯一要紧的一步：不加它，SheetJS 的类型推断器会先改写你的数据，实测同一格 `2024-01-05` 在不 raw 的读取下单元格里写的是 `data-t="n" data-v="45296.33383101852"` 而显示文本是 `1/5/24`，加了 raw 之后 `data-v` 与显示文本都是 `2024-01-05` 那一串字符，`00424` 也不会缩成 `424`。还有一条容易被误以为「转换弄丢了东西」的形状要说清：`sheet_to_html` **不产出表头语义**——实测每一行都是 `<tr><td …>`，没有 `<thead>` 也没有 `<th>`，所以第一行在 Word 里与普通行同样处理，想要「标题行」的外观，请在 Word 里勾选表格标题行或自己套样式。安全那条边界也照实说：这段 HTML 不是由我们渲染的，Word 会在用户机器上解析它，所以远程引用在打包前被整体剥掉（`stripRemoteResources`，含 `//host/x.png` 那种协议相对地址），否则一个远程 `<img>` 就变成由另一个应用发出的跟踪像素，落在 CSP 与离线守卫都看不见的地方；内联 SVG 则在净化**之前**先栅格成 PNG，因为 `html` profile 里没有任何 svg 标签——曾经失败过一次「产物是有效的空 .docx 而批次报成功」。打包失败会报 `errors.docxGen`，不会交出一份打不开的文件。全程在这个标签页里完成，只有 storage 权限。',
+      en: 'Two steps: `csv>html` reads the file with `XLSX.read(text, { type: "string", raw: true })` and hands it to `sheet_to_html`; `html>docx` gives that document to `asBlob`, which packs a real `.docx` container whose body is an MHT altChunk — meaning **the layout happens in Word**: fonts, column widths and colours belong to whatever opens it, not to this chain. `raw: true` is the step that matters. Without it SheetJS’s inferrer rewrites your data first — measured on the same cell, a non-raw read writes `data-t="n" data-v="45296.33383101852"` and displays `1/5/24`, while the raw read writes and displays `2024-01-05`, and `00424` does not shrink to `424`. One shape that is often misread as the converter losing something: `sheet_to_html` **produces no header semantics** — measured, every row is `<tr><td …>` with no `<thead>` and no `<th>`, so the first row is treated like any other in Word; for a title-row look, mark it in Word or apply a style yourself. The security boundary is stated rather than glossed: this markup is not rendered by us — Word parses it on the user’s machine — so remote references are stripped before packing (`stripRemoteResources`, including protocol-relative `//host/x.png`), because otherwise one remote `<img>` becomes a tracking pixel issued by a different application, outside both the CSP and the offline guards. Inline SVG is rasterised to PNG **before** sanitising, since the `html` profile contains no svg tag at all — the earlier failure produced a valid but empty `.docx` while the batch reported success. A packing failure reports `errors.docxGen` instead of handing back a file that will not open. All of it inside this tab on the storage permission.',
+    },
+    keeps: {
+      zh: [
+        '值按文件里写下的字符落地：`00424`、`2024-01-05`、`1/2` 都不被推断成数字或日期（实测 `raw: true` 下 `data-v` 与显示文本一致）',
+        '一张表进一份文档：CSV 只有一个工作表，产物里就是一张表，不会莫名多出第二张',
+        '单元格里的文字内容保留：`sheet_to_html` 写出的是格子里的字，不是重新格式化后的显示串',
+        '远程引用被剥净再交给 Word：这条链不把「打开即发请求」的风险写进产物',
+      ],
+      en: [
+        'Values land as the characters the file carries: `00424`, `2024-01-05` and `1/2` are not inferred into numbers or dates (measured: with `raw: true`, `data-v` and the displayed text agree)',
+        'One table in one document: a CSV has a single worksheet, so nothing extra appears as a second table',
+        'The words inside cells are kept: `sheet_to_html` writes what is in the cell rather than a re-formatted display string',
+        'Remote references are stripped before Word sees the markup, so this chain does not write an open-and-request risk into the artifact',
+      ],
+    },
+    limits: {
+      zh: [
+        '没有表头语义：实测每行都是 `<td>`，既无 `<thead>` 也无 `<th>`，所以 Word 不会知道你的第一行是标题行（要那个外观，请在 Word 里勾「标题行」或自己套样式）',
+        '排版不由这条链决定：altChunk 意味着 Word 负责字体、列宽与分页，同一份 CSV 在不同软件里可能排得不一样',
+        '数字类型不迁移：这里不恢复数字与日期类型（那是 CSV→Excel 那条按值取数的路），文档里就是一格一格的字',
+        '指向网络或相邻路径的图片取不到字节，且远程引用会被剥掉，所以图不会出现在文档里；文字数据不受影响',
+        '样式与公式不携带：CSV 本身没有格式，条件格式、批注、冻结窗格这些概念在这条链上没有任何对应物',
+      ],
+      en: [
+        'No header semantics: measured, every row is `<td>` with no `<thead>` and no `<th>`, so Word is not told your first row is a title — tick “Header Row” there or style it yourself for that look',
+        'The layout is not this chain’s decision: an altChunk means Word owns fonts, column widths and pagination, so the same CSV can lay out differently in different software',
+        'Numeric types do not travel: nothing here restores number or date types (that is what CSV to Excel does with its round-trip typing rule), so the document holds words per cell',
+        'Images pointed at the network or a sibling path have no bytes and remote references are stripped, so no pictures appear; the text data is unaffected',
+        'Styling and formulas are not carried: a CSV has none, and conditional formatting, comments or frozen panes have no counterpart on this route',
+      ],
+    },
+    notes: {
+      zh: [
+        '要可计算的电子表格：CSV→Excel，那条链会把确实是数字的格按「逐字节回得来」的规则还原',
+        '要一份能贴进既有模板的文档：先转 HTML，再由你在 Word 里套样式，比指望这里携带格式更稳',
+        '只是想要一份可读的纯文本表：CSV→TXT / CSV→Markdown，竖线排版在 Markdown 里还能继续编辑',
+      ],
+      en: [
+        'For a computable spreadsheet: CSV to Excel, whose round-trip rule gives genuine numbers their type back',
+        'For something that must fit an existing template: convert to HTML first, then apply your Word style there — more dependable than expecting styling to travel',
+        'For a readable plain-text table: CSV to TXT or Markdown, where the pipe layout stays editable',
+      ],
+    },
+    faq: [
+      {
+        q: {
+          zh: '第一行是表头，Word 里会显示成表头吗？',
+          en: 'My first row is a header — will Word show it as one?',
+        },
+        a: {
+          zh: '不会自动。实测 `sheet_to_html` 每行都写成 `<td>`，没有 `<th>`，所以文档里没有「这是标题行」这个信息；Word 只会把第一行当成普通行（你可以勾标题行或给它套样式）。反过来说，这也意味着任何一行都能被安全地当成数据行处理，不会因为样式而错位。',
+          en: 'Not automatically. Measured, `sheet_to_html` writes every row as `<td>` with no `<th>`, so the file carries no “this is the title row” information and Word treats the first row like any other — tick Header Row or style it. The flip side: no row is special, so nothing shifts because of header styling.',
+        },
+      },
+      {
+        q: {
+          zh: '为什么我的日期在 Word 里不是日期格式？',
+          en: 'Why is my date not a date format in Word?',
+        },
+        a: {
+          zh: '因为这条路刻意不猜类型。CSV 里 `2024-01-05` 只是一串字符，把它「还原成日期」正是把 `1/2` 变成某年某月某日、把邮编 `00424` 变成 `424` 的那一步。所以要的是可计算的日期列，请走 CSV→Excel 那条按值取数的路，而不是让文档替你做这个决定。',
+          en: 'Because this route deliberately guesses nothing. In a CSV `2024-01-05` is characters, and “restoring” it is exactly the step that turns `1/2` into a calendar day and the zip `00424` into `424`. For real date columns take CSV to Excel with its round-trip rule rather than letting a document make that decision for you.',
+        },
+      },
+      {
+        q: {
+          zh: '转换后的 .docx 会被 Word 拦住吗？',
+          en: 'Will Word block the resulting .docx?',
+        },
+        a: {
+          zh: '产物是一份正常的 OPC 容器，能像其他 .docx 一样打开；它的正文以 altChunk 形式内嵌，排版由 Word 完成。需要说明的是：远程引用在打包前已被剥净，所以 Word 打开时不会去取文档外的东西。若打包那一步失败，界面报的是转换错误，不会给你一份打不开的文件。',
+          en: 'It is an ordinary OPC container that opens like any other .docx, with its body carried as an altChunk that Word lays out. The point worth stating: remote references are stripped before packing, so Word has nothing outside the file to fetch. If packing fails, the interface reports a conversion error instead of handing you an unopenable file.',
+        },
+      },
+    ],
+  },
+  {
+    slug: 'csv-to-png',
+    from: 'csv',
+    to: 'png',
+    shot: 'batch-results',
+    published: '2026-10-21',
+    title: {
+      zh: 'CSV 转 PNG——离线、整张表成一张图、不上传',
+      en: 'CSV to PNG offline — one striped table image',
+    },
+    desc: {
+      zh: 'CSV 先按 `raw: true` 读成 HTML 表，再整页无损截成一张 PNG：1px 边框与行条纹由自带样式表决定。高度超过 32768 px 会报错而不是截断。',
+      en: 'Read with raw: true into HTML, then captured losslessly as one PNG: 1px rules and row striping come from the bundled stylesheet. Past 32768 px it fails.',
+    },
+    lede: {
+      zh: '要把一张表甩进只吃图片的地方（聊天、幻灯片、表单附件），一张图比一段贴过去会散版的表格可靠。两步：`csv>html` 用 `raw: true` 读取（所以 `00424` 不会缩成 `424`、`2024-01-05` 不会变成 `1/5/24`，实测 `data-v` 与显示文本一致）并交给 `sheet_to_html` 写成一张表，再套上这份扩展自带的样式表；`html>png` 把净化后的文档离屏渲染成整页画布并无损编码。图里看到的排版因此是那条样式表决定的：正文最大宽度 800 px 居中、表格 `width: 100%` 且 `border-collapse`、每个单元 1px 实线边框加内边距、偶数行一层浅底——**注意条纹按行序落**：因为 `sheet_to_html` 不产出 `<th>`（实测每行都是 `<td>`），你的表头行不会得到特别待遇，它是第一行、白底，第二行才有浅底。列多而窄时文字换行而不是把画布撑宽（正文的 `word-wrap: break-word`），所以你得到的是一张宽度固定、高度随内容长的图。两条边界：整页高度上限 32768 px（`MAX_CANVAS_EDGE × 4`），超出报「渲染高度过大」而不是交付空白画布或被截短的图；图里的文字不是文字，PNG 没有文字层。全过程在这个标签页里完成，只有 storage 权限，渲染前还会剥掉远程引用。',
+      en: 'When a table has to go somewhere that only accepts pictures — chat, a slide, a form attachment — one image is more dependable than a paste that loses its layout. Two steps: `csv>html` reads with `raw: true` (so `00424` does not shrink to `424` and `2024-01-05` does not become `1/5/24`; measured, `data-v` and the displayed text agree), hands the sheet to `sheet_to_html`, and wraps it in the stylesheet this extension ships; `html>png` renders the sanitised document offscreen and encodes the whole page losslessly. What you see is that stylesheet: an 800 px centred measure, `width: 100%` tables with `border-collapse`, a 1px rule and padding on every cell, and one tint on even rows — and **the striping follows row order**, because `sheet_to_html` emits no `<th>` (measured: every row is `<td>`), so your header row gets no special treatment: it is row one, on white, and row two is the first tinted one. With many columns the text wraps rather than widening the canvas (`word-wrap: break-word` on the measure), so what you get is fixed-width and content-tall. Two boundaries: one capture is bounded at 32768 px of height (`MAX_CANVAS_EDGE × 4`) and past it the route reports “too tall to render” instead of delivering a blank canvas or a trimmed image; and text in the picture is not text — a PNG has no text layer. All of it inside this tab on the storage permission, with remote references stripped before rendering.',
+    },
+    keeps: {
+      zh: [
+        '值按写下的字符进图：`raw: true` 让 `00424` 与 `2024-01-05` 保持原字符，图里不会出现被推断过的 `424` 或 `1/5/24`',
+        '边框与条纹由自带样式表给出：每格 1px 实线、表格 100% 宽并折叠边框，偶数行一层浅底',
+        '宽度固定、高度随内容：一张图就是一整张表，不用滚动拼接',
+        '无损编码：细线与网格在放大后仍清晰，适合贴进会被再次查看的场合',
+      ],
+      en: [
+        'Characters go into the picture as written: `raw: true` keeps `00424` and `2024-01-05`, so no inferred `424` or `1/5/24` shows up',
+        'Rules and striping come from the bundled stylesheet: a 1px border on every cell, 100% width with collapsed borders, one tint on even rows',
+        'Fixed width, content-driven height: one image is the whole table, with no scrolling and no stitching',
+        'Lossless encoding: thin rules and gridlines stay crisp when the picture is zoomed',
+      ],
+    },
+    limits: {
+      zh: [
+        '表头不会被特别对待：没有 `<th>`，条纹按行序落，所以第一行是白底——想让表头在图里显眼，请在源数据里自己加视觉区分',
+        '高度上限 32768 px：几千行的表会报错并说明，不给被截短的图；要分页请走 CSV→PDF 或 CSV→JPG',
+        '文字不可选中、搜索或朗读：PNG 没有文字层，要这些请用 HTML / Markdown / Excel',
+        '宽表不换画布宽度而是换行：列特别多时每列会挤窄，读起来不如原始 CSV 利落',
+        '质量档对 PNG 不起作用（无损），能调的是最长边与目标尺寸，它们在编码前重采样',
+      ],
+      en: [
+        'The header is not treated specially: with no `<th>`, striping follows row order, so row one is untinted — add your own visual cue in the source if it has to stand out',
+        'A 32768 px height ceiling: a table of thousands of rows fails with an explanation rather than a trimmed picture; take CSV to PDF or JPG for pages',
+        'Nothing is selectable, searchable or readable aloud: a PNG has no text layer, so use HTML, Markdown or Excel for that',
+        'Wide tables wrap instead of widening: with many columns each one squeezes and it reads less cleanly than the CSV itself',
+        'A quality setting does nothing for PNG, which is lossless; the longest edge and target size do apply, resampling before encoding',
+      ],
+    },
+    notes: {
+      zh: [
+        '要能打印的成品：CSV→PDF 走同一条 HTML 中转，分页与页边距在那边',
+        '要小体积的分享图：CSV→JPG 按 A4 分页逐页有损编码，长表会出 ZIP',
+        '要继续加工数据：CSV→Excel 或 CSV→JSON，图片这一格交付的是给人看的那一张',
+      ],
+      en: [
+        'For something printable: CSV to PDF shares the HTML bridge, with pages and margins on that side',
+        'For smaller shareable pictures: CSV to JPG encodes A4 pages lossily one by one, long tables arriving in a ZIP',
+        'To keep working on the data: CSV to Excel or JSON — this page delivers the picture, not the dataset',
+      ],
+    },
+    faq: [
+      {
+        q: {
+          zh: '为什么图里第一行没有加粗或底色？',
+          en: 'Why is the first row in the image not bold or shaded?',
+        },
+        a: {
+          zh: '因为中间那份 HTML 里没有 `<th>`——实测 `sheet_to_html` 每行都写成 `<td>`，样式表里加粗与浅底是挂在 `<th>` 与偶数行上的，所以你的表头行只会按普通第一行的样子出现。要那个外观，可在源文件里插一行视觉分隔，或转成 HTML 后自己套样式。',
+          en: 'Because the intermediate HTML has no `<th>` — measured, `sheet_to_html` writes every row as `<td>`, and the stylesheet’s bold and tint hang on `<th>` and on even rows, so a header row appears as just row one. Add a visual separator in the source, or style it after converting to HTML.',
+        },
+      },
+      {
+        q: {
+          zh: '一张几百列的表会怎样？',
+          en: 'What happens to a table with hundreds of columns?',
+        },
+        a: {
+          zh: '宽度固定在 800 px 正文里，表格占满它，列数越多每列越挤，单元内文字换行；只有内容高度超过 32768 px 时这条链会明确报错。所以宽表更适合走 HTML 或 Excel，图片适合列数可控、想一眼看完的那类。',
+          en: 'The measure stays 800 px wide and the table fills it, so more columns means narrower ones with wrapping text; the route only fails outright past 32768 px of content height. Wide tables belong with HTML or Excel — a picture is for tables you can take in at one look.',
+        },
+      },
+      {
+        q: {
+          zh: '数字会在图里变成科学计数吗？',
+          en: 'Do numbers go exponential in the image?',
+        },
+        a: {
+          zh: '不会。这一路的读取用 `raw: true`，值以字符形态进表格，长整数与带前导零的编号原样显示——被推断成数字（进而可能被显示成科学计数）的是不按 raw 读的那条路。图里的样子就是你文件里的字符。',
+          en: 'No. The read uses `raw: true`, so values enter the table as characters and long integers or zero-padded ids display exactly as typed; the inferred-into-a-number path is the non-raw read. What the picture shows is the characters in your file.',
+        },
+      },
+    ],
+  },
 ];
