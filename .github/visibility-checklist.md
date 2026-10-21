@@ -1088,6 +1088,23 @@ csv→Word 的另一组事实回读自`html-to-docx.ts`：正文以 MHT altChunk
   `pages:check` 逐字节一致、`lint:all`、`build`、产物层两条离线守卫、`verify:meta`、`verify:paths` 全 rc=0；四镜像齐备（sitemap、
   `docs/convert/index.html`、`docs/index.html` 的 `.pairs` 网格、`docs/llms.txt` 各点名一次）。运行时零改动，断言数仍 **452**，素材不重拍。
 
+- **10-21 第卅六轮（只改散文：核查员对两张 Word 页复核 14 条，翻掉 6 条过度主张）。** 先记好消息：它**实跑了打包器**
+  （Node 24 直调 `html-docx-js-typescript` 的 `getMHTdocument` / `asBlob`）验出本批四条核心主张成立——`.docx` 内不残留 data URI、
+  媒体部件里的负载与原文件**逐字节相同**、`<style>` 随包进 altChunk（所以「版心约 800 px」那句站得住）、引用确实被重写。
+  翻掉的 6 条全是**替消费端说话**或**没有取证来源**那一类：
+  ① 两处 faq 问句把「Word 打开时会提示在转换」当既定事实（全仓没有任何打开 Word 的观测，e2e 只读产物字节），改成条件句
+  「如果它给了转换提示……」，答句把渲染归到阅读器那一侧并明说本扩展无法预见它说什么；
+  ② 「能交给任何读 Word 的程序」——这个包靠 `aFChunk` 与 MHT 的 `Content-Location` 内部解析，LibreOffice / Google Docs 均未测，
+  改成「其它程序怎么读这份 altChunk，由那一侧决定」；
+  ③ 「这条最常被问的是……」——完全离线、无埋点，没有任何问题频次数据，改成「最容易被误会的是」；
+  ④ jpg limits 第 3 条中英**指向相反且都错**（中文说改走 Word→HTML、英文说改走 HTML→Word），而两条都造不出文字层
+  （`html>docx` 只把同一张 `<img>` 写进 altChunk，`docx>html` 也只回取那张 `<img>`），统一成「请在 Word 里补；本扩展没有任何路线能从图里读出文字」；
+  ⑤ 「不会交出一个打不开的 .docx」——唯一守卫是 `result instanceof Blob`，全包没有 OOXML / MHT 合法性校验，「打不开」无从判定，
+  改成「不会交出一个半成品」（中英 lede 与 limits 共四处同改）；
+  ⑥ 「也不会去找你原来的照片路径」——重写后的引用恰是一个绝对假路径 `file:///C:/fake/imageN.png`（库内 `utils.ts:12`），
+  不认 MHT 内定位的阅读器真会去试它，这句反而可能说反；删掉，只说「引用读的是包里那一份」。
+  页数与数字类主张不变（仍 95 张 / 缺口 21；`pages:render` 112 文件、`verify:numbers` 23 事实 × 117 文档）。
+
 ## 3. 收下改动：这一节记的是提交账，不是提交计划
 
 这一节原先给的是 2026-09-19 那一轮（配对页与博客页改成数据源生成）的两条 `git commit`。那些提交早就落地了，
