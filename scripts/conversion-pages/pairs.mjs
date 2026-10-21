@@ -8066,4 +8066,190 @@ export const PAIRS = [
       },
     ],
   },
+  {
+    slug: 'jpg-to-html',
+    from: 'jpg',
+    to: 'html',
+    shot: 'batch-results',
+    published: '2026-10-21',
+    title: {
+      zh: 'JPG 转 HTML——离线、字节原样内嵌、不上传',
+      en: 'JPG to HTML offline — the bytes travel unchanged',
+    },
+    desc: {
+      zh: '文件以 data URI 内嵌进一份能直接打开的网页，`alt` 与 `title` 用你的文件名主干；不解码也不重编码，像素就是你原来那一份。全程离线。',
+      en: 'The file is embedded as a data URI with your file name as alt and title; nothing is decoded or re-encoded, so the pixels are the ones you had.',
+    },
+    lede: {
+      zh: '这条路只有一步，而且刻意做得很薄：`jpg>html` 把文件的**原始字节**用 `FileReader.readAsDataURL` 编成 data URI，写进一个 `<img src>`，再把这张图包进一份自带样式表的 HTML——**中间没有任何解码或重编码**，不像图片转图片那几路要先上画布再压一次。所以两件事同时成立：像素与源文件逐字节相同；产物体积约是原图的 4/3（base64 的固定开销）再加一层很小的文档外壳。`alt` 与 `title` 都取**文件名的主干**（去掉扩展名，没有可用名字时退到 `converted`），并且按属性位置做了转义——这是这条唯一能给出的描述：它不读图里的内容，也不猜图里画了什么。文档 CSS 让图居中显示、`max-width: 100%`、`height: auto`，所以一张很大的图会在窗口里缩放显示，而**显示缩放不改动文件里的像素**。这条路的用处主要是「把图交给一个只吃网页的地方」：邮件正文、内嵌文档、离线存档，或者作为 Markdown / Word 那条链的中间形状（本扩展的图转 Markdown 正是先走这一步）。它也是**不会外发任何东西**的那种内嵌：图片是 data URI，打开这份 HTML 不取任何远程资源，因此你在 SVG 那条路上要小心的「打开即请求」在这里没有对应物——扩展本身也只有 storage 权限，转换全程离线。',
+      en: 'This route is one step, and deliberately thin: `jpg>html` takes the file’s **raw bytes**, base64-encodes them through `FileReader.readAsDataURL` into a data URI, puts them in an `<img src>` and wraps that in a document with the bundled stylesheet — **no decode and no re-encode anywhere**, unlike the image-to-image routes, which must go through a canvas and compress again. Two things hold at once: the pixels are byte-identical to your file, and the artifact is about 4/3 of its size (the fixed cost of base64) plus a very small document shell. `alt` and `title` both carry **the basename of your file** (extension dropped, falling back to `converted` when there is no usable name), escaped for attribute position — that is the only description this route can offer, because it never reads what is in the picture and never guesses at its contents. The document CSS centres the image with `max-width: 100%` and `height: auto`, so a very large picture is scaled *on screen* while the bytes in the file stay as they were. What this is for: handing a picture to something that only accepts a web page — an email body, an embedded document, an offline archive — or the middle shape of the Markdown and Word chains (this extension’s image to Markdown goes through exactly this step). And it is the kind of embedding that **sends nothing out**: the picture is a data URI, so opening the HTML fetches no remote resource, and the “open it and make a request” hazard that matters on the SVG route has no counterpart here — the extension itself holds only the storage permission, and the conversion never touches the network.',
+    },
+    keeps: {
+      zh: [
+        '像素逐字节不变：不解码、不上画布、不再压一次，所以没有第二代损失',
+        '`alt` 与 `title` 取文件名的主干（去扩展名），并做了属性转义——不会把名字写成标记',
+        '自包含：图就在文件里，打开这份 HTML 不取任何远程资源',
+        '显示缩放不动数据：CSS 只决定它在窗口里多大，文件里的像素一个都不变',
+      ],
+      en: [
+        'Byte-identical pixels: no decode, no canvas, no second compression, so there is no generation loss',
+        '`alt` and `title` carry the file’s basename with the extension dropped, escaped for attribute position so a name cannot become markup',
+        'Self-contained: the picture is in the file, and opening it fetches no remote resource',
+        'Display scaling never touches data: CSS decides how big it looks, not what the bytes are',
+      ],
+    },
+    limits: {
+      zh: [
+        '不 OCR，也不生成任何关于内容的文字：产物里唯一的字符串来自你的文件名',
+        '体积约 4/3：一张 5 MB 的照片会变成 6.7 MB 上下的 HTML，不适合做「压缩」',
+        '只包一张图：多张图请一个文件一次，或先做一张拼版（本扩展不提供拼图功能）',
+        'JPG 本身是哪种编码、有没有被裁切，这一层不改也不查：它做的是搬运而不是处理',
+        '不产生可复制的图片对象：想在别的文档里用这张图，请直接拿原文件或走图片转图片那几路',
+      ],
+      en: [
+        'No OCR and no invented description: the only string in the output comes from your file name',
+        'Roughly 4/3 the size: a 5 MB photo becomes something like a 6.7 MB HTML file, so this is not a compression route',
+        'One picture per file: for several, convert one at a time — this extension has no collage or tile feature',
+        'Whatever encoding or cropping the JPEG already had is neither examined nor changed: this route carries, it does not process',
+        'It yields no copyable image object: take the original file, or an image-to-image route, when a document needs the picture itself',
+      ],
+    },
+    notes: {
+      zh: [
+        '要 Markdown 里的图片：JPG→Markdown 就是这条再加一步序列化',
+        '要 Word 文档里的图片：JPG→Word 走同一条内嵌路，最终由打开它的软件排版',
+        '要真正换格式（比如转 WebP / PNG）：那需要重编码，请走图片转图片那几页',
+      ],
+      en: [
+        'For an image in Markdown: JPG to Markdown is this step plus a serialisation',
+        'For a picture in a Word file: JPG to Word uses the same embedding, with layout left to whatever opens it',
+        'To actually change format (to WebP or PNG): that needs re-encoding, so take the image-to-image pages',
+      ],
+    },
+    faq: [
+      {
+        q: {
+          zh: '这跟我手动把图片拖进网页有什么区别？',
+          en: 'How is this different from dropping the image into a web page myself?',
+        },
+        a: {
+          zh: '结果形状一样，差别在它顺手做完三件小事：文件名变成 `alt` 与 `title`（并按属性转义）、文档带着居中与自适应宽度的样式、以及不需要你写任何 HTML。产物是一份能直接双击打开的自包含文件。',
+          en: 'The shape is the same; what this adds is three small things done for you: the file name becomes `alt` and `title` (escaped for attribute position), the document ships centreing and width-fit styling, and you write no markup. The result is a self-contained file you can open directly.',
+        },
+      },
+      {
+        q: {
+          zh: '图里的文字会被识别出来吗？',
+          en: 'Will the text inside the picture be recognised?',
+        },
+        a: {
+          zh: '不会。这条路连像素都不读——它只把文件字节编成 data URI。任何「图片转文字」的结果都需要 OCR，而本扩展不带着语言包与识别模型，也不联网调用别的服务，所以它交付的是图片本身，外加你的文件名。',
+          en: 'No. This route never looks at pixels: it encodes the file’s bytes as a data URI. Anything resembling text needs OCR, and the extension ships no language packs or recognition models and calls nothing over the network, so it delivers the picture plus your file name.',
+        },
+      },
+      {
+        q: {
+          zh: '为什么 HTML 比原图大那么多？',
+          en: 'Why is the HTML bigger than my image?',
+        },
+        a: {
+          zh: 'base64 每三个字节要写成四个字符，这是编码形态的固定开销，约 4/3；再加一层很小的文档外壳（样式表与标签）。想变小请走图片转图片那几路做真实重编码，而不是这一路。',
+          en: 'base64 writes every three bytes as four characters — a fixed ~4/3 overhead of the encoding itself — plus a very small document wrapper. To go smaller, take an image-to-image route and re-encode for real; this one is not a compressor.',
+        },
+      },
+    ],
+  },
+  {
+    slug: 'jpg-to-md',
+    from: 'jpg',
+    to: 'md',
+    shot: 'batch-results',
+    published: '2026-10-21',
+    title: {
+      zh: 'JPG 转 Markdown——离线、内联图片、不做 OCR',
+      en: 'JPG to Markdown offline — an inline image, no OCR',
+    },
+    desc: {
+      zh: '产物是一行自包含的图片语法：`![名字](data:image/…;base64,… "名字")`，字节就是原文件；不识别图里的文字，也不产生描述。全程离线。',
+      en: 'You get one self-contained image tag whose bytes are the original file. No OCR, so no text is invented and nothing is uploaded.',
+    },
+    lede: {
+      zh: '两步，而且第二步几乎不做决定：`jpg>html` 先把文件的原始字节编成 data URI 放进一个 `<img>`（`alt` 与 `title` 都是你的文件名主干，去扩展名、无名时 `converted`，并做属性转义），`html>md` 再用 Turndown 把这份文档序列化。实测产物就是形如 `![合同扫描件](data:image/jpeg;base64,/9j/… "合同扫描件")` 的**一行图片语法**——base64 负载整个写进 `.md`，所以文件自包含、发给别人不必带附件目录，代价就是体积约 4/3 的膨胀。文档外壳里那份样式表在 `<head>`，而这一步只取 `body` 的内容，所以 CSS 不会漏进 Markdown；图之外如果还有段落，Turndown 会把它们按空行分段留在图片两侧。要说清的一条边界：**这不是「图片转文字」**。图里印着什么，这条链一概不知道——它不读像素，本扩展也不带 OCR 模型、语言包，更不会把图上传给谁去识别；想要能搜索、能复制的文字，需要的是识别服务，那与「完全离线」是二选一。反过来，如果你的目的就是把一张图塞进一份 Markdown 笔记或 README，并且希望这份笔记拷走之后仍然显示图片，那这一路正是为此形状做的。全程只有 storage 权限，不联网。',
+      en: 'Two steps, and the second barely makes decisions: `jpg>html` first encodes the file’s raw bytes into a data URI inside an `<img>` (`alt` and `title` both carry the basename of your file, extension dropped, `converted` when there is no usable name, escaped for attribute position), and `html>md` then serialises that document with Turndown. Measured, the artifact is **one line of image syntax** looking like `![合同扫描件](data:image/jpeg;base64,/9j/… "合同扫描件")` — the base64 payload is written straight into the `.md`, so the file is self-contained and travels without an attachments folder, at the cost of that ~4/3 inflation. The stylesheet from the document wrapper sits in `<head>` while this step reads only the body, so no CSS leaks into the Markdown; if the page had paragraphs, Turndown leaves them as blank-line-separated blocks around the image. The boundary stated plainly: **this is not “image to text”**. Whatever is printed in the picture is unknown to this chain — it never reads pixels, the extension ships no OCR model or language packs, and it uploads nothing anywhere. Searchable, copyable words need a recognition service, which is the opposite of fully offline. Conversely, if your goal is to put one picture inside a Markdown note or README and have it still render after the note is copied elsewhere, that is exactly the shape this route makes. All of it on the storage permission, with no network at all.',
+    },
+    keeps: {
+      zh: [
+        '自包含的一行图片语法：base64 写在 `.md` 里，拷走笔记不用带附件目录',
+        '字节是原文件的字节：这条链不重编码，所以没有第二代损失',
+        '`alt` 与 `title` 带你的文件名主干，可继续编辑成有意义的描述',
+        '样式表不会漏进产物：那一步只取文档 `body`，head 里的 CSS 不参与',
+      ],
+      en: [
+        'One self-contained image tag: the base64 lives in the `.md`, so the note travels without an attachments folder',
+        'The bytes are your file’s bytes: no re-encoding on this chain, so no second-generation loss',
+        '`alt` and `title` carry your file’s basename, ready for you to edit into something meaningful',
+        'No stylesheet leaks: the serialisation reads the document body only, leaving the head’s CSS out',
+      ],
+    },
+    limits: {
+      zh: [
+        '不做 OCR：图里印着的文字不会变成 Markdown 文字，这条路连像素都不读',
+        '体积约 4/3 膨胀，而且整段 base64 会占据一行——编辑器里滚过长串很常见，这是内联的代价',
+        '一行一文件：只包一张图，多张请分别转换，或自己写成标准外链图片语法',
+        '不会替你写 `alt` 文案：产物里的描述来自文件名，语义得由你补',
+        '想要「文字在仓库里、图在目录里」那种可 diff 的形状，这条路相反——它把图搬进了文本',
+      ],
+      en: [
+        'No OCR: text printed in the picture never becomes Markdown text, because this route never reads pixels',
+        'About 4/3 inflation, with the whole base64 payload on one line — scrolling past a long line in an editor is the cost of inlining',
+        'One picture per file: convert separately, or write a normal external image reference for several',
+        'It will not write your `alt` copy: the description comes from the file name and the meaning is yours to add',
+        'If you want words versioned in the repository and pictures in a folder — the diffable shape — this route does the opposite: it moves the image into the text',
+      ],
+    },
+    notes: {
+      zh: [
+        '只想把图放进网页：JPG→HTML 就是这条的第一步，产物是 HTML 而不是 `.md`',
+        '要文字版的图片内容：这需要 OCR，本扩展离线且不带模型，请自行用识别工具再把文字贴进 Markdown',
+        '要 Word 里的图片：JPG→Word 走同一条内嵌路，由打开它的软件排版',
+      ],
+      en: [
+        'To put the picture in a web page: JPG to HTML is this route’s first step, and the artifact is HTML rather than `.md`',
+        'For a text version of what the picture says: that needs OCR, which this offline extension does not ship — run a recognition tool yourself and paste its words into Markdown',
+        'For a picture inside a Word file: JPG to Word shares the same embedding, with layout left to whichever application opens it',
+      ],
+    },
+    faq: [
+      {
+        q: {
+          zh: '为什么我的 `.md` 突然变这么大？',
+          en: 'Why did my .md suddenly get so big?',
+        },
+        a: {
+          zh: '因为图片是内联的：base64 每三字节省四字符（约 4/3），整张图的字节都写进了文本文件。想要小一点的写法是外链——把图放在目录里、在 Markdown 里写 `![说明](图片.jpg)`；这条路只做内联，因为它保证拷走单个 `.md` 也还能显示。',
+          en: 'Because the picture is inlined: base64 turns every three bytes into four characters (about 4/3), so the whole image sits inside a text file. The smaller alternative is an external reference — keep the picture in a folder and write `![caption](image.jpg)`; this route only inlines, which is what makes a single `.md` enough to still render.',
+        },
+      },
+      {
+        q: {
+          zh: '它能把我拍的文档照片转成可编辑文字吗？',
+          en: 'Can it turn a photo of my document into editable text?',
+        },
+        a: {
+          zh: '不能，这一点页面上每条都写明：这条链产出的是图片语法那一行，不读像素，也不上传去问别的引擎。「照片转文字」是 OCR 任务的形状，与「完全离线、文件不出本机」互斥，所以本扩展刻意不做。',
+          en: 'No — every page in this family says so plainly: the route produces an image tag, never reads pixels, and uploads nothing to some other engine. Photo-to-text is an OCR task, and that is incompatible with “fully offline, the file never leaves this machine”, so the extension deliberately does not do it.',
+        },
+      },
+      {
+        q: {
+          zh: '产物长什么样，能给个例子吗？',
+          en: 'What does the artifact look like — an example?',
+        },
+        a: {
+          zh: '一行：`![文件名主干](data:…;base64,一长串 "文件名主干")`。`alt` 与 `title` 都来自你的文件名（去掉扩展名；没有可用名字时是 `converted`），中间是那台文件完整的 base64 负载。实测就是这一行的形状，图片之外没有别的产出；若原文档里还有段落，它们会作为独立块留在两侧。',
+          en: 'One line: `![basename](data:…;base64,a-long-run "basename")`. `alt` and `title` both come from your file name (extension dropped; `converted` when there is no usable name), and between the parentheses is the file’s full base64 payload. Measured, that is the shape, with nothing else produced for the image; paragraphs, if the document had them, stay as separate blocks around it.',
+        },
+      },
+    ],
+  },
 ];

@@ -1006,6 +1006,15 @@ csv→Word 的另一组事实回读自`html-to-docx.ts`：正文以 MHT altChunk
   英文侧另记一笔：docx→JPG 的描述原本 163 字符，渲染前按 SERP 预算先削到 154（当天第八次退回，这次是我主动预削）。四镜像齐备，txt 的 xlsx 与 docx 的 jpg 两条 hub 摘要按镜像规则摘除。
   实测计数：`pages:render` 106 文件、`verify:numbers` 23 事实 × 111 文档（关系仍成立）、`pages:check` 逐字节一致、`lint:all`、`build`、产物层两条离线守卫、`verify:meta` 全 rc=0，`.output` 搜不到两个 slug。运行时零改动，断言数仍 **452**，素材不重拍。
 
+- **10-21 第卅轮（jpg→HTML、jpg→Markdown，91 张页 / 缺口 25）。** 这两格挑的是「image to html / image to markdown」这类高频问法，而且卖点正好是**反着说**：
+  这条链**不读像素**，所以不会有 OCR、不会有编造的内容描述——一个完全离线、不带模型也不上传任何东西的扩展做不到那一类事，页里把它写成首要边界而不是含糊带过。
+  正面事实全部回读自 \`image-to-html.ts\`：\`jpg>html\` 是一步直连，文件字节经 \`FileReader.readAsDataURL\` 原样进 \`<img>\`，**不解码也不重编码**（与图片转图片那几路先上画布再压一次形成对照），所以像素逐字节相同、体积约 4/3；
+  \`alt\` 与 \`title\` 都取 \`documentTitle\`（去扩展名的主干、无名时 \`converted\`）并按属性位置转义。jpg→Markdown 的产物用本仓 \`turndown\` 实测为一行
+  \`![主干](data:…;base64,… '主干')\`，且 \`html>md\` 只取 \`doc.body.innerHTML\`，所以 \`<head>\` 里那份样式表不会漏进产物。
+
+  四镜像齐备；jpg hub 的 `html` 与 `md` 两条摘要按镜像规则摘除（复核后与新页一致，其中「约 4/3」与「没有 OCR」两句本来就是那两页的核心）。实测计数：`pages:render` 108 文件、`verify:numbers` 23 事实 × 113 文档
+  （关系仍成立：文件 = 页 + 17、文档 = 页 + 22）、`pages:check` 逐字节一致、`lint:all`、`build`、产物层两条离线守卫、`verify:meta` 全 rc=0，`.output` 搜不到两个 slug。运行时零改动，断言数仍 **452**，素材不重拍。
+
 ## 3. 收下改动：这一节记的是提交账，不是提交计划
 
 这一节原先给的是 2026-09-19 那一轮（配对页与博客页改成数据源生成）的两条 `git commit`。那些提交早就落地了，

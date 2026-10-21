@@ -687,14 +687,6 @@ export const HUBS = [
       },
     ],
     targets: {
-      md: {
-        zh: '图片以 data URI 内嵌后转成 Markdown 图片语法：base64 写进 .md，文件自包含但体积膨胀；没有 OCR，不会产生文字。',
-        en: 'The picture is embedded as a data URI and written as Markdown image syntax: the base64 payload lands in the .md, self-contained but larger. There is no OCR, so no text appears.',
-      },
-      html: {
-        zh: '整张图的原始字节以 data URI 嵌入 HTML，`alt` 取文件名；不重新编码，所以像素与源文件一致，HTML 体积约为图片的 4/3。',
-        en: 'The original bytes are embedded in HTML as a data URI with the file name as `alt`; nothing is re-encoded, so the pixels match the source and the HTML grows to about 4/3 of the image size.',
-      },
       docx: {
         zh: '经 data URI 放进 Word：文档里是位图，没有可编辑文字；不重编码，按原像素嵌入。',
         en: 'The data URI travels into Word: the document holds a bitmap with no editable text, embedded at its original pixels without re-encoding.',
