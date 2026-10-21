@@ -1381,6 +1381,17 @@ csv→Word 的另一组事实回读自`html-to-docx.ts`：正文以 MHT altChunk
   `eslint`（该文件 rc=0）+ `pnpm lint:all` + `pages:check`（133 文件逐字节一致，渲染结果与守卫加入前**完全相同**——
   这条是「守卫收紧但没有改变产物」的证据）+ `verify:numbers`（138 文档）。`build` 与产物层两条守卫未重跑，
   理由同上：`scripts/**` 不进 `.output/chrome-mv3`，字节也没变。
+  **CI 回执（`6b490ee`）**：三条 job 全绿——Lint & Type Check / Build Extension / E2E Tests 均 completed/success。
+  **本轮没跑成的检查（如实记账）**：第五十四轮派出的**逐句验真只读 agent 在跑了 130 次工具调用、37 分钟后中断**
+  （`Model response interrupted`），它的 12 条判定清单**没有回来**，所以 `svg-to-md` 那张页的文案此刻只由我本人的取证支撑：
+  ① 链形 `svg>md` = `svg>html` + `html>md`（基线现读）；② 栅格化预处理的调用点在序列化之前
+  （`utils/converters/html-to-md.ts:39`）；③ 表格格子被摊平这一条**今天对着实现二次确认**
+  （`:15-16` 的 `escapeCell` 取的就是 `cell.textContent`，而 `:74-75` 的代码注释自己写明「标志必须描述交回去的那份文件，
+  因为 `gfmTable` 把格子摊平成 textContent，`<td>` 里的图形永远到不了 markdown」——页面那句「提示以产物为准」就是照这条写的）；
+  ④ 裸 Turndown 对带 `<text>` 的 `<svg>` 丢元素、只漏文字（第 54 轮的 Node 探针）。
+  **未由独立第二人复核过的**是那张页里其余的措辞（例如「渐变与滤镜留在矢量那半句」的完整覆盖范围、以及给读者的取舍建议）。
+  下一轮要么重派一次范围更小的核查（一次 3–4 条，别把 12 条塞进一个 agent——这次就是被长度拖到中断的），
+  要么把该页的 lede 再收窄到只剩上面四条已证事实。
 
 ## 3. 收下改动：这一节记的是提交账，不是提交计划
 
