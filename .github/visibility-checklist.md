@@ -1338,6 +1338,22 @@ csv→Word 的另一组事实回读自`html-to-docx.ts`：正文以 MHT altChunk
   实测计数：`pages:render` **133** 文件、`verify:numbers` 23 事实 × **138** 文档（文件 = 页 + 17、文档 = 页 + 22 仍成立）、`pages:check` 逐字节一致，`lint:all` / `build` / `verify:offline` / `verify:remote-code` / `verify:meta` / `verify:paths` **六条全 rc=0**。运行时零改动，断言数仍 **452**。
   今日累计 91 → **116** 张页、缺口 25 → **0**：界面对用户实际提供的 116 个可选组合，现在每个都有自己那张「走几步、留什么、丢什么」的页面。
 
+- **10-21 第五十五轮（散文更正轮：把「702 px」写成可复算的式子，并修好我自己那把会漏扫的量具）。** 上一笔把 TXT 页的宽度主张改成
+  「实测 702 px」，但那仍是**读者复算不了的数**。这轮改成从 CSS 现推：`utils/core/html-document.ts` 写死 body
+  `max-width: 800px` + `padding: 2rem` 且**没有 box-sizing 重置** ⇒ 在 800 px 版心里 body 的内容盒是 736；`pre` 块级填满它，
+  自身 `border: 1px` + `padding: 1rem` ⇒ 文字区 736 − 2 − 32 = **702 px**（与上一轮 headless 量到的 offsetWidth 736 /
+  clientWidth 734 逐格对上）。同时补上被漏掉的一半机制：`pre` 是 `overflow-x: auto`，所以超出的行尾**既不换行也不会被画进图里**
+  ——三页原先都写成「被裁掉」，把「会滚但画不出来」说成了「静默截断」。
+  **最贵的一条是量具自己说谎**：我为「英文字段混进中文」写的那个扫描器，`walk()` 在遇到数组时先返回、**没有检查数组里的字符串**，
+  于是它报的「clean」是零扫描的假绿——第 54 轮那句「已无 734」就是它印的。`grep -n 734` 一跑就发现 `txt-to-png` 的两条 limits
+  还停在旧数字上。修法是让字符串检查也吃数组元素，并把 14 个 hub 一起纳入扫描面（现在 116 pairs + 14 hubs 全走）。
+  这是 [[verify-harness-lies-quietly]] 的又一个实例：**判据「扫过、零命中」必须先自证扫描真的触达了那一层**。
+  另一条工具事实：`verify:numbers` 按「数字 + 关键词」的形状抓句子，我把一个宽度算式直译成「某个数字 + minus + 扣掉的几项」之后，
+  它把那句读成**可达组合数（143）那一族**的引用并变红——所以算式句里不让那个词紧跟在数字后面（改成「把这几项从版心里扣掉」）。
+  **把守卫的 offending 字符串原样抄进账本，会让账本自己变成它的命中面**：这条句子第一次就红在账本里，不在页面里。
+  实测计数：`pages:render` 133 文件、`pages:check` 逐字节一致、`verify:numbers` 23 事实 × 138 文档，
+  `lint:all` / `build` / `verify:offline` / `verify:remote-code` / `verify:meta` / `verify:paths` 全 rc=0。运行时零改动。
+
 ## 3. 收下改动：这一节记的是提交账，不是提交计划
 
 这一节原先给的是 2026-09-19 那一轮（配对页与博客页改成数据源生成）的两条 `git commit`。那些提交早就落地了，

@@ -162,7 +162,7 @@
             <ul class="limits">
         <li><span lang="zh-CN">产物是图片：里面的文字选不中、搜不到，屏幕阅读器也读不出来</span><span lang="en">The output is an image: its words cannot be selected, searched or read aloud by a screen reader</span></li>
         <li><span lang="zh-CN">整页高度有上限（32768 px）：超长文档会被要求分批，不会给你一张截断图</span><span lang="en">One page height ceiling (32768 px): an over-long document is asked to be split rather than returned cropped</span></li>
-        <li><span lang="zh-CN">版心固定 800 且 `&lt;pre&gt;` 不折行：超过约 734 px 的长行会被裁掉而不是换行，请先自己拆短行</span><span lang="en">A fixed 800 measure and `&lt;pre&gt;` never wraps: lines past about 734 px are clipped rather than wrapped, so break long lines yourself first</span></li>
+        <li><span lang="zh-CN">版心固定 800 且 `&lt;pre&gt;` 不折行：它在版心里只剩 702 px 文字区（扣掉 body 64、边框 2、内边距 32），又是 `overflow-x: auto`，超出的行尾不换行也不会被画进图里，请先自己拆短行</span><span lang="en">A fixed 800 measure and `&lt;pre&gt;` never wraps: it keeps a 702 px text band (the body’s 64, its own 2 of border and 32 of padding come off) and is `overflow-x: auto`, so lines past that are neither reflowed nor painted — break them yourself first</span></li>
         <li><span lang="zh-CN">不加语法高亮、不折行美化、不改缩进：排版就是等宽 `&lt;pre&gt;` 的那一套</span><span lang="en">No syntax highlighting, no wrapped-line prettifying, no re-indenting: the layout is the monospace `&lt;pre&gt;` one</span></li>
         <li><span lang="zh-CN">TXT→PDF 用的是同一个渲染器、同一道高度上限：超长同样会报错，请先拆短；要能被复制的文字，留在 TXT / Markdown / HTML</span><span lang="en">TXT to PDF uses the same renderer and the same height ceiling, so over-long text fails there too — split it; for copyable text stay in TXT, Markdown or HTML</span></li>
             </ul>
