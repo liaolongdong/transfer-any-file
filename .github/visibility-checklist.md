@@ -1416,6 +1416,22 @@ csv→Word 的另一组事实回读自`html-to-docx.ts`：正文以 MHT altChunk
   计数器会留下「换过但被抹掉」的窗口；DOCX 这条没有那个窗口（altChunk 原样带着标记走）。
   **同一个标志两种算法不是不一致，是两条链的形状不同**——下次看到别急着把它们统一掉。
 
+- **10-21 第五十九轮（发布态实测：就绪 ≠ 已公网）。** 把这三十七轮的成果放进**线上真实状态**里量了一次：
+  `https://liaolongdong.github.io/transfer-any-file/sitemap.xml` 共 **40** 条 `<loc>`，其中配对页 **35**；
+  `/convert/html/`（hub）与 `/convert/svg-to-md.html` 都回 **404**。`origin/main`（`9652ce7`）树里
+  `docs/convert/*.html` 是 **36** 个文件，而 `feature-dev` HEAD（`832a52a`）是 **131** 个（116 配对页 + 14 hub + 索引）。
+  **所以「站点已有 116 张页」目前是分支就绪态、不是公网事实**——差的不是技术，是一次 owner-only 的合并：
+  `static.yml` 只在 `docs/**` 落到 main 时部署，**合 PR #24 那一下公网就从 35 张变 116 张**，不需要另跑发布。
+  PR #24 现场判据：`mergeable=true`、`mergeable_state=clean`、ahead **85** / behind **0**、205 文件，
+  HEAD 上三条 job 全绿。**顺序提醒（有坑）**：PR #23（1.3.0 准备，head `5c0b47f`、state open、`unstable`）
+  若先合，`v1.3.0` 会打在 svg→Markdown、英文守卫、8192 钳制披露与那 9 条更正**之前**的内容上，
+  Release 说明与 Pages 都拿旧文案；先 #24 再重新生成 Release PR 才覆盖到最新 HEAD。
+  合并 #24 之后回手必须跑 `node scripts/repair-release-merge.mjs --check`——把 main 合回长期分支时
+  两份 CHANGELOG 会被 `git merge` 静默合错且**没有任何门禁为此变红**（本仓已知陷阱）。
+  CI 回执补齐：`832a52a`（HEAD）三条 job 全绿；`44322f7` 的 Lint 与 Build 绿、**E2E 是 `cancelled`**
+  （同分支连推被取消，不是失败——这一格按队列行为记账，别读成红灯）。
+  本轮只动这份账本，没碰数据源与运行时：按改动范围跑 `prettier --check`（该 md）+ `verify:numbers` + `pages:check`。
+
 ## 3. 收下改动：这一节记的是提交账，不是提交计划
 
 这一节原先给的是 2026-09-19 那一轮（配对页与博客页改成数据源生成）的两条 `git commit`。那些提交早就落地了，
