@@ -366,10 +366,6 @@ export const HUBS = [
       },
     ],
     targets: {
-      png: {
-        zh: '整本工作簿渲染成一页长图：每个工作表一张带标题的表格，宽表整体缩放；超过 32768 px 高度会报错而不是截断。',
-        en: 'The workbook is captured as one long image: a titled table per worksheet, with wide sheets scaled to fit. Past 32768 px of height the route fails instead of truncating.',
-      },
       jpg: {
         zh: '先按 A4 分页再逐页编码 JPEG，长表跨页、多页 ZIP；分页按渲染宽度计算，不读取 Excel 的打印区域。',
         en: 'The rendering is sliced into A4 pages and encoded as JPEG, with long tables spanning pages and several pages in a ZIP. Pagination follows rendered width, not Excel’s print area.',
@@ -441,10 +437,6 @@ export const HUBS = [
       },
     ],
     targets: {
-      jpg: {
-        zh: '按 A4 分页后逐页编码 JPEG，长表跨页、多页 ZIP；压缩对文字边缘有损，适合预览而非存档。',
-        en: 'It is sliced into A4 pages and encoded as JPEG, with long tables spanning pages and several pages in a ZIP. Compression softens text edges, so this suits previews rather than archives.',
-      },
       webp: {
         zh: '与 JPEG 一样的 A4 分页，终点 WebP；多页 ZIP。适合体积优先的表格快照，文字清晰度会下降。',
         en: 'The same A4 slicing as JPEG, encoded as WebP; several pages arrive as a ZIP. A size-first table snapshot, with softer text.',

@@ -7124,4 +7124,190 @@ export const PAIRS = [
       },
     ],
   },
+  {
+    slug: 'csv-to-jpg',
+    from: 'csv',
+    to: 'jpg',
+    shot: 'batch-results',
+    published: '2026-10-21',
+    title: {
+      zh: 'CSV 转 JPG——离线、A4 分页逐页编码、不上传',
+      en: 'CSV to JPG offline — A4 pages, no upload',
+    },
+    desc: {
+      zh: '表格先写成无损的 A4 PDF 页面，再逐页编码成 JPEG：质量与目标体积在这里有档位，长表会跨页并打包成 ZIP。全程离线。',
+      en: 'The table becomes lossless A4 PDF pages, then one JPEG per page: quality and target size have dials here, and long tables arrive in a ZIP. Offline.',
+    },
+    lede: {
+      zh: '三步：`csv>html` 用 `raw: true` 读取并写成一张 HTML 表（`00424` 不缩成 `424`、`2024-01-05` 不会变成 `1/5/24`，实测 `data-v` 与显示文本一致），套上自带的样式表；`html>pdf` 把这份文档按 A4 分页，**每一页以无损位图嵌进 PDF**（渲染逐页走 `toDataURL` 的 PNG 那一条），`pdf>jpg` 再把每一页编码成 JPEG。这条形状是路由里写死的取舍，不是顺带：同为图片目标，PNG 走整页捕获得到一张长图，而 JPG 与 WebP 走 PDF 那条，因为一张超高长条在分享与打印两个场景都难用。于是三件具体的事跟着来：**一页一图**，长表跨页、两张以上以 ZIP 交付；**只损失一次**，中间那份 PDF 的页面是无损的，压缩只在最后交给 JPEG 那一次发生；**这里才有档位可调**——质量与目标体积挂在有损容器上（编码器与面板都按这一条来），所以想让文字边缘更干净就升质量，想让文件更小就设目标体积，后者会先降质量、再降尺寸去追。要照实说的两条：JPEG 对细线与字形的小面积高频是最先付出代价的地方，所以表头那种 1px 边框与 12px 小字比 PNG 软；而图里的文字不是文字，不能选中、搜索或朗读。第一条边界与 PNG 那格共享：单次整页渲染高度超过 32768 px 会明确报错，而不是交付空白画布或被截短的图。全程在这个标签页里完成，只有 storage 权限，渲染前会剥掉远程引用。',
+      en: 'Three steps: `csv>html` reads with `raw: true` and writes one styled HTML table (so `00424` does not shrink to `424` and `2024-01-05` does not become `1/5/24`; measured, `data-v` and the displayed text agree); `html>pdf` lays that document out as A4 pages, **embedding each page as a lossless bitmap** (the per-page render goes down the PNG branch of `toDataURL`), and `pdf>jpg` then encodes every page as JPEG. That shape is a routing decision, not a side effect: between the two image ends, PNG takes the whole-page capture and yields one tall image, while JPG and WebP take the PDF route, because a single oversized strip is awkward both to share and to print. Three concrete things come with it: **one image per page**, so a long table spans pages and two or more arrive in a ZIP; **only one lossy step**, since the PDF in the middle holds lossless pages and compression happens once, on the way out; and **this is where the dials live** — quality and a target file size belong to lossy containers, for both the encoder and the panel, so a higher quality keeps text edges cleaner while a target size chases quality down first and resolution after. Two things stated plainly: JPEG pays for thin rules and small glyphs before anything else, so a 1px border and 12 px type come out softer than in PNG; and text in the picture is not text, with nothing to select, search or read aloud. One boundary is shared with the PNG page: a single rendered page taller than 32768 px fails outright instead of delivering a blank canvas or a trimmed image. All of it inside this tab on the storage permission, with remote references stripped before rendering.',
+    },
+    keeps: {
+      zh: [
+        '一页一张 JPEG：长表按 A4 切开，每张都是完整的一页，适合直接翻页查看或打印',
+        '只损失一次：中间那份 PDF 的页面是无损位图，压缩只在最后交给 JPEG 的那一次发生',
+        '值按文件里的字符进表格，`raw: true` 让 `00424` 与 `2024-01-05` 保持原样',
+        '质量与目标体积在这里可调（它们本就挂在有损容器上），编码后再按目标追逐',
+      ],
+      en: [
+        'One JPEG per A4 page: a long table is cut into whole pages you can flip through or print',
+        'Only one lossy step: the PDF in the middle holds lossless bitmaps, so compression happens once, on the way out',
+        'Values enter the table as the characters in the file, and `raw: true` keeps `00424` and `2024-01-05` as typed',
+        'Quality and a target file size are adjustable here (they belong to lossy containers), with a chase after encoding',
+      ],
+    },
+    limits: {
+      zh: [
+        '有损：1px 边框、小字号与色块边界是 JPEG 最先付出代价的地方，要严格还原请走 CSV→PNG',
+        '多页出 ZIP，不是一张大图：想「一眼看完」请走 CSV→PNG（整页捕获）或 CSV→PDF（一份文档）',
+        '文字不可选中、搜索或朗读：产物是位图，要这些请用 HTML / Markdown / Excel',
+        '条纹按行序落、第一行没有表头待遇：`sheet_to_html` 不产出 `<th>`（实测），样式表的浅底挂在 `<th>` 与偶数行上',
+        '整页渲染高度上限 32768 px：超限报错而不是交付被截短的内容；排版宽度固定在 800 px 正文，画布像素密度按高度取档',
+      ],
+      en: [
+        'Lossy: 1px rules, small type and colour edges are what JPEG pays for first — take CSV to PNG for an exact rendering',
+        'Several pages arrive as a ZIP rather than one picture: for one view take CSV to PNG (whole-page capture) or CSV to PDF (one document)',
+        'Nothing is selectable, searchable or readable aloud: the artifact is bitmap; use HTML, Markdown or Excel for that',
+        'Striping follows row order and row one gets no header treatment: `sheet_to_html` emits no `<th>` (measured), while the stylesheet hangs its tint on `<th>` and even rows',
+        'A 32768 px ceiling on rendered page height, failing rather than trimming; the measure is fixed at 800 px while the pixel density steps with height',
+      ],
+    },
+    notes: {
+      zh: [
+        '要严格无损的一张图：CSV→PNG，整页捕获、无第二次压缩',
+        '要能打印的成品：CSV→PDF，页面本身就是文档，比一叠图片更好归档',
+        '要继续算：CSV→Excel / CSV→JSON，交付数据而不是交付画面',
+      ],
+      en: [
+        'For one exactly-lossless picture: CSV to PNG, a whole-page capture with no second compression',
+        'For something printable: CSV to PDF, where the pages are a document rather than a stack of images',
+        'To keep computing: CSV to Excel or JSON, which deliver data instead of a picture',
+      ],
+    },
+    faq: [
+      {
+        q: {
+          zh: '我的表很长，会得到几张图？',
+          en: 'My table is long — how many images do I get?',
+        },
+        a: {
+          zh: '按 A4 分页决定张数，两张以上时产物是一个 ZIP，里面一页一图。若你更想要一张连续的长图，那正是 CSV→PNG 的形状（同一份表格，整页一次捕获）。',
+          en: 'The A4 slicing sets the count, and two or more pages arrive as a ZIP with one picture per page. If you would rather have one continuous image, that is exactly what CSV to PNG does with the same table.',
+        },
+      },
+      {
+        q: {
+          zh: '为什么表格里的 12px 小字看起来发软？',
+          en: 'Why does the 12 px type look soft?',
+        },
+        a: {
+          zh: '因为有损编码对高频细节先付出代价，小字与单像素线条正属此类。两个方向都有效：把质量档调高，或者设目标体积时接受它先降质量、再降尺寸去追。要严格还原同样的线条与字形，请走 CSV→PNG（无损，但目标体积档在那里不起作用）。',
+          en: 'Lossy encoding spends its budget on high-frequency detail first, and small glyphs with 1px strokes are exactly that. Two levers help: raise quality, or set a target size and accept that it lowers quality before resolution. For an exact rendering take CSV to PNG — lossless, where a target size is not a dial at all.',
+        },
+      },
+      {
+        q: {
+          zh: '为什么不直接把长图压成一张 JPEG？',
+          en: 'Why not just compress the tall image into one JPEG?',
+        },
+        a: {
+          zh: '这条链在同分的图片目标上显式让 PDF 那一路优先（`html>png` 带较低的 `edgePreference`），因为一条按页面宽度排布的超高长带在聊天与打印两个场景都难用；而它省掉的是分页与页边界，不是压缩次数。想要一张长图，PNG 那一格就给。',
+          en: 'The routing breaks the tie between image ends in favour of the PDF path (the PNG edge carries a lower `edgePreference`), because one oversized strip laid out at page width is awkward in chat and in print; what that choice removes is paging and page bounds, not the number of compressions. If you want the single tall picture, the PNG page is it.',
+        },
+      },
+    ],
+  },
+  {
+    slug: 'xlsx-to-png',
+    from: 'xlsx',
+    to: 'png',
+    shot: 'batch-results',
+    published: '2026-10-21',
+    title: {
+      zh: 'Excel 转 PNG——离线、所有工作表一张长图、不上传',
+      en: 'Excel to PNG offline — every sheet, one tall image',
+    },
+    desc: {
+      zh: '每个工作表渲染成带表名小标题的表格，整叠堆成一张无损 PNG；高度超过 32768 px 报错而不是截断，长簿子的像素密度会降档。',
+      en: 'Each worksheet renders as a titled table and the stack is captured losslessly in one PNG; past 32768 px it fails, and long workbooks drop a density step.',
+    },
+    lede: {
+      zh: '要把一份工作簿「整个」发给别人看一眼，比截图省事的是这条：`xlsx>html` 先用 `cellDates: true` 与一份固定日期格式读取，再走 `normalizeDateCells`，最后由 `sheet_to_html` 把**每一个工作表各写成一张表**，多于一张时为每张前面加一个取代表名的小标题（`<h2>`）；这份 HTML 统一过 DOMPurify 后套上自带的样式表。`html>png` 再把整篇文档离屏渲染成一张画布并无损编码——所以产物是**一张按工作表顺序堆起来的长图**，不是每张表一张图。三件由实现决定的事：一、**日期长什么样由那条格式说得出**：纯日期渲染成 `2024-01-05`，带时分秒的是 `2024-01-05 14:30:00`，工作簿作者自己指定的格式被尊重（`[h]:mm:ss` 那种时长仍是 `124:48:00`），而没有任何显示文本的日期格保持原样、不替它编一个；二、**像素密度按高度降档**——高度超过 2000 px 用 1.5 倍、超过 4000 px 用 1 倍，所以多 sheet 的长簿子落在一倍密度，字会比短页面上小一圈，这不是缩放坏了而是为了把画布留在浏览器上限内；三、**上限是明确失败**：整页高度超过 32768 px 报「渲染高度过大」，因为远超时浏览器交回的是空白画布，那种「成功但全白」比一条错误难查。要照实说的还有：单元格的文字是作为表格内容写进 HTML 再统一净化的，所以格子里真写了标记时它按标记处理，指向网络的图片取不到字节、会在渲染前被剥掉并按张数披露；图里的文字不能选中、搜索或朗读；表头那一行不带 `<th>` 语义，样式表的浅底只会按行序落。全程在这个标签页里完成，只有 storage 权限。',
+      en: 'When a workbook has to be shown to someone whole, this is shorter than screenshots: `xlsx>html` reads with `cellDates: true` and one fixed date format, runs `normalizeDateCells`, and lets `sheet_to_html` write **one table per worksheet**, prefixing each with an `<h2>` carrying the sheet name whenever there is more than one; that body passes DOMPurify once and is wrapped in the stylesheet this extension ships. `html>png` then renders the entire document offscreen into one canvas and encodes it losslessly — so the artifact is **one tall image stacked in worksheet order**, not a picture per sheet. Three things the implementation decides: first, **what a date looks like is sayable** — a plain date renders as `2024-01-05`, a real timestamp as `2024-01-05 14:30:00`, a format the workbook author chose is respected (`[h]:mm:ss` durations stay `124:48:00`), and a date cell with no display text is left alone rather than invented. Second, **density steps with height**: past 2000 px the ratio is 1.5×, past 4000 px it is 1×, so a long multi-sheet workbook lands on 1× and its type reads smaller than on a short page — that is the canvas staying inside the browser’s own limits, not a broken scale. Third, **the ceiling fails out loud**: beyond 32768 px of rendered height the route reports “too tall to render”, because far past that a browser hands back a blank canvas, and a white “success” is harder to diagnose than an error. Also stated plainly: cell text is written into the HTML as table content and sanitised once, so markup typed into a cell is treated as markup, images pointing at the network have no bytes and are stripped before rendering with the count disclosed; text in the picture cannot be selected, searched or read aloud; and the first row carries no `<th>` semantics, so the stylesheet’s tint falls by row order. All of it inside this tab on the storage permission.',
+    },
+    keeps: {
+      zh: [
+        '所有工作表进一张图：按簿内顺序堆叠，每张前面带一个取代表名的小标题',
+        '日期有确定的样子：纯日期是 `2024-01-05`，带时间是 `2024-01-05 14:30:00`，作者自定的格式不被覆盖',
+        '无损编码：像素之间不做第二次量化',
+        '排版由自带样式表给出：每格 1px 实线、表格占满 800 px 正文、偶数行浅底',
+      ],
+      en: [
+        'Every worksheet in one image: stacked in workbook order, each preceded by a heading carrying its sheet name',
+        'Dates have a settled look: `2024-01-05` for a plain date, `2024-01-05 14:30:00` for a timestamp, and an author-chosen format is not overridden',
+        'Lossless encoding: no second quantisation of the pixels',
+        'The layout is the bundled stylesheet: a 1px rule per cell, tables filling the 800 px measure, one tint on even rows',
+      ],
+    },
+    limits: {
+      zh: [
+        '很长的簿子像素密度会降档（>2000 px 用 1.5 倍、>4000 px 用 1 倍），小字比短页面更软；要严格清晰请逐表转 HTML 或 PNG 分张',
+        '整页高度上限 32768 px：超出报错而不是交付空白画布或被截短的图',
+        '一张图就是一张图：想要「一个工作表一个文件」，请走 Excel→PDF（一份多页文档）或逐表另存后再转',
+        '文字不可选中、搜索或朗读：PNG 没有文字层；图表、条件格式、批注与冻结窗格在这条链上没有对应物',
+        '格子里写的标记按标记处理（写入后统一净化），指向网络的图片取不到字节、渲染前被剥掉并按张数披露',
+      ],
+      en: [
+        'Long documents drop density (1.5× past 2000 px, 1× past 4000 px), so small type reads softer than on a short page; convert sheet by sheet to HTML or PNG for exact crispness',
+        'A 32768 px ceiling on rendered height: beyond it the route fails instead of delivering a blank canvas or a trimmed image',
+        'One image is one image: for a file per worksheet take Excel to PDF (one multi-page document) or split the sheets first',
+        'No text layer, so nothing to select, search or read aloud; charts, conditional formatting, comments and frozen panes have no counterpart on this route',
+        'Markup written into a cell is treated as markup (sanitised once), and images pointing at the network have no bytes, are stripped before rendering and are disclosed by count',
+      ],
+    },
+    notes: {
+      zh: [
+        '要一份能打印归档的成品：Excel→PDF，页面就是文档、多 sheet 各自成段',
+        '要严格清晰的一张表：先转到 HTML 再看需要截图，比在长图里降档更可控',
+        '要继续加工数据：Excel→CSV / JSON / Markdown，那里交付的是值而不是画面',
+      ],
+      en: [
+        'For a printable, archivable document: Excel to PDF, whose pages are the artifact with each sheet its own section',
+        'For one exactly-crisp table: convert to HTML first and shoot what you need, which stays more controllable than dropping density in a long image',
+        'To keep working on the data: Excel to CSV, JSON or Markdown, which deliver values rather than a picture',
+      ],
+    },
+    faq: [
+      {
+        q: {
+          zh: '三个工作表会得到几张图？',
+          en: 'Three worksheets — how many images?',
+        },
+        a: {
+          zh: '一张：这条链把整篇文档一次捕获成一张画布，三张表按簿内顺序堆在同一条长图里，每张前面有一个取代表名的小标题。想要一份文档而不是一张大图，请走 Excel→PDF。',
+          en: 'One: the route captures the whole document into a single canvas, so all three tables stack into one tall image, each under a heading carrying its sheet name. For a document rather than one long picture, take Excel to PDF.',
+        },
+      },
+      {
+        q: {
+          zh: '为什么图里的日期是 `2024-01-05`，不是我在 Excel 里看到的写法？',
+          en: 'Why does a date read 2024-01-05 rather than how Excel shows it?',
+        },
+        a: {
+          zh: '这条链用一份固定的日期格式渲染，并把「日期格」的显示文本收进正文；工作簿作者明确指定的格式（比如 `[h]:mm:ss` 的时长）会被尊重而不是覆盖。所以本地设置或软件默认写法不保证复刻——要那个外观，请转成 HTML 后自己套样式。',
+          en: 'The route renders dates through one fixed format and folds each date cell’s display text into the body, while a format the workbook author chose explicitly is respected rather than overridden. So a regional setting or your software’s default is not guaranteed to be reproduced — for that look, convert to HTML and style it there.',
+        },
+      },
+      {
+        q: {
+          zh: '很长的表转出来字很小，是我把图看小了吗？',
+          en: 'The long sheet looks tiny — am I just viewing it small?',
+        },
+        a: {
+          zh: '多半不是：内容高度超过 2000 px 时像素密度降到 1.5 倍、超过 4000 px 降到 1 倍，这是为了让画布留在浏览器上限内的取舍。所以长簿子的字确实比短页面稀。要严格清晰，请逐张表分开转，或走 Excel→PDF 用可调密度那条路。',
+          en: 'Most likely not: past 2000 px of content height the ratio steps to 1.5× and past 4000 px to 1×, a trade made to keep the canvas inside the browser’s limits, so a long workbook really is sparser than a short page. For exact crispness convert one sheet at a time, or take Excel to PDF where the density is a dial.',
+        },
+      },
+    ],
+  },
 ];

@@ -938,6 +938,16 @@ csv→Word 的另一组事实回读自`html-to-docx.ts`：正文以 MHT altChunk
 
   验证（改的就是被提交的那棵树）：`pages:render` 96 文件、`pages:check` 逐字节一致、`verify:numbers`（23 事实 × 101 文档）、`lint:all`、`build`、产物层 `verify:offline` / `verify:remote-code`、`verify:meta` 全 rc=0。运行时零改动，断言数仍 **452**。
 
+- **10-21 第二十轮（csv→JPG、xlsx→PNG，79 → 81 张页 / 缺口 35）。** 这两格把「图片出口」一族的说法收口一致：
+  csv→JPG 讲清**路由取舍 + 只损失一次**（中间那份 PDF 的页面走 \`toDataURL\` 的 PNG 那一条，压缩只在最后交给 JPEG 那次发生；同为图片目标，PNG 拿整页长图、JPG 与 WebP 走 PDF 分页，因为一条按页面宽度排布的超高长带在分享与打印两场景都难用），
+  并明确「质量与目标体积的档位在这一格才存在」——这正是第十九轮被推翻那句的反面（\`LOSSY_MIME_TYPES\` 只含 jpeg/webp，PNG 一路编码器忽略目标体积、面板也不摆质量档）；
+  xlsx→PNG 讲清**多 sheet 的产物形状**（\`sheet_to_html\` 一表一工作表、多于一个时每个前面加 \`<h2>\` 表名，于是整篇文档一次捕获成一张按簿内顺序堆起来的长图）、**日期的确定形态**（\`cellDates\` + \`XLSX_TEXT_DATE_FORMAT\` +
+  \`normalizeDateCells\`：纯日期 \`2024-01-05\`、带时间 \`2024-01-05 14:30:00\`、作者自定格式被尊重、没有显示文本的日期格不替它编造），以及**密度按高度降档**（>2000 px 用 1.5x、>4000 px 用 1x）。
+  「宽表整体缩放以适应画布」这一说法在 csv 与 excel 两个 hub 里都出现过，本轮随摘要一起摘掉，换成排版宽度与像素宽度的区分。
+
+  四镜像齐备。实测计数写入账而不是预测：`pages:render` 98 文件、`verify:numbers` 23 事实 × 103 文档（与「文件数 = 页数 + 17、文档数 = 页数 + 22」再次吻合）、`pages:check` 逐字节一致、`lint:all`、`build`、产物层
+  `verify:offline` / `verify:remote-code`、`verify:meta` 全 rc=0，`.output` 搜不到两个 slug。运行时零改动，断言数仍 **452**，素材不重拍。
+
 ## 3. 收下改动：这一节记的是提交账，不是提交计划
 
 这一节原先给的是 2026-09-19 那一轮（配对页与博客页改成数据源生成）的两条 `git commit`。那些提交早就落地了，
