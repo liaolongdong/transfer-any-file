@@ -210,13 +210,13 @@ export const PAIRS = [
       zh: [
         '标题层级、有序与无序列表（含嵌套）、加粗、斜体、删除线、链接、引用块，写成 Word 的段落与样式',
         '表格转成 Word 表格；代码块与行内代码保留为等宽文字',
-        '以 data URI 内嵌的图片随文档一起打包',
+        '以 data URI 内嵌的图片随文档一起打包，前提是类型在 `png / jpeg / gif / webp / bmp / avif / ico` 之内',
         '输入 .md 按 UTF-8 → GB18030 → GBK 依次解码，老编辑器留下的 GBK 文件也能读',
       ],
       en: [
         'Heading levels, ordered and unordered lists (nested included), bold, italic, strikethrough, links and block quotes become Word paragraphs and styles',
         'Tables become Word tables; code blocks and inline code keep a monospace face',
-        'Images embedded as data URIs travel inside the document',
+        'Images embedded as data URIs travel inside the document, provided their type is one of `png / jpeg / gif / webp / bmp / avif / ico`',
         'Input is decoded UTF-8 → GB18030 → GBK, so a file saved by an older editor still reads',
       ],
     },
@@ -289,13 +289,13 @@ export const PAIRS = [
     keeps: {
       zh: [
         '标题、列表（含嵌套）、加粗与斜体、链接、段落结构，转成对应的 Markdown 语法',
-        '文档内嵌图片会被读出并以 data URI 写进 Markdown，不依赖任何网络',
+        '文档内嵌图片会被读出并以 data URI 写进 Markdown，不依赖任何网络——但跟得过去的只有 `png / jpeg / gif / webp / bmp / avif / ico` 这几种位图，TIFF、EMF、WMF 那类在写出 HTML 前就丢了 `src`',
         '表格转成 Markdown 表格；单元格内容保留，合并信息不保留',
         'HTML 中间产物先经 DOMPurify 净化，文档里的可执行脚本不会带进结果',
       ],
       en: [
         'Headings, lists (nested included), emphasis, links and paragraph structure map onto Markdown syntax',
-        'Embedded images are read out and written into the Markdown as data URIs, with no network involved',
+        'Embedded images are read out and written into the Markdown as data URIs, with no network involved — but only these raster types travel: `png / jpeg / gif / webp / bmp / avif / ico`; a TIFF, EMF or WMF loses its `src` before the HTML is written',
         'Tables become Markdown tables: the cell content survives, the merge structure does not',
         'The intermediate HTML passes through DOMPurify, so executable markup in the document is not carried over',
       ],
@@ -2353,6 +2353,7 @@ export const PAIRS = [
         '只读 .docx（Office Open XML 的 zip 包）；97–2003 的旧版二进制 .doc 不支持，先在别处存成 .docx 再拿来',
         '样式名不匹配默认映射时（比如自定义的"报告正文"样式），那段文字仍会输出，只是落在 `<p>` 而不是你以为的标签',
         '内联图片会让 HTML 明显变大：一本带几十张图的文档，产物体积接近原文档里的图片总和',
+        '跟得过去的位图类型是有限的几种（`png / jpeg / gif / webp / bmp / avif / ico`）：TIFF、EMF、WMF 这类内嵌图在写出前会被剥掉 `src`，那一格空着，产物不为它计数',
       ],
       en: [
         'Appearance does not enter the HTML: fonts, sizes, colours, leading, margins, columns and page breaks are lost, and the browser does the typesetting',
@@ -2360,6 +2361,7 @@ export const PAIRS = [
         'Only .docx (the zipped Office Open XML package) is read; legacy binary .doc from 97–2003 is not, so save it as .docx first elsewhere',
         'When a style name falls outside the default mapping — a custom "Report Body" style, say — the text still comes out, just into a `<p>` rather than the tag you expected',
         'Inlined images make the HTML visibly larger: a document with dozens of pictures produces roughly the sum of those pictures in added bytes',
+        'Only a limited set of raster types comes across (`png / jpeg / gif / webp / bmp / avif / ico`): a TIFF, EMF or WMF inside the file loses its `src` on the way out, leaving an empty slot that the artifact does not count',
       ],
     },
     notes: {
@@ -3694,20 +3696,20 @@ export const PAIRS = [
       en: 'Wrap a .png in a one-image HTML page with its original bytes as a data URI: no re-encode, transparency intact, and it opens anywhere.',
     },
     lede: {
-      zh: '需要把一张图交给“只收网页”的地方——内网文章、单文件归档、图文一起存的笔记——最稳的做法是不碰像素。这条路径用 FileReader 把上传的 PNG 字节直接读成 data URI，写进一个 `<img src>`：没有 canvas、没有重编码，透明通道与原始像素一个字节都不变。`alt` 与 `title` 取源文件名（做 HTML 转义），页面自带居中版式与 `max-width: 100%`，窄屏上按比例缩显，但内嵌的仍是原始分辨率。',
-      en: 'When an image has to go somewhere that only accepts a web page — an intranet article, a single-file archive, a note that keeps its picture beside its text — the safest move is not to touch the pixels. This route reads the uploaded PNG’s bytes into a data URI with FileReader and writes them into one `<img src>`: no canvas, no re-encode, with alpha and every original pixel unchanged. `alt` and `title` come from the source file name (HTML-escaped), and the page centres the image with `max-width: 100%`, so it scales down on narrow screens while the embedded data keeps its full resolution.',
+      zh: '需要把一张图交给“只收网页”的地方——内网文章、单文件归档、图文一起存的笔记——最稳的做法是不碰像素。这条路径用 FileReader 把上传的 PNG 字节直接读成 data URI，写进一个 `<img src>`：没有 canvas、没有重编码，透明通道与原始像素一个字节都不变。`alt` 与 `title` 取源文件名的主干（去扩展名，做 HTML 转义），页面自带居中版式与 `max-width: 100%`，窄屏上按比例缩显，但内嵌的仍是原始分辨率。',
+      en: 'When an image has to go somewhere that only accepts a web page — an intranet article, a single-file archive, a note that keeps its picture beside its text — the safest move is not to touch the pixels. This route reads the uploaded PNG’s bytes into a data URI with FileReader and writes them into one `<img src>`: no canvas, no re-encode, with alpha and every original pixel unchanged. `alt` and `title` come from the source file name with its extension dropped (HTML-escaped), and the page centres the image with `max-width: 100%`, so it scales down on narrow screens while the embedded data keeps its full resolution.',
     },
     keeps: {
       zh: [
         '原始字节：不做解码与重编码，透明、像素与 PNG 自带的元数据都在',
-        '`alt` / `title` 取源文件名并做转义，读屏与悬停都有说明',
+        '`alt` / `title` 取源文件名的主干（去扩展名）并做转义，读屏与悬停都有说明',
         '单文件自包含：图片以 data URI 内嵌，没有外部引用，断网也能打开',
         '页面在窄屏上按比例缩显，不改变内嵌的分辨率',
         '一批最多 200 个文件、单个 100 MB',
       ],
       en: [
         'The original bytes: no decode or re-encode, so alpha, pixels and the PNG’s own metadata all remain',
-        '`alt` and `title` come from the source file name and are escaped, giving both screen readers and hover a label',
+        '`alt` and `title` come from the source file name, extension dropped, and are escaped, giving both screen readers and hover a label',
         'Self-contained in one file: the image is a data URI, with no external reference, and opens offline',
         'The page scales the image down on narrow screens without changing the embedded resolution',
         'Up to 200 files per batch at 100 MB each',
@@ -3718,14 +3720,14 @@ export const PAIRS = [
         '体积会变大：base64 让图片部分约为原字节的 4/3，再加一层 HTML 包装；这是“单文件自包含”的代价',
         '没有重编码也就没有优化：无法借这次转换降分辨率、换格式或压体积；需要那些请走 PNG → JPEG / WebP',
         '`alt` 只有文件名，不是对画面内容的描述；要让读屏用户知道图里是什么，请下载后自行改写',
-        '不适合邮件：主流邮件客户端会拦 `data:` 图片，要进邮件正文请用外链图片或邮件自己的附件',
+        '邮件里不保显示：网页端邮件客户端（Gmail 便是）会剥掉 `data:` 图片，能不能显示由收件端决定——要进邮件正文请用外链图片或邮件自己的附件',
         'PNG 之外的源（JPEG / WebP / BMP / GIF）走同一条包装路径，但这一页只描述 PNG 的行为',
       ],
       en: [
         'The file grows: base64 makes the image portion about 4/3 of the original bytes, plus the HTML wrapper — the cost of a self-contained file',
         'No re-encode means no optimisation: this route cannot downscale, change format or shrink the file; use PNG → JPEG or WebP for that',
         '`alt` is only the file name, not a description of the picture; rewrite it afterwards if screen-reader users need to know what is shown',
-        'Not for email: mainstream mail clients block `data:` images, so use an external picture or the mail attachment itself',
+        'No guarantee in email: webmail clients — Gmail among them — strip `data:` images and the recipient decides, so use an external picture or the mail attachment itself',
         'Sources other than PNG (JPEG, WebP, BMP, GIF) take the same wrapping path, but this page describes the PNG behaviour only',
       ],
     },
@@ -4127,7 +4129,7 @@ export const PAIRS = [
     keeps: {
       zh: [
         '标题、有序与无序列表、表格、加粗与斜体都按语义结构画进图里；命名样式里的 Heading 1–4 与 Title / Subtitle 会落成对应层级的标题',
-        '以 data URI 内嵌的图片随文档一起渲染；相对路径引用不到字节时，结果会按张数说明丢了哪几张，而不是悄悄留白',
+        '以 data URI 内嵌的图片随文档一起渲染，但跟得过去的只有 `png / jpeg / gif / webp / bmp / avif / ico` 这几种；白名单外的类型与引用不到字节的相对路径都会在图上留一处虚线方框，并按张数说明丢了哪几张，而不是悄悄留白',
         '最长边可以指定（输出图片参数里的那一格），适合贴进宽度受限的地方；它按几何等比缩，不改版式',
         '文档解析不出内容时会直接报「没有可转换的内容」，而不是交出一张空白 PNG 报成功',
       ],
@@ -4558,8 +4560,8 @@ export const PAIRS = [
       en: 'The SVG is wrapped in a page you can open, and it stays vector — zoomable, with scripts and event attributes removed by sanitising. Nothing uploaded.',
     },
     lede: {
-      zh: '一张 SVG 想放进网页、或者只是想在浏览器里看清楚它画了什么，最省事的做法是有一张能直接打开的 HTML。这条链路是 SVG → HTML，一步到位，而且**不栅格化**：图形作为矢量留在页面里，放大看到的是路径而不是像素。净化用的是保留 svg 与 svgFilters 的配置——渐变、滤镜这些可见结果留下，脚本与事件处理器去掉。要位图请走 SVG 转 PNG；要进 Word 或 PDF，那两条路会先栅格化。',
-      en: 'Getting an SVG into a web page, or simply seeing clearly what it draws, is easiest as an HTML file you can open. This route is SVG → HTML in one step, and it does not rasterise: the artwork stays vector, so zooming shows paths rather than pixels. The sanitising profile keeps `svg` and `svgFilters` — gradients and filters survive, scripts and event handlers do not. For a bitmap take SVG to PNG; the Word and PDF routes rasterise first.',
+      zh: '一张 SVG 想放进网页、或者只是想在浏览器里看清楚它画了什么，最省事的做法是有一张能直接打开的 HTML。这条链路是 SVG → HTML，一步到位，而且**不栅格化**：图形作为矢量留在页面里，放大看到的是路径而不是像素。净化用的是保留 svg 与 svgFilters 的配置——渐变、滤镜这些可见结果留下，脚本与事件处理器去掉。要位图请走 SVG 转 PNG；进 Word 或 PDF 最终也会变位图——PDF 那条在第一步 `svg>png` 栅格化，Word 那条在第二步 `html>docx` 栅格化。',
+      en: 'Getting an SVG into a web page, or simply seeing clearly what it draws, is easiest as an HTML file you can open. This route is SVG → HTML in one step, and it does not rasterise: the artwork stays vector, so zooming shows paths rather than pixels. The sanitising profile keeps `svg` and `svgFilters` — gradients and filters survive, scripts and event handlers do not. For a bitmap take SVG to PNG; the PDF route rasterises in its first step (`svg>png`) and the Word route in its second (`html>docx`).',
     },
     keeps: {
       zh: [
@@ -4579,9 +4581,9 @@ export const PAIRS = [
       zh: [
         '活动性内容整类不留：`<script>`、事件属性，以及 `<use>`、`<foreignObject>`、`<font-face*>` 与 SMIL 动画标签都在净化这一步被删掉——靠「点开才展开」「动画驱动」的那部分不会动，这是刻意的安全取舍，不是丢件',
         '外部引用在写文件之前就被剥掉：`<image href>`、`feImage`、`fill="url(…)"`、样式里的 `url()` 与 `@import` 都不留，所以产出的 HTML 打开时不会替你发任何请求；缺的那部分按缺的样子显示',
-        '如果净化后什么都不剩，直接报「图片解码失败」而不是给你一张空白页面报成功',
+        '整份文件净化后一个字都不剩时，直接报「图片解码失败」而不是给你一张空白页面报成功；只剩 `<use>` 引用那一类不算「空」——`<svg>` 外壳还在，产物照样交给你，只是画不出东西（见下一条）',
         '依赖 `<use>` 的雪碧图会画不出东西：`<symbol>` 的定义留着，引用它的那一层被删——图标符号表这类文件更适合先转 PNG 再交',
-        '要位图（放进只收图片的地方、或者要固定像素尺寸），走 SVG 转 PNG / JPG / WebP；要进文档，走 SVG 转 Word 或 SVG 转 PDF——那几条会先栅格化',
+        '要位图（放进只收图片的地方、或者要固定像素尺寸），走 SVG 转 PNG / JPG / WebP；要进文档，走 SVG 转 Word 或 SVG 转 PDF——PDF 那条在第一步 `svg>png` 就栅格化，Word 那条在第二步 `html>docx` 栅格化',
       ],
       en: [
         'Nothing active survives: `<script>`, event attributes and the element classes the sanitizer disallows — `<use>`, `<foreignObject>`, `<font-face*>` and the SMIL animation elements — are all removed, so anything that expanded on click or moved by animation stays still. That is a deliberate safety trade-off, not a lost asset',
@@ -8042,8 +8044,8 @@ export const PAIRS = [
           en: 'Do the pictures in my document come along?',
         },
         a: {
-          zh: '内嵌在文档里的会：它们被读成 data URI 带进中间那份 HTML，再随排版进图。以网络地址引用的那一种不会——这条路完全离线，渲染前会剥掉那些引用，结果卡按张数写明丢了几张。',
-          en: 'Embedded ones do: they are read as data URIs into the intermediate HTML and travel with the layout into the image. Pictures referenced over a network do not — the route is fully offline, those references are stripped before rendering and the result card says how many were lost.',
+          zh: '内嵌在文档里的会——前提是类型在那几种位图之内（`png / jpeg / gif / webp / bmp / avif / ico`）：它们被读成 data URI 带进中间那份 HTML，再随排版进图；白名单外的（TIFF、EMF、WMF 这类）在渲染前就丢了 `src`，图上那一处换成虚线方框并按张数计入丢弃。以网络地址引用的那一种同样不会——这条路完全离线，那些引用在渲染前就被剥掉，结果卡按张数写明丢了几张。',
+          en: 'Embedded ones do, provided the type is one of the rasters that carry their own bytes (`png / jpeg / gif / webp / bmp / avif / ico`): they are read as data URIs into the intermediate HTML and travel with the layout into the image. A TIFF, EMF or WMF loses its `src` before rendering, so its spot becomes a dashed box and counts among the dropped pictures. Pictures referenced over a network do not come along either — the route is fully offline, those references are stripped before rendering and the result card says how many were lost.',
         },
       },
       {
@@ -8083,8 +8085,8 @@ export const PAIRS = [
       en: 'The file is embedded as a data URI with your file name as alt and title; nothing is decoded or re-encoded, so the pixels are the ones you had.',
     },
     lede: {
-      zh: '这条路只有一步，而且刻意做得很薄：`jpg>html` 把文件的**原始字节**用 `FileReader.readAsDataURL` 编成 data URI，写进一个 `<img src>`，再把这张图包进一份自带样式表的 HTML——**中间没有任何解码或重编码**，不像图片转图片那几路要先上画布再压一次。所以像素与源文件逐字节相同；体积是「每三个字节写成四个字符」再加一层约 2.7 KB 的固定外壳（`<style>` 里那份文档 CSS 与标签），大图因此趋近 4/3（界面上 5 MB 的照片产出约 6.7 MB 的 HTML），小图则几乎全是这层外壳（本身就有 2.7 KB）。`alt` 与 `title` 都取**文件名的主干**（去掉扩展名，没有可用名字时退到 `converted`），并且按属性位置做了转义——这是这条唯一能给出的描述：它不读图里的内容，也不猜图里画了什么。文档 CSS 让图居中、`max-width: 100%`、`height: auto`，所以一张很宽的图最多显示到这份文档的版心（实测 1400 px 窗口下约 800 px：`body` 是 content-box 的 `max-width: 800px`，内边距不占这 800），窗口更窄时再跟着缩——两种缩放都不改动文件里的像素。这条路的用处是「把图交给一个只吃网页的地方」：单文件归档、图文一起存进笔记，或者作为 Markdown 与 Word 那两条链的中间形状（本扩展的图转 Markdown 正是先走这一步）。它也**不外发任何东西**：图就在文件里，打开这份 HTML 不取任何远程资源；SVG 那条路同样在写出前剥掉远程引用，所以两条都不会在你双击打开时发起请求。扩展本身也只有 storage 权限，转换全程离线。',
-      en: 'This route is one step, and deliberately thin: `jpg>html` takes the file’s **raw bytes**, base64-encodes them through `FileReader.readAsDataURL` into a data URI, puts them in an `<img src>` and wraps that in a document with the bundled stylesheet — **no decode and no re-encode anywhere**, unlike the image-to-image routes, which must go through a canvas and compress again. So the pixels are byte-identical to your file, and the size is four characters per three bytes plus a fixed wrapper of about 2.7 KB (the document CSS in `<style>` and the markup): a large photo converges on 4/3 — the 5 MB the interface shows comes out as roughly 6.7 MB of HTML — while a small one is almost all wrapper. `alt` and `title` both carry **the basename of your file** (extension dropped, falling back to `converted` when there is no usable name), escaped for attribute position — that is the only description this route can offer, because it never reads what is in the picture and never guesses at its contents. The document CSS centres the image with `max-width: 100%` and `height: auto`, so a very wide picture displays no wider than this document’s measure (measured at a 1400 px window: about 800 px, because `body` is content-box with `max-width: 800px` and its padding sits outside that 800) and keeps shrinking below that in a narrow window; neither kind of scaling changes a pixel in the file. What this is for: handing a picture to something that only accepts a web page — a single-file archive, a note that keeps its image next to its text, or the middle shape of the Markdown and Word chains (this extension’s image-to-Markdown goes through exactly this step). And it **sends nothing out**: the picture lives in the file, so opening the HTML fetches no remote resource, and the SVG route strips remote references on the way out too, so neither one makes a request when you double-click it. The extension itself holds only the storage permission, and the conversion never touches the network.',
+      zh: '这条路只有一步，而且刻意做得很薄：`jpg>html` 把文件的**原始字节**用 `FileReader.readAsDataURL` 编成 data URI，写进一个 `<img src>`，再把这张图包进一份自带样式表的 HTML——**中间没有任何解码或重编码**，不像图片转图片那几路要先上画布再压一次。所以像素与源文件逐字节相同；体积是「每三个字节写成四个字符」再加一层约 2.6 KB 的外壳（`<style>` 里那份文档 CSS 与标签；文件名在 `<title>`、`alt`、`title` 各出现一次，所以它随名字长度略有增减），大图因此趋近 4/3（界面上 5 MB 的照片产出约 6.7 MB 的 HTML），小图则几乎全是这层外壳（本身就有 2.6 KB）。`alt` 与 `title` 都取**文件名的主干**（去掉扩展名，没有可用名字时退到 `converted`），并且按属性位置做了转义——这是这条唯一能给出的描述：它不读图里的内容，也不猜图里画了什么。文档 CSS 让图居中、`max-width: 100%`、`height: auto`，所以一张很宽的图最多显示到这份文档的版心（实测 1400 px 窗口下约 800 px：`body` 是 content-box 的 `max-width: 800px`，内边距不占这 800），窗口更窄时再跟着缩——两种缩放都不改动文件里的像素。这条路的用处是「把图交给一个只吃网页的地方」：单文件归档、图文一起存进笔记，或者作为 Markdown 与 Word 那两条链的中间形状（本扩展的图转 Markdown 正是先走这一步）。它也**不外发任何东西**：图就在文件里，打开这份 HTML 不取任何远程资源；SVG 那条路同样在写出前剥掉远程引用，所以两条都不会在你双击打开时发起请求。扩展本身也只有 storage 权限，转换全程离线。',
+      en: 'This route is one step, and deliberately thin: `jpg>html` takes the file’s **raw bytes**, base64-encodes them through `FileReader.readAsDataURL` into a data URI, puts them in an `<img src>` and wraps that in a document with the bundled stylesheet — **no decode and no re-encode anywhere**, unlike the image-to-image routes, which must go through a canvas and compress again. So the pixels are byte-identical to your file, and the size is four characters per three bytes plus a wrapper of about 2.6 KB that shifts with the length of your file name (the name appears three times: `<title>`, `alt` and `title`) (the document CSS in `<style>` and the markup): a large photo converges on 4/3 — the 5 MB the interface shows comes out as roughly 6.7 MB of HTML — while a small one is almost all wrapper. `alt` and `title` both carry **the basename of your file** (extension dropped, falling back to `converted` when there is no usable name), escaped for attribute position — that is the only description this route can offer, because it never reads what is in the picture and never guesses at its contents. The document CSS centres the image with `max-width: 100%` and `height: auto`, so a very wide picture displays no wider than this document’s measure (measured at a 1400 px window: about 800 px, because `body` is content-box with `max-width: 800px` and its padding sits outside that 800) and keeps shrinking below that in a narrow window; neither kind of scaling changes a pixel in the file. What this is for: handing a picture to something that only accepts a web page — a single-file archive, a note that keeps its image next to its text, or the middle shape of the Markdown and Word chains (this extension’s image-to-Markdown goes through exactly this step). And it **sends nothing out**: the picture lives in the file, so opening the HTML fetches no remote resource, and the SVG route strips remote references on the way out too, so neither one makes a request when you double-click it. The extension itself holds only the storage permission, and the conversion never touches the network.',
     },
     keeps: {
       zh: [
@@ -8105,30 +8107,30 @@ export const PAIRS = [
     limits: {
       zh: [
         '不 OCR，也不生成任何关于内容的文字：产物里唯一的字符串来自你的文件名',
-        '体积只增不减：每三个字节写成四个字符，再加约 2.7 KB 外壳（界面上 5 MB 的照片约产出 6.7 MB HTML），所以这一路不是「压缩」',
+        '体积只增不减：每三个字节写成四个字符，再加约 2.6 KB 外壳（界面上 5 MB 的照片约产出 6.7 MB HTML），所以这一路不是「压缩」',
         '只包一张图：多张图请一个文件一次，或先做一张拼版（本扩展不提供拼图功能）',
         'JPG 本身是哪种编码、有没有被裁切，这一层不改也不查：它做的是搬运而不是处理',
-        '不适合邮件：主流邮件客户端会拦 `data:` 图片，要进邮件正文请用外链图片或邮件自己的附件',
+        '邮件里不保显示：网页端邮件客户端（Gmail 便是）会剥掉 `data:` 图片，能不能显示由收件端决定——要进邮件正文请用外链图片或邮件自己的附件',
         '不产生可复制的图片对象：想在别的文档里用这张图，请直接拿原文件或走图片转图片那几路',
       ],
       en: [
         'No OCR and no invented description: the only string in the output comes from your file name',
-        'The file only grows: four characters per three bytes plus about 2.7 KB of wrapper, so the 5 MB the interface shows becomes roughly 6.7 MB of HTML — this is not a compression route',
+        'The file only grows: four characters per three bytes plus about 2.6 KB of wrapper, so the 5 MB the interface shows becomes roughly 6.7 MB of HTML — this is not a compression route',
         'One picture per file: for several, convert one at a time — this extension has no collage or tile feature',
         'Whatever encoding or cropping the JPEG already had is neither examined nor changed: this route carries, it does not process',
-        'Not for email: mainstream mail clients block `data:` images, so use an external picture or the mail attachment itself',
+        'No guarantee in email: webmail clients — Gmail among them — strip `data:` images and the recipient decides, so use an external picture or the mail attachment itself',
         'It yields no copyable image object: take the original file, or an image-to-image route, when a document needs the picture itself',
       ],
     },
     notes: {
       zh: [
         '要 Markdown 里的图片：JPG→Markdown 就是这条再加一步序列化',
-        '要 Word 文档里的图片：JPG→Word 走同一条内嵌路，最终由打开它的软件排版',
+        '要 Word 文档里的图片：JPG→Word 第一步同为 `jpg>html`，进 Word 那一步会把这条 data URI 收进包里独立的图片部件，`.docx` 内不再留 data URI',
         '要真正换格式（比如转 WebP / PNG）：那需要重编码，请走图片转图片那几页',
       ],
       en: [
         'For an image in Markdown: JPG to Markdown is this step plus a serialisation',
-        'For a picture in a Word file: JPG to Word uses the same embedding, with layout left to whatever opens it',
+        'For a picture in a Word file: JPG to Word shares this first step, and the `html>docx` step lifts that data URI into its own image part, so no data URI is left in the `.docx`',
         'To actually change format (to WebP or PNG): that needs re-encoding, so take the image-to-image pages',
       ],
     },
@@ -8159,8 +8161,8 @@ export const PAIRS = [
           en: 'Why is the HTML bigger than my image?',
         },
         a: {
-          zh: 'base64 每三个字节要写成四个字符，这是编码形态的固定开销；另加约 2.7 KB 的文档外壳（`<style>` 里那份 CSS 与标签）。图越大越接近 4/3，图越小越被外壳主导。想变小请走图片转图片那几路做真实重编码，而不是这一路。',
-          en: 'base64 writes every three bytes as four characters — the fixed cost of the encoding — plus a document wrapper of about 2.7 KB (the CSS in `<style>` and the markup). The bigger the picture, the closer it gets to 4/3; the smaller, the more the wrapper dominates. To go smaller, take an image-to-image route and re-encode for real; this one is not a compressor.',
+          zh: 'base64 每三个字节要写成四个字符，这是编码形态的固定开销；另加约 2.6 KB 的文档外壳（它随文件名长度略有增减）（`<style>` 里那份 CSS 与标签）。图越大越接近 4/3，图越小越被外壳主导。想变小请走图片转图片那几路做真实重编码，而不是这一路。',
+          en: 'base64 writes every three bytes as four characters — the fixed cost of the encoding — plus a document wrapper of about 2.6 KB, which moves a little with the length of your file name (the CSS in `<style>` and the markup). The bigger the picture, the closer it gets to 4/3; the smaller, the more the wrapper dominates. To go smaller, take an image-to-image route and re-encode for real; this one is not a compressor.',
         },
       },
     ],
@@ -8180,8 +8182,8 @@ export const PAIRS = [
       en: 'You get one self-contained image tag whose bytes are the original file. No OCR, so no text is invented and nothing is uploaded.',
     },
     lede: {
-      zh: '两步，而且第二步几乎不做决定：`jpg>html` 先把文件的原始字节编成 data URI 放进一个 `<img>`（`alt` 与 `title` 都是你的文件名主干，去扩展名、无名时 `converted`，并做属性转义），`html>md` 再用 Turndown 把这份文档序列化。实测产物就是形如 `![合同扫描件](data:image/jpeg;base64,/9j/… "合同扫描件")` 的**一行图片语法**：那张 `<img>` 是页面 `body` 里唯一的元素，所以除这一行之外没有别的正文；样式表在 `<head>`，而序列化只取 `body`，CSS 不会漏进 Markdown。base64 负载整个写进 `.md`——每三个字节四个字符，另加图片语法本身那一点开销——所以文件自包含、拷走单个 `.md` 不必带附件目录。要说清的一条边界：**这不是「图片转文字」**。图里印着什么，这条链一概不知道——它不读像素，本扩展也不带 OCR 模型与语言包，更不会把图上传给谁去识别。想要能搜索、能复制的文字得靠识别工具：在本地跑的那种与这里无关，要把图传上去的那种则意味着文件出了本机。反过来，如果你的目的就是把一张图塞进一份 Markdown 笔记或 README，并且希望这份笔记移到别处仍显示图片，那这一路正是为此形状做的。全程只有 storage 权限，不联网。',
-      en: 'Two steps, and the second barely makes decisions: `jpg>html` first encodes the file’s raw bytes into a data URI inside an `<img>` (`alt` and `title` both carry the basename of your file, extension dropped, `converted` when there is no usable name, escaped for attribute position), and `html>md` then serialises that document with Turndown. Measured, the artifact is **one line of image syntax** looking like `![合同扫描件](data:image/jpeg;base64,/9j/… "合同扫描件")`: that `<img>` is the only element in the page’s body, so nothing else is in the way, and the stylesheet sits in `<head>` while the serialisation reads only the body, so no CSS leaks in. The base64 payload is written straight into the `.md` — four characters per three bytes, plus the image syntax itself — so the file is self-contained and a single `.md` travels without an attachments folder. The boundary stated plainly: **this is not “image to text”**. Whatever is printed in the picture is unknown to this chain — it never reads pixels, the extension ships no OCR model or language packs, and it uploads nothing anywhere. Searchable, copyable words need a recognition tool: one that runs locally has nothing to do with this route, one that takes the picture over the network means the file has left your machine. If instead your goal is to put one picture inside a Markdown note or README and have it still render after the note moves, this is exactly that shape. All of it on the storage permission, with no network at all.',
+      zh: '两步，而且第二步几乎不做决定：`jpg>html` 先把文件的原始字节编成 data URI 放进一个 `<img>`（`alt` 与 `title` 都是你的文件名主干，去扩展名、无名时 `converted`，并做属性转义），`html>md` 再用 Turndown 把这份文档序列化。实测产物就是形如 `![合同扫描件](data:image/jpeg;base64,/9j/… "合同扫描件")` 的**一行图片语法**：那张 `<img>` 是页面 `body` 里唯一的元素，所以除这一行之外没有别的正文；样式表在 `<head>`，而序列化只取 `body`，CSS 不会漏进 Markdown。base64 负载整个写进 `.md`——每三个字节四个字符，另加图片语法本身那一点开销——所以文件自包含、拷走单个 `.md` 不必带附件目录。要说清的一条边界：**这不是「图片转文字」**。图里印着什么，这条链一概不知道——它不读像素，本扩展也不带 OCR 模型与语言包，更不会把图上传给谁去识别。想要能搜索、能复制的文字得靠识别工具：在本地跑的那种与这里无关，要把图传上去的那种则意味着文件出了本机。反过来，如果你的目的就是把一张图塞进一份 Markdown 笔记，并且希望它在本机打开、或在自己的编辑器预览里始终带图，那这一路正是为此形状做的；在别人家的托管站上显不显示，由那边怎么处理 `data:` 图片地址决定，这里不能替你保证。全程只有 storage 权限，不联网。',
+      en: 'Two steps, and the second barely makes decisions: `jpg>html` first encodes the file’s raw bytes into a data URI inside an `<img>` (`alt` and `title` both carry the basename of your file, extension dropped, `converted` when there is no usable name, escaped for attribute position), and `html>md` then serialises that document with Turndown. Measured, the artifact is **one line of image syntax** looking like `![合同扫描件](data:image/jpeg;base64,/9j/… "合同扫描件")`: that `<img>` is the only element in the page’s body, so nothing else is in the way, and the stylesheet sits in `<head>` while the serialisation reads only the body, so no CSS leaks in. The base64 payload is written straight into the `.md` — four characters per three bytes, plus the image syntax itself — so the file is self-contained and a single `.md` travels without an attachments folder. The boundary stated plainly: **this is not “image to text”**. Whatever is printed in the picture is unknown to this chain — it never reads pixels, the extension ships no OCR model or language packs, and it uploads nothing anywhere. Searchable, copyable words need a recognition tool: one that runs locally has nothing to do with this route, one that takes the picture over the network means the file has left your machine. If instead your goal is to put one picture inside a Markdown note and have it render on your own machine or in your own editor’s preview, this is exactly that shape; whether some hosting site draws a `data:` picture depends on how it handles those addresses, which no page here can promise for it. All of it on the storage permission, with no network at all.',
     },
     keeps: {
       zh: [
@@ -8219,12 +8221,12 @@ export const PAIRS = [
       zh: [
         '只想把图放进网页：JPG→HTML 就是这条的第一步，产物是 HTML 而不是 `.md`',
         '要文字版的图片内容：这需要 OCR，本扩展离线且不带模型，请自行用识别工具再把文字贴进 Markdown',
-        '要 Word 里的图片：JPG→Word 走同一条内嵌路，由打开它的软件排版',
+        '要 Word 里的图片：JPG→Word 第一步同为 `jpg>html`，那条 data URI 在进 Word 时换成包里的图片部件，`.docx` 里不留 data URI',
       ],
       en: [
         'To put the picture in a web page: JPG to HTML is this route’s first step, and the artifact is HTML rather than `.md`',
         'For a text version of what the picture says: that needs OCR, which this offline extension does not ship — run a recognition tool yourself and paste its words into Markdown',
-        'For a picture inside a Word file: JPG to Word shares the same embedding, with layout left to whichever application opens it',
+        'For a picture inside a Word file: JPG to Word shares this first step, and that data URI becomes an image part inside the package — none is left in the `.docx`',
       ],
     },
     faq: [

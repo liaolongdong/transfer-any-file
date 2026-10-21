@@ -166,6 +166,7 @@
         <li><span lang="zh-CN">只读 .docx（Office Open XML 的 zip 包）；97–2003 的旧版二进制 .doc 不支持，先在别处存成 .docx 再拿来</span><span lang="en">Only .docx (the zipped Office Open XML package) is read; legacy binary .doc from 97–2003 is not, so save it as .docx first elsewhere</span></li>
         <li><span lang="zh-CN">样式名不匹配默认映射时（比如自定义的&quot;报告正文&quot;样式），那段文字仍会输出，只是落在 `&lt;p&gt;` 而不是你以为的标签</span><span lang="en">When a style name falls outside the default mapping — a custom &quot;Report Body&quot; style, say — the text still comes out, just into a `&lt;p&gt;` rather than the tag you expected</span></li>
         <li><span lang="zh-CN">内联图片会让 HTML 明显变大：一本带几十张图的文档，产物体积接近原文档里的图片总和</span><span lang="en">Inlined images make the HTML visibly larger: a document with dozens of pictures produces roughly the sum of those pictures in added bytes</span></li>
+        <li><span lang="zh-CN">跟得过去的位图类型是有限的几种（`png / jpeg / gif / webp / bmp / avif / ico`）：TIFF、EMF、WMF 这类内嵌图在写出前会被剥掉 `src`，那一格空着，产物不为它计数</span><span lang="en">Only a limited set of raster types comes across (`png / jpeg / gif / webp / bmp / avif / ico`): a TIFF, EMF or WMF inside the file loses its `src` on the way out, leaving an empty slot that the artifact does not count</span></li>
             </ul>
           </section>
           <section id="notes" class="reveal">

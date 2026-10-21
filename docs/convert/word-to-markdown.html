@@ -151,7 +151,7 @@
       <h2><span lang="zh-CN">会保留什么</span><span lang="en">What carries over</span></h2>
             <ul>
         <li><span lang="zh-CN">标题、列表（含嵌套）、加粗与斜体、链接、段落结构，转成对应的 Markdown 语法</span><span lang="en">Headings, lists (nested included), emphasis, links and paragraph structure map onto Markdown syntax</span></li>
-        <li><span lang="zh-CN">文档内嵌图片会被读出并以 data URI 写进 Markdown，不依赖任何网络</span><span lang="en">Embedded images are read out and written into the Markdown as data URIs, with no network involved</span></li>
+        <li><span lang="zh-CN">文档内嵌图片会被读出并以 data URI 写进 Markdown，不依赖任何网络——但跟得过去的只有 `png / jpeg / gif / webp / bmp / avif / ico` 这几种位图，TIFF、EMF、WMF 那类在写出 HTML 前就丢了 `src`</span><span lang="en">Embedded images are read out and written into the Markdown as data URIs, with no network involved — but only these raster types travel: `png / jpeg / gif / webp / bmp / avif / ico`; a TIFF, EMF or WMF loses its `src` before the HTML is written</span></li>
         <li><span lang="zh-CN">表格转成 Markdown 表格；单元格内容保留，合并信息不保留</span><span lang="en">Tables become Markdown tables: the cell content survives, the merge structure does not</span></li>
         <li><span lang="zh-CN">HTML 中间产物先经 DOMPurify 净化，文档里的可执行脚本不会带进结果</span><span lang="en">The intermediate HTML passes through DOMPurify, so executable markup in the document is not carried over</span></li>
             </ul>

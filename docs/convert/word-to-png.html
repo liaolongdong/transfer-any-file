@@ -151,7 +151,7 @@
       <h2><span lang="zh-CN">会保留什么</span><span lang="en">What carries over</span></h2>
             <ul>
         <li><span lang="zh-CN">标题、有序与无序列表、表格、加粗与斜体都按语义结构画进图里；命名样式里的 Heading 1–4 与 Title / Subtitle 会落成对应层级的标题</span><span lang="en">Headings, ordered and unordered lists, tables, bold and italic all reach the image as structure; the named styles Heading 1–4, Title and Subtitle land as those heading levels</span></li>
-        <li><span lang="zh-CN">以 data URI 内嵌的图片随文档一起渲染；相对路径引用不到字节时，结果会按张数说明丢了哪几张，而不是悄悄留白</span><span lang="en">Images embedded as data URIs render with the document; where a relative reference cannot be resolved, the result says how many were dropped instead of quietly leaving blanks</span></li>
+        <li><span lang="zh-CN">以 data URI 内嵌的图片随文档一起渲染，但跟得过去的只有 `png / jpeg / gif / webp / bmp / avif / ico` 这几种；白名单外的类型与引用不到字节的相对路径都会在图上留一处虚线方框，并按张数说明丢了哪几张，而不是悄悄留白</span><span lang="en">Images embedded as data URIs render with the document; where a relative reference cannot be resolved, the result says how many were dropped instead of quietly leaving blanks</span></li>
         <li><span lang="zh-CN">最长边可以指定（输出图片参数里的那一格），适合贴进宽度受限的地方；它按几何等比缩，不改版式</span><span lang="en">The longest edge is settable (the output option for it), which is what you want where width is fixed — it scales geometrically and leaves the layout alone</span></li>
         <li><span lang="zh-CN">文档解析不出内容时会直接报「没有可转换的内容」，而不是交出一张空白 PNG 报成功</span><span lang="en">A document with nothing convertible fails with «no convertible content» rather than handing back a blank PNG marked as success</span></li>
             </ul>

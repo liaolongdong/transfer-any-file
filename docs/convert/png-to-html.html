@@ -116,7 +116,7 @@
         <article>
           <p class="eyebrow"><span lang="zh-CN">离线 · 无上传 · 浏览器本地完成</span><span lang="en">Offline · no uploads · runs in the browser</span></p>
           <h1><span lang="zh-CN">PNG 转 HTML——原始字节内嵌，透明与像素不丢</span><span lang="en">PNG to HTML offline — the original bytes, embedded</span></h1>
-          <p class="lede"><span lang="zh-CN">需要把一张图交给“只收网页”的地方——内网文章、单文件归档、图文一起存的笔记——最稳的做法是不碰像素。这条路径用 FileReader 把上传的 PNG 字节直接读成 data URI，写进一个 `&lt;img src&gt;`：没有 canvas、没有重编码，透明通道与原始像素一个字节都不变。`alt` 与 `title` 取源文件名（做 HTML 转义），页面自带居中版式与 `max-width: 100%`，窄屏上按比例缩显，但内嵌的仍是原始分辨率。</span><span lang="en">When an image has to go somewhere that only accepts a web page — an intranet article, a single-file archive, a note that keeps its picture beside its text — the safest move is not to touch the pixels. This route reads the uploaded PNG’s bytes into a data URI with FileReader and writes them into one `&lt;img src&gt;`: no canvas, no re-encode, with alpha and every original pixel unchanged. `alt` and `title` come from the source file name (HTML-escaped), and the page centres the image with `max-width: 100%`, so it scales down on narrow screens while the embedded data keeps its full resolution.</span></p>
+          <p class="lede"><span lang="zh-CN">需要把一张图交给“只收网页”的地方——内网文章、单文件归档、图文一起存的笔记——最稳的做法是不碰像素。这条路径用 FileReader 把上传的 PNG 字节直接读成 data URI，写进一个 `&lt;img src&gt;`：没有 canvas、没有重编码，透明通道与原始像素一个字节都不变。`alt` 与 `title` 取源文件名的主干（去扩展名，做 HTML 转义），页面自带居中版式与 `max-width: 100%`，窄屏上按比例缩显，但内嵌的仍是原始分辨率。</span><span lang="en">When an image has to go somewhere that only accepts a web page — an intranet article, a single-file archive, a note that keeps its picture beside its text — the safest move is not to touch the pixels. This route reads the uploaded PNG’s bytes into a data URI with FileReader and writes them into one `&lt;img src&gt;`: no canvas, no re-encode, with alpha and every original pixel unchanged. `alt` and `title` come from the source file name with its extension dropped (HTML-escaped), and the page centres the image with `max-width: 100%`, so it scales down on narrow screens while the embedded data keeps its full resolution.</span></p>
           <figure class="shot reveal">
             <img
               src="../assets/screenshots/batch-results.png"
@@ -150,7 +150,7 @@
       <h2><span lang="zh-CN">会保留什么</span><span lang="en">What carries over</span></h2>
             <ul>
         <li><span lang="zh-CN">原始字节：不做解码与重编码，透明、像素与 PNG 自带的元数据都在</span><span lang="en">The original bytes: no decode or re-encode, so alpha, pixels and the PNG’s own metadata all remain</span></li>
-        <li><span lang="zh-CN">`alt` / `title` 取源文件名并做转义，读屏与悬停都有说明</span><span lang="en">`alt` and `title` come from the source file name and are escaped, giving both screen readers and hover a label</span></li>
+        <li><span lang="zh-CN">`alt` / `title` 取源文件名的主干（去扩展名）并做转义，读屏与悬停都有说明</span><span lang="en">`alt` and `title` come from the source file name, extension dropped, and are escaped, giving both screen readers and hover a label</span></li>
         <li><span lang="zh-CN">单文件自包含：图片以 data URI 内嵌，没有外部引用，断网也能打开</span><span lang="en">Self-contained in one file: the image is a data URI, with no external reference, and opens offline</span></li>
         <li><span lang="zh-CN">页面在窄屏上按比例缩显，不改变内嵌的分辨率</span><span lang="en">The page scales the image down on narrow screens without changing the embedded resolution</span></li>
         <li><span lang="zh-CN">一批最多 200 个文件、单个 100 MB</span><span lang="en">Up to 200 files per batch at 100 MB each</span></li>
@@ -162,7 +162,7 @@
         <li><span lang="zh-CN">体积会变大：base64 让图片部分约为原字节的 4/3，再加一层 HTML 包装；这是“单文件自包含”的代价</span><span lang="en">The file grows: base64 makes the image portion about 4/3 of the original bytes, plus the HTML wrapper — the cost of a self-contained file</span></li>
         <li><span lang="zh-CN">没有重编码也就没有优化：无法借这次转换降分辨率、换格式或压体积；需要那些请走 PNG → JPEG / WebP</span><span lang="en">No re-encode means no optimisation: this route cannot downscale, change format or shrink the file; use PNG → JPEG or WebP for that</span></li>
         <li><span lang="zh-CN">`alt` 只有文件名，不是对画面内容的描述；要让读屏用户知道图里是什么，请下载后自行改写</span><span lang="en">`alt` is only the file name, not a description of the picture; rewrite it afterwards if screen-reader users need to know what is shown</span></li>
-        <li><span lang="zh-CN">不适合邮件：主流邮件客户端会拦 `data:` 图片，要进邮件正文请用外链图片或邮件自己的附件</span><span lang="en">Not for email: mainstream mail clients block `data:` images, so use an external picture or the mail attachment itself</span></li>
+        <li><span lang="zh-CN">邮件里不保显示：网页端邮件客户端（Gmail 便是）会剥掉 `data:` 图片，能不能显示由收件端决定——要进邮件正文请用外链图片或邮件自己的附件</span><span lang="en">No guarantee in email: webmail clients — Gmail among them — strip `data:` images and the recipient decides, so use an external picture or the mail attachment itself</span></li>
         <li><span lang="zh-CN">PNG 之外的源（JPEG / WebP / BMP / GIF）走同一条包装路径，但这一页只描述 PNG 的行为</span><span lang="en">Sources other than PNG (JPEG, WebP, BMP, GIF) take the same wrapping path, but this page describes the PNG behaviour only</span></li>
             </ul>
           </section>

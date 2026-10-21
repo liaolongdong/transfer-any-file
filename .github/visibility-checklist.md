@@ -1028,6 +1028,24 @@ csv→Word 的另一组事实回读自`html-to-docx.ts`：正文以 MHT altChunk
   本轮零运行时改动、零新页（仍是 91 张页 / 缺口 25），四镜像与 hub 未动。实测计数：`pages:render` 108 文件、`pages:check` 逐字节一致、`verify:numbers` 23 事实 × 113 文档、`lint:all`、`build`、
   产物层两条离线守卫、`verify:meta` 全 rc=0。断言数仍 **452**，素材不重拍。
 
+- **10-21 第卅二轮（再一轮只改散文，核查员抓到八处、本轮改掉七处）。** 先更正上一轮记账里的一处错数：
+  `jpg>html` 的外壳不是 2,716 B——那个数把 23 字符的 `data:image/jpeg;base64,` 前缀算进了外壳。逐字节复算是 **2,695 B**，
+  按 `formatSize` 渲染成 **2.6 KB**，而且它**不固定**：文件名在 `<title>`、`alt`、`title` 各出现一次，随名字长度增减。
+  页面上三处（lede / limits / faq，中英各三）与本页记账一起改口。5.0 MB → 6.7 MB 那句经复核仍成立。
+  其余六处：① png→HTML 的「`alt` 取源文件名」漏了**去扩展名**这一半（`documentTitle` 会剥掉后缀）；
+  ② 「主流邮件客户端会拦 `data:` 图片」说过头——Apple Mail 与 Thunderbird 会渲染，改成「网页端邮件客户端（Gmail 便是）会剥掉，
+  能不能显示由收件端决定」；③ 「塞进 Markdown 笔记或 README，移到别处仍显示」对**托管站**是空头承诺（GitHub 一类会剥 `data:` 图地址），
+  改成本机与自己的编辑器预览，并写明别人家由那边决定；④ 六张 Word 族页面上「内嵌图片会跟着过去」全部补上**类型白名单**
+  （`png / jpeg / gif / webp / bmp / avif / ico`，读自 `html-sanitize.ts:83`）：白名单外（TIFF / EMF / WMF）在 `docx>html` 就丢了 `src`，
+  渲染族会换成虚线方框并按张数计入丢弃（`html-raster.ts:116` 的 `carriesOwnBytes` 判空即换），不渲染族那一格直接空着且**不计数**；
+  ⑤ 「JPG→Word 走同一条内嵌路」是错的——`html>docx` 会把 data URI 从 altChunk 提成包里独立的图片部件并重写引用，
+  `.docx` 里没有 data URI（判据在 `scripts/e2e-test.mjs:2262-2266` 那段注释与被钉住的载荷）；
+  ⑥ SVG 页「要进 Word 或 PDF 会**先**栅格化」步序错：`svg>pdf` 第一步就栅格化，而 `svg>docx` = `svg>html` → `html>docx`，
+  栅格化发生在第二步。
+  还记下两处**已知未改**：SVG 页「净化后什么都不剩才报错」经复核是半对（`<svg>` 外壳使全 `<use>` 雪碧图非空 → 照样交付空白页），
+  本轮只把中文那条限定清楚、英文侧与 faq 待下轮；jpg→Markdown 尚未补邮件那条对称披露。
+  零运行时改动、零新页（仍 91 张 / 缺口 25）。
+
 ## 3. 收下改动：这一节记的是提交账，不是提交计划
 
 这一节原先给的是 2026-09-19 那一轮（配对页与博客页改成数据源生成）的两条 `git commit`。那些提交早就落地了，
