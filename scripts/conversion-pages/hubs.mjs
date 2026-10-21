@@ -884,11 +884,6 @@ export const HUBS = [
         },
       },
     ],
-    targets: {
-      md: {
-        zh: '第一步 `svg>html` 不栅格化、图形作为矢量进页面，第二步再序列化成 Markdown；内联图形在 Markdown 侧能否显示由阅读器决定，含远程资源的引用不会下载。',
-        en: 'The first step, `svg>html`, does not rasterise — the artwork stays vector in the page — and the second serialises it into Markdown; whether an inline drawing displays in Markdown is up to the reader, and remote references are never fetched.',
-      },
-    },
+    targets: {},
   },
 ];

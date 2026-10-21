@@ -9704,55 +9704,55 @@ export const PAIRS = [
       en: 'Word to JSON offline — tables, grouping, no guesswork',
     },
     desc: {
-      zh: 'mammoth 出 HTML 再取表格：一张表变对象数组，多张表按文档小标题分组（缺标题时回落成 SheetN），没表时读第一个代码块。全程离线。',
-      en: 'Mammoth to HTML, then the tables: one becomes an array of objects, several group under headings (or SheetN), else the first code block is parsed.',
+      zh: 'mammoth 出 HTML 再取表格：一张表变对象数组，多张表按位置与文档小标题配对分组（配不上时回落成 SheetN），没表时依次试代码块与整份正文。全程离线。',
+      en: 'Mammoth to HTML, then the tables: one becomes an array of objects, several group by heading position (or SheetN), else the first text found is parsed.',
     },
     lede: {
-      zh: '这条链的产出形状完全由文档里**有几张表**决定，这是它最容易被讲反的地方。`docx>html` 先由 mammoth 把文档体还原成语义 HTML（标题层级、列表、表格；内嵌图片读成 data URI；脚注会作为末尾列表进来、插入修订按正文读出、文本框内容照常成段，只有批注不落），`html>json` 再按三条分支取数：`doc.querySelectorAll` 取 `table` **只有一张**时，产出对象数组——第一行当表头、其余行按表头配成键值；**两张及以上**时，产出**按文档顺序分组的对象**，分组名取同级的小标题（`h2`），标题不够用就回落成 `Sheet2` 这类名字；**一张表都没有**时，退一步去读文档里第一个 `<pre>`（或 `<code>`）的文本再 `JSON.parse`——注意这一步取的是 `textContent`，所以用 `<br>` 排的换行在这里会消失，两条路都不成立就明确报 `errors.htmlToJson` 而不是给你一个空数组。有一条重要的下游连带后果要写在这：多张表产出的**不是数组**，所以再往「只吃数组」的步骤走（`json>csv`、`csv>xlsx`）会在下一步报错「JSON 内容必须是包含数据的数组才能转换为 CSV」——**要一次交付多张表，就该走 Word→Excel 之类不经过那道闸的路线，或者干脆把文档拆成每张表单独转**。取值也有边界：mammoth 读的是文档里存下的文字，公式与格式不是它的取数范围；表头里重复或为空的格子会互相覆盖（后者赢），跨 `colspan` 的表头只算一格。全程只有 storage 权限，不联网。',
-      en: 'The shape of the output on this chain is decided entirely by **how many tables the document holds**, and that is where it most often gets explained backwards. `docx>html` first has mammoth restore the body as semantic HTML (heading levels, lists, tables; embedded pictures become data URIs; footnotes arrive as a trailing list, tracked insertions read as body text and text-box content becomes paragraphs — only comments are left out), and `html>json` then takes one of three branches: with **exactly one** `doc.querySelectorAll` 取 `table` hit it produces an array of objects, first row as headers and the rest zipped against them; with **two or more** it produces an **object grouped in document order**, naming each group after the heading at the same level (`h2`), falling back to names like `Sheet2` when there are not enough; with **no table at all** it reads the first `<pre>` (or `<code>`) text and runs `JSON.parse` — and since that step takes `textContent`, line breaks made with `<br>` disappear here — and when neither works it fails with `errors.htmlToJson` rather than handing you an empty array. One downstream consequence belongs on this page: several tables produce **not an array**, so the next step if that step only accepts arrays (`json>csv`, then `csv>xlsx`) refuses with «JSON content must be an array of objects to convert to CSV». **To deliver several sheets at once, take a route that does not pass that gate, or convert one table at a time.** The value boundary is stated too: mammoth reads the words stored in the document, so formulas and formatting are outside what it fetches; duplicate or empty header cells overwrite each other (the later one wins), and a header spanning `colspan` counts as one key. All of it on the storage permission, with no network.',
+      zh: '这条链的产出形状完全由文档里**有几张表**决定，这是它最容易被讲反的地方。`docx>html` 先由 mammoth 把文档体还原成语义 HTML（标题层级、列表、表格；内嵌图片读成 data URI；脚注会作为末尾列表进来、插入修订按正文读出、文本框内容照常成段，只有批注不落），`html>json` 再按三条分支取数：**只有一张表**时产出对象数组——第一行当表头、其余行按表头配成键值；**两张及以上**时产出**按文档顺序分组的对象**，分组名是把表与文档里的 `h2` **按出现顺序逐位配对**（第 N 张表配第 N 个 `h2`），配不上——也就是标题不够用——才回落成 `Sheet2` 这类名字，所以「某张表的组名」和「它上方那个小标题」并不总是一回事，表比标题多或中间夹着别的标题时就会错位；**一张表都没有**时退一步取文字：先找第一个 `<pre>`，没有再找第一个 `<code>`，两个都没有就用整份 `<body>` 的文字，然后 `JSON.parse`——注意这三处取的都是 `textContent`，所以用 `<br>` 排的换行在这里会消失；三者都解析不了才明确报 `errors.htmlToJson`，而不是给你一个空数组。有一条重要的下游连带后果要写在这：多张表产出的**不是数组**，所以紧接着那一步「JSON 转 CSV」只吃数组就会报错「JSON 内容必须是包含数据的数组才能转换为 CSV」。这里要说清一件容易想反的事：**Word→Excel 也经过同一步**（基线现读：`docx>html` → `html>json` → `json>csv` → `csv>xlsx`），所以一份多表文档转 Excel 会在同一个位置报错，并不存在「绕过那道闸」的现成路线——要一次拿多张表，只能把每张表各存成一份只含一表的文件分别转，或者走 Word→HTML 之后自己取。取值也有边界：mammoth 读的是文档里存下的文字，Word 表格中算好并存下的公式结果会以文字进来、但不会被重新求值；单元格格式与条件格式不进 JSON。表头里重复或为空的格子会互相覆盖（后者赢），跨 `colspan` 的表头只算一格。全程只有 storage 权限，不联网。',
+      en: 'The shape of the output on this chain is decided entirely by **how many tables the document holds**, and that is where it most often gets explained backwards. `docx>html` first has mammoth restore the body as semantic HTML (heading levels, lists, tables; embedded pictures become data URIs; footnotes arrive as a trailing list, tracked insertions read as body text and text-box content becomes paragraphs — only comments are left out), and `html>json` then takes one of three branches. With **exactly one table** in the parsed document it produces an array of objects, the first row as headers and the rest zipped against them. With **two or more** it produces an **object grouped in document order**, where group names come from pairing the tables with the page’s `h2` elements **positionally, in order** — the Nth table takes the Nth heading — and only when that pairing runs out, i.e. there are not enough headings, does it fall back to names like `Sheet2`; so «the name of a table’s group» and «the heading above that table» are not the same thing, and they drift apart as soon as tables outnumber the headings or another heading sits in between. With **no table at all** it falls back to text: the first `<pre>`, else the first `<code>`, else the whole `<body>`’s text, and runs `JSON.parse` on it — all three read `textContent`, so line breaks made with `<br>` disappear here — and only when none of the three parses does it fail with `errors.htmlToJson` rather than handing you an empty array. One downstream consequence belongs on this page. Several tables produce **not an array**, so the very next step, JSON-to-CSV, which only accepts arrays, refuses with «JSON content must be an array of objects to convert to CSV». And here is the thing most routes get backwards: **Word to Excel passes through that same step** — read live from the baseline, `docx>html` then `html>json` then `json>csv` then `csv>xlsx` — so a multi-table document fails at the same place on the way to Excel too, and there is no ready-made route that dodges the gate. To get several tables out, convert one table per file, or take Word to HTML and pick them apart yourself. The value boundary is stated too: mammoth reads the words stored in the document, so a formula result already computed and stored in a Word table arrives as text but is never re-evaluated, and cell formatting including conditional formatting does not reach the JSON. Duplicate or empty header cells overwrite each other (the later one wins), and a header spanning `colspan` counts as one key. All of it on the storage permission, with no network.',
     },
     keeps: {
       zh: [
         '一张表就是对象数组：第一行当表头、其余行按键配对，顺序保持文档原样',
-        '多张表按文档顺序分组，键取同级 `h2`；标题不够时回落成 `Sheet2` 这类名字',
-        '没有表格时退到第一个 `<pre>` / `<code>` 的文本再解析，解析不了就明确报错',
+        '多张表按文档顺序分组，组名与第 N 个 `h2` 逐位配对；配对用完才回落成 `Sheet2` 这类名字',
+        '没有表格时依次试第一个 `<pre>`、第一个 `<code>`、整份正文文字，再解析；解析不了就明确报错',
         '标题层级与正文文字都按语义还原（`h1`–`h4`、列表、表格），不是把文档压成一坨文本',
         '一批最多 200 个文件、单个 100 MB，与其他路线共用同一道闸门',
       ],
       en: [
         'One table becomes an array of objects: the first row as headers, the rest zipped against them, in document order',
-        'Several tables group in document order, keyed by the sibling `h2`; unnamed groups fall back to `Sheet2`-style names',
-        'With no table it falls back to the first `<pre>` / `<code>` text and parses that, and fails clearly when parsing cannot work',
+        'Several tables group in document order, each name paired positionally with the Nth `h2`; only a pairing that runs out falls back to `Sheet2`-style names',
+        'With no table it tries, in order, the first `<pre>`, the first `<code>` and the whole body text, and fails clearly when none of them parses',
         'Heading levels and body text are restored semantically (`h1`–`h4`, lists, tables) rather than flattened into one blob',
         'Up to 200 files per batch and 100 MB each — the same gate every other route shares',
       ],
     },
     limits: {
       zh: [
-        '多张表产出的是分组对象而不是数组，所以接「只吃数组」的下一步（`json>csv`、`csv>xlsx`）会报错——那张路要走 Word→Excel，或一张表转一次',
-        '读的是文档里存下的文字：公式的值与单元格格式不在取数范围，条件格式更不是',
+        '多张表产出的是分组对象而不是数组，下一步「JSON 转 CSV」只吃数组就会报错——**Word→Excel 也经过这一步**，同样报错；请一张表转一次，或走 Word→HTML 自己取',
+        '取的是文档里存下的文字：Word 表格里算好的公式结果会以文字进来但不会重新求值，单元格格式与条件格式不进 JSON',
         '表头里重复或为空的格子会互相覆盖（后者赢），跨 `colspan` 的表头只算一个键',
-        '用 `<br>` 排的换行在退读代码块那一步会消失（取的是 `textContent`）',
+        '用 `<br>` 排的换行在退读文字那一步会消失（三处取的都是 `textContent`）',
         '脚注会以 `[1]` 这样的引用留在文字里；批注不进、`w:ins` 按正文读出',
       ],
       en: [
-        'Several tables yield a grouped object, not an array, so the next step refuses if it only accepts arrays (`json>csv`, `csv>xlsx`) — take Word to Excel for that, or convert one table at a time',
-        'It reads the words stored in the document: cell formula results and formatting are outside what it fetches, and conditional formatting even more so',
+        'Several tables yield a grouped object, not an array, so the JSON-to-CSV step refuses — and **Word to Excel runs through that same step**, failing at the same place; convert one table at a time or take Word to HTML',
+        'It reads the words stored in the document: a formula result already computed inside a Word table arrives as text but is never re-evaluated, and cell formatting including conditional formatting does not reach the JSON',
         'Duplicate or empty header cells overwrite each other (the later wins), and a header spanning `colspan` counts as a single key',
-        'Line breaks made with `<br>` vanish in the code-block fallback, which reads `textContent`',
+        'Line breaks made with `<br>` vanish in the text fallback, where all three sources read `textContent`',
         'Footnote references stay in the text as `[1]`-style marks; comments do not come across and `w:ins` reads as body text',
       ],
     },
     notes: {
       zh: [
-        '要一份表格 CSV / Excel：一张表时用 Word→CSV 或 Word→Excel，多张表请拆开或走 Word→HTML 自己取',
+        '要表格数据：一张表时 Word→CSV 或 Word→Excel 都能走；多张表时这两条也会在同一步报错，请先拆开',
         '要纯文字：Word→TXT 丢掉表格结构，但正文读得更完整',
-        '要能再编辑的网页或文档：Word→HTML / Word→Markdown，那里表格会带 colspan 信息进标记',
+        '要能再编辑的网页：Word→HTML 会把合并写成 colspan / rowspan 留在标记里；Word→Markdown 则把格子摊平成纯文本，合并信息到那一步就没了',
       ],
       en: [
-        'For CSV or Excel from a table: use Word to CSV / Excel when there is one table; split several, or take Word to HTML and pick them apart',
+        'For table data: with one table, Word to CSV or Word to Excel both work; with several, those routes fail at the same step too, so split them first',
         'For plain words: Word to TXT drops the table structure but reads the body more completely',
-        'For an editable page or document: Word to HTML / Markdown keeps `colspan` in the markup',
+        'For an editable page: Word to HTML keeps merges in the markup as colspan / rowspan, while Word to Markdown flattens cells to plain text and the merge is gone at that step',
       ],
     },
     faq: [
@@ -9762,8 +9762,8 @@ export const PAIRS = [
           en: 'Why did I get an object instead of an array?',
         },
         a: {
-          zh: '因为文档里有两张以上的表（表格套在单元格里也算两张，取表用的是会下钻的选择器）。这条路会按文档顺序把它们分组，组名取同级小标题、缺标题时用 `SheetN`。这是刻意保留「哪张表是哪个」的信息，代价就是产物不再是数组——所以紧接着走「只吃数组」的那步会报错。要么一次转一张表，要么改走 Word→Excel 那条不经过这道闸的链。',
-          en: 'Because the document held more than one table (a table nested inside a cell counts too, since the selector descends). The route groups them in document order, naming each group after its heading or falling back to `SheetN`. Keeping «which table is which» is deliberate, and the price is that the artifact is no longer an array — which is exactly what the next arrays-only step complains about. Convert one table at a time, or take Word to Excel, which does not pass that gate.',
+          zh: '因为文档里有两张以上的表（表格套在单元格里也算两张，取表用的是会下钻的选择器）。这条路会按文档顺序把它们分组，组名与文档里的 `h2` 逐位配对，配对用完才用 `SheetN`。这是刻意保留「哪张表是哪个」的信息，代价就是产物不再是数组——而紧接着的「JSON 转 CSV」只吃数组，所以它报错。Word→Excel 也经过同一步（基线现读四步链），所以多表文档转 Excel 会在同一个位置失败，没有绕得开的现成路线；要么一次转一张表，要么走 Word→HTML 之后自己取。',
+          en: 'Because the document held more than one table (a table nested inside a cell counts too, since the selector descends). The route groups them in document order, pairing each name with the Nth `h2` and only falling back to `SheetN` once that pairing runs out. Keeping «which table is which» is deliberate, and the price is that the artifact is no longer an array — which is exactly what the next step, JSON-to-CSV, complains about. Word to Excel goes through that same step (a four-step chain, read live from the baseline), so a multi-table document fails at the same place there as well and no ready-made route dodges it. Convert one table at a time, or take Word to HTML and separate them yourself.',
         },
       },
       {
@@ -9772,8 +9772,8 @@ export const PAIRS = [
           en: 'What if my Word file has no tables?',
         },
         a: {
-          zh: '取表那一步失败后会退到「读第一个 `<pre>` / `<code>` 的文本再解析 JSON」，也就是说文档里得有形如 JSON 的代码块才行；正文段落不会被猜成数据。两条都不成立就明确报 `errors.htmlToJson`，不会给你一份空数组冒充成功。要的是文字，请走 Word→TXT / Markdown。',
-          en: 'After the table branch misses, it falls back to reading the first `<pre>` / `<code>` text and parsing it as JSON, so the document needs a code block that really contains JSON; ordinary paragraphs are not guessed into data. If neither works it fails with `errors.htmlToJson` rather than passing off an empty array as success. If what you want is words, take Word to TXT or Markdown.',
+          zh: '取表那一步落空后会依次退三档：先读第一个 `<pre>` 的文字，没有再读第一个 `<code>`，两个都没有就读整份 `<body>` 的文字，然后 `JSON.parse`。也就是说文档里得有形如 JSON 的文字才行——三档读的都是 `textContent`，用 `<br>` 排的换行会在这一步消失。三档都解析不了才明确报 `errors.htmlToJson`，不会给你一份空数组冒充成功。要的是文字，请走 Word→TXT / Markdown。',
+          en: 'When the table branch misses it falls back in three stages: the text of the first `<pre>`, else the first `<code>`, else the text of the whole `<body>`, and that string goes through `JSON.parse`. So the document needs text that really looks like JSON — and all three stages read `textContent`, which means line breaks made with `<br>` are gone by then. Only when none of the three parses does it fail with `errors.htmlToJson` rather than passing off an empty array as success. If what you want is words, take Word to TXT or Markdown.',
         },
       },
       {
@@ -9803,8 +9803,8 @@ export const PAIRS = [
       en: 'The first frame, re-encoded as WebP: the animation goes, with a fixed notice, and unlike JPEG no white ground is painted, so alpha survives. Fully offline.',
     },
     lede: {
-      zh: '这一格有两条容易混的方向，先分开说。第一，**它会丢动画**：`gif>webp` 是一步（路径基线现读），走的是图片转图片那条通用管线——解码到画布、`drawImage` 只取一帧，再 `encodeCanvas` 编成 WebP，所以产物是**静帧**；界面上会给出那句固定的「只保留第一帧」提示（`lostFrames` 是个布尔判断，界面从不报具体帧数）。想要动图原样保留，得走不重编码的路：GIF→HTML / GIF→Markdown / GIF→Word 那几条都是把整份文件字节搬过去，帧一段不少。第二，**它不铺白底**：画布上那层 `#FFFFFF` 只在终点是 JPEG 时才画（`utils/converters/image-convert.ts:51-54` 的条件就是 ``mimeType` 恰为 `image/jpeg``），WebP 有透明通道、不需要垫底，所以 GIF 里那一格透明会带着 alpha 进 WebP——这与 GIF→JPG 正好相反（那边先把透明合成成白色再编码）。能调的是输出参数里的最长边与目标尺寸：最长边只在超过时才缩、**不放大**，目标尺寸是有损格式才生效的旋钮，两者都在最后一次编码上起作用。像素之外的东西都不在取数范围：不 OCR、不读内容，产物里没有任何字符串来自对画面的理解。若你要的是「一张透明底的静态图」，这一路是对的；要保动画，回到上面那三条；要更小的静帧，试调质量与最长边。全程只有 storage 权限，不联网、不上传。',
-      en: 'Two directions get confused here, so separate them first. **Yes, the animation is lost**: `gif>webp` is one step (read live from the baseline) through the shared image-to-image pipeline — decode onto a canvas, `drawImage` keeps a single frame, then `encodeCanvas` writes WebP — so the artifact is a **still**, and the interface shows its fixed «first frame kept» notice (`lostFrames` is a boolean test; the interface never prints a frame count). To keep the animation, take a route that does not re-encode: GIF to HTML, to Markdown or to Word all carry the whole file’s bytes with every frame intact. **No, this route does not paint a white ground**: that `#FFFFFF` fill happens only when the endpoint is JPEG (`utils/converters/image-convert.ts:51-54` tests exactly ``mimeType` 恰为 `image/jpeg``), and WebP has a transparency channel, so the GIF’s transparent pixels keep their alpha into the WebP — the opposite of GIF to JPG, which composites them onto white first. What you can adjust is in the output options: the longest edge only scales down, never up, and the target size is a lever that exists only for lossy formats; both act on that final encode. Nothing outside pixels is in scope — no OCR, no reading of content, and no string in the artifact comes from understanding the picture. Want a still with a transparent background, this is the route; want the animation, go back to those three pages; want a smaller still, tune quality and the longest edge. All of it on the storage permission: no network, no upload.',
+      zh: '这一格有两条容易混的方向，先分开说。第一，**它会丢动画**：`gif>webp` 是一步（路径基线现读），走的是图片转图片那条通用管线——解码到画布、`drawImage` 只取一帧，再 `encodeCanvas` 编成 WebP，所以产物是**静帧**；界面上会给出那句固定的「只保留第一帧」提示（`lostFrames` 是个布尔判断，界面从不报具体帧数）。想要动画继续存在，得走不重编码的路：GIF→HTML 把标签内联进页面、GIF→Markdown 写成一行内联图片、GIF→Word 把字节作为包内媒体部件带走——三条都**不重新编码帧**，帧仍在文件里；至于能不能播、播成什么样子，由打开它的那一边决定。第二，**它不铺白底**：画布上那层 `#FFFFFF` 只在终点是 JPEG 时才画（`utils/converters/image-convert.ts:51-54` 的条件是终点 MIME 类型恰为 image/jpeg），WebP 有透明通道、不需要垫底，所以 GIF 里那一格透明会带着 alpha 进 WebP——这与 GIF→JPG 正好相反（那边先把透明合成成白色再编码）。能调的是输出参数里的最长边与目标尺寸：最长边只在超过时才缩、**不放大**，目标尺寸是有损格式才生效的旋钮，两者都在最后一次编码上起作用。像素之外的东西都不在取数范围：不 OCR、不读内容，产物里没有任何字符串来自对画面的理解。若你要的是「一张透明底的静态图」，这一路是对的；要动画留在文件里，回到上面那三条；要更小的静帧，试调质量与最长边。全程只有 storage 权限，不联网、不上传。',
+      en: 'Two directions get confused here, so separate them first. **Yes, the animation is lost**: `gif>webp` is one step (read live from the baseline) through the shared image-to-image pipeline — decode onto a canvas, `drawImage` keeps a single frame, then `encodeCanvas` writes WebP — so the artifact is a **still**, and the interface shows its fixed «first frame kept» notice (`lostFrames` is a boolean test; the interface never prints a frame count). To keep the animation, take a route that does not re-encode: GIF to HTML inlines the tag into a page, GIF to Markdown writes one inline image line, GIF to Word carries the bytes as a media part inside the package — none of them re-encodes frames, so every frame is still in the file, while whether it plays and how is up to whatever opens it. **No, this route does not paint a white ground**: that `#FFFFFF` fill happens only when the endpoint is JPEG — the condition at `utils/converters/image-convert.ts:51-54` is that the endpoint MIME type is exactly image/jpeg — and WebP has a transparency channel, so the GIF’s transparent pixels keep their alpha into the WebP, the opposite of GIF to JPG, which composites them onto white first. What you can adjust is in the output options: the longest edge only scales down, never up, and the target size is a lever that exists only for lossy formats; both act on that final encode. Nothing outside pixels is in scope — no OCR, no reading of content, and no string in the artifact comes from understanding the picture. Want a still with a transparent background, this is the route; want the frames to stay in the file, go back to those three pages; want a smaller still, tune quality and the longest edge. All of it on the storage permission: no network, no upload.',
     },
     keeps: {
       zh: [
@@ -9824,14 +9824,14 @@ export const PAIRS = [
     },
     limits: {
       zh: [
-        '动画不保留：产物是单帧静图，要保留动画请走 GIF→HTML / Markdown / Word（那些不重编码）',
+        '动画不保留：产物是单帧静图，要让帧仍在文件里请走 GIF→HTML / Markdown / Word（都不重编码，播放由读它的那一边决定）',
         '提示只说「只保留第一帧」，不报帧数——帧数是布尔判断，界面无处得知',
         '有损编码：WebP 会量化一次，边缘与渐变处的细节请按目标尺寸与质量自己试',
         '不 OCR、不读画面内容，也不改帧率或挑某一帧（本扩展没有选帧功能）',
         '透明虽保留，但 GIF 本身是 1 位透明：半透明边缘不会因此变平滑',
       ],
       en: [
-        'The animation does not survive: the artifact is one still frame — keep it by taking GIF to HTML, Markdown or Word, which do not re-encode',
+        'The animation does not survive: the artifact is one still frame — keep the frames in the file by taking GIF to HTML, Markdown or Word, none of which re-encode, while playback is up to whatever opens it',
         'The notice says only «first frame kept» and never a count, because the check yields a boolean',
         'A lossy encode: WebP quantises once, so edge and gradient detail is yours to tune via target size and quality',
         'No OCR, no reading of the picture, no frame-rate editing and no frame picking — this extension has no such feature',
@@ -9840,12 +9840,12 @@ export const PAIRS = [
     },
     notes: {
       zh: [
-        '要保住动画：GIF→HTML（或 GIF→Markdown、GIF→Word），那几条都不重编码、帧段段都在',
+        '要保住动画：GIF→HTML（或 GIF→Markdown、GIF→Word），那几条都不重编码，帧都留在文件里',
         '要白底静帧：GIF→JPG 会把透明合成到白底，通用性最好',
         '要无损静帧：GIF→PNG 保留 alpha 且不量化，只是同样只剩首帧',
       ],
       en: [
-        'To keep the animation: GIF to HTML (or Markdown, or Word) — none of them re-encode, every frame survives',
+        'To keep the animation: GIF to HTML (or Markdown, or Word) — none of them re-encode, so every frame stays in the file',
         'For a still on white: GIF to JPG composites transparency onto white and is the most universally accepted',
         'For a lossless still: GIF to PNG keeps alpha and skips quantisation, and also keeps just the first frame',
       ],
@@ -9898,12 +9898,13 @@ export const PAIRS = [
       en: 'Three steps: monospace HTML, A4 render into lossless PNG slices inside a PDF, then each page onto white and encoded once as JPEG.',
     },
     lede: {
-      zh: '这条路和 TXT→PNG 不是一回事，差别在**中间那份 PDF**：`txt>html` + `html>pdf` + `pdf>jpg`（三步，路径基线现读）。第一步把纯文本包成等宽 `<pre>` 的网页；第二步交给浏览器按 **A4 纵向**排版（`jsPDF` 的构造参数就是纵向、毫米、A4），逐页渲染成画布并作为 **PNG 无损切片**写进那份临时 PDF；第三步由 pdf.js 把每一页画到**白底画布**上，编成 JPEG。于是几件事同时成立：**产出是一页一张的纸**，不是一张连续长图；**整条链只量化一次**（中间是 PNG 切片，质量参数只作用在终点）；背景是白的（渲染器写死 `backgroundColor` 为白色，所以文字图没有透明通道可言）。要如实说的代价有两条，都和「看不看得见」有关：一，`<pre>` **不折行**——超过约 734 px 内容区的长行不是被换到下一行，而是被版心裁掉，这一步宽度没有闸；二，高度有闸——整页排到 32768 px 上限时渲染那一步明确报错（`errors.renderTooTall`），而不是给你半份图，所以超长文本请先拆短；同一道高度闸也让这份中间 PDF 实际排不到几百页，出图那一步的页数上限在这条链上碰不到。图里的字仍是像素：选不中、搜不到，要能被复制就留在 TXT / Markdown / HTML。全程只有 storage 权限，不联网。',
-      en: 'This is not the same route as TXT to PNG, and the difference is **the PDF in the middle**: `txt>html` + `html>pdf` + `pdf>jpg` — three steps, read live from the baseline. Step one wraps the text as a monospace `<pre>` page. Step two hands it to the browser laid out as **A4 portrait**, renders each page to a canvas and writes it into that temporary PDF as **lossless PNG slices**. Step three has pdf.js draw every page onto a **white canvas** and encode it as JPEG. Three things hold at once: the output is **one sheet per page**, not a single continuous image; **the chain quantises only once** (the middle is PNG slices, and the quality knob acts on the endpoint); and the ground is white — the renderer pins `backgroundColor` to white, so there is no alpha to speak of in a text picture. Two costs have to be said plainly, both about what you can see. First, `<pre>` **does not wrap**: a line longer than the roughly 734 px content box is not pushed to a next line, it is clipped, and nothing gates width here. Second, height is gated: past 32768 px of laid-out page the render step fails with `errors.renderTooTall` instead of handing you half a document, so split long text first — and that same ceiling is why the intermediate PDF never grows to hundreds of pages, which in turn means the image step’s page cap is unreachable on this chain. The words in the image are still pixels: unselectable and unsearchable, so stay in TXT, Markdown or HTML when text must be copied. All of it on the storage permission, with no network.',
+      zh: '这条路和 TXT→PNG 不是一回事，差别在**中间那份 PDF**：`txt>html` + `html>pdf` + `pdf>jpg`（三步，路径基线现读）。第一步把纯文本包成等宽 `<pre>` 的网页；第二步由 `html-raster` 在**固定 800 px 版心**里排版（`utils/core/html-raster.ts:7` 的 `RENDER_WIDTH`），把整页渲染成一张画布，再由 `html>pdf` **按 210 mm 宽把这张画布等比映射到 A4 纵向、每 297 mm 切一刀**（800 px 宽下约每 1131 px 排版高度一页），逐页作为 **PNG 无损切片**写进那份临时 PDF；第三步由 pdf.js 把每一页画到**白底画布**上，编成 JPEG。于是几件事同时成立：**产出是一页一张的纸**，不是一张连续长图；**整条链只量化一次**（中间是 PNG 切片，质量参数只作用在终点）；背景是白的（渲染器写死 `backgroundColor` 为白色，所以文字图没有透明通道可言）；**页数决定容器**——只有一页时产物是 `converted.jpg`，两页以上打包成 `converted.zip`，成员按文档页码命名（`page-3.jpg` 就是那份 PDF 的第 3 页）。要如实说的代价有两条，都和「看不看得见」有关：一，`<pre>` **不折行**——版心 800 px 减去它自己的左右内边距，文字可落区的实测宽度是 702 px（右边缘落在约 718 px 处），超出部分不是被换到下一行，而是被裁掉，这一步宽度没有闸；二，高度有闸——整页排到 32768 px 上限时渲染那一步明确报错（`errors.renderTooTall`），而不是给你半份图，所以超长文本请先拆短；同一道高度闸也让这份中间 PDF 实际排不到几百页，出图那一步的页数上限在这条链上碰不到。图里的字仍是像素：选不中、搜不到，要能被复制就留在 TXT / Markdown / HTML。全程只有 storage 权限，不联网。',
+      en: 'This is not the same route as TXT to PNG, and the difference is **the PDF in the middle**: `txt>html` + `html>pdf` + `pdf>jpg` — three steps, read live from the baseline. Step one wraps the text as a monospace `<pre>` page. Step two lays it out inside a **fixed 800 px measure** (`RENDER_WIDTH` at `utils/core/html-raster.ts:7`), renders the whole page to one canvas, and then `html>pdf` **maps that canvas onto A4 portrait at 210 mm wide and cuts every 297 mm** — at 800 px that is roughly one sheet per 1131 px of laid-out height — writing each slice into the temporary PDF as a **lossless PNG**. Step three has pdf.js draw every page onto a **white canvas** and encode it as JPEG. Four things hold at once: the output is **one sheet per page**, not a single continuous image; **the chain quantises only once** (the middle is PNG slices, and the quality knob acts on the endpoint); the ground is white, because the renderer pins `backgroundColor` to white, so there is no alpha to speak of in a text picture; and **the page count decides the container** — a single page comes out as `converted.jpg`, two or more are packed into `converted.zip` with members named after the document page, so `page-3.jpg` is page 3 of that PDF. Two costs have to be said plainly, both about what you can see. First, `<pre>` **does not wrap**: subtract its own horizontal padding from the 800 px measure and the text band is 702 px wide as measured (its right edge sits near 718 px), and anything past that is clipped, not pushed to a next line — nothing gates width. Second, height is gated: past 32768 px of laid-out page the render step fails with `errors.renderTooTall` instead of handing you half a document, so split long text first — and that same ceiling is why the intermediate PDF never grows to hundreds of pages, which in turn means the image step’s page cap is unreachable on this chain. The words in the image are still pixels: unselectable and unsearchable, so stay in TXT, Markdown or HTML when text must be copied. All of it on the storage permission, with no network.',
     },
     keeps: {
       zh: [
         '一页一张的纸：按 A4 切页，不是一张连续长图（这是与 TXT→PNG 的实际分界）',
+        '页数决定容器：单页给 `converted.jpg`，两页以上打包成 `converted.zip`，成员按页码命名 `page-N.jpg`',
         '整条链只量化一次：中间是 PNG 无损切片，质量与目标尺寸只作用在 JPEG 终点',
         '背景固定白底：文字图不会有透明通道，也不会有半透明边缘',
         '高度有闸：超过 32768 px 明确报 `errors.renderTooTall`，不静默给你半份图',
@@ -9911,6 +9912,7 @@ export const PAIRS = [
       ],
       en: [
         'One sheet per page, sliced on A4 — not a single continuous image, which is the real dividing line with TXT to PNG',
+        'The page count picks the container: one page comes back as `converted.jpg`, two or more are zipped as `converted.zip` with members named `page-N.jpg`',
         'The chain quantises once: the middle is lossless PNG slices, and quality plus target size act only on the JPEG endpoint',
         'A fixed white ground: a text picture gets no alpha channel and no semi-transparent edges',
         'Height is gated: past 32768 px the render step fails with `errors.renderTooTall` rather than returning half a document',
@@ -9919,14 +9921,14 @@ export const PAIRS = [
     },
     limits: {
       zh: [
-        '`<pre>` 不折行：超过约 734 px 的长行被裁掉而不是换行，宽度没有闸——请先拆短长行',
+        '`<pre>` 不折行：800 px 版心减去内边距后文字区实测 702 px，超出的行尾被裁掉而不是换行，宽度没有闸——请先拆短长行',
         '产物是图片：字选不中、搜不到，屏幕阅读器也读不出来',
         '有损终点：文字边缘正是 JPEG 最先出振铃的地方，要归档或再取字请走 PNG 或留在文本',
         '超长受 32768 px 高度上限约束，TXT→PDF 用同一道闸，绕不开',
         '没有页码选择这一步：它的分页来自排版，源文件是 PDF 时才有那份选页参数',
       ],
       en: [
-        '`<pre>` never wraps: lines past roughly 734 px are clipped, not reflowed, and nothing gates width — break long lines first',
+        '`<pre>` never wraps: the text band is a measured 702 px inside the 800 px measure, and line ends past it are clipped rather than reflowed — nothing gates width, so break long lines first',
         'The artifact is an image: words cannot be selected, searched or read aloud',
         'A lossy endpoint: glyph edges are exactly where JPEG ringing appears first, so use PNG or plain text for archival and for retrievable words',
         'Very long text hits the 32768 px height ceiling, and TXT to PDF shares that same gate — there is no way around it here',
@@ -9952,8 +9954,8 @@ export const PAIRS = [
           en: 'Why did the right end of my long lines go missing?',
         },
         a: {
-          zh: '因为这条链按 800 px 版心排版，而 `<pre>` 不折行——超出内容区（约 734 px）的字符不是被挪到下一行，是被裁掉，而且宽度方向没有任何检查会提示你。要么先把行拆短，要么改用会横向滚动的载体（HTML），要么走 TXT→PDF 自己在阅读器里看。',
-          en: 'Because this chain lays out at an 800 px measure and `<pre>` does not wrap: characters past the content box (about 734 px) are not moved down a line, they are clipped, and nothing on the width axis warns you. Break long lines first, use a carrier that scrolls sideways (HTML), or take TXT to PDF and read it in a viewer.',
+          zh: '因为这条链的排版版心固定 800 px（`html-raster` 的 `RENDER_WIDTH`），而 `<pre>` 不折行——减去它自身左右内边距后，文字可落区实测 702 px，超出的行尾不是被挪到下一行，是被裁掉，而且宽度方向没有任何检查会提示你。要么先把行拆短，要么改用会横向滚动的载体（HTML），要么走 TXT→PDF 自己在阅读器里看。另外记一句：两页以上时你拿到的是一个 ZIP，每页一张 `page-N.jpg`。',
+          en: 'Because this chain lays out at a fixed 800 px measure (`RENDER_WIDTH` in `html-raster`) and `<pre>` does not wrap: once its own horizontal padding comes off, the text band measures 702 px, and characters past it are not moved down a line, they are clipped, with nothing on the width axis warning you. Break long lines first, use a carrier that scrolls sideways (HTML), or take TXT to PDF and read it in a viewer. One more thing to note: from two pages upwards what you get is a ZIP, one `page-N.jpg` per sheet.',
         },
       },
       {
@@ -9993,12 +9995,13 @@ export const PAIRS = [
       en: 'The same three-step chain as TXT to JPG, ending in WebP: lossless PNG slices inside, one quantisation at the endpoint, where quality and target size apply.',
     },
     lede: {
-      zh: '这条链的形状和 TXT→JPG 完全一样，只有终点不同：`txt>html` + `html>pdf` + `pdf>webp`（三步，基线现读）。文本先包成等宽 `<pre>` 网页，浏览器按 **A4 纵向**排版、逐页渲染成画布并作为 **PNG 无损切片**写进一份临时 PDF，最后由 pdf.js 把每页画到白底画布、`encodeCanvas` 编成 WebP。三点值得先说：一，**产出是一页一张的纸**（与 TXT→PNG 那张连续长图相对）；二，**整条链只量化一次**——中间那趟是 PNG 切片，质量与目标尺寸这些旋钮只作用在最后那一步；三，背景是白的（渲染器把 `backgroundColor` 写死为白色），文字图不谈透明。代价也照实说：`<pre>` **不折行**，超过约 734 px 内容区的长行是被裁掉而不是换行，宽度方向没有任何检查；高度方向有闸，排版超过 32768 px 时渲染那一步明确报 `errors.renderTooTall`（TXT→PDF 也是同一道闸，绕不开），也因此这份中间 PDF 排不到几百页，出图那一步的页数上限在这条链上碰不到。WebP 与 JPEG 的取舍在终点：同为有损，WebP 通常在同等观感下更小，但它是网页侧的通用格式而不是「哪里都能开」的那一个；要边缘锐利、或之后再从图里取字，请走 TXT→PNG。全程只有 storage 权限、不联网。',
-      en: 'The shape here is identical to TXT to JPG and only the endpoint differs: `txt>html` + `html>pdf` + `pdf>webp` — three steps, read live from the baseline. The text becomes a monospace `<pre>` page, the browser lays it out as **A4 portrait**, renders each page to a canvas and writes it into a temporary PDF as **lossless PNG slices**, and finally pdf.js draws each page onto a white canvas and `encodeCanvas` writes WebP. Three things to say first: the output is **one sheet per page** (against TXT to PNG’s single continuous image); **the chain quantises once** — the middle is PNG slices, and quality and target size act only on that last step; and the ground is white, because the renderer pins `backgroundColor` to white, so a text picture has no alpha talk either. The costs, plainly: `<pre>` **does not wrap**, so a line past the roughly 734 px content box is clipped rather than reflowed, and nothing checks width; height is gated, past 32768 px of laid-out page the render step fails with `errors.renderTooTall` (TXT to PDF carries the same ceiling, no way around it), which is also why this intermediate PDF never reaches hundreds of pages and the image step’s page cap cannot be hit on this chain. WebP versus JPEG is an endpoint trade-off: both lossy, WebP usually smaller at comparable appearance, but it is a web-side format rather than the one that opens everywhere. For crisp edges, or if the words may be needed later, take TXT to PNG. All of it on the storage permission, with no network.',
+      zh: '这条链的形状和 TXT→JPG 完全一样，只有终点不同：`txt>html` + `html>pdf` + `pdf>webp`（三步，基线现读）。文本先包成等宽 `<pre>` 网页，在**固定 800 px 版心**（`utils/core/html-raster.ts:7` 的 `RENDER_WIDTH`）里排版成一张画布，`html>pdf` 再把它**按 210 mm 宽等比映射到 A4 纵向、每 297 mm 切一刀**（800 px 宽下约每 1131 px 一页），逐页作为 **PNG 无损切片**写进一份临时 PDF，最后由 pdf.js 把每页画到白底画布、`encodeCanvas` 编成 WebP。四点值得先说：一，**产出是一页一张的纸**（与 TXT→PNG 那张连续长图相对）；二，**页数决定容器**——只有一页时是 `converted.webp`，两页以上打包成 `converted.zip`，成员按页码命名 `page-N.webp`；三，**整条链只量化一次**——中间那趟是 PNG 切片，质量与目标尺寸这些旋钮只作用在最后那一步；四，背景是白的（渲染器把 `backgroundColor` 写死为白色），文字图不谈透明。代价也照实说：`<pre>` **不折行**，800 px 版心减去它自身左右内边距后文字可落区实测 702 px，超出的行尾是被裁掉而不是换行，宽度方向没有任何检查；高度方向有闸，排版超过 32768 px 时渲染那一步明确报 `errors.renderTooTall`（TXT→PDF 也是同一道闸，绕不开），也因此这份中间 PDF 排不到几百页，出图那一步的页数上限在这条链上碰不到。WebP 与 JPEG 的取舍在终点：同为有损，WebP 通常在同等观感下更小，但它是网页侧的通用格式而不是「哪里都能开」的那一个；要边缘锐利、或之后再从图里取字，请走 TXT→PNG。全程只有 storage 权限、不联网。',
+      en: 'The shape here is identical to TXT to JPG and only the endpoint differs: `txt>html` + `html>pdf` + `pdf>webp` — three steps, read live from the baseline. The text becomes a monospace `<pre>` page, laid out inside a **fixed 800 px measure** (`RENDER_WIDTH` at `utils/core/html-raster.ts:7`) into one canvas, which `html>pdf` **maps onto A4 portrait at 210 mm wide and cuts every 297 mm** — roughly one sheet per 1131 px of laid-out height at 800 px — writing each slice into a temporary PDF as a **lossless PNG**, and finally pdf.js draws every page onto a white canvas and `encodeCanvas` writes WebP. Four things to say first: the output is **one sheet per page** (against TXT to PNG’s single continuous image); **the page count picks the container** — a single page is `converted.webp`, two or more are packed into `converted.zip` with members named `page-N.webp`; **the chain quantises once** — the middle is PNG slices, and quality and target size act only on that last step; and the ground is white, because the renderer pins `backgroundColor` to white, so a text picture has no alpha talk either. The costs, plainly: `<pre>` **does not wrap**, and once its own horizontal padding comes off the 800 px measure the text band measures 702 px, so a line past that is clipped rather than reflowed, with nothing checking width; height is gated, past 32768 px of laid-out page the render step fails with `errors.renderTooTall` (TXT to PDF carries the same ceiling, no way around it), which is also why this intermediate PDF never reaches hundreds of pages and the image step’s page cap cannot be hit on this chain. WebP versus JPEG is an endpoint trade-off: both lossy, WebP usually smaller at comparable appearance, but it is a web-side format rather than the one that opens everywhere. For crisp edges, or if the words may be needed later, take TXT to PNG. All of it on the storage permission, with no network.',
     },
     keeps: {
       zh: [
         '一页一张的纸：按 A4 切页，与 TXT→PNG 的连续长图相对',
+        '页数决定容器：单页给 `converted.webp`，两页以上打包成 `converted.zip`，成员按页码命名 `page-N.webp`',
         '整条链只量化一次：中间是 PNG 无损切片，质量与目标尺寸只作用在 WebP 终点',
         '同等观感通常比 JPEG 更小，且同样是网页里能直接 `<img>` 用的格式',
         '高度有闸：超过 32768 px 明确报 `errors.renderTooTall`，不静默给你半份图',
@@ -10006,6 +10009,7 @@ export const PAIRS = [
       ],
       en: [
         'One sheet per page, sliced on A4 — against TXT to PNG’s single continuous image',
+        'The page count picks the container: one page is `converted.webp`, two or more are zipped as `converted.zip` with members named `page-N.webp`',
         'The chain quantises once: the middle is lossless PNG slices, and quality and target size act only on the WebP endpoint',
         'Usually smaller than JPEG at comparable appearance, and still a format a web page can put straight into an `<img>`',
         'Height is gated: past 32768 px the render step fails with `errors.renderTooTall` rather than returning half a document',
@@ -10014,14 +10018,14 @@ export const PAIRS = [
     },
     limits: {
       zh: [
-        '`<pre>` 不折行：超过约 734 px 的长行被裁掉而不是换行，宽度没有闸——请先拆短长行',
+        '`<pre>` 不折行：800 px 版心减去内边距后文字区实测 702 px，超出的行尾被裁掉而不是换行，宽度没有闸——请先拆短长行',
         '产物是图片：字选不中、搜不到，也不能被朗读',
         '有损终点：文字边缘会被量化，锐利度要求高就选 TXT→PNG',
         '超长受 32768 px 上限约束，TXT→PDF 同一道闸；这条链的中间 PDF 排不到几百页',
         '通用性不如 JPEG：要发给不知支持面的接收端，先试 JPEG',
       ],
       en: [
-        '`<pre>` never wraps: lines past roughly 734 px are clipped, not reflowed, and nothing gates width — break long lines first',
+        '`<pre>` never wraps: the text band is a measured 702 px inside the 800 px measure, so line ends past it are clipped, not reflowed, and nothing gates width — break long lines first',
         'The artifact is an image: the words cannot be selected, searched or read aloud',
         'A lossy endpoint: glyph edges get quantised, so choose TXT to PNG when crispness matters',
         'Very long text hits the 32768 px ceiling, shared with TXT to PDF, and this chain’s intermediate PDF never grows to hundreds of pages',
@@ -10544,6 +10548,101 @@ export const PAIRS = [
         a: {
           zh: '不能。浏览器不提供 BMP 编码器，所以这套界面里 BMP 只是输入格式：任何路线都不会产出 .bmp。要通用位图就选 PNG / JPG / WebP，要文档就选 PDF。',
           en: 'No. Browsers cannot encode BMP, so in this interface BMP is an input format only — no route produces a .bmp. For a general-purpose bitmap take PNG, JPG or WebP; for a document take PDF.',
+        },
+      },
+    ],
+  },
+  {
+    slug: 'svg-to-md',
+    from: 'svg',
+    to: 'md',
+    shot: 'batch-results',
+    published: '2026-10-21',
+    title: {
+      zh: 'SVG 转 Markdown——离线、内联图形变 PNG 一行',
+      en: 'SVG to Markdown offline — inline art becomes a PNG line',
+    },
+    desc: {
+      zh: '两步：先包成能打开的网页，再序列化时把内联 SVG 栅格化成 PNG，产物是一行内联图片语法。矢量结构到此为止。',
+      en: 'Two steps: wrap it as a page, then on the way out each inline SVG is rasterised to PNG, leaving one inline image line. The vector ends here.',
+    },
+    lede: {
+      zh: '这一格的方向很容易讲反，先把链摆正：`svg>md` = `svg>html` + `html>md`（基线现读）。**第一步不栅格化**——`svg>html` 用保留 svg 与 svgFilters 的配置把图形作为矢量包进一份能直接打开的网页，脚本与事件属性去掉，渐变滤镜留下。栅格化发生在**第二步内部**：`html>md` 在序列化之前先跑 `replaceInlineSvgWithPng`（`utils/converters/html-to-md.ts:39`），把文档里每一个内联 SVG 画上画布、输出 PNG 数据 URL、换成一个 `<img>`，Turndown 再把这个 `<img>` 写成 `![](data:image/png;base64,…)`。所以「SVG 转 Markdown」的真相是**一行内联 PNG 图片语法**：`<svg>` 标记不会留在 `.md` 里（实测：不经那一步预处理的 Turndown 会把 svg 整个丢掉、只漏出里面的文字），而图形的**可见结果**以位图形式跟着走。产物侧还有两处诚实细节：一，若图被塞在表格单元格里，`gfmTable` 规则会把格子摊平成纯文本，那张图**不会**出现在 Markdown 里；代码因此把「已栅格化」的标记条件写成「产物里真的含有 PNG 数据 URL」，而不是照抄内部计数——界面那行提示只会说文件本身撑得住的话。二，进 .md 之后是否显示、显示多大，由渲染那份 Markdown 的一方决定，本页不替它承诺。想要矢量继续是矢量，请走 SVG→HTML（页面里放大看到的仍是路径）；要固定像素尺寸的位图文件，走 SVG→PNG / JPG / WebP，那边才有最长边与质量开关。全程只有 storage 权限，不联网、不上传。',
+      en: 'The direction here is easy to state backwards, so lay the chain straight first: `svg>md` = `svg>html` + `html>md`, read live from the baseline. **Step one does not rasterise** — `svg>html` wraps the artwork as a vector into a page you can open, sanitising with a profile that keeps `svg` and `svgFilters`, dropping scripts and event handlers while gradients and filters survive. The rasterising happens **inside step two**: before serialising, `html>md` runs `replaceInlineSvgWithPng` (`utils/converters/html-to-md.ts:39`), painting every inline SVG onto a canvas as a PNG data URI, swapping in an `<img>`, which Turndown then writes as `![](data:image/png;base64,…)`. So the truth about “SVG to Markdown” is **one inline PNG image line**: no `<svg>` markup survives into the `.md` (measured — Turndown without that pre-pass discards the element and leaks only its text), while the artwork’s visible result travels as a bitmap. Two honest details on the artifact side. If the diagram sits inside a table cell, the `gfmTable` rule flattens that cell to plain text and the picture **does not** reach the Markdown; the code therefore conditions its «rasterised» flag on the output genuinely containing a PNG data URL rather than on an internal counter, so the line the interface shows only ever says what the file supports. And whether the image displays, and how large, belongs to whatever renders that Markdown — this page promises nothing for them. If the artwork must stay vector, take SVG to HTML, where zooming still shows paths; for a bitmap file at a fixed pixel size take SVG to PNG, JPG or WebP, where the longest-edge and quality controls live. All of it on the storage permission, with no network and no upload.',
+    },
+    keeps: {
+      zh: [
+        '可见结果跟着走：内联 SVG 被画成 PNG 数据 URL，一行 `![](...)` 就带着图',
+        '栅格化在序列化之前做：所以 `svg` 与 `svgFilters` 保留下来的渐变、滤镜效果能进位图',
+        '「已栅格化」的提示以产物为准：只有 `.md` 里真的有 PNG 数据 URL 时才说，表格被摊平的情况不会误报',
+        '产物自包含：拷走单个 `.md` 就带着这张图，不必另存附件目录',
+        '一批最多 200 个文件、单个 100 MB，与其他路线共用同一道闸门',
+      ],
+      en: [
+        'The visible result travels: each inline SVG becomes a PNG data URI, and one `![](...)` line carries the picture',
+        'Rasterising happens before serialisation, so what the svg and svgFilters profiles keep — gradients, filters — reaches the bitmap',
+        'The “rasterised” notice is judged from the artifact: it appears only when the .md really contains a PNG data URL, so a flattened table cell cannot trigger a false claim',
+        'Self-contained: copying a single `.md` carries the image with it, no attachments folder needed',
+        'Up to 200 files per batch and 100 MB each — the same gate every other route shares',
+      ],
+    },
+    limits: {
+      zh: [
+        '矢量结构到此为止：`.md` 里没有 `<svg>` 标记，放大看到的是像素',
+        '图在表格单元格里时不会进 Markdown——那张表被摊平成纯文本，只留文字',
+        '能否显示、显示多大由渲染那份 Markdown 的一方决定，本页不替它承诺',
+        '整段 base64 挤在一行里，diff 与审阅都不友好；要可版本化的形状请自己写外链图片',
+        '不做尺寸与质量调节：那些开关在 SVG→PNG / JPG / WebP 那几页',
+      ],
+      en: [
+        'The vector ends here: no `<svg>` markup survives in the `.md`, and zooming shows pixels',
+        'A diagram inside a table cell does not reach the Markdown — that table is flattened to text and only the words remain',
+        'Whether it displays, and at what size, is up to whoever renders the Markdown; nothing here promises for them',
+        'The whole base64 payload sits on one line, hostile to diff and review — write an external reference for a versionable shape',
+        'No resizing or quality knobs here: those live on the SVG to PNG, JPG and WebP pages',
+      ],
+    },
+    notes: {
+      zh: [
+        '要保留矢量：SVG→HTML，图形作为 svg 留在页面里，放大仍是路径',
+        '要位图文件：SVG→PNG / JPG / WebP，那里能定最长边与质量',
+        '要一份文档：SVG→Word 会走同一套「先栅格化再打包」，只是终点是包内图片部件',
+      ],
+      en: [
+        'To keep it vector: SVG to HTML, where the artwork stays svg and zooming shows paths',
+        'For a bitmap file: SVG to PNG, JPG or WebP, which carry the longest-edge and quality settings',
+        'For a document: SVG to Word uses the same rasterise-then-pack machinery, ending in an image part inside the package',
+      ],
+    },
+    faq: [
+      {
+        q: {
+          zh: '我的图变没了，是没转换成功吗？',
+          en: 'My drawing disappeared — did the conversion fail?',
+        },
+        a: {
+          zh: '先分清两种情况。图在正文里时，它被画成 PNG 并以一行内联图片跟着走，`.md` 里没有 `<svg>`；看不到通常是**渲染那一边**不肯画 `data:` 图片。图在被摊平的场合（例如表格单元格）才会真的不进 Markdown——那种情况下产物里也没有 PNG 负载，界面那行「已栅格化」的提示同样不会出现。',
+          en: 'Separate the two cases. A diagram in the body is painted to PNG and carried as one inline image line, so no `<svg>` remains in the `.md` — if it does not show, that is usually the rendering side refusing to draw a `data:` picture. A diagram in a place that gets flattened, such as a table cell, genuinely does not reach the Markdown, and then there is no PNG payload in the file either, so the «rasterised» notice stays silent as well.',
+        },
+      },
+      {
+        q: {
+          zh: '为什么不直接把 `<svg>` 原样写进 Markdown？',
+          en: 'Why not keep the `<svg>` markup inline in the Markdown?',
+        },
+        a: {
+          zh: '这条路不做这件事：Turndown 不认识 svg 元素，实测在没有预处理时它会把整个元素丢掉、只漏出里面的文字——那才是真正的静默丢失。本扩展因此在序列化前先把图形画成 PNG，让「看得见的内容」以位图继续存在，代价是矢量结构不再保留。要继续是矢量就写外链、或走 SVG→HTML。',
+          en: 'This route does not do that: Turndown has no notion of svg elements, and measured without the pre-pass it drops the whole element and leaks only its text — that would be the real silent loss. So the extension paints the artwork to PNG before serialising, keeping what you can see as a bitmap, at the price of the vector structure. To stay vector, use an external reference or take SVG to HTML.',
+        },
+      },
+      {
+        q: {
+          zh: '转换后还能改这张图吗？',
+          en: 'Can I still edit the picture afterwards?',
+        },
+        a: {
+          zh: '在 Markdown 侧它就是一张图片，只能整体替换或重新引用；要改图形本身，请回到源 SVG 编辑后再转。要不同的输出形状，选另一条路：SVG→HTML 保留矢量，SVG→PNG 给可指定尺寸的位图。',
+          en: 'Inside Markdown it is just an image: you can replace or re-reference it wholesale, nothing more. To change the drawing itself, edit the source SVG and convert again. For a different output shape choose another route — SVG to HTML keeps the vector, SVG to PNG gives a bitmap at a size you set.',
         },
       },
     ],

@@ -217,6 +217,8 @@ Sole author: Better ([github.com/liaolongdong](https://github.com/liaolongdong))
 - [JSON → WebP](https://liaolongdong.github.io/transfer-any-file/convert/json-to-webp.html): the structure viewer’s own HTML paginated on A4 through an intermediate PDF, so the picture carries its summary rows and any budget notice — indentation is CSS, not characters
 - [BMP → WebP](https://liaolongdong.github.io/transfer-any-file/convert/bmp-to-webp.html): a genuine re-encode, and the one BMP exit where size really drops; no white ground is painted (that is JPEG-only), while pixels are redrawn once and quantised at the endpoint
 
+- [SVG → Markdown](https://liaolongdong.github.io/transfer-any-file/convert/svg-to-md.html): the rasterising happens inside the second step — each inline SVG is painted to PNG before serialising, so the .md holds one inline image line and no svg markup, and a diagram flattened away in a table cell is honestly reported as absent
+
 ## Tech stack
 
 WXT · Vue 3 · TypeScript · Element Plus · Vite · Playwright (end-to-end). Heavy conversion libraries (marked, turndown, mammoth, pdf.js, SheetJS, jsPDF, html-to-image, DOMPurify) are dynamically imported per converter, and so is the ZIP packer (fflate) — loaded at the call site that needs it, not with the workbench. The complete bundle is 3.86 MB.

@@ -2703,7 +2703,9 @@ function validateHubCoverage() {
       fail(`matrix cell links '${href}', which is neither a rendered pair page nor a hub anchor`);
     }
   }
-  if (seen.get('page') !== MATRIX.counts.pages || seen.get('hub') !== MATRIX.counts.hubs) {
+  // An absent tally *is* zero: once every open cell has its own page, no cell links to a hub anchor at
+  // all, and `Map.get` returns undefined — which must not read as a disagreement with a grid counting 0.
+  if ((seen.get('page') ?? 0) !== MATRIX.counts.pages || (seen.get('hub') ?? 0) !== MATRIX.counts.hubs) {
     fail(
       `the rendered matrix links ${seen.get('page') ?? 0} pair pages and ${seen.get('hub') ?? 0} hub anchors, ` +
         `the grid counts ${MATRIX.counts.pages} and ${MATRIX.counts.hubs}`,
