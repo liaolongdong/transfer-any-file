@@ -151,7 +151,7 @@
             <ul>
         <li><span lang="zh-CN">页面按图片推：`px × 72 / 96` 换成点、方向随宽高，混合方向时逐页声明自己的尺寸</span><span lang="en">Pages come from the picture: `px × 72 / 96` into points, orientation from width and height, and each page after the first declares its own size</span></li>
         <li><span lang="zh-CN">白底是无条件铺的那一层：源里若有透明，会合成在白底上而不是留空洞</span><span lang="en">The white ground is laid unconditionally, so any transparency in the source composites onto white rather than leaving holes</span></li>
-        <li><span lang="zh-CN">图像流压缩存放，所以常无压缩的 BMP 在这条路上通常会变小（降幅看内容，不写百分比）</span><span lang="en">The image stream is stored compressed, so an usually-uncompressed BMP typically gets smaller here (how much depends on content, so no percentage is quoted)</span></li>
+        <li><span lang="zh-CN">图像流压缩存放，所以常无压缩的 BMP 在这条路上通常会变小（降幅看内容，不写百分比）</span><span lang="en">The image stream is stored compressed, so a usually-uncompressed BMP typically gets smaller here (how much depends on content, so no percentage is quoted)</span></li>
         <li><span lang="zh-CN">重编码走自己的画布（PNG 流），不借用 jsPDF 那条强走 quality-100 JPEG 的分支</span><span lang="en">Re-encoding uses this project’s own canvas and a PNG stream rather than jsPDF’s branch that forces quality-100 JPEG</span></li>
         <li><span lang="zh-CN">一批最多 200 个文件、单个 100 MB；合并模式一份最多 200 页</span><span lang="en">Up to 200 files per batch at 100 MB each; merged mode caps one document at 200 pages</span></li>
             </ul>

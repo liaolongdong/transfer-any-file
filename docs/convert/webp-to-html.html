@@ -160,7 +160,7 @@
       <h2><span lang="zh-CN">如实说明的限制</span><span lang="en">What it does not do</span></h2>
             <ul class="limits">
         <li><span lang="zh-CN">不保证会动：帧数据都在，但播放与循环由打开这份 HTML 的那一侧决定</span><span lang="en">Motion is not promised: the frame data is all there, but playback and looping belong to whatever opens the page</span></li>
-        <li><span lang="zh-CN">WebP→PNG / JPG 那几路会取首帧，而**目前不会数出丢了几个动画**——帧检查的口径只覆盖 GIF</span><span lang="en">WebP to PNG or JPG keeps the first frame and, today, does not count how many frames of animation were lost — the frame check covers GIF only</span></li>
+        <li><span lang="zh-CN">WebP→PNG / JPG 那几路会取首帧；而「只保留第一帧」的提示是固定一句、不报帧数，且这项检查目前只覆盖 GIF，动图 WebP 走那几路连这句提示都没有</span><span lang="en">WebP to PNG or JPG keeps the first frame — and because the frame check covers GIF only, an animated WebP loses its frames with no notice at all, let alone a count</span></li>
         <li><span lang="zh-CN">体积只增不减：每三字节四字符再加约 2.6 KB 外壳，这一路不是压缩</span><span lang="en">The file only grows: four characters per three bytes plus about 2.6 KB of wrapper, so this is not compression</span></li>
         <li><span lang="zh-CN">不降尺寸、不裁切、不改格式：那些开关在图片转图片那几页</span><span lang="en">No downscale, no crop, no format change: those controls live on the image-to-image pages</span></li>
         <li><span lang="zh-CN">类型没被浏览器认出时（例如从 ZIP 解包）前缀不是 `image/webp`，再往 Word 走一步会被剥掉 `src`</span><span lang="en">When the browser never identified the type — a file unpacked from a ZIP — the prefix is not `image/webp`, and one step toward Word strips the `src`</span></li>
@@ -170,7 +170,7 @@
       <h2><span lang="zh-CN">实操提示</span><span lang="en">Working with it</span></h2>
             <ul>
         <li><span lang="zh-CN">要 Markdown 里的图：WebP→Markdown 就是这条再加一步序列化</span><span lang="en">For a picture in Markdown: WebP to Markdown is this step plus a serialisation</span></li>
-        <li><span lang="zh-CN">要真的变小或换格式：WebP→PNG / JPG 会过画布，透明会被合成掉</span><span lang="en">To actually shrink or reformat: WebP to PNG or JPG passes over a canvas, and the transparency gets composited there</span></li>
+        <li><span lang="zh-CN">要真的变小或换格式：WebP→JPG 会过画布并把透明合成到白底；WebP→PNG 也过画布，但那条不铺白底，透明留下、只剩首帧</span><span lang="en">To actually shrink or reformat: WebP to JPG passes over a canvas and composites the transparency onto white, while WebP to PNG also uses the canvas but fills no ground — alpha stays, the animation does not</span></li>
         <li><span lang="zh-CN">要固定像素尺寸：图片转图片那几页才有最长边与质量开关</span><span lang="en">For a fixed pixel size: the image-to-image pages are where the longest-edge and quality knobs live</span></li>
             </ul>
           </section>

@@ -1217,6 +1217,21 @@ csv→Word 的另一组事实回读自`html-to-docx.ts`：正文以 MHT altChunk
   `pages:check` 逐字节一致、`lint:all`、`build`、产物层两条离线守卫、`verify:meta`、`verify:paths` 全 rc=0。
   这一轮按上一笔的教训**整目录暂存 `docs/convert`**，并在 `git archive HEAD` 的隔离树里重跑 `render --check` 自证。运行时零改动，断言数仍 **452**。
 
+- **10-21 第四十五轮（只改散文：webp / bmp 三页核查翻掉 7 条，其中一条按核查员的改法反而会更错）。**
+  最有分量的一条不是措辞：**`lostFrames` 是布尔值**（`utils/core/types.ts:43`），界面那句是固定文案
+  （`utils/i18n/zh.ts:247` / `en.ts:232`），`animated-image.ts` 走到第二帧就返回、从不计数。所以「结果会写明丢了几帧 /
+  says how many frames went missing」这一族句子在我写的四个页面上都不实（含 gif→PNG 的中文标题），
+  统一改成「固定提示只保留第一帧、不报帧数」。其余：WebP→PNG **不铺白底**（`image-convert.ts:51-54` 的白底条件只对
+  `image/jpeg`），原句把 PNG 那一半说反，已分开；bmp→Markdown 的「想要真正变小的出口是 BMP→PDF」补上
+  「通常 / 幅度看内容 / 那一路会先铺白底」；两处 `an usually-uncompressed` 语法错；bmp→Markdown 的 faq 教的验证办法本身不成立——
+  **浏览器打开 `.md` 只显示源码**（核查员实测 `contentType=text/markdown`、`img` 数量 0），改成贴进 `<img src>` 或看 BMP→HTML 的产物；
+  webp→Markdown 的 faq 把「邮件正文」当「只收文本的地方」，与本仓对 `data:` 图片的既有口径自相冲突，换成工单 / 搜索索引。
+  **需要记的判断**：核查员第 2 条给的改法（GIF→WEBP 保住动画但 alpha 会被铺白）与它自己贴的证据相互矛盾——代码里没有
+  `image/webp` 的铺白分支，所以没照抄，只写代码支撑得住的说法。已经对的一条：gif→PNG 那页 limits 早写明
+  「动 WebP 与 APNG 同样只留一帧，但本项目的丢帧提示目前只对 GIF 给出」，与任务 #27 同口径，不改。
+  实测计数不变：`pages:render` 121 文件、`verify:numbers` 23 事实 × 126 文档、`pages:check`、`lint:all`、`build`、
+  产物层两条离线守卫、`verify:meta`、`verify:paths` 全 rc=0。运行时零改动，断言数仍 **452**。
+
 ## 3. 收下改动：这一节记的是提交账，不是提交计划
 
 这一节原先给的是 2026-09-19 那一轮（配对页与博客页改成数据源生成）的两条 `git commit`。那些提交早就落地了，

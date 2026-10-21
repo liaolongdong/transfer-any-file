@@ -2593,7 +2593,7 @@ export const PAIRS = [
     shot: 'output-preset',
     published: '2026-10-02',
     title: {
-      zh: 'GIF 转 PNG——本地取首帧无损重编码，动图会说明丢了几帧',
+      zh: 'GIF 转 PNG——本地取首帧无损重编码，动图会固定提示只留第一帧',
       en: 'GIF to PNG locally — first frame, lossless, loss disclosed',
     },
     desc: {
@@ -8473,8 +8473,8 @@ export const PAIRS = [
       en: 'The whole file is embedded as a data URI: no decode, no re-encode, so no frame is dropped. Opens offline, nothing uploaded.',
     },
     lede: {
-      zh: '这条路和图片转 HTML 的其他几位共用同一个转换器，而且刻意做得很薄：`gif>html` 把文件的**原始字节**用 `FileReader.readAsDataURL` 编成 data URI 写进一个 `<img src>`，再包进一份自带样式表的 HTML——**中间没有任何解码、上画布或重编码**。对 GIF 来说这一点正好是要害：动图的全部帧都还在那串字节里，**这一路不丢帧**，因为要丢帧得先读帧、而这条链连像素都不看。对照之下 GIF→PNG / JPG / WebP / PDF 那几路确实丢：它们取首帧重编码，并且会动用 `hasMultipleFrames` 在结果上写明丢了几帧——那才是需要披露丢帧的地方。要说清的边界是**播放由谁决定**：字节完整不等于一定动起来，是否播放、循环几遍，是打开这份 HTML 的那一侧的事，本扩展不替它保证。其余与位图转网页同形：`alt` 与 `title` 取**文件名主干**（去扩展名、无名时 `converted`）并按属性位置转义；内层 CSS 让图居中、`max-width: 100%`，版心实测约 800 px，所以宽图显示会收、文件里的一个像素都不变；体积是每三个字节写成四个字符再加约 2.6 KB 外壳（界面上 2 MB 的 GIF 约产出 2.7 MB 的 HTML），这一路不是压缩。`data:image/gif` 在剥远程引用的白名单之内，所以这份 HTML 再往下走一步（转 Markdown、转 Word）通常也不会被剥掉——前提是类型被浏览器认出；从 ZIP 解包出来的文件没有类型，前缀就不是 `image/gif`，Word 那一步会先把 `src` 剥掉——它不外发任何东西，扩展本身也只有 storage 权限。',
-      en: 'This route shares one converter with the other pictures-to-HTML pages, and it is deliberately thin: `gif>html` takes the file’s **raw bytes**, base64-encodes them through `FileReader.readAsDataURL` into a data URI inside an `<img src>`, and wraps that in a document with the bundled stylesheet — **no decode, no canvas, no re-encode anywhere**. For a GIF that is the whole point: every frame is still inside those bytes, so **this route drops none**, because dropping frames would mean reading them and this chain never looks at pixels. The contrast is real: GIF to PNG, JPG, WebP or PDF does take the first frame and re-encodes it, and those routes use `hasMultipleFrames` to say how many frames went missing — that is where the frame-loss disclosure lives. The boundary to state plainly is **who decides playback**: intact bytes do not guarantee motion, since whether it animates and how many times it loops belongs to whatever opens the file, and this extension promises nothing on their behalf. Everything else matches the other picture-to-HTML pages: `alt` and `title` carry the **basename** (extension dropped, `converted` when there is no usable name) escaped for attribute position; the inner CSS centres the image and caps it at `max-width: 100%` within a measure measured at about 800 px, so a wide picture scales on screen while the file stays untouched; the size is four characters per three bytes plus a wrapper of about 2.6 KB, so the 2 MB GIF the interface shows comes out as roughly 2.7 MB of HTML — this is not compression. And because `data:image/gif` is inside the allow-list that keeps references from reaching the network, taking one more step (to Markdown, to Word) does not strip the picture either — provided the browser recognised the type, since a file unpacked from a ZIP has none, and its prefix is not `image/gif`, which the Word step does strip. Nothing is ever sent out; the extension holds only the storage permission.',
+      zh: '这条路和图片转 HTML 的其他几位共用同一个转换器，而且刻意做得很薄：`gif>html` 把文件的**原始字节**用 `FileReader.readAsDataURL` 编成 data URI 写进一个 `<img src>`，再包进一份自带样式表的 HTML——**中间没有任何解码、上画布或重编码**。对 GIF 来说这一点正好是要害：动图的全部帧都还在那串字节里，**这一路不丢帧**，因为要丢帧得先读帧、而这条链连像素都不看。对照之下 GIF→PNG / JPG / WebP / PDF 那几路确实丢：它们取首帧重编码，并且会动用 `hasMultipleFrames` 在结果上固定提示只保留第一帧——那才是需要披露丢帧的地方。要说清的边界是**播放由谁决定**：字节完整不等于一定动起来，是否播放、循环几遍，是打开这份 HTML 的那一侧的事，本扩展不替它保证。其余与位图转网页同形：`alt` 与 `title` 取**文件名主干**（去扩展名、无名时 `converted`）并按属性位置转义；内层 CSS 让图居中、`max-width: 100%`，版心实测约 800 px，所以宽图显示会收、文件里的一个像素都不变；体积是每三个字节写成四个字符再加约 2.6 KB 外壳（界面上 2 MB 的 GIF 约产出 2.7 MB 的 HTML），这一路不是压缩。`data:image/gif` 在剥远程引用的白名单之内，所以这份 HTML 再往下走一步（转 Markdown、转 Word）通常也不会被剥掉——前提是类型被浏览器认出；从 ZIP 解包出来的文件没有类型，前缀就不是 `image/gif`，Word 那一步会先把 `src` 剥掉——它不外发任何东西，扩展本身也只有 storage 权限。',
+      en: 'This route shares one converter with the other pictures-to-HTML pages, and it is deliberately thin: `gif>html` takes the file’s **raw bytes**, base64-encodes them through `FileReader.readAsDataURL` into a data URI inside an `<img src>`, and wraps that in a document with the bundled stylesheet — **no decode, no canvas, no re-encode anywhere**. For a GIF that is the whole point: every frame is still inside those bytes, so **this route drops none**, because dropping frames would mean reading them and this chain never looks at pixels. The contrast is real: GIF to PNG, JPG, WebP or PDF does take the first frame and re-encodes it, and those routes use `hasMultipleFrames` to show a fixed notice that only the first frame survives — that is where the frame-loss disclosure lives. The boundary to state plainly is **who decides playback**: intact bytes do not guarantee motion, since whether it animates and how many times it loops belongs to whatever opens the file, and this extension promises nothing on their behalf. Everything else matches the other picture-to-HTML pages: `alt` and `title` carry the **basename** (extension dropped, `converted` when there is no usable name) escaped for attribute position; the inner CSS centres the image and caps it at `max-width: 100%` within a measure measured at about 800 px, so a wide picture scales on screen while the file stays untouched; the size is four characters per three bytes plus a wrapper of about 2.6 KB, so the 2 MB GIF the interface shows comes out as roughly 2.7 MB of HTML — this is not compression. And because `data:image/gif` is inside the allow-list that keeps references from reaching the network, taking one more step (to Markdown, to Word) does not strip the picture either — provided the browser recognised the type, since a file unpacked from a ZIP has none, and its prefix is not `image/gif`, which the Word step does strip. Nothing is ever sent out; the extension holds only the storage permission.',
     },
     keeps: {
       zh: [
@@ -8568,8 +8568,8 @@ export const PAIRS = [
       en: 'One self-contained image tag whose base64 is the whole animation. No first-frame grab, no re-encode; playback is up to the reader.',
     },
     lede: {
-      zh: '两步：`gif>html` 把文件的**原始字节**编成 data URI 放进一个 `<img>`（`alt` 与 `title` 都是文件名主干，去扩展名、无名时 `converted`，并做属性转义），`html>md` 再用 Turndown 把这份文档序列化。实测产物是**一行图片语法**：那张 `<img>` 是页面 `body` 里唯一的元素，样式表在 `<head>`、而序列化只取 `body`，所以 CSS 不会漏进 `.md`。对 GIF 而言关键在「不丢帧」：整份动图（每一帧、每一段扩展块）都在那串 base64 里，这一路既没有取首帧也没有重编码；而 GIF→PNG / JPG / WebP / PDF 那几路确实取首帧，并在结果上写明丢了几帧。边界要说清：**帧都在，不等于一定播**——是否播放、循环几遍由打开这份 `.md` 的阅读器决定，本页不替它承诺；`data:` 图片能不能显示也同理，网页端邮件客户端与一些托管站会剥掉它，那种场合请用外链图片。体积按每三字节四字符走，动图往往本就不小，所以整段负载会挤在同一行里，这是内联换来的代价。全程只有 storage 权限，不联网。',
-      en: 'Two steps: `gif>html` encodes the file’s **raw bytes** into a data URI inside one `<img>` (`alt` and `title` both carry the basename of your file, extension dropped, `converted` when there is no usable name, escaped for attribute position), and `html>md` then serialises the document with Turndown. Measured, the artifact is **one line of image syntax**: that `<img>` is the only element in the page’s body, and the stylesheet sits in `<head>` while the serialisation reads only the body, so no CSS leaks into the `.md`. For a GIF the point is that no frame is lost — every frame, every extension block, is inside that base64, since this route neither grabs the first frame nor re-encodes anything, whereas GIF to PNG, JPG, WebP or PDF does exactly that and says how many frames went missing. State the boundary clearly: **surviving frames are not a promise of playback** — whether it animates and how it loops is up to whichever reader opens the `.md`, and this page says nothing for them. The same applies to whether a `data:` picture displays at all: webmail clients and some hosting sites strip it, so use an external reference there. The size runs at four characters per three bytes, and animations are rarely small, so the whole payload sits on one line — that is the cost of inlining. All of it on the storage permission, with no network at all.',
+      zh: '两步：`gif>html` 把文件的**原始字节**编成 data URI 放进一个 `<img>`（`alt` 与 `title` 都是文件名主干，去扩展名、无名时 `converted`，并做属性转义），`html>md` 再用 Turndown 把这份文档序列化。实测产物是**一行图片语法**：那张 `<img>` 是页面 `body` 里唯一的元素，样式表在 `<head>`、而序列化只取 `body`，所以 CSS 不会漏进 `.md`。对 GIF 而言关键在「不丢帧」：整份动图（每一帧、每一段扩展块）都在那串 base64 里，这一路既没有取首帧也没有重编码；而 GIF→PNG / JPG / WebP / PDF 那几路确实取首帧，并在结果上固定提示只保留第一帧。边界要说清：**帧都在，不等于一定播**——是否播放、循环几遍由打开这份 `.md` 的阅读器决定，本页不替它承诺；`data:` 图片能不能显示也同理，网页端邮件客户端与一些托管站会剥掉它，那种场合请用外链图片。体积按每三字节四字符走，动图往往本就不小，所以整段负载会挤在同一行里，这是内联换来的代价。全程只有 storage 权限，不联网。',
+      en: 'Two steps: `gif>html` encodes the file’s **raw bytes** into a data URI inside one `<img>` (`alt` and `title` both carry the basename of your file, extension dropped, `converted` when there is no usable name, escaped for attribute position), and `html>md` then serialises the document with Turndown. Measured, the artifact is **one line of image syntax**: that `<img>` is the only element in the page’s body, and the stylesheet sits in `<head>` while the serialisation reads only the body, so no CSS leaks into the `.md`. For a GIF the point is that no frame is lost — every frame, every extension block, is inside that base64, since this route neither grabs the first frame nor re-encodes anything, whereas GIF to PNG, JPG, WebP or PDF does exactly that and shows the same fixed first-frame notice. State the boundary clearly: **surviving frames are not a promise of playback** — whether it animates and how it loops is up to whichever reader opens the `.md`, and this page says nothing for them. The same applies to whether a `data:` picture displays at all: webmail clients and some hosting sites strip it, so use an external reference there. The size runs at four characters per three bytes, and animations are rarely small, so the whole payload sits on one line — that is the cost of inlining. All of it on the storage permission, with no network at all.',
     },
     keeps: {
       zh: [
@@ -8607,12 +8607,12 @@ export const PAIRS = [
       zh: [
         '只想放进网页：GIF→HTML 就是这条的第一步，产物是 HTML 而不是 `.md`',
         '要进 Word：GIF→Word 与这条共享第一步，那条 data URI 在进 Word 时换成包里的图片部件',
-        '要真的换格式：GIF→PNG / JPG / WebP 会重编码，也就只剩首帧（结果会写明丢了几帧）',
+        '要真的换格式：GIF→PNG / JPG / WebP 会重编码，也就只剩首帧（结果会固定提示只保留第一帧）',
       ],
       en: [
         'To put the picture in a web page: GIF to HTML is this route’s first step, and the artifact is HTML rather than `.md`',
         'For a Word file: GIF to Word shares this first step, and that data URI becomes an image part inside the package',
-        'To actually re-encode: GIF to PNG, JPG or WebP keeps the first frame only, and says how many frames were lost',
+        'To actually re-encode: GIF to PNG, JPG or WebP keeps the first frame only and shows that fixed first-frame notice',
       ],
     },
     faq: [
@@ -8772,7 +8772,7 @@ export const PAIRS = [
       en: [
         'Pages come from the picture: `px × 72 / 96` into points, orientation from width and height, and each page after the first declares its own size',
         'The white ground is laid unconditionally, so any transparency in the source composites onto white rather than leaving holes',
-        'The image stream is stored compressed, so an usually-uncompressed BMP typically gets smaller here (how much depends on content, so no percentage is quoted)',
+        'The image stream is stored compressed, so a usually-uncompressed BMP typically gets smaller here (how much depends on content, so no percentage is quoted)',
         'Re-encoding uses this project’s own canvas and a PNG stream rather than jsPDF’s branch that forces quality-100 JPEG',
         'Up to 200 files per batch at 100 MB each; merged mode caps one document at 200 pages',
       ],
@@ -8970,14 +8970,14 @@ export const PAIRS = [
     limits: {
       zh: [
         '不保证会动：帧数据都在，但播放与循环由打开这份 HTML 的那一侧决定',
-        'WebP→PNG / JPG 那几路会取首帧，而**目前不会数出丢了几个动画**——帧检查的口径只覆盖 GIF',
+        'WebP→PNG / JPG 那几路会取首帧；而「只保留第一帧」的提示是固定一句、不报帧数，且这项检查目前只覆盖 GIF，动图 WebP 走那几路连这句提示都没有',
         '体积只增不减：每三字节四字符再加约 2.6 KB 外壳，这一路不是压缩',
         '不降尺寸、不裁切、不改格式：那些开关在图片转图片那几页',
         '类型没被浏览器认出时（例如从 ZIP 解包）前缀不是 `image/webp`，再往 Word 走一步会被剥掉 `src`',
       ],
       en: [
         'Motion is not promised: the frame data is all there, but playback and looping belong to whatever opens the page',
-        'WebP to PNG or JPG keeps the first frame and, today, does not count how many frames of animation were lost — the frame check covers GIF only',
+        'WebP to PNG or JPG keeps the first frame — and because the frame check covers GIF only, an animated WebP loses its frames with no notice at all, let alone a count',
         'The file only grows: four characters per three bytes plus about 2.6 KB of wrapper, so this is not compression',
         'No downscale, no crop, no format change: those controls live on the image-to-image pages',
         'When the browser never identified the type — a file unpacked from a ZIP — the prefix is not `image/webp`, and one step toward Word strips the `src`',
@@ -8986,12 +8986,12 @@ export const PAIRS = [
     notes: {
       zh: [
         '要 Markdown 里的图：WebP→Markdown 就是这条再加一步序列化',
-        '要真的变小或换格式：WebP→PNG / JPG 会过画布，透明会被合成掉',
+        '要真的变小或换格式：WebP→JPG 会过画布并把透明合成到白底；WebP→PNG 也过画布，但那条不铺白底，透明留下、只剩首帧',
         '要固定像素尺寸：图片转图片那几页才有最长边与质量开关',
       ],
       en: [
         'For a picture in Markdown: WebP to Markdown is this step plus a serialisation',
-        'To actually shrink or reformat: WebP to PNG or JPG passes over a canvas, and the transparency gets composited there',
+        'To actually shrink or reformat: WebP to JPG passes over a canvas and composites the transparency onto white, while WebP to PNG also uses the canvas but fills no ground — alpha stays, the animation does not',
         'For a fixed pixel size: the image-to-image pages are where the longest-edge and quality knobs live',
       ],
     },
@@ -9065,7 +9065,7 @@ export const PAIRS = [
     limits: {
       zh: [
         '不保证会动，也不保证会显示：播放由阅读器决定，`data:` 图片能否出现由收件端决定',
-        '帧丢失的披露目前只覆盖 GIF：走需要重编码的路线时不会有人替你数动画',
+        '帧丢失的检查目前只覆盖 GIF，而且提示是一句固定的「只保留第一帧」，不报帧数：动图 WebP 走需要重编码的路线时连这句都没有',
         '体积只增不减，而且整段 base64 挤在同一行——想要可 diff 的形状请改外链图片',
         '不做 OCR：图里印着的文字不会变成 Markdown 文字',
         '一行一文件：只包一张图，多张请分别转换或自己写外链语法',
@@ -9086,7 +9086,7 @@ export const PAIRS = [
       ],
       en: [
         'To put it in a web page: WebP to HTML is this route’s first step, and the artifact is HTML rather than `.md`',
-        'For a single-frame bitmap: WebP to PNG or JPG keeps one frame, and the lost animation is not counted today',
+        'For a single-frame bitmap: WebP to PNG or JPG keeps one frame, and since the frame check covers GIF only, nothing at all is said about a WebP animation',
         'For a fixed pixel size: the image-to-image pages are where the longest-edge and quality controls live',
       ],
     },
@@ -9107,8 +9107,8 @@ export const PAIRS = [
           en: 'Why not just reference the image file instead?',
         },
         a: {
-          zh: '两种形状服务两个目的：外链让 `.md` 保持小、可 diff、能被版本控制友好阅读，但图必须另存且跟着走；内联让单个 `.md` 自包含、拷走就带图，代价是体积按 base64 上浮、审阅时那一行极长。要发给只收文本的地方（工单、邮件正文）时外链更稳。',
-          en: 'The two shapes serve two goals: an external reference keeps the `.md` small, diffable and pleasant to read under version control, but the picture must live somewhere and travel with it; inlining makes a single `.md` self-contained, at the cost of base64 growth and one very long line in review. For places that take only text — tickets, mail bodies — the external form is the safer one.',
+          zh: '两种形状服务两个目的：外链让 `.md` 保持小、可 diff、能被版本控制友好阅读，但图必须另存且跟着走；内联让单个 `.md` 自包含、拷走就带图，代价是体积按 base64 上浮、审阅时那一行极长。要发给只收纯文本的地方（工单、搜索索引）时外链更稳。',
+          en: 'The two shapes serve two goals: an external reference keeps the `.md` small, diffable and pleasant to read under version control, but the picture must live somewhere and travel with it; inlining makes a single `.md` self-contained, at the cost of base64 growth and one very long line in review. For places that take plain text only — a ticket, a search index — the external form is the safer one.',
         },
       },
       {
@@ -9138,7 +9138,7 @@ export const PAIRS = [
       en: 'One inline image tag whose base64 is the whole .bmp — no re-encode. Readers do not always show a BMP data URI, so an external file is the safer shape.',
     },
     lede: {
-      zh: '两步：`bmp>html` 把文件的原始字节编成 data URI 放进一个 `<img>`（`alt` 与 `title` 是文件名主干，去扩展名、无名时 `converted`，并做属性转义），`html>md` 再用 Turndown 序列化。实测产物是**一行图片语法**：`body` 里只有那张 `<img>`，样式表在 `<head>` 而序列化只取 `body`，CSS 不会漏进 `.md`；`data:` 前缀是 `image/bmp`（类型被浏览器认出的时候——从 ZIP 解包的文件不带类型，前缀会变成 `application/octet-stream`）。这一路**不重编码、不降尺寸**，所以像素逐字节是你原来那一份。代价有两条，都要说在前面：一，BMP 常常完全不做压缩，再乘上 base64 的 4/3，`.md` 会相当大、而且整段负载挤在同一行里，审阅与 diff 都不友好——真要提交进仓库的文档，外链是更好的形状；二，**显示由阅读器决定**，BMP 的 `data:` 图片在不少 Markdown 阅读器与托管站上并不显示，那种场合请自己写 `![说明](图.bmp)` 并把图放在同一目录。想要「真正变小」的 BMP 出口是 BMP→PDF（图像流压缩存放）；想要能被到处接受的位图，就走 BMP→PNG / JPG / WebP 那几页重编码。全程只有 storage 权限，不联网。',
+      zh: '两步：`bmp>html` 把文件的原始字节编成 data URI 放进一个 `<img>`（`alt` 与 `title` 是文件名主干，去扩展名、无名时 `converted`，并做属性转义），`html>md` 再用 Turndown 序列化。实测产物是**一行图片语法**：`body` 里只有那张 `<img>`，样式表在 `<head>` 而序列化只取 `body`，CSS 不会漏进 `.md`；`data:` 前缀是 `image/bmp`（类型被浏览器认出的时候——从 ZIP 解包的文件不带类型，前缀会变成 `application/octet-stream`）。这一路**不重编码、不降尺寸**，所以像素逐字节是你原来那一份。代价有两条，都要说在前面：一，BMP 常常完全不做压缩，再乘上 base64 的 4/3，`.md` 会相当大、而且整段负载挤在同一行里，审阅与 diff 都不友好——真要提交进仓库的文档，外链是更好的形状；二，**显示由阅读器决定**，BMP 的 `data:` 图片在不少 Markdown 阅读器与托管站上并不显示，那种场合请自己写 `![说明](图.bmp)` 并把图放在同一目录。想要变小的 BMP 出口通常是 BMP→PDF（图像流压缩存放，幅度看内容，而且那一路会先铺白底）；想要能被到处接受的位图，就走 BMP→PNG / JPG / WebP 那几页重编码。全程只有 storage 权限，不联网。',
       en: 'Two steps: `bmp>html` encodes the file’s raw bytes into a data URI inside one `<img>` (`alt` and `title` carry the basename of your file, extension dropped, `converted` when there is no usable name, escaped for attribute position), and `html>md` then serialises it with Turndown. Measured, the artifact is **one line of image syntax**: the `<img>` is all the body holds, the stylesheet sits in `<head>` and the serialisation reads only the body, so no CSS leaks in; the `data:` prefix is `image/bmp` when the browser recognised the type — a file unpacked from a ZIP has none, and its prefix becomes `application/octet-stream`. This route does **not re-encode or downscale**, so the pixels are byte-for-byte the ones you had. State the two costs up front. First, BMPs are usually uncompressed, and base64 multiplies that by 4/3, so the `.md` gets hefty and the whole payload sits on a single line that is hostile to review and diffs — for documents that go into a repository, an external reference is the better shape. Second, **display is the reader’s decision**: a BMP `data:` picture does not render in many Markdown readers and hosting sites, so write `![caption](picture.bmp)` and keep the file alongside when it has to show. For a BMP exit that actually gets smaller there is BMP to PDF, which stores the image stream compressed; for a bitmap everybody accepts, take the re-encoding pages — BMP to PNG, JPG or WebP. All of it on the storage permission, with no network at all.',
     },
     keeps: {
@@ -9167,7 +9167,7 @@ export const PAIRS = [
       ],
       en: [
         'A BMP `data:` picture is not guaranteed to render: plenty of Markdown readers and hosting sites will not draw it, so use an external reference there',
-        'The worst size combination: an usually-uncompressed source times base64’s 4/3, all of it on one line',
+        'The worst size combination: a usually-uncompressed source times base64’s 4/3, all of it on one line',
         'No OCR: text printed in the picture never becomes Markdown text',
         'When the browser never recognised the type — a file unpacked from a ZIP — the prefix is `application/octet-stream`, not `image/bmp`',
         'To actually get smaller or to be accepted everywhere: BMP to PDF, or the BMP to PNG, JPG and WebP pages',
@@ -9192,8 +9192,8 @@ export const PAIRS = [
           en: 'My .md shows nothing where the picture should be — did the conversion fail?',
         },
         a: {
-          zh: '不一定。转换侧做的是搬运，负载里就是整份 .bmp 的字节；不显示通常是**阅读那一边**不肯画 BMP 的 `data:` 图片（不少阅读器与托管站如此）。先在浏览器里直接打开那个 `.md` 或换一个渲染器验证，要稳就自己写外链 `![说明](图.bmp)` 并把图放同目录。',
-          en: 'Not necessarily. The conversion only carried: the payload is the whole .bmp’s bytes. A blank usually means the rendering side will not draw a BMP `data:` picture, which plenty of readers and hosting sites do not. Check by opening the `.md` in a browser or a different renderer, and when it must show, write the external form — `![caption](picture.bmp)` with the file kept alongside.',
+          zh: '不一定。转换侧做的是搬运，负载里就是整份 .bmp 的字节；不显示通常是**阅读那一边**不肯画 BMP 的 `data:` 图片（不少阅读器与托管站如此）。先在浏览器里验证这件事有个坑：直接打开 `.md` 只会看到源码，浏览器不会把它当文档渲染——要么把那一行贴进一个 `<img src>` 里试，要么直接走 BMP→HTML 的产物看同一段字节能不能显示，要稳就自己写外链 `![说明](图.bmp)` 并把图放同目录。',
+          en: 'Not necessarily. The conversion only carried: the payload is the whole .bmp’s bytes. A blank usually means the rendering side will not draw a BMP `data:` picture, which plenty of readers and hosting sites do not. Check this the honest way: opening the `.md` in a browser shows you source, not a rendering — paste that line into an `<img src>` instead, or take the BMP to HTML artifact and see whether the same bytes display, and when it must show, write the external form — `![caption](picture.bmp)` with the file kept alongside.',
         },
       },
       {
