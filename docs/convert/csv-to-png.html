@@ -161,7 +161,7 @@
             <ul class="limits">
         <li><span lang="zh-CN">表头不会被特别对待：没有 `&lt;th&gt;`，条纹按行序落，所以第一行是白底——想让表头在图里显眼，请在源数据里自己加视觉区分</span><span lang="en">The header is not treated specially: with no `&lt;th&gt;`, striping follows row order, so row one is untinted — add your own visual cue in the source if it has to stand out</span></li>
         <li><span lang="zh-CN">高度上限 32768 px：几千行的表会报错并说明，不给被截短的图；要分页请走 CSV→PDF 或 CSV→JPG</span><span lang="en">A 32768 px height ceiling: a table of thousands of rows fails with an explanation rather than a trimmed picture; take CSV to PDF or JPG for pages</span></li>
-        <li><span lang="zh-CN">文字不可选中、搜索或朗读：PNG 没有文字层，要这些请用 HTML / Markdown / Excel</span><span lang="en">Nothing is selectable, searchable or readable aloud: a PNG has no text layer, so use HTML, Markdown or Excel for that</span></li>
+        <li><span lang="zh-CN">文字不可选中、搜索或朗读：PNG 没有文字层，要这些请用 HTML / Markdown / Excel</span><span lang="en">Nothing is selectable, searchable or copyable: a PNG has no text layer, so use HTML, Markdown or Excel for that</span></li>
         <li><span lang="zh-CN">宽表不换画布宽度而是换行：列特别多时每列会挤窄，读起来不如原始 CSV 利落</span><span lang="en">Wide tables wrap instead of widening: with many columns each one squeezes and it reads less cleanly than the CSV itself</span></li>
         <li><span lang="zh-CN">质量与目标体积是有损容器才有的档位：面板对 PNG 不提供它们，编码器也会忽略；这一路可调的只有最长边，超出会重采样</span><span lang="en">Quality and a target file size belong to lossy containers: the panel does not offer either for PNG and the encoder ignores them, so the only dial that applies here is the longest edge, which resamples when exceeded</span></li>
             </ul>
