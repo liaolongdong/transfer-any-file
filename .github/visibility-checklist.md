@@ -1278,8 +1278,24 @@ csv→Word 的另一组事实回读自`html-to-docx.ts`：正文以 MHT altChunk
   实测计数：`pages:render` 125 文件、`verify:numbers` 23 事实 × 130 文档（文件 = 页 + 17、文档 = 页 + 22 仍成立）、
   `pages:check` 逐字节一致、`lint:all`、`build`、产物层两条离线守卫、`verify:meta`、`verify:paths` 全 rc=0。
   运行时零改动，断言数仍 **452**。
-  **另记一处我自己造成的文档损坏**：这一轮的 ledger 追加把「## 3. 收下改动」这条小节标题吞掉了（我用整行标题做锚点替换、
-  却忘了把标题写回 new_string），本条已把标题恢复；教训是**用标题做锚点时，new_string 必须原样带回标题**。
+  **另记一处我自己造成的文档损坏**：这一轮的 ledger 追加把「- **10-21 第四十九轮（只改散文：核查员对 gif→Word / txt→PNG 复核 32 条、翻掉 8 条，其中一条是产品语义层面的错账）**
+  最重的一条：**`<pre>` 根本不折行**。真机 Chrome 实测 `white-space: pre` 下 `clientWidth 734 / scrollWidth 2912`，超出 800 版心（内容盒 734 px）的长行不是换行而是被裁掉，
+  而我原先在 limits 里写的是「长行会按这个宽度换行」——配上另一条「不会静默截断」，两句话合起来正好把这条链**唯一会静默丢内容**的方向讲反了。
+  现改成「超过约 734 px 的长行会被裁掉而不是换行，请先自己拆短行」，并删掉「宽表格会被换行」（这条链的文档体只有一个 `<pre>`，根本没有表格）。
+  其余七条：① 「TXT→PDF 不受单次渲染上限约束」错——`html>pdf` 用的正是同一个 `renderHtmlToCanvas` 与同一道 `MAX_CAPTURE_HEIGHT` 判定（`html-to-pdf.ts:26`、`html-raster.ts:302`），已改成「同一道上限，超长同样报错」；
+  ② 「文字变图片里唯一不套 PDF 的形状」以偏概全——`md/json/csv/xlsx/docx/html→png` 全是两步不经 PDF（基线现读），现限定为 **TXT 这一族里**唯一；
+  ③ faq1 把「Word/Excel 那几族」说成一页一张，实际只有以 JPG/WebP 收尾的路线才套 PDF，转 PNG 都是同类两步；
+  ④ desc 的中文写「一步到图片」与本页 lede「两步」自相矛盾（基线两条边），已统一成两步；
+  ⑤⑥ Word 侧的两处过度主张收窄：打包器改写后的引用是绝对假路径 `file:///C:/fake/imageN.gif`（库内 `utils.ts:14-19`），所以「读的都是包里那一份 / 照样显示」这类话只能说成「引用指向包内部件」；
+  剥掉 `src` 后 `<img>` 仍带着 `alt` 与 `title`（= 文件名），说「那一格空着」也是对 Word 渲染的断言，已改成「不生成部件、显示什么由打开它的程序决定」。
+  ⑦ 引用行号纠偏：钉住载荷的断言在 `scripts/e2e-test.mjs:2271-2275`（2263-2270 是注释），且那枚夹具载荷是 1×1 **PNG**——GIF 只是因为提升逻辑与 MIME 无关才顺带成立，本轮已把三处引用改成 2271-2275 并在此注明。
+  核查员同时用真字节证实了另外三条：无类型 File 经 `readAsDataURL` 得 `data:application/octet-stream;base64,`、正常 `.gif` 得 `data:image/gif;base64,`、
+  直接喂 GIF data URI 给打包器确实产出独立的 `Content-Type: image/gif` base64 部件且产物内无 data URI 残留。
+  实测计数不变：`pages:render` 125 文件、`verify:numbers` 23 事实 × 130 文档、`pages:check` 逐字节一致、`lint:all`、`build`、产物层两条离线守卫、`verify:meta`、`verify:paths` 全 rc=0。运行时零改动，断言数仍 **452**。
+
+## 3. 收下改动」这条小节标题吞掉了（我用整行标题做锚点替换、
+
+却忘了把标题写回 new_string），本条已把标题恢复；教训是**用标题做锚点时，new_string 必须原样带回标题**。
 
 ## 3. 收下改动：这一节记的是提交账，不是提交计划
 
