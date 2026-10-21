@@ -1364,6 +1364,24 @@ csv→Word 的另一组事实回读自`html-to-docx.ts`：正文以 MHT altChunk
   本轮只动 `.github/` 与生成数据源，没碰 TS/Vue/运行时，所以按改动范围执行的验证是：`prettier --check`（该 md）+
   `verify:numbers` + `pages:check`；`lint:all`/`build`/产物层两条守卫在**上一笔提交里已经跑过并全 rc=0**，本轮没有让它们的结论失效。
 
+- **10-21 第五十六轮（把「英文里不许混中文」从一次性脚本升进生成器）。** 上一轮那两条泄漏（`docx-to-json` 与 `gif-to-webp` 的
+  英文 lede 里印着中文片段）是我**自己写在一个 gitignore 目录里的临时扫描器**发现的——它随目录消失，下一次同样的一步会重新发生。
+  现在这条判据住在 `scripts/render-site-pages.mjs` 的 `assertEnglishIsEnglish()`，由 `validatePair` 与 `validateHub` 一起调用，
+  所以 `pages:render` / `pages:check` / CI 的 lint job 从此都会拦它。**判据形状刻意不是一张例外清单**：CJK 只允许出现在
+  **成对反引号之间**（那是引用样例产物唯一的地方——一份中文表头的 CSV 样本、一段 `alt` 文本样例），
+  扫描面按 `` ` `` 切成偶数段（代码段之外）再看，例外不需要登记，因此不存在「登记表空/失效」那两种假绿。
+  **牙齿是量过的**，三档：① 把中文裸插进某条 `desc.en` → `✗ gif-to-webp: Chinese inside an English string`（红在该红的那句）；
+  ② 把中文包进内联代码 → **不再报中文**（那一轮只被 160 字 SERP 预算拦住，说明这条规则确实放过了合法形状）；
+  ③ 真实数据树全绿，而它现在就有两处**合法的**反引号内 CJK（`csv-to-txt`、`jpg-to-md`）——即"通过"不是零命中。
+  一个非显然的实现细节：字符类比 `　-〿` 收窄成 `、-〿`，因为 U+3000 作为**源码里的字面端点**会触发
+  ESLint `no-irregular-whitespace`（`--max-warnings 0` 直接红），而单独一个全角空格不是正文、删掉它不损失任何检出。
+  写这个正则时 `new RegExp('\\u3000-…')` 那类转义写法不可用（转义会被编辑工具解码成真字符），所以五个 CJK 区块用真实字符写端点，
+  注释里点名每块是什么。
+  本轮只动 `scripts/` 里这一个文件与这份账本：**没动扩展的运行时与打包输入**，所以按改动范围跑的是
+  `eslint`（该文件 rc=0）+ `pnpm lint:all` + `pages:check`（133 文件逐字节一致，渲染结果与守卫加入前**完全相同**——
+  这条是「守卫收紧但没有改变产物」的证据）+ `verify:numbers`（138 文档）。`build` 与产物层两条守卫未重跑，
+  理由同上：`scripts/**` 不进 `.output/chrome-mv3`，字节也没变。
+
 ## 3. 收下改动：这一节记的是提交账，不是提交计划
 
 这一节原先给的是 2026-09-19 那一轮（配对页与博客页改成数据源生成）的两条 `git commit`。那些提交早就落地了，

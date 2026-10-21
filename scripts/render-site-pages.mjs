@@ -514,6 +514,7 @@ function validatePair(pair) {
   }
   for (const text of bilingualTexts(pair)) {
     if (!text.zh.trim() || !text.en.trim()) fail(`${slug}: an empty zh or en string`);
+    assertEnglishIsEnglish(text.en, slug);
   }
   for (const [key, cap] of [
     ['title', SERP_TITLE],
@@ -571,6 +572,39 @@ function hubRoutes(from) {
 }
 
 /**
+ * English copy must stay English. Two pages shipped a Chinese fragment *inside* an `en` string, because
+ * the correction was typed into the sentence the author was reading — the Chinese one — and nothing
+ * compared the two sides afterwards.
+ *
+ * CJK is allowed only between a pair of backticks, which is how a sample artifact is quoted (a CSV
+ * header row, an `alt` text example taken from a Chinese document). Everything else in an English
+ * string has to be English, so the rule splits on the code-span delimiter and looks only at the
+ * segments that sit outside it — a whitelisted document of legitimate exceptions would go stale the
+ * first time someone added a real sample, which is the failure mode this guard is meant to close.
+ *
+ * @param {string} text the `en` value of one bilingual field
+ * @param {string} where what to name in the failure (a pair slug or a hub name)
+ */
+function assertEnglishIsEnglish(text, where) {
+  // Five CJK blocks written as literal endpoints: ideographic punctuation, Unified A, the main block,
+  // compatibility ideographs, and fullwidth forms. The punctuation range starts at `、` on purpose —
+  // starting it at U+3000 would put an irregular whitespace character in the source, which ESLint
+  // rejects, and a lone ideographic space is not prose. Latin, `→`, `≈`, `—` and curly quotes stay out.
+  const cjk = /[㐀-䶿一-鿿豈-﫿、-〿＀-￯]/;
+  const outside = text.split('`').filter((_, i) => i % 2 === 0);
+  for (const segment of outside) {
+    if (cjk.test(segment)) {
+      const at = segment.search(cjk);
+      fail(
+        `${where}: Chinese inside an English string — “…${segment.slice(Math.max(0, at - 40), at + 40)}…” — ` +
+          'only an inline-code span may hold CJK (that is where a sample artifact is quoted); rewrite the en value in full',
+      );
+      return;
+    }
+  }
+}
+
+/**
  * Validate one source hub against the route graph and the copy rules the pair pages follow.
  *
  * The `targets` check is deliberately an exact set comparison in both directions: a missing key would
@@ -605,6 +639,7 @@ function validateHub(hub) {
     ...hub.faq.flatMap(item => [item.q, item.a]),
   ]) {
     if (!text.zh.trim() || !text.en.trim()) fail(`hub '${slug}': an empty zh or en string`);
+    assertEnglishIsEnglish(text.en, `hub '${slug}'`);
   }
   if (hub.limits.zh.length !== hub.limits.en.length) {
     fail(`hub '${slug}': limits has ${hub.limits.zh.length} zh bullets but ${hub.limits.en.length} en`);
@@ -632,6 +667,7 @@ function validateHub(hub) {
   }
   for (const [to, text] of Object.entries(hub.targets)) {
     if (!text.zh?.trim() || !text.en?.trim()) fail(`hub '${slug}' → '${to}': an empty zh or en string`);
+    assertEnglishIsEnglish(text.en, `hub '${slug}' → '${to}'`);
   }
   return routes.map(route => route.to);
 }
