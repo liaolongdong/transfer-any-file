@@ -7880,4 +7880,190 @@ export const PAIRS = [
       },
     ],
   },
+  {
+    slug: 'txt-to-xlsx',
+    from: 'txt',
+    to: 'xlsx',
+    shot: 'batch-results',
+    published: '2026-10-21',
+    title: {
+      zh: 'TXT 转 Excel——离线、文本得是 JSON 数组、不上传',
+      en: 'TXT to Excel offline — the text must be a JSON array',
+    },
+    desc: {
+      zh: '四步链：`.txt` 整段包进 `<pre>`，按 JSON 解析、摊成 CSV、再写工作簿。数字只在字节能逐字回来时才成数，16 位以上留在文本。全程离线。',
+      en: 'Four steps: the text is wrapped in a pre block, parsed as JSON, spread into CSV and written as a workbook. Only round-trip values become numbers.',
+    },
+    lede: {
+      zh: '这条链是四步，前两步决定了它能不能成立：`txt>html` 把整个文件按字符包进一个 `<pre>`（只转义 `&`、`<`、`>`，换行写成 `<br>`，文档标题取你的文件名），**不解释任何记号**——`#` 就是 `#`，粘进去的 HTML 只会是显示出来的字符；`html>json` 发现文档里没有表格，就退一步把**第一个** `<pre>` 的文字当 JSON 解析。所以这一步真正要的条件是「文本本身是一段合法 JSON」，而且是**数组**：中间那步是对象的话，第三步 `json>csv` 会报「JSON 内容必须是包含数据的数组才能转换为 CSV」。两个细节值得知道：`<br>` 对 `textContent` 不贡献字符，所以你文件里的换行到取回时已经没了——JSON 语法不依赖换行，照常解析，但你手工排的版式不会带着走；回退只看第一个 `<pre>`，如果它排在真正的 JSON 块之前，就会解析失败而不是跳过去找。第三步摊成表：列是所有记录键名的并集，某条记录缺的键留空格，没有键可挂的元素写进合成的 `_value` 列而不是丢掉，产物开头带 UTF-8 BOM。第四步 `csv>xlsx` 才是决定工作簿形态的地方：读 CSV 用 `raw: true`，SheetJS 的推断器碰不到数据，随后只有一道规则把该是数字的格子还回去——十进制形状、`String(Number(x)) === x` 逐字节回得来、有效数字不超过 15 位；16 位以上刻意留在文本，因为表格软件只渲染 15 位有效数字。仍是文本的格子再加公式护栏，并把数字格式钉成文本（写出的那一格是内置格式号 49）。还有一条得说在前头：如果你的文本里存的是超长整数（比如 26 位账号），`JSON.parse` 那一刻它就已经是双精度值了，这条链保住的是**解析之后**的样子，超过 15 位有效数字就落在文本里——所以你看到的是被如实标注的近似值，而不是悄悄四舍五入过的数字。编码判定在第一步做：先按 BOM 与 NUL 的奇偶形状认 UTF-16，再依次试严格的 UTF-8、GB18030、GBK，四种都不像文本就明确报错。全程离线，只有 storage 权限。',
+      en: 'Four steps, and the first two decide whether the route can run at all: `txt>html` wraps the whole file character by character into a `<pre>` (only `&`, `<` and `>` are escaped, newlines become `<br>`, and the document title is your file name), **interpreting no markup** — a `#` stays a `#`, and HTML pasted into the text shows up as characters; `html>json`, finding no table in that document, falls back to parsing the text of the **first** `<pre>` as JSON. So the real condition is “the text itself is valid JSON”, and an **array** at that: if the middle step yields an object, `json>csv` reports “JSON must be an array containing data to convert to CSV”. Two details worth knowing: `<br>` contributes nothing to `textContent`, so the line breaks in your file are gone by the time the text is read back — JSON does not depend on them, so it still parses, but your own layout does not travel; and the fallback reads only the first `<pre>`, so a non-JSON block ahead of the real one fails the parse instead of being skipped past. The third step spreads the array into a table: columns are the union of every record’s keys, a key a record lacks becomes a blank cell, elements with no keys go into a synthetic `_value` column rather than being dropped, and the file starts with a UTF-8 BOM. The fourth, `csv>xlsx`, is what shapes the workbook: the CSV is read with `raw: true`, so SheetJS’s inferrer never touches the data, and one rule alone returns a number type — decimal shape, `String(Number(x)) === x` giving the exact characters back, at most 15 significant digits. Sixteen and above stay text deliberately, because a spreadsheet renders 15 significant digits. Cells still holding text get the formula guard and a pinned text format (that cell carries the built-in format id 49). One caveat stated up front: if your text stores very long integers (a 26-digit account, say), `JSON.parse` has already turned it into a double, and this chain preserves what came **after** the parse — past 15 significant digits it lands in text, so you see an honestly-labelled value rather than a silently rounded number. Encoding is settled in the first step: UTF-16 from its BOM or NUL parity, then strict UTF-8, GB18030 and GBK in order, with an outright error when the bytes are not text at all. Everything runs offline on the storage permission.',
+    },
+    keeps: {
+      zh: [
+        '值按文件里写下的字符进工作簿：`raw: true` 加「逐字节回得来才成数」，`00424` 不缩成 `424`、`2024-01-05` 不变序列号',
+        '16 位以上的编号留在文本并钉住文本格式（内置格式号 49），15 位以内一律不受影响',
+        '记录形状不齐也能落表：列是键名并集，缺的键留空格，没有键的元素进合成的 `_value` 列',
+        '编码逐条严格解：UTF-16（BOM 或 NUL 形状）、UTF-8、GB18030、GBK，都不像文本就报错而不是产出乱码',
+      ],
+      en: [
+        'Values enter the workbook as the characters in the file: `raw: true` plus the round-trip rule, so `00424` does not shrink and `2024-01-05` is not a serial',
+        'Identifiers of 16 digits or more stay text pinned to a text format (the built-in format id 49); nothing at or below 15 digits is touched',
+        'Untidy records still land: columns are the union of keys, missing keys become blank cells and keyless elements go into a synthetic `_value` column',
+        'Encoding is decoded strictly one candidate at a time — UTF-16 by BOM or NUL shape, then UTF-8, GB18030 and GBK — and unreadable bytes fail rather than turning into mojibake',
+      ],
+    },
+    limits: {
+      zh: [
+        '文本得是一段合法 JSON **数组**：普通文字、日志、以竖线或制表符排的“伪表”都会明确报错，这条链不会替你造列',
+        '是 JSON 但是对象（顶层 `{}`）也一样过不了第三道闸：报「JSON 内容必须是包含数据的数组才能转换为 CSV」',
+        '回退只看文档里第一个 `<pre>`：它排在真正的 JSON 块之前就会解析失败；`[]` 与 `[{}]` 也报错，不给只有表头的空表',
+        '换行不带着走：`<br>` 不进 `textContent`，所以你写的缩进与空行不会出现在工作簿里（JSON 语法不依赖它们）',
+        '超长整数按解析后的双精度值处理：超过 15 位有效数字留在文本，看得见的是近似值而不是原串的每一位',
+      ],
+      en: [
+        'The text has to be valid JSON **array**: prose, logs and pseudo-tables laid out with pipes or tabs fail outright — this chain will not invent columns for you',
+        'JSON that is an object at the top level fails the same gate, with “JSON must be an array containing data to convert to CSV”',
+        'The fallback reads only the first `<pre>`, so an unrelated block ahead of the real one breaks the parse; `[]` and `[{}]` also fail rather than producing a header-only sheet',
+        'Line breaks do not travel: `<br>` leaves no trace in `textContent`, so your indentation and blank lines are not reproduced in the workbook (JSON does not need them)',
+        'Huge integers are handled as the double they become at parse time: past 15 significant digits they stay text, so what you see is an honest approximation rather than every digit of the original',
+      ],
+    },
+    notes: {
+      zh: [
+        '只要一份文本表格：TXT→CSV 是同一条链的前三步，产物是带 BOM 的 CSV',
+        '文本其实是逐行记录：这条链帮不上，请先按能明确分隔的方式存成 CSV 再转',
+        '要的是把 JSON 变得可读：TXT→JSON 或 JSON→HTML，一个重排缩进、一个给可折叠的树视图',
+      ],
+      en: [
+        'For a text table instead of a workbook: TXT to CSV is this chain minus the last step, ending in a BOM’d CSV',
+        'For line-oriented records, this chain cannot help: save with an explicit delimiter as CSV first, then convert',
+        'To make the JSON readable: TXT to JSON re-indents it, and JSON to HTML turns it into a collapsible tree',
+      ],
+    },
+    faq: [
+      {
+        q: {
+          zh: '我的 txt 是每行一条记录，为什么不按行切成表格？',
+          en: 'My txt has one record per line — why not split it into rows?',
+        },
+        a: {
+          zh: '因为按行切之前得先猜列在哪：同一个文件里可能是制表符、连续空格、逗号或竖线，猜错就整列错位，且没有一种猜测对所有 txt 都对。这条路只认自带结构的数据，也就是 JSON 数组；其他文本请先用明确分隔符存成 CSV，再走 CSV→Excel。',
+          en: 'Because splitting by lines means first guessing where the columns are — the same file might use tabs, runs of spaces, commas or pipes, a wrong guess shifts every column, and no rule works for all text. This route reads data that arrives structured, i.e. a JSON array; otherwise save with an explicit delimiter as CSV and take CSV to Excel.',
+        },
+      },
+      {
+        q: {
+          zh: '为什么我的 JSON 存成 txt 转成功了，数字却和原来不一样？',
+          en: 'My JSON saved as txt converted fine — why do the numbers differ?',
+        },
+        a: {
+          zh: '差异出在 JSON 解析那一步，而不是这条链的后面：`JSON.parse` 把所有数字都读成双精度值，超过 15 位有效数字本来就存不下。链子在最后一步按「字节能逐字回来」判定，所以这类长值会以文本形态留在表里，看得见而不是被悄悄改掉。要每一位都保住，请在源文件里把它写成字符串。',
+          en: 'The difference is made at the parse, not later: `JSON.parse` reads every number as a double, and past 15 significant digits there is nowhere to put them. The final step then applies its round-trip rule, so such long values stay text — visible rather than silently altered. To keep every digit, write the value as a string in the source.',
+        },
+      },
+      {
+        q: {
+          zh: '一份很大的 JSON 数组会出多大工作簿？',
+          en: 'How big a workbook does a large JSON array make?',
+        },
+        a: {
+          zh: '一条记录一行，行列数由所有记录键名的并集决定；这份产物只有一张工作表，表名沿用读取 CSV 时得到的那一个。要分页看，请先用文本处理切成几份，各转一次——这条链一次只写一张表。',
+          en: 'One row per record, and the column count is the union of every record’s keys; the artifact is a single worksheet named whatever the CSV read produced. To work through it in parts, split the text and convert each — this route writes one sheet at a time.',
+        },
+      },
+    ],
+  },
+  {
+    slug: 'docx-to-jpg',
+    from: 'docx',
+    to: 'jpg',
+    shot: 'batch-results',
+    published: '2026-10-21',
+    title: {
+      zh: 'Word 转 JPG——离线、按 A4 一页一图、不上传',
+      en: 'Word to JPG offline — one image per A4 page',
+    },
+    desc: {
+      zh: '文档先由 mammoth 变成带样式的 HTML（内嵌图片会读成 data URI 留在页面里），再按 A4 切成无损片段、逐页编码成 JPEG；多页出 ZIP。全程离线。',
+      en: 'Mammoth turns the document into HTML — embedded pictures arrive as data URIs — then it is sliced into A4 pages and JPEG-encoded one page at a time.',
+    },
+    lede: {
+      zh: '三步：`docx>html` 用 mammoth 读出文档体（显式 styleMap 把 Heading 1 到 4 映射成 `h1` 到 `h4`、Title 与 Subtitle 成带 class 的 `h1` / `h2`，字符样式认 Strong 与 Emphasis，列表按 `ul` / `ol` / `li` 重开），**内嵌图片经 `mammoth.images.imgElement` 读成 data URI**，净化后套上自带的样式表；正文抓不到时第二条路会从 MHT altChunk 里恢复（本扩展自己写的 `.docx` 正是那种容器，所以 HTML→Word 的结果能再读回来）。`html>pdf` 把这份文档整篇渲染成一张画布、按 A4 的毫米比例算页数（页高 = 画布高 × 210 ÷ 画布宽，每 297 mm 一页向上取整，最后一片按剩余高度收），切成同高片段并**以无损位图（PNG）嵌进 PDF**；`pdf>jpg` 再逐页转成 JPEG，一页一图、两页以上打包成 ZIP（里面按 `page-N.jpg` 编号），单次最多渲染 200 页（`MAX_PDF_IMAGE_PAGES`），超过会明确让你用页码范围只选需要的页。这条路真正擅长的一件事，正好是别的取值路线做不到的：**文档里内嵌的图片会出现在产物里**——它们被读成 data URI 带进 HTML，再随排版进图；而 Word→TXT、Word→CSV 那些路只拿文字，图就没了。要说清的边界也不少：分页来自浏览器的排版，Word 自己的页面设置、页眉页脚与分节在这里没有对应物；产物是位图，没有可选中、可搜索的文字（这条链的 PDF 那一环也是页面图像，要可复制请走 Word→HTML / TXT / Markdown）；脚注的引用标记会以 `[1]` 的样子出现在所在那一行的值里，插入修订的文字被当正文读出，只有删除修订会消失；合并单元格在这里不是问题——HTML 会按 `colspan` 画出跨格，只是取值那条路上那些位置没有值。中间那份 PDF 转图用的是默认密度（这一格不摆密度滑杆，但存储里留下的密度值会被带到这一步）；整页捕获的高度上限 32768 px（一边最大 8192 px 的四倍），超过报错而不是给空白画布。扩展只有 storage 权限、全程离线：脚本不执行（净化删可执行标记，渲染用的 iframe 只给 `allow-same-origin`），文档引用的远程图片取不到字节时会剥掉引用并在结果卡按张数披露。',
+      en: 'Three steps: `docx>html` reads the body with mammoth (an explicit styleMap maps Heading 1–4 to `h1`–`h4`, Title and Subtitle to classed `h1` / `h2`, the Strong and Emphasis character styles are honoured and lists reopen as `ul` / `ol` / `li`), **embedded pictures come in through `mammoth.images.imgElement` as data URIs**, the result is sanitised and wrapped in the bundled stylesheet, and when that pass finds no body a second one recovers it from the MHT altChunk (the `.docx` files this extension writes are exactly that kind of container, so an HTML→Word result can be read back). `html>pdf` renders the document into one canvas, computes the page count from the A4 metric ratio (page height = canvas height × 210 ÷ canvas width, rounding up every 297 mm, the last slice cut to what remains), slices it and **embeds each strip losslessly as PNG**; `pdf>jpg` then encodes each page as JPEG — one image per page, two or more in a ZIP with members named `page-N.jpg`, and at most 200 pages per run (`MAX_PDF_IMAGE_PAGES`), past which the route tells you to select a page range. What this route is genuinely good at is exactly what the value-extracting routes cannot do: **pictures embedded in the document appear in the output**, because they arrive as data URIs and travel into the image, while Word to TXT or CSV keeps only words and loses them. The boundaries are equally plain: pagination comes from browser layout, so Word’s own page setup, headers and footers and section breaks have no counterpart here; the artifact is a bitmap with no selectable or searchable text (the PDF in the middle is page images too, so take Word to HTML, TXT or Markdown when text must stay copyable); a footnote reference shows up as `[1]` inside the value of the line carrying it, and inserted revisions are read as ordinary text while only deletions disappear; merged cells are not a problem on this route, since HTML draws the span as laid out — it is the value-extracting path where the covered positions hold nothing. The intermediate PDF is rasterised at the default density (this route exposes no slider, though a density left from an earlier PDF batch travels into this step), and one capture is bounded at 32768 px of height — four times the 8192 px edge ceiling — failing rather than returning a blank canvas. The extension holds the storage permission and nothing reaches the network: scripts never run (sanitising removes executable markup and the render frame is sandboxed to `allow-same-origin`), and images the document references remotely have no bytes, so their references are stripped and the count is disclosed on the result card.',
+    },
+    keeps: {
+      zh: [
+        '文档内嵌的图片会留在产物里：它们被读成 data URI 带进 HTML，再随排版进图，这是取值类路线做不到的一件',
+        '标题、列表与强调按 styleMap 变成真正的结构再渲染，产物看到的是排好版的面',
+        '切片无损：中间那份 PDF 的页面是 PNG，压缩只发生在最后交给 JPEG 的那一次',
+        '一页一图、两页以上 ZIP、成员名 `page-N.jpg`：分页由排版算出来而不是硬切',
+      ],
+      en: [
+        'Embedded pictures survive into the output: they arrive as data URIs, travel through the layout and appear in the image — something the value-extracting routes cannot do',
+        'Headings, lists and emphasis become real structure through the styleMap before rendering, so the picture shows a laid-out page',
+        'Lossless slices: the intermediate PDF holds PNG pages, so compression happens once, on the final JPEG',
+        'One image per page, a ZIP from two pages up with members named `page-N.jpg`: the breaks come from layout rather than a hard cut',
+      ],
+    },
+    limits: {
+      zh: [
+        '一次最多渲染 200 页（`MAX_PDF_IMAGE_PAGES`）：超过会报错并让你用页码范围只选需要的页，或先把文档拆开',
+        '产物是位图：文字不能选中、搜索或朗读，Word 的页面设置、页眉页脚与分节也不参与分页（要可复制的文字请走 HTML / TXT / Markdown）',
+        '脚注引用会以 `[1]` 出现在所在那一行的值里，插入修订的文字按正文读出；删除修订与批注不会出现',
+        '整页捕获高度上限 32768 px；这一格不摆密度滑杆，但上一批 PDF 留下的密度值仍会被带到这一步',
+        '文档以网络地址或相邻路径引用的外链图片取不到字节：引用在渲染前被剥掉，结果卡按张数披露，位置是虚线方框或直接留空',
+      ],
+      en: [
+        'At most 200 pages per run (`MAX_PDF_IMAGE_PAGES`): past that the route fails and points at a page range or splitting the document',
+        'The artifact is a bitmap: no selectable, searchable or readable-aloud text, and Word’s page setup, headers, footers and section breaks take no part in the breaks (take HTML, TXT or Markdown for copyable words)',
+        'A footnote reference appears as `[1]` inside the value of the line carrying it and inserted revisions read as ordinary text; deletions and comments do not appear',
+        'A 32768 px ceiling on one capture, and while this route exposes no density slider, a density left from an earlier PDF batch is still forwarded into this step',
+        'Pictures referenced by network address or sibling path have no bytes: the references are stripped before rendering, the count is disclosed on the card, and a spot is a dashed box or left blank',
+      ],
+    },
+    notes: {
+      zh: [
+        '要一份可归档的文件：Word→PDF，同一条渲染链，页面就是文档本身（注意那里的文字同样是图像）',
+        '要结构与文字都留住：Word→HTML 或 Word→Markdown，图片仍以内联数据形式跟过去',
+        '只要格子里的值：Word→CSV / Word→Excel，那里交付的是数据而不是版面',
+      ],
+      en: [
+        'For an archivable file: Word to PDF, the same rendering chain with the document as the artifact (its text is imagery too)',
+        'To keep structure and words: Word to HTML or Markdown, where pictures still travel as inline data',
+        'For the values in the cells: Word to CSV or Excel, which deliver data rather than a page',
+      ],
+    },
+    faq: [
+      {
+        q: {
+          zh: '文档里的图片会跟着过去吗？',
+          en: 'Do the pictures in my document come along?',
+        },
+        a: {
+          zh: '内嵌在文档里的会：它们被读成 data URI 带进中间那份 HTML，再随排版进图。以网络地址引用的那一种不会——这条路完全离线，渲染前会剥掉那些引用，结果卡按张数写明丢了几张。',
+          en: 'Embedded ones do: they are read as data URIs into the intermediate HTML and travel with the layout into the image. Pictures referenced over a network do not — the route is fully offline, those references are stripped before rendering and the result card says how many were lost.',
+        },
+      },
+      {
+        q: {
+          zh: '分页会照我在 Word 里设的吗？',
+          en: 'Will it break pages the way Word does?',
+        },
+        a: {
+          zh: '不会。中间那步是浏览器排版：文档被整篇渲染成一张画布，再按 A4 的高度比例切页。页边距、分节与页眉页脚这些 Word 概念没有对应物，所以同一份文档在这一路与在 Word 里打印可能落在不同页上。要贴近 Word 的观感，请在 Word 里导出 PDF 后再走 PDF→JPG。',
+          en: 'No. The middle step is browser layout: the document is rendered into one canvas and sliced by the A4 height ratio. Margins, section breaks and headers have no counterpart, so the same document can break on different pages here than when Word prints it. For Word’s own pagination, export to PDF in Word and take PDF to JPG.',
+        },
+      },
+      {
+        q: {
+          zh: '为什么图里的字不能复制？',
+          en: 'Why can’t the text in the image be copied?',
+        },
+        a: {
+          zh: '因为产物是每页一张位图，没有文字层——这条链里的 PDF 那一环同样是页面图像，不是可取字的文本层。需要复制、搜索或朗读，请走 Word→HTML、Word→Markdown 或 Word→TXT；要保留观感又要有字，就只能由 Word 自己导出的 PDF 来做，那不在本扩展的路线里。',
+          en: 'Because the artifact is one bitmap per page with no text layer — and the PDF in this chain is page images as well, not a text layer. For copying, searching or reading aloud take Word to HTML, Markdown or TXT; a faithful *and* text-bearing PDF has to come from Word itself, which is outside this extension’s routes.',
+        },
+      },
+    ],
+  },
 ];

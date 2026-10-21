@@ -207,10 +207,6 @@ export const HUBS = [
         zh: '文档里的表格转成对象数组；没有表格时，正文中的 JSON 代码块可以被读出，否则报「没有表格结构」。',
         en: 'Tables become arrays of objects; with no table, a JSON code block in the body can still be read, and otherwise the route reports that no table structure exists.',
       },
-      jpg: {
-        zh: '渲染后按 A4 分页、逐页编码 JPEG，多页打包 ZIP；分页来自浏览器排版，不沿用 Word 的页面设置。',
-        en: 'The rendering is sliced into A4 pages and encoded as JPEG, with several pages in a ZIP. Pagination comes from the browser’s layout, not from Word’s page setup.',
-      },
       webp: {
         zh: '与 JPEG 相同的渲染与分页，终点为 WebP；多页 ZIP。外部图片取不到字节，会在结果卡上按张数披露。',
         en: 'It shares the rendering and slicing with JPEG and encodes each page as WebP; several pages arrive as a ZIP. External images without bytes are counted on the result card.',
@@ -478,10 +474,6 @@ export const HUBS = [
       },
     ],
     targets: {
-      xlsx: {
-        zh: '只有当整段文本是合法 JSON 数组时才走得通：TXT→HTML 后按 JSON 读取，再转成表格。普通文本没有表格结构，会以错误结束。',
-        en: 'It only works when the whole text is a valid JSON array: after TXT→HTML the content is read as JSON and turned into a sheet. Ordinary prose has no table structure and ends in an error.',
-      },
       png: {
         zh: '按等宽 `<pre>` 排版整页渲染成 PNG，空白与换行保留；高度超过 32768 px 时报错而不是截断。',
         en: 'The monospace `<pre>` layout is captured whole as PNG, preserving whitespace and line breaks; past 32768 px of height the route fails rather than truncating.',

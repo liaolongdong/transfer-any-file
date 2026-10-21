@@ -997,6 +997,15 @@ csv→Word 的另一组事实回读自`html-to-docx.ts`：正文以 MHT altChunk
 
   四镜像齐备。实测计数：`pages:render` 104 文件、`verify:numbers` 23 事实 × 109 文档（关系仍成立）、`pages:check` 逐字节一致、`lint:all`、`build`、产物层两条离线守卫、`verify:meta` 全 rc=0，`.output` 搜不到两个 slug。运行时零改动，断言数仍 **452**，素材不重拍。
 
+- **10-21 第廿九轮（txt→Excel、docx→JPG，89 张页 / 缺口 27）。** 两格各自带一条「只有这条路能给」的正面事实：
+  txt→Excel 把「文本得是合法 JSON 数组」这个成立条件写满四步（`<br>` 不进 `textContent`，所以排版不带着走而 JSON 照常解析；回退只看第一个 `<pre>`；对象过不了数组闸；超长整数在 `JSON.parse` 那一步就成双精度、
+  链子按逐字节规则把它留在文本——说的是「如实标注的近似值」而不是「保住每一位」）；docx→JPG 的正面事实是**内嵌图片会出现在产物里**（`mammoth.images.imgElement` 把图读成 data URI 带进 HTML），这正好是 Word→TXT/CSV 做不到的那件。
+  两页都把今天新立的两条限定主动写进去：`MAX_PDF_IMAGE_PAGES = 200`（docx→JPG 的 limits 第一条）与「脚注引用会以 `[1]` 留在值里、`w:ins` 被当正文读出」。
+  分页归浏览器排版、Word 的页面设置没有对应物这句也照写，并给出「要 Word 自己的分页就请在 Word 里导出 PDF 再走 PDF→JPG」这条出路。
+
+  英文侧另记一笔：docx→JPG 的描述原本 163 字符，渲染前按 SERP 预算先削到 154（当天第八次退回，这次是我主动预削）。四镜像齐备，txt 的 xlsx 与 docx 的 jpg 两条 hub 摘要按镜像规则摘除。
+  实测计数：`pages:render` 106 文件、`verify:numbers` 23 事实 × 111 文档（关系仍成立）、`pages:check` 逐字节一致、`lint:all`、`build`、产物层两条离线守卫、`verify:meta` 全 rc=0，`.output` 搜不到两个 slug。运行时零改动，断言数仍 **452**，素材不重拍。
+
 ## 3. 收下改动：这一节记的是提交账，不是提交计划
 
 这一节原先给的是 2026-09-19 那一轮（配对页与博客页改成数据源生成）的两条 `git commit`。那些提交早就落地了，
