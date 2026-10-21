@@ -899,17 +899,9 @@ export const HUBS = [
       },
     ],
     targets: {
-      md: {
-        zh: 'GIF 首帧的原始字节内嵌成 data URI 再转 Markdown；动画与其余帧不保留，多数阅读器也不认 GIF 的 data URI。',
-        en: 'The original bytes of the first frame are embedded as a data URI and written as Markdown; the animation and later frames do not survive, and most readers do not accept a GIF data URI.',
-      },
-      html: {
-        zh: 'GIF 原始字节嵌入 HTML：浏览器里会播放原动画，但这条路径不转码，也不保证离线阅读端能取到帧。',
-        en: 'The original GIF bytes are embedded in HTML: a browser plays the animation, but this path does not transcode and cannot guarantee another reader will find the frames.',
-      },
       docx: {
-        zh: '写入 Word 的是首帧位图，动画丢失；多帧文件的结果会带「丢帧」披露。',
-        en: 'Word receives a bitmap of the first frame and the animation is lost; a multi-frame source carries the frame-loss disclosure on its result.',
+        zh: '原字节经 HTML 进 Word：那条 data URI 会被提成包里独立的图片部件，帧一段不少，但播不播由 Word 决定。',
+        en: 'The raw bytes travel through HTML into Word: that data URI becomes its own image part in the package, every frame intact, while Word decides whether it plays.',
       },
       webp: {
         zh: '取首帧后编码 WebP，动画不保留；透明像素按输出设置处理，多帧文件的结果带丢帧披露。',

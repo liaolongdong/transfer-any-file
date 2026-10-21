@@ -1074,6 +1074,20 @@ csv→Word 的另一组事实回读自`html-to-docx.ts`：正文以 MHT altChunk
   一条踩过的工具链坑记在这：`docs/llms.txt` **没有 prettier parser**，把它列进 `prettier --write` 会让整条 `&&` 链在它那里静默短路——
   render 一次都没跑、而后续 `;` 分隔的门禁照样报绿。llms.txt 只能手改（单行一条），prettier 只喂 `.mjs` 与 `.html`。
 
+- **10-21 第卅五轮（gif→HTML、gif→Markdown，95 张页 / 缺口 21）。** 这两格的正面事实只有一条，但它是**这批里少见的「反着说」**：
+  这条路**不丢帧**。`gif>html` 与图片转 HTML 的其他几位共用同一个转换器（`image-to-html.ts`，`FileReader.readAsDataURL` 把整份文件原样编进 data URI），
+  既没取首帧也没重编码，所以动图的每一帧、每一段扩展块都还在负载里；真正会丢帧的是 `image-convert.ts` 那几条（它们取首帧重编码，
+  并且正是它们调用 `hasMultipleFrames` 在结果上写明丢了几帧——这句现在也写进页面，作为对照而不是含糊带过）。
+  另一条边界按今天立的规矩写：**字节完整 ≠ 一定播放**。是否播、循环几遍由打开这份 HTML/`.md` 的那一侧决定，页面只承诺数据侧、不替消费端担保；
+  `data:` 图片能否显示同理由收件端决定（网页端邮件客户端与一些托管站会剥掉），这条也进了 Markdown 页的 limits。
+  **顺带翻掉一条先于本批存在的 hub 错账**：gif hub 的 `docx` 摘要原本写着「写入 Word 的是首帧位图，动画丢失」——
+  但 `gif>docx` 的链是 `gif>html` + `html>docx`（路径基线现读），全程不重编码，帧根本不会丢，而且那条 data URI 会被提成包里独立的图片部件。
+  这正是「hub 摘要与配对页是两份独立 prose、没有任何守卫比对」的那类账：本批把 md / html 两条摘要按镜像规则摘除（页面已建），
+  `docx` 那条改写为「原字节进包、帧一段不少、播不播由 Word 决定」，`webp` 那条经复核仍成立（`gif>webp` 确实取首帧）故保留。
+  实测计数：`pages:render` **112 文件**、`verify:numbers` 23 事实 × **117 文档**（关系仍成立：文件 = 页 + 17、文档 = 页 + 22）、
+  `pages:check` 逐字节一致、`lint:all`、`build`、产物层两条离线守卫、`verify:meta`、`verify:paths` 全 rc=0；四镜像齐备（sitemap、
+  `docs/convert/index.html`、`docs/index.html` 的 `.pairs` 网格、`docs/llms.txt` 各点名一次）。运行时零改动，断言数仍 **452**，素材不重拍。
+
 ## 3. 收下改动：这一节记的是提交账，不是提交计划
 
 这一节原先给的是 2026-09-19 那一轮（配对页与博客页改成数据源生成）的两条 `git commit`。那些提交早就落地了，
