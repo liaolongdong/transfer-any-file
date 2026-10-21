@@ -214,6 +214,9 @@ Sole author: Better ([github.com/liaolongdong](https://github.com/liaolongdong))
 - [CSV → WebP](https://liaolongdong.github.io/transfer-any-file/convert/csv-to-webp.html): the table is set into an 800 px measure and paginated on A4 into lossless PNG slices inside a PDF, then encoded once at the WebP endpoint — wide columns are clipped, not wrapped
 - [Excel to WebP](https://liaolongdong.github.io/transfer-any-file/convert/xlsx-to-webp.html): every sheet reaches the image under its own title, values are read and never re-evaluated, and cell styles or conditional formatting do not enter the intermediate HTML at all
 
+- [JSON → WebP](https://liaolongdong.github.io/transfer-any-file/convert/json-to-webp.html): the structure viewer’s own HTML paginated on A4 through an intermediate PDF, so the picture carries its summary rows and any budget notice — indentation is CSS, not characters
+- [BMP → WebP](https://liaolongdong.github.io/transfer-any-file/convert/bmp-to-webp.html): a genuine re-encode, and the one BMP exit where size really drops; no white ground is painted (that is JPEG-only), while pixels are redrawn once and quantised at the endpoint
+
 ## Tech stack
 
 WXT · Vue 3 · TypeScript · Element Plus · Vite · Playwright (end-to-end). Heavy conversion libraries (marked, turndown, mammoth, pdf.js, SheetJS, jsPDF, html-to-image, DOMPurify) are dynamically imported per converter, and so is the ZIP packer (fflate) — loaded at the call site that needs it, not with the workbench. The complete bundle is 3.86 MB.

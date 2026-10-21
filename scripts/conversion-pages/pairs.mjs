@@ -10358,4 +10358,194 @@ export const PAIRS = [
       },
     ],
   },
+  {
+    slug: 'json-to-webp',
+    from: 'json',
+    to: 'webp',
+    shot: 'batch-results',
+    published: '2026-10-21',
+    title: {
+      zh: 'JSON 转 WebP——离线、把查看器那页排成图',
+      en: 'JSON to WebP offline — the viewer, imaged',
+    },
+    desc: {
+      zh: '三步：先做可折叠查看器那份 HTML，再按 A4 渲染成无损 PNG 切片写进 PDF，最后逐页画白底编码成 WebP。缩进是样式、预算提示会一起进图。',
+      en: 'Three steps via a PDF: the viewer’s HTML, A4 pages as lossless PNG slices, then one WebP encode per page — budget notices included.',
+    },
+    lede: {
+      zh: '这条路先把 JSON 变成**结构查看器那份 HTML**，再把它排成图片：`json>html` + `html>pdf` + `pdf>webp`（基线现读）。所以图里看到的不是原始文本的换行，而是查看器的产物——每个键值一行、`Array(n)` / `Object(n)` 这类摘要、语法着色的配色，都在那一步定下来；**缩进是 CSS 画的，不是字符**，因此图里对齐得整整齐齐，可那些空白并不能被复制出来（反正产物本来就是像素）。两件必须说清的事：一，查看器**有预算上限**（节点数、单键长度、单个标量长度），触顶时它会写明「实际读了多少」，而这段提示属于页面内容，**会跟着一起进图**——这是刻意的，半棵树冒充整份文档比一条报错更难查；二，这份图是按 A4 分页的**一页一张 WebP**，中间经过一份 PDF（PNG 无损切片），终点才做一次有损量化，质量与目标尺寸只作用在那一步。边界照第五十轮的模板写：宽度没有闸，超过约 800 px 版心的长行是被裁掉而不是换行；高度有闸，排版超过 32768 px 时渲染那一步报 `errors.renderTooTall`，所以巨大的 JSON 请先分批；也正因为同一道闸，这份中间 PDF 排不到几百页，出图那一步的页数上限在这条链上碰不到。没有选页参数（页码选择只在源是 PDF 时存在）。要把数据交给程序，走 JSON→CSV / TXT 那几页；要一份可归档的文档，走 JSON→PDF 或 JSON→Word。全程只有 storage 权限、不联网。',
+      en: 'This route first turns the JSON into **the structure viewer’s HTML**, then images that page: `json>html` + `html>pdf` + `pdf>webp`, read live from the baseline. So what reaches the image is not the raw text’s line breaks but the viewer’s product — one line per key and value, `Array(n)` / `Object(n)` summaries, the syntax colouring, all fixed at that step. **The indentation is drawn by CSS, not by characters**, so the picture lines up beautifully while those spaces are nothing you could copy out (the artifact is pixels anyway). Two things have to be said. The viewer runs on **budgets** (node count, key length, scalar length), and when one is hit it states how much it actually read — that notice is part of the page, so it **rides into the image** on purpose: a half-shown tree passing itself off as the whole document is harder to diagnose than an error. And the output is **one A4 sheet per WebP**, made through an intermediate PDF of lossless PNG slices, with the single lossy quantisation at the endpoint where quality and target size apply. The boundaries follow this family’s template: nothing gates width, so a line past the ~800 px measure is clipped rather than wrapped; height is gated, past 32768 px of laid-out page the render step fails with `errors.renderTooTall`, so a giant JSON should be split first — and since that same ceiling keeps the intermediate PDF from growing to hundreds of pages, the image step’s page cap is unreachable here. There is no page-range control (it exists only when the source is a PDF). To hand data to a program take JSON to CSV or TXT; for an archivable document take JSON to PDF or Word. All of it on the storage permission, with no network.',
+    },
+    keeps: {
+      zh: [
+        '排版在第一步就定好：键值一行、`Array(n)` / `Object(n)` 摘要与语法着色都进图',
+        '预算触顶的提示属于页面内容，会跟着一块儿进图，不让半棵树冒充整份文档',
+        '整条链只量化一次：中间是 PNG 无损切片，质量与目标尺寸只作用在 WebP 终点',
+        '按 A4 逐页一页一张，多页打包成 ZIP、条目按页顺序命名',
+        '一批最多 200 个文件、单个 100 MB，与其他路线共用同一道闸门',
+      ],
+      en: [
+        'The layout is settled in step one: one line per key and value, `Array(n)` / `Object(n)` summaries and syntax colouring all reach the image',
+        'A budget notice is page content, so it rides into the image rather than letting a partial tree pose as the whole document',
+        'One quantisation on the chain: the middle is lossless PNG slices, quality and target size act only on the WebP endpoint',
+        'Paginated on A4, one WebP per page; several pages arrive as a ZIP numbered in page order',
+        'Up to 200 files per batch and 100 MB each — the same gate every other route shares',
+      ],
+    },
+    limits: {
+      zh: [
+        '缩进与对齐是 CSS 画的，不是字符：图里看着整齐，那些空白无法复制',
+        '宽度没有闸：超过约 800 px 版心的长行被裁掉而不是换行，深层结构请先看摘要行',
+        '高度有闸：排版超过 32768 px 报 `errors.renderTooTall`，巨大 JSON 要分批（JSON→PDF 同一道闸）',
+        '产物是像素：里面的键名与值不能被选中、搜索或读回；要数据走 JSON→TXT / CSV',
+        '没有选页这一步：分页来自排版，页码选择只在源是 PDF 时存在',
+      ],
+      en: [
+        'Indentation and alignment come from CSS, not characters: the picture looks tidy but those spaces cannot be copied',
+        'Nothing gates width: lines past the ~800 px measure are clipped, not wrapped — rely on the summary rows for deep structures',
+        'Height is gated: past 32768 px it fails with `errors.renderTooTall`, so huge documents need splitting (JSON to PDF shares that ceiling)',
+        'The artifact is pixels: keys and values cannot be selected, searched or read back — take JSON to TXT or CSV for data',
+        'There is no page-range step: pagination comes from layout, and the range control exists only when the source is a PDF',
+      ],
+    },
+    notes: {
+      zh: [
+        '要一份能归档的文档：JSON→PDF 或 JSON→Word，那里排版是同一套',
+        '要文字形式的结构：JSON→TXT，每行一键值、层级由换行与摘要表达',
+        '要最通用的分页图片：JSON→JPG 是同一条三步链，终点换成 JPEG',
+      ],
+      en: [
+        'For an archivable document: JSON to PDF or Word, laid out by the same machinery',
+        'For structure as text: JSON to TXT, one line per key and value with hierarchy in breaks and summaries',
+        'For the most universally readable paginated picture: JSON to JPG, the same chain ending in JPEG',
+      ],
+    },
+    faq: [
+      {
+        q: {
+          zh: '图里的 JSON 是格式化过的还是原始的？',
+          en: 'Is the JSON in the image formatted or raw?',
+        },
+        a: {
+          zh: '是查看器版式：一行一键值、带语法着色的配色、大数组和大对象会被折成 `Array(n)` / `Object(n)` 这类摘要行而不是全部展开。也就是说它更像「把预览截图」，而不是把文本换个背景。要原样文本请走 JSON→TXT 或直接看源文件。',
+          en: 'The viewer’s layout: one line per key and value, syntax-colouring palette, and large arrays and objects collapsed into `Array(n)` / `Object(n)` summary rows rather than fully expanded. It is closer to a screenshot of the preview than to text on a new background. For the literal text take JSON to TXT or open the source.',
+        },
+      },
+      {
+        q: {
+          zh: '很大的 JSON 会怎样？会被切成几百页吗？',
+          en: 'What happens with a very large JSON — hundreds of pages?',
+        },
+        a: {
+          zh: '不会走到那么多页。查看器自己有预算上限，触顶会在页面上写明实际读了多少，这段提示会跟着一块进图；再往外，排版高度超过 32768 px 时渲染那一步直接报 `errors.renderTooTall`，所以大文档要先分批——同一道闸也意味着出图那一步的页数上限在这条链上碰不到。',
+          en: 'It never gets to hundreds. The viewer has its own budgets and states on the page how much it actually read when one is hit, and that notice enters the image with everything else; beyond that, past 32768 px of laid-out height the render step fails with `errors.renderTooTall`, so large documents must be split first — the same ceiling is why the image step’s page cap is unreachable on this chain.',
+        },
+      },
+      {
+        q: {
+          zh: '为什么不直接截屏工作台？',
+          en: 'Why not just screenshot the workbench?',
+        },
+        a: {
+          zh: '因为产物只该有内容。这条路把查看器那份文档单独渲染成图，不带工具栏、按钮与页面框架；宽度和高度限制也是同一套（800 px 版心、单次渲染高度上限），所以它和工作台截图是两件事：一张是可交付的图，一张是界面照片。',
+          en: 'Because the artifact should contain only content. This route renders the viewer’s document on its own, without the toolbar, buttons or page frame, and it carries the same measure and height limits (an 800 px column, a single-pass height ceiling). So it is not a screenshot of the workbench: one is a deliverable image, the other is a photograph of an interface.',
+        },
+      },
+    ],
+  },
+  {
+    slug: 'bmp-to-webp',
+    from: 'bmp',
+    to: 'webp',
+    shot: 'batch-results',
+    published: '2026-10-21',
+    title: {
+      zh: 'BMP 转 WebP——离线、重编码、体积真正会降',
+      en: 'BMP to WebP offline — a real re-encode, real shrink',
+    },
+    desc: {
+      zh: '浏览器把 .bmp 解码后重编码成 WebP：这是 BMP 出口里体积真会下来的一条，代价是像素重画一遍、不再逐字节相同。全程离线。',
+      en: 'The browser decodes the .bmp and re-encodes it as WebP — the BMP exit where size really drops, paid for with a full redraw and no byte-for-byte sameness.',
+    },
+    lede: {
+      zh: '一步：`bmp>webp`（基线现读），走的是图片转图片那条通用管线——解码到画布、`drawImage`、`encodeCanvas` 编成 WebP。这一格值得单独讲清楚的是**它在 BMP 的出口里是唯一体积真会下来的方向**：BMP 常常整块位图不做任何压缩，WebP 是有损容器，所以同一张图通常能掉一个量级（幅度取决于画面内容，本页不写百分比）。但**代价也要写在同一句里**：像素会被重新画一遍，产物不再与源文件逐字节相同，边缘与细节按终点的量化处理；这与 BMP→HTML / BMP→Word 那两条「搬运、字节不动、体积只增」的路正好相反，也和 BMP→PDF（重画后按压缩流存放、还多一层分页）不同。能调的开关都在这条路上：最长边**只缩不放**（设定值小于当前最长边才等比缩，小图不会被拉伸），质量与目标尺寸只对 WebP 这种有损终点生效，且只在最后一次编码起作用。**不会铺白底**：那层 `#FFFFFF` 只在终点是 JPEG 时画（`utils/converters/image-convert.ts:51-54` 的条件就是 `mimeType` 为 `image/jpeg`），所以带透明通道的 BMP 会把 alpha 带进 WebP；但 BMP 常见的 24 位形式本来就没有透明通道，这一点不会因换格式而凭空出现。丢帧这件事对 BMP 不适用（它不是动画容器），而界面里那句「只保留第一帧」的提示只在源是 GIF 时出现，不会误报在这里。BMP 在这套界面里**只能作输入**：浏览器不提供 BMP 编码器，所以没有任何路线会产出 .bmp。全程只有 storage 权限、不联网。',
+      en: 'One step: `bmp>webp` (read live from the baseline), through the shared image-to-image pipeline — decode onto a canvas, `drawImage`, `encodeCanvas` into WebP. What deserves saying plainly about this cell is that **it is the only BMP exit where size genuinely comes down**: BMPs often store the bitmap with no compression at all while WebP is a lossy container, so the same picture usually drops by an order of magnitude (how much depends on content, so no percentage is quoted here). But **the price belongs in the same sentence**: pixels are redrawn, so the artifact is no longer byte-identical to the file you gave, and edges are handled by that final quantisation. That is the opposite of BMP to HTML and BMP to Word, which carry bytes, never grow smaller, and differ again from BMP to PDF (redrawn, then stored compressed, with pagination added). Everything you can tune lives on this route: the longest edge **only scales down**, quality and target size exist only for a lossy endpoint like WebP, and both act on that last encode. **No white ground is painted**: that fill happens only when the endpoint is JPEG (`utils/converters/image-convert.ts:51-54` tests exactly `mimeType` being `image/jpeg`), so a BMP that does carry alpha brings it into the WebP — though the common 24-bit BMP has no alpha channel to begin with, and changing container does not invent one. Frame loss is not a concept for BMP (it is not an animation container), and the «first frame kept» notice appears only for GIF sources, so it cannot misfire here. And BMP stays **input-only** in this interface: browsers do not encode it, so no route produces a .bmp. All of it on the storage permission, with no network.',
+    },
+    keeps: {
+      zh: [
+        '体积真会下来：常无压缩的 BMP 变成有损容器里的 WebP，这是 BMP 诸出口里唯一降下来的方向',
+        '不铺白底：那层白色只在终点是 JPEG 时画，带透明的 BMP 把 alpha 带进 WebP',
+        '最长边只缩不放：设了更小的值才等比缩，小图不会被拉伸',
+        '质量与目标尺寸在这条路上都有意义，且只作用在最后那一次编码',
+        '一批最多 200 个文件、单个 100 MB，与其他路线共用同一道闸门',
+      ],
+      en: [
+        'Size really drops: an usually-uncompressed BMP becomes a lossy WebP, the only BMP exit that shrinks',
+        'No white ground: that fill is painted only for a JPEG endpoint, so a BMP with alpha brings it into the WebP',
+        'The longest edge only scales down, so small pictures are never stretched',
+        'Quality and target size both mean something here, and act on that final encode only',
+        'Up to 200 files per batch and 100 MB each — the same gate every other route shares',
+      ],
+    },
+    limits: {
+      zh: [
+        '像素重画一遍：产物不再与源文件逐字节相同，边缘与细节按终点量化处理',
+        '降幅取决于画面内容，本页不写百分比；要「字节原样 + 可大可小」不存在这种组合',
+        '常见 24 位 BMP 本来没有透明通道，换容器不会凭空生出 alpha',
+        'BMP 只能作输入：浏览器不提供 BMP 编码器，没有路线会产出 .bmp',
+        '不 OCR、不改帧率、不做拼图：这条只换容器与压缩',
+      ],
+      en: [
+        'Pixels are redrawn: the artifact is no longer byte-identical, and edges follow the endpoint’s quantisation',
+        'The drop depends on content, so no percentage is given here; “identical bytes and smaller” is not a combination this route offers',
+        'A common 24-bit BMP has no alpha channel, and changing containers does not invent one',
+        'BMP is input only: browsers do not encode it, so no route produces a .bmp',
+        'No OCR, no frame-rate editing, no collage — this only changes container and compression',
+      ],
+    },
+    notes: {
+      zh: [
+        '要字节一个都不动：BMP→HTML 或 BMP→Word，那两条是搬运（体积只增）',
+        '要无损静帧：BMP→PNG，重编码但不量化',
+        '要一页一张的文档：BMP→PDF，页面尺寸跟着图片走',
+      ],
+      en: [
+        'For untouched bytes: BMP to HTML or Word — those carry, and only grow',
+        'For a lossless still: BMP to PNG, re-encoded but not quantised',
+        'For a one-page-per-image document: BMP to PDF, sized to each picture',
+      ],
+    },
+    faq: [
+      {
+        q: {
+          zh: 'BMP 转 WebP 会掉画质吗？',
+          en: 'Does BMP to WebP cost me quality?',
+        },
+        a: {
+          zh: '会，这是有损终点：画布重画一遍再量化一次。换来的是体积明显下来（BMP 常常完全不压缩）。要「重画但不量化」走 BMP→PNG；要连重画都不要，就走搬运那条 BMP→HTML——只是它会变大。三者不可兼得，按目的选。',
+          en: 'Yes: this is a lossy endpoint — one redraw over a canvas, then a quantisation. What you get back is a much smaller file (BMPs are often entirely uncompressed). For redraw-without-quantisation take BMP to PNG; for no redraw at all take the carrying route, BMP to HTML — which only grows. The three cannot be had at once; choose by purpose.',
+        },
+      },
+      {
+        q: {
+          zh: '为什么我的透明 BMP 转出来还是白底？',
+          en: 'Why did my transparent BMP still come out on white?',
+        },
+        a: {
+          zh: '两条可能。其一是源本来没有 alpha：常见的 24 位 BMP 不带透明通道，换格式不会生出来。其二是显示那一边——WebP 有 alpha 不代表查看器会用它做透明合成。这一路确实**不铺白底**（白只在终点是 JPEG 时画），所以若源带 alpha，它是原样带过去的。',
+          en: 'Two answers. The source may have had no alpha at all: the common 24-bit BMP carries none, and changing format cannot invent it. Or it is the display side — a WebP having alpha does not oblige a viewer to composite it transparently. This route genuinely paints **no white ground** (that happens only for a JPEG endpoint), so alpha present in the source is carried through as it stands.',
+        },
+      },
+      {
+        q: {
+          zh: '转完还能转回 BMP 吗？',
+          en: 'Can I convert it back to BMP afterwards?',
+        },
+        a: {
+          zh: '不能。浏览器不提供 BMP 编码器，所以这套界面里 BMP 只是输入格式：任何路线都不会产出 .bmp。要通用位图就选 PNG / JPG / WebP，要文档就选 PDF。',
+          en: 'No. Browsers cannot encode BMP, so in this interface BMP is an input format only — no route produces a .bmp. For a general-purpose bitmap take PNG, JPG or WebP; for a document take PDF.',
+        },
+      },
+    ],
+  },
 ];

@@ -512,12 +512,7 @@ export const HUBS = [
         },
       },
     ],
-    targets: {
-      webp: {
-        zh: '与 JPEG 相同的分页路径，终点 WebP；多页 ZIP，体积更小但对文字有损。',
-        en: 'The same pagination as JPEG, encoded as WebP; several pages arrive as a ZIP, smaller but lossy on text.',
-      },
-    },
+    targets: {},
   },
   {
     from: 'png',
@@ -765,12 +760,7 @@ export const HUBS = [
         },
       },
     ],
-    targets: {
-      webp: {
-        zh: 'BMP 先解码成画布再编码 WebP；不存在透明通道，白底不会被写入，有损参数沿用工作台的 WebP 输出设置。',
-        en: 'The BMP is decoded onto a canvas and encoded as WebP; there is no alpha to keep, so the white fill is not written, and lossy settings follow the workbench WebP options.',
-      },
-    },
+    targets: {},
   },
   {
     from: 'gif',
