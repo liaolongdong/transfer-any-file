@@ -2473,15 +2473,15 @@ export const PAIRS = [
       {
         q: { zh: '为什么图里有几个虚线方框？', en: 'Why are there dashed boxes in the image?' },
         a: {
-          zh: '那是被有意留下的占位：原文档在那里引用了一张取不到字节的图片。本项目不去网络请求任何东西，所以宁可把位置标出来，也不按地址"猜"它长什么样。卡片上会写明这一轮有几处如此处理。',
-          en: 'Those are deliberate placeholders where the document referenced a picture whose bytes could not be obtained. The extension requests nothing over a network, so it marks the position rather than guessing what lived there, and the result card counts how many positions were handled that way.',
+          zh: '那是被有意留下的占位：原文档在那里引用了一张取不到字节的图片。本项目不去网络请求任何东西，所以宁可把位置标出来，也不按地址猜它长什么样。另有第二种形状：只在克隆到一半才失败的图（解不开的 data:、已撤销的 blob:）在那处直接留空，不画框。卡片上写明这一轮一共处理了几处。',
+          en: 'Those are deliberate placeholders where the document referenced a picture whose bytes could not be obtained. The extension requests nothing over a network, so it marks the position rather than guessing what lived there. There is a second shape: an image that fails only part-way through cloning — an undecodable data:, a revoked blob: — leaves that spot blank with no box drawn. The result card counts how many were handled in total.',
         },
       },
       {
         q: { zh: '长图能有多长？会不会失败？', en: 'How tall can the image be, and can it fail?' },
         a: {
-          zh: '上限由浏览器能分配的画布决定（一边最大 8192 px），而且页面越长、渲染倍率越低，就是在往这个上限靠。真的分配不出来时会明确报这次转换失败，不会给你半张图。',
-          en: 'By what the browser can allocate for a canvas (8192 px on an edge), and the taller the page the lower the render scale, which is the same pressure toward that ceiling. If the canvas genuinely cannot be allocated, the conversion reports failure for that file rather than handing back half an image.',
+          zh: '这条链的上限是整页一次捕获的高度 32768 px（一边最大 8192 px 的四倍）：超过就明确报这次转换失败，而不是给你半张图或一片空白。另一个数字 8192 px 属于「最长边」那个参数，它在编码前按需重采样，与这条高度上限是两件事。页面越长、渲染倍率越低，也是在往同一个上限靠。',
+          en: 'The bound on this route is 32768 px on the height of the single whole-page capture — four times the 8192 px edge ceiling — and past it the conversion says so plainly instead of returning half an image or a blank one. The other number, 8192 px, belongs to the longest-edge parameter, which resamples before encoding and is a different matter from this height bound. The taller the page, the lower the render scale, which is the same pressure toward that ceiling.',
         },
       },
       {
