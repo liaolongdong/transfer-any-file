@@ -76,10 +76,6 @@ export const HUBS = [
       },
     ],
     targets: {
-      jpg: {
-        zh: '先按 A4 切成多页，再把每一页编码成 JPEG；多页结果打包成 ZIP，透明区域铺白。长文档得到的是一组页面图，而不是一张压扁的长条。',
-        en: 'The document is sliced into A4 pages and each page is encoded as JPEG; several pages arrive as a ZIP, with transparent areas filled white. A long document yields a set of page images rather than one flattened strip.',
-      },
       webp: {
         zh: '与 JPEG 共用 A4 分页与栅格化，终点改成 WebP 编码；多页仍打包 ZIP，压缩参数与工作台里的其它 WebP 输出一致。',
         en: 'It shares the A4 slicing and rasterisation with JPEG and changes only the final encoder to WebP; several pages still arrive as a ZIP, with the same compression controls as every other WebP output.',
@@ -150,10 +146,6 @@ export const HUBS = [
       },
     ],
     targets: {
-      jpg: {
-        zh: '整页按 A4 切片后逐页编码 JPEG，多页输出 ZIP；透明区域铺白。脚本不会执行，远程图片与字体不取字节。',
-        en: 'The whole page is sliced into A4 pages and each is encoded as JPEG, with several pages in a ZIP and transparent areas filled white. Scripts do not run, and remote images and fonts are not fetched.',
-      },
       webp: {
         zh: '与 JPEG 同一条 A4 分页路径，终点编码为 WebP；多页打包 ZIP。相片类内容体积更小，代价是有损压缩。',
         en: 'It shares the A4 slicing path with JPEG and encodes each page as WebP; several pages arrive as a ZIP. Photographic pages get smaller at the cost of lossy compression.',

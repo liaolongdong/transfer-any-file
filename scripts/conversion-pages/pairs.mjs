@@ -7310,4 +7310,190 @@ export const PAIRS = [
       },
     ],
   },
+  {
+    slug: 'html-to-jpg',
+    from: 'html',
+    to: 'jpg',
+    shot: 'batch-results',
+    published: '2026-10-21',
+    title: {
+      zh: 'HTML 转 JPG——离线、一页一图、不上传',
+      en: 'HTML to JPG offline — one image per A4 page',
+    },
+    desc: {
+      zh: '文档整篇渲染一次、按 A4 切成无损页面，再逐页编码成 JPEG：两页以上打包成 ZIP，透明区域铺白。全程离线，脚本不执行、远程资源不取字节。',
+      en: 'The page is rendered once, sliced into A4 pages stored losslessly, then encoded JPEG by JPEG; several pages arrive in a ZIP. Fully offline.',
+    },
+    lede: {
+      zh: '这条路是**两步、一次损失**：`html>pdf` 把净化后的文档整篇渲染成一张画布，再按 A4 的毫米比例算出页数（页高 = 画布高 × 210 ÷ 画布宽，每 297 mm 一页向上取整），把这张画布切成等高的片段，**每片以无损位图（`toDataURL` 的 PNG 那一条）嵌进 PDF**；`pdf>jpg` 再把这份 PDF 每一页转成一张 JPEG。为什么图片出口要走 PDF 这一遭而不直接截长图：注册表里对同分的图片终点用 `edgePreference` 排序（`html>pdf` 是 0、`html>png` 是 10，小的优先），而 `html>png→jpg` 那条路交回的是「整篇文档按页面宽度排布的一条长带」——分页与页边界正是多页文档想要的答案；那条路上真正有害的是**两次 JPEG 编码**，它在源头被解决（切片存 PNG），而不是靠改路由避开。三件具体的事跟着来：**一页一图**，两页以上以 ZIP 交付；**白色铺底**，画布按 `#ffffff` 生成，原来的透明区域在图里是白；**密度不在这一格调**——中间那份 PDF 转图用的是默认密度，面板的滑杆只对「以 PDF 作为输入」的转换开放。要说清的边界：最后那道编码是有损的（质量与目标体积就是为它准备的档位，目标体积先降质量、再缩尺寸去追）；产物是位图，里面没有可选中的文字；渲染前会剥掉指向网络与相邻路径的子资源引用，取不到字节的图片按张数在结果卡披露，所以「打开一张网页转出的图，顺带把它的广告像素拉回来」这种事不会发生。脚本从头到尾不执行：解析用只解析不执行的 DOMParser。全程在这个标签页里完成，只有 storage 权限。',
+      en: 'This route is two steps with one loss: `html>pdf` renders the sanitised document into a single canvas, computes the page count from the A4 metric ratio (page height = canvas height × 210 ÷ canvas width, rounding up every 297 mm), slices that canvas into equal-height strips and **embeds each strip as a lossless bitmap (the PNG branch of `toDataURL`)**; `pdf>jpg` then turns each page of that PDF into a JPEG. Why an image exit travels through PDF instead of grabbing the tall canvas: the registry orders tied image ends by `edgePreference` (0 on `html>pdf`, 10 on `html>png`, lower first), and the `html>png→jpg` path hands back one strip laid out at page width — page bounds are the answer a multi-page document actually wants. What was genuinely harmful on that path was the **double JPEG encode**, fixed at the source by storing the slices as PNG rather than dodged by re-pointing the route. Three concrete things come with it: **one image per page**, two or more delivered in a ZIP; **a white ground**, because the canvas is produced on `#ffffff`, so transparent areas land as visible white; and **no density dial here** — the intermediate PDF is rasterised at the default density, and the slider is only offered to conversions taking a PDF as input. The boundaries, stated: the final encode is lossy (quality and target size are its dials, and a target size goes down the quality ladder before it scales the picture); the artifact is a bitmap with no selectable text; and sub-resource references to the network or sibling paths are stripped before rendering, with unretrievable images disclosed by count on the result card — so a converted page cannot fetch its ad pixels on the way to becoming a picture. Nothing executes: parsing goes through DOMParser, which parses without running scripts. All of it inside this tab on the storage permission.',
+    },
+    keeps: {
+      zh: [
+        '一页一图：页数由 A4 比例下的排版高度决定，长网页得到的是成组的页面而不是被压扁的一条',
+        '切片无损：中间那份 PDF 的每一页存的是 PNG，压缩只在最后转 JPEG 那一次发生',
+        '透明区域铺白：画布按 `#ffffff` 生成，深色或透明底都落成看得见的白',
+        '不执行也不取码：脚本不跑、远程图片与字体不取字节，缺字节的图片按张数披露',
+      ],
+      en: [
+        'One image per page: the count follows the laid-out height under the A4 ratio, so a long page becomes a set of pages rather than one flattened strip',
+        'The slices are lossless: each page in the intermediate PDF is stored as PNG, so compression happens once, on the final JPEG',
+        'Transparent areas go white: the canvas is produced on `#ffffff`, so dark or transparent grounds land as visible white',
+        'Nothing runs and nothing is fetched: no scripts, no remote images or fonts, with images that have no bytes disclosed by count',
+      ],
+    },
+    limits: {
+      zh: [
+        '最后那道编码是有损的：要严格还原同一套线条与字形请走 HTML→PNG（整页一张长图、无第二次量化）',
+        '中间那份 PDF 转图用默认密度，这一格调不到它；想按密度控制请先 HTML→PDF，再对那份 PDF 走 PDF→JPG',
+        '两页以上出 ZIP：里面的单张文件按 `page-N.jpg` 编号取名',
+        '图里没有可复制的文字：不能选中、搜索或朗读，要这些请保留 HTML 或转 TXT / Markdown',
+        '页面里的表单控件、脚本行为与滚动状态不会进图：产物是某一瞬的排版，不是一个可交互的页面',
+      ],
+      en: [
+        'The last encode is lossy: take HTML to PNG for an exact rendering of the same rules and glyphs (one tall canvas, no second quantisation)',
+        'The intermediate PDF is rasterised at the default density and this route exposes no slider for it; to control density, go HTML to PDF first and then PDF to JPG on that file',
+        'Two or more pages arrive as a ZIP, the individual pictures named `page-N.jpg`',
+        'No copyable text inside the image: nothing to select, search or read aloud — keep the HTML, or take TXT / Markdown, for that',
+        'Form controls, script behaviour and scroll position do not reach the image: the artifact is one laid-out instant, not an interactive page',
+      ],
+    },
+    notes: {
+      zh: [
+        '要一份能打印归档的：HTML→PDF，页面就是文档本身，不必再拼回',
+        '要严格无损的一张图：HTML→PNG，整页捕获、没有第二次量化',
+        '要继续加工数据：网页里的表格用 HTML→CSV / HTML→JSON 取值，图片这一格交付的是版面',
+      ],
+      en: [
+        'For something printable and archivable: HTML to PDF, whose pages are the document itself',
+        'For one exactly-lossless picture: HTML to PNG, a whole-page capture with no second quantisation',
+        'To keep working on the data: take HTML to CSV or JSON for the values — this page delivers the layout',
+      ],
+    },
+    faq: [
+      {
+        q: {
+          zh: '为什么一份网页转出来是很多张图，而不是一张长图？',
+          en: 'Why do I get several images rather than one tall one?',
+        },
+        a: {
+          zh: '因为图片终点在同分时按 `edgePreference` 排序（`html>pdf` 0、`html>png` 10），这条链因此交回 A4 分页；想要一张连续长图的是 PNG 那一格（整页一次捕获，上限 32768 px）。两种形状都在，选哪种由你点的目标决定。',
+          en: 'Because the tied image ends are ordered by `edgePreference` (0 on `html>pdf`, 10 on `html>png`), so this route yields A4 pages; the single continuous picture is the PNG page, which captures the whole document into one canvas bounded at 32768 px. Both shapes exist, and the target you pick decides which you get.',
+        },
+      },
+      {
+        q: {
+          zh: '两次编码会不会把文字越压越糊？',
+          en: 'Does encoding twice smear the text progressively?',
+        },
+        a: {
+          zh: '这条链只有一次有损：切片进 PDF 时存的是 PNG，最后的 JPEG 是唯一一次压缩。早先确实有过「PDF 里塞 JPEG、再转一次 JPEG」的两次压缩，那一版被换掉了——修的是切片的存储格式，不是把路由改道。',
+          en: 'There is one lossy step here: slices enter the PDF as PNG, and the final JPEG is the only compression. An earlier shape really did embed JPEG in the PDF and encode it again; that version was replaced — the fix was the slice format, not re-pointing the route.',
+        },
+      },
+      {
+        q: {
+          zh: '打开这份 JPG 会把网页里的图片再拉回来吗？',
+          en: 'Will opening the JPG re-fetch the page’s images?',
+        },
+        a: {
+          zh: '不会。产物是位图，里面不含指向任何东西的引用；生成它的那一步在渲染前已经把指向网络与相邻路径的子资源引用剥掉，取不到字节的图片会在结果卡上按张数写明。扩展本身只有 storage 权限。',
+          en: 'No. The artifact is a bitmap carrying no reference to anything, and the step that made it strips sub-resource references before rendering, disclosing unretrievable images by count on the result card. The extension itself holds only the storage permission.',
+        },
+      },
+    ],
+  },
+  {
+    slug: 'markdown-to-jpg',
+    from: 'md',
+    to: 'jpg',
+    shot: 'batch-results',
+    published: '2026-10-21',
+    title: {
+      zh: 'Markdown 转 JPG——离线、A4 分页逐页编码、不上传',
+      en: 'Markdown to JPG offline — A4 pages, no upload',
+    },
+    desc: {
+      zh: 'Markdown 先按 GFM 渲染成带样式的 HTML，再整篇渲染一次、按 A4 切片存无损页面，逐页编码成 JPEG；多页打包成 ZIP。全程离线。',
+      en: 'GFM renders to styled HTML first, then the document is captured once, sliced into lossless A4 pages and encoded JPEG by JPEG, zipped when there are several.',
+    },
+    lede: {
+      zh: '想把一份长笔记发出去，而对面那边的渲染器会把你的表格排歪时，一组页面图比贴文字可靠。三步：`md>html` 用 marked 按 GFM 渲染（管道符表格、删除线、任务清单、自动链接都被认出；段落里单个换行仍是续行），过 DOMPurify 的 html + svg 两套 profile（**文档里的内联 SVG 图形不会被删**），再套上自带的样式表；`html>pdf` 把这份文档整篇渲染成一张画布并按 A4 比例算页数、切成等高片段，**每片段以无损位图（PNG）嵌进 PDF**；`pdf>jpg` 再逐页转成 JPEG。所以形状与 HTML→JPG 完全相同（一页一图、两页以上 ZIP、透明铺白），差别都在第一段：Markdown 的语法在这一步变成排版，`#` 变成标题、`- 项目` 变成列表项、表格变成带边框与条纹的表。同分图片终点由 `edgePreference` 排序（`html>pdf` 0、`html>png` 10，小的优先），这条链因此交回分页而不是一条长带；那条路上真正有害的两次 JPEG 压缩已在源头修掉（切片存 PNG）。要照实说的四条：最后那道编码是有损的，质量与目标体积就是它的档位（目标体积先降质量、再缩尺寸）；中间那份 PDF 转图用默认密度，这一格没有那个滑杆；产物是位图，没有可选中、可搜索的文字；**Markdown 里以网络地址或相邻路径引用的图片取不到字节**——渲染前会剥掉这些引用，结果卡按张数披露，替换处留虚线方框。脚本不执行、全程离线，只有 storage 权限。',
+      en: 'When a long note has to go out and the renderer on the other side would mis-lay your tables, a set of page images is more dependable than pasted text. Three steps: `md>html` renders through marked as GFM (pipe tables, strikethrough, task lists and autolinks are recognised; a single newline stays a soft wrap), passes DOMPurify’s html and svg profiles — **so an inline SVG diagram in the document is not deleted** — and is wrapped in the bundled stylesheet; `html>pdf` renders that document into one canvas, computes the page count from the A4 ratio, slices it into equal-height strips and **embeds each strip losslessly as PNG**; `pdf>jpg` then turns each page into a JPEG. The shape is therefore identical to HTML to JPG (one image per page, a ZIP past two pages, transparency flattened to white), and what differs is the first leg: Markdown syntax becomes layout there — `#` turns into a heading, `- item` into a list item, a table into bordered and striped cells. Tied image ends are ordered by `edgePreference` (0 on `html>pdf`, 10 on `html>png`), which is why this route returns pages rather than one long strip; the genuinely harmful double JPEG on the other path was fixed at its source by storing the slices as PNG. Four things stated plainly: the final encode is lossy, with quality and target size as its dials (a target size lowers quality before it scales the picture); the intermediate PDF is rasterised at the default density, which this route does not expose; the artifact is a bitmap with no selectable or searchable text; and **images the Markdown points at by network address or sibling path have no bytes** — those references are stripped before rendering, the count is disclosed on the result card, and replaced spots keep a dashed placeholder. No scripts run, everything is offline, and the only permission is storage.',
+    },
+    keeps: {
+      zh: [
+        '语法变成排版：标题、列表、任务清单与表格按 GFM 渲染后再进图，图里看到的就是渲染结果',
+        '内联 SVG 图形保留：净化同时挂 html 与 svg 两套 profile，示意图不会因「不是 HTML 标记」被删',
+        '一页一图且切片无损：片段以 PNG 进 PDF，压缩只在最后转 JPEG 那一次发生',
+        '透明铺白、多页成 ZIP：形状与 HTML→JPG 一致，长笔记是一组页面图而不是一条长带',
+      ],
+      en: [
+        'Syntax becomes layout: headings, lists, task lists and tables render as GFM before they are imaged, so the picture shows the rendered document',
+        'Inline SVG diagrams survive: sanitising runs the html and svg profiles together, so a sketch is not deleted for not being HTML',
+        'One image per page with lossless slices: strips enter the PDF as PNG, and compression happens once, on the final JPEG',
+        'White ground and a ZIP past two pages: the same shape as HTML to JPG, a set of pages rather than one long strip',
+      ],
+    },
+    limits: {
+      zh: [
+        '最后那道编码有损：要严格还原同样的线条与字形请走 Markdown→PNG（整页一张长图、无第二次量化）',
+        '引用的图片取不到字节：以网络地址或相邻路径写的图会被剥掉引用，结果卡按张数披露、位置留虚线方框',
+        '中间那份 PDF 转图用默认密度，这一格没有那个滑杆；要按密度控制请 Markdown→PDF 再对那份 PDF 走 PDF→JPG',
+        '代码块按 800 px 正文宽度排版，超长行会溢出面板而不是折行——样式表如此，图如实拍下',
+        '图里没有可复制的文字，也不承诺能读回 Markdown：要编辑请保留 `.md`，要结构请走 Markdown→HTML / Word',
+      ],
+      en: [
+        'The final encode is lossy: take Markdown to PNG for an exact rendering (one tall canvas, no second quantisation)',
+        'Referenced images have no bytes: those written as network addresses or sibling paths lose their references, the card reports the count, and each spot keeps a dashed box',
+        'The intermediate PDF is rasterised at the default density and this route exposes no slider; for density control take Markdown to PDF and then PDF to JPG on that file',
+        'Code blocks lay out at the 800 px measure, and very long lines overflow the panel instead of wrapping — the stylesheet works that way and the image reproduces it',
+        'No copyable text inside the image and no promise of reading Markdown back out: keep the `.md`, or take HTML / Word when you want structure',
+      ],
+    },
+    notes: {
+      zh: [
+        '要一份可打印的成品：Markdown→PDF，页面就是文档本身',
+        '要一张不分页的长图：Markdown→PNG，整页一次捕获（上限 32768 px）',
+        '要给程序读的数据：Markdown→HTML 或 Markdown→CSV / JSON，图片这一格交付的是版面',
+      ],
+      en: [
+        'For a printable document: Markdown to PDF, whose pages are the file itself',
+        'For one unpaginated tall image: Markdown to PNG, a single capture bounded at 32768 px',
+        'For data a program reads: Markdown to HTML, CSV or JSON — this page delivers the layout',
+      ],
+    },
+    faq: [
+      {
+        q: {
+          zh: '我的图片为什么不见了？',
+          en: 'Where did my images go?',
+        },
+        a: {
+          zh: '如果它们是以网络地址或相邻路径引用的，字节本来就不在 `.md` 文件里，而这条路完全离线：渲染前会剥掉这些引用，结果卡按张数写明「丢了几张」，被替换的位置留一个虚线方框。要带图的成品，请把图片放进真能读到字节的位置，或者接受这一格交付的是纯排版。',
+          en: 'If they were referenced by network address or a sibling path, their bytes were never in the `.md` file, and this route is fully offline: the references are stripped before rendering, the result card states how many were lost, and each replaced spot keeps a dashed box. Either put the images somewhere genuinely readable, or accept that this route delivers the typography.',
+        },
+      },
+      {
+        q: {
+          zh: '会得到几张图，名字是什么？',
+          en: 'How many pictures, and what are they called?',
+        },
+        a: {
+          zh: '张数由渲染后的文档高度按 A4 比例决定（一页一张），两页以上打包成 ZIP，里面按 `page-N.jpg` 编号。想要一张不分页的连续图，那是 Markdown→PNG 的形状。',
+          en: 'The count comes from the rendered height under the A4 ratio — one page per image — and two or more arrive in a ZIP with pictures named `page-N.jpg`. A single continuous image is what Markdown to PNG produces.',
+        },
+      },
+      {
+        q: {
+          zh: '为什么表格在图里比在源文件里好看？',
+          en: 'Why does my table look better in the image than in the source?',
+        },
+        a: {
+          zh: '因为进图的是渲染结果：管道符表格经 marked 变成真正的 `<table>`，自带样式表给它 100% 宽、每格 1px 实线、表头浅底与偶数行条纹。这也意味着「好看」是这份样式表的好看——换一份 CSS 就是另一个样子，而产物本身不含可编辑的表格结构。',
+          en: 'Because the image carries the rendered result: a pipe table becomes a real `<table>` through marked, and the bundled stylesheet gives it full width, a 1px rule per cell, a tinted header and striped even rows. That also means the good looks belong to this stylesheet — different CSS, different picture — and the artifact holds no editable table structure.',
+        },
+      },
+    ],
+  },
 ];
