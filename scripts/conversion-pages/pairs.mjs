@@ -8739,4 +8739,99 @@ export const PAIRS = [
       },
     ],
   },
+  {
+    slug: 'bmp-to-pdf',
+    from: 'bmp',
+    to: 'pdf',
+    shot: 'batch-results',
+    published: '2026-10-21',
+    title: {
+      zh: 'BMP 转 PDF——离线、一张一页、页面按图片尺寸',
+      en: 'BMP to PDF offline — one page per image, sized to it',
+    },
+    desc: {
+      zh: '解码后铺白底、按无损 PNG 流写入 PDF：页面尺寸由图片像素推（96 dpi），一张一页，不是 A4。全程离线，不上传。',
+      en: 'Decoded onto a white ground and written as a lossless PNG stream: the page is sized from the picture’s pixels, one per page — not A4.',
+    },
+    lede: {
+      zh: '这条路只有**一步**：`bmp>pdf` 直接进图片转 PDF 的页面管线，中间不经 HTML（这与 BMP→HTML、BMP→Word、BMP→Markdown 那几条都先走 `bmp>html` 不同）。它做的事是**处理**而不是搬运：浏览器把位图解码到画布，**先铺一层白底**（把 `fillStyle` 设为白色、`fillRect` 铺满画布），把图画上去，然后按 PNG 数据 URL（质量参数 0.92）写进 PDF。三件事值得说清。第一，重编码是**选择而不是限制**：jsPDF 4.2.1 其实自带 BMP 解码分支，但它会把像素强走一遍 quality-100 的 JPEG——既无视这层白底、也不给质量旋钮，写出来的流还比源文件更大，所以本项目宁可自己上画布。第二，**页面尺寸由图片本身决定**：像素按 `px × 72 / 96` 换成点，方向按宽高推，于是宽图得横页、长图得长页；批量混合方向时，每张后续页都声明自己的尺寸，不会被第一张的形状统一压平。这也是它与「Word 转 JPG 切 A4」最实在的区别——那边是文档分页，这边是图片装页。第三，体积方向通常**反过来**：BMP 常常不做压缩，而 PDF 里的图像流是压缩存放的，所以这一路往往是这批出口里唯一会变小的那一条；具体降幅取决于画面内容，本页不写百分比。若你要的是「字节一个都不动」，那要走 BMP→HTML（那条完全不进画布，代价是体积只增）；要透明落在这层白底上，也恰好是这一条在做的合成。一批多张还可以勾「合并为一份 PDF」整批写成一份多页文档（上限 200 页，任一张失败则整组不产出、重试也是整组）。全程只有 storage 权限，不联网。',
+      en: 'This route is **one step**: `bmp>pdf` goes straight into the image-to-PDF page pipeline, with no HTML in between (unlike BMP to HTML, to Word or to Markdown, which all take `bmp>html` first). What it does is processing, not carrying: the browser decodes the bitmap onto a canvas, **lays a white ground first** (a white `fillStyle`, then a full-canvas `fillRect`), draws the picture onto it, and writes it into the PDF as a PNG data URL at quality 0.92. Three things are worth stating. First, re-encoding is **a choice, not a limitation**: jsPDF 4.2.1 does ship its own BMP branch, but it forces the pixels through a quality-100 JPEG — ignoring the white fill, leaving no quality knob, and producing a stream larger than the file it came from — so this project prefers its own canvas. Second, **the page is sized by the picture**: pixels become points at `px × 72 / 96`, orientation follows width and height, so a wide picture gets a landscape page and a tall one gets a tall page; in a mixed batch every page after the first declares its own dimensions instead of being flattened to the first one’s shape. That is the concrete difference from slicing Word documents onto A4 — over there it is document pagination, here it is a picture filling a page. Third, size usually moves **the other way**: BMPs are frequently uncompressed while the image stream in the PDF is stored compressed, so this is often the only exit in the family that gets smaller. How much smaller depends on the picture, so this page gives no percentage. If you want not a single byte touched, take BMP to HTML (which never enters a canvas, at the cost of growth); if you want transparency composited onto white, that is exactly what this route does. A batch of several can also tick «merge into one PDF» to write a single multi-page document (200-page ceiling; if any picture fails, the group is not produced and the retry is the whole group). All of it on the storage permission, with no network at all.',
+    },
+    keeps: {
+      zh: [
+        '页面按图片推：`px × 72 / 96` 换成点、方向随宽高，混合方向时逐页声明自己的尺寸',
+        '白底是无条件铺的那一层：源里若有透明，会合成在白底上而不是留空洞',
+        '图像流压缩存放，所以常无压缩的 BMP 在这条路上通常会变小（降幅看内容，不写百分比）',
+        '重编码走自己的画布（PNG 流），不借用 jsPDF 那条强走 quality-100 JPEG 的分支',
+        '一批最多 200 个文件、单个 100 MB；合并模式一份最多 200 页',
+      ],
+      en: [
+        'Pages come from the picture: `px × 72 / 96` into points, orientation from width and height, and each page after the first declares its own size',
+        'The white ground is laid unconditionally, so any transparency in the source composites onto white rather than leaving holes',
+        'The image stream is stored compressed, so an usually-uncompressed BMP typically gets smaller here (how much depends on content, so no percentage is quoted)',
+        'Re-encoding uses this project’s own canvas and a PNG stream rather than jsPDF’s branch that forces quality-100 JPEG',
+        'Up to 200 files per batch at 100 MB each; merged mode caps one document at 200 pages',
+      ],
+    },
+    limits: {
+      zh: [
+        '产物是图像页，不含文字层：PDF 里的字选不中也搜不到（BMP 本来也只是像素）',
+        '与 BMP→HTML 相反，这一路必然重走画布：想要「一个字节都不动」请走 HTML 那条',
+        '不裁切、不加边距、不设 A4：页面形状完全跟着图片走，要固定纸张请先转图片再排文档',
+        '透明会落在白底上：这条不是「保住透明」的出口，要保留透明请走 BMP→PNG',
+        '合并模式整组原子：任一张解码失败就不产出，中途取消则丢弃整份文档',
+      ],
+      en: [
+        'The output is imagery: no text layer, so nothing in the PDF can be selected or searched (a BMP is pixels to begin with)',
+        'Unlike BMP to HTML, this route must redraw the canvas: take that page if you want not a byte touched',
+        'No cropping, no margins, no A4: the page shape follows the picture — for fixed paper sizes, convert first and lay the document out elsewhere',
+        'Transparency lands on white: this is not the keep-the-alpha exit, BMP to PNG is',
+        'Merged mode is atomic: one failed picture produces nothing, and cancelling mid-batch discards the document',
+      ],
+    },
+    notes: {
+      zh: [
+        '要一个字节都不动：BMP→HTML，原字节内嵌，代价是体积按 4/3 升',
+        '要保住透明：BMP→PNG，那条路上只有 JPEG 出口铺白底，PNG 出口不铺',
+        '要每页一张 A4 文档：那是 Word 族的做法（如 Word→JPG），不是图片装页',
+      ],
+      en: [
+        'To touch not a byte: BMP to HTML embeds the raw bytes, at the cost of that 4/3 growth',
+        'To keep transparency: BMP to PNG — on that route only the JPEG exit fills white',
+        'For one A4 page per sheet: that is the Word family’s shape (Word to JPG), not a picture filling a page',
+      ],
+    },
+    faq: [
+      {
+        q: {
+          zh: '一页是 A4 吗？我的图会被缩到纸张上吗？',
+          en: 'Is the page A4? Will my picture be scaled onto paper?',
+        },
+        a: {
+          zh: '都不是。页面尺寸由图片像素按 96 dpi 换算出来，图铺满整页、不缩到固定纸张。想要 A4，得先有文档那一层的排版——本扩展里那是 Word 族（如 Word→JPG 切 A4）的做法，图片转 PDF 这条路不做纸张。',
+          en: 'Neither: the page is derived from the picture’s pixels at 96 dpi, so the image fills the page instead of being fitted to fixed paper. Wanting A4 means the document layer of typesetting — that is the Word family’s shape here (Word to JPG slices A4); the picture-to-PDF route has no notion of paper.',
+        },
+      },
+      {
+        q: {
+          zh: 'BMP 那么大，转完会小多少？',
+          en: 'My BMP is huge — how much smaller does it get?',
+        },
+        a: {
+          zh: '方向是变小，幅度本页不写：BMP 常常完全不做压缩，而 PDF 里的图像流是压缩存放的，所以这一步通常有可观的下降；但能压掉多少取决于画面内容（平色大面积压得多，细碎噪点压得少）。这一路是重编码，像素会重新过一遍画布——要字节原样，请走 BMP→HTML。',
+          en: 'The direction is smaller; the page deliberately gives no figure: BMPs are often entirely uncompressed while the PDF stores its image stream compressed, so the drop is usually substantial — but how much comes down to the picture (flat areas shrink a lot, fine grain hardly at all). This is a re-encode, so pixels pass over the canvas again; for untouched bytes take BMP to HTML.',
+        },
+      },
+      {
+        q: {
+          zh: '一批十几张 BMP，能合成一份 PDF 吗？',
+          en: 'Can a dozen BMPs be merged into one PDF?',
+        },
+        a: {
+          zh: '能。整批都是可合并的图片且目标为 PDF 时，目标选择器下方会出现「合并为一份 PDF」的开关；勾上后整批按列表顺序写成一份文档、每张一页，混合方向也逐页保留各自形状。上限 200 页；任何一张失败则整组不产出（避免给你一份缺页的文档），重试是整组重来，中途取消则丢弃整份。不勾选时仍是一张一份 PDF。',
+          en: 'Yes. When the whole batch is mergeable images and the target is PDF, a «merge into one PDF» switch appears under the target picker; ticking it writes the batch in list order as one document, one page per picture, keeping each page’s own shape in a mixed batch. The ceiling is 200 pages; if any picture fails, nothing is produced rather than a document with holes, the retry is the whole group, and cancelling discards it. Unticked, it stays one PDF per file.',
+        },
+      },
+    ],
+  },
 ];

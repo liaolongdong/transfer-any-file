@@ -824,10 +824,6 @@ export const HUBS = [
         zh: '经 HTML 把原字节带进 Word：那条 data URI 会被提成包里独立的图片部件，不重编码；其它程序怎么读这份 altChunk，由那一侧决定。',
         en: 'The raw bytes travel through HTML into Word: that data URI becomes its own image part inside the package, with no re-encoding, and how other programs read the altChunk is up to them.',
       },
-      pdf: {
-        zh: 'BMP 解码后铺白底、编码成 PNG 再写入 PDF；每张图占一页，页面尺寸取图片本身，不是 A4。',
-        en: 'The BMP is decoded, filled white, encoded as PNG and written to PDF: one image per page, with the page sized to the picture rather than A4.',
-      },
       webp: {
         zh: 'BMP 先解码成画布再编码 WebP；不存在透明通道，白底不会被写入，有损参数沿用工作台的 WebP 输出设置。',
         en: 'The BMP is decoded onto a canvas and encoded as WebP; there is no alpha to keep, so the white fill is not written, and lossy settings follow the workbench WebP options.',

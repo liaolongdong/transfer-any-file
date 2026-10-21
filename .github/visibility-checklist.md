@@ -1119,6 +1119,29 @@ csv→Word 的另一组事实回读自`html-to-docx.ts`：正文以 MHT altChunk
   换成第卅六轮那张 Word 页同款的产物侧说法（data URI 提成包内图片部件、其它程序怎么读由那一侧决定）；
   `html` 摘要按镜像规则摘除。**仍留一笔未查证**：bmp hub 的 `webp` 摘要写着「白底不会被写入」，
   而画布分支看着是铺白底的，二者待下轮实测 `bmp>webp` 产物再判。
+  **同轮补记（已查证，无需改）**：`utils/converters/image-convert.ts:50-53` 的白底是**只在 JPEG 出口**铺的
+  （注释原话「For JPEG, fill white background (no transparency support)」，`fillStyle='#FFFFFF'` 在 `if` 里面），
+  WebP 与 PNG 出口都不铺——所以 bmp hub 那句「白底不会被写入」方向是对的，不是错账；
+  而 `utils/core/image-pdf.ts:139-140` 的白底是**无条件**铺的（WebP / BMP / GIF 三种源都走那条），
+  两句看着冲突其实各自说的是不同的路：`bmp>webp` 一步（不铺白）与 `bmp>pdf` 一步（铺白后重编码成 PNG 流）。
+  第卅七轮那张 bmp→HTML 页里「要白底请走 BMP→PDF」因此成立，而不必改成「图片转图片那几页」。
+
+- **10-21 第卅八轮（bmp→PDF，97 张页 / 缺口 19）。** 这一页的三条正面事实全部取自 `utils/core/image-pdf.ts` 的注释与代码，
+  而且第卅七轮那条「同一种源两条路形态相反」在这里闭合：`bmp>pdf` 是**单步处理**（不经 HTML），解码后先铺白底、按 PNG 数据 URL
+  （质量参数 0.92）写入；页面尺寸由像素按 `px × 72 / 96` 推、方向随宽高，**混合方向逐页声明自己的尺寸**——这与 Word 族「切 A4 一页一图」
+  是两种不同的东西，两页措辞已分开（那边是文档分页，这边是图片装页）。重编码写成「**选择而不是限制**」：jsPDF 4.2.1 自带 BMP 分支，
+  但它强走 quality-100 JPEG、无视白底、不给质量旋钮、写出的流比源文件大。体积这一格**方向反过来**且如实标注为不写数字：
+  BMP 常无压缩而 PDF 里图像流压缩存放（同一处注释记着未压缩存储曾把 PNG 页面撑到源的 9.5–95.6 倍），所以这是 BMP 诸出口里
+  唯一通常会变小的一条。合并模式的 200 页上限与「任一张失败整组不产出」也写进 limits/faq（`MAX_MERGED_PAGES`，BMP 在 `MERGEABLE_IMAGE_FORMATS` 里）。
+  另两处刻意改口以避免过度主张：notes 里 BMP→PNG 只说「那条路上只有 JPEG 出口铺白底」（不写「透传」——BMP→PNG 仍要过一遍画布，
+  透传是 PNG 源进 PDF 那条的做法），以及 faq 里「A4 与缩放到纸张」明确答「都没有，纸张是文档层的事」。
+  **工具链老坑第四次踩到**：数据源里写代码片段时不能用裸单引号——`fillStyle = '#FFFFFF'` 与 `toDataURL('image/png', 0.92)`
+  两处把 `pairs.mjs` 直接解析炸掉（prettier 报 `Unexpected token, expected ","`，连带 `lint:all`、`verify:numbers`、`verify:meta` 一起红，
+  而 `build` 与 `verify:paths` 照样绿——因为它们不解析这份数据源）。改法是换成词（「把 `fillStyle` 设为白色」「PNG 数据 URL（质量参数 0.92）」），
+  不要试 `\'`：用 Edit 写转义容易落成 `\\'`，反而更坏。**判据**：任何一次 `pages:render` 之前先跑 prettier，它比守卫更早暴露这类语法问题。
+  实测计数：`pages:render` 114 文件、`verify:numbers` 23 事实 × 119 文档（文件 = 页 + 17、文档 = 页 + 22 仍成立）、
+  `pages:check` 逐字节一致、`lint:all`、`build`、产物层两条离线守卫、`verify:meta`、`verify:paths` 全 rc=0；
+  生成物整目录暂存 + `git archive HEAD` 隔离树重跑 `render --check` 自证。运行时零改动，断言数仍 **452**。
   实测计数：`pages:render` 113 文件、`verify:numbers` 23 事实 × 118 文档（文件 = 页 + 17、文档 = 页 + 22 仍成立）、
   `pages:check` 逐字节一致、`lint:all`、`build`、产物层两条离线守卫、`verify:meta`、`verify:paths` 全 rc=0。
   这一轮按上一笔的教训**整目录暂存 `docs/convert`**，并在 `git archive HEAD` 的隔离树里重跑 `render --check` 自证。运行时零改动，断言数仍 **452**。
