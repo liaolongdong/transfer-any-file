@@ -160,10 +160,10 @@
           <section id="limits" class="reveal">
       <h2><span lang="zh-CN">如实说明的限制</span><span lang="en">What it does not do</span></h2>
             <ul class="limits">
-        <li><span lang="zh-CN">两份表格就撞闸：文档里有两张以上 `&lt;table&gt;` 时，中间那步交出的是按 `&lt;h2&gt;` 文字分组的对象，而 CSV 那一步只接受数组，界面报「JSON 内容必须是包含数据的数组才能转换为 CSV」——请一张表一个文件</span><span lang="en">Two tables trip the gate: with more than one `&lt;table&gt;` the middle step hands over an object grouped by the document’s `&lt;h2&gt;` text, and the CSV step accepts arrays only, so the interface reports “JSON must be an array containing data to convert to CSV” — one table per file</span></li>
+        <li><span lang="zh-CN">两份表格就撞闸：文档里有两张以上 `&lt;table&gt;` 且至少一张带数据行时，中间那步交出的是分组对象——键取同序号的那个 `&lt;h2&gt;` 文字，那里没有对应标题时是 `Sheet2` 这类名字——而 CSV 那一步只接受数组，界面报「JSON 内容必须是包含数据的数组才能转换为 CSV」——请一张表一个文件</span><span lang="en">Two tables trip the gate: with more than one `&lt;table&gt;` the middle step hands over an object grouped by the document’s `&lt;h2&gt;` text, and the CSV step accepts arrays only, so the interface reports “JSON must be an array containing data to convert to CSV” — one table per file</span></li>
         <li><span lang="zh-CN">表格套在单元格里也算两张：它不会污染数据行，但会让整批失败</span><span lang="en">A table nested in a cell also counts as the second one: it does not pollute the data rows, but it fails the batch</span></li>
         <li><span lang="zh-CN">合并区不展开：被 `colspan` / `rowspan` 覆盖的位置不产生值，那一行的列会左移</span><span lang="en">Merged ranges are not expanded: positions covered by `colspan` / `rowspan` produce no value, so that row shifts left</span></li>
-        <li><span lang="zh-CN">段落、页眉页脚、脚注、批注与修订没有单元格可放，不进结果；字体、颜色、行距也不进 CSV——那里没有格式的容身之处</span><span lang="en">Paragraphs, headers and footers, notes, comments and tracked changes have no cell to sit in and do not appear; fonts, colours and line spacing do not either — CSV has nowhere to put formatting</span></li>
+        <li><span lang="zh-CN">段落、页眉页脚、脚注正文与批注没有单元格可放，不进结果；但脚注的引用标记（形如 `[1]`）会留在所在单元格的值里，插入修订（`w:ins`）的文字也按正文读出——只有删除修订会消失</span><span lang="en">Paragraphs, headers and footers, footnote text and comments have no cell to sit in and do not appear — though a footnote reference such as `[1]` stays inside the value of the cell carrying it, and inserted revisions (`w:ins`) are read as ordinary text while only deletions vanish</span></li>
         <li><span lang="zh-CN">打不开不是空文档：解不出容器报 `errors.docxParse`，解开了但没有可转内容报 `errors.docxEmpty`，两种说法在界面上分开</span><span lang="en">Unreadable is not empty: a container that cannot be parsed reports `errors.docxParse`, while one that parses with nothing convertible reports `errors.docxEmpty`, and the interface keeps them apart</span></li>
             </ul>
           </section>
@@ -171,7 +171,7 @@
       <h2><span lang="zh-CN">实操提示</span><span lang="en">Working with it</span></h2>
             <ul>
         <li><span lang="zh-CN">要工作簿而不是文本：Word→Excel 是同一条链再加一步取数与格式钉格</span><span lang="en">For a workbook rather than text: Word to Excel is this chain plus the typing and format-pinning step</span></li>
-        <li><span lang="zh-CN">要保留版面给人看：Word→HTML、Word→PDF 或 Word→Markdown，段落与标题都在</span><span lang="en">To keep the layout for a person: Word to HTML, PDF or Markdown, where headings and paragraphs survive</span></li>
+        <li><span lang="zh-CN">要保留版面给人看：Word→HTML、Word→PDF 或 Word→Markdown，结构与文字都在</span><span lang="en">For something that reads like the document: Word to HTML, PDF or Markdown, which carry its structure and words</span></li>
         <li><span lang="zh-CN">只要文档里的文字本身：Word→TXT 按阅读顺序抽正文，比这里逐格取值更贴近页面</span><span lang="en">For the words themselves: Word to TXT takes the body in reading order, which sits closer to the page than cell-by-cell values</span></li>
             </ul>
           </section>

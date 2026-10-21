@@ -7728,29 +7728,29 @@ export const PAIRS = [
     },
     limits: {
       zh: [
-        '两份表格就撞闸：文档里有两张以上 `<table>` 时，中间那步交出的是按 `<h2>` 文字分组的对象，而 CSV 那一步只接受数组，界面报「JSON 内容必须是包含数据的数组才能转换为 CSV」——请一张表一个文件',
+        '两份表格就撞闸：文档里有两张以上 `<table>` 且至少一张带数据行时，中间那步交出的是分组对象——键取同序号的那个 `<h2>` 文字，那里没有对应标题时是 `Sheet2` 这类名字——而 CSV 那一步只接受数组，界面报「JSON 内容必须是包含数据的数组才能转换为 CSV」——请一张表一个文件',
         '表格套在单元格里也算两张：它不会污染数据行，但会让整批失败',
         '合并区不展开：被 `colspan` / `rowspan` 覆盖的位置不产生值，那一行的列会左移',
-        '段落、页眉页脚、脚注、批注与修订没有单元格可放，不进结果；字体、颜色、行距也不进 CSV——那里没有格式的容身之处',
+        '段落、页眉页脚、脚注正文与批注没有单元格可放，不进结果；但脚注的引用标记（形如 `[1]`）会留在所在单元格的值里，插入修订（`w:ins`）的文字也按正文读出——只有删除修订会消失',
         '打不开不是空文档：解不出容器报 `errors.docxParse`，解开了但没有可转内容报 `errors.docxEmpty`，两种说法在界面上分开',
       ],
       en: [
         'Two tables trip the gate: with more than one `<table>` the middle step hands over an object grouped by the document’s `<h2>` text, and the CSV step accepts arrays only, so the interface reports “JSON must be an array containing data to convert to CSV” — one table per file',
         'A table nested in a cell also counts as the second one: it does not pollute the data rows, but it fails the batch',
         'Merged ranges are not expanded: positions covered by `colspan` / `rowspan` produce no value, so that row shifts left',
-        'Paragraphs, headers and footers, notes, comments and tracked changes have no cell to sit in and do not appear; fonts, colours and line spacing do not either — CSV has nowhere to put formatting',
+        'Paragraphs, headers and footers, footnote text and comments have no cell to sit in and do not appear — though a footnote reference such as `[1]` stays inside the value of the cell carrying it, and inserted revisions (`w:ins`) are read as ordinary text while only deletions vanish',
         'Unreadable is not empty: a container that cannot be parsed reports `errors.docxParse`, while one that parses with nothing convertible reports `errors.docxEmpty`, and the interface keeps them apart',
       ],
     },
     notes: {
       zh: [
         '要工作簿而不是文本：Word→Excel 是同一条链再加一步取数与格式钉格',
-        '要保留版面给人看：Word→HTML、Word→PDF 或 Word→Markdown，段落与标题都在',
+        '要保留版面给人看：Word→HTML、Word→PDF 或 Word→Markdown，结构与文字都在',
         '只要文档里的文字本身：Word→TXT 按阅读顺序抽正文，比这里逐格取值更贴近页面',
       ],
       en: [
         'For a workbook rather than text: Word to Excel is this chain plus the typing and format-pinning step',
-        'To keep the layout for a person: Word to HTML, PDF or Markdown, where headings and paragraphs survive',
+        'For something that reads like the document: Word to HTML, PDF or Markdown, which carry its structure and words',
         'For the words themselves: Word to TXT takes the body in reading order, which sits closer to the page than cell-by-cell values',
       ],
     },
@@ -7809,7 +7809,7 @@ export const PAIRS = [
       zh: [
         '数字只在字节能逐字回来时才是数字：`1727000000000` 可求和，`00424`、`1/2`、`2024-01-05` 保持原字符',
         '16 位以上的编号留在文本，并钉住文本格式（写出的那一格是内置格式号 49）',
-        '列取所有记录键名的并集：某行缺的键留空格，多余的单元格被丢，不会让后面几列错位',
+        '列取所有记录键名的并集：某行缺的键留空格；比表头多出的单元格在取表那一步就被丢掉，所以后面几列不会错位',
         '一张表进一张工作表：中间那份 CSV 只有一个表，产物就是单 sheet，表名沿用读取结果',
       ],
       en: [
@@ -7821,15 +7821,15 @@ export const PAIRS = [
     },
     limits: {
       zh: [
-        '两张表就撞闸：对象过不了「只接受数组」那一步，请一张表一个文档',
-        '段落、页眉页脚、脚注、批注与修订不进工作簿；文档里的标题行也不会变成 Excel 的标题样式',
+        '两张表就撞闸：只要至少一张带数据行，交出的是分组对象，过不了「只接受数组」那一步——请一张表一个文档',
+        '段落、页眉页脚、脚注正文与批注不进工作簿；插入修订的文字与脚注引用标记会留在它们所在单元格的值里',
         '合并区不展开，被覆盖的位置不产生值；嵌套表算第二张表',
         '值在中间那步全是字符串，是否还原成数字由最后一步那三条规则决定：`1,234.50`、`¥100`、`45%`、`+33` 都不是十进制形状，留在文本',
         '本扩展写的 `.docx` 用的是 altChunk 容器，读回时会走恢复那一条路；用其他编辑器写的文档则看它自己的表格结构能否被 mammoth 认出',
       ],
       en: [
-        'Two tables trip the gate: an object cannot pass the arrays-only step, so keep one table per document',
-        'Paragraphs, headers and footers, notes, comments and tracked changes do not reach the workbook, and a heading row does not become an Excel header style',
+        'Two tables with data rows trip the gate: the grouped object cannot pass the arrays-only step, so keep one table per document',
+        'Paragraphs, headers and footers, footnote text and comments do not reach the workbook, while inserted revisions and footnote references stay inside the value of the cell carrying them',
         'Merged ranges are not expanded and covered positions produce no value; a nested table counts as the second table',
         'Values are strings in the middle step and the final rule of three decides whether one comes back: `1,234.50`, `¥100`, `45%` and `+33` are not decimal-shaped and stay text',
         'The `.docx` files this extension writes carry an altChunk container and are read back through the recovery path; documents from other editors depend on whether mammoth recognises their table structure',
@@ -7838,12 +7838,12 @@ export const PAIRS = [
     notes: {
       zh: [
         '只要一份文本表格：Word→CSV 是同一条链的前三步，产物是带 BOM 的 CSV',
-        '要保留版面给人读：Word→PDF、Word→HTML 或 Word→Markdown',
+        '要一份读起来像原文档的：Word→PDF、Word→HTML 或 Word→Markdown',
         '只想读回值不要类型判断：Word→JSON，那里值全是字符串、结构按 `<h2>` 分组',
       ],
       en: [
         'For a text table only: Word to CSV is the first three steps of this chain, ending in a BOM’d CSV',
-        'For a person to read: Word to PDF, HTML or Markdown, which keep the layout',
+        'For something that reads like the document: Word to PDF, HTML or Markdown, which carry its structure and text',
         'For values without any typing decision: Word to JSON, where everything is a string and grouping follows the `<h2>` text',
       ],
     },
@@ -7855,7 +7855,7 @@ export const PAIRS = [
         },
         a: {
           zh: '因为这条链搬运的是格子里的值：Word 表格里的内容被读成文字，再以「值是否逐字节回得来」决定要不要还成数字。文档里的样式、条件格式与计算结果都不是它的取数对象——它交付的是一张可算的数据表，不是一份排版副本。',
-          en: 'Because this chain carries values: the cells are read as text, and a number type returns only where the bytes round-trip. Styles, conditional formatting and computed results in the document are not what it extracts — you get a table you can compute on, not a copy of the layout.',
+          en: 'Because this chain carries values: the cells are read as text, and a number type returns only where the bytes round-trip. Styles, conditional formatting and computed results in the document are not what it extracts — what arrives is cell values, not a copy of the layout.',
         },
       },
       {
@@ -7864,8 +7864,8 @@ export const PAIRS = [
           en: 'Do leading zeros in my ids survive?',
         },
         a: {
-          zh: '不会。`00424` 与 16 位账号都留在文本形态并被钉住文本格式（写出的那一格用内置格式号 49），所以表格软件不会再把它读成数字。代价是这些格子不参与求和；这是本项目在「保住编号」与「让它可加」之间刻意选的前者。',
-          en: 'No. `00424` and a 16-digit identifier stay text and are pinned to a text format (the written cell uses the built-in format id 49), so nothing re-reads them as numbers. The price is that those cells do not sum; that is the trade this project deliberately takes in favour of keeping identifiers intact.',
+          zh: '不会。`00424` 与 16 位账号都留在文本形态并被钉住文本格式（写出的那一格用内置格式号 49），所以那一格存下来的就是文本形态的值。代价是那些格子里存的是字符而不是数值；这是本项目在「保住编号」与「让它成数」之间刻意选的前者。',
+          en: 'No. `00424` and a 16-digit identifier stay text and are pinned to a text format (the written cell uses the built-in format id 49), so what is stored there is text, not a number. The price is that those cells hold characters rather than a numeric value; that is the trade this project deliberately takes in favour of keeping identifiers intact.',
         },
       },
       {
@@ -7874,8 +7874,8 @@ export const PAIRS = [
           en: 'Can two tables land on two worksheets?',
         },
         a: {
-          zh: '不能。这条链一次吃得下一张表：多张表在中间那步是分组对象，CSV 那步不接受；而写工作簿那步读的也只有一份 CSV。要两份，请把两张表分成两个文档各转一次，再在 Excel 里合并成两个 sheet——那一步本项目刻意不替你做，因为合并方式本身就是你的判断。',
-          en: 'Not on this route: it eats one table at a time, since several become a grouped object that the CSV step rejects, and the writer reads a single CSV anyway. Split the tables into two documents, convert each, and merge them into two worksheets yourself in Excel — that last step is deliberately left to you, because how to merge is your judgement.',
+          zh: '不能。这条链一次吃得下一张表：多张表在中间那步是分组对象，CSV 那步不接受；而写工作簿那步读的也只有一份 CSV。要两份，请把两张表分成两个文档各转一次，各自得到一份工作簿。',
+          en: 'Not on this route: it eats one table at a time, since several become a grouped object that the CSV step rejects, and the writer reads a single CSV anyway. Split the tables into two documents and convert each; you then have one workbook per table.',
         },
       },
     ],
