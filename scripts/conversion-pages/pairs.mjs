@@ -4588,7 +4588,7 @@ export const PAIRS = [
       en: [
         'Nothing active survives: `<script>`, event attributes and the element classes the sanitizer disallows — `<use>`, `<foreignObject>`, `<font-face*>` and the SMIL animation elements — are all removed, so anything that expanded on click or moved by animation stays still. That is a deliberate safety trade-off, not a lost asset',
         'Outside references are removed before the file is written: `<image href>`, `feImage`, `fill="url(…)"` and every `url()` / `@import` in the styles are cut, so the delivered page issues no request when you open it — and the gap it leaves shows as a gap',
-        'If nothing is left after sanitising, it fails with «image decode failed» instead of handing you a blank page marked as success',
+        'It fails with «image decode failed» only when nothing at all is left after sanitising; a sprite that is nothing but `<use>` references does not count as «nothing» — the `<svg>` shell survives, so the artifact still ships and simply draws no content (see the next item)',
         'A sprite sheet built on `<use>` comes out blank: the `<symbol>` definitions stay, the layer that references them is removed — for an icon sheet, convert to PNG first',
         'For a bitmap (somewhere that only takes pictures, or fixed pixel dimensions) take SVG to PNG / JPG / WebP; for documents take SVG to Word or SVG to PDF — those rasterise first',
       ],
@@ -8208,6 +8208,7 @@ export const PAIRS = [
         '一行一文件：只包一张图，多张请分别转换，或自己写成标准外链图片语法',
         '不会替你写 `alt` 文案：产物里的描述来自文件名，语义得由你补',
         '想要「文字在仓库里、图在目录里」那种可 diff 的形状，这条路相反——它把图搬进了文本',
+        '`data:` 图片能不能显示由收件端决定：网页端邮件客户端与一些托管站会剥掉它，那种场合请用外链图片',
       ],
       en: [
         'No OCR: text printed in the picture never becomes Markdown text, because this route never reads pixels',
@@ -8215,6 +8216,7 @@ export const PAIRS = [
         'One picture per file: convert separately, or write a normal external image reference for several',
         'It will not write your `alt` copy: the description comes from the file name and the meaning is yours to add',
         'If you want words versioned in the repository and pictures in a folder — the diffable shape — this route does the opposite: it moves the image into the text',
+        'Whether a `data:` picture displays is up to whatever receives it: webmail clients and some hosting sites strip it, so use an external reference in those cases',
       ],
     },
     notes: {
