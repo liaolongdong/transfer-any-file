@@ -7496,4 +7496,190 @@ export const PAIRS = [
       },
     ],
   },
+  {
+    slug: 'html-to-webp',
+    from: 'html',
+    to: 'webp',
+    shot: 'batch-results',
+    published: '2026-10-21',
+    title: {
+      zh: 'HTML 转 WebP——离线、一页一图、不上传',
+      en: 'HTML to WebP offline — one image per A4 page',
+    },
+    desc: {
+      zh: '文档整篇渲染一次、按 A4 切成无损片段存进 PDF，再逐页编码成 WebP：两页以上打包 ZIP，质量与目标体积可调。全程离线，脚本不执行。',
+      en: 'The document is rendered once, sliced into lossless A4 pages inside a PDF, then encoded WebP page by page; several arrive in a ZIP. Fully offline.',
+    },
+    lede: {
+      zh: '它与 HTML→JPG 走的是同一条链，只有终点不同：`html>pdf` 把净化后的文档整篇渲染成一张画布，按 A4 的毫米比例算页数（页高 = 画布高 × 210 ÷ 画布宽，每 297 mm 一页向上取整，最后一片按剩余高度收），切成同高片段并**以无损位图（`toDataURL` 的 PNG 那一条）嵌进 PDF**；`pdf>webp` 再把每一页转成一张 WebP。同一条 `createPdfToImageConverter` 工厂同时造出 JPEG 与 WebP 两个终点，所以**产物形状一样**：一页一图、两页以上 ZIP（里面按 `page-N.webp` 编号）、单页直接给一个 `.webp`。不一样的只有编码档位归属：WebP 与 JPEG 同属「有损容器」，质量与目标体积这两个参数对它们生效（`LOSSY_MIME_TYPES`），面板也正是按这一条决定给不给这两格；PNG 那一路则两者都不给、也不会拿去做二次量化。目标体积的追逐顺序是固定的：先把质量沿档位往下走，走不到再把画面缩小重试——所以「文件小了」有两种来路，看页面时值得知道是哪一种。要照实说的边界：这一格不摆密度滑杆（面板只对以 PDF 为输入的转换给它），但密度值会被每一步带走，上一批 PDF 转换留下的值就作用在这里的中间那份 PDF 上；没设过时用默认 144。整页捕获的高度上限 32768 px（一边最大 8192 px 的四倍）超过就明确报错，不给空白画布也不给半张图。图里的文字不是文字：没有文字层，不能选中、搜索或朗读。产物是无透明的白底图（画布按 `#ffffff` 生成、每页嵌入前再铺一次）。远程与相对路径的子资源引用在渲染前剥掉，取不到字节的图片按张数在结果卡披露——被替换的位置画虚线方框，只在克隆那一步失败的直接留空。全程在这个标签页里完成，只有 storage 权限，脚本从头到尾不执行：净化删可执行标记，渲染用的 iframe 只给 `allow-same-origin`、没有 `allow-scripts`。',
+      en: 'This is the same chain as HTML to JPG with a different last step: `html>pdf` renders the sanitised document into one canvas, computes the page count from the A4 metric ratio (page height = canvas height × 210 ÷ canvas width, rounding up every 297 mm, the last slice cut to what remains), slices it into equal-height strips and **embeds each as a lossless bitmap (the PNG branch of `toDataURL`)**; `pdf>webp` then turns each page into a WebP. One factory, `createPdfToImageConverter`, builds both the JPEG and the WebP end, so **the artifact shape is identical**: one image per page, a ZIP past two pages with members named `page-N.webp`, a single `.webp` when there is only one. What differs is only which dials belong: WebP and JPEG are the two lossy containers, so quality and a target size mean something here (`LOSSY_MIME_TYPES`) and the panel offers them on exactly that rule, while the PNG route offers neither and does no second quantisation. The chase order is fixed: quality walks down its ladder first, and only then does the picture scale — so “the file got smaller” has two possible causes worth telling apart. The boundaries, plainly: this route exposes no density slider (the panel gives it only to conversions taking a PDF as input), yet a density value is forwarded to every step, so one left from an earlier PDF batch applies to the intermediate PDF here; unset, it uses the default 144. The whole-page capture is bounded at 32768 px of height — four times the 8192 px edge ceiling — and past that the route fails rather than returning a blank canvas or half a picture. Text in the image is not text: no text layer, nothing to select, search or read aloud. The pictures are opaque on white (the canvas is produced on `#ffffff` and each page is filled again before embedding). Sub-resource references to the network or sibling paths are stripped before rendering and unretrievable images are disclosed by count, a replaced spot drawn as a dashed box while one that fails only during cloning is left blank. All of it runs in this tab on the storage permission, and nothing executes: sanitising removes the executable markup and the render frame is sandboxed to `allow-same-origin` with no `allow-scripts`.',
+    },
+    keeps: {
+      zh: [
+        '形状与 JPEG 那格一致：一页一图、两页以上 ZIP、成员名 `page-N.webp`',
+        '切片无损：中间那份 PDF 存的是 PNG，压缩只发生在最后转 WebP 这一次',
+        '质量与目标体积在这条路上是真档位（WebP 与 JPEG 同属有损容器）',
+        '不透明白底：画布按 `#ffffff` 生成、每页嵌入前再铺一次',
+      ],
+      en: [
+        'The same shape as the JPEG page: one image per page, a ZIP past two pages, members named `page-N.webp`',
+        'Lossless slices: the intermediate PDF stores PNG, so compression happens once, on the final WebP',
+        'Quality and target size are real dials here — WebP and JPEG are the two lossy containers',
+        'Opaque on white: the canvas is produced on `#ffffff` and every page is filled again before embedding',
+      ],
+    },
+    limits: {
+      zh: [
+        '有损：质量先降、尺寸后降去追目标体积，两种「变小」的来路不一样，看效果时值得区分',
+        '这一格不摆密度滑杆，但上一批 PDF 转换留下的密度值会被带到这一步；没设过时是默认 144',
+        '整页捕获高度上限 32768 px：超过明确报错，不给空白画布或半张图',
+        '图里没有文字层：不能选中、搜索或朗读，要这些请保留 HTML 或转 TXT / Markdown',
+        '远程与相对路径的图片取不到字节：引用被剥掉、按张数披露，位置是虚线方框或直接留空',
+      ],
+      en: [
+        'Lossy: chasing a target size walks quality down first and only then scales the picture — two different reasons for “it got smaller”',
+        'This route exposes no density slider, yet a density left from an earlier PDF batch is forwarded into this step; unset, it is the default 144',
+        'A 32768 px ceiling on the whole-page capture height, failing outright rather than returning a blank canvas or half a picture',
+        'No text layer: nothing to select, search or read aloud — keep the HTML, or take TXT / Markdown, for that',
+        'Images referenced by network address or sibling path have no bytes: the references are stripped, the count is disclosed, and a spot is a dashed box or left blank',
+      ],
+    },
+    notes: {
+      zh: [
+        '要严格无损的一张长图：HTML→PNG，整页捕获、没有第二次量化',
+        '要能打印归档的成品：HTML→PDF，页面就是文档本身',
+        '只要其中一页：可以先 HTML→PDF 再用 PDF→WebP 选页，避免整篇都出图',
+      ],
+      en: [
+        'For one exactly-lossless tall image: HTML to PNG, a whole-page capture with no second quantisation',
+        'For a printable document: HTML to PDF, whose pages are the file itself',
+        'For a single page only: HTML to PDF, then PDF to WebP on that file with a page range',
+      ],
+    },
+    faq: [
+      {
+        q: {
+          zh: 'WebP 和 JPEG 这两格该选哪个？',
+          en: 'WebP or JPEG — which page should I use?',
+        },
+        a: {
+          zh: '两者的产物形状完全一样（一页一图、多页 ZIP、同一条 A4 切片与同一次有损编码），差别只在容器本身与目标软件的接受度。本项目没有对本机样本做过两套体积对照，所以不宣称哪一种更小——需要小体积就在两格上各跑一次、用同一份文件比字节数，这比听任何保证可靠。',
+          en: 'The artifact shape is identical (one image per page, a ZIP past two, the same A4 slicing and the same single lossy pass); what differs is the container and what the receiving software accepts. This project has not run a same-file size comparison between the two on this machine, so it claims neither is smaller — run both on your own file and compare byte counts, which beats any guarantee on this page.',
+        },
+      },
+      {
+        q: {
+          zh: '为什么我的 WebP 是白底，不是原来网页的深色背景？',
+          en: 'Why is the WebP on white rather than my page’s dark background?',
+        },
+        a: {
+          zh: '这一路的画布按 `#ffffff` 生成，每页嵌入 PDF 前还会再铺一次白，而最后那次编码是 JPEG 之外唯一的有损容器、产物不透明。也就是说：页面自己没画出底色的地方，就会落成白。想让某处是别的颜色，请在源文档里真的把那个颜色画出来。',
+          en: 'The canvas for this route is produced on `#ffffff`, each page is filled white again before it enters the PDF, and the final encode is opaque. So any area the page itself never paints lands as white. To get another colour there, paint it in the source document.',
+        },
+      },
+      {
+        q: {
+          zh: '一张很长的网页会出一张超大的 WebP 吗？',
+          en: 'Will one very long page become one enormous WebP?',
+        },
+        a: {
+          zh: '不会。中间那份 PDF 是按 A4 切的，所以产出是一组页面图而不是单张长图：两页以上打包成 ZIP，每张的像素尺寸由那一页的排版高度与当时的渲染倍率决定。整篇一次捕获的高度上限 32768 px 仍然管着渲染那一步，超过就报错。',
+          en: 'No. The intermediate PDF is sliced at A4, so you get a set of page images rather than one long picture: two or more arrive in a ZIP, each sized from that page’s laid-out height and the render scale in force. The 32768 px ceiling still governs the capture step, and exceeding it fails the conversion.',
+        },
+      },
+    ],
+  },
+  {
+    slug: 'markdown-to-webp',
+    from: 'md',
+    to: 'webp',
+    shot: 'batch-results',
+    published: '2026-10-21',
+    title: {
+      zh: 'Markdown 转 WebP——离线、A4 分页逐页编码、不上传',
+      en: 'Markdown to WebP offline — A4 pages, no upload',
+    },
+    desc: {
+      zh: 'Markdown 先按 GFM 渲染成带样式的 HTML，再整篇渲染一次、按 A4 切成无损片段，逐页编码成 WebP；多页打包 ZIP。全程离线。',
+      en: 'GFM renders to styled HTML first, then the document is captured once, sliced into lossless A4 pages and encoded WebP page by page, a ZIP when several.',
+    },
+    lede: {
+      zh: '三步，最后一步换成 WebP：`md>html` 用 marked 按 GFM 渲染（管道符表格、删除线、任务清单、自动链接都被认出；段落里单个换行仍是续行），过 DOMPurify 的 html + svg 两套 profile（**文档里的内联 SVG 图形不会被删**），再套上自带的样式表；`html>pdf` 把这份文档整篇渲染成一张画布、按 A4 比例算页数并切成同高片段，每片段以无损位图（PNG）嵌进 PDF；`pdf>webp` 再逐页转成 WebP。因此产物形状与 Markdown→JPG、HTML→WebP 完全一致：一页一图、两页以上以 ZIP 交付（成员名 `page-N.webp`）、单页直接给一个 `.webp`；WebP 与 JPEG 同属有损容器，质量与目标体积这两格对它们生效，追逐顺序是先降质量、再缩尺寸。与 JPG 那格唯一的实质区别就是终点容器；本项目没在本机做过两套体积对照，所以这里不宣称谁更小——同一份文件各跑一次比字节数，比任何保证可靠。要说清的边界：中间那份 PDF 转图时这一格不摆密度滑杆（面板只对以 PDF 为输入的转换给它），但存储里的密度值会随每一步带走，没设过时是默认 144；整页捕获高度上限 32768 px，超过明确报错；图里没有可复制的文字；**Markdown 里以网络地址或相邻路径引用的图片取不到字节**——渲染前剥掉引用、结果卡按张数披露，被替换的位置画虚线方框，只在克隆那一步失败的那种直接留空。脚本不执行、全程离线，只有 storage 权限。',
+      en: 'Three steps, the last one WebP: `md>html` renders through marked as GFM (pipe tables, strikethrough, task lists and autolinks are recognised; a single newline inside a paragraph stays a soft wrap), passes DOMPurify’s html and svg profiles — **so an inline SVG diagram is not deleted** — and is wrapped in the bundled stylesheet; `html>pdf` renders that document into one canvas, computes the page count from the A4 ratio, slices it into equal-height strips and embeds each losslessly as PNG; `pdf>webp` then encodes every page as WebP. The artifact shape is therefore identical to Markdown to JPG and HTML to WebP: one image per page, a ZIP past two with members named `page-N.webp`, a single `.webp` for one page. WebP and JPEG are the two lossy containers, so quality and a target size apply here, chased by lowering quality first and scaling afterwards. The only substantive difference from the JPEG page is the final container; this project has run no same-file size comparison between the two on this machine, so neither is claimed to be smaller — convert your own file twice and compare byte counts. The boundaries: this route exposes no density slider (the panel offers it only for conversions taking a PDF as input) while a stored density is forwarded to every step and defaults to 144 when unset; the whole-page capture is bounded at 32768 px of height and fails past it rather than trimming; there is no copyable text in the image; and **images the Markdown points at by network address or sibling path have no bytes** — the references are stripped before rendering, the count is disclosed on the card, a replaced spot becomes a dashed box, and one that fails only during cloning is left blank. No scripts run, everything is offline, and the only permission is storage.',
+    },
+    keeps: {
+      zh: [
+        '语法变成排版：标题、列表、任务清单与表格按 GFM 渲染后再进图',
+        '内联 SVG 图形保留：净化同时挂 html 与 svg 两套 profile',
+        '一页一图且切片无损：片段以 PNG 进 PDF，压缩只在最后转 WebP 那一次发生',
+        '质量与目标体积在这条路上是真档位（与 JPEG 同为有损容器）',
+      ],
+      en: [
+        'Syntax becomes layout: headings, lists, task lists and tables render as GFM before imaging',
+        'Inline SVG diagrams survive: sanitising runs the html and svg profiles together',
+        'One image per page with lossless slices: strips enter the PDF as PNG, so compression happens once, on the final WebP',
+        'Quality and target size are real dials here, the same lossy container class as JPEG',
+      ],
+    },
+    limits: {
+      zh: [
+        '有损：目标体积先降质量、再缩尺寸，所以「文件小了」有两种来路',
+        '引用的图片取不到字节：远程与相邻路径的引用被剥掉，位置是虚线方框或空着，卡片按张数披露',
+        '这一格不摆密度滑杆；存储里留下的密度值仍会被带到中间那份 PDF 那一步',
+        '整页捕获高度上限 32768 px，超过报错而不是交付半张图',
+        '图里没有可复制的文字，也不承诺能读回 Markdown：要编辑请保留 `.md`',
+      ],
+      en: [
+        'Lossy: a target size lowers quality before it scales the picture, so “smaller” has two causes',
+        'Referenced images have no bytes: remote and sibling references are stripped, a spot is a dashed box or blank, and the card reports the count',
+        'This route exposes no density slider, yet a density left in storage still reaches the intermediate PDF step',
+        'A 32768 px ceiling on the whole-page capture height, failing rather than trimming',
+        'No copyable text inside the image and no promise of reading Markdown back out: keep the `.md`',
+      ],
+    },
+    notes: {
+      zh: [
+        '要严格无损的版面：Markdown→PNG（整页一张长图）或 Markdown→PDF（一份文档）',
+        '要一页一页对照体积：同一份文件分别走 Markdown→JPG 与 Markdown→WebP，比字节数',
+        '要给程序读的数据：Markdown→HTML / CSV / JSON，这一格交付的是版面',
+      ],
+      en: [
+        'For an exactly-lossless layout: Markdown to PNG (one tall image) or Markdown to PDF (one document)',
+        'To compare sizes page by page: run the same file through Markdown to JPG and Markdown to WebP and compare byte counts',
+        'For data a program reads: Markdown to HTML, CSV or JSON — this page delivers the layout',
+      ],
+    },
+    faq: [
+      {
+        q: {
+          zh: 'Markdown 转 WebP 和转 JPG 有什么不同？',
+          en: 'How is WebP different from JPEG here?',
+        },
+        a: {
+          zh: '前两步完全相同（GFM 渲染成同一份带样式表的 HTML，再切成同样的无损 A4 片段），只有终点容器不同：一个交 WebP、一个交 JPEG，两者都有损、都支持质量与目标体积。谁更小本项目没在本机量过，不做宣称——用你自己的文件各跑一次比字节数最可靠。',
+          en: 'The first two steps are identical — GFM into the same styled HTML, sliced into the same lossless A4 pages — and only the final container differs. Both ends are lossy and both take quality and a target size. Which compresses smaller has not been measured here, so nothing is claimed; run your own file through both and compare byte counts.',
+        },
+      },
+      {
+        q: {
+          zh: '我的表格会变成什么？',
+          en: 'What happens to my tables?',
+        },
+        a: {
+          zh: '管道符表格经 marked 变成真正的 `<table>`，自带样式表给它 100% 宽、每格 1px 实线、表头浅底与偶数行条纹，然后这一切被拍进图里。产物是位图：格子里的值不能再被选中或编辑，列宽由排版决定而不是由源文件的竖线数量决定。',
+          en: 'A pipe table becomes a real `<table>` through marked, and the bundled stylesheet gives it full width, a 1px rule per cell, a tinted header and striped even rows — all of which is then imaged. The artifact is a bitmap: values cannot be selected or edited, and column widths come from layout, not from the number of bars in the source.',
+        },
+      },
+      {
+        q: {
+          zh: '为什么转换报错说「渲染高度过大」？',
+          en: 'Why did it fail with “too tall to render”?',
+        },
+        a: {
+          zh: '整篇文档是一次性渲染成一张画布的，那条路径的高度上限是 32768 px（一边最大 8192 px 的四倍）。这条链宁可报错也不交空白或被截短的结果——远超这个高度时浏览器给的其实是画不出内容的空白画布，那种「成功但全白」比一条错误难查得多。要处理这么长的文档，请把它拆开，或者改走 Markdown→PDF 那样的分页产物。',
+          en: 'The document is rendered into one canvas, and that path is bounded at 32768 px of height (four times the 8192 px edge ceiling). The route prefers failing over returning blank or trimmed output, because well past that height a browser hands back a canvas that draws nothing — a white “success” much harder to diagnose than an error. Split the document, or take the paged Markdown to PDF artifact instead.',
+        },
+      },
+    ],
+  },
 ];

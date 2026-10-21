@@ -75,12 +75,7 @@ export const HUBS = [
         },
       },
     ],
-    targets: {
-      webp: {
-        zh: '与 JPEG 共用 A4 分页与栅格化，终点改成 WebP 编码；多页仍打包 ZIP，压缩参数与工作台里的其它 WebP 输出一致。',
-        en: 'It shares the A4 slicing and rasterisation with JPEG and changes only the final encoder to WebP; several pages still arrive as a ZIP, with the same compression controls as every other WebP output.',
-      },
-    },
+    targets: {},
   },
   {
     from: 'html',
@@ -145,12 +140,7 @@ export const HUBS = [
         },
       },
     ],
-    targets: {
-      webp: {
-        zh: '与 JPEG 同一条 A4 分页路径，终点编码为 WebP；多页打包 ZIP。相片类内容体积更小，代价是有损压缩。',
-        en: 'It shares the A4 slicing path with JPEG and encodes each page as WebP; several pages arrive as a ZIP. Photographic pages get smaller at the cost of lossy compression.',
-      },
-    },
+    targets: {},
   },
   {
     from: 'docx',
