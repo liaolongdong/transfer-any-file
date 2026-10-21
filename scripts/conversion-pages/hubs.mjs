@@ -620,10 +620,6 @@ export const HUBS = [
         zh: '图片以 data URI 内嵌进 HTML，再转成 Markdown 图片语法；整张图的 base64 会写进 .md，文件自包含但体积明显增大。',
         en: 'The picture is embedded in HTML as a data URI and then written as Markdown image syntax; the whole base64 payload lands in the .md, self-contained but noticeably larger.',
       },
-      docx: {
-        zh: '图片以 data URI 放进 HTML，再交给 Word：文档里是一张位图，没有文字层；体积按 base64 膨胀，长图会撑高页面。',
-        en: 'The picture travels as a data URI through HTML into Word: the document holds a bitmap with no text layer, and the base64 payload inflates the file.',
-      },
     },
   },
   {
@@ -686,12 +682,7 @@ export const HUBS = [
         },
       },
     ],
-    targets: {
-      docx: {
-        zh: '经 data URI 放进 Word：文档里是位图，没有可编辑文字；不重编码，按原像素嵌入。',
-        en: 'The data URI travels into Word: the document holds a bitmap with no editable text, embedded at its original pixels without re-encoding.',
-      },
-    },
+    targets: {},
   },
   {
     from: 'webp',

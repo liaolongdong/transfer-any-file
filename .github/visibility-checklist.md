@@ -1055,6 +1055,25 @@ csv→Word 的另一组事实回读自`html-to-docx.ts`：正文以 MHT altChunk
   实测计数：`pages:render` 108 文件、`pages:check` 逐字节一致、`verify:numbers` 23 事实 × 113 文档、`lint:all`、`build`、
   产物层两条离线守卫、`verify:meta` 全 rc=0。改动面就三个文件（数据源 + 两张生成页），运行时零改动、断言数仍 **452**、素材不重拍。
 
+- **10-21 第卅四轮（png→Word、jpg→Word，93 张页 / 缺口 23）。** 先把缺口算准：路径基线里 182 格中 39 格是 `null`（不可达），
+  **可达 143**；可写目标 11 种，`conversion-policy` 再屏蔽 27 格（6 种图片 → txt/json/csv/xlsx = 24，PDF → json/csv/xlsx = 3），
+  得**界面提供 116**，减去 93 张页 = **23 格**——这与对外印的 143 / 116 两个数字自洽，之前的「182 减 27」是错的口径。
+  这两格挑的是「png/jpg to word」这类高频问法，核心事实只有一条、但很少有人说得准：
+  `html>docx` 的打包器会把 `<img>` 上那条 `data:` **从标记里提出来写成包里独立的 base64 媒体部件**并重写引用，
+  所以产物 `.docx` 里没有 data URI 残留、Word 渲染这张图不需要任何一次取数（判据不是注释，是 `scripts/e2e-test.mjs:2262-2266`
+  那条用夹具专属载荷钉住的用例，它专门避开通用 PNG 头、防止「图被吃掉仍绿」）。
+  文档体则是 altChunk：排版与分页由 Word 打开时决定，本扩展不产出原生段落——这条同时写进 limits 和 faq，
+  因为「Word 打开时提示在转换」是那类用户一定会问的事。内层那份文档 CSS 的版心是本轮早些时候实测的约 800 px，
+  所以显示尺寸写成「由内层 CSS 与 Word 页面共同决定」，不假装本扩展能控制。
+  两条被刻意**不写**的主张：`.docx` 的体积（部件是 base64 再进 zip，没量过就不写）、以及任何「Word 一定能正确渲染 altChunk」的
+  消费端断言（只说由它决定）。jpg 侧另把「不做 OCR」放在 limits 第一条与 faq 第二条，因为它最常被误期待成「照片转文字」。
+  png hub 与 jpg hub 的 `docx` 摘要按镜像规则摘除（jpg hub 的 `targets` 摘完变空对象，渲染守卫接受这个形状），
+  四镜像同批改：`docs/index.html` 的 `.pairs` 网格、`docs/llms.txt`、`docs/convert/index.html` 与 sitemap 由渲染生成。
+  实测计数：`pages:render` **110 文件**、`verify:numbers` 23 事实 × **115 文档**（关系仍成立：文件 = 页 + 17、文档 = 页 + 22）、
+  `pages:check` 逐字节一致、`lint:all`、`build`、产物层两条离线守卫、`verify:meta`、`verify:paths` 全 rc=0。运行时零改动，断言数仍 **452**。
+  一条踩过的工具链坑记在这：`docs/llms.txt` **没有 prettier parser**，把它列进 `prettier --write` 会让整条 `&&` 链在它那里静默短路——
+  render 一次都没跑、而后续 `;` 分隔的门禁照样报绿。llms.txt 只能手改（单行一条），prettier 只喂 `.mjs` 与 `.html`。
+
 ## 3. 收下改动：这一节记的是提交账，不是提交计划
 
 这一节原先给的是 2026-09-19 那一轮（配对页与博客页改成数据源生成）的两条 `git commit`。那些提交早就落地了，

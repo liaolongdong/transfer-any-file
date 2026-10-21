@@ -8264,4 +8264,194 @@ export const PAIRS = [
       },
     ],
   },
+  {
+    slug: 'png-to-docx',
+    from: 'png',
+    to: 'docx',
+    shot: 'batch-results',
+    published: '2026-10-21',
+    title: {
+      zh: 'PNG 转 Word——离线、字节原样进包、不上传',
+      en: 'PNG to Word offline — the bytes ride inside',
+    },
+    desc: {
+      zh: '图片作为包内媒体部件进 .docx，Word 打开不必联网；不重编码，透明与像素原样保留。全程离线，文件不出本机。',
+      en: 'The picture travels as a media part inside the .docx, so Word needs no network to show it. No re-encode: alpha and pixels stay as they were.',
+    },
+    lede: {
+      zh: '两步：`png>html` 先把文件的**原始字节**读成 data URI 放进一张 `<img>`，`html>docx` 再把这份文档交给打包器。关键在第二步的形态——它**不是**把 HTML 逐段翻译成 Word 段落，而是把文档体作为一个 altChunk 塞进包里，所以 Word 打开时按那份 HTML 重新排版；而被搬动的图片更妙：打包器会把 `<img>` 上那条 `data:` **从标记里提出来，写成包里一个独立的 base64 媒体部件**，并把引用重写到那个部件（这条是被 e2e 用夹具专属载荷钉住的：图在包内可解析，渲染它不需要任何一次取数）。于是两件事同时成立——`.docx` 里没有 data URI 残留，而**像素与你的文件逐字节相同**（这条链全程不解码、不上画布，透明通道照旧）。第二件事关乎隐私：`html>docx` 在写出前跑一遍 `stripRemoteResources`，因为这份标记**由 Word 在你这台机器上渲染**，一条远程 `<img>` 会变成别的程序替发出的请求，既看不见也拦不住；内层那份文档 CSS 也随包走，它的版心今天实测约 800 px，所以图的显示宽度由它和 Word 的页面一起决定，而不是由本扩展决定。产出名 `converted.docx`，打包失败明确报 `errors.docxGen` 而不是给一个打不开的文件。这份 .docx 再交给本扩展的 Word→HTML 也能取回内层标记（那条路有 altChunk 恢复），往返不丢图。',
+      en: 'Two steps: `png>html` reads the file’s **raw bytes** into a data URI inside one `<img>`, and `html>docx` hands the document to the packer. The second step is the interesting one — it does not translate HTML into Word paragraphs; it carries the body in as an altChunk, so Word re-lays-it-out when the file opens. And the picture gets lifted further: the packer takes that `data:` off the `<img>` and writes it as its own base64 media part inside the package, rewriting the reference to point at the part (an end-to-end test pins this with a fixture-unique payload: the image resolves from inside the package, and drawing it costs no fetch). Two things follow — no data URI is left in the `.docx`, and the **pixels are byte-identical to your file**, since nothing on this chain decodes, resamples or recompresses, alpha included. The other consequence is privacy: `html>docx` strips remote references on the way out precisely because Word — not this extension — renders that markup on your machine, where one remote `<img>` would become a request issued by another application, invisible to every guard here. The inner document CSS goes in too, and its measure was measured today at about 800 px, so the picture’s displayed width is decided by that CSS and by Word’s page, not by this extension. The output is `converted.docx`; a packing failure reports `errors.docxGen` rather than handing back a file that will not open. Feeding that `.docx` back through Word to HTML recovers the inner markup (that route has altChunk recovery), so the round trip keeps the picture.',
+    },
+    keeps: {
+      zh: [
+        '像素与透明通道逐字节不变：这条链不解码、不上画布、不再压一次',
+        '图片是包里的媒体部件，不是 data URI：Word 从包内解析，渲染它不需要联网',
+        '远程引用在写出前剥掉——那份标记由 Word 在你机器上渲染，不能替它决定要不要发请求',
+        '产物仍是 .docx 容器，能交给任何读 Word 的程序，也能被本扩展的 Word→HTML 取回内层',
+        '一批最多 200 个文件、单个 100 MB，与其他路线共用同一道闸门',
+      ],
+      en: [
+        'Byte-identical pixels and alpha: no decode, no canvas, no second compression on this chain',
+        'The picture is a media part in the package, not a data URI: Word resolves it locally, with no network needed to draw it',
+        'Remote references are stripped before writing, because Word renders that markup on your machine — a request is not this extension’s call to make',
+        'Still a .docx container, readable by anything that opens Word files, and recoverable by this extension’s Word to HTML route',
+        'Up to 200 files per batch and 100 MB each — the same gate every other route shares',
+      ],
+    },
+    limits: {
+      zh: [
+        '文档体是 altChunk（内嵌的那份 HTML），不是 Word 原生段落：逐字排版与分页由 Word 打开时决定',
+        '不产生可编辑的文字层：图就是图，Word 里选不中它里面的字，也没有题注、图文式样式可用',
+        '显示尺寸由内层 CSS 与 Word 页面共同决定，本扩展不给缩放参数；要精确控制尺寸请在 Word 里改',
+        '想要「一页一图」的 PDF 而不是文档，请走 PNG→PDF；想要能再编辑版式，图进 Word 也仍然只是图',
+        '打包失败会报 `errors.docxGen` 并点名该文件，不会交出一个打不开的 .docx',
+      ],
+      en: [
+        'The body is an altChunk — that inner HTML — not native Word paragraphs, so Word decides typesetting and paging when it opens',
+        'No editable text layer: it stays a picture, its words cannot be selected, and there are no captions or picture styles to apply',
+        'Displayed size follows the inner CSS and Word’s page; this route exposes no scaling option — resize it in Word',
+        'For one image per page take PNG to PDF; for a layout you can keep editing, a picture inside Word is still just a picture',
+        'A packing failure reports `errors.docxGen` for that file rather than shipping a .docx that will not open',
+      ],
+    },
+    notes: {
+      zh: [
+        '只想放进网页：PNG→HTML 是这条的第一步，产物是 HTML 而不是 .docx',
+        '要每页一张图的文档：PNG→PDF，一图一页、最多 200 页',
+        '要文字版的内容：这需要 OCR，本扩展离线且不带模型，请自行用识别工具',
+      ],
+      en: [
+        'To put it in a web page: PNG to HTML is this route’s first step, and the artifact is HTML, not a .docx',
+        'For one image per page: PNG to PDF, a page per picture with a 200-page ceiling',
+        'For the words inside the picture: that needs OCR, which this offline extension does not ship',
+      ],
+    },
+    faq: [
+      {
+        q: {
+          zh: '这样生成的 .docx，图片会不会变成「链接到外部文件」？',
+          en: 'Does the picture end up linked to an external file?',
+        },
+        a: {
+          zh: '不会。打包器把那条 data URI 提成包里独立的媒体部件并重写引用，字节就在包里，换台机器、换个目录照样显示；这是被端到端测试用夹具专属载荷钉住的一条。',
+          en: 'No. The packer lifts that data URI out of the markup into its own media part and rewrites the reference, so the bytes live inside the package and it still shows on another machine or in another folder — pinned by an end-to-end test using a fixture-unique payload.',
+        },
+      },
+      {
+        q: {
+          zh: '为什么打开它时 Word 提示在转换文件？',
+          en: 'Why does Word say it is converting the file?',
+        },
+        a: {
+          zh: '因为文档体是一段作为 altChunk 附在包里的 HTML，Word 需要先把它渲染成文档内容。排版因此由 Word 决定——好处是它带着自己那套分页与页面设置，代价是不存在「Word 原生段落」可供逐字改样式。',
+          en: 'Because the body is an HTML fragment attached to the package as an altChunk, which Word renders into document content first. So Word owns the layout: it brings its own paging and page setup, and in exchange there are no native paragraphs to restyle word by word.',
+        },
+      },
+      {
+        q: {
+          zh: '会被重编码或降分辨率吗？',
+          en: 'Will it be re-encoded or downscaled?',
+        },
+        a: {
+          zh: '不会。这条链只做搬运：`png>html` 读原始字节，打包那一步把同一批字节写成媒体部件，中间没有 canvas、没有再压一次。要真的降尺寸或换格式，请走图片转图片那几页，那里才有尺寸与质量的开关。',
+          en: 'Neither. This chain only carries: `png>html` reads the raw bytes and the packer writes those same bytes as a media part — no canvas, no second compression. To actually shrink or reformat, take an image-to-image page, where the size and quality controls live.',
+        },
+      },
+    ],
+  },
+  {
+    slug: 'jpg-to-docx',
+    from: 'jpg',
+    to: 'docx',
+    shot: 'batch-results',
+    published: '2026-10-21',
+    title: {
+      zh: 'JPG 转 Word——离线、字节原样进包、不做 OCR',
+      en: 'JPG to Word offline — bytes in, no OCR',
+    },
+    desc: {
+      zh: '照片作为包内媒体部件进 .docx，Word 打开不联网；像素原样、不重编码，但也不会识别图里的文字。全程离线。',
+      en: 'The photo rides into a .docx as a media part, so Word opens it offline. Pixels are untouched, but nothing is read out of the picture.',
+    },
+    lede: {
+      zh: '和 PNG→Word 是同一条两步链（`jpg>html` + `html>docx`），差别只在源是 JPG：没有透明通道可言，而**图里印着什么这条链一概不知道**。第二步的形态是关键——文档体不是一个一个段落翻译过去的，而是作为 altChunk 附在包里，由 Word 打开时渲染；图片则被打包器从 `<img>` 的 `data:` 里提出来，写成包里一个独立的 base64 媒体部件并重写引用（端到端测试用夹具专属载荷钉住了这条：图在包内可解，渲染它不需要取数）。所以 `.docx` 里没有 data URI 残留，而**像素与你的文件逐字节相同**——中间没有画布、没有再压一次，原本那张照片的压缩代际不会再加一代。`html>docx` 在写出前剥掉一切远程引用，理由是那份标记由 Word 在你机器上渲染，一条远程 `<img>` 就成了别的程序替你发出的请求；内层文档 CSS 也随之进包，版心今天实测约 800 px。这条最常被问的是「照片里的字能不能变文字」：**不能**，那需要 OCR，本扩展不带模型与语言包、也不上传任何东西；要文字得另找识别工具，再把结果贴进文档。产出名 `converted.docx`，失败报 `errors.docxGen`。',
+      en: 'This is the same two-step chain as PNG to Word (`jpg>html` + `html>docx`); the source being a JPEG is the only difference — there is no alpha to speak of, and **whatever is printed in the picture stays unknown to the chain**. The second step decides the shape: the body is not translated paragraph by paragraph but attached to the package as an altChunk that Word renders when the file opens, while the picture is lifted off the `<img>`’s `data:` and written as its own base64 media part with the reference rewritten (an end-to-end test pins that with a fixture-unique payload: the image resolves inside the package and drawing it needs no fetch). So no data URI survives in the `.docx`, and the **pixels are byte-identical to your file** — no canvas, no re-compression, so the photograph does not gain another generation of loss. `html>docx` strips every remote reference first, because Word renders that markup on your machine and a remote `<img>` would become a request issued by another application on your behalf; the inner document CSS goes in with it, its measure measured today at about 800 px. The question this page always gets: **can the words in the photo become text?** No — that needs OCR, and this extension ships no models or language packs and uploads nothing anywhere; bring your own recognition tool and paste its words in. The output is `converted.docx`, and a failure reports `errors.docxGen`.',
+    },
+    keeps: {
+      zh: [
+        '像素逐字节不变：不解码、不上画布、不再压一次，照片不会再加一代损失',
+        '图片是包里的媒体部件，不是 data URI：Word 从包内解析，渲染它不需要联网',
+        '远程引用在写出前剥掉——标记由 Word 在你机器上渲染，请求不该由这条链替你决定',
+        '文件名进 `alt` 与 `title`（去扩展名、属性转义），产物侧仍带着这个名字',
+        '一批最多 200 个文件、单个 100 MB，与其他路线共用同一道闸门',
+      ],
+      en: [
+        'Byte-identical pixels: no decode, no canvas, no second compression, so the photo gains no extra generation of loss',
+        'The picture is a media part in the package, not a data URI: Word resolves it locally, with no network needed to draw it',
+        'Remote references are stripped before writing, because Word renders that markup on your machine — the request is not this chain’s to make',
+        'Your file name goes into `alt` and `title` (extension dropped, escaped for attribute position), so the artifact still carries it',
+        'Up to 200 files per batch and 100 MB each — the same gate every other route shares',
+      ],
+    },
+    limits: {
+      zh: [
+        '不做 OCR：图里印着的文字不会变成 Word 里的字，这条链连像素都不读',
+        '文档体是 altChunk（内嵌 HTML），不是 Word 原生段落：排版与分页由 Word 打开时决定',
+        '不产生题注、图文样式或可搜索文字层；要那些请在 Word 里补，或改走 Word→HTML 那类反向的路',
+        '显示尺寸由内层 CSS 与 Word 页面共同决定，本扩展不给缩放参数',
+        '想要一页一图的 PDF 请走 JPG→PDF；想要真换格式（WebP / PNG）请走图片转图片那几页',
+      ],
+      en: [
+        'No OCR: text printed in the picture never becomes words in the document, because this chain never reads pixels',
+        'The body is an altChunk — that inner HTML — not native Word paragraphs, so Word decides typesetting and paging when it opens',
+        'No captions, picture styles or searchable text layer; add those in Word, or take a route that produces words, such as HTML to Word',
+        'Displayed size follows the inner CSS and Word’s page; this route exposes no scaling option',
+        'For one image per page take JPG to PDF; to actually change format (WebP, PNG) take the image-to-image pages',
+      ],
+    },
+    notes: {
+      zh: [
+        '只想放进网页：JPG→HTML 是这条的第一步，产物是 HTML 而不是 .docx',
+        '想把图塞进 Markdown 笔记：JPG→Markdown 与这条共享第一步',
+        '要文字版的内容：这需要 OCR，本扩展离线且不带模型，请自行用识别工具',
+      ],
+      en: [
+        'To put it in a web page: JPG to HTML is this route’s first step, and the artifact is HTML, not a .docx',
+        'To drop the picture into a Markdown note: JPG to Markdown shares this route’s first step',
+        'For the words inside the picture: that needs OCR, which this offline extension does not ship',
+      ],
+    },
+    faq: [
+      {
+        q: {
+          zh: '生成的 .docx 里，图片是内嵌还是外链？',
+          en: 'Is the picture embedded or linked in the .docx?',
+        },
+        a: {
+          zh: '内嵌，而且不是「以 data URI 内嵌」那种：打包器把那条 data URI 提成包里独立的媒体部件，引用指向部件。所以文件拷到别的机器、别的目录都照样显示，Word 不需要联网，也不会去找你原来的照片路径。',
+          en: 'Embedded — and not as a data URI: the packer lifts it into its own media part and points the reference there. So the file still shows the picture on another machine or in another folder, Word needs no network, and it never goes looking for your original path.',
+        },
+      },
+      {
+        q: {
+          zh: '为什么不直接把照片转成 Word 里的文字？',
+          en: 'Why not just turn the photo into words in Word?',
+        },
+        a: {
+          zh: '那需要识别，而这条链不读像素。本扩展是完全离线的：不带 OCR 模型与语言包，也不把图上传给任何服务，所以它交付的是照片本身放进一个 .docx，加上你的文件名。要文字请用识别工具，再把结果贴进文档。',
+          en: 'That needs recognition, and this chain never reads pixels. The extension is fully offline: no OCR models, no language packs, no uploading your picture anywhere — so it delivers the photograph itself inside a .docx, plus your file name. Run a recognition tool and paste its words in if you need text.',
+        },
+      },
+      {
+        q: {
+          zh: '打开时 Word 说在转换，会不会丢东西？',
+          en: 'Word says it is converting on open — will something be lost?',
+        },
+        a: {
+          zh: '文档体是一段附在包里的 HTML，Word 必须先把它渲染成文档内容，图片本身不经过这个「转换」——字节还在同一个部件里。会变的是排版：分页、页边距与图的显示尺寸由 Word 决定，所以第一次打开的样子和第二次可能因页面设置不同而不同。',
+          en: 'The body is an HTML fragment inside the package, which Word renders into document content; the picture does not pass through that conversion — its bytes stay in the same part. What can move is layout: paging, margins and the displayed size are Word’s call, so the first opening may differ from the second if the page setup changes.',
+        },
+      },
+    ],
+  },
 ];
