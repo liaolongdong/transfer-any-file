@@ -1393,6 +1393,23 @@ csv→Word 的另一组事实回读自`html-to-docx.ts`：正文以 MHT altChunk
   下一轮要么重派一次范围更小的核查（一次 3–4 条，别把 12 条塞进一个 agent——这次就是被长度拖到中断的），
   要么把该页的 lede 再收窄到只剩上面四条已证事实。
 
+- **10-21 第五十七轮（核查回执补齐 + 一条被漏掉的钳制披露）。** 上一笔把中断的核查员记成欠账，这次**把范围收到 4 条重派**，
+  一次跑完没再断：`svg-to-md` 的四条主张**全部成立**，且每条都给了文件行号级证据——
+  ① 基线 `svg->md` = `svg>html` + `html>md` 两步（`conversion-paths.json:174`），`svg-to-html` 不栅格化；
+  ② 预处理在序列化之前（`html-to-md.ts:39` 对 `:45` 的 `new TurndownService` 与 `:72` 的 `turndown()`），
+  换成的是 `src` 属性、`image/png` 数据 URL（`svg-embed.ts:42/:97`），`alt` 取 `<title>`（:100），实测一行 `![my title](data:image/png;base64,…)`；
+  ③ 格子摊平属实（`escapeCell` = `cell.textContent`，:15-16），且 svg→img 发生在 table 规则之前，所以「格子里原本是 svg」照样被抹掉；
+  ④ 标志是**产物侧**判断（`html-to-md.ts:77` 的 `svgCount > 0 && markdown.includes('data:image/png')`），
+  消费链路 `useConversion.ts:775/791` → `ResultDownload.vue:212` → `:357-360`，中英文案（`zh.ts:248` / `en.ts:234`）
+  说的是「已转成位图写进结果文件」，不带张数、不提帧——**与 `html-to-docx.ts:55` 仍用纯 `svgCount > 0` 形成对照**，
+  那条差异本轮没写进任何对外页面，属下一轮可查的口径。
+  **核查员带回一条我漏写的产物事实**：`svg-embed` 也走 `fitToMaxDim`（`svg-raster-common.ts:61-67`，
+  `MAX_DIM` = `MAX_CANVAS_EDGE` = **8192**，`output-options.ts:21` / `image-utils.ts:5`），
+  所以**这条路上超过 8192 px 的那一边会被等比缩下来，且没有任何提示**——页面原先只说「没有尺寸与质量开关」，
+  没说这个钳制照样生效。已补进 `svg-to-md` 的 limits（中英各一条，条目数保持相等）。
+  尺寸回落链也顺量清了：`width`/`height` 只认纯数字或 `px`（`100%` / `20em` 视为缺失）→ 回落 `viewBox` 的宽/高 → 再回落 `DEFAULT_DIM = 1024`。
+  CI 回执：`6b490ee` 与 `4535438` 三条 job（Lint & Type Check / Build Extension / E2E Tests）均 completed/success。
+
 ## 3. 收下改动：这一节记的是提交账，不是提交计划
 
 这一节原先给的是 2026-09-19 那一轮（配对页与博客页改成数据源生成）的两条 `git commit`。那些提交早就落地了，

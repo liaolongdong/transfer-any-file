@@ -10593,6 +10593,7 @@ export const PAIRS = [
         '能否显示、显示多大由渲染那份 Markdown 的一方决定，本页不替它承诺',
         '整段 base64 挤在一行里，diff 与审阅都不友好；要可版本化的形状请自己写外链图片',
         '不做尺寸与质量调节：那些开关在 SVG→PNG / JPG / WebP 那几页',
+        '最长边 8192 px 的钳制这条路上也有：`svg-embed` 同样走 `fitToMaxDim`（`MAX_CANVAS_EDGE` = 8192），只是这里没有滑杆——超尺寸的原图会被等比缩下来，且不另行通知',
       ],
       en: [
         'The vector ends here: no `<svg>` markup survives in the `.md`, and zooming shows pixels',
@@ -10600,6 +10601,7 @@ export const PAIRS = [
         'Whether it displays, and at what size, is up to whoever renders the Markdown; nothing here promises for them',
         'The whole base64 payload sits on one line, hostile to diff and review — write an external reference for a versionable shape',
         'No resizing or quality knobs here: those live on the SVG to PNG, JPG and WebP pages',
+        'The 8192 px longest-edge clamp applies on this route too — `svg-embed` goes through the same `fitToMaxDim` (`MAX_CANVAS_EDGE` = 8192) — but here there is no slider, so an oversized drawing is scaled down on the way in without a word',
       ],
     },
     notes: {
