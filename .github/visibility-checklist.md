@@ -1169,7 +1169,7 @@ csv→Word 的另一组事实回读自`html-to-docx.ts`：正文以 MHT altChunk
 
 - **10-21 第卅轮再加三格（webp→HTML、webp→Markdown、bmp→Markdown，101 张页 / 缺口 15）。** 这一批把位图搬运族剩下的三个高频格补上，
   并且**顺带查出一个真的产品缺口**（不是措辞问题）：`utils/core/animated-image.ts` 的说明写明它的量测范围**只有 GIF**——
-  动图 WebP 的 `VP8X` ANIM 位与 APNG 的 `acTL` 都不在里面，而 `image-convert.ts:17` 的 `lostFrames` 正是
+  动图 WebP 的 `VP8X` ANIM 位与 APNG 的 `acTL` 都不在里面，而 `image-convert.ts:22` 的 `lostFrames` 正是
   `from === FileFormat.GIF && hasMultipleFrames(...)`。于是 **WebP→PNG / JPG 这类会取首帧的路线现在丢了多少动画并不告诉用户**：
   丢帧是真的，披露是没有的。三条相关的页面文案因此都按「限制写明」处理（webp→HTML 的 limits 第 2 条、webp→Markdown 的 limits 第 2 条
   与 notes 第 2 条、以及两页 faq 里的原话「帧检查目前只覆盖 GIF」），修代码本身**不在本轮做**——它会改变用户可见的提示与
