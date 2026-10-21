@@ -151,7 +151,7 @@
       <h2><span lang="zh-CN">会保留什么</span><span lang="en">What carries over</span></h2>
             <ul>
         <li><span lang="zh-CN">整页一次捕获：不必滚动截屏再拼接，一份长 JSON 就是一张图</span><span lang="en">One capture for the whole page: no scrolling and no stitching — a long JSON becomes one image</span></li>
-        <li><span lang="zh-CN">无损编码：着色边界与细线不糊，等宽字形放大后仍是那个字形</span><span lang="en">Lossless encoding: colour edges and thin rules stay clean, and monospace glyphs survive being zoomed</span></li>
+        <li><span lang="zh-CN">无损编码：着色边界与细线不被二次量化，能放大到多清由内容高度选中的像素密度决定（2x / 1.5x / 1x）</span><span lang="en">Lossless encoding: colour edges and thin rules carry no compression artefacts, and how far monospace glyphs survive a zoom depends on the density the page height selected</span></li>
         <li><span lang="zh-CN">排版原样进图：折叠摘要、缩进与语法着色都是渲染出来的样子，与浏览器里看到的一致</span><span lang="en">The layout goes into the picture as rendered: fold summaries, indentation and syntax colouring look as they do in the browser</span></li>
         <li><span lang="zh-CN">没有远程引用也就没有静默丢失：查看器由本扩展自己写出，产物里不存在取不到的图片</span><span lang="en">No remote references means nothing silently missing: the extension writes the viewer itself, so there is no image the artifact could fail to fetch</span></li>
             </ul>
@@ -162,7 +162,7 @@
         <li><span lang="zh-CN">高度上限 32768 px：超限直接失败并说明，不给被截短的图，也不给那片空白画布</span><span lang="en">A 32768 px height ceiling: past it the route fails with an explanation rather than handing back a trimmed image (or that blank canvas)</span></li>
         <li><span lang="zh-CN">文字在图里不是文字：PNG 是位图，产物里的键与值不能选中、搜索或复制</span><span lang="en">Text inside the picture is not text: a PNG has no keys or values to select, search or copy</span></li>
         <li><span lang="zh-CN">长字符串按页面宽度折行，所以看到的是折过的样子；要留原文请走 JSON→TXT 或就留在 `.json`</span><span lang="en">Long strings wrap at the page width, so what you see is already broken up; take JSON to TXT or keep the `.json` for the original run</span></li>
-        <li><span lang="zh-CN">质量档对 PNG 不起作用（无损），能调的是最长边与目标尺寸，它们在编码前重采样</span><span lang="en">A quality setting does nothing for PNG, which is lossless; the longest edge and target size do apply, resampling before encoding</span></li>
+        <li><span lang="zh-CN">质量与目标体积是有损容器才有的档位：面板对 PNG 不提供它们，编码器也会忽略；这一路可调的只有最长边，超出会重采样</span><span lang="en">Quality and a target file size belong to lossy containers: the panel does not offer either for PNG and the encoder ignores them, so the only dial that applies here is the longest edge, which resamples when exceeded</span></li>
         <li><span lang="zh-CN">图片是给人看的快照，不承诺能再解析回 JSON</span><span lang="en">The image is a snapshot for people to read, with no promise that it parses back to JSON</span></li>
             </ul>
           </section>

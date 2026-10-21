@@ -153,7 +153,7 @@
         <li><span lang="zh-CN">排版进图而不是文字进图：表头条纹、代码块底色、`h1` 下边线都按自带的样式表渲染出来</span><span lang="en">The layout goes into the image: table striping, code-panel fills and the `h1` rule render exactly as the bundled stylesheet says</span></li>
         <li><span lang="zh-CN">行内 SVG 图形保留：html + svg 两套净化 profile，架构图不会因为「不是 HTML 标记」被整块删掉</span><span lang="en">Inline SVG diagrams survive: the html and svg sanitising profiles mean an architecture sketch is not deleted for being markup</span></li>
         <li><span lang="zh-CN">GFM 表格按表格渲染：管道符语法变成有边框与条纹的表，而不是一排竖线</span><span lang="en">GFM tables render as tables, with borders and striping rather than a run of vertical bars</span></li>
-        <li><span lang="zh-CN">无损编码：细线、小字号与色块边缘不糊，缩放查看时仍然锐利</span><span lang="en">Lossless encoding: thin rules, small type and colour fields stay crisp when the picture is zoomed</span></li>
+        <li><span lang="zh-CN">无损编码：细线、小字号与色块边缘不糊，缩放查看时仍然锐利</span><span lang="en">Lossless encoding: thin rules, small type and colour fields take no second compression pass, while zoom headroom follows the density chosen for the height</span></li>
             </ul>
           </section>
           <section id="limits" class="reveal">
@@ -162,7 +162,7 @@
         <li><span lang="zh-CN">整页高度上限 32768 px：超长文档会报错并说明，不给被截短的图；要分页请走 Markdown→PDF 或 Markdown→JPG</span><span lang="en">A 32768 px height ceiling: an over-long document fails with an explanation rather than a trimmed picture; take Markdown to PDF or JPG for pages</span></li>
         <li><span lang="zh-CN">引用的远程与相邻路径图片取不到字节：渲染前会剥掉这些引用，结果卡按张数披露，被替换的位置留虚线方框</span><span lang="en">Images pointed at by a network address or a sibling path have no bytes: those references are stripped before rendering, the result card says how many were lost, and each replaced spot keeps a dashed placeholder</span></li>
         <li><span lang="zh-CN">图里的文字不可复制：没有文字层，不能选中、搜索或无障碍朗读出来</span><span lang="en">Text inside the image cannot be copied: there is no text layer to select, search or read aloud</span></li>
-        <li><span lang="zh-CN">质量档对 PNG 不起作用（无损），能调的是最长边与目标尺寸，它们在编码前重采样</span><span lang="en">A quality setting does nothing for PNG, which is lossless; the longest edge and target size do apply, resampling before encoding</span></li>
+        <li><span lang="zh-CN">质量与目标体积是有损容器才有的档位：面板对 PNG 不提供它们，编码器也会忽略；这一路可调的只有最长边，超出会重采样</span><span lang="en">Quality and a target file size belong to lossy containers: the panel does not offer either for PNG and the encoder ignores them, so the only dial that applies here is the longest edge, which resamples when exceeded</span></li>
         <li><span lang="zh-CN">等宽代码块按 800 px 正文宽度排版，超长行会横向溢出到面板内部而不是折行——那是样式表的行为，图片忠实拍下</span><span lang="en">Monospace code lays out inside the 800 px measure and very long lines overflow the panel rather than wrapping; that is the stylesheet’s behaviour and the image reproduces it faithfully</span></li>
             </ul>
           </section>

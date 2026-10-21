@@ -6680,13 +6680,13 @@ export const PAIRS = [
     keeps: {
       zh: [
         '整页一次捕获：不必滚动截屏再拼接，一份长 JSON 就是一张图',
-        '无损编码：着色边界与细线不糊，等宽字形放大后仍是那个字形',
+        '无损编码：着色边界与细线不被二次量化，能放大到多清由内容高度选中的像素密度决定（2x / 1.5x / 1x）',
         '排版原样进图：折叠摘要、缩进与语法着色都是渲染出来的样子，与浏览器里看到的一致',
         '没有远程引用也就没有静默丢失：查看器由本扩展自己写出，产物里不存在取不到的图片',
       ],
       en: [
         'One capture for the whole page: no scrolling and no stitching — a long JSON becomes one image',
-        'Lossless encoding: colour edges and thin rules stay clean, and monospace glyphs survive being zoomed',
+        'Lossless encoding: colour edges and thin rules carry no compression artefacts, and how far monospace glyphs survive a zoom depends on the density the page height selected',
         'The layout goes into the picture as rendered: fold summaries, indentation and syntax colouring look as they do in the browser',
         'No remote references means nothing silently missing: the extension writes the viewer itself, so there is no image the artifact could fail to fetch',
       ],
@@ -6696,14 +6696,14 @@ export const PAIRS = [
         '高度上限 32768 px：超限直接失败并说明，不给被截短的图，也不给那片空白画布',
         '文字在图里不是文字：PNG 是位图，产物里的键与值不能选中、搜索或复制',
         '长字符串按页面宽度折行，所以看到的是折过的样子；要留原文请走 JSON→TXT 或就留在 `.json`',
-        '质量档对 PNG 不起作用（无损），能调的是最长边与目标尺寸，它们在编码前重采样',
+        '质量与目标体积是有损容器才有的档位：面板对 PNG 不提供它们，编码器也会忽略；这一路可调的只有最长边，超出会重采样',
         '图片是给人看的快照，不承诺能再解析回 JSON',
       ],
       en: [
         'A 32768 px height ceiling: past it the route fails with an explanation rather than handing back a trimmed image (or that blank canvas)',
         'Text inside the picture is not text: a PNG has no keys or values to select, search or copy',
         'Long strings wrap at the page width, so what you see is already broken up; take JSON to TXT or keep the `.json` for the original run',
-        'A quality setting does nothing for PNG, which is lossless; the longest edge and target size do apply, resampling before encoding',
+        'Quality and a target file size belong to lossy containers: the panel does not offer either for PNG and the encoder ignores them, so the only dial that applies here is the longest edge, which resamples when exceeded',
         'The image is a snapshot for people to read, with no promise that it parses back to JSON',
       ],
     },
@@ -6874,7 +6874,7 @@ export const PAIRS = [
         'The layout goes into the image: table striping, code-panel fills and the `h1` rule render exactly as the bundled stylesheet says',
         'Inline SVG diagrams survive: the html and svg sanitising profiles mean an architecture sketch is not deleted for being markup',
         'GFM tables render as tables, with borders and striping rather than a run of vertical bars',
-        'Lossless encoding: thin rules, small type and colour fields stay crisp when the picture is zoomed',
+        'Lossless encoding: thin rules, small type and colour fields take no second compression pass, while zoom headroom follows the density chosen for the height',
       ],
     },
     limits: {
@@ -6882,14 +6882,14 @@ export const PAIRS = [
         '整页高度上限 32768 px：超长文档会报错并说明，不给被截短的图；要分页请走 Markdown→PDF 或 Markdown→JPG',
         '引用的远程与相邻路径图片取不到字节：渲染前会剥掉这些引用，结果卡按张数披露，被替换的位置留虚线方框',
         '图里的文字不可复制：没有文字层，不能选中、搜索或无障碍朗读出来',
-        '质量档对 PNG 不起作用（无损），能调的是最长边与目标尺寸，它们在编码前重采样',
+        '质量与目标体积是有损容器才有的档位：面板对 PNG 不提供它们，编码器也会忽略；这一路可调的只有最长边，超出会重采样',
         '等宽代码块按 800 px 正文宽度排版，超长行会横向溢出到面板内部而不是折行——那是样式表的行为，图片忠实拍下',
       ],
       en: [
         'A 32768 px height ceiling: an over-long document fails with an explanation rather than a trimmed picture; take Markdown to PDF or JPG for pages',
         'Images pointed at by a network address or a sibling path have no bytes: those references are stripped before rendering, the result card says how many were lost, and each replaced spot keeps a dashed placeholder',
         'Text inside the image cannot be copied: there is no text layer to select, search or read aloud',
-        'A quality setting does nothing for PNG, which is lossless; the longest edge and target size do apply, resampling before encoding',
+        'Quality and a target file size belong to lossy containers: the panel does not offer either for PNG and the encoder ignores them, so the only dial that applies here is the longest edge, which resamples when exceeded',
         'Monospace code lays out inside the 800 px measure and very long lines overflow the panel rather than wrapping; that is the stylesheet’s behaviour and the image reproduces it faithfully',
       ],
     },
@@ -6959,13 +6959,13 @@ export const PAIRS = [
     keeps: {
       zh: [
         '值按文件里写下的字符落地：`00424`、`2024-01-05`、`1/2` 都不被推断成数字或日期（实测 `raw: true` 下 `data-v` 与显示文本一致）',
-        '一张表进一份文档：CSV 只有一个工作表，产物里就是一张表，不会莫名多出第二张',
+        '一个工作表一张表：按 CSV 字节解析就是一张表，产物里不会莫名多出第二张；若正文其实不是 CSV 形状而是 HTML（读取器先看内容再看后缀），多张 `<table>` 会被读成多个工作表，那种情况下每张表前会有一个取自表名的小标题',
         '单元格里的文字内容保留：`sheet_to_html` 写出的是格子里的字，不是重新格式化后的显示串',
         '远程引用被剥净再交给 Word：这条链不把「打开即发请求」的风险写进产物',
       ],
       en: [
         'Values land as the characters the file carries: `00424`, `2024-01-05` and `1/2` are not inferred into numbers or dates (measured: with `raw: true`, `data-v` and the displayed text agree)',
-        'One table in one document: a CSV has a single worksheet, so nothing extra appears as a second table',
+        'One worksheet, one table: read as CSV bytes there is a single sheet, so no second table appears out of nowhere — and if the payload is really HTML (the reader looks at content before the extension), several tables become several worksheets, each then preceded by a heading carrying its sheet name',
         'The words inside cells are kept: `sheet_to_html` writes what is in the cell rather than a re-formatted display string',
         'Remote references are stripped before Word sees the markup, so this chain does not write an open-and-request risk into the artifact',
       ],
@@ -7005,8 +7005,8 @@ export const PAIRS = [
           en: 'My first row is a header — will Word show it as one?',
         },
         a: {
-          zh: '不会自动。实测 `sheet_to_html` 每行都写成 `<td>`，没有 `<th>`，所以文档里没有「这是标题行」这个信息；Word 只会把第一行当成普通行（你可以勾标题行或给它套样式）。反过来说，这也意味着任何一行都能被安全地当成数据行处理，不会因为样式而错位。',
-          en: 'Not automatically. Measured, `sheet_to_html` writes every row as `<td>` with no `<th>`, so the file carries no “this is the title row” information and Word treats the first row like any other — tick Header Row or style it. The flip side: no row is special, so nothing shifts because of header styling.',
+          zh: '不会自动。实测 `sheet_to_html` 每行都写成 `<td>`，没有 `<th>`，所以文档结构里没有「这是标题行」这一项，第一行不会以表头身份存在。要那种外观得由你在打开它的软件里把首行标成标题行——这份产物不替你决定。反过来说，这也意味着任何一行都能被安全地当成数据行处理，不会因为样式而错位。',
+          en: 'Not automatically. Measured, `sheet_to_html` writes every row as `<td>` with no `<th>`, so the file carries no “this is the title row” information and no row is marked as a header; turning one into a header is your decision in whatever opens it, not this chain’s. The flip side: no row is special, so nothing shifts because of header styling.',
         },
       },
       {
@@ -7025,8 +7025,8 @@ export const PAIRS = [
           en: 'Will Word block the resulting .docx?',
         },
         a: {
-          zh: '产物是一份正常的 OPC 容器，能像其他 .docx 一样打开；它的正文以 altChunk 形式内嵌，排版由 Word 完成。需要说明的是：远程引用在打包前已被剥净，所以 Word 打开时不会去取文档外的东西。若打包那一步失败，界面报的是转换错误，不会给你一份打不开的文件。',
-          en: 'It is an ordinary OPC container that opens like any other .docx, with its body carried as an altChunk that Word lays out. The point worth stating: remote references are stripped before packing, so Word has nothing outside the file to fetch. If packing fails, the interface reports a conversion error instead of handing you an unopenable file.',
+          zh: '产物是一份 OPC 容器，正文以 altChunk 形式内嵌，排版由打开它的那款软件决定。要说明的是：远程引用在打包前已被剥净，文档里不含需要联网解析的子资源。打包抛错、或返回的不是 Blob 时，界面报转换错误，而不是交出一个未完成的文件。',
+          en: 'It is an ordinary OPC container whose body is carried as an altChunk, so the layout belongs to whichever application opens it. The point worth stating: remote references are stripped before packing, so the document holds no subresource that would need the network. If packing throws, or hands back something that is not a Blob, the interface reports a conversion error rather than an unfinished file.',
         },
       },
     ],
@@ -7046,21 +7046,21 @@ export const PAIRS = [
       en: 'Read with raw: true into HTML, then captured losslessly as one PNG: 1px rules and row striping come from the bundled stylesheet. Past 32768 px it fails.',
     },
     lede: {
-      zh: '要把一张表甩进只吃图片的地方（聊天、幻灯片、表单附件），一张图比一段贴过去会散版的表格可靠。两步：`csv>html` 用 `raw: true` 读取（所以 `00424` 不会缩成 `424`、`2024-01-05` 不会变成 `1/5/24`，实测 `data-v` 与显示文本一致）并交给 `sheet_to_html` 写成一张表，再套上这份扩展自带的样式表；`html>png` 把净化后的文档离屏渲染成整页画布并无损编码。图里看到的排版因此是那条样式表决定的：正文最大宽度 800 px 居中、表格 `width: 100%` 且 `border-collapse`、每个单元 1px 实线边框加内边距、偶数行一层浅底——**注意条纹按行序落**：因为 `sheet_to_html` 不产出 `<th>`（实测每行都是 `<td>`），你的表头行不会得到特别待遇，它是第一行、白底，第二行才有浅底。列多而窄时文字换行而不是把画布撑宽（正文的 `word-wrap: break-word`），所以你得到的是一张宽度固定、高度随内容长的图。两条边界：整页高度上限 32768 px（`MAX_CANVAS_EDGE × 4`），超出报「渲染高度过大」而不是交付空白画布或被截短的图；图里的文字不是文字，PNG 没有文字层。全过程在这个标签页里完成，只有 storage 权限，渲染前还会剥掉远程引用。',
-      en: 'When a table has to go somewhere that only accepts pictures — chat, a slide, a form attachment — one image is more dependable than a paste that loses its layout. Two steps: `csv>html` reads with `raw: true` (so `00424` does not shrink to `424` and `2024-01-05` does not become `1/5/24`; measured, `data-v` and the displayed text agree), hands the sheet to `sheet_to_html`, and wraps it in the stylesheet this extension ships; `html>png` renders the sanitised document offscreen and encodes the whole page losslessly. What you see is that stylesheet: an 800 px centred measure, `width: 100%` tables with `border-collapse`, a 1px rule and padding on every cell, and one tint on even rows — and **the striping follows row order**, because `sheet_to_html` emits no `<th>` (measured: every row is `<td>`), so your header row gets no special treatment: it is row one, on white, and row two is the first tinted one. With many columns the text wraps rather than widening the canvas (`word-wrap: break-word` on the measure), so what you get is fixed-width and content-tall. Two boundaries: one capture is bounded at 32768 px of height (`MAX_CANVAS_EDGE × 4`) and past it the route reports “too tall to render” instead of delivering a blank canvas or a trimmed image; and text in the picture is not text — a PNG has no text layer. All of it inside this tab on the storage permission, with remote references stripped before rendering.',
+      zh: '要把一张表甩进只吃图片的地方（聊天、幻灯片、表单附件），一张图比一段贴过去会散版的表格可靠。两步：`csv>html` 用 `raw: true` 读取（所以 `00424` 不会缩成 `424`、`2024-01-05` 不会变成 `1/5/24`，实测 `data-v` 与显示文本一致）并交给 `sheet_to_html` 写成一张表，再套上这份扩展自带的样式表；`html>png` 把净化后的文档离屏渲染成整页画布并无损编码。图里看到的排版因此是那条样式表决定的：正文最大宽度 800 px 居中、表格 `width: 100%` 且 `border-collapse`、每个单元 1px 实线边框加内边距、偶数行一层浅底——**注意条纹按行序落**：因为 `sheet_to_html` 不产出 `<th>`（实测每行都是 `<td>`），你的表头行不会得到特别待遇，它是第一行、白底，第二行才有浅底。列多而窄时文字换行而不是把画布撑宽（正文的 `word-wrap: break-word`），所以你得到的是一张排版宽度固定（800 px 正文）、高度随内容长的一张图，而画布的像素宽度按内容高度取 2x、1.5x 或 1x——越长的文档像素密度越低。两条边界：整页高度上限 32768 px（`MAX_CANVAS_EDGE × 4`），超出报「渲染高度过大」而不是交付空白画布或被截短的图；图里的文字不是文字，PNG 没有文字层。全过程在这个标签页里完成，只有 storage 权限，渲染前还会剥掉远程引用。',
+      en: 'When a table has to go somewhere that only accepts pictures — chat, a slide, a form attachment — one image is more dependable than a paste that loses its layout. Two steps: `csv>html` reads with `raw: true` (so `00424` does not shrink to `424` and `2024-01-05` does not become `1/5/24`; measured, `data-v` and the displayed text agree), hands the sheet to `sheet_to_html`, and wraps it in the stylesheet this extension ships; `html>png` renders the sanitised document offscreen and encodes the whole page losslessly. What you see is that stylesheet: an 800 px centred measure, `width: 100%` tables with `border-collapse`, a 1px rule and padding on every cell, and one tint on even rows — and **the striping follows row order**, because `sheet_to_html` emits no `<th>` (measured: every row is `<td>`), so your header row gets no special treatment: it is row one, on white, and row two is the first tinted one. With many columns the text wraps rather than widening the canvas (`word-wrap: break-word` on the measure), so what you get is a fixed 800 px measure with a content-driven height, while the canvas pixels come out at 2x, 1.5x or 1x depending on that height — the taller the table, the lower the density. Two boundaries: one capture is bounded at 32768 px of height (`MAX_CANVAS_EDGE × 4`) and past it the route reports “too tall to render” instead of delivering a blank canvas or a trimmed image; and text in the picture is not text — a PNG has no text layer. All of it inside this tab on the storage permission, with remote references stripped before rendering.',
     },
     keeps: {
       zh: [
         '值按写下的字符进图：`raw: true` 让 `00424` 与 `2024-01-05` 保持原字符，图里不会出现被推断过的 `424` 或 `1/5/24`',
         '边框与条纹由自带样式表给出：每格 1px 实线、表格 100% 宽并折叠边框，偶数行一层浅底',
-        '宽度固定、高度随内容：一张图就是一整张表，不用滚动拼接',
-        '无损编码：细线与网格在放大后仍清晰，适合贴进会被再次查看的场合',
+        '排版宽度固定、高度随内容：一张图就是一整张表，不用滚动拼接，像素密度则按高度取 2x / 1.5x / 1x',
+        '无损编码：像素之间不引入新的量化损失，但能放大到多清楚由那档像素密度决定——很长的表落在 1x',
       ],
       en: [
         'Characters go into the picture as written: `raw: true` keeps `00424` and `2024-01-05`, so no inferred `424` or `1/5/24` shows up',
         'Rules and striping come from the bundled stylesheet: a 1px border on every cell, 100% width with collapsed borders, one tint on even rows',
-        'Fixed width, content-driven height: one image is the whole table, with no scrolling and no stitching',
-        'Lossless encoding: thin rules and gridlines stay crisp when the picture is zoomed',
+        'A fixed 800 px measure with content-driven height: one image is the whole table, with no scrolling and no stitching, while the pixel ratio steps 2x → 1.5x → 1x as the page grows taller',
+        'Lossless encoding: no extra quantisation between pixels, though how far it stays readable when zoomed depends on the density the height chose, and long tables land on 1x',
       ],
     },
     limits: {
@@ -7069,14 +7069,14 @@ export const PAIRS = [
         '高度上限 32768 px：几千行的表会报错并说明，不给被截短的图；要分页请走 CSV→PDF 或 CSV→JPG',
         '文字不可选中、搜索或朗读：PNG 没有文字层，要这些请用 HTML / Markdown / Excel',
         '宽表不换画布宽度而是换行：列特别多时每列会挤窄，读起来不如原始 CSV 利落',
-        '质量档对 PNG 不起作用（无损），能调的是最长边与目标尺寸，它们在编码前重采样',
+        '质量与目标体积是有损容器才有的档位：面板对 PNG 不提供它们，编码器也会忽略；这一路可调的只有最长边，超出会重采样',
       ],
       en: [
         'The header is not treated specially: with no `<th>`, striping follows row order, so row one is untinted — add your own visual cue in the source if it has to stand out',
         'A 32768 px height ceiling: a table of thousands of rows fails with an explanation rather than a trimmed picture; take CSV to PDF or JPG for pages',
         'Nothing is selectable, searchable or readable aloud: a PNG has no text layer, so use HTML, Markdown or Excel for that',
         'Wide tables wrap instead of widening: with many columns each one squeezes and it reads less cleanly than the CSV itself',
-        'A quality setting does nothing for PNG, which is lossless; the longest edge and target size do apply, resampling before encoding',
+        'Quality and a target file size belong to lossy containers: the panel does not offer either for PNG and the encoder ignores them, so the only dial that applies here is the longest edge, which resamples when exceeded',
       ],
     },
     notes: {

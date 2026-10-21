@@ -929,6 +929,15 @@ csv→Word 的另一组事实回读自`html-to-docx.ts`：正文以 MHT altChunk
   `verify:remote-code`、`verify:meta` 全 rc=0，`.output` 里搜不到两个 slug。运行时零改动，断言数仍 **452**，素材不重拍。
   **SEO 缺口现 37 格**。
 
+- **10-21 第十九轮（对第十八轮的更正：只读评审推翻 4 类句子，其中一类被我复制到三张页）。** 提交 `e6bdb8b` 之后照例派只读评审逐句对实现查真伪，它推翻的四条我都复核过源码才改：
+  ① **「CSV 只有一个工作表」说成绝对**——读取器先看内容再看后缀，正文其实是 HTML 时多张 `<table>` 会变成多个工作表，而 `workbookToHtmlBody` 在多 sheet 时给每张表前面写一个 `<h2>` 表名，所以那句从「保证」改成「按 CSV 字节解析时」并补上那一支；
+  ② **「能调的是最长边与目标尺寸」对 PNG 是错的**——`LOSSY_MIME_TYPES` 只含 jpeg/webp（`image-utils.ts:43`），目标体积追逐那一支对 PNG 直接 early-return（`:111-112`），面板也用 `isLossyImageFormat` 不给 PNG 摆质量档（`output-options.ts:34-38,98-100`）；
+  ③ **「宽度固定」把排版宽度说成了像素宽度**——`RENDER_WIDTH=800` 固定的是排版，画布像素宽度按内容高度取 `pixelRatio` 2x / 1.5x / 1x（`html-raster.ts:306-311`），所以长的表反而更稀；这一条与更早那页里已经写对的「高度超过 2000 px 用 1.5 倍、超过 4000 px 用 1 倍」是同一事实，现在三页说法一致；
+  ④ **替 Word 叙述行为**（「能像其他 .docx 一样打开」「Word 只会把第一行当成普通行」「Word 打开时不会去取文档外的东西」）——本仓只量自己的字节，这些改成产物侧说法（OPC 容器 + altChunk 内嵌 ⇒ 排版归打开它的软件；远程引用打包前剥净 ⇒ 文档内不含需要联网解析的子资源；打包抛错或返回非 Blob 时报转换错误）。
+  ①③④各一处，②是**同一句被复制到 json→PNG、md→PNG、csv→PNG 三页**——这类「一句写对就到处贴」的复件是评审最划算的地方，也是一次改动必须按出现次数断言的替换（本轮用带 expected-count 的补丁脚本，命中数不符就不写盘）。
+
+  验证（改的就是被提交的那棵树）：`pages:render` 96 文件、`pages:check` 逐字节一致、`verify:numbers`（23 事实 × 101 文档）、`lint:all`、`build`、产物层 `verify:offline` / `verify:remote-code`、`verify:meta` 全 rc=0。运行时零改动，断言数仍 **452**。
+
 ## 3. 收下改动：这一节记的是提交账，不是提交计划
 
 这一节原先给的是 2026-09-19 那一轮（配对页与博客页改成数据源生成）的两条 `git commit`。那些提交早就落地了，
