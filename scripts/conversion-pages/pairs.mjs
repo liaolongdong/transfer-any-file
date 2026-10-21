@@ -8644,4 +8644,99 @@ export const PAIRS = [
       },
     ],
   },
+  {
+    slug: 'bmp-to-html',
+    from: 'bmp',
+    to: 'html',
+    shot: 'batch-results',
+    published: '2026-10-21',
+    title: {
+      zh: 'BMP 转 HTML——离线、字节原样内嵌、不解码',
+      en: 'BMP to HTML offline — raw bytes, no decode',
+    },
+    desc: {
+      zh: '整份 .bmp 以 data URI 原样内嵌进一份能直接打开的网页：不解码、不重编码、不降尺寸；`alt` 与 `title` 用你的文件名主干。全程离线。',
+      en: 'The whole .bmp is embedded verbatim as a data URI in a page you can open: no decode, no re-encode, no downscale. Fully offline.',
+    },
+    lede: {
+      zh: '这条路和 BMP 的另一条出口**形态相反**，这一点值得先说清楚。`bmp>html` 是搬运：`FileReader.readAsDataURL` 把文件的原始字节编成 data URI 写进一个 `<img src>`，再包进自带样式表的 HTML——中间**没有解码、没有上画布、没有重编码**。而 `bmp>pdf` 是处理：它把同一份位图解码后铺在**白底画布**上重编码成 PNG 流（这是刻意的，jsPDF 自带的 BMP 解码分支会强走 quality-100 JPEG、无视白底、不给质量旋钮，写出的流还比源文件大）。所以「同一张 BMP 会不会被动过像素」取决于你走哪条：HTML 这条一个字节都不动，PDF 那条必然重走一遍画布。对 BMP 这种通常不带压缩的容器，搬运的代价要如实说：base64 是每三个字节写成四个字符，再加约 2.6 KB 的文档外壳（它随文件名长度增减），而源文件本身往往已经比同画面的 PNG 大一个数量级——所以**这一路绝不是用来变小的**，它是用来把图交给只收网页的地方。反过来，如果你要的是体积、或者要让背景落在白底上，PDF 那条才有压缩存放。其余与位图转网页同形：`alt` 与 `title` 取**文件名主干**（去扩展名、无名时 `converted`）并按属性位置转义；内层 CSS 居中、`max-width: 100%`，版心实测约 800 px，宽图显示会收而文件不动；`data:image/bmp` 在剥远程引用的白名单之内，所以打开这份 HTML 不发任何请求，再往下一步转 Markdown 也不会被剥掉。BMP 在这套界面里**只能作为输入**（浏览器不提供 BMP 编码器），所以没有「从别的格式转成 BMP」这条路。',
+      en: 'This route is shaped **opposite** to BMP’s other exit, and that is worth saying first. `bmp>html` is carrying: `FileReader.readAsDataURL` turns the file’s raw bytes into a data URI inside an `<img src>`, wrapped in a document with the bundled stylesheet — **no decode, no canvas, no re-encode anywhere**. `bmp>pdf` is processing: it decodes the same bitmap, paints it onto a **white-filled canvas** and re-encodes it as a PNG stream — deliberately, because jsPDF’s own BMP branch forces a quality-100 JPEG, ignores the white fill, offers no quality knob, and writes a stream larger than the file it came from. So whether a BMP’s pixels are touched depends on which page you take: this one changes not a byte, that one necessarily redraws the canvas. For a container that usually ships uncompressed, state the cost honestly: base64 writes four characters per three bytes, plus a wrapper of about 2.6 KB that grows with the length of your file name, and the source is often an order of magnitude bigger than a PNG of the same picture — **this route is not a way to get smaller**, it is a way to hand the picture to something that only accepts a web page. If what you want is size, or a white ground behind the pixels, the PDF page is the one that stores compressed. Everything else matches the other pictures-to-HTML pages: `alt` and `title` carry the **basename** (extension dropped, `converted` when there is no usable name) escaped for attribute position; the inner CSS centres the image and caps it at `max-width: 100%` inside a measure measured at about 800 px, so a wide picture scales on screen while the file stays untouched; and `data:image/bmp` is inside the allow-list of references allowed to survive, so opening the page issues no request and one more step to Markdown keeps the picture too. One boundary belongs in plain sight: BMP is **input-only** in this interface — browsers cannot encode it — so there is no route that produces a .bmp.',
+    },
+    keeps: {
+      zh: [
+        '像素逐字节不变：不解码、不上画布、不再压一次（这与 BMP→PDF 必然重走画布相反）',
+        '`alt` 与 `title` 取文件名的主干（去扩展名），并按属性位置转义——名字不会变成标记',
+        '自包含：图就在文件里，打开这份 HTML 不取任何远程资源',
+        '`data:image/bmp` 在引用白名单内，再往下一步转 Markdown 也不会被剥掉',
+        '一批最多 200 个文件、单个 100 MB，与其他路线共用同一道闸门',
+      ],
+      en: [
+        'Byte-identical pixels: no decode, no canvas, no re-compression — the opposite of BMP to PDF, which must redraw the canvas',
+        '`alt` and `title` carry the file’s basename with the extension dropped, escaped for attribute position so a name cannot become markup',
+        'Self-contained: the picture is in the file, and opening it fetches no remote resource',
+        '`data:image/bmp` is inside the reference allow-list, so a further step to Markdown will not strip it either',
+        'Up to 200 files per batch and 100 MB each — the same gate every other route shares',
+      ],
+    },
+    limits: {
+      zh: [
+        '不会变小：base64 每三字节四字符再加约 2.6 KB 外壳，而 BMP 本身通常无压缩——要体积请走 BMP→PDF 或图片转图片那几页',
+        '背景不由这条路决定：它不铺白底也不合成，画布上的事是 BMP→PDF 那条做的',
+        '不降尺寸、不裁切、不改格式：想要这些请走图片转图片（那边才有最长边与质量开关）',
+        '做不出 .bmp：浏览器不提供 BMP 编码器，BMP 在这套界面里只是输入格式',
+        '不读内容也不做 OCR：产物里唯一的字符串来自你的文件名',
+      ],
+      en: [
+        'This does not shrink anything: four characters per three bytes plus about 2.6 KB of wrapper, over a file that is usually uncompressed — for size take BMP to PDF or an image-to-image page',
+        'No ground colour here: this route neither fills nor composites white — that is the BMP to PDF canvas',
+        'No downscale, no crop, no format change: the image-to-image pages are where the longest edge and quality knobs live',
+        'A .bmp cannot be produced: browsers do not encode BMP, so BMP is an input format only in this interface',
+        'No OCR and no invented description: the only string in the output comes from your file name',
+      ],
+    },
+    notes: {
+      zh: [
+        '要变小或要白底：BMP→PDF，解码后铺白底、按压缩流写入，每张一页',
+        '要 Markdown 里的图：BMP→Markdown 就是这条再加一步序列化',
+        '要真正换格式（PNG / JPG / WebP）：那需要重编码，请走图片转图片那几页',
+      ],
+      en: [
+        'For size or a white ground: BMP to PDF, which decodes, fills white and writes a compressed stream, one page per picture',
+        'For a picture in Markdown: BMP to Markdown is this step plus a serialisation',
+        'To actually change format (PNG, JPG, WebP): that needs re-encoding, so take the image-to-image pages',
+      ],
+    },
+    faq: [
+      {
+        q: {
+          zh: '为什么转出来的 HTML 比我的 BMP 还大？',
+          en: 'Why is the HTML bigger than my BMP already is?',
+        },
+        a: {
+          zh: '两层叠加：BMP 常常不做压缩，所以源文件本来就大；data URI 又是每三个字节写成四个字符，再加约 2.6 KB 外壳（随文件名长度增减）。这一路是搬运不是压缩，所以体积只会升。想要降下来，走 BMP→PDF（图像流压缩存放）或图片转图片那几页。',
+          en: 'Two things stack: BMPs are often uncompressed, so the source is already large, and a data URI writes four characters per three bytes plus about 2.6 KB of wrapper (which grows with the file name). This route carries rather than compresses, so size only goes up. For a smaller artifact take BMP to PDF, which stores the image stream compressed, or an image-to-image page.',
+        },
+      },
+      {
+        q: {
+          zh: 'BMP 转 HTML 会像转 PDF 那样铺白底吗？',
+          en: 'Does BMP to HTML fill a white background like BMP to PDF does?',
+        },
+        a: {
+          zh: '不会。铺白底发生在 PDF 那条的画布上（解码→铺白→重编码），这一路根本不进画布，字节原样。所以如果 BMP 带了透明通道，这一路不会替你把它合成成白色；显示成什么样由打开它的浏览器按原文件决定。',
+          en: 'No. The white fill happens on the PDF route’s canvas (decode, fill, re-encode); this route never enters a canvas and leaves the bytes alone. So a BMP that carries alpha does not get composited to white here — what you see is whatever the browser makes of the original file.',
+        },
+      },
+      {
+        q: {
+          zh: '那为什么不干脆都用 PDF？',
+          en: 'So why not just use PDF every time?',
+        },
+        a: {
+          zh: '因为两条路给的不是同一个东西：HTML 这条**不动像素**，适合把原图交给只收网页的地方；PDF 那条要重走画布，换来的是压缩存放与「一张一页」的文档形状。哪个更重要取决于你交付的是图片本身，还是一份文档。',
+          en: 'Because they hand over different things: this route does not touch pixels, which is what you want when a picture must reach somewhere that only accepts a web page; the PDF route redraws the canvas and, in exchange, gives you compressed storage and a one-image-per-page document. Which matters more depends on whether you are delivering the picture itself or a document.',
+        },
+      },
+    ],
+  },
 ];

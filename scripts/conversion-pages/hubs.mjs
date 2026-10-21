@@ -820,13 +820,9 @@ export const HUBS = [
         zh: 'BMP 原始字节内嵌成 data URI 再转 Markdown 图片语法；多数阅读器不认 BMP 的 data URI，链接可能显示为破图。',
         en: 'The original BMP bytes are embedded as a data URI and written as Markdown image syntax; most readers do not accept a BMP data URI, so the image may show as broken.',
       },
-      html: {
-        zh: '原样嵌入 BMP 的 data URI；浏览器可以显示，但 BMP 通常比 PNG / JPEG 大得多，HTML 也会跟着变大。',
-        en: 'The BMP data URI is embedded as-is: the browser displays it, but BMP is usually far larger than PNG or JPEG, and the HTML grows with it.',
-      },
       docx: {
-        zh: 'Word 对 BMP 支持良好，文档里是一张位图；不重编码，体积随原文件。',
-        en: 'Word supports BMP well, so the document holds a bitmap; nothing is re-encoded and the size follows the source.',
+        zh: '经 HTML 把原字节带进 Word：那条 data URI 会被提成包里独立的图片部件，不重编码；其它程序怎么读这份 altChunk，由那一侧决定。',
+        en: 'The raw bytes travel through HTML into Word: that data URI becomes its own image part inside the package, with no re-encoding, and how other programs read the altChunk is up to them.',
       },
       pdf: {
         zh: 'BMP 解码后铺白底、编码成 PNG 再写入 PDF；每张图占一页，页面尺寸取图片本身，不是 A4。',

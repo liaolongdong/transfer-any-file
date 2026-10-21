@@ -1105,6 +1105,24 @@ csv→Word 的另一组事实回读自`html-to-docx.ts`：正文以 MHT altChunk
   不认 MHT 内定位的阅读器真会去试它，这句反而可能说反；删掉，只说「引用读的是包里那一份」。
   页数与数字类主张不变（仍 95 张 / 缺口 21；`pages:render` 112 文件、`verify:numbers` 23 事实 × 117 文档）。
 
+- **10-21 第卅七轮（bmp→HTML，96 张页 / 缺口 20）。** 这一页的正面事实是**同一种源在两条路上形态相反**：
+  `bmp>html` 是搬运（`FileReader.readAsDataURL` 把原始字节写进 `<img src>`，不进画布），
+  而 `bmp>pdf` 是**单步处理**（`bmp>pdf` 在路径基线里只有一步，不经 HTML）——解码后先 `fillStyle = '#FFFFFF'` 铺白底、
+  再 `toDataURL('image/png', 0.92)` 重编码写入。这条链上有两处非显然的实现事实，都取自 `utils/core/image-pdf.ts` 的注释：
+  ① 重编码是**选择不是限制**——jsPDF 4.2.1 自带 `processBMP`，但它强走 quality-100 JPEG、无视白底、不给质量旋钮，
+  写出的流比源文件还大；② 页面尺寸按像素推（`px × 72 / 96`）而不是 A4，这与 docx→JPG 那条「切 A4 一页一图」正好相反，
+  两页措辞已分开。体积方向也如实写：BMP 常无压缩、base64 再放大 4/3，所以**这一路不会变小**，
+  要变小或要白底都该走 PDF 那条（图像流按 'FAST' 压缩存放，注释里记着未压缩存储曾把 PNG 页面撑到源的 9.5–95.6 倍）。
+  另两条边界同时进页：`data:image/bmp` 在 `html-sanitize.ts:83` 的白名单内（所以再走一步 Markdown 不会被剥），
+  而 BMP 在这套界面里**只能作输入**（浏览器不提供编码器）。
+  顺带把 bmp hub 的 `docx` 摘要改掉：原文「Word 对 BMP 支持良好、体积随原文件」是替消费端说话且没取证，
+  换成第卅六轮那张 Word 页同款的产物侧说法（data URI 提成包内图片部件、其它程序怎么读由那一侧决定）；
+  `html` 摘要按镜像规则摘除。**仍留一笔未查证**：bmp hub 的 `webp` 摘要写着「白底不会被写入」，
+  而画布分支看着是铺白底的，二者待下轮实测 `bmp>webp` 产物再判。
+  实测计数：`pages:render` 113 文件、`verify:numbers` 23 事实 × 118 文档（文件 = 页 + 17、文档 = 页 + 22 仍成立）、
+  `pages:check` 逐字节一致、`lint:all`、`build`、产物层两条离线守卫、`verify:meta`、`verify:paths` 全 rc=0。
+  这一轮按上一笔的教训**整目录暂存 `docs/convert`**，并在 `git archive HEAD` 的隔离树里重跑 `render --check` 自证。运行时零改动，断言数仍 **452**。
+
 ## 3. 收下改动：这一节记的是提交账，不是提交计划
 
 这一节原先给的是 2026-09-19 那一轮（配对页与博客页改成数据源生成）的两条 `git commit`。那些提交早就落地了，
