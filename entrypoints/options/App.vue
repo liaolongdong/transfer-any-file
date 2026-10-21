@@ -9,12 +9,16 @@ import { CONVERSION_ERROR_KEYS } from '~/utils/core/error-keys';
 import { useI18n } from '~/composables/useI18n';
 import { useRecentTargets } from '~/composables/useRecentTargets';
 import { useOutputOptions } from '~/composables/useOutputOptions';
+import { useNameTemplate } from '~/composables/useNameTemplate';
 import { useShortcuts } from '~/composables/useShortcuts';
 import { useWorkspaceFileDrop } from '~/composables/useWorkspaceFileDrop';
 import { converterRegistry } from '~/utils/core/registry';
 import { isImageOutputFormat } from '~/utils/core/output-options';
+import { MAX_MERGED_PAGES } from '~/utils/core/image-pdf';
+import { getFormatLabel } from '~/utils/core/format-labels';
 import { FileFormat } from '~/utils/core/types';
 import type { ConversionPreset, ConvertResult, ImageOutputOptions } from '~/utils/core/types';
+import type { HistoryRecord } from '~/composables/useHistory';
 import FileUpload from '~/components/shared/FileUpload.vue';
 import ConversionProgress from '~/components/shared/ConversionProgress.vue';
 import CurrentFileHint from '~/components/shared/CurrentFileHint.vue';
@@ -36,6 +40,7 @@ initConverters();
 const { t, locale } = useI18n();
 const { recent: recentTargets } = useRecentTargets();
 const { setOptions } = useOutputOptions();
+const { setTemplate } = useNameTemplate();
 const { matches: shortcutMatches, formatAction: formatConvertShortcut } = useShortcuts();
 
 /**
@@ -58,7 +63,7 @@ const {
   cancelled,
   error,
   batchResults,
-  resultOwners,
+  resultsStale,
   batchFailures,
   totalCount,
   currentIndex,
@@ -69,6 +74,10 @@ const {
   elapsedMs,
   isPackaging,
   isRetrying,
+  mergeImages,
+  canMergeImages,
+  mergeProgress,
+  setMergeImages,
   setFiles,
   setTargetFormat,
   convert,
@@ -107,6 +116,8 @@ const pathCount = registeredPairs.length;
 interface PendingApplication {
   target: FileFormat;
   options: ImageOutputOptions | null;
+  /** `null` leaves the live pattern alone — a preset carries none. */
+  nameTemplate: string | null;
   /** Shown when the batch that finally arrives cannot reach this target. */
   unavailableKey: string;
 }
@@ -152,14 +163,31 @@ const currentFileName = computed(() => {
  * `MD→PDF` and the rest of the multi-step routes used to leave as a static spinner.
  */
 const showStepProgress = computed(() => isConverting.value && stepTotal.value > 1);
+/**
+ * The per-image counter of a merged run, translated here rather than inside the composable so the
+ * conversion layer stays free of UI strings. `null` outside a merged batch, which hides the line.
+ */
+const mergeDetail = computed(() => {
+  const progress = mergeProgress.value;
+  return progress ? t('convert.mergeProgress', progress) : null;
+});
+const mergeHint = computed(() => t('convert.mergeImagesHint', { max: MAX_MERGED_PAGES }));
 // At least one recognizable file is enough; unknown ones fail per-file
 const canConvert = computed(
   () => !isConverting.value && uniqueSourceFormats.value.length > 0 && targetFormat.value !== null,
 );
 
-// Comparison view: shown when single file conversion is done
+// Comparison view: shown when single file conversion is done.
+// A stale result is deliberately excluded: the selector has moved on to another target, and the
+// comparison panel would label the old file with the new format on both sides of the split.
 const showComparison = computed(() => {
-  return isDone.value && isSingleFile.value && batchResults.value.length === 1 && targetFormat.value !== null;
+  return (
+    !resultsStale.value &&
+    isDone.value &&
+    isSingleFile.value &&
+    batchResults.value.length === 1 &&
+    targetFormat.value !== null
+  );
 });
 
 // A long converter step keeps running for a moment after 取消转换 is clicked. Without any
@@ -271,38 +299,83 @@ function handleFilesUpdate(files: File[]): void {
   if (pendingApplication.value && hasFiles.value) {
     const pending = pendingApplication.value;
     pendingApplication.value = null;
-    applyApplication(pending);
+    if (!applyApplication(pending)) ElMessage.warning(t(pending.unavailableKey));
   }
 }
 
-/** Adopt a remembered target, and with it any output parameters it carried. */
-function applyApplication(pending: PendingApplication): void {
-  if (!availableTargets.value.includes(pending.target)) {
-    ElMessage.warning(t(pending.unavailableKey));
-    return;
-  }
+/**
+ * Adopt a remembered target, and with it any output parameters and name pattern it carried.
+ *
+ * Returns whether the target was reachable. The callers decide how to say so: a pending request
+ * that arrives with a file list has a different story from a click on a row that is on screen.
+ */
+function applyApplication(pending: PendingApplication): boolean {
+  if (!availableTargets.value.includes(pending.target)) return false;
   setTargetFormat(pending.target);
   if (pending.options) void setOptions(pending.options);
+  if (pending.nameTemplate) void setTemplate(pending.nameTemplate);
+  return true;
 }
 
 function handleResultUpdate(result: ConvertResult): void {
   updateResult(0, result);
 }
 
-function handleReuse(payload: { sourceFormat: FileFormat; targetFormat: FileFormat }): void {
+/**
+ * Name what a history record is about to restore, beyond the target.
+ *
+ * Reuse is a one-click action with no dialog, so the toast is the only place the user can see
+ * that a stored `maxEdge` or pattern came back with it — and the only way to tell a record that
+ * carried settings apart from an old one that did not.
+ */
+function describeHistorySettings(record: HistoryRecord): string {
+  const settings = record.settings;
+  if (!settings) return '';
+  const parts: string[] = [];
+  const options = settings.outputOptions;
+  if (options) {
+    const params: string[] = [];
+    if (options.quality !== undefined) {
+      params.push(t('history.paramQuality', { value: Math.round(options.quality * 100) }));
+    }
+    if (options.maxEdge !== undefined) params.push(t('history.paramMaxEdge', { value: options.maxEdge }));
+    if (options.dpi !== undefined) params.push(t('history.paramDpi', { value: options.dpi }));
+    if (options.targetSizeKB !== undefined) {
+      params.push(t('history.paramTargetSize', { value: options.targetSizeKB }));
+    }
+    if (params.length > 0) {
+      parts.push(t('history.reuseDetailOptions', { options: params.join(t('common.listSeparator')) }));
+    }
+  }
+  if (settings.nameTemplate) parts.push(t('history.reuseDetailTemplate', { template: settings.nameTemplate }));
+  return parts.join('');
+}
+
+function handleReuse(record: HistoryRecord): void {
   const pending: PendingApplication = {
-    target: payload.targetFormat,
-    options: null,
+    target: record.targetFormat,
+    // Both guards are the write-side rules restated for a payload that may be hand-edited: image
+    // parameters only exist for image targets, and a missing `settings` object is an old record.
+    options:
+      isImageOutputFormat(record.targetFormat) && record.settings?.outputOptions
+        ? { ...record.settings.outputOptions }
+        : null,
+    nameTemplate: record.settings?.nameTemplate ?? null,
     unavailableKey: 'history.reuseUnavailable',
   };
+  const target = getFormatLabel(record.targetFormat);
+  const details = describeHistorySettings(record);
   if (hasFiles.value) {
-    // Apply immediately, or tell the user why it can't be applied
-    applyApplication(pending);
+    if (!applyApplication(pending)) {
+      ElMessage.warning(t('history.reuseUnavailable'));
+      return;
+    }
+    ElMessage.success(t('history.reuseApplied', { target, details }));
     return;
   }
-  // No files yet: remember the target and apply it after the next upload
+  // No files yet: remember everything and apply it after the next upload
   pendingApplication.value = pending;
-  ElMessage.info(t('history.reusePending'));
+  ElMessage.info(t('history.reusePending', { target, details }));
 }
 
 function handleApplyPreset(preset: ConversionPreset): void {
@@ -313,10 +386,11 @@ function handleApplyPreset(preset: ConversionPreset): void {
     // the user was working with. Parameters a hand-edited store attaches to a non-image target are
     // ignored here for the same reason the capture rule never writes them.
     options: isImageOutputFormat(preset.target) ? { ...preset.options } : null,
+    nameTemplate: null,
     unavailableKey: 'preset.unavailable',
   };
   if (hasFiles.value) {
-    applyApplication(pending);
+    if (!applyApplication(pending)) ElMessage.warning(t(pending.unavailableKey));
     return;
   }
   pendingApplication.value = pending;
@@ -485,6 +559,23 @@ onUnmounted(() => {
                   </el-button>
                 </Transition>
               </div>
+              <!-- Hidden when the batch cannot merge (non-PDF target, one file, an SVG in the
+                   mix). The choice itself stays in memory, so switching back to PDF restores it. -->
+              <Transition name="reveal">
+                <div
+                  v-if="canMergeImages"
+                  class="merge-row"
+                >
+                  <el-checkbox
+                    :model-value="mergeImages"
+                    :disabled="isConverting"
+                    @update:model-value="setMergeImages($event === true)"
+                  >
+                    {{ t('convert.mergeImages') }}
+                  </el-checkbox>
+                  <span class="merge-hint">{{ mergeHint }}</span>
+                </div>
+              </Transition>
               <OutputOptions
                 :source-formats="uniqueSourceFormats"
                 :target-format="targetFormat"
@@ -504,6 +595,7 @@ onUnmounted(() => {
                   <CurrentFileHint
                     v-if="currentFileName"
                     :name="currentFileName"
+                    :detail="mergeDetail"
                   />
                   <StepProgressHint
                     v-if="showStepProgress"
@@ -540,6 +632,7 @@ onUnmounted(() => {
                 :is-converting="isConverting"
                 :error="displayError"
                 :current-file-name="currentFileName"
+                :current-detail="mergeDetail"
                 :current-step="currentStep"
                 :step-total="stepTotal"
               />
@@ -557,7 +650,7 @@ onUnmounted(() => {
             >
               <ResultDownload
                 :results="batchResults"
-                :owners="resultOwners"
+                :current-target="targetFormat"
                 :failures="batchFailures"
                 :cancelled="cancelled"
                 :total-count="totalCount"
@@ -614,7 +707,7 @@ onUnmounted(() => {
               key="comparison"
               :source-file="sourceFile"
               :source-format="sourceFormat"
-              :result="batchResults[0]"
+              :result="batchResults[0]?.result ?? null"
               :target-format="targetFormat"
               @update:result="handleResultUpdate"
             />
@@ -762,6 +855,21 @@ onUnmounted(() => {
   min-width: 0;
 }
 
+/* Sits between the target row and the output parameters, which is where the decision it changes
+   lives. Wraps instead of truncating: the hint is the only place the 200-page ceiling is stated. */
+.merge-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--fat-space-sm);
+  margin-top: var(--fat-space-sm);
+}
+
+.merge-hint {
+  font-size: 12px;
+  color: var(--fat-text-secondary);
+}
+
 .convert-btn {
   flex-shrink: 0;
   min-width: 140px;
@@ -803,14 +911,24 @@ onUnmounted(() => {
 
 .result-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--fat-space-sm);
   margin-top: var(--fat-space-sm);
 }
 
 /* Three slots when a batch lost a file, two when it did not; `flex: 1` on all of them keeps 重新转换
-   and 撤销 in the same place either way. Element Plus buttons are `white-space: nowrap`, so the labels
-   set the row's minimum width and the short Chinese strings leave room to spare at the ≤640px
-   breakpoint — no wrap rule needed, and none of the existing buttons moved. */
+   and 撤销 in the same place either way. Wrap is unconditional because it is inert while the row fits
+   (`flex: 1` means `1 1 0%`, so the break decision uses each label's min-content width, and
+   `.reset-btn`'s `width: 100%` never wins the main size). Measured 2026-10-20 with a batch that lost
+   one file (`重新转换` + `重试失败项 (1)` / `Convert Again` + `Retry failed files (1)`): the Chinese pair
+   fits at every width — at 360px it spans 29..331 inside a 302px row and at 320px 29..291 inside 262px,
+   `scrollWidth` equal to the row both times. Element Plus buttons are `white-space: nowrap`, so the
+   English pair does not fit: at 360px it needed 309px and overhung its own box by 7px, and at 320px it
+   reached x=338 against a card ending at 304, which grew the whole page to `scrollWidth` 338 inside a
+   320px viewport. The suite reproduces that last case with a classic scrollbar in place — with the rule
+   deleted it printed `retry right 338 vs card right 300, document scrollWidth 337 vs clientWidth 316` —
+   and with wrap both locales report `scrollWidth == clientWidth` at 360, 320 and every wider step, the
+   layout at 390px and above unchanged in both. */
 .result-actions .reset-btn,
 .result-actions .retry-btn,
 .result-actions .undo-btn {

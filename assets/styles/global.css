@@ -135,13 +135,13 @@ body {
   color: var(--fat-on-btn-solid) !important;
 }
 
-.el-button--primary:hover {
+.el-button--primary:not(.is-disabled):hover {
   background: var(--fat-btn-solid-hover) !important;
   border-color: var(--fat-btn-solid-hover) !important;
   color: var(--fat-on-btn-solid) !important;
 }
 
-.el-button--primary:active {
+.el-button--primary:not(.is-disabled):active {
   background: var(--fat-btn-solid-active) !important;
   border-color: var(--fat-btn-solid-active) !important;
   color: var(--fat-on-btn-solid) !important;
@@ -207,6 +207,21 @@ body {
   outline-offset: 1px !important;
 }
 
+/* Element Plus draws its own rings for the controls whose real input is visually hidden — the
+   switch, the checkbox and the segmented radio buttons — and paints them with its primary, not
+   with `--fat-focus-ring`. Measured on the built bundle across all six themes in both modes: only
+   one combination falls under 3:1, but it is the light `green` theme, where `--el-color-primary`
+   is `#10b981` while this file's own token resolves to `--fat-primary-active` (`#059669`). All
+   three families measured 2.54:1 on a card and 2.42:1 on the workbench surface before this rule
+   and 3.77 / 3.60 after it, which is what the `Hidden-Input Focus Rings` e2e section pins.
+   The selectors are Element Plus's verbatim, so geometry and offset stay theirs and only the
+   colour joins the contract every other control already keeps. */
+.el-switch__input:focus-visible ~ .el-switch__core,
+.el-checkbox input:focus-visible + .el-checkbox__inner,
+.el-radio-button__original-radio:focus-visible + .el-radio-button__inner {
+  outline-color: var(--fat-focus-ring) !important;
+}
+
 /* Dark mode button enhancements (primary is handled by the token scale above) */
 :root[data-mode='dark'] .el-button--default {
   border-color: var(--fat-border) !important;
@@ -225,6 +240,30 @@ body {
 
 :root[data-mode='dark'] .el-button--text:hover {
   color: var(--fat-primary-hover) !important;
+}
+
+/* Disabled buttons. The enabled rules above are `!important` and Element Plus's disabled
+   colours are not, so a disabled button used to keep the accent fill and label — measured
+   2026-10-20: `.convert-btn` with no target painted the same #2563eb as the enabled one, and
+   a text button mid-conversion came out transparent with a white label on a white card, i.e.
+   invisible. The primary hover / active rules carry `:not(.is-disabled)` so a disabled button
+   never lights up under the pointer, and this block supplies the off look: the muted fill
+   `--fat-surface-2`, the border `--fat-border`, and `--fat-text-placeholder`, the ink the
+   token file reserves for disabled controls. `.is-loading` is carved out — a button that is
+   disabled *while* loading (the convert and download buttons pass both props) has to stay in
+   the accent fill, because that state is live, not off. `:root` lifts the block over the
+   dark-mode rules above without depending on source order.
+   One selector is enough because EP builds the class as `ns.m(type)` with `type` defaulting to
+   `""`: an untyped `<el-button>` carries no `el-button--default`, and the `text` / `link` /
+   `plain` props add `is-text` / `is-link` / `is-plain` beside the type modifier rather than
+   replacing it. So `--primary` covers every solid button in the workbench, chip-shaped variants
+   included — which is how those variants already look when enabled, under the rules above.
+   The `.el-button--default` and `.el-button--text` selectors that remain in this file match no
+   element today; they are pre-existing and left alone here. */
+:root .el-button--primary.is-disabled:not(.is-loading) {
+  background: var(--fat-surface-2) !important;
+  border-color: var(--fat-border) !important;
+  color: var(--fat-text-placeholder) !important;
 }
 
 /* Large-batch confirmation dialog. The markup is a VNode built in useConversion.ts and the

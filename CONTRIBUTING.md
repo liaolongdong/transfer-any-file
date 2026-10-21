@@ -31,11 +31,13 @@
 
 ```bash
 pnpm dev              # 开发模式，热重载（WXT）
-pnpm build            # 生产构建，输出到 .output/chrome-mv3
-pnpm package          # 打包 zip 用于分发
+pnpm build            # 生产构建，输出 .output/chrome-mv3，并由 postbuild 顺带产出商店 zip
+pnpm package          # 单独再跑一次 wxt zip（构建之后不必再跑，除非只想重出 zip）
 pnpm typecheck        # vue-tsc 类型检查
-pnpm lint             # eslint
+pnpm lint             # eslint（--max-warnings 0：警告也算失败）
+pnpm lint:fix         # eslint --fix
 pnpm lint:style       # stylelint（assets/**/*.css 与 .vue）
+pnpm lint:style:fix   # stylelint --fix
 pnpm format           # Prettier --write 全仓库
 pnpm format:check     # Prettier --check 全仓库（不写盘）
 pnpm lint:all         # typecheck + eslint + stylelint + format:check
@@ -48,7 +50,7 @@ pnpm verify:numbers   # 对外散文里的数字等于代码里的那一个（�
 pnpm test:e2e         # 构建 + 基于 fixtures/ 的 Playwright 套件
 pnpm assets:capture   # 重新生成商店与 README 用的截图和推广图（需先 pnpm build）
 node scripts/render-demo-gif.mjs   # 重录 README 顶部的演示 GIF（需先 pnpm build，另需 PATH 上有 ffmpeg）
-node scripts/render-icons.mjs   # 从 assets/*.svg 重新渲染两档图标
+pnpm icons:build      # 从 assets/*.svg 重新渲染两档图标（= node scripts/render-icons.mjs）
 node scripts/verify-extension.mjs   # 把产物装进真实浏览器：worker 起没起、_locales 解析成什么、首屏有没有重 chunk、有没有请求出本机
 pnpm release:plan     # 只看计划：下一个版本号、双语 changelog 区块、哪些提交被当作噪声略过（不写盘）
 pnpm release:cut      # 本机落地：改那四份手写文件 + 重渲染生成页 + 本地提交 + 本地轻量标签（不推送）
@@ -85,7 +87,7 @@ Chrome for Testing 可用（运行开头打印的 `Browser:` 行会说明用的�
 
 - [WXT](https://wxt.dev/) + Vue 3 + TypeScript + Element Plus（Manifest V3），Element Plus 通过 `unplugin-vue-components` + `ElementPlusResolver` 按需引入，命令式 API 由 resolver 自动导入
 - 转换器：[marked](https://github.com/markedjs/marked)、[turndown](https://github.com/mixmark-io/turndown)、[mammoth](https://github.com/mwilliamson/mammoth.js)、[html-docx-js-typescript](https://github.com/caiyexiang/html-docx-js-typescript)、[jsPDF](https://github.com/parallax/jsPDF) + [html-to-image](https://github.com/bubkoo/html-to-image)、[pdf.js](https://mozilla.github.io/pdf.js/)、[SheetJS](https://sheetjs.com/)、[fflate](https://github.com/101arrowz/fflate)、[DOMPurify](https://github.com/cure53/DOMPurify)
-- 重型依赖按转换器动态 `import()`，首屏保持精简（完整产物 3.84 MB）；ZIP 引擎 fflate 也走同一条路——五个调用点统一经 `utils/core/zip.ts` 的 `loadFflate()`，转换器由 `initConverters()` 静态注册，顶层 `import 'fflate'` 会把它拉回首屏；重型子组件在 `App.vue` 里用 `defineAsyncComponent` 懒加载
+- 重型依赖按转换器动态 `import()`，首屏保持精简（完整产物 3.86 MB）；ZIP 引擎 fflate 也走同一条路——五个调用点统一经 `utils/core/zip.ts` 的 `loadFflate()`，转换器由 `initConverters()` 静态注册，顶层 `import 'fflate'` 会把它拉回首屏；重型子组件在 `App.vue` 里用 `defineAsyncComponent` 懒加载
 
 ## 项目结构
 

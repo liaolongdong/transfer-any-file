@@ -11,6 +11,11 @@ import { useI18n } from '~/composables/useI18n';
 defineProps<{
   /** Basename of the file the batch is on right now. */
   name: string;
+  /**
+   * Secondary counter for a mode whose unit is not a file, e.g. "image 2 of 5" while a merged PDF
+   * is being assembled. Kept out of the name so the truncating half stays the one that can be long.
+   */
+  detail?: string | null;
 }>();
 
 const { t } = useI18n();
@@ -21,19 +26,36 @@ const { t } = useI18n();
     class="current-file"
     :title="name"
   >
-    {{ t('convert.currentFile', { name }) }}
+    <span class="current-file-name">{{ t('convert.currentFile', { name }) }}</span>
+    <span
+      v-if="detail"
+      class="current-file-detail"
+      >{{ detail }}</span
+    >
   </p>
 </template>
 
 <style scoped>
 .current-file {
+  display: flex;
+  align-items: baseline;
+  gap: var(--fat-space-xs);
   margin: 0;
   max-width: 100%;
   font-size: 12px;
   color: var(--fat-text-secondary);
   font-family: var(--fat-font-mono);
+}
+
+.current-file-name {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.current-file-detail {
+  flex: none;
+  opacity: 0.8;
 }
 </style>

@@ -2,7 +2,23 @@ import { ref } from 'vue';
 import type { Ref } from 'vue';
 import { STORAGE_KEYS, storageGet, storageSet, onStorageChange } from '~/utils/storage';
 import { FileFormat } from '~/utils/core/types';
-import type { FileFormat as FileFormatT } from '~/utils/core/types';
+import type { FileFormat as FileFormatT, ImageOutputOptions } from '~/utils/core/types';
+import { isImageOutputFormat, sanitizeImageOutputOptions } from '~/utils/core/output-options';
+import { sanitizeNameTemplate } from '~/utils/core/name-template';
+
+/**
+ * What a batch ran with, beyond its target format.
+ *
+ * Reuse used to restore the target alone, so "再次使用" on a PNG record produced with a 1280 px cap
+ * silently used whatever the panel held at that moment. These are the two settings that change the
+ * bytes or the name of the output; everything else about a run is a property of its files.
+ */
+export interface HistorySettings {
+  /** Present only for image targets — the parameters are meaningless elsewhere. */
+  outputOptions?: ImageOutputOptions;
+  /** The name pattern the batch was actually rendered with. */
+  nameTemplate?: string;
+}
 
 export interface HistoryRecord {
   id: string;
@@ -31,6 +47,13 @@ export interface HistoryRecord {
    *  `HISTORY_EXPORT_VERSION` therefore does not move — bumping it would turn a compatible addition
    *  into a hard rejection for no benefit. */
   durationMs?: number;
+  /**
+   * Output parameters and name pattern the batch ran with, for "reuse" to reproduce it.
+   * Optional and additive exactly like `fileNames` / `durationMs`.
+   */
+  settings?: HistorySettings;
+  /** Pages in a merged-image PDF; absent on every ordinary record. */
+  pageCount?: number;
 }
 
 const MAX_RECORDS = 50;
@@ -89,6 +112,10 @@ const MAX_TIME_MS = 8.64e15;
  *  same "clamp, don't reject" treatment as the sizes in `normalizeRecord`. */
 const MAX_DURATION_MS = 86_400_000;
 
+/** Same ceiling as the merged-PDF builder (200 images), restated here because an imported payload
+ *  can claim any page count and the row prints it as if it were measured. */
+const MAX_PAGE_COUNT = 200;
+
 /** Same ceiling the writers use (`MAX_BATCH_FILES` in `FileUpload.vue`), restated here because that
  *  constant lives inside the SFC. An imported payload can claim any number of names per record, and
  *  every one of them reaches the search index and the row tooltip. */
@@ -137,6 +164,30 @@ function normalizeRecord(o: LooseHistoryRecord): HistoryRecord {
   const names: unknown = o.fileNames;
   if (Array.isArray(names) && names.length > 0 && names.every(n => typeof n === 'string' && n)) {
     base.fileNames = (names as string[]).slice(0, MAX_BATCH_NAMES);
+  }
+  const pages: unknown = o.pageCount;
+  if (typeof pages === 'number' && Number.isFinite(pages) && pages > 0) {
+    base.pageCount = Math.min(Math.floor(pages), MAX_PAGE_COUNT);
+  }
+  const settings: unknown = o.settings;
+  if (settings && typeof settings === 'object') {
+    const source = settings as Record<string, unknown>;
+    const normalizedSettings: HistorySettings = {};
+    // Presence, not truthiness: an empty object is a legitimate record of a batch that ran with the
+    // encoder defaults, and dropping it would let a later reuse keep whatever the panel holds now.
+    if (
+      isImageOutputFormat(base.targetFormat) &&
+      typeof source.outputOptions === 'object' &&
+      source.outputOptions !== null
+    ) {
+      normalizedSettings.outputOptions = sanitizeImageOutputOptions(source.outputOptions);
+    }
+    if (typeof source.nameTemplate === 'string') {
+      normalizedSettings.nameTemplate = sanitizeNameTemplate(source.nameTemplate);
+    }
+    if (normalizedSettings.outputOptions !== undefined || normalizedSettings.nameTemplate !== undefined) {
+      base.settings = normalizedSettings;
+    }
   }
   return base;
 }

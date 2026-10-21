@@ -196,14 +196,13 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ steps.version.outputs.tag }}
-          VERSION: ${{ steps.version.outputs.version }}
           ZIP: ${{ steps.package.outputs.zip }}
         run: |
           {
             printf '\n---\n\n英文更新日志见仓库内的 [`CHANGELOG.en.md`](https://github.com/liaolongdong/transfer-any-file/blob/%s/CHANGELOG.en.md)。附件 `*.zip` 即 Chrome 应用商店包，也可在 `chrome://extensions` 解压后以「加载未打包的扩展」使用。\n' "$TAG"
           } >> release-notes.md
           gh release create "$TAG" "$ZIP" \
-            --title "Transfer Any File $VERSION" \
+            --title "$TAG" \
             --notes-file release-notes.md \
             --verify-tag
 
@@ -219,7 +218,7 @@ jobs:
             echo
             echo "- Tag：\`$TAG\`（与 package.json 版本一致）"
             echo "- 产物包：\`$ZIP\`（$(du -h "$ZIP" | cut -f1)），manifest.json 在压缩包根目录，内部没有仓库文件"
-            echo "- 将会创建的 Release：\`Transfer Any File $VERSION\`，附带该 zip"
+            echo "- 将会创建的 Release：标题 \`$TAG\`（与 tag 同名），附带该 zip"
             echo "- 发布说明：\`CHANGELOG.md\` 里的 \`## [$VERSION]\` 区块"
           } >> "$GITHUB_STEP_SUMMARY"
 

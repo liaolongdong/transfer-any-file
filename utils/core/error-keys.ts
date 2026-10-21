@@ -30,6 +30,9 @@ export const CONVERSION_ERROR_KEYS = new Set([
   // range field and the text route cannot.
   'errors.pdfTooManyImagePages',
   'errors.pdfTooManyPages',
+  // The merged-PDF ceiling is a batch-level limit with no in-field workaround, unlike the two PDF
+  // input keys above; reported once for the whole group rather than per file.
+  'errors.mergeTooManyPages',
   'errors.xlsxEmpty',
   // A sheet's serialized rectangle exceeds the work budget. Not a corrupt file: the data is fine,
   // but walking it in one pass would freeze the workbench.

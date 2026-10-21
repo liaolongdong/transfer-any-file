@@ -174,8 +174,9 @@ const descZh = storeDescriptionChars('**中文详细介绍（Chinese (China) det
 /**
  * The suite's assertion total, read off the record `scripts/e2e-test.mjs` writes at the end of a full
  * green run. This is the one fact the source cannot answer: how many assertions ran is a property of
- * the tests, and only running them says so. Four outward sentences quote it (the product page in both
- * languages and both promo articles), and every round of coverage used to re-take that number by hand
+ * the tests, and only running them says so. Nine outward sentences quote it in the four patterns below
+ * (the product page and the blog page, each in both languages, plus five in the promo articles), and
+ * every round of coverage used to re-take that number by hand
  * — six commits on this branch are named for exactly that sweep. A generated artifact is worse: it
  * carries whatever number was true when it was rendered, which is how the WeChat HTML on disk today
  * still announces 244.

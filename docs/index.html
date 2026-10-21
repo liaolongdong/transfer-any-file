@@ -211,7 +211,7 @@
       · 143 combinations -> BFS closure over the same graph (utils/core/registry.ts)
       · 116 selectable   -> 143 minus the 27 pairs utils/core/conversion-policy.ts greys out
                             (24 image -> text/data + 3 PDF -> data)
-      · 3.84 MB          -> `pnpm build` total output size
+      · 3.86 MB          -> `pnpm build` total output size
     -->
     <script
       type="application/ld+json"
@@ -227,7 +227,7 @@
             "alternateName": ["Transfer Any File — Offline File Format Converter", "文件格式任意转换助手"],
             "softwareVersion": "1.2.1",
             "datePublished": "2026-09-07",
-            "dateModified": "2026-10-19",
+            "dateModified": "2026-10-20",
             "applicationCategory": "UtilitiesApplication",
             "applicationSubCategory": "File Format Converter",
             "keywords": "offline file format converter, file converter chrome extension, markdown to pdf, word to pdf, csv to excel, json to csv, png to webp, svg to png, html to docx, batch file conversion, convert files without uploading, local-first, privacy",
@@ -387,6 +387,14 @@
               },
               {
                 "@type": "Question",
+                "name": "能把多张图片合成一份 PDF 吗？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "能，勾选「合并为一份 PDF」即可。整批都是 PNG / JPEG / WebP / BMP / GIF 且目标为 PDF 时，目标选择器下方会出现这个开关；勾上之后整批按列表顺序写成一份 PDF，每张一页（最多 200 页），文件名带 -merged；不勾选仍是每张一份 PDF，与以前完全一样。任一张解码失败时整批都不产出，失败清单会点名是哪个文件。细节见 convert/png-to-pdf.html。"
+                }
+              },
+              {
+                "@type": "Question",
                 "name": "单文件与批次的大小上限是多少？",
                 "acceptedAnswer": {
                   "@type": "Answer",
@@ -532,8 +540,8 @@
       }
     </script>
     <script>
-      /* The FAQ node is the only one whose values are per-language prose: the page renders 22
-         questions in the reader’s language, so the graph has to hold exactly those 22. Shipping both
+      /* The FAQ node is the only one whose values are per-language prose: the page renders 23
+         questions in the reader’s language, so the graph has to hold exactly those 23. Shipping both
          languages inside one FAQPage lets an answer get quoted back in a language the page never
          displays, and doubles the question count a reader sees. Only the other language travels —
          the shipped graph already answers for Chinese, and the payload below carries the English list.
@@ -639,6 +647,14 @@
           },
           {
             '@type': 'Question',
+            name: 'Can several images become one PDF?',
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: 'Yes — tick “Merge into one PDF”. The box appears when every file is a PNG / JPEG / WebP / BMP / GIF and the target is PDF; the whole batch then becomes one PDF, one page per image in list order (up to 200 pages), named with a -merged suffix. Left unticked you still get one PDF per image, exactly as before. If any image fails to decode, nothing is produced and the failure list names the file. Details on the PNG to PDF page.',
+            },
+          },
+          {
+            '@type': 'Question',
             name: 'What are the file size and batch limits?',
             acceptedAnswer: {
               '@type': 'Answer',
@@ -728,9 +744,9 @@
         var shipped = box.textContent;
 
         /**
-         * Point the FAQ node at the 22 questions the reader is actually shown.
+         * Point the FAQ node at the 23 questions the reader is actually shown.
          *
-         * The page renders 22 questions per language, so a graph holding all 44 would state questions in
+         * The page renders 23 questions per language, so a graph holding all 46 would state questions in
          * a language the reader never sees and double the count an answer gets quoted from. Only the other
          * language travels — the payload above carries the English list and Chinese is the shipped graph,
          * restored byte for byte. `setLang()` calls this too, or switching language inside the page would
@@ -4058,7 +4074,7 @@
               class="metric metric-size"
               data-onview="in"
             >
-              <b>3.84&nbsp;MB</b>
+              <b>3.86&nbsp;MB</b>
               <span class="label"><span lang="zh-CN">完整包体</span><span lang="en">whole bundle</span></span>
               <span
                 class="size-bar"
@@ -5081,6 +5097,21 @@
             >
             <a
               class="pair"
+              href="convert/html-to-docx.html"
+              >HTML → Word<small>.html → .docx</small></a
+            >
+            <a
+              class="pair"
+              href="convert/html-to-md.html"
+              >HTML → Markdown<small>.html → .md</small></a
+            >
+            <a
+              class="pair"
+              href="convert/html-to-txt.html"
+              >HTML → Text<small>.html → .txt</small></a
+            >
+            <a
+              class="pair"
               href="convert/pdf-to-png.html"
               >PDF → PNG<small>.pdf → .png</small></a
             >
@@ -5136,6 +5167,11 @@
             >
             <a
               class="pair"
+              href="convert/xlsx-to-html.html"
+              >Excel → HTML<small>.xlsx → .html</small></a
+            >
+            <a
+              class="pair"
               href="convert/png-to-webp.html"
               >PNG → WebP<small>.png → .webp</small></a
             >
@@ -5161,8 +5197,23 @@
             >
             <a
               class="pair"
+              href="convert/webp-to-png.html"
+              >WebP → PNG<small>.webp → .png</small></a
+            >
+            <a
+              class="pair"
+              href="convert/webp-to-pdf.html"
+              >WebP → PDF<small>.webp → .pdf</small></a
+            >
+            <a
+              class="pair"
               href="convert/png-to-pdf.html"
               >PNG → PDF<small>.png → .pdf</small></a
+            >
+            <a
+              class="pair"
+              href="convert/png-to-html.html"
+              >PNG → HTML<small>.png → .html</small></a
             >
             <a
               class="pair"
@@ -5191,6 +5242,21 @@
             >
             <a
               class="pair"
+              href="convert/gif-to-jpg.html"
+              >GIF → JPEG<small>.gif → .jpg</small></a
+            >
+            <a
+              class="pair"
+              href="convert/gif-to-html.html"
+              >GIF → HTML<small>.gif → .html</small></a
+            >
+            <a
+              class="pair"
+              href="convert/gif-to-md.html"
+              >GIF → Markdown<small>.gif → .md</small></a
+            >
+            <a
+              class="pair"
               href="convert/bmp-to-png.html"
               >BMP → PNG<small>.bmp → .png</small></a
             >
@@ -5198,6 +5264,361 @@
               class="pair"
               href="convert/bmp-to-jpg.html"
               >BMP → JPEG<small>.bmp → .jpg</small></a
+            >
+            <a
+              class="pair"
+              href="convert/csv-to-pdf.html"
+              >CSV → PDF<small>.csv → .pdf</small></a
+            >
+            <a
+              class="pair"
+              href="convert/excel-to-word.html"
+              >Excel → Word<small>.xlsx → .docx</small></a
+            >
+            <a
+              class="pair"
+              href="convert/pdf-to-markdown.html"
+              >PDF → Markdown<small>.pdf → .md</small></a
+            >
+            <a
+              class="pair"
+              href="convert/svg-to-pdf.html"
+              >SVG → PDF<small>.svg → .pdf</small></a
+            >
+            <a
+              class="pair"
+              href="convert/word-to-png.html"
+              >Word → PNG<small>.docx → .png</small></a
+            >
+            <a
+              class="pair"
+              href="convert/webp-to-word.html"
+              >WebP → Word<small>.webp → .docx</small></a
+            >
+            <a
+              class="pair"
+              href="convert/txt-to-pdf.html"
+              >TXT → PDF<small>.txt → .pdf</small></a
+            >
+            <a
+              class="pair"
+              href="convert/docx-to-txt.html"
+              >Word → TXT<small>.docx → .txt</small></a
+            >
+            <a
+              class="pair"
+              href="convert/gif-to-pdf.html"
+              >GIF → PDF<small>.gif → .pdf</small></a
+            >
+            <a
+              class="pair"
+              href="convert/svg-to-html.html"
+              >SVG → HTML<small>.svg → .html</small></a
+            >
+            <a
+              class="pair"
+              href="convert/csv-to-html.html"
+              >CSV → HTML<small>.csv → .html</small></a
+            >
+            <a
+              class="pair"
+              href="convert/csv-to-markdown.html"
+              >CSV → Markdown<small>.csv → .md</small></a
+            >
+            <a
+              class="pair"
+              href="convert/markdown-to-csv.html"
+              >Markdown → CSV<small>.md → .csv</small></a
+            >
+            <a
+              class="pair"
+              href="convert/html-to-csv.html"
+              >HTML → CSV<small>.html → .csv</small></a
+            >
+            <a
+              class="pair"
+              href="convert/excel-to-markdown.html"
+              >Excel → Markdown<small>.xlsx → .md</small></a
+            >
+            <a
+              class="pair"
+              href="convert/txt-to-word.html"
+              >TXT → Word<small>.txt → .docx</small></a
+            >
+            <a
+              class="pair"
+              href="convert/json-to-pdf.html"
+              >JSON → PDF<small>.json → .pdf</small></a
+            >
+            <a
+              class="pair"
+              href="convert/json-to-txt.html"
+              >JSON → TXT<small>.json → .txt</small></a
+            >
+            <a
+              class="pair"
+              href="convert/csv-to-txt.html"
+              >CSV → TXT<small>.csv → .txt</small></a
+            >
+            <a
+              class="pair"
+              href="convert/json-to-word.html"
+              >JSON → Word<small>.json → .docx</small></a
+            >
+            <a
+              class="pair"
+              href="convert/markdown-to-txt.html"
+              >Markdown → TXT<small>.md → .txt</small></a
+            >
+            <a
+              class="pair"
+              href="convert/txt-to-html.html"
+              >TXT → HTML<small>.txt → .html</small></a
+            >
+            <a
+              class="pair"
+              href="convert/json-to-html.html"
+              >JSON → HTML<small>.json → .html</small></a
+            >
+            <a
+              class="pair"
+              href="convert/html-to-json.html"
+              >HTML → JSON<small>.html → .json</small></a
+            >
+            <a
+              class="pair"
+              href="convert/markdown-to-json.html"
+              >Markdown → JSON<small>.md → .json</small></a
+            >
+            <a
+              class="pair"
+              href="convert/markdown-to-excel.html"
+              >Markdown → Excel<small>.md → .xlsx</small></a
+            >
+            <a
+              class="pair"
+              href="convert/txt-to-json.html"
+              >TXT → JSON<small>.txt → .json</small></a
+            >
+            <a
+              class="pair"
+              href="convert/txt-to-csv.html"
+              >TXT → CSV<small>.txt → .csv</small></a
+            >
+            <a
+              class="pair"
+              href="convert/json-to-md.html"
+              >JSON → Markdown<small>.json → .md</small></a
+            >
+            <a
+              class="pair"
+              href="convert/jpg-to-html.html"
+              >JPG → HTML<small>.jpg → .html</small></a
+            >
+            <a
+              class="pair"
+              href="convert/jpg-to-md.html"
+              >JPG → Markdown<small>.jpg → .md</small></a
+            >
+            <a
+              class="pair"
+              href="convert/png-to-docx.html"
+              >PNG → Word<small>.png → .docx</small></a
+            >
+            <a
+              class="pair"
+              href="convert/bmp-to-html.html"
+              >BMP → HTML<small>.bmp → .html</small></a
+            >
+            <a
+              class="pair"
+              href="convert/bmp-to-docx.html"
+              >BMP → Word<small>.bmp → .docx</small></a
+            >
+            <a
+              class="pair"
+              href="convert/bmp-to-pdf.html"
+              >BMP → PDF<small>.bmp → .pdf</small></a
+            >
+            <a
+              class="pair"
+              href="convert/svg-to-docx.html"
+              >SVG → Word<small>.svg → .docx</small></a
+            >
+            <a
+              class="pair"
+              href="convert/webp-to-html.html"
+              >WebP → HTML<small>.webp → .html</small></a
+            >
+            <a
+              class="pair"
+              href="convert/webp-to-md.html"
+              >WebP → Markdown<small>.webp → .md</small></a
+            >
+            <a
+              class="pair"
+              href="convert/bmp-to-md.html"
+              >BMP → Markdown<small>.bmp → .md</small></a
+            >
+            <a
+              class="pair"
+              href="convert/png-to-md.html"
+              >PNG → Markdown<small>.png → .md</small></a
+            >
+            <a
+              class="pair"
+              href="convert/docx-to-webp.html"
+              >Word → WebP<small>.docx → .webp</small></a
+            >
+            <a
+              class="pair"
+              href="convert/xlsx-to-jpg.html"
+              >Excel → JPG<small>.xlsx → .jpg</small></a
+            >
+            <a
+              class="pair"
+              href="convert/gif-to-docx.html"
+              >GIF → Word<small>.gif → .docx</small></a
+            >
+            <a
+              class="pair"
+              href="convert/txt-to-png.html"
+              >TXT → PNG<small>.txt → .png</small></a
+            >
+            <a
+              class="pair"
+              href="convert/docx-to-json.html"
+              >Word → JSON<small>.docx → .json</small></a
+            >
+            <a
+              class="pair"
+              href="convert/gif-to-webp.html"
+              >GIF → WebP<small>.gif → .webp</small></a
+            >
+            <a
+              class="pair"
+              href="convert/txt-to-jpg.html"
+              >TXT → JPG<small>.txt → .jpg</small></a
+            >
+            <a
+              class="pair"
+              href="convert/txt-to-webp.html"
+              >TXT → WebP<small>.txt → .webp</small></a
+            >
+            <a
+              class="pair"
+              href="convert/csv-to-webp.html"
+              >CSV → WebP<small>.csv → .webp</small></a
+            >
+            <a
+              class="pair"
+              href="convert/xlsx-to-webp.html"
+              >Excel → WebP<small>.xlsx → .webp</small></a
+            >
+            <a
+              class="pair"
+              href="convert/json-to-webp.html"
+              >JSON → WebP<small>.json → .webp</small></a
+            >
+            <a
+              class="pair"
+              href="convert/bmp-to-webp.html"
+              >BMP → WebP<small>.bmp → .webp</small></a
+            >
+            <a
+              class="pair"
+              href="convert/svg-to-md.html"
+              >SVG → Markdown<small>.svg → .md</small></a
+            >
+            <a
+              class="pair"
+              href="convert/jpg-to-docx.html"
+              >JPG → Word<small>.jpg → .docx</small></a
+            >
+            <a
+              class="pair"
+              href="convert/txt-to-xlsx.html"
+              >TXT → Excel<small>.txt → .xlsx</small></a
+            >
+            <a
+              class="pair"
+              href="convert/docx-to-jpg.html"
+              >Word → JPG<small>.docx → .jpg</small></a
+            >
+            <a
+              class="pair"
+              href="convert/docx-to-csv.html"
+              >Word → CSV<small>.docx → .csv</small></a
+            >
+            <a
+              class="pair"
+              href="convert/docx-to-xlsx.html"
+              >Word → Excel<small>.docx → .xlsx</small></a
+            >
+            <a
+              class="pair"
+              href="convert/html-to-webp.html"
+              >HTML → WebP<small>.html → .webp</small></a
+            >
+            <a
+              class="pair"
+              href="convert/markdown-to-webp.html"
+              >Markdown → WebP<small>.md → .webp</small></a
+            >
+            <a
+              class="pair"
+              href="convert/html-to-jpg.html"
+              >HTML → JPG<small>.html → .jpg</small></a
+            >
+            <a
+              class="pair"
+              href="convert/markdown-to-jpg.html"
+              >Markdown → JPG<small>.md → .jpg</small></a
+            >
+            <a
+              class="pair"
+              href="convert/csv-to-jpg.html"
+              >CSV → JPG<small>.csv → .jpg</small></a
+            >
+            <a
+              class="pair"
+              href="convert/xlsx-to-png.html"
+              >Excel → PNG<small>.xlsx → .png</small></a
+            >
+            <a
+              class="pair"
+              href="convert/csv-to-docx.html"
+              >CSV → Word<small>.csv → .docx</small></a
+            >
+            <a
+              class="pair"
+              href="convert/csv-to-png.html"
+              >CSV → PNG<small>.csv → .png</small></a
+            >
+            <a
+              class="pair"
+              href="convert/markdown-to-png.html"
+              >Markdown → PNG<small>.md → .png</small></a
+            >
+            <a
+              class="pair"
+              href="convert/json-to-png.html"
+              >JSON → PNG<small>.json → .png</small></a
+            >
+            <a
+              class="pair"
+              href="convert/json-to-jpg.html"
+              >JSON → JPG<small>.json → .jpg</small></a
+            >
+            <a
+              class="pair"
+              href="convert/html-to-xlsx.html"
+              >HTML → Excel<small>.html → .xlsx</small></a
+            >
+            <a
+              class="pair"
+              href="convert/xlsx-to-txt.html"
+              >Excel → TXT<small>.xlsx → .txt</small></a
             >
           </div>
           <p class="sub">
@@ -6852,7 +7273,7 @@ pnpm build</code><button
                 <li>
                   <a href="#faq-formats"
                     ><span lang="zh-CN">格式与能力</span><span lang="en">Formats &amp; capability</span
-                    ><span class="faq-toc-n">9</span></a
+                    ><span class="faq-toc-n">10</span></a
                   >
                 </li>
                 <li>
@@ -7329,6 +7750,42 @@ pnpm build</code><button
                 >
               </div>
             </details>
+            <details class="faq-item">
+              <summary>
+                <span lang="zh-CN">能把多张图片合成一份 PDF 吗？</span>
+                <span lang="en">Can several images become one PDF?</span>
+                <svg
+                  class="chev"
+                  width="17"
+                  height="17"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.4"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="m9 6 6 6-6 6" />
+                </svg>
+              </summary>
+              <div class="faq-a">
+                <span lang="zh-CN"
+                  >能，勾选「合并为一份 PDF」即可。整批都是 PNG / JPEG / WebP / BMP / GIF 且目标为 PDF
+                  时，目标选择器下方会出现这个开关；勾上之后整批按列表顺序写成一份 PDF，每张一页（最多 200
+                  页），文件名带 <code>-merged</code>；不勾选仍是每张一份
+                  PDF，与以前完全一样。任一张解码失败时整批都不产出，失败清单会点名是哪个文件。细节见
+                  <a href="convert/png-to-pdf.html">PNG 转 PDF</a>。</span
+                >
+                <span lang="en"
+                  >Yes — tick “Merge into one PDF”. The box appears when every file is a PNG / JPEG / WebP / BMP / GIF
+                  and the target is PDF; the whole batch then becomes one PDF, one page per image in list order (up to
+                  200 pages), named with a <code>-merged</code> suffix. Left unticked you still get one PDF per image,
+                  exactly as before. If any image fails to decode, nothing is produced and the failure list names the
+                  file. Details on the <a href="convert/png-to-pdf.html">PNG to PDF</a> page.</span
+                >
+              </div>
+            </details>
             <h3
               id="faq-usage"
               class="faq-cat"
@@ -7746,8 +8203,8 @@ pnpm build</code><button
               <p>
                 <span lang="zh-CN"
                   >一套 Playwright 端到端套件加载真正的构建产物，用仓库内的夹具跑完各类转换场景、批量与
-                  ZIP、取消与改键、预览与编辑、图片输出参数与转换预设、PDF 选页、输出文件名模板、历史与偏好，共 358
-                  项断言全部通过（1.2.1 之后的未发布构建，2026-10-19 实测）；另在 6 主题 × 浅/深共 12
+                  ZIP、取消与改键、预览与编辑、图片输出参数与转换预设、PDF 选页、输出文件名模板、历史与偏好，共 452
+                  项断言全部通过（1.2.1 之后的未发布构建，2026-10-21 实测）；另在 6 主题 × 浅/深共 12
                   种组合下逐项校验五组对比度：顶栏文字、主按钮文字（常态 / 悬停 / 按下）、焦点环、正文信息文字，以及
                   Element Plus 浅色效果的警示框与格式标签。CI 每次推送跑 lint + build + e2e。</span
                 >
@@ -7755,8 +8212,8 @@ pnpm build</code><button
                   >A Playwright end-to-end suite drives the actual build output over the repository fixtures — every
                   conversion scenario, batching and ZIP handling, cancellation and shortcut rebinding, preview and
                   editing, image output parameters and conversion presets, PDF page selection, output file-name
-                  patterns, history and preferences — with 358/358 assertions passing (the unreleased build after 1.2.1,
-                  measured 2026-10-19). It also checks five contrast pairs — topbar text, the primary button's label in
+                  patterns, history and preferences — with 452/452 assertions passing (the unreleased build after 1.2.1,
+                  measured 2026-10-21). It also checks five contrast pairs — topbar text, the primary button's label in
                   its rest, hover and pressed states, the focus ring, informational text such as the drop hint and file
                   sizes, and the ink Element Plus paints on its light-effect alerts and per-file format tags — in all 12
                   theme × light/dark combinations. CI runs lint, build and e2e on every push.</span
@@ -7781,24 +8238,25 @@ pnpm build</code><button
           </div>
           <p class="updated">
             <span lang="zh-CN"
-              ><strong>版本 1.2.1 · 本页最后更新 2026-10-19。</strong>文中全部数字从代码取证：14 种格式来自
+              ><strong>版本 1.2.1 · 本页最后更新 2026-10-20。</strong>文中全部数字从代码取证：14 种格式来自
               <code>FileFormat</code> 枚举，48 条路径与 143 个可达组合来自转换器注册表的邻接图，116 个可选组合是 143
-              减去 <code>utils/core/conversion-policy.ts</code> 置灰的 27 个，3.84 MB 来自
+              减去 <code>utils/core/conversion-policy.ts</code> 置灰的 27 个，3.86 MB 来自
               <code>pnpm build</code> 输出，权限与上限来自 manifest 与源码常量。截图与推广图由
-              <code>pnpm assets:capture</code> 从构建产物生成；<code>docs/convert/</code> 的 35 张配对页与 1 个索引页由
-              <code>pnpm pages:render</code> 生成，与 <code>docs/sitemap.xml</code> 同步；本页上方那张文件对比是
+              <code>pnpm assets:capture</code> 从构建产物生成；<code>docs/convert/</code> 的 43 张配对页、14
+              张来源格式页与 1 个索引页由 <code>pnpm pages:render</code> 生成，与
+              <code>docs/sitemap.xml</code> 同步；本页上方那张文件对比是
               <code>tools/file-diff.html</code> 的逐字节副本，由同一条命令发布到 <code>docs/diff/</code>。</span
             >
             <span lang="en"
-              ><strong>Version 1.2.1 · page last updated 2026-10-19.</strong> Every number on this page is taken from
+              ><strong>Version 1.2.1 · page last updated 2026-10-20.</strong> Every number on this page is taken from
               the code: 14 formats from the <code>FileFormat</code> enum, 48 routes and 143 reachable combinations from
               the converter registry's adjacency graph, and 116 selectable combinations — that is 143 minus the 27 pairs
-              <code>utils/core/conversion-policy.ts</code> greys out. 3.84 MB comes from <code>pnpm build</code> output,
+              <code>utils/core/conversion-policy.ts</code> greys out. 3.86 MB comes from <code>pnpm build</code> output,
               permissions and limits from the manifest and source constants. Screenshots are generated from the built
-              bundle by <code>pnpm assets:capture</code>, and the per-pair pages — 35 of them, plus an index — come from
-              <code>pnpm pages:render</code>, which writes the sitemap they are listed in. The file-diff page above is a
-              byte-for-byte copy of <code>tools/file-diff.html</code>, published to <code>docs/diff/</code> by that same
-              command.</span
+              bundle by <code>pnpm assets:capture</code>, and the per-pair pages — 43 of them, plus 14 source-format hub
+              pages and an index — come from <code>pnpm pages:render</code>, which writes the sitemap they are listed
+              in. The file-diff page above is a byte-for-byte copy of <code>tools/file-diff.html</code>, published to
+              <code>docs/diff/</code> by that same command.</span
             >
           </p>
         </div>
@@ -8116,7 +8574,7 @@ pnpm build</code><button
               </a>
             </span>
             <span>
-              <span lang="zh-CN">最后更新 2026-10-19 · </span><span lang="en">Last updated 2026-10-19 · </span
+              <span lang="zh-CN">最后更新 2026-10-20 · </span><span lang="en">Last updated 2026-10-20 · </span
               ><a
                 href="https://github.com/liaolongdong/transfer-any-file/blob/main/CHANGELOG.md"
                 rel="noopener"
@@ -8513,7 +8971,7 @@ pnpm build</code><button
         }
 
         // ---- Roll the metric band up, once, as it comes into view ----------
-        // Only bare integers are touched: "3.84 MB" is a measurement with a unit, not a tally, and
+        // Only bare integers are touched: "3.86 MB" is a measurement with a unit, not a tally, and
         // rolling it would advertise a precision the build does not have. The real value stays in the
         // HTML, so crawlers, no-JS readers and reduced-motion readers all see the answer immediately.
         var metricNums = Array.prototype.slice.call(document.querySelectorAll('.metric b')).filter(function (el) {
@@ -8678,7 +9136,7 @@ pnpm build</code><button
 
         // ---- One-pass scroll reveals declared in the markup -------------------
         // data-onview names the class an element gains the first time it is 35% in view:
-        // the size bar under "3.84 MB" (in) and the light sweep over the comparison column
+        // the size bar under "3.86 MB" (in) and the light sweep over the comparison column
         // (shine). Both classes only arm finite animations, so reduced-motion readers get
         // the end state directly and there is nothing to unsee.
         var onView = Array.prototype.slice.call(document.querySelectorAll('[data-onview]'));

@@ -11,7 +11,8 @@ import type { FileFormat } from '~/utils/core/types';
 import HistoryTrendChart from '~/components/shared/HistoryTrendChart.vue';
 
 const emit = defineEmits<{
-  (e: 'reuse', payload: { sourceFormat: FileFormat; targetFormat: FileFormat }): void;
+  /** The whole record: reuse restores the target *and* the settings the batch ran with. */
+  (e: 'reuse', record: HistoryRecord): void;
 }>();
 
 const { records, removeRecord, clear, restoreRecords, exportData, importData } = useHistory();
@@ -102,10 +103,7 @@ function fileNamesTooltip(record: HistoryRecord): string {
 }
 
 function handleReuse(record: HistoryRecord): void {
-  emit('reuse', {
-    sourceFormat: record.sourceFormat,
-    targetFormat: record.targetFormat,
-  });
+  emit('reuse', record);
 }
 
 /**
@@ -378,6 +376,12 @@ async function handleImportChange(e: Event): Promise<void> {
                  `name.md + 3` — and the source size would ask the reader to compare two numbers
                  about a conversion that is already over. -->
             <span class="history-size">{{ formatSize(record.resultSize) }}</span>
+            <!-- Only merged-image records carry this; an ordinary record prints nothing here. -->
+            <span
+              v-if="record.pageCount"
+              class="history-pages"
+              >{{ t('history.pages', { count: record.pageCount }) }}</span
+            >
             <!-- Presence check, not non-zero: an older record has no field and prints no cell, while a
                  batch measured at 0 ms prints the same `< 0.1 s` the results panel just showed. Going
                  through `durationText` rather than the raw field keeps one more case honest — a value
@@ -554,7 +558,8 @@ async function handleImportChange(e: Event): Promise<void> {
    duration are both short, bounded strings, and the only variable-width thing on this line is the
    filename they sit behind. */
 .history-size,
-.history-duration {
+.history-duration,
+.history-pages {
   flex-shrink: 0;
   font-variant-numeric: tabular-nums;
 }
@@ -574,5 +579,22 @@ async function handleImportChange(e: Event): Promise<void> {
 
 .hidden-file-input {
   display: none;
+}
+
+/* Both children of this row refuse to shrink — `.history-trend` is `flex: 0 0 auto` (a 120px svg)
+   and `.history-head-actions` is `flex-shrink: 0` (three `nowrap` labels) — and the card body that
+   holds them is `overflow: clip`. Measured 2026-10-20 at 480px the 清空历史 button already sits
+   16px past the clip box, and from 430px down its centre stops hit-testing, i.e. the button to
+   empty your history cannot be clicked. `document.scrollWidth` still equals the viewport width at
+   every one of those sizes, so no scrollbar ever appears to say so. Let the actions drop under the
+   chart instead: after the fix the three labels measured 29..297 at 360px, i.e. they need ~268px and
+   the clipped body gives them ~314px, so one wrapped line is enough. Same shape and same threshold
+   as `.comparison-toolbar`. With the rule deleted again for a mutation check, the suite printed
+   `wrap=nowrap, last button right 479 vs clip right 343`, which is the same overhang measured
+   independently in a one-off probe. */
+@media (width <= 480px) {
+  .history-head {
+    flex-wrap: wrap;
+  }
 }
 </style>

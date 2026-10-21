@@ -1,8 +1,9 @@
 import { ref } from 'vue';
 import type { Ref } from 'vue';
-import type { ConversionPreset } from '~/utils/core/types';
+import type { ConversionPreset, FileFormat, ImageOutputOptions } from '~/utils/core/types';
 import { STORAGE_KEYS, storageGet, storageSet, onStorageChange } from '~/utils/storage';
-import { MAX_PRESETS, sanitizePresets } from '~/utils/core/presets';
+import { MAX_PRESETS, PRESET_NAME_MAX, sanitizePresets } from '~/utils/core/presets';
+import { isImageOutputFormat, sanitizeImageOutputOptions } from '~/utils/core/output-options';
 
 /**
  * Saved conversion presets, as a module-level singleton like `useHistory` / `useRecentTargets`.
@@ -53,6 +54,37 @@ export function usePresets() {
     return storageSet(STORAGE_KEYS.presets, next);
   }
 
+  /**
+   * Change one preset in place — a rename, or a re-capture of the live target and options.
+   *
+   * The list is written optimistically and rolled back when `storageSet` refuses, so the bar never
+   * keeps showing a state the next reload would undo. An id that is already gone (deleted in another
+   * tab while the edit dialog was open) resolves to `false` instead of resurrecting the entry.
+   */
+  async function updatePreset(
+    id: string,
+    patch: { name?: string; target?: FileFormat; options?: ImageOutputOptions },
+  ): Promise<boolean> {
+    await initPromise;
+    const previous = presets.value;
+    const index = previous.findIndex(preset => preset.id === id);
+    if (index === -1) return false;
+
+    const current = previous[index];
+    const target = patch.target ?? current.target;
+    const name =
+      patch.name === undefined ? current.name : patch.name.trim().slice(0, PRESET_NAME_MAX) || target.toUpperCase();
+    const options = isImageOutputFormat(target) ? sanitizeImageOutputOptions(patch.options ?? current.options) : {};
+
+    const next = previous.slice();
+    next[index] = { id, name, target, options };
+    presets.value = next;
+
+    if (await storageSet(STORAGE_KEYS.presets, next)) return true;
+    presets.value = previous;
+    return false;
+  }
+
   /** Same outcome contract as `addPreset`, for the matching 「已删除」 message. */
   async function removePreset(id: string): Promise<boolean> {
     await initPromise;
@@ -62,5 +94,5 @@ export function usePresets() {
     return storageSet(STORAGE_KEYS.presets, next);
   }
 
-  return { presets, addPreset, removePreset };
+  return { presets, addPreset, removePreset, updatePreset };
 }

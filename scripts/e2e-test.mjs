@@ -5,6 +5,7 @@ import { deflateSync } from 'node:zlib';
 import path from 'path';
 import fs from 'fs';
 import http from 'http';
+import os from 'os';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const EXTENSION_PATH = path.resolve(__dirname, '../.output/chrome-mv3');
@@ -594,10 +595,28 @@ async function convertFile(page, fixture, targetText, timeout = 30000, prepare) 
  *  replaced by the next upload anyway. */
 async function resetWorkbench(page) {
   const resetBtn = await page.$('.reset-btn');
-  if (resetBtn) {
-    await resetBtn.click();
-    await page.waitForSelector('.reset-btn', { state: 'detached', timeout: 10000 }).catch(() => {});
+  if (!resetBtn) return;
+  // The button lives inside the results card it clears, so the click unmounts its own target.
+  // Playwright can sample the node between the dispatch and Vue's patch and reject with
+  // "element is not attached to the DOM" even though `clearResults` ran — and the failure list's
+  // enter transition makes that window wider. The detached-card check is the authoritative one, so
+  // a rejected click is retried once against a fresh handle rather than failing the scenario.
+  await resetBtn.click({ timeout: 3000 }).catch(() => {});
+  let settled = await page.waitForSelector('.reset-btn', { state: 'detached', timeout: 5000 }).then(
+    () => true,
+    () => false,
+  );
+  if (!settled) {
+    const again = await page.$('.reset-btn');
+    if (again) {
+      await again.click().catch(() => {});
+      settled = await page.waitForSelector('.reset-btn', { state: 'detached', timeout: 5000 }).then(
+        () => true,
+        () => false,
+      );
+    }
   }
+  if (!settled) throw new Error('the results card did not clear before the next scenario');
 }
 
 /** Choose a conversion target from the workbench's format dropdown. */
@@ -2272,6 +2291,248 @@ async function run() {
   }
 
   // ═══════════════════════════════════════════
+  //  F-1b — SVG→HTML must not hand the user a document that fetches when opened
+  // ═══════════════════════════════════════════
+
+  if (section('SVG HTML Subresource Egress')) {
+    try {
+      // One marker per vector that reaches `stripRemoteResources` on this path, plus two references that
+      // must *survive*: a document whose local gradient and data: image also went missing would pass a
+      // "no remote URL" assertion while quietly destroying the picture. Two of the six markers below
+      // (`background=` and the animation's `to=`) are cut by the DOMPurify profile rather than by the
+      // strip — they stay in the fixture because the claim under test is about the delivered document,
+      // and a future profile change would otherwise open a hole no one looks at.
+      const svgEgress = [
+        '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="120" height="120" viewBox="0 0 120 120">',
+        '  <defs><linearGradient id="g"><stop offset="0" stop-color="#f00"/><stop offset="1" stop-color="#0f0"/></linearGradient></defs>',
+        '  <style>.marker-box { fill: #333; } .bg { background: url("http://canary.invalid/track-css-url.png"); }</style>',
+        '  <rect class="marker-box" width="40" height="40" fill="url(#g)"/>',
+        '  <image href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==" x="50" y="0" width="10" height="10"/>',
+        '  <image href="http://canary.invalid/track-image.png" x="0" y="50" width="10" height="10"/>',
+        '  <image xlink:href="http://canary.invalid/track-xlink.png" x="15" y="50" width="10" height="10"/>',
+        '  <rect x="30" y="50" width="10" height="10" fill="url(http://canary.invalid/track-fill.svg#g)"/>',
+        '  <rect x="45" y="50" width="10" height="10" style="fill: url(http://canary.invalid/track-style.svg#g)"/>',
+        '  <rect x="60" y="50" width="10" height="10" background="http://canary.invalid/track-bg.png"/>',
+        '  <animateTransform attributeName="fill" to="url(http://canary.invalid/track-anim.svg#g)" dur="1s"/>',
+        '</svg>',
+      ].join('\n');
+
+      await resetWorkbench(page);
+      const fi = await page.$('input[type="file"]');
+      await fi.setInputFiles({
+        name: 'svg-egress.svg',
+        mimeType: 'image/svg+xml',
+        buffer: Buffer.from(svgEgress, 'utf8'),
+      });
+      await page.waitForTimeout(1000);
+      await pickTarget(page, 'HTML (.html)');
+      await (await page.$('.convert-btn')).click();
+      await page.waitForFunction(
+        () => {
+          const alert = document.querySelector('.el-alert__title');
+          return alert && alert.textContent.length > 0;
+        },
+        undefined,
+        { timeout: 30000 },
+      );
+      await page.waitForTimeout(500);
+
+      // Nothing here can be asserted from the network: the converter issues no request itself, and it
+      // is the user's browser that would resolve these URLs the moment they open the file.
+      const html = await downloadBatchArtifact(page);
+
+      if (/<svg[\s>]/.test(html)) {
+        ok(`SVG→HTML hands over a document still carrying the inline graphic (${html.length} bytes)`);
+      } else {
+        fail('SVG HTML Subresource Egress', 'no inline <svg> in the artifact — the probes below prove nothing');
+      }
+
+      const survivors = [...html.matchAll(/https?:\/\/canary\.invalid\/[^\s"')]+/g)].map(m => m[0]);
+      if (survivors.length === 0) {
+        ok('Every remote URL that survives the profile is cut before the document ships (5 vectors)');
+      } else {
+        fail('SVG egress', `the delivered document would fetch on open: ${JSON.stringify(survivors)}`);
+      }
+
+      const animationLeft = /<(animate|animateTransform|animateColor|animateMotion|set)\b/i.test(html);
+      if (!animationLeft) {
+        ok('The SMIL animation elements the profile keeps are removed with them');
+      } else {
+        fail('SVG egress', 'an animation element survived into the delivered document');
+      }
+
+      const localKept = html.includes('url(#g)') && html.includes('data:image/png;base64,');
+      if (localKept) {
+        ok('A local gradient reference and an embedded data: image both survive the strip');
+      } else {
+        fail(
+          'SVG egress strip is over-eager',
+          `url(#g)=${html.includes('url(#g)')} data:image=${html.includes('data:image/png;base64,')}`,
+        );
+      }
+
+      const cssKept = html.includes('.marker-box') && !html.includes('track-css-url');
+      if (cssKept) {
+        ok('The document keeps its own stylesheet while the remote rule inside it is cut');
+      } else {
+        fail('SVG egress CSS', `.marker-box=${html.includes('.marker-box')} remote=${html.includes('track-css-url')}`);
+      }
+
+      const titleKept = /<title>/.test(html) && /svg-egress/.test(html);
+      if (titleKept) {
+        ok('The wrapper document is intact after the round trip (title still names the source file)');
+      } else {
+        fail('SVG egress wrapper', 'the delivered document lost its <title> or the source name in it');
+      }
+
+      await page.screenshot({
+        path: shot(`${String(shotIdx++).padStart(2, '0')}-svg-egress.png`),
+        fullPage: true,
+      });
+    } catch (e) {
+      fail('SVG HTML Subresource Egress', e.message);
+    }
+  }
+
+  // ═══════════════════════════════════════════
+  //  F-1c — a .docx whose altChunk holds remote markup must not become a page that fetches
+  // ═══════════════════════════════════════════
+
+  if (section('DOCX AltChunk Egress')) {
+    try {
+      // Built here rather than committed as a fixture: the interesting part is four XML files and one
+      // MHT, and a binary in `fixtures/` would hide exactly the line under test (the remote `<img>`).
+      // Mammoth cannot read this shape, so it is the altChunk recovery path that runs — and that path
+      // hands over markup this extension never wrote.
+      const { zipSync, strToU8 } = await import('fflate');
+      const canaryUrl = `http://127.0.0.1:${PORT}/canary/altchunk-img.png`;
+      const mht = [
+        'MIME-Version: 1.0',
+        'Content-Type: multipart/related; type="text/html"; boundary="----=_tafe2"',
+        '',
+        '------=_tafe2',
+        'Content-Type: text/html; charset="utf-8"',
+        'Content-Location: file:///C:/fake/document.html',
+        'Content-Transfer-Encoding: quoted-printable',
+        '',
+        `<html><body><h1>Recovered body</h1><p>plain text that must survive</p>` +
+          `<img src="${canaryUrl}" alt="remote"><img src="data:image/png;base64,iVBORw0KGgo=" alt="local"></body></html>`,
+        '------=_tafe2--',
+        '',
+      ].join('\r\n');
+      const docx = zipSync(
+        {
+          '[Content_Types].xml': strToU8(
+            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+              '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' +
+              '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
+              '<Default Extension="xml" ContentType="application/xml"/>' +
+              '<Default Extension="mht" ContentType="message/rfc822"/>' +
+              '<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>',
+          ),
+          '_rels/.rels': strToU8(
+            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+              '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+              '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>',
+          ),
+          'word/document.xml': strToU8(
+            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+              '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" ' +
+              'xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math" ' +
+              'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">' +
+              '<w:body><m:altChunk r:id="chunk1"/><w:sectPr/></w:body></w:document>',
+          ),
+          'word/_rels/document.xml.rels': strToU8(
+            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+              '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+              '<Relationship Id="chunk1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/aFChunk" Target="afchunk.mht"/></Relationships>',
+          ),
+          'word/afchunk.mht': strToU8(mht),
+        },
+        { level: 6 },
+      );
+
+      await resetWorkbench(page);
+      const fi = await page.$('input[type="file"]');
+      await fi.setInputFiles({
+        name: 'altchunk-remote.docx',
+        mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        buffer: Buffer.from(docx),
+      });
+      await page.waitForTimeout(1200);
+      const tag = await page.$eval('.file-item .el-tag--primary', el => el.textContent.trim()).catch(() => '');
+      await pickTarget(page, 'HTML (.html)');
+      await (await page.$('.convert-btn')).click();
+      await page.waitForFunction(
+        () => {
+          const alert = document.querySelector('.el-alert__title');
+          return alert && alert.textContent.length > 0;
+        },
+        undefined,
+        { timeout: 30000 },
+      );
+      await page.waitForTimeout(500);
+
+      if (tag.includes('Word')) {
+        ok(`The altChunk document is recognised as Word (${tag})`);
+      } else {
+        fail('DOCX AltChunk Egress', `format tag was "${tag}" — the route below may not be the one under test`);
+      }
+
+      const html = await downloadBatchArtifact(page);
+      const recovered = html.includes('Recovered body');
+      if (recovered) {
+        ok('The altChunk body was recovered, so the probes below read the path that carries remote markup');
+      } else {
+        fail('DOCX AltChunk Egress', 'no recovered body in the artifact — nothing was tested');
+      }
+      if (!html.includes('/canary/')) {
+        ok('No remote reference from the embedded HTML survives into the delivered document');
+      } else {
+        fail(
+          'DOCX egress',
+          `the delivered page would fetch: ${JSON.stringify([...html.matchAll(/\/canary\/[^"' )]+/g)].map(m => m[0]))}`,
+        );
+      }
+      const localKept = html.includes('plain text that must survive') && html.includes('data:image/png;base64,');
+      if (localKept) {
+        ok('The document’s own text and its embedded data: image both survive the strip');
+      } else {
+        fail(
+          'DOCX egress strip is over-eager',
+          `text=${html.includes('plain text that must survive')} dataImage=${html.includes('data:image/png;base64,')}`,
+        );
+      }
+
+      // The claim is about what happens when the user opens the file, so open it. The converter itself
+      // never issues a request — only the renderer does, which is what the byte-level check above
+      // cannot see on its own.
+      if (recovered) {
+        const out = path.join(os.tmpdir(), `taf-altchunk-${Date.now()}.html`);
+        fs.writeFileSync(out, html, 'latin1');
+        canaryHits.length = 0;
+        const viewer = await browser.newPage();
+        await viewer.goto(`file://${out}`).catch(() => {});
+        await viewer.waitForTimeout(2000);
+        await viewer.close();
+        fs.rmSync(out, { force: true });
+        if (canaryHits.length === 0) {
+          ok('Opening the delivered page issues no request at all (measured against the harness server)');
+        } else {
+          fail('DOCX egress', `opening the delivered page fetched ${JSON.stringify(canaryHits)}`);
+        }
+      }
+
+      await page.screenshot({
+        path: shot(`${String(shotIdx++).padStart(2, '0')}-docx-altchunk-egress.png`),
+        fullPage: true,
+      });
+    } catch (e) {
+      fail('DOCX AltChunk Egress', e.message);
+    }
+  }
+
+  // ═══════════════════════════════════════════
   //  F-9 — inline SVG in markdown must survive md→html, and its active content must not
   // ═══════════════════════════════════════════
 
@@ -2958,6 +3219,114 @@ async function run() {
   }
 
   // ═══════════════════════════════════════════
+  //  STICKY JSON ROW ORDINALS (the array table scrolls sideways; the row number must not)
+  // ═══════════════════════════════════════════
+
+  if (section('Sticky JSON Row Ordinals')) {
+    try {
+      // A payload wide enough that `width: max-content` really overflows the pane: without that, every
+      // assertion below passes vacuously on a grid that never scrolls.
+      const columns = Array.from({ length: 14 }, (_, i) => `字段名称${i + 1}（这一列名字挺长的）`);
+      const wide = {
+        name: 'wide-ordinals.csv',
+        mimeType: 'text/csv',
+        buffer: Buffer.from(
+          [columns.join(','), ...[1, 2, 3, 4].map(r => columns.map((_, c) => `值${r}-${c}`).join(','))].join('\n'),
+          'utf8',
+        ),
+      };
+
+      await resetWorkbench(page);
+      await convertFile(page, wide, 'JSON (.json)');
+      await page.click('.result-item button[title="预览"]');
+      await page.waitForSelector('.preview-dialog .json-row', { timeout: 15000 });
+      await page.click('.preview-dialog .el-radio-button__inner:has-text("数组表")');
+      await page.waitForSelector('.preview-dialog .json-grid', { timeout: 15000 });
+      await page.waitForTimeout(400);
+
+      const m = await page.evaluate(() => {
+        const sc = document.querySelector('.json-table-scroll');
+        const idx = document.querySelector('.json-grid tbody th.json-index');
+        const evenIdx = document.querySelector('.json-grid tbody tr:nth-child(even) th.json-index');
+        const head = document.querySelector('.json-grid thead th.json-index');
+        const data = document.querySelector('.json-grid tbody tr').children[1];
+        const cs = getComputedStyle(idx);
+        const rect = el => el.getBoundingClientRect();
+        const before = { idxX: rect(idx).x, dataX: rect(data).x };
+        sc.scrollLeft = 600;
+        const ir = rect(idx);
+        const hit = document.elementFromPoint(ir.left + ir.width / 2, ir.top + ir.height / 2);
+        const out = {
+          overflow: sc.scrollWidth - sc.clientWidth,
+          scrollLeft: sc.scrollLeft,
+          position: cs.position,
+          left: cs.left,
+          pinnedDelta: rect(idx).x - rect(sc).left,
+          dataDelta: rect(data).x - before.dataX,
+          hitIsPinned: !!(hit && hit.closest('th.json-index')),
+          oddBg: cs.backgroundColor,
+          evenBg: getComputedStyle(evenIdx).backgroundColor,
+          dialogBg: getComputedStyle(document.querySelector('.el-dialog')).backgroundColor,
+          surface2: getComputedStyle(document.documentElement).getPropertyValue('--fat-surface-2').trim(),
+          headTopDelta: rect(head).top - rect(sc).top,
+        };
+        sc.scrollLeft = 0;
+        return out;
+      });
+
+      const sameColor = (a, b) => {
+        const x = parseColor(a);
+        const y = parseColor(b);
+        return !!x && !!y && x.join(',') === y.join(',');
+      };
+      const checks = [
+        [
+          `The array grid really scrolls sideways (${String(m.overflow)} px past the pane), so pinning has something to pin against`,
+          m.overflow >= 400,
+        ],
+        [
+          `The ordinal cell is pinned to the scroller (position ${m.position}, left ${m.left})`,
+          m.position === 'sticky' && m.left === '0px',
+        ],
+        [
+          `It stays at the pane's left edge under 600 px of scroll (Δ ${m.pinnedDelta.toFixed(2)} px)`,
+          Math.abs(m.pinnedDelta) <= 1.5,
+        ],
+        [
+          `A data column moved the whole distance (Δ ${m.dataDelta.toFixed(0)} px), so the scroll was real`,
+          Math.abs(m.dataDelta + 600) <= 2,
+        ],
+        ['Nothing scrolls over it: the hit test at its centre returns the pinned cell', m.hitIsPinned === true],
+        // The backdrop is the other half of the fix: the zebra lives on the `tr`, so a transparent sticky
+        // cell would let the scrolled text show through it. Compared against what the dialog itself
+        // paints with and against the token the even rows use — never against a hardcoded colour.
+        [`An odd row's pinned cell paints the dialog's own surface (${m.oddBg})`, sameColor(m.oddBg, m.dialogBg)],
+        [
+          `An even row's pinned cell keeps the zebra colour (${m.evenBg} = --fat-surface-2 ${m.surface2})`,
+          sameColor(m.evenBg, m.surface2),
+        ],
+        [
+          `The header's corner cell stays at the top too (Δ ${m.headTopDelta.toFixed(2)} px)`,
+          Math.abs(m.headTopDelta) <= 1.5,
+        ],
+      ];
+      for (const [claim, holds] of checks) {
+        if (holds) ok(claim);
+        else fail('Sticky JSON Row Ordinals', `claim did not hold: ${claim}`);
+      }
+
+      await page.screenshot({
+        path: shot(`${String(shotIdx++).padStart(2, '0')}-json-ordinals-sticky.png`),
+        fullPage: true,
+      });
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(300);
+    } catch (e) {
+      fail('Sticky JSON Row Ordinals', e.message);
+    }
+  }
+
+  // ═══════════════════════════════════════════
   //  HTML→MD TABLE ROUNDTRIP (regression: default Turndown rules dropped tables)
   // ═══════════════════════════════════════════
 
@@ -3134,20 +3503,22 @@ async function run() {
      *
      * `convertFile` waits for any non-empty `.el-alert__title`, which is safe for it because a fresh
      * upload used to wipe the results panel. Under F7 the panel can still be showing the previous
-     * batch's headline the moment this one starts, so the wait is pinned to the headline *changing*
-     * — otherwise the first read races the alert that is already on screen.
+     * batch's headline the moment this one starts, so the card leaving is the start signal and its
+     * return is the end. A headline-*changed* wait would hang on the retarget case below: the old
+     * 「转换完成！」 and the new one are the same sentence, and the only moment that separates them
+     * is the card being unmounted while `isDone` is false.
      */
-    const alertTitle = () => page.$eval('.el-alert__title', el => el.textContent.trim()).catch(() => '');
     const convertBatch = async () => {
-      const before = await alertTitle();
       await page.click('.convert-btn');
+      await page
+        .waitForFunction(() => !document.querySelector('.result-download'), undefined, { timeout: 5000 })
+        .catch(() => {});
       await page.waitForFunction(
-        previous => {
+        () => {
           const el = document.querySelector('.el-alert__title');
-          const text = el ? el.textContent.trim() : '';
-          return text.length > 0 && text !== previous;
+          return !!el && el.textContent.trim().length > 0;
         },
-        before,
+        undefined,
         { timeout: 30000 },
       );
       await page.waitForTimeout(300);
@@ -3215,17 +3586,51 @@ async function run() {
     if ((await rowCount('.result-item')) === 0) ok('A target the updated list cannot reach clears the batch');
     else fail('Incompatible target cleanup', `${await rowCount('.result-item')} result(s) left for a dead target`);
 
-    // Pinned deliberately: retargeting is still a full reset. Those results belong to a target the
-    // user has just walked away from, and keeping them would put PNG and HTML rows in one list.
+    // 2A: walking away from a target no longer throws the bytes away. The row keeps its own
+    // badge (the selector says PDF while the row says HTML), the notice explains the disagreement,
+    // and the download button still hands back the HTML that was actually produced. Only a new run
+    // replaces the row — and that run is the one place the notice may disappear.
     await clearFiles();
     await fi.setInputFiles(path.join(FIXTURE_PATH, 'sample.md'));
     await page.waitForTimeout(1000);
     await pickTarget(page, 'HTML (.html)');
     await convertBatch();
+    const keptName = (await resultNames())[0];
+    const keptBytes = await downloadBatchArtifact(page);
     await pickTarget(page, 'PDF (.pdf)');
-    if ((await rowCount('.result-item')) === 0)
-      ok('Switching the target still clears the results made for the old one');
-    else fail('Retarget clears results', 'results survived a change of target');
+    if ((await rowCount('.result-item')) === 1) ok('Switching the target keeps the results already made');
+    else fail('Retarget keeps results', `${await rowCount('.result-item')} result(s) left after the switch`);
+    const keptBadge = await page.$eval('.result-item .result-target', el => el.textContent.trim()).catch(() => '');
+    if (keptBadge === 'HTML (.html)') ok('A kept row still says which format its bytes are');
+    else fail('Retarget row badge', `row reads "${keptBadge}"`);
+    const staleNotice = await page
+      .$$eval('.el-alert__title', els => els.map(el => el.textContent.trim()).find(text => text.includes('当前目标是')))
+      .catch(() => '');
+    if (staleNotice?.includes('PDF (.pdf)') && staleNotice?.includes('HTML (.html)'))
+      ok('A kept row is explained against the target now selected');
+    else fail('Stale result notice', `notice reads "${staleNotice}"`);
+    const unchangedBytes = await downloadBatchArtifact(page);
+    if (unchangedBytes === keptBytes) ok('A kept result still downloads the bytes it was made from');
+    else fail('Kept result download', 'the downloaded bytes changed without a new conversion');
+
+    await convertBatch();
+    const rerunNames = await resultNames();
+    const rerunBadge = await page.$eval('.result-item .result-target', el => el.textContent.trim()).catch(() => '');
+    if (
+      rerunNames.length === 1 &&
+      rerunBadge === 'PDF (.pdf)' &&
+      /^sample_\d{8}_\d{6}\.pdf$/.test(rerunNames[0]) &&
+      rerunNames[0] !== keptName
+    ) {
+      ok('Re-running under the new target replaces the stale row with the new format');
+    } else {
+      fail('Retarget re-run', `rows=[${rerunNames}] badge="${rerunBadge}"`);
+    }
+    const noticeGone = await page
+      .$$eval('.el-alert__title', els => els.some(el => el.textContent.includes('当前目标是')))
+      .catch(() => false);
+    if (!noticeGone) ok('The stale notice leaves once the rows match the selector');
+    else fail('Stale notice clear', 'the notice survived a run under the new target');
 
     await page.screenshot({
       path: shot(`${String(shotIdx++).padStart(2, '0')}-file-set-edit.png`),
@@ -3234,6 +3639,597 @@ async function run() {
     await clearFiles();
   } catch (e) {
     fail('File set edits keep unrelated results', e.message);
+  }
+
+  // ═══════════════════════════════════════════
+  //  MERGED IMAGE PDF (2B)
+  // ═══════════════════════════════════════════
+  //
+  // One PDF written from several images. The assertions read the artifact rather than the panel:
+  // page count comes out of the PDF's own `/Type /Page` objects, and the encoders per image XObject
+  // show which branch each source took (PNG pass-through and the BMP re-encode end up FlateDecode,
+  // the JPEG pass-through DCTDecode). A wrong panel sentence cannot satisfy either.
+  if (section('Merged Image PDF')) {
+    const mergedPage = await browser.newPage();
+    tolerateScreenshotTimeout(mergedPage);
+    trackPageErrors(mergedPage);
+    try {
+      await mergedPage.setViewportSize({ width: 1280, height: 900 });
+      // The twelve-file cancel scenario would otherwise stop at the pre-conversion confirmation,
+      // and the cancel button would never mount — that dialog has its own section below.
+      await mergedPage.addInitScript(mockChromeStorage({ 'fat:confirmConvert': false }));
+      await mergedPage.goto(`http://localhost:${PORT}/options.html`);
+      await mergedPage.waitForTimeout(1200);
+
+      const pngBuf = Buffer.from(solidPngBase64(64, 48, [214, 64, 64]).split(',')[1], 'base64');
+      // The JPEG has to come out of a real encoder, and the page has one. Generated before any file
+      // is staged so the canvas never shares a frame with a conversion.
+      const jpegB64 = await mergedPage.evaluate(() => {
+        const canvas = document.createElement('canvas');
+        canvas.width = 72;
+        canvas.height = 54;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return '';
+        ctx.fillStyle = '#2f6f4f';
+        ctx.fillRect(0, 0, 72, 54);
+        return canvas.toDataURL('image/jpeg', 0.9).split(',')[1];
+      });
+      if (!jpegB64) throw new Error('could not produce a JPEG in the page');
+      const jpegBuf = Buffer.from(jpegB64, 'base64');
+
+      const historyRecords = () =>
+        mergedPage.evaluate(() => window.chrome.storage.local.get('fat:history')).then(r => r['fat:history'] ?? []);
+      const resetMerged = async () => {
+        await resetWorkbench(mergedPage);
+        // The upload card re-enters after 重新转换, so the clear button is still moving when the
+        // reset returns. Wait for the list's own expand transition, then click: that button
+        // unmounts the list it sits in, and Playwright can sample the node between the press and
+        // Vue's patch and report "not attached" even though `clearAll` ran. The state check below
+        // is the authoritative one — without it a swallowed click would leak files into the next
+        // scenario.
+        await mergedPage
+          .waitForFunction(
+            () => {
+              const list = document.querySelector('.file-list-expand');
+              return !!list && list.getAnimations({ subtree: true }).every(a => a.playState === 'finished');
+            },
+            undefined,
+            { timeout: 5000 },
+          )
+          .catch(() => {});
+        const clear = await mergedPage.$('.clear-files-btn');
+        if (clear) {
+          await clear.click().catch(() => {});
+          const cleared = await mergedPage
+            .waitForFunction(() => !document.querySelector('.clear-files-btn'), undefined, { timeout: 5000 })
+            .then(
+              () => true,
+              () => false,
+            );
+          if (!cleared) throw new Error('the file list did not clear before the next merge scenario');
+          await mergedPage.waitForTimeout(300);
+        }
+      };
+      const upload = async entries => {
+        const fi = await mergedPage.waitForSelector('input[type="file"]', { state: 'attached', timeout: 10000 });
+        await fi.setInputFiles(entries);
+        await mergedPage.waitForTimeout(1200);
+        await pickTarget(mergedPage, 'PDF (.pdf)');
+      };
+      const runMerge = async timeout => {
+        await mergedPage.click('.convert-btn');
+        await mergedPage.waitForFunction(
+          () => {
+            const el = document.querySelector('.el-alert__title');
+            return !!el && el.textContent.trim().length > 0;
+          },
+          undefined,
+          { timeout },
+        );
+        await mergedPage.waitForTimeout(400);
+      };
+
+      await upload([
+        { name: 'merge-a.png', mimeType: 'image/png', buffer: pngBuf },
+        { name: 'merge-b.jpg', mimeType: 'image/jpeg', buffer: jpegBuf },
+        {
+          name: 'sample.bmp',
+          mimeType: 'image/bmp',
+          buffer: fs.readFileSync(path.join(FIXTURE_PATH, 'sample.bmp')),
+        },
+      ]);
+      if (await mergedPage.isVisible('.merge-row')) ok('A multi-image batch offers the merge checkbox');
+      else fail('Merge checkbox', 'the merge row is missing for three mergeable images');
+      const mergeHint = await mergedPage.$eval('.merge-hint', el => el.textContent.trim()).catch(() => '');
+      if (mergeHint.includes('200')) ok('The merge row states the page ceiling');
+      else fail('Merge hint', `hint reads "${mergeHint}"`);
+      await mergedPage.locator('.merge-row .el-checkbox').click();
+      await mergedPage.waitForTimeout(200);
+      if (await mergedPage.$eval('.merge-row .el-checkbox', el => el.classList.contains('is-checked')))
+        ok('The merge choice is a real checked state');
+      else fail('Merge checkbox', 'the checkbox did not report checked after the click');
+
+      await runMerge(60000);
+      const mergedNames = await mergedPage.$$eval('.result-item .result-name', els =>
+        els.map(el => el.textContent.trim()),
+      );
+      if (mergedNames.length === 1 && /^merge-a-merged_\d{8}_\d{6}\.pdf$/.test(mergedNames[0]))
+        ok(`Three images arrive as one -merged PDF (${mergedNames[0]})`);
+      else fail('Merged result', `rows [${mergedNames.join(', ')}]`);
+      const mergedBadge = await mergedPage.$eval('.result-item .result-target', el => el.textContent.trim());
+      if (mergedBadge === 'PDF (.pdf)') ok('The merged row is badged as the PDF it is');
+      else fail('Merged badge', `row reads "${mergedBadge}"`);
+      const mergedSummary = (await mergedPage.$$eval('.result-summary', els => els.map(el => el.textContent.trim())))
+        .join(' | ')
+        .replace(/\s+/g, ' ');
+      if (mergedSummary.includes('3 张图片') && mergedSummary.includes('3 页'))
+        ok('The result card says how many images became how many pages');
+      else fail('Merged summary', `summary reads "${mergedSummary}"`);
+      const downloadLabel = await mergedPage.$eval('.download-actions .el-button', el => el.textContent.trim());
+      if (downloadLabel === '下载文件') ok('A merged batch offers one file, not a ZIP');
+      else fail('Merged download label', `button reads "${downloadLabel}"`);
+
+      const { pages: mergedPages, filters } = readPdfSliceFilters(await downloadBatchArtifact(mergedPage));
+      if (mergedPages === 3) ok('The downloaded PDF really carries one page per image');
+      else fail('Merged page count', `${mergedPages} page object(s)`);
+      const jpegStreams = filters.filter(filter => filter === 'DCTDecode').length;
+      const flateStreams = filters.filter(filter => filter === 'FlateDecode').length;
+      if (filters.length === 3 && jpegStreams === 1 && flateStreams === 2)
+        ok('Each source took its intended encoder (JPEG passthrough, PNG/Flate for the rest)');
+      else fail('Merged encoders', `filters [${filters.join(', ')}]`);
+
+      const mergedRecord = (await historyRecords())[0];
+      const pagesCell = await mergedPage
+        .$eval('.history-item .history-pages', el => el.textContent.trim())
+        .catch(() => '');
+      if (mergedRecord?.pageCount === 3 && mergedRecord.fileCount === 3 && mergedRecord.sourceFormat === 'png')
+        ok('The history record keeps the page count and the source format');
+      else fail('Merged history', JSON.stringify(mergedRecord));
+      if (pagesCell === '3 页') ok('The history row prints the merged page count');
+      else fail('Merged history cell', `cell reads "${pagesCell}"`);
+      await mergedPage.screenshot({
+        path: shot(`${String(shotIdx++).padStart(2, '0')}-merged-image-pdf.png`),
+        fullPage: true,
+      });
+
+      // The single-image route is untouched by the merge pipeline: the checkbox keeps its in-memory
+      // choice, but one file is not a batch to fold, and no `-merged` suffix may appear on its name.
+      await resetMerged();
+      await upload([{ name: 'merge-a.png', mimeType: 'image/png', buffer: pngBuf }]);
+      if ((await mergedPage.$$('.merge-row')).length === 0) ok('A one-image batch hides the merge choice');
+      else fail('Merge row on one file', 'the merge row is offered for a single image');
+      await runMerge(30000);
+      const singleName = await mergedPage.$eval('.result-item .result-name', el => el.textContent.trim());
+      const singleSummary = await mergedPage.$$eval('.result-summary', els => els.map(el => el.textContent.trim()));
+      if (/^merge-a_\d{8}_\d{6}\.pdf$/.test(singleName) && !singleSummary.some(t => t.includes('-merged')))
+        ok('A single image still takes the ordinary PDF path');
+      else fail('Single image path', `name "${singleName}" summary [${singleSummary.join(' | ')}]`);
+      const single = readPdfSliceFilters(await downloadBatchArtifact(mergedPage));
+      if (single.pages === 1) ok('The single-image PDF still has exactly one page');
+      else fail('Single image pages', `${single.pages} page object(s)`);
+
+      // Atomic failure: the second image cannot decode, and the whole run must leave no partial
+      // PDF, name the image that broke, and keep the group together for the retry.
+      await resetMerged();
+      await upload([
+        { name: 'good.png', mimeType: 'image/png', buffer: pngBuf },
+        { name: 'broken.bmp', mimeType: 'image/bmp', buffer: Buffer.from('this is not a bitmap') },
+      ]);
+      await mergedPage.locator('.merge-row .el-checkbox').click();
+      await mergedPage.waitForTimeout(200);
+      const historyBeforeFailure = (await historyRecords()).length;
+      await runMerge(30000);
+      const failedResults = await mergedPage.$$eval('.result-item', els => els.length);
+      const failureNames = await mergedPage.$$eval('.failure-item .failure-name', els =>
+        els.map(el => el.textContent.trim()),
+      );
+      if (failedResults === 0) ok('A bad page leaves no partial PDF behind');
+      else fail('Merged atomicity', `${failedResults} result row(s) survived a failed merge`);
+      if (failureNames.length === 1 && failureNames[0] === 'broken.bmp')
+        ok('The diagnostic names the image that broke, not the first one in the list');
+      else fail('Merged failure name', `failures [${failureNames.join(', ')}]`);
+      const retryLabel = await mergedPage.$eval('.retry-btn', el => el.textContent.trim()).catch(() => '');
+      if (retryLabel === '重试失败项 (1)') ok('A merged failure is one retryable row');
+      else fail('Merged retry label', `button reads "${retryLabel}"`);
+      if ((await historyRecords()).length === historyBeforeFailure) ok('A failed merge writes no history record');
+      else fail('Merged failure history', 'the failed merge was recorded as if it produced a file');
+
+      // The retry has to carry the whole group, not just the one row that names the bad file: a
+      // one-file retry would fall out of merged mode and never rebuild the PDF. The button's own
+      // counter is the observable — `retryFailedFiles` hands `convert()` two files, so it reads /2.
+      await mergedPage.evaluate(() => {
+        window.__retryLabels = [];
+        const button = document.querySelector('.convert-btn');
+        if (!button) return;
+        const record = () => {
+          const text = button.textContent.trim();
+          if (text && window.__retryLabels[window.__retryLabels.length - 1] !== text) {
+            window.__retryLabels.push(text);
+          }
+        };
+        new window.MutationObserver(record).observe(button, { childList: true, subtree: true, characterData: true });
+      });
+      await mergedPage.locator('.retry-btn').click();
+      await mergedPage
+        .waitForFunction(() => !document.querySelector('.failure-item'), undefined, { timeout: 5000 })
+        .catch(() => {});
+      await mergedPage.waitForFunction(
+        () => !!document.querySelector('.failure-item') && !!document.querySelector('.retry-btn'),
+        undefined,
+        { timeout: 30000 },
+      );
+      await mergedPage.waitForTimeout(300);
+      const retryLabels = await mergedPage.evaluate(() => window.__retryLabels);
+      if (retryLabels.some(text => /重试失败项 \(\d+\/2\)/.test(text)))
+        ok('Retrying a merged failure re-runs the whole group');
+      else fail('Merged retry group', `button showed [${retryLabels.join(' → ')}]`);
+      const retryNames = await mergedPage.$$eval('.failure-item .failure-name', els =>
+        els.map(el => el.textContent.trim()),
+      );
+      if (
+        retryNames.length === 1 &&
+        retryNames[0] === 'broken.bmp' &&
+        (await mergedPage.$$eval('.result-item', els => els.length)) === 0
+      ) {
+        ok('The re-run fails atomically again and keeps naming the bad image');
+      } else {
+        fail('Merged retry outcome', `failures [${retryNames.join(', ')}]`);
+      }
+
+      // Cancel is not a failure: no row, no file, no history. The images are big enough that the
+      // cancel lands while the builder is still preparing pages rather than after it has finished.
+      await resetMerged();
+      const bigJpegB64 = await mergedPage.evaluate(() => {
+        const canvas = document.createElement('canvas');
+        canvas.width = 3000;
+        canvas.height = 2000;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return '';
+        ctx.fillStyle = '#88a';
+        ctx.fillRect(0, 0, 3000, 2000);
+        return canvas.toDataURL('image/jpeg', 0.92).split(',')[1];
+      });
+      if (!bigJpegB64) throw new Error('could not produce the large JPEG in the page');
+      const bigJpegBuf = Buffer.from(bigJpegB64, 'base64');
+      // Twelve pages, not four: the cancel has to land while the builder is still preparing pages,
+      // and four solid-colour JPEGs can finish inside the time Playwright spends checking that the
+      // button holds still. The count is the window, not an assertion.
+      await upload(
+        Array.from({ length: 12 }, (_, index) => ({
+          name: `cancel-${index + 1}.jpg`,
+          mimeType: 'image/jpeg',
+          buffer: bigJpegBuf,
+        })),
+      );
+      await mergedPage.locator('.merge-row .el-checkbox').click();
+      await mergedPage.waitForTimeout(200);
+      const historyBeforeCancel = (await historyRecords()).length;
+      await mergedPage.click('.convert-btn');
+      await mergedPage.waitForSelector('.cancel-btn', { timeout: 10000 });
+      // The progress card is still entering when the button appears, so a normal click can spend
+      // its whole budget re-checking a box that keeps moving; if the batch then ends, the handle is
+      // detached. Force skips the stability wait, and the in-page dispatch is the fallback for the
+      // frame where Vue has already replaced the node. The two assertions below read the app's
+      // cancelled state, not how the click arrived.
+      await mergedPage
+        .locator('.cancel-btn')
+        .click({ timeout: 1000, force: true })
+        .catch(() => {});
+      await mergedPage.evaluate(() => document.querySelector('.cancel-btn')?.click());
+      const cancelled = await mergedPage
+        .waitForFunction(
+          () => {
+            const el = document.querySelector('.el-alert__title');
+            return !!el && el.textContent.includes('转换已取消');
+          },
+          undefined,
+          { timeout: 30000 },
+        )
+        .then(
+          () => true,
+          () => false,
+        );
+      if (!cancelled) throw new Error('the merge finished before the cancel landed');
+      await mergedPage.waitForTimeout(400);
+      const cancelledRows = await mergedPage.$$eval('.result-item', els => els.length);
+      const cancelledFailures = await mergedPage.$$eval('.failure-item', els => els.length);
+      if (cancelledRows === 0 && cancelledFailures === 0) ok('A cancelled merge produces no partial result');
+      else fail('Merged cancel', `${cancelledRows} result(s), ${cancelledFailures} failure(s)`);
+      if ((await historyRecords()).length === historyBeforeCancel) ok('A cancelled merge writes no history');
+      else fail('Merged cancel history', 'a cancelled merge was recorded');
+    } catch (e) {
+      fail('Merged image PDF', e.message);
+    } finally {
+      await mergedPage.close();
+    }
+  }
+
+  // ═══════════════════════════════════════════
+  //  PRESET EDITING (2A)
+  // ═══════════════════════════════════════════
+  if (section('Preset Editing')) {
+    const editPage = await browser.newPage();
+    tolerateScreenshotTimeout(editPage);
+    trackPageErrors(editPage);
+    try {
+      await editPage.setViewportSize({ width: 1280, height: 900 });
+      await editPage.addInitScript(
+        mockChromeStorage({
+          'fat:presets': [{ id: 'p1', name: '旧名字', target: 'png', options: { maxEdge: 800 } }],
+        }),
+      );
+      await editPage.goto(`http://localhost:${PORT}/options.html`);
+      await editPage.waitForTimeout(1200);
+      if (!(await openPresetCard(editPage))) throw new Error('presets card did not open');
+
+      const chipName = () => editPage.$eval('.preset-apply', el => el.textContent.trim()).catch(() => '');
+      const storedPresets = () =>
+        editPage.evaluate(() => window.chrome.storage.local.get('fat:presets')).then(r => r['fat:presets']);
+      const lastMessage = async () => ((await editPage.locator('.el-message').last().textContent()) || '').trim();
+      const openEdit = async () => {
+        await editPage.locator('.preset-edit').first().click();
+        await editPage.waitForSelector('#preset-edit-name', { timeout: 5000 });
+      };
+
+      await openEdit();
+      await editPage.fill('#preset-edit-name', '改过的名字');
+      await editPage.locator('.preset-edit-footer .el-button--primary').click();
+      await editPage.waitForTimeout(500);
+      if ((await chipName()) === '改过的名字') ok('Renaming a preset updates its chip');
+      else fail('Preset rename', `chip reads "${await chipName()}"`);
+      let stored = await storedPresets();
+      if (stored?.[0]?.name === '改过的名字' && stored[0].target === 'png' && stored[0].options?.maxEdge === 800)
+        ok('A rename leaves the stored target and parameters untouched');
+      else fail('Preset rename storage', JSON.stringify(stored));
+      if ((await lastMessage()).includes('已更新预设')) ok('A rename is announced as an update');
+      else fail('Preset rename toast', await lastMessage());
+      await editPage.keyboard.press('Escape');
+      await editPage.waitForTimeout(400);
+
+      // `用当前设置更新` is the only way to move a preset onto what the workbench is doing now;
+      // its name must survive, and the saved parameter has to be the live one, not the old value.
+      const fi = await editPage.waitForSelector('input[type="file"]', { state: 'attached', timeout: 10000 });
+      await fi.setInputFiles(path.join(FIXTURE_PATH, 'sample.pdf'));
+      await editPage.waitForTimeout(1000);
+      await pickTarget(editPage, 'PNG (.png)');
+      await setOutputOption(editPage, '最长边', '1600 px');
+      await openEdit();
+      await editPage.locator('.preset-edit-footer .el-button').filter({ hasText: '用当前设置更新' }).click();
+      await editPage.waitForTimeout(500);
+      stored = await storedPresets();
+      if (stored?.[0]?.options?.maxEdge === 1600 && stored[0].name === '改过的名字')
+        ok('「用当前设置更新」 rewrites the live parameters and keeps the name');
+      else fail('Preset recapture', JSON.stringify(stored));
+      await editPage.keyboard.press('Escape');
+      await editPage.waitForTimeout(400);
+
+      // A refused write must not leave the bar showing a name the next reload will undo.
+      await editPage.evaluate(() => {
+        window.chrome.storage.local.set = () => Promise.reject(new Error('quota'));
+      });
+      await openEdit();
+      await editPage.fill('#preset-edit-name', '不会落盘的名字');
+      await editPage.locator('.preset-edit-footer .el-button--primary').click();
+      await editPage.waitForTimeout(600);
+      if ((await chipName()) === '改过的名字') ok('A refused write rolls the chip back to the stored name');
+      else fail('Preset rollback', `chip reads "${await chipName()}"`);
+      if ((await lastMessage()).includes('未能更新')) ok('A refused write is announced as a failure');
+      else fail('Preset rollback toast', await lastMessage());
+      await editPage.screenshot({
+        path: shot(`${String(shotIdx++).padStart(2, '0')}-preset-edit.png`),
+        fullPage: true,
+      });
+    } catch (e) {
+      fail('Preset editing', e.message);
+    } finally {
+      await editPage.close();
+    }
+  }
+
+  // ═══════════════════════════════════════════
+  //  HISTORY REUSE RESTORES SETTINGS (2A)
+  // ═══════════════════════════════════════════
+  //
+  // Reuse used to restore only the target. A batch's saved name pattern and image parameters now
+  // come back with it, which is the difference between "pick PNG again" and "pick the batch again".
+  if (section('History Reuse Restores Settings')) {
+    const reusePage = await browser.newPage();
+    tolerateScreenshotTimeout(reusePage);
+    trackPageErrors(reusePage);
+    try {
+      await reusePage.setViewportSize({ width: 1280, height: 900 });
+      await reusePage.addInitScript(mockChromeStorage());
+      await reusePage.goto(`http://localhost:${PORT}/options.html`);
+      await reusePage.waitForTimeout(1200);
+
+      const gear = await reusePage.$('.topbar-inner .el-button');
+      if (!gear) throw new Error('settings button not found');
+      const openPrefs = async () => {
+        await gear.click();
+        await reusePage.waitForTimeout(500);
+      };
+      const setPattern = async value => {
+        const field = await reusePage.$('.name-input input');
+        if (!field) throw new Error('name pattern field not found');
+        await field.fill(value);
+        await field.press('Enter');
+        await field.evaluate(el => el.blur());
+        await reusePage.waitForTimeout(400);
+      };
+      const closePrefs = async () => {
+        await gear.click();
+        await reusePage.waitForTimeout(300);
+      };
+      const targetText = async () => (await reusePage.locator('.action-row .el-select').first().innerText()).trim();
+      const staleVisible = () =>
+        reusePage
+          .$$eval('.el-alert__title', els => els.some(el => el.textContent.includes('当前目标是')))
+          .catch(() => false);
+      const lastMessage = async () => ((await reusePage.locator('.el-message').last().textContent()) || '').trim();
+
+      await openPrefs();
+      await setPattern('{name}');
+      await closePrefs();
+      const fi = await reusePage.waitForSelector('input[type="file"]', { state: 'attached', timeout: 10000 });
+      await fi.setInputFiles(path.join(FIXTURE_PATH, 'sample.pdf'));
+      await reusePage.waitForTimeout(1000);
+      await pickTarget(reusePage, 'PNG (.png)');
+      await setOutputOption(reusePage, '最长边', '800 px');
+      await reusePage.click('.convert-btn');
+      await reusePage.waitForFunction(
+        () => {
+          const el = document.querySelector('.el-alert__title');
+          return !!el && el.textContent.trim().length > 0;
+        },
+        undefined,
+        { timeout: 30000 },
+      );
+      await reusePage.waitForTimeout(500);
+
+      const storedRecord = (await reusePage.evaluate(() => window.chrome.storage.local.get('fat:history')))[
+        'fat:history'
+      ]?.[0];
+      if (storedRecord?.settings?.nameTemplate === '{name}' && storedRecord.settings.outputOptions?.maxEdge === 800) {
+        ok('A finished batch records the name pattern and image parameters it ran with');
+      } else {
+        fail('History settings snapshot', JSON.stringify(storedRecord?.settings));
+      }
+
+      // Move every live setting away from the record, so what reuse restores cannot be mistaken for
+      // what was already on screen.
+      await openPrefs();
+      await setPattern('{name}_{target}');
+      await closePrefs();
+      await pickTarget(reusePage, 'HTML (.html)');
+      if (await staleVisible()) ok('The retargeted result is still explained before reuse');
+      else fail('Reuse precondition', 'no stale notice after moving away from PNG');
+      await reusePage.locator('.history-item .history-actions .el-button').first().click();
+      await reusePage.waitForTimeout(600);
+
+      if ((await targetText()) === 'PNG (.png)') ok('Reuse restores the target the batch ran under');
+      else fail('Reuse target', `selector reads "${await targetText()}"`);
+      const optionsText = (
+        await reusePage
+          .locator('.output-options')
+          .innerText()
+          .catch(() => '')
+      ).replace(/\s+/g, ' ');
+      if (optionsText.includes('800 px')) ok('Reuse restores the image parameters the batch ran with');
+      else fail('Reuse options', `panel reads "${optionsText}"`);
+      await openPrefs();
+      const patternNow = await reusePage.$eval('.name-input input', el => el.value);
+      await closePrefs();
+      if (patternNow === '{name}') ok('Reuse restores the name pattern the batch ran with');
+      else fail('Reuse pattern', `field reads "${patternNow}"`);
+      const reuseToast = await lastMessage();
+      if (reuseToast.includes('已应用目标') && reuseToast.includes('800 px') && reuseToast.includes('{name}'))
+        ok('The reuse toast names everything that came back');
+      else fail('Reuse toast', reuseToast);
+      if (!(await staleVisible())) ok('Reuse clears the stale notice because the rows match again');
+      else fail('Reuse stale notice', 'the notice survived a return to the rows\u2019 own target');
+    } catch (e) {
+      fail('History reuse restores settings', e.message);
+    } finally {
+      await reusePage.close();
+    }
+  }
+
+  // ═══════════════════════════════════════════
+  //  LONG FILE LIST WINDOWS ITS ROWS (2C)
+  // ═══════════════════════════════════════════
+  //
+  // At 200 files only the rows near the viewport may exist. The page scrolls, not an inner box, and
+  // the spacers carry the height of what is not mounted. Assertions read the mounted names, the
+  // header's own count, and the effect of deleting the first row.
+  if (section('Long File List Windows Its Rows')) {
+    const listPage = await browser.newPage();
+    tolerateScreenshotTimeout(listPage);
+    trackPageErrors(listPage);
+    try {
+      await listPage.setViewportSize({ width: 1280, height: 900 });
+      await listPage.addInitScript(mockChromeStorage());
+      await listPage.goto(`http://localhost:${PORT}/options.html`);
+      await listPage.waitForTimeout(1200);
+
+      const mountedNames = () => listPage.$$eval('.file-item .file-name', els => els.map(el => el.textContent.trim()));
+      const headerText = () => listPage.$eval('.file-list-header', el => el.textContent).catch(() => '');
+      const files = Array.from({ length: 200 }, (_, index) => ({
+        name: `perf-${index}.txt`,
+        mimeType: 'text/plain',
+        buffer: Buffer.from(`row ${index}`),
+      }));
+      const fi = await listPage.waitForSelector('input[type="file"]', { state: 'attached', timeout: 10000 });
+      await fi.setInputFiles(files);
+      await listPage.waitForFunction(
+        () => {
+          const header = document.querySelector('.file-list-header');
+          return !!header && header.textContent.includes('200');
+        },
+        undefined,
+        { timeout: 15000 },
+      );
+      await listPage.waitForTimeout(500);
+
+      let mounted = await mountedNames();
+      const bottomSpacer = await listPage
+        .$$eval('.file-spacer', els => els.map(el => parseFloat(el.style.height) || 0))
+        .then(heights => heights[0] ?? 0);
+      if (mounted.length > 0 && mounted.length <= 60 && !mounted.includes('perf-199.txt') && bottomSpacer > 0)
+        ok(`200 files mount ${mounted.length} rows and reserve the rest with a spacer`);
+      else
+        fail(
+          'List windowing',
+          `mounted ${mounted.length}, last visible "${mounted[mounted.length - 1]}", first spacer ${bottomSpacer}px`,
+        );
+
+      await listPage.evaluate(() => {
+        const list = document.querySelector('.file-list');
+        if (!list) return;
+        window.scrollTo(0, list.getBoundingClientRect().bottom + window.scrollY - window.innerHeight);
+      });
+      await listPage
+        .waitForFunction(
+          () => [...document.querySelectorAll('.file-item .file-name')].some(el => el.textContent === 'perf-199.txt'),
+          undefined,
+          { timeout: 5000 },
+        )
+        .catch(() => {});
+      mounted = await mountedNames();
+      if (mounted.includes('perf-199.txt') && mounted.length <= 60)
+        ok('Scrolling to the end mounts the last row without mounting the list');
+      else fail('List scroll window', `mounted ${mounted.length}, last "${mounted[mounted.length - 1]}"`);
+
+      await listPage.evaluate(() => window.scrollTo(0, 0));
+      await listPage.waitForTimeout(500);
+      await listPage.locator('.file-item .el-button--danger').first().click();
+      await listPage.waitForTimeout(700);
+      mounted = await mountedNames();
+      if ((await headerText()).includes('199') && mounted[0] === 'perf-1.txt')
+        ok('Deleting the first row drops it and renumbers the window in place');
+      else fail('List delete first row', `header "${(await headerText()).trim()}" first "${mounted[0]}"`);
+
+      const addBtn = await listPage.$('.add-files-btn');
+      if (!addBtn) throw new Error('add-files button not found');
+      await addBtn.click();
+      await listPage.waitForTimeout(300);
+      await fi.setInputFiles({
+        name: 'perf-200.txt',
+        mimeType: 'text/plain',
+        buffer: Buffer.from('row 200'),
+      });
+      await listPage.waitForTimeout(1000);
+      if ((await headerText()).includes('200') && (await mountedNames()).length <= 60)
+        ok('An append into a windowed list keeps the window and the count');
+      else fail('List append', `header "${(await headerText()).trim()}" mounted ${(await mountedNames()).length}`);
+      await listPage.screenshot({
+        path: shot(`${String(shotIdx++).padStart(2, '0')}-long-list-windowed.png`),
+        fullPage: false,
+      });
+    } catch (e) {
+      fail('Long file list windowing', e.message);
+    } finally {
+      await listPage.close();
+    }
   }
 
   // ═══════════════════════════════════════════
@@ -4596,6 +5592,319 @@ async function run() {
   }
 
   // ═══════════════════════════════════════════
+  //  DISABLED BUTTON STATES
+  // ═══════════════════════════════════════════
+
+  // The enabled rules in `global.css` are `!important`, and Element Plus's disabled colours are
+  // not — so a disabled button used to paint the accent fill anyway (measured 2026-10-20: the
+  // no-target convert button was the same #2563eb as the enabled one, and 追加文件 mid-conversion
+  // came out transparent with a white label on a white card, i.e. invisible). This section pins
+  // both halves: disabled takes the muted tokens in light and dark, an enabled or loading button
+  // keeps the accent fill. Its own page, because the first read needs the freshly staged,
+  // no-target state and the last one moves the viewport.
+  if (section('Disabled Button States')) {
+    const dPage = await browser.newPage();
+    tolerateScreenshotTimeout(dPage);
+    trackPageErrors(dPage);
+    try {
+      await dPage.setViewportSize({ width: 1280, height: 900 });
+      await dPage.addInitScript(mockChromeStorage());
+      await dPage.goto(`http://localhost:${PORT}/options.html`);
+      await dPage.waitForTimeout(1200);
+
+      // The buttons plus the five tokens the disabled rules are written against, resolved on the
+      // page rather than hard-coded, so a token edit moves both sides of the comparison together.
+      const readStates = () =>
+        sampleWithoutMotion(dPage, () =>
+          dPage.evaluate(() => {
+            const read = sel => {
+              const el = document.querySelector(sel);
+              if (!el) return null;
+              const cs = getComputedStyle(el);
+              return { cls: el.className, bg: cs.backgroundColor, color: cs.color, border: cs.borderColor };
+            };
+            const probe = document.createElement('div');
+            document.body.appendChild(probe);
+            // The reduced-motion blanket writes `transition-duration: … !important` on `*`, so a
+            // probe element that changes `color` transitions it — and a read in the same task as the
+            // assignment returns the *previous* token. That is how a 2026-10-20 run printed all five
+            // tokens as the first one (`want rgb(241,245,249) / rgb(241,245,249) / …`). Inline
+            // `!important` outranks the stylesheet's, which is what makes the read immediate.
+            probe.style.setProperty('transition', 'none', 'important');
+            const token = name => {
+              probe.style.color = `var(${name})`;
+              return getComputedStyle(probe).color;
+            };
+            const tokens = {
+              fill: token('--fat-surface-2'),
+              ink: token('--fat-text-placeholder'),
+              accent: token('--fat-btn-solid'),
+              onAccent: token('--fat-on-btn-solid'),
+              border: token('--fat-border'),
+            };
+            probe.remove();
+            // Distinctness is the self-check for the stale-read shape above: surface, placeholder,
+            // accent and border are different colours in the blue pair this section runs (the only
+            // pair it reads), so a probe that collapses them into one value has to be the instrument,
+            // not the button.
+            if (new Set(Object.values(tokens)).size < 3) {
+              throw new Error(`token probe resolved ${JSON.stringify(tokens)} — stale reads, not a UI defect`);
+            }
+            return { convert: read('.convert-btn'), addFiles: read('.add-files-btn'), tokens };
+          }),
+        );
+
+      const fi = await dPage.waitForSelector('input[type="file"]', { state: 'attached', timeout: 10000 });
+      await fi.setInputFiles(path.join(FIXTURE_PATH, 'sample.docx'));
+      await dPage.waitForSelector('.convert-btn.is-disabled', { timeout: 5000 });
+
+      for (const mode of ['light', 'dark']) {
+        const { convert, tokens } = await changeWithoutMotion(dPage, async () => {
+          await applyTheme(dPage, mode, 'blue');
+          await dPage.waitForTimeout(150);
+          return readStates();
+        });
+        if (convert && convert.bg === tokens.fill && convert.color === tokens.ink && convert.border === tokens.border) {
+          ok(`[blue ${mode}] a disabled primary button takes the muted tokens`);
+        } else {
+          fail(
+            `[blue ${mode}] disabled primary button`,
+            `bg ${convert?.bg} / ink ${convert?.color} / border ${convert?.border}, want ${tokens.fill} / ${tokens.ink} / ${tokens.border}`,
+          );
+        }
+      }
+
+      await dPage.hover('.convert-btn');
+      const hovered = await readStates();
+      if (hovered.convert.bg === hovered.tokens.fill) ok('A disabled primary button stays muted under the pointer');
+      else fail('Disabled button under the pointer', `bg ${hovered.convert.bg}, want ${hovered.tokens.fill}`);
+
+      await pickTarget(dPage, 'PDF (.pdf)');
+      await dPage.waitForFunction(
+        () => {
+          const button = document.querySelector('.convert-btn');
+          return !!button && !button.disabled;
+        },
+        undefined,
+        { timeout: 8000 },
+      );
+      const enabled = await readStates();
+      if (enabled.convert.bg === enabled.tokens.accent && enabled.convert.color === enabled.tokens.onAccent)
+        ok('An enabled primary button keeps the accent fill');
+      else
+        fail(
+          'Enabled primary button',
+          `bg ${enabled.convert.bg} / ink ${enabled.convert.color}, want ${enabled.tokens.accent} / ${enabled.tokens.onAccent}`,
+        );
+
+      // Mid-conversion the convert button carries `is-disabled` and `is-loading` at once. The
+      // disabled rule carves `.is-loading` out on purpose: this state is live, not off, and the
+      // carve-out is invisible if it silently flips the label to muted grey.
+      await dPage.click('.convert-btn');
+      await dPage.waitForFunction(
+        () => document.querySelector('.convert-btn')?.classList.contains('is-loading'),
+        undefined,
+        { timeout: 15000 },
+      );
+      const running = await readStates();
+      if (running.convert.bg === running.tokens.accent && running.convert.color === running.tokens.onAccent)
+        ok('The converting button keeps its accent fill while loading');
+      else
+        fail(
+          'Loading button fill',
+          `bg ${running.convert.bg} / ink ${running.convert.color}, want ${running.tokens.accent}`,
+        );
+      const add = running.addFiles;
+      if (add && add.bg === running.tokens.fill && add.color === running.tokens.ink)
+        ok('A disabled text button keeps a visible muted fill mid-conversion');
+      else
+        fail(
+          'Disabled text button',
+          `bg ${add?.bg} / ink ${add?.color}, want ${running.tokens.fill} / ${running.tokens.ink}`,
+        );
+
+      // Element Plus centres the status icon against the alert's whole box, and this alert grows with
+      // its content — measured 119px tall, icon top 604 vs title top 566 before the fix, 566/566 after.
+      // `:not(.el-alert--info)` is what makes this the batch alert: `staleNotice` renders an info alert
+      // *above* it whenever kept results are stale, and a bare `.el-alert` would then measure that box
+      // (`.result-note` is the note paragraph inside the content, not a class on the alert itself).
+      // The height floor keeps the ±1 px test honest — in a one-line alert centring and top-aligning
+      // coincide, so passing there would prove nothing.
+      await dPage.waitForSelector('.result-download .el-alert:not(.el-alert--info) .el-alert__title', {
+        timeout: 30000,
+      });
+      const align = await sampleWithoutMotion(dPage, () =>
+        dPage.evaluate(() => {
+          const alert = document.querySelector('.result-download .el-alert:not(.el-alert--info)');
+          const icon = alert.querySelector('.el-alert__icon');
+          const title = alert.querySelector('.el-alert__title');
+          const top = el => Math.round(el.getBoundingClientRect().top);
+          return { alertH: Math.round(alert.getBoundingClientRect().height), iconTop: top(icon), titleTop: top(title) };
+        }),
+      );
+      if (align.alertH >= 60 && Math.abs(align.iconTop - align.titleTop) <= 1)
+        ok('The result status icon sits beside its title');
+      else
+        fail(
+          'Result alert icon alignment',
+          `icon top ${align.iconTop} vs title top ${align.titleTop} in a ${align.alertH}px alert (need ≥ 60px)`,
+        );
+
+      // A second batch on this page: the history head only draws its trend chart from >= 2 records,
+      // and the chart is the half that used to push the actions row past the card's clip box. Then
+      // every collapsed card is opened by reading `aria-expanded` rather than toggling blindly, so
+      // the row below is measured in the state a user actually sees.
+      await dPage.click('.convert-btn');
+      await dPage.waitForTimeout(800);
+      await dPage.waitForFunction(
+        () => {
+          const button = document.querySelector('.convert-btn');
+          return !!button && !button.classList.contains('is-loading');
+        },
+        undefined,
+        { timeout: 40000 },
+      );
+      await dPage.evaluate(() => {
+        for (const head of document.querySelectorAll('.collapsible-head[aria-expanded="false"]')) head.click();
+      });
+      await dPage.waitForTimeout(700);
+
+      // One toolbar row needs ~415px in the wider locale (measured in English), and the card's
+      // `overflow: hidden` hides what does not fit — at 360px the sync checkbox hung half past the
+      // card edge with `document.scrollWidth` still reading 360, so nothing looked scrollable.
+      await dPage.setViewportSize({ width: 360, height: 800 });
+      await dPage.waitForTimeout(400);
+      const bar = await sampleWithoutMotion(dPage, () =>
+        dPage.evaluate(() => {
+          const t = document.querySelector('.comparison-toolbar');
+          const vm = t.querySelector('.view-modes');
+          const st = t.querySelector('.sync-toggle');
+          const card = t.closest('.card') ?? t.parentElement;
+          const r = el => el.getBoundingClientRect();
+          return {
+            syncRight: Math.round(r(st).right),
+            cardRight: Math.round(r(card).right),
+            wrapped: r(st).top >= r(vm).bottom - 2,
+          };
+        }),
+      );
+      if (bar.wrapped && bar.syncRight <= bar.cardRight + 1)
+        ok('At 360px the comparison toolbar wraps instead of clipping the sync checkbox');
+      else
+        fail(
+          'Comparison toolbar at 360px',
+          `wrapped=${bar.wrapped}, sync right ${bar.syncRight} vs card right ${bar.cardRight}`,
+        );
+      await dPage.screenshot({
+        path: shot(`${String(shotIdx++).padStart(2, '0')}-narrow-toolbar.png`),
+        fullPage: true,
+      });
+
+      // The two rows that refuse to shrink. `history-head` is a 120px chart plus three `nowrap`
+      // labels inside a card body that is `overflow: clip`; `result-actions` is `flex: 1` slots whose
+      // English labels need 309px where the row offers 302 (measured 2026-10-20: at 320px the pair
+      // reached x=338 past a card ending at 304, and the page grew to scrollWidth 338). Both wrap now,
+      // so the last control stays inside its container at 360px instead of sitting out of reach.
+      const rows = await sampleWithoutMotion(dPage, () =>
+        dPage.evaluate(() => {
+          const clipRight = el => {
+            let n = el.parentElement;
+            while (n) {
+              const cs = getComputedStyle(n);
+              if (/hidden|clip|auto|scroll/.test(cs.overflowX + ' ' + cs.overflowY)) {
+                return Math.round(n.getBoundingClientRect().right - (parseFloat(cs.borderRightWidth) || 0));
+              }
+              n = n.parentElement;
+            }
+            return Number.NaN;
+          };
+          const head = document.querySelector('.history-head');
+          const acts = document.querySelector('.result-actions');
+          const btns = head ? [...head.querySelectorAll('button')] : [];
+          const last = btns[btns.length - 1];
+          // `.history-trend`, not `svg`: the export / import / clear buttons each carry an `el-icon`
+          // that renders an `<svg>` too, so a bare svg probe would report the chart as present even
+          // with one record — and with no chart the row has no overhang to fail on.
+          const trend = head ? head.querySelector('.history-trend') : null;
+          return {
+            headWrap: head ? getComputedStyle(head).flexWrap : 'no .history-head',
+            lastRight: last ? Math.round(last.getBoundingClientRect().right) : Number.NaN,
+            headClip: head ? clipRight(head) : Number.NaN,
+            chart: !!trend,
+            actsWrap: acts ? getComputedStyle(acts).flexWrap : 'no .result-actions',
+          };
+        }),
+      );
+      if (rows.chart && rows.headWrap === 'wrap' && rows.lastRight <= rows.headClip + 1)
+        ok('At 360px the history head wraps its actions under the chart instead of past the card');
+      else
+        fail(
+          'History head at 360px',
+          `chart=${rows.chart}, wrap=${rows.headWrap}, last button right ${rows.lastRight} vs clip right ${rows.headClip}`,
+        );
+      if (rows.actsWrap === 'wrap')
+        ok('The result actions row can wrap, which is what keeps the wider locale inside the card');
+      else fail('Result actions row wrap', `flex-wrap is ${rows.actsWrap}, not wrap`);
+
+      // …and here is the wider locale itself. The Chinese pair fits at every width (measured: two
+      // slots span 29..331 inside a 302px row at 360px), so a `flex-wrap` pin alone would never have
+      // touched the defect. This page is seeded English and stages a batch that loses one file, which
+      // is what renders the second slot; before the fix that pair needed 309px where the row offered
+      // 302 at 360px, and at 320px it reached x=338 past a card ending at 304 while the page grew to
+      // scrollWidth 338. Only class-based selectors — nothing here reads a Chinese string.
+      const ePage = await browser.newPage();
+      tolerateScreenshotTimeout(ePage);
+      trackPageErrors(ePage);
+      try {
+        await ePage.setViewportSize({ width: 1280, height: 900 });
+        await ePage.addInitScript(mockChromeStorage({ 'fat:locale': 'en' }));
+        await ePage.goto(`http://localhost:${PORT}/options.html`);
+        await ePage.waitForTimeout(1200);
+        const eFi = await ePage.waitForSelector('input[type="file"]', { state: 'attached', timeout: 10000 });
+        await eFi.setInputFiles([
+          {
+            name: 'sample.md',
+            mimeType: 'text/markdown',
+            buffer: fs.readFileSync(path.join(FIXTURE_PATH, 'sample.md')),
+          },
+          { name: 'broken.bmp', mimeType: 'image/bmp', buffer: Buffer.from('this is not a bitmap') },
+        ]);
+        await ePage.waitForTimeout(1000);
+        await pickTarget(ePage, 'PDF (.pdf)');
+        await ePage.click('.convert-btn');
+        await ePage.waitForSelector('.result-actions .retry-btn', { timeout: 60000 });
+        await ePage.setViewportSize({ width: 320, height: 800 });
+        await ePage.waitForTimeout(450);
+        const wide = await sampleWithoutMotion(ePage, () =>
+          ePage.evaluate(() => {
+            const retry = document.querySelector('.result-actions .retry-btn');
+            const card = retry.closest('.card') ?? retry.parentElement;
+            return {
+              retryRight: Math.round(retry.getBoundingClientRect().right),
+              cardRight: Math.round(card.getBoundingClientRect().right),
+              docScroll: document.documentElement.scrollWidth,
+              innerWidth: document.documentElement.clientWidth,
+            };
+          }),
+        );
+        if (wide.retryRight <= wide.cardRight && wide.docScroll <= wide.innerWidth)
+          ok('At 320px the English action row stays inside its card and does not widen the page');
+        else
+          fail(
+            'Result actions at 320px (en)',
+            `retry right ${wide.retryRight} vs card right ${wide.cardRight}, document scrollWidth ${wide.docScroll} vs clientWidth ${wide.innerWidth}`,
+          );
+      } finally {
+        await ePage.close().catch(() => {});
+      }
+    } catch (e) {
+      fail('Disabled button states', e.message);
+    } finally {
+      await dPage.close().catch(() => {});
+    }
+  }
+
+  // ═══════════════════════════════════════════
   //  INFORMATION TEXT CONTRAST
   // ═══════════════════════════════════════════
 
@@ -5709,6 +7018,292 @@ async function run() {
     else fail('--fat-focus-ring', 'resolves to the same colour in both modes');
   } catch (e) {
     fail('Skip link & focus ring', e.message);
+  }
+
+  // ═══════════════════════════════════════════
+  //  FOCUS RINGS ON VISUALLY-HIDDEN INPUTS
+  // ═══════════════════════════════════════════
+
+  if (section('Hidden-Input Focus Rings')) {
+    // The switch, the checkbox and the segmented radio buttons all focus a transparent input and
+    // paint the ring on a *sibling* proxy, so the global `:focus-visible` rule cannot reach them and
+    // Element Plus's own declaration decides the colour. It uses its primary, not --fat-focus-ring,
+    // and light + green is the one combination where the two disagree enough to matter: measured on
+    // the built bundle before the override, the focused switch drew #10b981 at 2.54:1 on the popover
+    // (2.42:1 on the workbench surface) while the token this app certifies at 3:1 resolves to
+    // #059669. Every other theme and mode passed on Element Plus's colour, so only a colour
+    // comparison — not a geometry check — can tell the fixed build from the broken one.
+    const ringPage = await browser.newPage();
+    trackPageErrors(ringPage);
+    await ringPage.setViewportSize({ width: 1280, height: 900 });
+    await ringPage.addInitScript(mockChromeStorage());
+    // The notify switch is `:disabled` while the browser reports notifications as denied, and a
+    // disabled control leaves the tab ring entirely — that would redden this section's two name
+    // checks for a reason that has nothing to do with the product. Headless hosts differ on the real
+    // value, so the permission state is pinned rather than observed.
+    await ringPage.addInitScript(`(() => {
+      if (!window.Notification) return;
+      try {
+        Object.defineProperty(window.Notification, 'permission', { value: 'default', configurable: true });
+      } catch {
+        // The host will not let the property be redefined; the walk below reports how many switches it found.
+      }
+    })();`);
+    try {
+      await ringPage.goto(`http://localhost:${PORT}/options.html`);
+      await ringPage.waitForTimeout(1800);
+      await applyTheme(ringPage, 'light', 'green');
+
+      // Both controls are earned through the product's own paths rather than seeded: the radio group
+      // sits behind `v-if="hasRecords"` and the merge checkbox behind the merge-eligibility rule, so
+      // a history record and a two-image batch with a PDF target are what make them exist.
+      let ri = await ringPage.waitForSelector('input[type="file"]', { state: 'attached', timeout: 10000 });
+      await ri.setInputFiles(path.join(FIXTURE_PATH, 'sample.csv'));
+      await ringPage.waitForTimeout(1000);
+      await pickTarget(ringPage, 'Text (.txt)');
+      await (await ringPage.$('.convert-btn')).click();
+      await ringPage.waitForSelector('.result-download .el-alert__title', { timeout: 45000 });
+      await resetWorkbench(ringPage);
+
+      ri = await ringPage.waitForSelector('input[type="file"]', { state: 'attached', timeout: 10000 });
+      await ri.setInputFiles([path.join(FIXTURE_PATH, 'sample.bmp'), path.join(FIXTURE_PATH, 'sample.gif')]);
+      await ringPage.waitForTimeout(1200);
+      await pickTarget(ringPage, 'PDF (.pdf)');
+      await ringPage.locator('.topbar .el-button.is-circle').first().click();
+      await ringPage.waitForTimeout(600);
+
+      const readHiddenRing = `(function () {
+        const a = document.activeElement;
+        const cls = a && a.classList ? Array.from(a.classList).join(' ') : '';
+        const kind = cls.includes('el-switch__input') ? 'switch'
+          : cls.includes('el-checkbox__original') ? 'checkbox'
+          : cls.includes('el-radio-button__original-radio') ? 'radio' : null;
+        if (!kind) return null;
+        const box = a.closest('.el-switch, .el-checkbox, .el-radio-button');
+        const proxy = box.querySelector('.el-switch__core, .el-checkbox__inner, .el-radio-button__inner');
+        // Same caveat the skip-link section documents: outline-color is one of the properties
+        // tokens.css transitions, so a read in the task that moved focus returns an interpolation
+        // frame — width still medium, colour still currentcolor.
+        for (const animation of proxy.getAnimations({ subtree: true })) {
+          try { animation.finish(); } catch { /* a looping animation has no end value */ }
+        }
+        const cs = getComputedStyle(proxy);
+        const rgbOf = value => {
+          const scratch = document.createElement('span');
+          scratch.style.color = value;
+          scratch.style.display = 'none';
+          document.documentElement.append(scratch);
+          const rgb = getComputedStyle(scratch).color;
+          scratch.remove();
+          return rgb;
+        };
+        const root = getComputedStyle(document.documentElement);
+        // The ring's backdrop is the surface behind the *control*, not the proxy's own fill: the
+        // 1px offset band shows that surface on both of its edges.
+        let surface = '';
+        for (let p = box.parentElement; p && p !== document.documentElement; p = p.parentElement) {
+          const bg = getComputedStyle(p).backgroundColor;
+          const m = /rgba?\\(([^)]+)\\)/.exec(bg);
+          if (m && !(m[1].split(',').length === 4 && parseFloat(m[1].split(',')[3]) === 0)) { surface = bg; break; }
+        }
+        return {
+          kind,
+          style: cs.outlineStyle,
+          width: cs.outlineWidth,
+          color: cs.outlineColor,
+          surface,
+          label: (box.textContent || '').replace(/\\s+/g, ' ').trim().slice(0, 18),
+          // The proxy holds the ring; the *input* holds the name. A screen reader announces this
+          // control by that name and nothing else, and the switch renders no label wrapper, so an
+          // aria-label is the only thing that can name it. (No backticks anywhere in here: this
+          // whole function body is a template literal evaluated in the page.)
+          name:
+            (a.getAttribute('aria-label') || (a.closest('label') ? a.closest('label').textContent : '') || '')
+              .replace(/\\s+/g, ' ')
+              .trim(),
+          rowLabel: (() => {
+            const row = a.closest('.notify-row');
+            const lab = row ? row.querySelector('.pref-label') : null;
+            return lab ? lab.textContent.replace(/\\s+/g, ' ').trim() : '';
+          })(),
+          fromToken: rgbOf(root.getPropertyValue('--fat-focus-ring').trim()),
+          epPrimary: rgbOf(root.getPropertyValue('--el-color-primary').trim()),
+          // The raw tokens, kept alongside the resolved colours: rgbOf('') sets no style at all,
+          // so a missing custom property would otherwise compare a real ring against the inherited
+          // text colour and still look like a pass. (Nothing in this function body may contain a
+          // backtick: the whole thing is a template literal that the page evaluates.)
+          tokenVar: root.getPropertyValue('--fat-focus-ring').trim(),
+          epVar: root.getPropertyValue('--el-color-primary').trim(),
+        };
+      })()`;
+
+      const controls = [];
+      const seen = new Set();
+      // Four is the expected yield: two switches (the popover's), one merge checkbox, one radio
+      // segment — `el-radio-group` moves its tabindex between segments, so three buttons contribute
+      // one tab stop. Reading inside `sampleWithoutMotion` because the theme flip animates the
+      // ancestor surfaces as well as the ring, and wall time is not a synchronisation point here.
+      await sampleWithoutMotion(ringPage, async () => {
+        await ringPage.evaluate(() => document.activeElement && document.activeElement.blur());
+        for (let i = 0; i < 160 && controls.length < 4; i++) {
+          await ringPage.keyboard.press('Tab');
+          const hit = await ringPage.evaluate(readHiddenRing);
+          if (!hit) continue;
+          const key = `${hit.kind}|${hit.name}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          controls.push(hit);
+        }
+      });
+      const families = {};
+      for (const c of controls) if (!families[c.kind]) families[c.kind] = c;
+
+      for (const kind of ['switch', 'checkbox', 'radio']) {
+        const f = families[kind];
+        if (!f) {
+          fail(`${kind} focus`, 'a Tab walk of the whole page never focused one of these controls');
+          continue;
+        }
+        if (f.style === 'solid' && f.width === '2px') ok(`[green light] ${kind} ring on "${f.label}" is 2px solid`);
+        else fail(`${kind} ring geometry`, `${f.style} ${f.width} on "${f.label}"`);
+        if (f.color === f.fromToken) ok(`${kind} ring resolves to --fat-focus-ring (${f.color})`);
+        else
+          fail(
+            `${kind} ring colour`,
+            `expected ${f.fromToken}, got ${f.color} — Element Plus's primary is ${f.epPrimary}`,
+          );
+        const ratio = f.surface ? contrast(f.color, f.surface) : Number.NaN;
+        if (!f.surface) fail(`${kind} ring contrast`, `no painted backdrop above the control (colour ${f.color})`);
+        else if (ratio >= 3) ok(`${kind} ring meets 3:1 against ${f.surface} (${ratio.toFixed(2)}:1)`);
+        else fail(`${kind} ring contrast`, `${ratio.toFixed(2)}:1 of ${f.color} on ${f.surface}`);
+      }
+
+      // The other half of "keyboard-reachable": a control nobody can name is a control a screen
+      // reader reports as "switch, off" with no subject. The notify switch used to be exactly that —
+      // its row's label is a sibling `<span>`, and Element Plus's switch renders no `<label>`.
+      const unnamed = controls.filter(c => !c.name);
+      if (controls.length >= 4 && unnamed.length === 0)
+        ok(
+          `every hidden-input control reached by Tab has an accessible name (${controls
+            .map(c => `${c.kind}="${c.name.slice(0, 14)}"`)
+            .join(', ')})`,
+        );
+      else
+        fail(
+          'Accessible name',
+          unnamed.length
+            ? `${unnamed.length} unnamed: ${unnamed.map(c => `${c.kind} "${c.label}"`).join(', ')}`
+            : `only ${controls.length} controls found; 4 is the expected yield`,
+        );
+
+      const switches = controls.filter(c => c.kind === 'switch');
+      const offLabel = switches.filter(s => !s.rowLabel || s.name !== s.rowLabel);
+      if (switches.length >= 2 && offLabel.length === 0)
+        ok(
+          `both switches are named by their own row's visible label ("${switches[0].rowLabel}" / "${switches[1].rowLabel}")`,
+        );
+      else
+        fail(
+          'Switch name vs visible label',
+          `${switches.length} switch(es) reached, ${offLabel.length} mismatched: ${offLabel
+            .map(s => `"${s.name}" vs "${s.rowLabel}"`)
+            .join(', ')}`,
+        );
+
+      // Without this the section could pass on a theme where the two colours are the same, which
+      // would make the override unobservable and the eight assertions above vacuous.
+      const any = families.switch || families.checkbox || families.radio;
+      if (any && any.tokenVar && any.epVar && any.color !== any.epPrimary)
+        ok(`the two tokens really disagree in light/green (${any.color} vs Element Plus's ${any.epPrimary})`);
+      else
+        fail(
+          'Theme setup for the ring check',
+          any && (!any.tokenVar || !any.epVar)
+            ? `a token resolved to nothing (focus-ring="${any.tokenVar}", primary="${any.epVar}")`
+            : `the ring paints exactly Element Plus's primary (${any ? any.color : 'unread'}), so the override is not observable`,
+        );
+    } catch (e) {
+      fail('Hidden-input focus rings', e.message);
+    } finally {
+      await ringPage.close();
+    }
+  }
+
+  // ═══════════════════════════════════════════
+  //  TABLE-SHAPE ROUTE BOUNDARIES
+  // ═══════════════════════════════════════════
+
+  if (section('Table Boundary Routes')) {
+    // The five table landing pages make their claims about *shape*, not bytes: one table becomes a CSV,
+    // two tables (including a table nested inside a cell — `querySelectorAll('table')` counts it) do not,
+    // and a multi-sheet workbook becomes several Markdown tables without meeting that gate at all. The
+    // second of those three was written wrong the first time and corrected only after a review, which is
+    // exactly the kind of outward claim a document check cannot catch. So the boundaries run here.
+    const oneTable =
+      '<html><body><table><tr><th>date</th><th>amount</th></tr>' +
+      '<tr><td>2024-01-05</td><td>1727000000000</td></tr><tr><td>=1+1</td><td>7</td></tr></table></body></html>';
+    const twoTables =
+      '<html><body><h2>A</h2><table><tr><th>k</th></tr><tr><td>1</td></tr></table>' +
+      '<h2>B</h2><table><tr><th>k</th></tr><tr><td>2</td></tr></table></body></html>';
+    const nestedTable =
+      '<html><body><table><tr><td>outer<a>x</a></td><td><table><tr><th>in</th></tr><tr><td>2</td></tr></table></td></tr></table></body></html>';
+    const htmlDoc = body => ({ name: 'probe.html', mimeType: 'text/html', buffer: Buffer.from(body, 'utf8') });
+    const failureReason = () => page.$eval('.failure-item .failure-reason', el => el.textContent).catch(() => '');
+
+    try {
+      await resetWorkbench(page);
+      const ok1 = await convertFile(page, htmlDoc(oneTable), 'CSV (.csv)');
+      if (ok1.alertTitle.includes('完成')) ok('Single HTML table converts to CSV');
+      else fail('HTML table to CSV', `alert reads "${ok1.alertTitle}"`);
+
+      // latin1 on purpose: the fixture is ASCII, so the byte comparison below is about the writer rather
+      // than about decoding. BOM, the header row, an untouched long integer, and the formula guard.
+      const csvText = await downloadBatchArtifact(page);
+      const bytes = Buffer.from(csvText, 'latin1');
+      if (bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf) ok('CSV artifact carries the UTF-8 BOM');
+      else fail('CSV BOM', `first three bytes are ${[...bytes.subarray(0, 3)].join(',')}`);
+      if (csvText.includes('date,amount') && csvText.includes('1727000000000') && !/1\.7\d?E\+12/.test(csvText))
+        ok(`Header row and long integer written as values (${csvText.replace(/^\ufeff/, '').split('\n')[1]})`);
+      else fail('CSV value fidelity', `body reads ${JSON.stringify(csvText.slice(0, 120))}`);
+      if (csvText.includes("'=1+1")) ok('A cell starting with = is exported behind the formula guard');
+      else fail('CSV formula guard', `expected "'=1+1" in ${JSON.stringify(csvText.slice(0, 120))}`);
+
+      await resetWorkbench(page);
+      const two = await convertFile(page, htmlDoc(twoTables), 'CSV (.csv)');
+      const twoReason = await failureReason();
+      if (two.alertTitle.includes('失败') && twoReason.includes('数组'))
+        ok(`Two tables are refused with the array reason ("${twoReason.trim().slice(0, 40)}")`);
+      else fail('Multi-table boundary', `alert "${two.alertTitle}", reason "${twoReason.trim().slice(0, 60)}"`);
+
+      await resetWorkbench(page);
+      const nested = await convertFile(page, htmlDoc(nestedTable), 'CSV (.csv)');
+      const nestedReason = await failureReason();
+      if (nested.alertTitle.includes('失败') && nestedReason.includes('数组'))
+        ok('A table nested in a cell counts as the second table and is refused the same way');
+      else
+        fail(
+          'Nested-table boundary',
+          `alert "${nested.alertTitle}", reason "${nestedReason.trim().slice(0, 60)}" — the pages say this fails`,
+        );
+
+      await resetWorkbench(page);
+      const md = await convertFile(page, 'sample.xlsx', 'Markdown (.md)');
+      if (md.alertTitle.includes('完成')) ok('Multi-sheet workbook converts to Markdown');
+      else fail('XLSX to Markdown', `alert reads "${md.alertTitle}"`);
+      const mdText = await downloadBatchArtifact(page);
+      const headings = (mdText.match(/^## /gm) || []).length;
+      // The separator row is the only line that starts with the pipe and then only `---` cells, so the
+      // count is per table rather than per column (the earlier `\|\s*-{3,}` pattern matched every cell
+      // of it and reported four for two tables).
+      const rules = (mdText.match(/^\| ---/gm) || []).length;
+      if (headings === 2 && rules === 2)
+        ok(`Each worksheet became its own table under its own heading (${headings} headings, ${rules} tables)`);
+      else fail('Multi-sheet Markdown shape', `${headings} "## " lines and ${rules} separator rows, expected 2 and 2`);
+    } catch (e) {
+      fail('Table boundary routes', e.message);
+    } finally {
+      await resetWorkbench(page).catch(() => {});
+    }
   }
 
   section('Tab Marker for a Batch That Finishes Off-screen');

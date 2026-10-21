@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import { Plus, Delete } from '@element-plus/icons-vue';
-import type { ConversionPreset } from '~/utils/core/types';
+import { Plus, Delete, Edit } from '@element-plus/icons-vue';
+import type { ConversionPreset, ImageOutputOptions } from '~/utils/core/types';
 import { FileFormat } from '~/utils/core/types';
 import { isImageOutputFormat } from '~/utils/core/output-options';
 import { MAX_PRESETS, PRESET_NAME_MAX, createPreset, describePreset } from '~/utils/core/presets';
@@ -27,7 +27,7 @@ const emit = defineEmits<{
 }>();
 
 const { options } = useOutputOptions();
-const { presets, addPreset, removePreset } = usePresets();
+const { presets, addPreset, removePreset, updatePreset } = usePresets();
 const { t } = useI18n();
 
 const nameDraft = ref('');
@@ -76,6 +76,71 @@ async function handleRemove(preset: ConversionPreset): Promise<void> {
     ElMessage.warning(t('preset.removeFailed', { name: preset.name }));
   }
 }
+
+/**
+ * The edit dialog only stages the name; target and options are changed on the workbench and then
+ * pulled in with 「用当前设置更新」, so there is no second copy of the target picker here to keep
+ * in sync with the real one.
+ */
+const editing = ref<ConversionPreset | null>(null);
+const editName = ref('');
+const editBusy = ref(false);
+
+const editOpen = computed({
+  get: () => editing.value !== null,
+  set: open => {
+    if (!open) editing.value = null;
+  },
+});
+
+const canEdit = computed(() => !editBusy.value && !props.disabled);
+const canUseCurrent = computed(() => canEdit.value && props.targetFormat !== null);
+
+function openEdit(preset: ConversionPreset): void {
+  editing.value = preset;
+  editName.value = preset.name;
+}
+
+async function applyEditPatch(patch: {
+  name?: string;
+  target?: FileFormat;
+  options?: ImageOutputOptions;
+}): Promise<void> {
+  const preset = editing.value;
+  if (!preset || !canEdit.value) return;
+  editBusy.value = true;
+  const ok = await updatePreset(preset.id, patch);
+  editBusy.value = false;
+
+  // On failure the composable has already rolled the list back; mirroring the stored entry keeps
+  // the dialog from showing a change that only exists in the input box.
+  const stored = presets.value.find(item => item.id === preset.id) ?? null;
+  if (stored) {
+    editing.value = stored;
+    editName.value = stored.name;
+  } else {
+    editing.value = null;
+  }
+
+  if (ok && stored) {
+    ElMessage.success(t('preset.updated', { name: stored.name }));
+  } else {
+    ElMessage.warning(t('preset.updateFailed', { name: preset.name }));
+  }
+}
+
+async function handleUseCurrent(): Promise<void> {
+  const target = props.targetFormat;
+  if (target === null || !canUseCurrent.value) return;
+  // `optionsToCapture` carries the same predicate as saving one: a non-image target stores `{}`
+  // rather than inheriting image parameters left over from an earlier batch.
+  await applyEditPatch({ target, options: optionsToCapture.value });
+}
+
+async function handleRename(): Promise<void> {
+  if (!canEdit.value) return;
+  await applyEditPatch({ name: editName.value });
+}
 </script>
 
 <template>
@@ -99,6 +164,18 @@ async function handleRemove(preset: ConversionPreset): Promise<void> {
           @click="emit('apply', preset)"
         >
           {{ preset.name }}
+        </button>
+        <button
+          type="button"
+          class="preset-edit"
+          :disabled="disabled"
+          :aria-label="t('preset.edit', { name: preset.name })"
+          :title="t('preset.editTitle')"
+          @click="openEdit(preset)"
+        >
+          <el-icon :size="12">
+            <Edit />
+          </el-icon>
         </button>
         <button
           type="button"
@@ -152,6 +229,70 @@ async function handleRemove(preset: ConversionPreset): Promise<void> {
         {{ t('preset.limit', { max: MAX_PRESETS }) }}
       </span>
     </div>
+
+    <el-dialog
+      v-model="editOpen"
+      :title="t('preset.editTitle')"
+      width="min(420px, 92vw)"
+      align-center
+      append-to-body
+      :close-on-click-modal="false"
+    >
+      <template v-if="editing">
+        <div class="preset-edit-field">
+          <label
+            class="preset-edit-label"
+            for="preset-edit-name"
+            >{{ t('preset.editName') }}</label
+          >
+          <el-input
+            id="preset-edit-name"
+            v-model="editName"
+            size="small"
+            :maxlength="PRESET_NAME_MAX"
+            :disabled="editBusy"
+            @keyup.enter="handleRename"
+          />
+        </div>
+        <div class="preset-edit-field">
+          <span class="preset-edit-label">{{ t('preset.editSummary') }}</span>
+          <span class="preset-edit-summary">{{ describePreset(editing.target, editing.options, t) }}</span>
+        </div>
+        <p class="preset-edit-hint">
+          {{ t('preset.editHint') }}
+        </p>
+      </template>
+      <template #footer>
+        <div class="preset-edit-footer">
+          <el-button
+            size="small"
+            :disabled="!canUseCurrent"
+            :title="targetFormat === null ? t('preset.needTarget') : undefined"
+            @click="handleUseCurrent"
+          >
+            {{ t('preset.useCurrent') }}
+          </el-button>
+          <div class="preset-edit-footer-end">
+            <el-button
+              size="small"
+              :disabled="editBusy"
+              @click="editOpen = false"
+            >
+              {{ t('common.cancel') }}
+            </el-button>
+            <el-button
+              size="small"
+              type="primary"
+              :loading="editBusy"
+              :disabled="!canEdit"
+              @click="handleRename"
+            >
+              {{ t('preset.saveName') }}
+            </el-button>
+          </div>
+        </div>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -208,6 +349,7 @@ async function handleRemove(preset: ConversionPreset): Promise<void> {
   color: var(--fat-text-placeholder);
 }
 
+.preset-edit,
 .preset-remove {
   display: inline-flex;
   align-items: center;
@@ -223,18 +365,64 @@ async function handleRemove(preset: ConversionPreset): Promise<void> {
   cursor: pointer;
 }
 
+.preset-edit:hover:not(:disabled) {
+  color: var(--fat-primary);
+}
+
 .preset-remove:hover:not(:disabled) {
   color: var(--el-color-danger);
 }
 
+.preset-edit:disabled,
 .preset-remove:disabled {
   cursor: not-allowed;
 }
 
 .preset-apply:focus-visible,
+.preset-edit:focus-visible,
 .preset-remove:focus-visible {
   outline: 2px solid var(--fat-focus-ring);
   outline-offset: -2px;
+}
+
+.preset-edit-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fat-space-xs);
+  margin-bottom: var(--fat-space-md);
+}
+
+.preset-edit-label {
+  font-size: 12px;
+  color: var(--fat-text-secondary);
+}
+
+.preset-edit-summary {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--fat-text-regular);
+}
+
+.preset-edit-hint {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--fat-text-secondary);
+}
+
+/* Wraps instead of squeezing the update button against the cancel/save pair on a narrow
+   dialog — the two groups are distinct actions, not one row that happens to fit. */
+.preset-edit-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--fat-space-sm);
+}
+
+.preset-edit-footer-end {
+  display: flex;
+  gap: var(--fat-space-xs);
 }
 
 .preset-empty {

@@ -47,6 +47,7 @@ import {
   SITE,
   SOCIAL_IMAGE_ALT,
 } from './conversion-pages/pairs.mjs';
+import { HUBS } from './conversion-pages/hubs.mjs';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
 const OUT_DIR = path.join(ROOT, 'docs', 'convert');
@@ -81,6 +82,16 @@ const APP_NODE = {
  * used to say `Conversions` under a link that read 转换一览.
  */
 const CONVERT_CRUMB = { zh: '转换一览', en: 'Conversions' };
+
+/**
+ * The name a source hub carries in a breadcrumb and a hub card, in one language.
+ * @param {string} code a `FileFormat` value
+ * @param {'zh' | 'en'} lang
+ * @returns {string}
+ */
+function hubCrumb(code, lang) {
+  return lang === 'zh' ? `${FORMAT_LABEL[code].zh} 转换` : `${FORMAT_LABEL[code].en} conversions`;
+}
 
 const errors = [];
 /**
@@ -238,6 +249,48 @@ const PAIR_PAGE = new Map(PAIRS.map(pair => [`${pair.from}->${pair.to}`, pair.sl
 if (PAIR_PAGE.size !== PAIRS.length) {
   fail('two entries in pairs.mjs describe the same from→to route, so the matrix would link one cell twice');
 }
+/** The pair entries themselves, for the descriptions a hub reuses instead of writing them twice. */
+const PAIR_BY_SLUG = new Map(PAIRS.map(pair => [pair.slug, pair]));
+
+/**
+ * Where each source format's hub lives, keyed by `FileFormat` value.
+ *
+ * The one place the enum-to-directory mapping is written; `hubs.mjs` carries a `from` and is checked
+ * against this table so a hub cannot rename its own directory into a URL nothing links to.
+ */
+const HUB_SLUG = {
+  md: 'markdown',
+  html: 'html',
+  docx: 'word',
+  pdf: 'pdf',
+  xlsx: 'excel',
+  csv: 'csv',
+  txt: 'txt',
+  json: 'json',
+  png: 'png',
+  jpg: 'jpg',
+  webp: 'webp',
+  bmp: 'bmp',
+  gif: 'gif',
+  svg: 'svg',
+};
+
+/** The hub for a source format, or null when `hubs.mjs` forgot one (the run fails either way). */
+const HUB_PAGE = new Map(HUBS.map(hub => [hub.from, hub.slug]));
+for (const value of enumValues) {
+  if (!HUB_PAGE.has(value)) fail(`hubs.mjs has no hub for FileFormat '${value}' — every source format needs one`);
+}
+const seenHubSlug = new Set();
+for (const hub of HUBS) {
+  if (HUB_SLUG[hub.from] !== hub.slug) {
+    fail(`hubs.mjs: '${hub.from}' declares slug '${hub.slug}', but HUB_SLUG says '${HUB_SLUG[hub.from]}'`);
+  }
+  if (seenHubSlug.has(hub.slug)) fail(`hubs.mjs: slug '${hub.slug}' is declared twice`);
+  seenHubSlug.add(hub.slug);
+}
+if (HUB_PAGE.size !== HUBS.length) {
+  fail(`hubs.mjs has ${HUBS.length} entries but only ${HUB_PAGE.size} distinct source formats`);
+}
 
 /**
  * The grid itself: one object per cell, each read off `baseline.paths`.
@@ -278,7 +331,28 @@ const MATRIX = (() => {
       if (hops[0][0] !== from || hops[hops.length - 1][1] !== to) {
         fail(`${from} → ${to}: its route starts or ends somewhere other than the key says`);
       }
-      return { from, to, kind: reason ? 'block' : 'open', reason, steps: chain.length - 1, chain, slug };
+      const hub = HUB_SLUG[from];
+      if (!hub) fail(`${from} → ${to} has no source hub in HUB_SLUG, so its matrix link cannot be built`);
+      /* One destination per open cell, and the two shapes are the whole navigation layer: a route with
+         a page of its own goes there, anything else goes to its source hub's anchor for that target.
+         A blocked cell gets no destination at all — it is a statement that the route does not exist,
+         and counting it as a hub anchor made the grid's own arithmetic read 143 destinations for 116
+         open cells. */
+      const dest = reason
+        ? null
+        : slug
+          ? { kind: 'page', href: `${slug}.html` }
+          : { kind: 'hub', href: `${hub}/#to-${to}` };
+      return {
+        from,
+        to,
+        kind: reason ? 'block' : 'open',
+        reason,
+        steps: chain.length - 1,
+        chain,
+        slug,
+        dest,
+      };
     }),
   );
 
@@ -288,7 +362,8 @@ const MATRIX = (() => {
     self: cells.filter(cell => cell.kind === 'self').length,
     blocked: cells.filter(cell => cell.kind === 'block').length,
     open: cells.filter(cell => cell.kind === 'open').length,
-    pages: cells.filter(cell => cell.slug).length,
+    pages: cells.filter(cell => cell.dest?.kind === 'page').length,
+    hubs: cells.filter(cell => cell.dest?.kind === 'hub').length,
     maxSteps: Math.max(...cells.map(cell => cell.steps ?? 0)),
   };
 
@@ -306,6 +381,12 @@ const MATRIX = (() => {
   }
   if (counts.pages !== PAIRS.length) {
     fail(`the matrix links ${counts.pages} pair pages while pairs.mjs defines ${PAIRS.length}`);
+  }
+  if (counts.pages + counts.hubs !== counts.open) {
+    fail(
+      `the matrix has ${counts.open} open cells but ${counts.pages} destinations to pair pages and ` +
+        `${counts.hubs} to hub anchors — every open cell opens exactly one of the two`,
+    );
   }
 
   return { rows, counts, reachable };
@@ -433,6 +514,7 @@ function validatePair(pair) {
   }
   for (const text of bilingualTexts(pair)) {
     if (!text.zh.trim() || !text.en.trim()) fail(`${slug}: an empty zh or en string`);
+    assertEnglishIsEnglish(text.en, slug);
   }
   for (const [key, cap] of [
     ['title', SERP_TITLE],
@@ -467,6 +549,127 @@ function bilingualTexts(pair) {
     texts.push(...pair[key].zh.map((_, i) => ({ zh: pair[key].zh[i], en: pair[key].en[i] })));
   for (const item of pair.faq) texts.push(item.q, item.a);
   return texts;
+}
+
+/**
+ * The open routes of one source format, in the matrix column order the hub page renders them in.
+ *
+ * Read from the same baseline the matrix and pair pages use, so a hub cannot advertise a route the app
+ * does not walk or list a target in an order the grid disagrees with. `pairSlug` is null exactly when the
+ * target needs a `targets` description of its own, which is what `validateHub` then demands.
+ *
+ * @param {string} from a `FileFormat` value
+ * @returns {{to: string, chain: string[], steps: number, pairSlug: string | null}[]}
+ */
+function hubRoutes(from) {
+  return MATRIX_COLS.flatMap(to => {
+    if (to === from) return [];
+    const route = baseline.paths[`${from}->${to}`];
+    if (!route || isBlocked(from, to)) return [];
+    const chain = [from, ...route.map(edge => edge.split('>')[1])];
+    return [{ to, chain, steps: chain.length - 1, pairSlug: PAIR_PAGE.get(`${from}->${to}`) ?? null }];
+  });
+}
+
+/**
+ * English copy must stay English. Two pages shipped a Chinese fragment *inside* an `en` string, because
+ * the correction was typed into the sentence the author was reading — the Chinese one — and nothing
+ * compared the two sides afterwards.
+ *
+ * CJK is allowed only between a pair of backticks, which is how a sample artifact is quoted (a CSV
+ * header row, an `alt` text example taken from a Chinese document). Everything else in an English
+ * string has to be English, so the rule splits on the code-span delimiter and looks only at the
+ * segments that sit outside it — a whitelisted document of legitimate exceptions would go stale the
+ * first time someone added a real sample, which is the failure mode this guard is meant to close.
+ *
+ * @param {string} text the `en` value of one bilingual field
+ * @param {string} where what to name in the failure (a pair slug or a hub name)
+ */
+function assertEnglishIsEnglish(text, where) {
+  // Five CJK blocks written as literal endpoints: ideographic punctuation, Unified A, the main block,
+  // compatibility ideographs, and fullwidth forms. The punctuation range starts at `、` on purpose —
+  // starting it at U+3000 would put an irregular whitespace character in the source, which ESLint
+  // rejects, and a lone ideographic space is not prose. Latin, `→`, `≈`, `—` and curly quotes stay out.
+  const cjk = /[㐀-䶿一-鿿豈-﫿、-〿＀-￯]/;
+  const outside = text.split('`').filter((_, i) => i % 2 === 0);
+  for (const segment of outside) {
+    if (cjk.test(segment)) {
+      const at = segment.search(cjk);
+      fail(
+        `${where}: Chinese inside an English string — “…${segment.slice(Math.max(0, at - 40), at + 40)}…” — ` +
+          'only an inline-code span may hold CJK (that is where a sample artifact is quoted); rewrite the en value in full',
+      );
+      return;
+    }
+  }
+}
+
+/**
+ * Validate one source hub against the route graph and the copy rules the pair pages follow.
+ *
+ * The `targets` check is deliberately an exact set comparison in both directions: a missing key would
+ * render a route with a step count and no explanation, and an extra key would either duplicate a pair
+ * page's description or describe a blocked/reachable-elsewhere target as if the app offered it.
+ *
+ * @param {object} hub a `hubs.mjs` entry
+ * @returns {string[]} the formats of its open routes, for the coverage check
+ */
+function validateHub(hub) {
+  const { from, slug } = hub;
+  if (!enumValues.has(from)) fail(`hub '${slug}': from '${from}' is not a FileFormat value`);
+  if (HUB_SLUG[from] !== slug) fail(`hub '${slug}': HUB_SLUG says '${from}' lives at '${HUB_SLUG[from]}'`);
+  if (!SCREENSHOTS[hub.shot]) fail(`hub '${slug}': shot '${hub.shot}' is not a key in SCREENSHOTS`);
+  for (const [key, cap] of [
+    ['title', SERP_TITLE],
+    ['desc', SERP_DESC],
+  ]) {
+    const len = [...hub[key].en].length;
+    if (len > cap) {
+      fail(
+        `hub '${slug}': ${key}.en is ${len} characters against a ${cap}-character SERP budget — shorten it in ` +
+          'scripts/conversion-pages/hubs.mjs',
+      );
+    }
+  }
+  for (const text of [
+    hub.title,
+    hub.desc,
+    hub.lede,
+    ...hub.limits.zh.map((_, i) => ({ zh: hub.limits.zh[i], en: hub.limits.en[i] })),
+    ...hub.faq.flatMap(item => [item.q, item.a]),
+  ]) {
+    if (!text.zh.trim() || !text.en.trim()) fail(`hub '${slug}': an empty zh or en string`);
+    assertEnglishIsEnglish(text.en, `hub '${slug}'`);
+  }
+  if (hub.limits.zh.length !== hub.limits.en.length) {
+    fail(`hub '${slug}': limits has ${hub.limits.zh.length} zh bullets but ${hub.limits.en.length} en`);
+  }
+  if (hub.limits.zh.length < 3 || hub.limits.zh.length > 5) {
+    fail(`hub '${slug}': limits must hold 3–5 entries, it holds ${hub.limits.zh.length}`);
+  }
+  if (hub.faq.length < 4 || hub.faq.length > 6) {
+    fail(`hub '${slug}': FAQ must hold 4–6 questions, it holds ${hub.faq.length}`);
+  }
+
+  const routes = hubRoutes(from);
+  const needText = routes.filter(route => route.pairSlug === null).map(route => route.to);
+  const declared = Object.keys(hub.targets);
+  const missing = needText.filter(to => !declared.includes(to));
+  const extra = declared.filter(to => !needText.includes(to));
+  if (missing.length > 0) {
+    fail(`hub '${slug}': no targets description for ${missing.join(', ')} — those routes have no pair page`);
+  }
+  if (extra.length > 0) {
+    fail(
+      `hub '${slug}': targets describes ${extra.join(', ')}, which is not an open target without a pair page — ` +
+        'the hub would explain a route twice or advertise one the picker does not offer',
+    );
+  }
+  for (const [to, text] of Object.entries(hub.targets)) {
+    if (!text.zh?.trim() || !text.en?.trim()) fail(`hub '${slug}' → '${to}': an empty zh or en string`);
+    assertEnglishIsEnglish(text.en, `hub '${slug}' → '${to}'`);
+  }
+  return routes.map(route => route.to);
 }
 
 // ---------------------------------------------------------------------------
@@ -665,13 +868,14 @@ function revealScript() {
  * The swap travels with the figure because the head script that narrows the title and the meta tags
  * cannot reach this `<img>`: it has not been parsed yet when that script runs.
  * @param {object} shot a `SCREENSHOTS` entry
+ * @param {number} depth how many directories down from the site root the page sits
  * @returns {string} markup for the `<figure>` and its swap
  */
-function shotFigure(shot) {
+function shotFigure(shot, depth) {
   const enAlt = JSON.stringify(shot.alt.en).replace(/</g, '\\u003c');
   return `          <figure class="shot reveal">
             <img
-              src="../assets/screenshots/${esc(shot.file)}"
+              src="${'../'.repeat(depth)}assets/screenshots/${esc(shot.file)}"
               width="${shot.w}"
               height="${shot.h}"
               loading="lazy"
@@ -728,20 +932,16 @@ function matrixSection() {
       return `<td class="mx-block" data-kind="block" data-reason="${cell.reason}"><span aria-hidden="true">✕</span>${short}</td>`;
     }
     const plural = cell.steps === 1 ? 'step' : 'steps';
-    // Both halves of this pair belong in markup, not only in the readout script: "this route runs, but
-    // there is no page for it yet" is a fact about the cell, and a reader without JavaScript used to
-    // get the step count and nothing else — the same grid therefore said two different things
-    // depending on whether the browser ran the script.
-    const page = cell.slug
-      ? { zh: '，有说明页', en: ', with its own page' }
-      : { zh: '，暂无专页', en: ', no page yet' };
-    const said = hidden(`${cell.steps} 步链路${page.zh}`, `${cell.steps} ${plural}${page.en}`);
-    const inner = cell.slug
-      ? `<a class="mx-page" href="${cell.slug}.html"><span aria-hidden="true">${cell.steps}</span>${said}</a>`
-      : `<span class="mx-step" aria-hidden="true">${cell.steps}</span>${said}`;
-    return `<td class="mx-open" data-kind="open" data-steps="${cell.steps}" data-chain="${esc(cell.chain.join('>'))}"${
-      cell.slug ? ` data-page="${esc(cell.slug)}.html"` : ''
-    }>${inner}</td>`;
+    // Both halves of this pair belong in markup, not only in the readout script: where a cell goes is a
+    // fact about the route, and a reader without JavaScript used to get the step count and nothing else —
+    // the same grid therefore said two different things depending on whether the browser ran the script.
+    const where =
+      cell.dest.kind === 'page'
+        ? { zh: '，有专页', en: ', with its own page' }
+        : { zh: '，打开来源格式页', en: ', on the source format page' };
+    const said = hidden(`${cell.steps} 步链路${where.zh}`, `${cell.steps} ${plural}${where.en}`);
+    const inner = `<a class="mx-${cell.dest.kind === 'page' ? 'page' : 'hub'}" href="${esc(cell.dest.href)}"><span aria-hidden="true">${cell.steps}</span>${said}</a>`;
+    return `<td class="mx-open" data-kind="open" data-steps="${cell.steps}" data-chain="${esc(cell.chain.join('>'))}" data-page="${esc(cell.dest.href)}" data-dest="${cell.dest.kind}">${inner}</td>`;
   };
 
   const headRow = `                <tr>
@@ -750,12 +950,13 @@ function matrixSection() {
                 </tr>`;
 
   const body = rows
-    .map(
-      row => `                <tr>
-                  <th scope="row" data-f="${row[0].from}">${bi(FORMAT_LABEL[row[0].from].zh, FORMAT_LABEL[row[0].from].en)}</th>
+    .map(row => {
+      const from = row[0].from;
+      return `                <tr>
+                  <th scope="row" data-f="${from}"><a href="${HUB_SLUG[from]}/">${bi(FORMAT_LABEL[from].zh, FORMAT_LABEL[from].en)}</a></th>
                   ${row.map(cellHtml).join('\n                  ')}
-                </tr>`,
-    )
+                </tr>`;
+    })
     .join('\n');
 
   return `        <section id="matrix" class="matrix-sec reveal">
@@ -766,12 +967,17 @@ ${sectionHeading('格式矩阵', 'The format matrix')}
               `The grid is that sentence spread out: ${MATRIX_ROWS.length} formats down the side, the ${MATRIX_COLS.length} writable ones across the top, ${counts.cells} cells in all, of which ${counts.self} are a format meeting itself. Of the remaining ${MATRIX.reachable} reachable combinations, ${counts.blocked} of them are blocked by the policy as semantically invalid, so the picker offers ${counts.open}. What a cell holds is the number of steps that route actually runs — not another way of saying “we support N conversions”, but the matrix nobody maintains worked out in front of you: ${baseline.edgeCount} registered routes, and these cells are their closure.`,
             )}
           </p>
+          <div class="mx-filter" role="group" aria-label="按步数筛选矩阵 / Filter the matrix by steps">
+            <button type="button" data-filter="all" aria-pressed="true">${bi('全部', 'All')}</button>
+            <button type="button" data-filter="1" aria-pressed="false">${bi('1 步', '1 step')}</button>
+            <button type="button" data-filter="2" aria-pressed="false">${bi('2 步及以上', '2+ steps')}</button>
+          </div>
           <div class="matrix-scroll">
             <table class="matrix" id="mx-table">
               <caption>
                 ${bi(
-                  `行 = 源格式，列 = 目标格式；数字是步数，✕ 是界面置灰的组合，– 是同格式。${counts.pages} 个格子链到对应的说明页。`,
-                  `Rows are source formats, columns the writable ones; a digit counts steps, ✕ is a pair the picker greys out, – is the same format. ${counts.pages} cells link to the page that route has.`,
+                  `行 = 源格式，列 = 目标格式；数字是步数，✕ 是界面置灰的组合，– 是同格式。每个开放格子都能打开它自己的说明页或来源格式页。`,
+                  `Rows are source formats, columns the writable ones; a digit counts steps, ✕ is a pair the picker greys out, – is the same format. Every open cell opens either its own page or the source format's page.`,
                 )}
               </caption>
               <thead>
@@ -784,8 +990,8 @@ ${body}
           </div>
           <p class="mx-legend">
             ${bi(
-              `图例：数字 = 这条链路走的步数（${counts.maxSteps} 是今天最长的一条，中间产物不落盘）；✕ = 图上可达但语义无效，工作台会置灰并给出原因 —— 「${BLOCK_COPY.image.zh}」「${BLOCK_COPY.pdf.zh}」；– = 源与目标是同一个格式。带下划线的数字有自己的一页说明，点进去是那条路的保留项与丢弃项；没下划线的格子能转，只是今天还没有专页。`,
-              `Legend: a digit is how many steps that route runs (${counts.maxSteps} is the longest one today, and no intermediate ever touches the disk); ✕ is reachable in the graph but semantically invalid, so the workbench greys it out and says why — “${BLOCK_COPY.image.en}” and “${BLOCK_COPY.pdf.en}”; – is a format meeting itself. An underlined digit has its own page, which spells out what that route keeps and what it drops; a plain one converts, it just has no page yet.`,
+              `图例：数字 = 这条链路走的步数（${counts.maxSteps} 是今天最长的一条，中间产物不落盘）；✕ = 图上可达但语义无效，工作台会置灰并给出原因 —— 「${BLOCK_COPY.image.zh}」「${BLOCK_COPY.pdf.zh}」；– = 源与目标是同一个格式。带下划线的数字都能点：有专页的进那一页看保留项与丢弃项，没有专页的进来源格式页看这一条路的说明。`,
+              `Legend: a digit is how many steps that route runs (${counts.maxSteps} is the longest one today, and no intermediate ever touches the disk); ✕ is reachable in the graph but semantically invalid, so the workbench greys it out and says why — “${BLOCK_COPY.image.en}” and “${BLOCK_COPY.pdf.en}”; – is a format meeting itself. Every underlined digit opens something: a pair page with that route's kept and dropped details, or its source format's page where the route is explained.`,
             )}
           </p>
           <p class="mx-readout" id="mx-readout" role="status">
@@ -794,6 +1000,7 @@ ${body}
               'Hover a cell, or press Tab and walk the grid with the arrow keys, and the full route is read out here.',
             )}
           </p>
+          <p class="mx-trail" id="mx-trail" aria-hidden="true"></p>
         </section>`;
 }
 
@@ -820,14 +1027,15 @@ function matrixScript() {
     self: { zh: '源与目标是同一格式，没有转换这回事。', en: 'A format meeting itself — there is no conversion here.' },
     route: { zh: '步链路', en: 'step' },
     via: { zh: '经过', en: 'via' },
-    page: { zh: '· 有说明页', en: '· has its own page' },
-    nopage: { zh: '· 暂无专页', en: '· no page yet' },
+    page: { zh: '· 有专页', en: '· has its own page' },
+    hub: { zh: '· 见来源格式页', en: '· on the source page' },
   }).replace(/</g, '\\u003c');
 
   return `<script>
     (function () {
       var table = document.getElementById('mx-table');
       var readout = document.getElementById('mx-readout');
+      var trailBox = document.getElementById('mx-trail');
       if (!table || !readout) return;
       var COPY = ${copy};
       var head = [].slice.call(table.querySelectorAll('thead th[data-f]'));
@@ -836,6 +1044,7 @@ function matrixScript() {
       var rows = [].slice.call(table.querySelectorAll('tbody tr'));
       var cells = [].slice.call(table.querySelectorAll('tbody td'));
       if (!head.length || !cells.length) return;
+      var reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
       /** Both languages a header carries, exactly as the page ships them. */
       function pair(node) {
         var zh = node.querySelector('span[lang="zh-CN"]');
@@ -869,13 +1078,13 @@ function matrixScript() {
           return both('：' + why.zh, ' — ' + why.en);
         }
         var steps = Number(cell.getAttribute('data-steps')) || 1;
-        var hasPage = !!cell.getAttribute('data-page');
+        var dest = cell.getAttribute('data-dest');
         var mid = middle(cell);
         return both(
-          '：' + steps + ' ' + COPY.route.zh + (hasPage ? ' ' + COPY.page.zh : ' ' + COPY.nopage.zh) +
+          '：' + steps + ' ' + COPY.route.zh + ' ' + (dest === 'page' ? COPY.page.zh : COPY.hub.zh) +
             (mid.length ? ' · ' + COPY.via.zh + ' ' + mid.map(function (m) { return m.zh; }).join('、') : ''),
           ' — ' + steps + ' ' + COPY.route.en + (steps === 1 ? '' : 's') + ' ' +
-            (hasPage ? COPY.page.en : COPY.nopage.en) +
+            (dest === 'page' ? COPY.page.en : COPY.hub.en) +
             (mid.length ? ' · ' + COPY.via.en + ' ' + mid.map(function (m) { return m.en; }).join(', ') : ''),
         );
       }
@@ -888,34 +1097,120 @@ function matrixScript() {
           readout.appendChild(span);
         });
       }
+      /**
+       * The visual-only route strip under the readout. It reproduces a fact already in the table (the
+       * chain's codes) as chips, and is aria-hidden so it never becomes a second announcement.
+       * The 60 ms stagger is capped by the chain length itself; the longest route today is 4 steps.
+       */
+      function trailer(cell) {
+        if (!trailBox) return;
+        while (trailBox.firstChild) trailBox.removeChild(trailBox.firstChild);
+        trailBox.classList.remove('on');
+        if (!cell || cell.getAttribute('data-kind') !== 'open' || cell.classList.contains('mx-filtered')) return;
+        var codes = (cell.getAttribute('data-chain') || '').split('>');
+        codes.forEach(function (code, i) {
+          if (i) {
+            var arrow = document.createElement('span');
+            arrow.className = 'arrow';
+            arrow.setAttribute('aria-hidden', 'true');
+            arrow.textContent = '→';
+            trailBox.appendChild(arrow);
+          }
+          var chip = document.createElement('span');
+          chip.className = 'chip';
+          var label = LABELS[code] || { zh: code, en: code };
+          [['zh-CN', label.zh], ['en', label.en]].forEach(function (pair) {
+            var span = document.createElement('span');
+            span.setAttribute('lang', pair[0]);
+            span.textContent = pair[1];
+            chip.appendChild(span);
+          });
+          chip.style.transitionDelay = i * 60 + 'ms';
+          trailBox.appendChild(chip);
+        });
+        if (reduced) {
+          trailBox.classList.add('on');
+          return;
+        }
+        void trailBox.offsetWidth;
+        trailBox.classList.add('on');
+      }
       var on = [];
       var active = null;
       function clear() {
         on.forEach(function (node) { if (node) node.classList.remove('mx-on'); });
         on = [];
+        table.classList.remove('mx-tracing');
+        trailer(null);
       }
       function activate(cell) {
         if (!cell || cell === active) return;
+        /* A dimmed cell is not a route under the filter: hovering it must not read out a row the reader
+           just chose to hide. */
+        if (cell.classList.contains('mx-filtered')) return;
         active = cell;
         clear();
+        table.classList.add('mx-tracing');
         var row = rows[cell.parentNode.sectionRowIndex];
         var col = head[cell.cellIndex - 1];
         [cell, row ? row.querySelector('th') : null, col].forEach(function (node) {
           if (node) { node.classList.add('mx-on'); on.push(node); }
         });
         show(sentence(cell));
+        trailer(cell);
       }
-      /* The 21 links stay real links — no-JS readers tab through them like any other page. Once this
+      /* The 116 links stay real links — no-JS readers tab through them like any other page. Once this
          script runs the grid is the tab stop instead: the arrows already move between cells, so a second
          stop per linked cell would only make Tab disagree with the arrow keys. Enter follows wherever
-         the current cell points. */
+         the current cell points. Row-header hub links are ordinary Tab stops and are left alone. */
       cells.forEach(function (cell, i) {
         cell.setAttribute('tabindex', i === 0 ? '0' : '-1');
-        var link = cell.querySelector('a.mx-page');
+        var link = cell.querySelector('a');
         if (link) link.setAttribute('tabindex', '-1');
       });
       var current = 0;
       var width = head.length;
+      function visible(i) {
+        return i >= 0 && i < cells.length && !cells[i].classList.contains('mx-filtered');
+      }
+      /* The step filter. A cell that does not match is dimmed, not removed: the table's shape is the
+         claim, and dropping cells (or aria-hiding them) would leave a grid that no longer adds up.
+         Arrow navigation skips dimmed cells so the keyboard cannot land on a route the filter hides. */
+      var filter = 'all';
+      function matches(cell) {
+        if (filter === 'all') return true;
+        var steps = Number(cell.getAttribute('data-steps'));
+        if (!steps) return false;
+        return filter === '1' ? steps === 1 : steps >= 2;
+      }
+      var buttons = [].slice.call(document.querySelectorAll('.mx-filter [data-filter]'));
+      function applyFilter(next) {
+        filter = next;
+        buttons.forEach(function (button) {
+          button.setAttribute('aria-pressed', button.getAttribute('data-filter') === next ? 'true' : 'false');
+        });
+        cells.forEach(function (cell) {
+          cell.classList.toggle('mx-filtered', !matches(cell));
+        });
+        if (active && active.classList.contains('mx-filtered')) {
+          active = null;
+          clear();
+          while (readout.firstChild) readout.removeChild(readout.firstChild);
+        }
+        if (!visible(current)) {
+          var first = cells.findIndex(function (_, i) { return visible(i); });
+          if (first >= 0) {
+            cells[current].setAttribute('tabindex', '-1');
+            current = first;
+            cells[current].setAttribute('tabindex', '0');
+          }
+        }
+      }
+      buttons.forEach(function (button) {
+        button.addEventListener('click', function () {
+          applyFilter(button.getAttribute('data-filter'));
+        });
+      });
       table.addEventListener('focusin', function (event) {
         var cell = event.target.closest ? event.target.closest('td') : null;
         if (!cell || !table.contains(cell)) return;
@@ -929,18 +1224,32 @@ function matrixScript() {
       });
       table.addEventListener('keydown', function (event) {
         if (current < 0) return;
+        /* A row-header link is a normal Tab stop inside the table; its own Enter and arrow keys belong
+           to the browser, not to the grid. */
+        if (!event.target.closest || !event.target.closest('td')) return;
         if (event.key === 'Enter') {
+          if (!visible(current)) return;
           var page = cells[current].getAttribute('data-page');
           if (page) window.location.href = page;
           return;
         }
         var step = { ArrowRight: 1, ArrowLeft: -1, ArrowDown: width, ArrowUp: -width }[event.key];
         var target = current;
-        if (event.key === 'Home') target = Math.floor(current / width) * width;
-        else if (event.key === 'End') target = Math.floor(current / width) * width + width - 1;
-        else if (step === undefined) return;
-        else target = current + step;
-        if (target < 0 || target >= cells.length) return;
+        if (event.key === 'Home' || event.key === 'End') {
+          var start = Math.floor(current / width) * width;
+          var end = start + width - 1;
+          var direction = event.key === 'Home' ? 1 : -1;
+          target = -1;
+          for (var i = event.key === 'Home' ? start : end; i >= start && i <= end; i += direction) {
+            if (visible(i)) { target = i; break; }
+          }
+          if (target < 0) return;
+        } else if (step === undefined) return;
+        else {
+          target = current + step;
+          while (target >= 0 && target < cells.length && !visible(target)) target += step;
+          if (target < 0 || target >= cells.length) return;
+        }
         event.preventDefault();
         cells[current].setAttribute('tabindex', '-1');
         current = target;
@@ -1005,6 +1314,7 @@ function chrome(depth) {
 function renderPage(pair, chain) {
   const { head, foot } = chrome(1);
   const url = `${SITE.origin}/convert/${pair.slug}.html`;
+  const hubSlug = HUB_SLUG[pair.from];
   const label = code => FORMAT_LABEL[code];
   const steps = chain
     .map((code, i) => {
@@ -1107,6 +1417,12 @@ ${related}
           {
             '@type': 'ListItem',
             position: 3,
+            name: hubCrumb(pair.from, lang),
+            item: `${SITE.origin}/convert/${hubSlug}/`,
+          },
+          {
+            '@type': 'ListItem',
+            position: 4,
             name: `${label(pair.from)[lang]} → ${label(pair.to)[lang]}`,
             item: url,
           },
@@ -1190,13 +1506,15 @@ ${related}
           <span aria-hidden="true">/</span>
           <a href="../convert/">${bi(CONVERT_CRUMB.zh, CONVERT_CRUMB.en)}</a>
           <span aria-hidden="true">/</span>
+          <a href="${hubSlug}/">${bi(hubCrumb(pair.from, 'zh'), hubCrumb(pair.from, 'en'))}</a>
+          <span aria-hidden="true">/</span>
           <span>${bi(`${label(pair.from).zh} → ${label(pair.to).zh}`, `${label(pair.from).en} → ${label(pair.to).en}`)}</span>
         </nav>
         <article>
           <p class="eyebrow">${bi('离线 · 无上传 · 浏览器本地完成', 'Offline · no uploads · runs in the browser')}</p>
           <h1>${bi(pair.title.zh, pair.title.en)}</h1>
           <p class="lede">${bi(pair.lede.zh, pair.lede.en)}</p>
-${shotFigure(shot)}
+${shotFigure(shot, 1)}
           <section class="route-card reveal" aria-labelledby="route-label">
             <p class="route-label" id="route-label">${bi('这条链路怎么走', 'How the route runs')}</p>
             <p class="route-steps">
@@ -1245,6 +1563,256 @@ ${faq}
             </p>
           </section>
 ${relatedSection}        </article>
+      </div>
+    </main>
+    ${foot}
+    ${revealScript()}
+  </body>
+</html>
+`;
+}
+
+/**
+ * One source-format hub: every open target that source has, each with the route it walks and a fact the
+ * converter itself makes true.
+ *
+ * This is the layer the cluster was missing: 116 combinations are selectable, 43 have a page, and the
+ * remaining 73 used to be a digit in the matrix with nowhere to go. A hub holds those 73 anchors, and for
+ * the 43 that do have a page it reuses that page's `desc` rather than writing a second, differently-worded
+ * answer to the same question.
+ *
+ * The blocked targets are listed separately and only when they exist: an image source has four, a PDF has
+ * three, and every other source has none — in which case the section is absent rather than empty.
+ *
+ * @param {object} hub a validated `hubs.mjs` entry
+ * @returns {string} full HTML document
+ */
+function renderHub(hub) {
+  const { head, foot } = chrome(2);
+  const url = `${SITE.origin}/convert/${hub.slug}/`;
+  const label = code => FORMAT_LABEL[code];
+  const routes = hubRoutes(hub.from);
+  const blocked = MATRIX_COLS.filter(to => to !== hub.from && blockReason(hub.from, to));
+  const shot = SCREENSHOTS[hub.shot];
+  const shotUrl = `${SITE.origin}/assets/screenshots/${shot.file}`;
+
+  const routeItems = routes
+    .map(route => {
+      const pair = route.pairSlug ? PAIR_BY_SLUG.get(route.pairSlug) : null;
+      const desc = pair ? pair.desc : hub.targets[route.to];
+      const chips = route.chain
+        .map((code, i) => {
+          const chip = `<span class="chip">${bi(label(code).zh, label(code).en)}</span>`;
+          return i === 0 ? chip : `<span class="arrow" aria-hidden="true">→</span>${chip}`;
+        })
+        .join('\n              ');
+      const steps = bi(`${route.steps} 步`, `${route.steps} step${route.steps === 1 ? '' : 's'}`);
+      return `            <li class="hub-route"${pair ? '' : ` id="to-${route.to}"`}>
+              <p class="hub-route-head">
+                <span class="hub-route-target">${bi(label(route.to).zh, label(route.to).en)}</span>
+                <span class="fine">${steps}</span>
+              </p>
+              <p class="route-steps">
+              ${chips}
+              </p>
+              <p>${bi(desc.zh, desc.en)}</p>
+              ${pair ? `<p class="fine"><a href="../${pair.slug}.html">${bi('有专页 →', 'Full page →')}</a></p>` : ''}
+            </li>`;
+    })
+    .join('\n');
+
+  const blockedSection =
+    blocked.length === 0
+      ? ''
+      : `          <section id="blocked" class="reveal">
+${sectionHeading('界面上置灰的目标', 'Targets the picker greys out')}
+            <p>${bi(
+              '下面这些目标在路径图上可达，但语义上无效，工作台会把它们置灰并给出原因，而不是让你点下去得到一个空文件。',
+              'These targets are reachable in the graph but semantically invalid, so the workbench greys them out with the same reason instead of letting you click through to an empty file.',
+            )}</p>
+            <ul class="limits">
+${blocked
+  .map(
+    to =>
+      `              <li>${bi(
+        `${label(to).zh}：${BLOCK_COPY[blockReason(hub.from, to)].zh}`,
+        `${label(to).en}: ${BLOCK_COPY[blockReason(hub.from, to)].en}`,
+      )}</li>`,
+  )
+  .join('\n')}
+            </ul>
+          </section>
+`;
+
+  const faq = hub.faq
+    .map(
+      item => `        <details>
+          <summary>${bi(item.q.zh, item.q.en)}</summary>
+          <p>${bi(item.a.zh, item.a.en)}</p>
+        </details>`,
+    )
+    .join('\n');
+
+  const otherHubs = HUBS.filter(other => other.slug !== hub.slug)
+    .map(
+      other =>
+        `              <li><a href="../${other.slug}/">${bi(
+          hubCrumb(other.from, 'zh'),
+          hubCrumb(other.from, 'en'),
+        )}</a></li>`,
+    )
+    .join('\n');
+
+  /**
+   * One language's graph. The `ItemList` follows the visible route order and points each item at the
+   * same destination its row does — the pair page when one exists, the hub anchor otherwise.
+   * @param {'zh' | 'en'} lang
+   * @returns {object[]} the `@graph`
+   */
+  const graph = lang => {
+    const inLanguage = lang === 'zh' ? 'zh-CN' : 'en';
+    return [
+      {
+        '@type': 'CollectionPage',
+        '@id': `${url}#webpage`,
+        url,
+        name: hub.title[lang],
+        inLanguage,
+        isPartOf: { '@id': `${SITE.origin}/#website` },
+        about: APP_NODE,
+        description: hub.desc[lang],
+        image: shotUrl,
+        mainEntity: { '@id': `${url}#routes` },
+      },
+      {
+        '@type': 'ItemList',
+        '@id': `${url}#routes`,
+        name:
+          lang === 'zh' ? `${label(hub.from).zh} 的全部可用目标` : `Every available target for ${label(hub.from).en}`,
+        numberOfItems: routes.length,
+        itemListOrder: 'https://schema.org/ItemListOrderAscending',
+        itemListElement: routes.map((route, i) => ({
+          '@type': 'ListItem',
+          position: i + 1,
+          name: `${label(hub.from)[lang]} → ${label(route.to)[lang]}`,
+          url: route.pairSlug ? `${SITE.origin}/convert/${route.pairSlug}.html` : `${url}#to-${route.to}`,
+        })),
+      },
+      {
+        '@type': 'BreadcrumbList',
+        itemListElement: [
+          { '@type': 'ListItem', position: 1, name: 'Transfer Any File', item: `${SITE.origin}/` },
+          { '@type': 'ListItem', position: 2, name: CONVERT_CRUMB[lang], item: `${SITE.origin}/convert/` },
+          { '@type': 'ListItem', position: 3, name: hubCrumb(hub.from, lang), item: url },
+        ],
+      },
+      {
+        '@type': 'FAQPage',
+        mainEntity: hub.faq.map(item => ({
+          '@type': 'Question',
+          name: item.q[lang],
+          acceptedAnswer: { '@type': 'Answer', text: item.a[lang] },
+        })),
+      },
+    ];
+  };
+
+  const jsonLd = JSON.stringify({ '@context': 'https://schema.org', '@graph': graph('zh') }).replace(/</g, '\\u003c');
+  const bilingualTitle = `${hub.title.zh} | ${hub.title.en}`;
+
+  return `<!doctype html>
+<!-- Generated by scripts/render-site-pages.mjs from scripts/conversion-pages/hubs.mjs.
+     Edit the data module and re-run the script; \`pnpm pages:check\` fails on any drift. -->
+<html lang="zh-CN" id="top">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>${esc(bilingualTitle)}</title>
+    <meta name="description" content="${esc(`${hub.desc.zh} | ${hub.desc.en}`)}" />
+    <meta name="author" content="Better" />
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1" />
+    <link rel="canonical" href="${url}" />
+    <link rel="icon" type="image/png" sizes="64x64" href="../../assets/icon-mark.png" />
+    <link rel="apple-touch-icon" sizes="512x512" href="../../assets/icon.png" />
+    <meta name="theme-color" content="${SITE.themeColor}" />
+    <meta name="color-scheme" content="light" />
+    <link rel="stylesheet" href="../../assets/content.css" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Transfer Any File" />
+    <meta property="og:locale" content="zh_CN" />
+    <meta property="og:locale:alternate" content="en_US" />
+    <meta property="og:url" content="${url}" />
+    <meta property="og:title" content="${esc(bilingualTitle)}" />
+    <meta property="og:description" content="${esc(`${hub.desc.zh} | ${hub.desc.en}`)}" />
+    <meta property="og:image" content="${SITE.origin}/assets/store/github-social-preview.png" />
+    <meta property="og:image:width" content="1280" />
+    <meta property="og:image:height" content="640" />
+    <meta property="og:image:alt" content="${esc(SOCIAL_IMAGE_ALT)}" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="${esc(bilingualTitle)}" />
+    <meta name="twitter:description" content="${esc(`${hub.desc.zh} | ${hub.desc.en}`)}" />
+    <meta name="twitter:image" content="${SITE.origin}/assets/store/github-social-preview.png" />
+    <meta name="twitter:image:alt" content="${esc(SOCIAL_IMAGE_ALT)}" />
+    <script type="application/ld+json" id="fat-ld">
+      ${jsonLd}
+    </script>
+    ${headScripts({ zh: { t: hub.title.zh, d: hub.desc.zh }, en: { t: hub.title.en, d: hub.desc.en } })}
+    ${ldSwapScript({ '@context': 'https://schema.org', '@graph': graph('en') })}
+  </head>
+  <body>
+    ${head}
+    <main class="page">
+      <div class="wrap">
+        <nav class="crumbs" aria-label="Breadcrumb">
+          <a href="../../">${bi('产品说明', 'Product')}</a>
+          <span aria-hidden="true">/</span>
+          <a href="../">${bi(CONVERT_CRUMB.zh, CONVERT_CRUMB.en)}</a>
+          <span aria-hidden="true">/</span>
+          <span>${bi(hubCrumb(hub.from, 'zh'), hubCrumb(hub.from, 'en'))}</span>
+        </nav>
+        <article>
+          <p class="eyebrow">${bi('离线 · 无上传 · 浏览器本地完成', 'Offline · no uploads · runs in the browser')}</p>
+          <h1>${bi(hub.title.zh, hub.title.en)}</h1>
+          <p class="lede">${bi(hub.lede.zh, hub.lede.en)}</p>
+${shotFigure(shot, 2)}
+          <section id="routes" class="reveal">
+${sectionHeading('全部可用目标', 'Every available target')}
+            <ul class="hub-routes">
+${routeItems}
+            </ul>
+          </section>
+${blockedSection}          <section id="limits" class="reveal">
+${sectionHeading('这个来源格式的共同限制', 'What holds for every target from this source')}
+            <ul class="limits">
+${bullets(hub.limits)}
+            </ul>
+          </section>
+          <section id="faq" class="reveal">
+${sectionHeading('常见问题', 'Questions people actually ask')}
+${faq}
+          </section>
+          <section class="cta reveal">
+            <p>
+              ${bi(
+                '不需要账号，也不需要联网：装好扩展后点图标，在新标签页里打开工作台，文件从磁盘直接选。',
+                'No account and no network: install the extension, click its icon, and the workbench opens in a new tab reading straight off your disk.',
+              )}
+            </p>
+            <p class="cta-links">
+              <a class="btn" href="${SITE.store}" rel="noopener" target="_blank">${bi('从 Chrome 应用商店安装', 'Install from the Chrome Web Store')}</a>
+              <a class="btn ghost" href="../../#install">${bi('安装步骤', 'Install steps')}</a>
+              <a class="btn ghost" href="${SITE.repo}">${bi('GitHub 源码', 'Source on GitHub')}</a>
+            </p>
+          </section>
+          <section class="related reveal">
+${sectionHeading('其他来源格式', 'Other source formats')}
+            <ul class="hub-links">
+${otherHubs}
+            </ul>
+            <p class="fine">${bi('完整一览见', 'The full set is on the')} <a href="../">${bi('转换一览页', 'conversions index')}</a>${bi('。', '.')}</p>
+          </section>
+          <p class="fine">${bi(`最后更新 ${PAGES_UPDATED}`, `Last updated: ${PAGES_UPDATED}`)}</p>
+        </article>
       </div>
     </main>
     ${foot}
@@ -1329,14 +1897,37 @@ ${items}
 
   const meta = {
     zh: {
-      t: '转换一览｜14 种格式可用的转换组合',
-      d: '文件格式任意转换助手的转换配对一览：14 种格式、48 条注册路径、界面提供 116 个可选组合。每条链路给出保留什么与不做什么。',
+      t: '转换一览｜按来源格式浏览 14 种格式的转换',
+      d: '文件格式任意转换助手的转换一览：14 种格式、48 条注册路径、界面提供 116 个可选组合，可按来源格式浏览每条链路的保留项与限制。',
     },
     en: {
-      t: 'Conversion index for 14 file formats',
-      d: 'Which conversions this offline Chrome extension actually offers: 14 formats, 48 registered direct routes and 116 selectable combinations, each with what it preserves and what it cannot do.',
+      t: 'File conversions by source: 14 formats',
+      d: 'Conversions in this offline Chrome extension: 14 formats, 48 registered routes and 116 selectable combinations. Browse by source format.',
     },
   };
+
+  /**
+   * The 14 source cards at the top of the index. Each one is a route into the hub layer; its target list
+   * links the same destinations the matrix cell does (pair page when one exists, hub anchor otherwise),
+   * so a reader can enter the cluster from either direction.
+   */
+  const hubCards = HUBS.map(hub => {
+    const routes = hubRoutes(hub.from);
+    const targets = routes
+      .map(route => {
+        const href = route.pairSlug ? `${route.pairSlug}.html` : `${hub.slug}/#to-${route.to}`;
+        return `<a href="${href}">${bi(FORMAT_LABEL[route.to].zh, FORMAT_LABEL[route.to].en)}</a>`;
+      })
+      .join(' <span aria-hidden="true">·</span> ');
+    return `            <li class="hub-card">
+              <a class="hub-card-title" href="${hub.slug}/">${bi(
+                hubCrumb(hub.from, 'zh'),
+                hubCrumb(hub.from, 'en'),
+              )}</a>
+              <p class="fine">${bi(hub.desc.zh, hub.desc.en)}</p>
+              <p class="hub-card-targets">${targets}</p>
+            </li>`;
+  }).join('\n');
 
   const shot = SCREENSHOTS['workbench-empty'];
   const shotUrl = `${SITE.origin}/assets/screenshots/${shot.file}`;
@@ -1362,6 +1953,20 @@ ${items}
         description: meta[lang].d,
         image: shotUrl,
         hasPart: PAIRS.map(pair => ({ '@type': 'WebPage', name: pair.title[lang], url: `${url}${pair.slug}.html` })),
+        mainEntity: { '@id': `${url}#sources` },
+      },
+      {
+        '@type': 'ItemList',
+        '@id': `${url}#sources`,
+        name: lang === 'zh' ? '按来源格式浏览' : 'Browse by source format',
+        numberOfItems: HUBS.length,
+        itemListOrder: 'https://schema.org/ItemListOrderAscending',
+        itemListElement: HUBS.map((hub, i) => ({
+          '@type': 'ListItem',
+          position: i + 1,
+          name: hubCrumb(hub.from, lang),
+          url: `${url}${hub.slug}/`,
+        })),
       },
       {
         '@type': 'BreadcrumbList',
@@ -1409,15 +2014,15 @@ ${items}
     <meta property="og:locale" content="zh_CN" />
     <meta property="og:locale:alternate" content="en_US" />
     <meta property="og:url" content="${url}" />
-    <meta property="og:title" content="转换一览 | Conversion index" />
-    <meta property="og:description" content="14 种格式、48 条注册路径、界面提供 116 个可选组合。 | 14 formats, 48 registered direct routes, 116 selectable combinations." />
+    <meta property="og:title" content="${esc(`${meta.zh.t} | ${meta.en.t}`)}" />
+    <meta property="og:description" content="${esc(`${meta.zh.d} | ${meta.en.d}`)}" />
     <meta property="og:image" content="${SITE.origin}/assets/store/github-social-preview.png" />
     <meta property="og:image:width" content="1280" />
     <meta property="og:image:height" content="640" />
     <meta property="og:image:alt" content="${esc(SOCIAL_IMAGE_ALT)}" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="转换一览 | Conversion index" />
-    <meta name="twitter:description" content="14 种格式、48 条注册路径、界面提供 116 个可选组合。 | 14 formats, 48 registered direct routes, 116 selectable combinations." />
+    <meta name="twitter:title" content="${esc(`${meta.zh.t} | ${meta.en.t}`)}" />
+    <meta name="twitter:description" content="${esc(`${meta.zh.d} | ${meta.en.d}`)}" />
     <meta name="twitter:image" content="${SITE.origin}/assets/store/github-social-preview.png" />
     <meta name="twitter:image:alt" content="${esc(SOCIAL_IMAGE_ALT)}" />
     <script type="application/ld+json" id="fat-ld">
@@ -1444,7 +2049,19 @@ ${items}
               'These pages are not another way of saying “14 formats supported”. The format count is just the number of vertices: 14 formats and 48 registered direct routes, and every source format reaches all 11 writable ones, which makes 143 combinations reachable and 116 selectable. The other 27 are not missing work — they are semantically invalid, so the picker greys them out and says why. Each pair page spells that class of limits out in its own “what it does not do”.',
             )}
           </p>
-${shotFigure(shot)}
+${shotFigure(shot, 1)}
+          <section id="sources" class="reveal">
+${sectionHeading('按来源格式浏览', 'Browse by source format')}
+            <p>
+              ${bi(
+                '每个来源一张页：它的每个开放目标、完整链路，以及那条路保留什么、丢掉什么。矩阵里没有专页的格子，落点也在这些页上。',
+                'One page per source format: every open target, the full route it walks, and what that route keeps or drops. The matrix cells without a page of their own land on these pages too.',
+              )}
+            </p>
+            <ul class="hub-grid">
+${hubCards}
+            </ul>
+          </section>
 ${matrixSection()}
 ${lists}
           <p class="fine reveal">
@@ -1503,7 +2120,7 @@ ${lists}
 const STATIC_PAGES = {
   home: {
     path: '/',
-    updated: '2026-10-19',
+    updated: '2026-10-20',
     changefreq: 'monthly',
     priority: '1.0',
     file: 'docs/index.html',
@@ -1539,7 +2156,7 @@ const STATIC_PAGES = {
   // `docs/diff/` render at all, instead of deadlocking on a file only this script creates.
   diff: {
     path: '/diff/',
-    updated: '2026-10-19',
+    updated: '2026-10-20',
     changefreq: 'monthly',
     priority: '0.7',
     file: 'tools/file-diff.html',
@@ -1632,6 +2249,9 @@ function validateDiffPage() {
   if (ogUrl !== null && ogUrl !== expected) {
     fail(`tools/file-diff.html shares ${ogUrl}, but canonicalises to ${expected} — those are one claim`);
   }
+  // The prose block carries an in-page anchor so the site can point readers at the explanation instead
+  // of the tool. A duplicate id would send `#about` to whichever copy the browser met last.
+  exactlyOne(/(id="about")/g, 'about anchor');
   if (!source.includes(`"@id": "${expected}"`)) {
     fail(`tools/file-diff.html has no JSON-LD node with @id ${expected}, so the graph describes another URL`);
   }
@@ -1673,6 +2293,122 @@ function validateDiffPage() {
   // being added before first paint, `opacity: 0` is the page a crawler reads.
   if (!source.includes("classList.add('js')")) {
     fail('tools/file-diff.html no longer adds the `js` class, so its gated entrance states become invisible content');
+  }
+
+  // The prose section is the page's indexable half. Both languages are in the initial HTML and the
+  // `html[lang]` gate decides which one is painted, so the checks below are on the text itself: a block
+  // that quietly lost a paragraph would still pass every markup-shaped check here.
+  const blocks = {};
+  for (const lang of ['zh', 'en']) {
+    const hits = [
+      ...source.matchAll(new RegExp(`<section\\b[^>]*class="about about-${lang}"[^>]*>([\\s\\S]*?)</section>`, 'g')),
+    ];
+    if (hits.length !== 1) {
+      fail(
+        `tools/file-diff.html carries ${hits.length} .about-${lang} sections, expected exactly 1 — ` +
+          'the section is the page’s indexable prose, and zero would publish an empty page',
+      );
+      continue;
+    }
+    blocks[lang] = hits[0][1];
+    const text = blocks[lang]
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    // 200 characters is under what either block carries today (roughly 400 in Chinese, 900 in English)
+    // and far over a stub, so a lost paragraph fails while a Prettier re-flow does not.
+    if (text.length < 200) {
+      fail(`tools/file-diff.html .about-${lang} carries ${text.length} characters, expected at least 200`);
+    }
+    const questions = (blocks[lang].match(/<details\b[^>]*class="faq-item"/g) ?? []).length;
+    if (questions !== 4) {
+      fail(
+        `tools/file-diff.html .about-${lang} lists ${questions} FAQ items, expected 4 — ` +
+          'the structured data describes four, and a reader of either language must get the same four',
+      );
+    }
+  }
+
+  // `lang` is written onto `<html>` before first paint. The static attribute is the no-JavaScript
+  // default and must stay Chinese; the two reveal rules are what make the section visible at all, and
+  // the base rule is what keeps the inactive language from stacking underneath it.
+  if (!/<html\s+lang="zh-CN"/.test(source)) {
+    fail(
+      'tools/file-diff.html no longer opens with <html lang="zh-CN">, so a client that does not run the script sees no prose',
+    );
+  }
+  // Both languages share one rule on purpose: a selector-per-language pair that lost one half would
+  // hide that language entirely, and the mistake reads as correct CSS in either half alone.
+  const reveal = /html\[lang='zh-CN'\]\s+\.about-zh,\s*html\[lang='en'\]\s+\.about-en\s*\{([^}]*)\}/.exec(source);
+  if (!reveal || !/display:\s*block/.test(reveal[1])) {
+    fail(
+      "tools/file-diff.html has no `html[lang='zh-CN'] .about-zh, html[lang='en'] .about-en { display: block }` rule — " +
+        'the prose for at least one language can never be shown',
+    );
+  }
+  if (!/\.about-zh,\s*\.about-en\s*\{[^}]*display:\s*none/.test(source)) {
+    fail('tools/file-diff.html no longer hides the inactive language, so both prose blocks would stack on the page');
+  }
+
+  // The FAQPage is Chinese-only structured data, and every question and answer in it must appear in the
+  // same words inside `.about-zh`. Markup that promises a Q&A the page does not show is exactly what
+  // the search engines' FAQ guidelines prohibit, and an answer edited in one place but not the other is
+  // the drift this pins.
+  const ld = /<script type="application\/ld\+json">([\s\S]*?)<\/script>/.exec(source);
+  if (!ld) {
+    fail('tools/file-diff.html has no JSON-LD block, so its FAQ cannot be described to a crawler');
+    return;
+  }
+  let graph;
+  try {
+    graph = JSON.parse(ld[1])['@graph'];
+  } catch (error) {
+    fail(`tools/file-diff.html JSON-LD is not valid JSON: ${error.message}`);
+    return;
+  }
+  const faqNodes = (Array.isArray(graph) ? graph : []).filter(node => node['@type'] === 'FAQPage');
+  if (faqNodes.length !== 1) {
+    fail(`tools/file-diff.html describes ${faqNodes.length} FAQPage nodes, expected exactly 1`);
+    return;
+  }
+  const faq = faqNodes[0];
+  if (faq['@id'] !== `${expected}#faq`) {
+    fail(
+      `tools/file-diff.html FAQPage @id is ${JSON.stringify(faq['@id'])}, but the page is served at ` +
+        `${expected} — the fragment has to hang off that URL`,
+    );
+  }
+  if (faq.inLanguage !== 'zh-CN') {
+    fail(
+      `tools/file-diff.html FAQPage declares inLanguage ${JSON.stringify(faq.inLanguage)}, expected "zh-CN" — ` +
+        'the Chinese block is the served default, and the visible English copy is not described',
+    );
+  }
+  if (!Array.isArray(faq.mainEntity) || faq.mainEntity.length !== 4) {
+    fail(`tools/file-diff.html FAQPage carries ${faq.mainEntity?.length ?? 0} questions, expected 4`);
+    return;
+  }
+  const strip = value => String(value ?? '').replace(/\s+/g, '');
+  const zhText = strip(blocks.zh);
+  for (const [index, question] of faq.mainEntity.entries()) {
+    const name = typeof question.name === 'string' ? question.name.trim() : '';
+    const answer = typeof question.acceptedAnswer?.text === 'string' ? question.acceptedAnswer.text.trim() : '';
+    if (!name || !answer) {
+      fail(`tools/file-diff.html FAQPage question ${index + 1} is missing its name or its answer`);
+      continue;
+    }
+    if (!zhText.includes(strip(name))) {
+      fail(
+        `tools/file-diff.html FAQPage asks “${name}”, but .about-zh never shows that question — ` +
+          'structured data may not promise what the page does not say',
+      );
+    }
+    if (!zhText.includes(strip(answer))) {
+      fail(
+        `tools/file-diff.html FAQPage answers “${name}” in words that .about-zh does not carry — ` +
+          'the two copies have to be the same claim',
+      );
+    }
   }
 }
 
@@ -1851,7 +2587,18 @@ function validateLinkMirrors() {
 
   const llmsFile = 'docs/llms.txt';
   const llms = slug(llmsFile);
-  if (llms !== null) check(llmsFile, links(llms), expected);
+  if (llms !== null) {
+    check(llmsFile, links(llms), expected);
+    // Hub URLs end in `/`, so the pair-page regex above cannot see them. `docs/llms.txt` is the one list
+    // here that is hand-maintained; the generated index's hub cards are checked by
+    // `validateHubCoverage()` against the HTML rendered in this same run, not against last run's bytes.
+    const HUB_LINK = /convert\/([a-z0-9-]+)\//g;
+    check(
+      `${llmsFile} (source hubs)`,
+      [...llms.matchAll(HUB_LINK)].map(hit => hit[1]),
+      HUBS.map(hub => hub.slug),
+    );
+  }
 }
 
 /**
@@ -1909,18 +2656,124 @@ function validateSiteNav() {
 }
 
 /**
+ * Check the rendered cluster as one linked set, reading the bytes this run produced rather than the
+ * committed files.
+ *
+ * The matrix's whole claim is that every open cell opens exactly one thing, and the hub layer's is that
+ * the 73 cells without a page have somewhere real to land. Neither is provable from the data modules
+ * alone — a template can emit the right row and the wrong href — so this walks the generated HTML:
+ * one anchor per open cell, each resolving to a rendered pair page or an anchor that exists in a
+ * rendered hub; every hub linked from the index; every hub route linked, and every pair page linked
+ * back from its hub and to its hub.
+ */
+function validateHubCoverage() {
+  const indexHtml = files.get(path.join(OUT_DIR, 'index.html'));
+  if (!indexHtml) {
+    fail('validateHubCoverage: the conversions index was not rendered, so the cluster cannot be checked');
+    return;
+  }
+
+  for (const hub of HUBS) {
+    if (!indexHtml.includes(`href="${hub.slug}/"`)) {
+      fail(`/convert/ has no card or link for the '${hub.slug}' hub — a reader cannot enter that source`);
+    }
+    const html = files.get(path.join(OUT_DIR, hub.slug, 'index.html'));
+    if (!html) {
+      fail(`/convert/${hub.slug}/ was not rendered, so its routes have no landing page`);
+      continue;
+    }
+    for (const route of hubRoutes(hub.from)) {
+      if (route.pairSlug) {
+        if (!html.includes(`href="../${route.pairSlug}.html"`)) {
+          fail(`/convert/${hub.slug}/ does not link its pair page ${route.pairSlug}.html`);
+        }
+        if (html.includes(`id="to-${route.to}"`)) {
+          fail(`/convert/${hub.slug}/ anchors '${route.to}' even though that target has a pair page`);
+        }
+      } else {
+        const anchors = (html.match(new RegExp(`id="to-${route.to}"`, 'g')) ?? []).length;
+        if (anchors !== 1) {
+          fail(`/convert/${hub.slug}/ carries ${anchors} anchors for '${route.to}', expected exactly 1`);
+        }
+      }
+    }
+    for (const to of MATRIX_COLS) {
+      if (to !== hub.from && blockReason(hub.from, to) && html.includes(`id="to-${to}"`)) {
+        fail(`/convert/${hub.slug}/ anchors the blocked target '${to}', so the hub advertises a greyed pair`);
+      }
+    }
+  }
+
+  for (const pair of PAIRS) {
+    const html = files.get(path.join(OUT_DIR, `${pair.slug}.html`));
+    if (!html) continue;
+    const hubSlug = HUB_SLUG[pair.from];
+    if (!html.includes(`href="${hubSlug}/"`)) {
+      fail(`${pair.slug}.html does not link back to /convert/${hubSlug}/ — the source hub is missing`);
+    }
+  }
+
+  const openCells = [...indexHtml.matchAll(/<td class="mx-open"[^>]*>([\s\S]*?)<\/td>/g)];
+  if (openCells.length !== MATRIX.counts.open) {
+    fail(`the rendered matrix has ${openCells.length} open cells, the grid counts ${MATRIX.counts.open}`);
+  }
+  const seen = new Map();
+  for (const [, inner] of openCells) {
+    const anchors = [...inner.matchAll(/<a\b[^>]*href="([^"]+)"/g)].map(hit => hit[1]);
+    if (anchors.length !== 1) {
+      fail(`a rendered open cell carries ${anchors.length} links, expected exactly 1: ${inner.slice(0, 120)}`);
+      continue;
+    }
+    const href = anchors[0];
+    if (/^[a-z0-9-]+\.html$/.test(href)) {
+      if (!files.has(path.join(OUT_DIR, href))) fail(`matrix cell links ${href}, which this run did not render`);
+      seen.set('page', (seen.get('page') ?? 0) + 1);
+    } else if (/^[a-z0-9-]+\/#to-[a-z]+$/.test(href)) {
+      const [hubSlug, fragment] = href.split('/#');
+      const hubHtml = files.get(path.join(OUT_DIR, hubSlug, 'index.html'));
+      if (!hubHtml || !hubHtml.includes(`id="${fragment}"`)) {
+        fail(`matrix cell links ${href}, but /convert/${hubSlug}/ has no ${fragment} anchor`);
+      }
+      seen.set('hub', (seen.get('hub') ?? 0) + 1);
+    } else {
+      fail(`matrix cell links '${href}', which is neither a rendered pair page nor a hub anchor`);
+    }
+  }
+  // An absent tally *is* zero: once every open cell has its own page, no cell links to a hub anchor at
+  // all, and `Map.get` returns undefined — which must not read as a disagreement with a grid counting 0.
+  if ((seen.get('page') ?? 0) !== MATRIX.counts.pages || (seen.get('hub') ?? 0) !== MATRIX.counts.hubs) {
+    fail(
+      `the rendered matrix links ${seen.get('page') ?? 0} pair pages and ${seen.get('hub') ?? 0} hub anchors, ` +
+        `the grid counts ${MATRIX.counts.pages} and ${MATRIX.counts.hubs}`,
+    );
+  }
+
+  // Greyed and diagonal cells must stay text: their destinations would be a pair the picker refuses.
+  for (const [, inner] of indexHtml.matchAll(/<td class="mx-(?:block|self)"[^>]*>([\s\S]*?)<\/td>/g)) {
+    if (/<a\b/.test(inner))
+      fail('a greyed or diagonal matrix cell carries a link — the grid advertises a blocked pair');
+  }
+}
+
+/**
  * The site's discoverable URL set: the hand-written pages above plus every generated pair page.
  * @returns {string} `docs/sitemap.xml`
  */
 function renderSitemap() {
   const index = { path: '/convert/', updated: PAGES_UPDATED, changefreq: 'monthly', priority: '0.9' };
+  const hubs = HUBS.map(hub => ({
+    path: `/convert/${hub.slug}/`,
+    updated: PAGES_UPDATED,
+    changefreq: 'monthly',
+    priority: '0.8',
+  }));
   const pairs = PAIRS.map(pair => ({
     path: `/convert/${pair.slug}.html`,
     updated: PAGES_UPDATED,
     changefreq: 'monthly',
     priority: '0.8',
   }));
-  const urls = [STATIC_PAGES.home, index, ...pairs, STATIC_PAGES.blog, STATIC_PAGES.privacy, STATIC_PAGES.diff]
+  const urls = [STATIC_PAGES.home, index, ...hubs, ...pairs, STATIC_PAGES.blog, STATIC_PAGES.privacy, STATIC_PAGES.diff]
     .map(
       entry => `  <url>
     <loc>${SITE.origin}${entry.path}</loc>
@@ -1952,6 +2805,7 @@ validateFaqRail();
 validateLinkMirrors();
 validateSiteNav();
 validateDiffPage();
+for (const hub of HUBS) validateHub(hub);
 for (const pair of PAIRS) {
   const chain = validatePair(pair);
   // A pair whose shot key is unknown is skipped for the same reason a pair without a route is: writing
@@ -1962,12 +2816,14 @@ for (const pair of PAIRS) {
 }
 if (errors.length === 0) {
   files.set(path.join(OUT_DIR, 'index.html'), renderIndex());
+  for (const hub of HUBS) files.set(path.join(OUT_DIR, hub.slug, 'index.html'), renderHub(hub));
   files.set(SITEMAP, renderSitemap());
   // The byte copy. Registering it here — rather than writing it from a separate step — is what puts it
   // inside the `--check` comparison below; a copy written outside `files` would be committed once and
   // then drift forever, with the guard printing OK over a file it never opened.
   files.set(DIFF_OUT, fs.readFileSync(DIFF_SRC, 'utf8'));
 }
+if (errors.length === 0) validateHubCoverage();
 
 if (errors.length > 0) {
   console.error('site pages: refused to write');

@@ -1251,4 +1251,15 @@ function toggleEdit(): void {
     transform: rotate(90deg);
   }
 }
+
+/* One row here needs ~415px (measured 2026-10-20 in English, the wider locale: 295px of mode
+   buttons + 12px gap + 84px sync toggle + 24px padding), and the card's own `overflow: hidden`
+   hides what does not fit instead of scrolling it — at 360px the sync checkbox hung half past
+   the card edge with `document.scrollWidth` still reading 360, so no scrollbar would have told
+   anyone. Let the checkbox wrap under the buttons rather than be cut off. */
+@media (width <= 480px) {
+  .comparison-toolbar {
+    flex-wrap: wrap;
+  }
+}
 </style>

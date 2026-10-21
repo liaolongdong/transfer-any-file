@@ -11,6 +11,17 @@ Release PR is not by itself a release.
 
 ## [Unreleased]
 
+### Added
+
+- **ui**: Changing the target, appending or removing files no longer throws away finished results; each row names the format it was made in and explains how to rerun it when it no longer matches the picker
+- **history**: A history entry can bring back the output options and name pattern it ran with; presets can be renamed and overwritten with the current settings
+- **converter**: A batch of PNG / JPEG / WebP / BMP / GIF images can become one multi-page PDF. It is still one PDF per image by default; the merged document is capped at 200 pages, and one undecodable image fails the whole group rather than producing a partial file, with the diagnostic naming that file
+- **site**: Format hub pages and more "one format to another" pages, plus an offline, usage and FAQ section on `/diff/`
+
+### Performance
+
+- **ui**: File lists longer than 100 rows render a window instead of every row, so a 200-file batch no longer mounts the whole list; result rows outside the viewport are left to `content-visibility`
+
 ## [1.2.1] - 2026-10-18
 
 ### Fixed

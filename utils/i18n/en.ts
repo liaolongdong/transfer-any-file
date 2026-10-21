@@ -4,6 +4,8 @@ const en: typeof zh = {
   common: {
     close: 'Close',
     cancel: 'Cancel',
+    /** Joins a list of formats in running text, e.g. "PNG, JPG". */
+    listSeparator: ', ',
   },
 
   appName: 'Transfer Any File',
@@ -155,12 +157,22 @@ const en: typeof zh = {
     save: 'Save as preset',
     needTarget: 'Choose a target format first',
     remove: 'Delete preset {name}',
+    edit: 'Edit preset {name}',
+    editTitle: 'Edit preset',
+    editName: 'Preset name',
+    editSummary: 'Target and output options',
+    editHint:
+      'Adjust the target and options on the page, then bring them in with “Update from current settings”; this dialog only edits the name.',
+    useCurrent: 'Update from current settings',
+    saveName: 'Save name',
     saved: 'Preset “{name}” saved',
     removed: 'Preset “{name}” deleted',
+    updated: 'Preset “{name}” updated',
     // The chip lands in memory before the write, so a failed write looks exactly like a success until
     // the page is reloaded and the chip disappears — the only moment the user would otherwise find out.
     saveFailed: 'Preset “{name}” is on this page but could not be saved to storage; it will be gone after a reload',
     removeFailed: 'Preset “{name}” is off this page but the change could not be saved; it returns after a reload',
+    updateFailed: 'Preset “{name}” could not be updated; the change was rolled back',
     pending: 'Preset remembered; it applies once you upload matching files',
     unavailable: 'The current files cannot be converted to that preset’s target format',
     limit: 'Preset limit reached ({max})',
@@ -176,6 +188,9 @@ const en: typeof zh = {
     inProgress: 'Converting, please wait...',
     currentFile: 'Processing: {name}',
     stepProgress: 'Step {current} of {total}',
+    mergeImages: 'Merge into one PDF',
+    mergeImagesHint: 'One page per image, in list order (up to {max}); produces a single PDF file',
+    mergeProgress: 'Image {index} of {total}',
     // The tab-title half of the completion cue: no OS permission, visible from the tab strip.
     // Plain text, not a glyph — no UI string in the app carries an emoji and the bundle ships no icon font.
     tabDone: '[Done] {title}',
@@ -202,6 +217,9 @@ const en: typeof zh = {
     sizeTotals: 'Combined size: {source} → {result}',
     elapsed: 'Elapsed: {time}',
     doneNone: 'Conversion failed',
+    staleNotice:
+      'The current target is {current}, but the results below are from {stale}. Downloads keep their own formats; pressing Convert generates them again for the new target.',
+    mergedSummary: '{images} images → 1 PDF ({pages} pages)',
     cancelledPartial: 'Conversion cancelled — {done} of {total} files completed',
     cancelledNone: 'Conversion cancelled before any file was converted',
     download: 'Download',
@@ -237,7 +255,15 @@ const en: typeof zh = {
     empty: 'No conversion records yet',
     reuse: 'Reuse this format',
     reuseUnavailable: 'The current files cannot be converted to that format',
-    reusePending: 'Target format saved; it will apply after you upload matching files',
+    reusePending: 'Target {target}{details} saved; it will apply after you upload matching files',
+    reuseApplied: 'Applied target {target}{details}',
+    reuseDetailOptions: ', output settings: {options}',
+    reuseDetailTemplate: ', file-name pattern: {template}',
+    paramQuality: 'quality {value}%',
+    paramMaxEdge: 'max edge {value} px',
+    paramDpi: '{value} DPI',
+    paramTargetSize: 'target size {value} KB',
+    pages: '{count} pages',
     clear: 'Clear History',
     clearConfirm: 'Clear all conversion history? You can undo this for 5 seconds.',
     delete: 'Delete',
@@ -318,6 +344,7 @@ const en: typeof zh = {
     pdfPageRange: 'The page range matches no page in this document; check it against the page count',
     pdfTooManyImagePages: 'Too many pages to render at once; select fewer pages with Pages, or split the PDF',
     pdfTooManyPages: 'This PDF has too many pages to extract as text in one pass; split it and try again',
+    mergeTooManyPages: 'Too many images to merge into one PDF; remove some files and try again',
     xlsxEmpty: 'The XLSX file contains no worksheets',
     sheetTooLarge: 'This table has too many cells to convert safely in the browser',
     csvDecode: 'Failed to decode CSV; please check the file encoding',

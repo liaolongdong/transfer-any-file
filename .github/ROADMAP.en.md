@@ -4,7 +4,7 @@
 
 This is not a list of promises — it is the judgement already being applied, written down so people know where help is welcome. Every item below comes from an actual measurement (defects from a repro, features from the last link in a chain that already works). Nothing here is scheduled because it sounds nice.
 
-## Already in (on `main`, shipped inside 1.2.1 — the store still serves 1.0.0)
+## Already in (on `main`; the store still serves 1.0.0)
 
 - **PDF page selection**: converting a PDF to images can be limited to the pages you name; empty still means the whole document.
 - **Narrow-window usability**: the comparison view stacks once the two columns would be clipped and the divider rotates with it; this also fixed the older bug where the drag gesture was swallowed by the preview iframe.
@@ -13,19 +13,19 @@ This is not a list of promises — it is the judgement already being applied, wr
 - **One less round trip before first paint**: theme, colour mode and language now share a single storage read.
 - **Controllable output file names**: a placeholder template set in preferences (`{name}` `{date}` `{time}` `{index}` `{target}`); leaving it empty falls back to "source name + target extension". Batches and multi-step chains no longer collide.
 - **Drop a folder in**: drag a directory into the workbench and only the convertible files inside it are read, with no new permissions. Depth and entry counts are capped, and the part that got cut off is stated in the interface instead of silently dropped.
+- **Merge a batch of images into one PDF**: when every file is a PNG / JPEG / WebP / BMP / GIF and the target is PDF, ticking "Merge into one PDF" writes the batch in list order, one page per image (up to 200 pages), named with a `-merged` suffix; the default stays one PDF per image, and a failure fails the whole group and names the bad file.
+- **Changing the target keeps existing results**: results survive a target change and say which target they belong to until you convert again; a history entry restores the name template and output parameters it used; presets can be renamed and edited in place.
+- **Lists with a hundred-plus files**: past 100 files the list renders a window (only visible rows plus a buffer above and below), so a 200-file batch adds, removes, scrolls and deletes its first row correctly; result rows use `content-visibility` to skip off-screen layout.
 
 - **A page on the site you can use without installing anything**: `/diff/` compares two files (or two pasted texts) line by line and word by word inside your own browser. It is the only page on this site that asks for a file of yours, which makes it the only place where "offline" can be verified on the spot — the source is still `tools/file-diff.html` in the repository, what is published is a byte-for-byte copy of it, and the two offline guards scan exactly those bytes.
 
-All of that lives only on `main`. **Release position, read from the remote on 2026-10-19**: the repository has one tag, `v1.2.1`, and the GitHub Releases page holds exactly that one release — 1.1.0 and 1.2.0 reached the changelog and `package.json` but left no tag and no release behind. The manifest version is **1.2.1**, no longer 1.0.0. The store still serves 1.0.0: the 1.2.1 package uploaded successfully through the pipeline but was not queued for review under the current settings, so the next store action is clicking "Submit for review" in the console rather than repackaging (the four live values are authoritative in the 「现网状态」 block at the top of `.github/CHROMEWEBSTORE.md`).
+All of that lives only on `main`; the first seven items shipped inside 1.2.1, and the three added on 2026-10-20 (merged PDF, kept results with history/presets, windowed long lists) are not released yet. **Release position, read from the remote on 2026-10-19**: the repository has one tag, `v1.2.1`, and the GitHub Releases page holds exactly that one release — 1.1.0 and 1.2.0 reached the changelog and `package.json` but left no tag and no release behind. The manifest version is **1.2.1**, no longer 1.0.0. The store still serves 1.0.0: the 1.2.1 package uploaded successfully through the pipeline but was not queued for review under the current settings, so the next store action is clicking "Submit for review" in the console rather than repackaging (the four live values are authoritative in the 「现网状态」 block at the top of `.github/CHROMEWEBSTORE.md`).
 
 ## Next
 
-1. **A batch of images → one multi-page PDF.** Today it is one image per PDF. This one needs a design first: what it touches is the "one independent result per file" data model and how the results area renders, not the converter.
-2. **Keep existing results when the target changes; reuse parameters from a history entry; allow renaming and editing presets.** Three instances of one friction: the interface discards things unrelated to the choice you just made.
-3. **List performance with a hundred-plus files.** The current list was designed for a handful.
-4. **Animated WebP / APNG as input, with the frame-loss disclosure that comes with it.** Blocked on a precondition: an offline decodable test fixture. Reading the container without decoding it would be a speculative code path.
+1. **Animated WebP / APNG as input, with the frame-loss disclosure that comes with it.** Blocked on a precondition: an offline decodable test fixture. Reading the container without decoding it would be a speculative code path.
 
-> Two more items used to sit in this section: "controllable output file names" and "drop a folder in". Both shipped and moved to the section above, so the numbering here restarts — the direction wasn't dropped, the work finished. Keeping the old numbers would make "item N" point at the wrong thing somewhere else, and that costs more than a renumber.
+> This section used to list "controllable output file names", "drop a folder in", and the three items that landed on 2026-10-20 (image merging, kept results with history reuse and preset editing, long-list performance). They all shipped and moved to the section above, so the numbering here restarts — the direction wasn't dropped, the work finished. Keeping the old numbers would make "item N" point at the wrong thing somewhere else, and that costs more than a renumber.
 
 ## Deliberately not happening
 
