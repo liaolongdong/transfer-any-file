@@ -6922,7 +6922,7 @@ export const PAIRS = [
           en: 'Why is an image slot empty, with a dashed box there?',
         },
         a: {
-          zh: '因为那些字节本来就不在文件里。这条路完全离线，渲染前会剥掉指向网络与相邻路径的子资源引用（否则「打开一张图就发了四次请求」会变成事实），替换掉的位置留一个虚线方框，结果卡按张数写明丢了几张。把图片另存进同一个目录并不能绕过它——剥的是引用，不是文件。',
+          zh: '因为那些字节本来就不在文件里。这条路完全离线，渲染前会剥掉指向网络与相邻路径的子资源引用（否则「打开一张图就发了四次请求」会变成事实），替换掉的位置是一个虚线方框（只在克隆那一步失败的那种直接空着），结果卡按张数写明丢了几张。把图片另存进同一个目录并不能绕过它——剥的是引用，不是文件。',
           en: 'Because those bytes were never in the file. The route is fully offline and strips sub-resource references to the network and to sibling paths before rendering — otherwise “open one image and fire four requests” would be true — so replaced slots keep a dashed box and the result card states how many were lost. Putting the images next to the file does not avoid it: what is removed is the reference, not the file.',
         },
       },
@@ -7304,8 +7304,8 @@ export const PAIRS = [
           en: 'The long sheet looks tiny — am I just viewing it small?',
         },
         a: {
-          zh: '多半不是：内容高度超过 2000 px 时像素密度降到 1.5 倍、超过 4000 px 降到 1 倍，这是为了让画布留在浏览器上限内的取舍。所以长簿子每一行拿到的设备像素更少。要严格清晰，请逐张表分开转，或走逐表分开的路（先转 HTML 再决定），因为密度档只对「以 PDF 为输入」的转换有效，Excel→PDF 不读它。',
-          en: 'Most likely not: past 2000 px of content height the ratio steps to 1.5× and past 4000 px to 1×, a trade made to keep the canvas inside the browser’s limits, so a long workbook carries fewer pixels per row than a short one. For exact crispness convert one sheet at a time, or split the sheets, since the density dial belongs to conversions taking a PDF as input and Excel to PDF does not read it.',
+          zh: '多半不是：内容高度超过 2000 px 时像素密度降到 1.5 倍、超过 4000 px 降到 1 倍，这是为了让画布留在浏览器上限内的取舍。所以长簿子每一行拿到的设备像素更少。要严格清晰，请逐张表分开转，或走逐表分开的路（先转 HTML 再决定），因为密度档只对「以 PDF 为输入」的转换开放，而 Excel→PDF 那一步根本不读它（只有把 PDF 转成图的那一步用得上）。',
+          en: 'Most likely not: past 2000 px of content height the ratio steps to 1.5× and past 4000 px to 1×, a trade made to keep the canvas inside the browser’s limits, so a long workbook carries fewer pixels per row than a short one. For exact crispness convert one sheet at a time, or split the sheets, since the density dial is offered only for conversions taking a PDF as input, and Excel to PDF never reads it — the only step that uses it is the one rasterising a PDF.',
         },
       },
     ],
@@ -7325,37 +7325,37 @@ export const PAIRS = [
       en: 'The page is rendered once, sliced into A4 pages stored losslessly, then encoded JPEG by JPEG; several pages arrive in a ZIP. Fully offline.',
     },
     lede: {
-      zh: '这条路是**两步、一次损失**：`html>pdf` 把净化后的文档整篇渲染成一张画布，再按 A4 的毫米比例算出页数（页高 = 画布高 × 210 ÷ 画布宽，每 297 mm 一页向上取整），把这张画布切成等高的片段，**每片以无损位图（`toDataURL` 的 PNG 那一条）嵌进 PDF**；`pdf>jpg` 再把这份 PDF 每一页转成一张 JPEG。为什么图片出口要走 PDF 这一遭而不直接截长图：注册表里对同分的图片终点用 `edgePreference` 排序（`html>pdf` 是 0、`html>png` 是 10，小的优先），而 `html>png→jpg` 那条路交回的是「整篇文档按页面宽度排布的一条长带」——分页与页边界正是多页文档想要的答案；那条路上真正有害的是**两次 JPEG 编码**，它在源头被解决（切片存 PNG），而不是靠改路由避开。三件具体的事跟着来：**一页一图**，两页以上以 ZIP 交付；**白色铺底**，画布按 `#ffffff` 生成，原来的透明区域在图里是白；**密度不在这一格调**——中间那份 PDF 转图用的是默认密度，面板的滑杆只对「以 PDF 作为输入」的转换开放。要说清的边界：最后那道编码是有损的（质量与目标体积就是为它准备的档位，目标体积先降质量、再缩尺寸去追）；产物是位图，里面没有可选中的文字；渲染前会剥掉指向网络与相邻路径的子资源引用，取不到字节的图片按张数在结果卡披露，所以「打开一张网页转出的图，顺带把它的广告像素拉回来」这种事不会发生。脚本从头到尾不执行：解析用只解析不执行的 DOMParser。全程在这个标签页里完成，只有 storage 权限。',
-      en: 'This route is two steps with one loss: `html>pdf` renders the sanitised document into a single canvas, computes the page count from the A4 metric ratio (page height = canvas height × 210 ÷ canvas width, rounding up every 297 mm), slices that canvas into equal-height strips and **embeds each strip as a lossless bitmap (the PNG branch of `toDataURL`)**; `pdf>jpg` then turns each page of that PDF into a JPEG. Why an image exit travels through PDF instead of grabbing the tall canvas: the registry orders tied image ends by `edgePreference` (0 on `html>pdf`, 10 on `html>png`, lower first), and the `html>png→jpg` path hands back one strip laid out at page width — page bounds are the answer a multi-page document actually wants. What was genuinely harmful on that path was the **double JPEG encode**, fixed at the source by storing the slices as PNG rather than dodged by re-pointing the route. Three concrete things come with it: **one image per page**, two or more delivered in a ZIP; **a white ground**, because the canvas is produced on `#ffffff`, so transparent areas land as visible white; and **no density dial here** — the intermediate PDF is rasterised at the default density, and the slider is only offered to conversions taking a PDF as input. The boundaries, stated: the final encode is lossy (quality and target size are its dials, and a target size goes down the quality ladder before it scales the picture); the artifact is a bitmap with no selectable text; and sub-resource references to the network or sibling paths are stripped before rendering, with unretrievable images disclosed by count on the result card — so a converted page cannot fetch its ad pixels on the way to becoming a picture. Nothing executes: parsing goes through DOMParser, which parses without running scripts. All of it inside this tab on the storage permission.',
+      zh: '这条路是**两步、一次损失**：`html>pdf` 把净化后的文档整篇渲染成一张画布，再按 A4 的毫米比例算出页数（页高 = 画布高 × 210 ÷ 画布宽，每 297 mm 一页向上取整），把这张画布切成同高的片段（最后一片按剩余高度收齐），**每片以无损位图（`toDataURL` 的 PNG 那一条）嵌进 PDF**；`pdf>jpg` 再把这份 PDF 每一页转成一张 JPEG。为什么图片出口要走 PDF 这一遭而不直接截长图：注册表里对同分的图片终点用 `edgePreference` 排序（`html>pdf` 是 0、`html>png` 是 10，小的优先），而 `html>png→jpg` 那条路交回的是「整篇文档按页面宽度排布的一条长带」——分页与页边界正是多页文档想要的答案；那条路上真正有害的是**两次 JPEG 编码**，它在源头被解决（切片存 PNG），而不是靠改路由避开。三件具体的事跟着来：**一页一图**，两页以上以 ZIP 交付；**白色铺底**，画布按 `#ffffff` 生成，原来的透明区域在图里是白；**密度不在这一格调，但不等于「绝不生效」**——没设过密度时中间那份 PDF 按默认 144 转图；滑杆只对「以 PDF 作为输入」的转换开放，而从上一批 PDF 转换留下的密度值会一路被带到每一步，包括这里的这一次。要说清的边界：最后那道编码是有损的（质量与目标体积就是为它准备的档位，目标体积先降质量、再缩尺寸去追）；产物是位图，里面没有可选中的文字；渲染前会剥掉指向网络与相邻路径的子资源引用，取不到字节的图片按张数在结果卡披露，所以「打开一张网页转出的图，顺带把它的广告像素拉回来」这种事不会发生。脚本从头到尾不执行：净化那一步删掉可执行标记，渲染用的 iframe 只给 `allow-same-origin`、没有 `allow-scripts`。全程在这个标签页里完成，只有 storage 权限。',
+      en: 'This route is two steps with one loss: `html>pdf` renders the sanitised document into a single canvas, computes the page count from the A4 metric ratio (page height = canvas height × 210 ÷ canvas width, rounding up every 297 mm), slices that canvas into strips of one height, the last cut to what remains and **embeds each strip as a lossless bitmap (the PNG branch of `toDataURL`)**; `pdf>jpg` then turns each page of that PDF into a JPEG. Why an image exit travels through PDF instead of grabbing the tall canvas: the registry orders tied image ends by `edgePreference` (0 on `html>pdf`, 10 on `html>png`, lower first), and the `html>png→jpg` path hands back one strip laid out at page width — page bounds are the answer a multi-page document actually wants. What was genuinely harmful on that path was the **double JPEG encode**, fixed at the source by storing the slices as PNG rather than dodged by re-pointing the route. Three concrete things come with it: **one image per page**, two or more delivered in a ZIP; **a white ground**, because the canvas is produced on `#ffffff`, so transparent areas land as visible white; and **no density dial here, which is not the same as “it never applies”**: with nothing set the intermediate PDF rasterises at the default 144, and although the panel offers the slider only for conversions taking a PDF as input, a density left behind by an earlier PDF batch is forwarded to every step — including this one. The boundaries, stated: the final encode is lossy (quality and target size are its dials, and a target size goes down the quality ladder before it scales the picture); the artifact is a bitmap with no selectable text; and sub-resource references to the network or sibling paths are stripped before rendering, with unretrievable images disclosed by count on the result card — so a converted page cannot fetch its ad pixels on the way to becoming a picture. Nothing executes: sanitising removes the executable markup and the render frame is sandboxed to `allow-same-origin` with no `allow-scripts`. All of it inside this tab on the storage permission.',
     },
     keeps: {
       zh: [
-        '一页一图：页数由 A4 比例下的排版高度决定，长网页得到的是成组的页面而不是被压扁的一条',
+        '一页一图：页数由 A4 比例下的排版高度决定，长网页得到的是成组的页面而不是一条长带',
         '切片无损：中间那份 PDF 的每一页存的是 PNG，压缩只在最后转 JPEG 那一次发生',
-        '透明区域铺白：画布按 `#ffffff` 生成，深色或透明底都落成看得见的白',
+        '透明区域落白：画布按 `#ffffff` 生成、每页嵌入前再铺一次，而 JPEG 本来也没有透明度可保留',
         '不执行也不取码：脚本不跑、远程图片与字体不取字节，缺字节的图片按张数披露',
       ],
       en: [
-        'One image per page: the count follows the laid-out height under the A4 ratio, so a long page becomes a set of pages rather than one flattened strip',
+        'One image per page: the count follows the laid-out height under the A4 ratio, so a long page becomes a set of pages rather than one long strip',
         'The slices are lossless: each page in the intermediate PDF is stored as PNG, so compression happens once, on the final JPEG',
-        'Transparent areas go white: the canvas is produced on `#ffffff`, so dark or transparent grounds land as visible white',
+        'Transparent areas land on white: the canvas is produced on `#ffffff`, each page is filled again before embedding, and a JPEG has no alpha left to keep',
         'Nothing runs and nothing is fetched: no scripts, no remote images or fonts, with images that have no bytes disclosed by count',
       ],
     },
     limits: {
       zh: [
         '最后那道编码是有损的：要严格还原同一套线条与字形请走 HTML→PNG（整页一张长图、无第二次量化）',
-        '中间那份 PDF 转图用默认密度，这一格调不到它；想按密度控制请先 HTML→PDF，再对那份 PDF 走 PDF→JPG',
+        '这一格不摆密度滑杆（面板只对以 PDF 为输入的转换给它）：没设过时中间 PDF 按默认 144 转图，而上一批 PDF 留下的密度值会被带进这一步',
         '两页以上出 ZIP：里面的单张文件按 `page-N.jpg` 编号取名',
         '图里没有可复制的文字：不能选中、搜索或朗读，要这些请保留 HTML 或转 TXT / Markdown',
-        '页面里的表单控件、脚本行为与滚动状态不会进图：产物是某一瞬的排版，不是一个可交互的页面',
+        '控件会被画进图里（任务清单的复选框正是这样出现的），但图里没有任何可点的东西：产物是排版出来的某一瞬，不是一个可交互的页面',
       ],
       en: [
         'The last encode is lossy: take HTML to PNG for an exact rendering of the same rules and glyphs (one tall canvas, no second quantisation)',
-        'The intermediate PDF is rasterised at the default density and this route exposes no slider for it; to control density, go HTML to PDF first and then PDF to JPG on that file',
+        'This route exposes no density slider (the panel offers it only for conversions taking a PDF as input): with nothing set the intermediate PDF rasterises at the default 144, while a density left from an earlier PDF batch is forwarded into this step',
         'Two or more pages arrive as a ZIP, the individual pictures named `page-N.jpg`',
         'No copyable text inside the image: nothing to select, search or read aloud — keep the HTML, or take TXT / Markdown, for that',
-        'Form controls, script behaviour and scroll position do not reach the image: the artifact is one laid-out instant, not an interactive page',
+        'Controls are painted into the image — that is how a task-list checkbox appears — yet nothing in it responds: the artifact is one laid-out instant, not a page you can operate',
       ],
     },
     notes: {
@@ -7418,8 +7418,8 @@ export const PAIRS = [
       en: 'GFM renders to styled HTML first, then the document is captured once, sliced into lossless A4 pages and encoded JPEG by JPEG, zipped when there are several.',
     },
     lede: {
-      zh: '想把一份长笔记发出去，而对面那边的渲染器会把你的表格排歪时，一组页面图比贴文字可靠。三步：`md>html` 用 marked 按 GFM 渲染（管道符表格、删除线、任务清单、自动链接都被认出；段落里单个换行仍是续行），过 DOMPurify 的 html + svg 两套 profile（**文档里的内联 SVG 图形不会被删**），再套上自带的样式表；`html>pdf` 把这份文档整篇渲染成一张画布并按 A4 比例算页数、切成等高片段，**每片段以无损位图（PNG）嵌进 PDF**；`pdf>jpg` 再逐页转成 JPEG。所以形状与 HTML→JPG 完全相同（一页一图、两页以上 ZIP、透明铺白），差别都在第一段：Markdown 的语法在这一步变成排版，`#` 变成标题、`- 项目` 变成列表项、表格变成带边框与条纹的表。同分图片终点由 `edgePreference` 排序（`html>pdf` 0、`html>png` 10，小的优先），这条链因此交回分页而不是一条长带；那条路上真正有害的两次 JPEG 压缩已在源头修掉（切片存 PNG）。要照实说的四条：最后那道编码是有损的，质量与目标体积就是它的档位（目标体积先降质量、再缩尺寸）；中间那份 PDF 转图用默认密度，这一格没有那个滑杆；产物是位图，没有可选中、可搜索的文字；**Markdown 里以网络地址或相邻路径引用的图片取不到字节**——渲染前会剥掉这些引用，结果卡按张数披露，替换处留虚线方框。脚本不执行、全程离线，只有 storage 权限。',
-      en: 'When a long note has to go out and the renderer on the other side would mis-lay your tables, a set of page images is more dependable than pasted text. Three steps: `md>html` renders through marked as GFM (pipe tables, strikethrough, task lists and autolinks are recognised; a single newline stays a soft wrap), passes DOMPurify’s html and svg profiles — **so an inline SVG diagram in the document is not deleted** — and is wrapped in the bundled stylesheet; `html>pdf` renders that document into one canvas, computes the page count from the A4 ratio, slices it into equal-height strips and **embeds each strip losslessly as PNG**; `pdf>jpg` then turns each page into a JPEG. The shape is therefore identical to HTML to JPG (one image per page, a ZIP past two pages, transparency flattened to white), and what differs is the first leg: Markdown syntax becomes layout there — `#` turns into a heading, `- item` into a list item, a table into bordered and striped cells. Tied image ends are ordered by `edgePreference` (0 on `html>pdf`, 10 on `html>png`), which is why this route returns pages rather than one long strip; the genuinely harmful double JPEG on the other path was fixed at its source by storing the slices as PNG. Four things stated plainly: the final encode is lossy, with quality and target size as its dials (a target size lowers quality before it scales the picture); the intermediate PDF is rasterised at the default density, which this route does not expose; the artifact is a bitmap with no selectable or searchable text; and **images the Markdown points at by network address or sibling path have no bytes** — those references are stripped before rendering, the count is disclosed on the result card, and replaced spots keep a dashed placeholder. No scripts run, everything is offline, and the only permission is storage.',
+      zh: '一组页面图能把长笔记按渲染结果原样递出去——贴过去的文字会被对面那套渲染器重新排版。三步：`md>html` 用 marked 按 GFM 渲染（管道符表格、删除线、任务清单、自动链接都被认出；段落里单个换行仍是续行），过 DOMPurify 的 html + svg 两套 profile（**文档里的内联 SVG 图形不会被删**），再套上自带的样式表；`html>pdf` 把这份文档整篇渲染成一张画布并按 A4 比例算页数、切成等高片段，**每片段以无损位图（PNG）嵌进 PDF**；`pdf>jpg` 再逐页转成 JPEG。所以形状与 HTML→JPG 完全相同（一页一图、两页以上 ZIP、透明铺白），差别都在第一段：Markdown 的语法在这一步变成排版，`#` 变成标题、`- 项目` 变成列表项、表格变成带边框与条纹的表。同分图片终点由 `edgePreference` 排序（`html>pdf` 0、`html>png` 10，小的优先），这条链因此交回分页而不是一条长带；那条路上真正有害的两次 JPEG 压缩已在源头修掉（切片存 PNG）。要照实说的四条：最后那道编码是有损的，质量与目标体积就是它的档位（目标体积先降质量、再缩尺寸）；中间那份 PDF 转图用默认密度，这一格没有那个滑杆；产物是位图，没有可选中、可搜索的文字；**Markdown 里以网络地址或相邻路径引用的图片取不到字节**——渲染前会剥掉这些引用，结果卡按张数披露，替换处是一个虚线方框，解不开的那种则直接留空。脚本不执行、全程离线，只有 storage 权限。',
+      en: 'A set of page images hands a long note over exactly as this extension rendered it, which pasted text cannot do — the receiving side re-lays that out in its own renderer. Three steps: `md>html` renders through marked as GFM (pipe tables, strikethrough, task lists and autolinks are recognised; a single newline stays a soft wrap), passes DOMPurify’s html and svg profiles — **so an inline SVG diagram in the document is not deleted** — and is wrapped in the bundled stylesheet; `html>pdf` renders that document into one canvas, computes the page count from the A4 ratio, slices it into equal-height strips and **embeds each strip losslessly as PNG**; `pdf>jpg` then turns each page into a JPEG. The shape is therefore identical to HTML to JPG (one image per page, a ZIP past two pages, transparency flattened to white), and what differs is the first leg: Markdown syntax becomes layout there — `#` turns into a heading, `- item` into a list item, a table into bordered and striped cells. Tied image ends are ordered by `edgePreference` (0 on `html>pdf`, 10 on `html>png`), which is why this route returns pages rather than one long strip; the genuinely harmful double JPEG on the other path was fixed at its source by storing the slices as PNG. Four things stated plainly: the final encode is lossy, with quality and target size as its dials (a target size lowers quality before it scales the picture); the intermediate PDF is rasterised at the default density, which this route does not expose; the artifact is a bitmap with no selectable or searchable text; and **images the Markdown points at by network address or sibling path have no bytes** — those references are stripped before rendering, the count is disclosed on the result card, and a replaced spot is either a dashed box or simply left blank. No scripts run, everything is offline, and the only permission is storage.',
     },
     keeps: {
       zh: [
@@ -7438,16 +7438,16 @@ export const PAIRS = [
     limits: {
       zh: [
         '最后那道编码有损：要严格还原同样的线条与字形请走 Markdown→PNG（整页一张长图、无第二次量化）',
-        '引用的图片取不到字节：以网络地址或相邻路径写的图会被剥掉引用，结果卡按张数披露、位置留虚线方框',
-        '中间那份 PDF 转图用默认密度，这一格没有那个滑杆；要按密度控制请 Markdown→PDF 再对那份 PDF 走 PDF→JPG',
-        '代码块按 800 px 正文宽度排版，超长行会溢出面板而不是折行——样式表如此，图如实拍下',
+        '引用的图片取不到字节：以网络地址或相邻路径写的图会被剥掉引用，结果卡按张数披露，位置是虚线方框或空着',
+        '这一格不摆密度滑杆（面板只对以 PDF 为输入的转换给它）：没设过时中间 PDF 按默认 144 转图，上一批 PDF 留下的密度值会被带进来',
+        '代码块与正文都在 800 px 的最大宽度内排版：样式表给正文 `word-wrap / overflow-wrap: break-word`，也留给 `<pre>` 本身 `overflow-x: auto`，两条规则作用在不同元素上，图按渲染出来的那一种落定',
         '图里没有可复制的文字，也不承诺能读回 Markdown：要编辑请保留 `.md`，要结构请走 Markdown→HTML / Word',
       ],
       en: [
         'The final encode is lossy: take Markdown to PNG for an exact rendering (one tall canvas, no second quantisation)',
-        'Referenced images have no bytes: those written as network addresses or sibling paths lose their references, the card reports the count, and each spot keeps a dashed box',
-        'The intermediate PDF is rasterised at the default density and this route exposes no slider; for density control take Markdown to PDF and then PDF to JPG on that file',
-        'Code blocks lay out at the 800 px measure, and very long lines overflow the panel instead of wrapping — the stylesheet works that way and the image reproduces it',
+        'Referenced images have no bytes: those written as network addresses or sibling paths lose their references, the card reports the count, and a spot is either a dashed box or left blank',
+        'This route exposes no density slider (the panel offers it only for conversions taking a PDF as input): with nothing set the intermediate PDF rasterises at the default 144, while a density left from an earlier PDF batch travels into this step',
+        'Code and prose lay out inside the 800 px measure: the stylesheet sets `word-wrap / overflow-wrap: break-word` on the body and keeps `overflow-x: auto` on `pre`, two rules on different elements, and the image reproduces whichever the render settled on',
         'No copyable text inside the image and no promise of reading Markdown back out: keep the `.md`, or take HTML / Word when you want structure',
       ],
     },
@@ -7470,8 +7470,8 @@ export const PAIRS = [
           en: 'Where did my images go?',
         },
         a: {
-          zh: '如果它们是以网络地址或相邻路径引用的，字节本来就不在 `.md` 文件里，而这条路完全离线：渲染前会剥掉这些引用，结果卡按张数写明「丢了几张」，被替换的位置留一个虚线方框。要带图的成品，请把图片放进真能读到字节的位置，或者接受这一格交付的是纯排版。',
-          en: 'If they were referenced by network address or a sibling path, their bytes were never in the `.md` file, and this route is fully offline: the references are stripped before rendering, the result card states how many were lost, and each replaced spot keeps a dashed box. Either put the images somewhere genuinely readable, or accept that this route delivers the typography.',
+          zh: '如果它们是以网络地址或相邻路径引用的，字节本来就不在 `.md` 文件里，而这条路完全离线：渲染前会剥掉这些引用，结果卡按张数写明「丢了几张」，被替换的位置是一个虚线方框，解不开的那种直接空着。要带图的成品，请把图片放进真能读到字节的位置，或者接受这一格交付的是纯排版。',
+          en: 'If they were referenced by network address or a sibling path, their bytes were never in the `.md` file, and this route is fully offline: the references are stripped before rendering, the result card states how many were lost, and a replaced spot is either a dashed box or left blank. Either put the images somewhere genuinely readable, or accept that this route delivers the typography.',
         },
       },
       {
@@ -7486,12 +7486,12 @@ export const PAIRS = [
       },
       {
         q: {
-          zh: '为什么表格在图里比在源文件里好看？',
-          en: 'Why does my table look better in the image than in the source?',
+          zh: '表格在图里会被渲染成什么样？',
+          en: 'How does my table appear in the image?',
         },
         a: {
-          zh: '因为进图的是渲染结果：管道符表格经 marked 变成真正的 `<table>`，自带样式表给它 100% 宽、每格 1px 实线、表头浅底与偶数行条纹。这也意味着「好看」是这份样式表的好看——换一份 CSS 就是另一个样子，而产物本身不含可编辑的表格结构。',
-          en: 'Because the image carries the rendered result: a pipe table becomes a real `<table>` through marked, and the bundled stylesheet gives it full width, a 1px rule per cell, a tinted header and striped even rows. That also means the good looks belong to this stylesheet — different CSS, different picture — and the artifact holds no editable table structure.',
+          zh: '进图的是渲染结果：管道符表格经 marked 变成真正的 `<table>`，自带样式表给它 100% 宽、每格 1px 实线、表头浅底与偶数行条纹。这也意味着「好看」是这份样式表的好看——换一份 CSS 就是另一个样子，而产物本身不含可编辑的表格结构。',
+          en: 'The image carries the rendered result: a pipe table becomes a real `<table>` through marked, and the bundled stylesheet gives it full width, a 1px rule per cell, a tinted header and striped even rows. That also means the good looks belong to this stylesheet — different CSS, different picture — and the artifact holds no editable table structure.',
         },
       },
     ],
