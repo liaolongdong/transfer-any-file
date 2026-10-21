@@ -6819,8 +6819,8 @@ export const PAIRS = [
           en: 'Why page it instead of just compressing the tall image?',
         },
         a: {
-          zh: '因为那条路交回的是按页面宽度排布的一条长带：单张超高图在聊天工具与打印里都难用。这条取舍是路由里显式写的（同分的图片终点让 `html>pdf` 优先），不是实现顺带的后果。',
-          en: 'Because that route hands back a single strip laid out at page width, and one very tall picture is awkward both in chat and in print. The choice is written into the routing (the tie between image ends favours `html>pdf`), not an accident of implementation.',
+          zh: '因为那条路交回的是按页面宽度排布的一条长带，而这条取舍写在路由里：同分的图片终点由 `edgePreference` 排序（`html>pdf` 是 0、`html>png` 是 10，小的排前面），不是实现顺带的后果。分页给的是页边界与一页一图，长图给的是单次捕获。',
+          en: 'Because that route hands back a single strip laid out at page width, and the choice is written into the routing: the tie between the two image ends is ordered by `edgePreference` (0 on `html>pdf`, 10 on `html>png`, lower first), not an accident of implementation. Paging buys page bounds and one picture per page; the tall capture buys a single canvas.',
         },
       },
       {
@@ -7139,8 +7139,8 @@ export const PAIRS = [
       en: 'The table becomes lossless A4 PDF pages, then one JPEG per page: quality and target size have dials here, and long tables arrive in a ZIP. Offline.',
     },
     lede: {
-      zh: '三步：`csv>html` 用 `raw: true` 读取并写成一张 HTML 表（`00424` 不缩成 `424`、`2024-01-05` 不会变成 `1/5/24`，实测 `data-v` 与显示文本一致），套上自带的样式表；`html>pdf` 把这份文档按 A4 分页，**每一页以无损位图嵌进 PDF**（渲染逐页走 `toDataURL` 的 PNG 那一条），`pdf>jpg` 再把每一页编码成 JPEG。这条形状是路由里写死的取舍，不是顺带：同为图片目标，PNG 走整页捕获得到一张长图，而 JPG 与 WebP 走 PDF 那条，因为一张超高长条在分享与打印两个场景都难用。于是三件具体的事跟着来：**一页一图**，长表跨页、两张以上以 ZIP 交付；**只损失一次**，中间那份 PDF 的页面是无损的，压缩只在最后交给 JPEG 那一次发生；**这里才有档位可调**——质量与目标体积挂在有损容器上（编码器与面板都按这一条来），所以想让文字边缘更干净就升质量，想让文件更小就设目标体积，后者会先降质量、再降尺寸去追。要照实说的两条：JPEG 对细线与字形的小面积高频是最先付出代价的地方，所以表头那种 1px 边框与 12px 小字比 PNG 软；而图里的文字不是文字，不能选中、搜索或朗读。第一条边界与 PNG 那格共享：单次整页渲染高度超过 32768 px 会明确报错，而不是交付空白画布或被截短的图。全程在这个标签页里完成，只有 storage 权限，渲染前会剥掉远程引用。',
-      en: 'Three steps: `csv>html` reads with `raw: true` and writes one styled HTML table (so `00424` does not shrink to `424` and `2024-01-05` does not become `1/5/24`; measured, `data-v` and the displayed text agree); `html>pdf` lays that document out as A4 pages, **embedding each page as a lossless bitmap** (the per-page render goes down the PNG branch of `toDataURL`), and `pdf>jpg` then encodes every page as JPEG. That shape is a routing decision, not a side effect: between the two image ends, PNG takes the whole-page capture and yields one tall image, while JPG and WebP take the PDF route, because a single oversized strip is awkward both to share and to print. Three concrete things come with it: **one image per page**, so a long table spans pages and two or more arrive in a ZIP; **only one lossy step**, since the PDF in the middle holds lossless pages and compression happens once, on the way out; and **this is where the dials live** — quality and a target file size belong to lossy containers, for both the encoder and the panel, so a higher quality keeps text edges cleaner while a target size chases quality down first and resolution after. Two things stated plainly: JPEG pays for thin rules and small glyphs before anything else, so a 1px border and 12 px type come out softer than in PNG; and text in the picture is not text, with nothing to select, search or read aloud. One boundary is shared with the PNG page: a single rendered page taller than 32768 px fails outright instead of delivering a blank canvas or a trimmed image. All of it inside this tab on the storage permission, with remote references stripped before rendering.',
+      zh: '三步：`csv>html` 用 `raw: true` 读取并写成一张 HTML 表（`00424` 不缩成 `424`、`2024-01-05` 不会变成 `1/5/24`，实测 `data-v` 与显示文本一致），套上自带的样式表；`html>pdf` 把这份文档按 A4 分页，**每一页以无损位图嵌进 PDF**（渲染逐页走 `toDataURL` 的 PNG 那一条），`pdf>jpg` 再把每一页编码成 JPEG。这条形状是路由里写死的取舍，不是顺带：同为图片目标，PNG 走整页捕获得到一张长图，而 JPG 与 WebP 走 PDF 那条，因为同分的图片目标里这条排序由 `edgePreference` 决定（`html>pdf` 是 0、`html>png` 是 10，小的排前面），所以图片出口的分页形状是路由定的，不是顺带的。于是三件具体的事跟着来：**一页一图**，长表跨页、两张以上以 ZIP 交付；**只损失一次**，中间那份 PDF 的页面是无损的，压缩只在最后交给 JPEG 那一次发生；**这里才有档位可调**——质量与目标体积挂在有损容器上（编码器与面板都按这一条来），所以想让文字边缘更干净就升质量，想让文件更小就设目标体积，后者会先降质量、再降尺寸去追。要照实说的两条：最后那道编码是有损的，质量与目标体积就是为它准备的档位；而图里的文字不是文字，不能选中、搜索或朗读。高度那条边界与 CSV→PNG 共享同一个量法：32768 px 限制的是「整篇文档一次渲染成的那块画布」，A4 分页是在它之上切出来的，超限就报错。全程在这个标签页里完成，只有 storage 权限，渲染前会剥掉远程引用。',
+      en: 'Three steps: `csv>html` reads with `raw: true` and writes one styled HTML table (so `00424` does not shrink to `424` and `2024-01-05` does not become `1/5/24`; measured, `data-v` and the displayed text agree); `html>pdf` lays that document out as A4 pages, **embedding each page as a lossless bitmap** (the per-page render goes down the PNG branch of `toDataURL`), and `pdf>jpg` then encodes every page as JPEG. That shape is a routing decision, not a side effect: between the two image ends, PNG takes the whole-page capture and yields one tall image, while JPG and WebP take the PDF route, because the tie between the two image ends is decided by `edgePreference` (0 on `html>pdf`, 10 on `html>png`, lower sorting first), so the paging shape of this output is a routing fact rather than a side effect. Three concrete things come with it: **one image per page**, so a long table spans pages and two or more arrive in a ZIP; **only one lossy step**, since the PDF in the middle holds lossless pages and compression happens once, on the way out; and **this is where the dials live** — quality and a target file size belong to lossy containers, for both the encoder and the panel, so a higher quality keeps text edges cleaner while a target size chases quality down first and resolution after. Two things stated plainly: the final encode on this route is lossy, and quality and a target size are precisely its dials; and text in the picture is not text, with nothing to select, search or read aloud. The height boundary is shared with CSV to PNG in the same measurement: 32768 px caps the one canvas the whole document is rendered into, and the A4 slicing happens on top of it, so an over-tall document fails. All of it inside this tab on the storage permission, with remote references stripped before rendering.',
     },
     keeps: {
       zh: [
@@ -7158,18 +7158,18 @@ export const PAIRS = [
     },
     limits: {
       zh: [
-        '有损：1px 边框、小字号与色块边界是 JPEG 最先付出代价的地方，要严格还原请走 CSV→PNG',
+        '最后一道是有损编码：质量与目标体积两个档位都是为它准备的，要严格还原同一套线条与字形请走 CSV→PNG',
         '多页出 ZIP，不是一张大图：想「一眼看完」请走 CSV→PNG（整页捕获）或 CSV→PDF（一份文档）',
         '文字不可选中、搜索或朗读：产物是位图，要这些请用 HTML / Markdown / Excel',
         '条纹按行序落、第一行没有表头待遇：`sheet_to_html` 不产出 `<th>`（实测），样式表的浅底挂在 `<th>` 与偶数行上',
-        '整页渲染高度上限 32768 px：超限报错而不是交付被截短的内容；排版宽度固定在 800 px 正文，画布像素密度按高度取档',
+        '32768 px 量的是整篇文档一次渲染成的那块画布（A4 分页在其上切），超限报错而不是交付被截短的内容；排版宽度固定在 800 px 正文，画布像素密度按高度取档',
       ],
       en: [
-        'Lossy: 1px rules, small type and colour edges are what JPEG pays for first — take CSV to PNG for an exact rendering',
+        'The final encode is lossy, with quality and target size as its two dials — take CSV to PNG for an exact rendering of the same rules and glyphs',
         'Several pages arrive as a ZIP rather than one picture: for one view take CSV to PNG (whole-page capture) or CSV to PDF (one document)',
         'Nothing is selectable, searchable or readable aloud: the artifact is bitmap; use HTML, Markdown or Excel for that',
         'Striping follows row order and row one gets no header treatment: `sheet_to_html` emits no `<th>` (measured), while the stylesheet hangs its tint on `<th>` and even rows',
-        'A 32768 px ceiling on rendered page height, failing rather than trimming; the measure is fixed at 800 px while the pixel density steps with height',
+        'A 32768 px ceiling on the single canvas the whole document is rendered into (the A4 slicing happens on top of it), failing rather than trimming; the measure stays 800 px while the pixel density steps with height',
       ],
     },
     notes: {
@@ -7197,12 +7197,12 @@ export const PAIRS = [
       },
       {
         q: {
-          zh: '为什么表格里的 12px 小字看起来发软？',
-          en: 'Why does the 12 px type look soft?',
+          zh: '质量与目标体积这两个档位，在这一格里分别做什么？',
+          en: 'What do quality and target size actually do on this route?',
         },
         a: {
-          zh: '因为有损编码对高频细节先付出代价，小字与单像素线条正属此类。两个方向都有效：把质量档调高，或者设目标体积时接受它先降质量、再降尺寸去追。要严格还原同样的线条与字形，请走 CSV→PNG（无损，但目标体积档在那里不起作用）。',
-          en: 'Lossy encoding spends its budget on high-frequency detail first, and small glyphs with 1px strokes are exactly that. Two levers help: raise quality, or set a target size and accept that it lowers quality before resolution. For an exact rendering take CSV to PNG — lossless, where a target size is not a dial at all.',
+          zh: '两个都挂在有损容器上：编码器只在 JPEG / WebP 时用它们，面板也按同一条规则不给 PNG 摆这两档。设了目标体积时先沿质量档往下走，走不到再把画面缩小重试——所以「字看着更软」有两种来路：主动调低，或被目标体积逼下去。要严格还原请走 CSV→PNG，那里这两档都不存在，也不会做第二次量化。',
+          en: 'Both belong to lossy containers: the encoder reaches for them only on JPEG and WebP, and the panel follows the same rule by not offering either for PNG. A target size is chased first down the quality ladder and then by scaling the picture, so softer-looking type has two possible causes — asked for, or pushed into it by the target. For an exact rendering take CSV to PNG, where neither dial exists and no second quantisation happens.',
         },
       },
       {
@@ -7211,8 +7211,8 @@ export const PAIRS = [
           en: 'Why not just compress the tall image into one JPEG?',
         },
         a: {
-          zh: '这条链在同分的图片目标上显式让 PDF 那一路优先（`html>png` 带较低的 `edgePreference`），因为一条按页面宽度排布的超高长带在聊天与打印两个场景都难用；而它省掉的是分页与页边界，不是压缩次数。想要一张长图，PNG 那一格就给。',
-          en: 'The routing breaks the tie between image ends in favour of the PDF path (the PNG edge carries a lower `edgePreference`), because one oversized strip laid out at page width is awkward in chat and in print; what that choice removes is paging and page bounds, not the number of compressions. If you want the single tall picture, the PNG page is it.',
+          zh: '这条链在同分的图片目标上显式让 PDF 那一路优先（`html>png` 带较低的 `edgePreference`），因为同分的图片目标里排序由 `edgePreference` 决定（`html>pdf` 是 0、`html>png` 是 10，小的排前面）；它改变的是分页与页边界，不是压缩次数。想要一张长图，PNG 那一格就给。',
+          en: 'The routing breaks the tie between image ends in favour of the PDF path (the PNG edge carries a lower `edgePreference`), because the ordering between the tied image ends comes from `edgePreference` (0 on `html>pdf`, 10 on `html>png`, lower first); what that choice changes is paging and page bounds, not the number of compressions. If you want the single tall picture, the PNG page is it.',
         },
       },
     ],
@@ -7232,8 +7232,8 @@ export const PAIRS = [
       en: 'Each worksheet renders as a titled table and the stack is captured losslessly in one PNG; past 32768 px it fails, and long workbooks drop a density step.',
     },
     lede: {
-      zh: '要把一份工作簿「整个」发给别人看一眼，比截图省事的是这条：`xlsx>html` 先用 `cellDates: true` 与一份固定日期格式读取，再走 `normalizeDateCells`，最后由 `sheet_to_html` 把**每一个工作表各写成一张表**，多于一张时为每张前面加一个取代表名的小标题（`<h2>`）；这份 HTML 统一过 DOMPurify 后套上自带的样式表。`html>png` 再把整篇文档离屏渲染成一张画布并无损编码——所以产物是**一张按工作表顺序堆起来的长图**，不是每张表一张图。三件由实现决定的事：一、**日期长什么样由那条格式说得出**：纯日期渲染成 `2024-01-05`，带时分秒的是 `2024-01-05 14:30:00`，工作簿作者自己指定的格式被尊重（`[h]:mm:ss` 那种时长仍是 `124:48:00`），而没有任何显示文本的日期格保持原样、不替它编一个；二、**像素密度按高度降档**——高度超过 2000 px 用 1.5 倍、超过 4000 px 用 1 倍，所以多 sheet 的长簿子落在一倍密度，字会比短页面上小一圈，这不是缩放坏了而是为了把画布留在浏览器上限内；三、**上限是明确失败**：整页高度超过 32768 px 报「渲染高度过大」，因为远超时浏览器交回的是空白画布，那种「成功但全白」比一条错误难查。要照实说的还有：单元格的文字是作为表格内容写进 HTML 再统一净化的，所以格子里真写了标记时它按标记处理，指向网络的图片取不到字节、会在渲染前被剥掉并按张数披露；图里的文字不能选中、搜索或朗读；表头那一行不带 `<th>` 语义，样式表的浅底只会按行序落。全程在这个标签页里完成，只有 storage 权限。',
-      en: 'When a workbook has to be shown to someone whole, this is shorter than screenshots: `xlsx>html` reads with `cellDates: true` and one fixed date format, runs `normalizeDateCells`, and lets `sheet_to_html` write **one table per worksheet**, prefixing each with an `<h2>` carrying the sheet name whenever there is more than one; that body passes DOMPurify once and is wrapped in the stylesheet this extension ships. `html>png` then renders the entire document offscreen into one canvas and encodes it losslessly — so the artifact is **one tall image stacked in worksheet order**, not a picture per sheet. Three things the implementation decides: first, **what a date looks like is sayable** — a plain date renders as `2024-01-05`, a real timestamp as `2024-01-05 14:30:00`, a format the workbook author chose is respected (`[h]:mm:ss` durations stay `124:48:00`), and a date cell with no display text is left alone rather than invented. Second, **density steps with height**: past 2000 px the ratio is 1.5×, past 4000 px it is 1×, so a long multi-sheet workbook lands on 1× and its type reads smaller than on a short page — that is the canvas staying inside the browser’s own limits, not a broken scale. Third, **the ceiling fails out loud**: beyond 32768 px of rendered height the route reports “too tall to render”, because far past that a browser hands back a blank canvas, and a white “success” is harder to diagnose than an error. Also stated plainly: cell text is written into the HTML as table content and sanitised once, so markup typed into a cell is treated as markup, images pointing at the network have no bytes and are stripped before rendering with the count disclosed; text in the picture cannot be selected, searched or read aloud; and the first row carries no `<th>` semantics, so the stylesheet’s tint falls by row order. All of it inside this tab on the storage permission.',
+      zh: '要把一份工作簿「整个」发给别人看一眼，比截图省事的是这条：`xlsx>html` 先用 `cellDates: true` 与一份固定日期格式读取，再走 `normalizeDateCells`，最后由 `sheet_to_html` 把**每一个工作表各写成一张表**，多于一张时为每张前面加一个取代表名的小标题（`<h2>`）；这份 HTML 统一过 DOMPurify 后套上自带的样式表。`html>png` 再把整篇文档离屏渲染成一张画布并无损编码——所以产物是**一张按工作表顺序堆起来的长图**，不是每张表一张图。三件由实现决定的事：一、**日期长什么样由那条格式说得出**：纯日期渲染成 `2024-01-05`，带时分秒的是 `2024-01-05 14:30:00`，工作簿作者自己指定的格式被尊重（`[h]:mm:ss` 那种时长仍是 `124:48:00`），而没有任何显示文本的日期格保持原样、不替它编一个；二、**像素密度按高度降档**——高度超过 2000 px 用 1.5 倍、超过 4000 px 用 1 倍，所以多 sheet 的长簿子落在一倍密度——一块 CSS 像素只对应一个设备像素，这不是排版变了，而是为了让画布留在浏览器上限内；三、**上限是明确失败**：整页高度超过 32768 px 报「渲染高度过大」，因为远超时浏览器交回的是空白画布，那种「成功但全白」比一条错误难查。要照实说的还有：单元格的文字是转义后写进表格的，所以格子里打的标记只会显示为字符，而单元格自带的链接会变成真正的链接；正文在读出时净化一次、渲染前再净化一次。图里的文字不能选中、搜索或朗读；表头那一行不带 `<th>` 语义，样式表的浅底只会按行序落。全程在这个标签页里完成，只有 storage 权限。',
+      en: 'When a workbook has to be shown to someone whole, this is shorter than screenshots: `xlsx>html` reads with `cellDates: true` and one fixed date format, runs `normalizeDateCells`, and lets `sheet_to_html` write **one table per worksheet**, prefixing each with an `<h2>` carrying the sheet name whenever there is more than one; that body passes DOMPurify once and is wrapped in the stylesheet this extension ships. `html>png` then renders the entire document offscreen into one canvas and encodes it losslessly — so the artifact is **one tall image stacked in worksheet order**, not a picture per sheet. Three things the implementation decides: first, **what a date looks like is sayable** — a plain date renders as `2024-01-05`, a real timestamp as `2024-01-05 14:30:00`, a format the workbook author chose is respected (`[h]:mm:ss` durations stay `124:48:00`), and a date cell with no display text is left alone rather than invented. Second, **density steps with height**: past 2000 px the ratio is 1.5×, past 4000 px it is 1×, so a long multi-sheet workbook lands on 1× — one device pixel per CSS pixel instead of two — which is the canvas staying inside the browser’s own limits, not a different layout. Third, **the ceiling fails out loud**: beyond 32768 px of rendered height the route reports “too tall to render”, because far past that a browser hands back a blank canvas, and a white “success” is harder to diagnose than an error. Also stated plainly: cell text is escaped into the table, so markup typed into a cell shows as characters, while a cell that carries a link becomes a real link; the body is sanitised once on the way out of the reader and again before rendering. Text in the picture cannot be selected, searched or read aloud, and the first row carries no `<th>` semantics, so the stylesheet’s tint falls by row order. All of it inside this tab on the storage permission.',
     },
     keeps: {
       zh: [
@@ -7251,28 +7251,28 @@ export const PAIRS = [
     },
     limits: {
       zh: [
-        '很长的簿子像素密度会降档（>2000 px 用 1.5 倍、>4000 px 用 1 倍），小字比短页面更软；要严格清晰请逐表转 HTML 或 PNG 分张',
+        '很长的簿子像素密度会降档（排版高度 >2000 px 用 1.5 倍、>4000 px 用 1 倍，即一块 CSS 像素对应的设备像素变少）；要严格清晰请逐表转 HTML 或 PNG 分张',
         '整页高度上限 32768 px：超出报错而不是交付空白画布或被截短的图',
         '一张图就是一张图：想要「一个工作表一个文件」，请走 Excel→PDF（一份多页文档）或逐表另存后再转',
         '文字不可选中、搜索或朗读：PNG 没有文字层；图表、条件格式、批注与冻结窗格在这条链上没有对应物',
-        '格子里写的标记按标记处理（写入后统一净化），指向网络的图片取不到字节、渲染前被剥掉并按张数披露',
+        '格子里打的标记会被转义成字符显示，只有单元格自带的链接变成真链接；正文净化两次（读出时与渲染前）',
       ],
       en: [
-        'Long documents drop density (1.5× past 2000 px, 1× past 4000 px), so small type reads softer than on a short page; convert sheet by sheet to HTML or PNG for exact crispness',
+        'Long documents drop density (1.5× past 2000 px of layout height, 1× past 4000 px), which is fewer device pixels per CSS pixel rather than a different layout; convert sheet by sheet to HTML or PNG to keep the full ratio',
         'A 32768 px ceiling on rendered height: beyond it the route fails instead of delivering a blank canvas or a trimmed image',
         'One image is one image: for a file per worksheet take Excel to PDF (one multi-page document) or split the sheets first',
         'No text layer, so nothing to select, search or read aloud; charts, conditional formatting, comments and frozen panes have no counterpart on this route',
-        'Markup written into a cell is treated as markup (sanitised once), and images pointing at the network have no bytes, are stripped before rendering and are disclosed by count',
+        'Markup typed into a cell is escaped into characters; only a cell’s own link becomes a real anchor, and the body is sanitised twice — on the way out of the reader and again before rendering',
       ],
     },
     notes: {
       zh: [
-        '要一份能打印归档的成品：Excel→PDF，页面就是文档、多 sheet 各自成段',
+        '要一份能打印归档的成品：Excel→PDF，一份多页文档；分页按排版高度切，不按工作表边界切',
         '要严格清晰的一张表：先转到 HTML 再看需要截图，比在长图里降档更可控',
         '要继续加工数据：Excel→CSV / JSON / Markdown，那里交付的是值而不是画面',
       ],
       en: [
-        'For a printable, archivable document: Excel to PDF, whose pages are the artifact with each sheet its own section',
+        'For a printable, archivable document: Excel to PDF, one multi-page file whose breaks follow the laid-out height rather than the sheet bounds',
         'For one exactly-crisp table: convert to HTML first and shoot what you need, which stays more controllable than dropping density in a long image',
         'To keep working on the data: Excel to CSV, JSON or Markdown, which deliver values rather than a picture',
       ],
@@ -7304,8 +7304,8 @@ export const PAIRS = [
           en: 'The long sheet looks tiny — am I just viewing it small?',
         },
         a: {
-          zh: '多半不是：内容高度超过 2000 px 时像素密度降到 1.5 倍、超过 4000 px 降到 1 倍，这是为了让画布留在浏览器上限内的取舍。所以长簿子的字确实比短页面稀。要严格清晰，请逐张表分开转，或走 Excel→PDF 用可调密度那条路。',
-          en: 'Most likely not: past 2000 px of content height the ratio steps to 1.5× and past 4000 px to 1×, a trade made to keep the canvas inside the browser’s limits, so a long workbook really is sparser than a short page. For exact crispness convert one sheet at a time, or take Excel to PDF where the density is a dial.',
+          zh: '多半不是：内容高度超过 2000 px 时像素密度降到 1.5 倍、超过 4000 px 降到 1 倍，这是为了让画布留在浏览器上限内的取舍。所以长簿子每一行拿到的设备像素更少。要严格清晰，请逐张表分开转，或走逐表分开的路（先转 HTML 再决定），因为密度档只对「以 PDF 为输入」的转换有效，Excel→PDF 不读它。',
+          en: 'Most likely not: past 2000 px of content height the ratio steps to 1.5× and past 4000 px to 1×, a trade made to keep the canvas inside the browser’s limits, so a long workbook carries fewer pixels per row than a short one. For exact crispness convert one sheet at a time, or split the sheets, since the density dial belongs to conversions taking a PDF as input and Excel to PDF does not read it.',
         },
       },
     ],
