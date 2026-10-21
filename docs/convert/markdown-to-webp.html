@@ -164,6 +164,7 @@
         <li><span lang="zh-CN">引用的图片取不到字节：远程与相邻路径的引用被剥掉，位置是虚线方框或空着，卡片按张数披露</span><span lang="en">Referenced images have no bytes: remote and sibling references are stripped, a spot is a dashed box or blank, and the card reports the count</span></li>
         <li><span lang="zh-CN">这一格不摆密度滑杆；存储里留下的密度值仍会被带到中间那份 PDF 那一步</span><span lang="en">This route exposes no density slider, yet a density left in storage still reaches the intermediate PDF step</span></li>
         <li><span lang="zh-CN">整页捕获高度上限 32768 px，超过报错而不是交付半张图</span><span lang="en">A 32768 px ceiling on the whole-page capture height, failing rather than trimming</span></li>
+        <li><span lang="zh-CN">一次最多渲染 200 页（`MAX_PDF_IMAGE_PAGES`）：超过就报「要渲染的页数过多」，并让你用页码范围只选需要的页或先把文件拆开——每一页在编码前各自占着一张全尺寸画布，200 页已经是数百 MB，再往前是标签页自己崩掉，那比一条错误难说清得多</span><span lang="en">At most 200 pages rasterise in one pass (`MAX_PDF_IMAGE_PAGES`): past that the route reports “too many pages to render at once” and points at a page range or splitting the file — every page holds a full-size canvas until it is encoded, 200 of them is already hundreds of megabytes, and beyond that the tab crashes itself, which is far harder to explain than an error</span></li>
         <li><span lang="zh-CN">图里没有可复制的文字，也不承诺能读回 Markdown：要编辑请保留 `.md`</span><span lang="en">No copyable text inside the image and no promise of reading Markdown back out: keep the `.md`</span></li>
             </ul>
           </section>

@@ -162,6 +162,7 @@
         <li><span lang="zh-CN">最后那道编码是有损的：要严格还原同一套线条与字形请走 HTML→PNG（整页一张长图、无第二次量化）</span><span lang="en">The last encode is lossy: take HTML to PNG for an exact rendering of the same rules and glyphs (one tall canvas, no second quantisation)</span></li>
         <li><span lang="zh-CN">这一格不摆密度滑杆（面板只对以 PDF 为输入的转换给它）：没设过时中间 PDF 按默认 144 转图，而上一批 PDF 留下的密度值会被带进这一步</span><span lang="en">This route exposes no density slider (the panel offers it only for conversions taking a PDF as input): with nothing set the intermediate PDF rasterises at the default 144, while a density left from an earlier PDF batch is forwarded into this step</span></li>
         <li><span lang="zh-CN">两页以上出 ZIP：里面的单张文件按 `page-N.jpg` 编号取名</span><span lang="en">Two or more pages arrive as a ZIP, the individual pictures named `page-N.jpg`</span></li>
+        <li><span lang="zh-CN">一次最多渲染 200 页（`MAX_PDF_IMAGE_PAGES`）：超过就报「要渲染的页数过多」，并让你用页码范围只选需要的页或先把文件拆开——每一页在编码前各自占着一张全尺寸画布，200 页已经是数百 MB，再往前是标签页自己崩掉，那比一条错误难说清得多</span><span lang="en">At most 200 pages rasterise in one pass (`MAX_PDF_IMAGE_PAGES`): past that the route reports “too many pages to render at once” and points at a page range or splitting the file — every page holds a full-size canvas until it is encoded, 200 of them is already hundreds of megabytes, and beyond that the tab crashes itself, which is far harder to explain than an error</span></li>
         <li><span lang="zh-CN">图里没有可复制的文字：不能选中、搜索或朗读，要这些请保留 HTML 或转 TXT / Markdown</span><span lang="en">No copyable text inside the image: nothing to select, search or read aloud — keep the HTML, or take TXT / Markdown, for that</span></li>
         <li><span lang="zh-CN">控件会被画进图里（任务清单的复选框正是这样出现的），但图里没有任何可点的东西：产物是排版出来的某一瞬，不是一个可交互的页面</span><span lang="en">Controls are painted into the image — that is how a task-list checkbox appears — yet nothing in it responds: the artifact is one laid-out instant, not a page you can operate</span></li>
             </ul>
@@ -169,7 +170,7 @@
           <section id="notes" class="reveal">
       <h2><span lang="zh-CN">实操提示</span><span lang="en">Working with it</span></h2>
             <ul>
-        <li><span lang="zh-CN">要一份能打印归档的：HTML→PDF，页面就是文档本身，不必再拼回</span><span lang="en">For something printable and archivable: HTML to PDF, whose pages are the document itself</span></li>
+        <li><span lang="zh-CN">要一份能打印归档的：HTML→PDF，页面就是文档本身，不必再拼回</span><span lang="en">For a document instead of a stack of images: HTML to PDF, one multi-page file</span></li>
         <li><span lang="zh-CN">要严格无损的一张图：HTML→PNG，整页捕获、没有第二次量化</span><span lang="en">For one exactly-lossless picture: HTML to PNG, a whole-page capture with no second quantisation</span></li>
         <li><span lang="zh-CN">要继续加工数据：网页里的表格用 HTML→CSV / HTML→JSON 取值，图片这一格交付的是版面</span><span lang="en">To keep working on the data: take HTML to CSV or JSON for the values — this page delivers the layout</span></li>
             </ul>

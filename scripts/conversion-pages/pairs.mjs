@@ -6787,6 +6787,7 @@ export const PAIRS = [
     limits: {
       zh: [
         '多页会打包成 ZIP：一份长 JSON 可能出十几张编号图片，只想要一张长图请走 JSON→PNG',
+        '一次最多渲染 200 页（`MAX_PDF_IMAGE_PAGES`）：超过就报「要渲染的页数过多」，并让你用页码范围只选需要的页或先把文件拆开——每一页在编码前各自占着一张全尺寸画布，200 页已经是数百 MB，再往前是标签页自己崩掉，那比一条错误难说清得多',
         'JPEG 是有损的：等宽字形的细边与语法着色的小面积色块会留下压缩痕迹，低对比的那类最敏感',
         '文字进图就不可选：产物没有文字层，不能搜索也不能复制；要这些请走 JSON→TXT / HTML / Markdown',
         '整页渲染高度上限 32768 px 仍然适用，超限报错而不是交付被截短的内容',
@@ -6794,6 +6795,7 @@ export const PAIRS = [
       ],
       en: [
         'Several pages arrive as a ZIP: a long JSON can produce a dozen numbered pictures, so take JSON to PNG when you want one tall image',
+        'At most 200 pages rasterise in one pass (`MAX_PDF_IMAGE_PAGES`): past that the route reports “too many pages to render at once” and points at a page range or splitting the file — every page holds a full-size canvas until it is encoded, 200 of them is already hundreds of megabytes, and beyond that the tab crashes itself, which is far harder to explain than an error',
         'JPEG is lossy: thin monospace edges and the small colour fields of syntax highlighting show artefacts, and low-contrast pairs suffer most',
         'Text inside an image is not selectable: there is no text layer to search or copy; take JSON to TXT, HTML or Markdown for that',
         'The 32768 px ceiling on rendered page height still applies, and exceeding it reports failure instead of delivering trimmed content',
@@ -7160,6 +7162,7 @@ export const PAIRS = [
       zh: [
         '最后一道是有损编码：质量与目标体积两个档位都是为它准备的，要严格还原同一套线条与字形请走 CSV→PNG',
         '多页出 ZIP，不是一张大图：想「一眼看完」请走 CSV→PNG（整页捕获）或 CSV→PDF（一份文档）',
+        '一次最多渲染 200 页（`MAX_PDF_IMAGE_PAGES`）：超过就报「要渲染的页数过多」，并让你用页码范围只选需要的页或先把文件拆开——每一页在编码前各自占着一张全尺寸画布，200 页已经是数百 MB，再往前是标签页自己崩掉，那比一条错误难说清得多',
         '文字不可选中、搜索或朗读：产物是位图，要这些请用 HTML / Markdown / Excel',
         '条纹按行序落、第一行没有表头待遇：`sheet_to_html` 不产出 `<th>`（实测），样式表的浅底挂在 `<th>` 与偶数行上',
         '32768 px 量的是整篇文档一次渲染成的那块画布（A4 分页在其上切），超限报错而不是交付被截短的内容；排版宽度固定在 800 px 正文，画布像素密度按高度取档',
@@ -7167,6 +7170,7 @@ export const PAIRS = [
       en: [
         'The final encode is lossy, with quality and target size as its two dials — take CSV to PNG for an exact rendering of the same rules and glyphs',
         'Several pages arrive as a ZIP rather than one picture: for one view take CSV to PNG (whole-page capture) or CSV to PDF (one document)',
+        'At most 200 pages rasterise in one pass (`MAX_PDF_IMAGE_PAGES`): past that the route reports “too many pages to render at once” and points at a page range or splitting the file — every page holds a full-size canvas until it is encoded, 200 of them is already hundreds of megabytes, and beyond that the tab crashes itself, which is far harder to explain than an error',
         'Nothing is selectable, searchable or readable aloud: the artifact is bitmap; use HTML, Markdown or Excel for that',
         'Striping follows row order and row one gets no header treatment: `sheet_to_html` emits no `<th>` (measured), while the stylesheet hangs its tint on `<th>` and even rows',
         'A 32768 px ceiling on the single canvas the whole document is rendered into (the A4 slicing happens on top of it), failing rather than trimming; the measure stays 800 px while the pixel density steps with height',
@@ -7347,6 +7351,7 @@ export const PAIRS = [
         '最后那道编码是有损的：要严格还原同一套线条与字形请走 HTML→PNG（整页一张长图、无第二次量化）',
         '这一格不摆密度滑杆（面板只对以 PDF 为输入的转换给它）：没设过时中间 PDF 按默认 144 转图，而上一批 PDF 留下的密度值会被带进这一步',
         '两页以上出 ZIP：里面的单张文件按 `page-N.jpg` 编号取名',
+        '一次最多渲染 200 页（`MAX_PDF_IMAGE_PAGES`）：超过就报「要渲染的页数过多」，并让你用页码范围只选需要的页或先把文件拆开——每一页在编码前各自占着一张全尺寸画布，200 页已经是数百 MB，再往前是标签页自己崩掉，那比一条错误难说清得多',
         '图里没有可复制的文字：不能选中、搜索或朗读，要这些请保留 HTML 或转 TXT / Markdown',
         '控件会被画进图里（任务清单的复选框正是这样出现的），但图里没有任何可点的东西：产物是排版出来的某一瞬，不是一个可交互的页面',
       ],
@@ -7354,6 +7359,7 @@ export const PAIRS = [
         'The last encode is lossy: take HTML to PNG for an exact rendering of the same rules and glyphs (one tall canvas, no second quantisation)',
         'This route exposes no density slider (the panel offers it only for conversions taking a PDF as input): with nothing set the intermediate PDF rasterises at the default 144, while a density left from an earlier PDF batch is forwarded into this step',
         'Two or more pages arrive as a ZIP, the individual pictures named `page-N.jpg`',
+        'At most 200 pages rasterise in one pass (`MAX_PDF_IMAGE_PAGES`): past that the route reports “too many pages to render at once” and points at a page range or splitting the file — every page holds a full-size canvas until it is encoded, 200 of them is already hundreds of megabytes, and beyond that the tab crashes itself, which is far harder to explain than an error',
         'No copyable text inside the image: nothing to select, search or read aloud — keep the HTML, or take TXT / Markdown, for that',
         'Controls are painted into the image — that is how a task-list checkbox appears — yet nothing in it responds: the artifact is one laid-out instant, not a page you can operate',
       ],
@@ -7365,7 +7371,7 @@ export const PAIRS = [
         '要继续加工数据：网页里的表格用 HTML→CSV / HTML→JSON 取值，图片这一格交付的是版面',
       ],
       en: [
-        'For something printable and archivable: HTML to PDF, whose pages are the document itself',
+        'For a document instead of a stack of images: HTML to PDF, one multi-page file',
         'For one exactly-lossless picture: HTML to PNG, a whole-page capture with no second quantisation',
         'To keep working on the data: take HTML to CSV or JSON for the values — this page delivers the layout',
       ],
@@ -7439,6 +7445,7 @@ export const PAIRS = [
       zh: [
         '最后那道编码有损：要严格还原同样的线条与字形请走 Markdown→PNG（整页一张长图、无第二次量化）',
         '引用的图片取不到字节：以网络地址或相邻路径写的图会被剥掉引用，结果卡按张数披露，位置是虚线方框或空着',
+        '一次最多渲染 200 页（`MAX_PDF_IMAGE_PAGES`）：超过就报「要渲染的页数过多」，并让你用页码范围只选需要的页或先把文件拆开——每一页在编码前各自占着一张全尺寸画布，200 页已经是数百 MB，再往前是标签页自己崩掉，那比一条错误难说清得多',
         '这一格不摆密度滑杆（面板只对以 PDF 为输入的转换给它）：没设过时中间 PDF 按默认 144 转图，上一批 PDF 留下的密度值会被带进来',
         '代码块与正文都在 800 px 的最大宽度内排版：样式表给正文 `word-wrap / overflow-wrap: break-word`，也留给 `<pre>` 本身 `overflow-x: auto`，两条规则作用在不同元素上，图按渲染出来的那一种落定',
         '图里没有可复制的文字，也不承诺能读回 Markdown：要编辑请保留 `.md`，要结构请走 Markdown→HTML / Word',
@@ -7446,6 +7453,7 @@ export const PAIRS = [
       en: [
         'The final encode is lossy: take Markdown to PNG for an exact rendering (one tall canvas, no second quantisation)',
         'Referenced images have no bytes: those written as network addresses or sibling paths lose their references, the card reports the count, and a spot is either a dashed box or left blank',
+        'At most 200 pages rasterise in one pass (`MAX_PDF_IMAGE_PAGES`): past that the route reports “too many pages to render at once” and points at a page range or splitting the file — every page holds a full-size canvas until it is encoded, 200 of them is already hundreds of megabytes, and beyond that the tab crashes itself, which is far harder to explain than an error',
         'This route exposes no density slider (the panel offers it only for conversions taking a PDF as input): with nothing set the intermediate PDF rasterises at the default 144, while a density left from an earlier PDF batch travels into this step',
         'Code and prose lay out inside the 800 px measure: the stylesheet sets `word-wrap / overflow-wrap: break-word` on the body and keeps `overflow-x: auto` on `pre`, two rules on different elements, and the image reproduces whichever the render settled on',
         'No copyable text inside the image and no promise of reading Markdown back out: keep the `.md`, or take HTML / Word when you want structure',
@@ -7533,6 +7541,7 @@ export const PAIRS = [
         '有损：质量先降、尺寸后降去追目标体积，两种「变小」的来路不一样，看效果时值得区分',
         '这一格不摆密度滑杆，但上一批 PDF 转换留下的密度值会被带到这一步；没设过时是默认 144',
         '整页捕获高度上限 32768 px：超过明确报错，不给空白画布或半张图',
+        '一次最多渲染 200 页（`MAX_PDF_IMAGE_PAGES`）：超过就报「要渲染的页数过多」，并让你用页码范围只选需要的页或先把文件拆开——每一页在编码前各自占着一张全尺寸画布，200 页已经是数百 MB，再往前是标签页自己崩掉，那比一条错误难说清得多',
         '图里没有文字层：不能选中、搜索或朗读，要这些请保留 HTML 或转 TXT / Markdown',
         '远程与相对路径的图片取不到字节：引用被剥掉、按张数披露，位置是虚线方框或直接留空',
       ],
@@ -7540,6 +7549,7 @@ export const PAIRS = [
         'Lossy: chasing a target size walks quality down first and only then scales the picture — two different reasons for “it got smaller”',
         'This route exposes no density slider, yet a density left from an earlier PDF batch is forwarded into this step; unset, it is the default 144',
         'A 32768 px ceiling on the whole-page capture height, failing outright rather than returning a blank canvas or half a picture',
+        'At most 200 pages rasterise in one pass (`MAX_PDF_IMAGE_PAGES`): past that the route reports “too many pages to render at once” and points at a page range or splitting the file — every page holds a full-size canvas until it is encoded, 200 of them is already hundreds of megabytes, and beyond that the tab crashes itself, which is far harder to explain than an error',
         'No text layer: nothing to select, search or read aloud — keep the HTML, or take TXT / Markdown, for that',
         'Images referenced by network address or sibling path have no bytes: the references are stripped, the count is disclosed, and a spot is a dashed box or left blank',
       ],
@@ -7563,8 +7573,8 @@ export const PAIRS = [
           en: 'WebP or JPEG — which page should I use?',
         },
         a: {
-          zh: '两者的产物形状完全一样（一页一图、多页 ZIP、同一条 A4 切片与同一次有损编码），差别只在容器本身与目标软件的接受度。本项目没有对本机样本做过两套体积对照，所以不宣称哪一种更小——需要小体积就在两格上各跑一次、用同一份文件比字节数，这比听任何保证可靠。',
-          en: 'The artifact shape is identical (one image per page, a ZIP past two, the same A4 slicing and the same single lossy pass); what differs is the container and what the receiving software accepts. This project has not run a same-file size comparison between the two on this machine, so it claims neither is smaller — run both on your own file and compare byte counts, which beats any guarantee on this page.',
+          zh: '两者的产物形状完全一样（一页一图、多页 ZIP、同一条 A4 切片与同一次有损编码），差别只在容器本身。本项目没有对本机样本做过两套体积对照，所以不宣称哪一种更小——需要小体积就在两格上各跑一次、用同一份文件比字节数，这比听任何保证可靠。',
+          en: 'The artifact shape is identical (one image per page, a ZIP from two pages up, the same A4 slicing and the same single lossy pass); what differs is only the container. This project has not run a same-file size comparison between the two on this machine, so it claims neither is smaller — run both on your own file and compare byte counts, which beats any guarantee on this page.',
         },
       },
       {
@@ -7627,6 +7637,7 @@ export const PAIRS = [
         '引用的图片取不到字节：远程与相邻路径的引用被剥掉，位置是虚线方框或空着，卡片按张数披露',
         '这一格不摆密度滑杆；存储里留下的密度值仍会被带到中间那份 PDF 那一步',
         '整页捕获高度上限 32768 px，超过报错而不是交付半张图',
+        '一次最多渲染 200 页（`MAX_PDF_IMAGE_PAGES`）：超过就报「要渲染的页数过多」，并让你用页码范围只选需要的页或先把文件拆开——每一页在编码前各自占着一张全尺寸画布，200 页已经是数百 MB，再往前是标签页自己崩掉，那比一条错误难说清得多',
         '图里没有可复制的文字，也不承诺能读回 Markdown：要编辑请保留 `.md`',
       ],
       en: [
@@ -7634,6 +7645,7 @@ export const PAIRS = [
         'Referenced images have no bytes: remote and sibling references are stripped, a spot is a dashed box or blank, and the card reports the count',
         'This route exposes no density slider, yet a density left in storage still reaches the intermediate PDF step',
         'A 32768 px ceiling on the whole-page capture height, failing rather than trimming',
+        'At most 200 pages rasterise in one pass (`MAX_PDF_IMAGE_PAGES`): past that the route reports “too many pages to render at once” and points at a page range or splitting the file — every page holds a full-size canvas until it is encoded, 200 of them is already hundreds of megabytes, and beyond that the tab crashes itself, which is far harder to explain than an error',
         'No copyable text inside the image and no promise of reading Markdown back out: keep the `.md`',
       ],
     },
