@@ -9503,4 +9503,194 @@ export const PAIRS = [
       },
     ],
   },
+  {
+    slug: 'gif-to-docx',
+    from: 'gif',
+    to: 'docx',
+    shot: 'batch-results',
+    published: '2026-10-21',
+    title: {
+      zh: 'GIF 转 Word——离线、帧数据进包、播不播由 Word',
+      en: 'GIF to Word offline — all frames in the package',
+    },
+    desc: {
+      zh: '动图原样进 .docx：第一步把整份文件编成 data URI，第二步把它提成包里独立的图片部件。帧一段不少，播不播由打开它的程序决定。',
+      en: 'The animation rides into a .docx: step one embeds the whole file, step two lifts it into its own image part. Every frame stays; playback is the reader’s call.',
+    },
+    lede: {
+      zh: '这条路常被误解成「GIF 进 Word 就只剩一张静态图」，而**它其实不做取帧这一步**。链是 `gif>html` + `html>docx`（路径基线现读）：第一步把文件的**原始字节**用 `FileReader.readAsDataURL` 编成 data URI 写进一个 `<img>`，第二步 `html>docx` 先净化、再剥掉远程引用，最后打包器把 `<img>` 上那条 `data:` **从标记里提出来写成包里独立的 base64 媒体部件**并重写引用——判据不是注释，是 `scripts/e2e-test.mjs:2262-2266` 那条用夹具专属载荷钉住的用例（它刻意避开通用 PNG 头，防止「图被吃掉仍绿」）。所以：**每一帧都还在包里**，`.docx` 里没有 data URI 残留，而且显示这张图不需要任何一次取数。要说清的是另一半：**播不播、循环几遍由打开它的程序决定**。动图能否播放是 Word 那一边对 GIF 媒体部件的处理方式说了算，本扩展只承诺数据侧完整；这跟 GIF→PNG / JPG 那几条形成对照——那几条**必须**过画布，交付的就是一帧，而且提示只会固定说「只保留第一帧」（`lostFrames` 是布尔值，从不报帧数）。文档体则是 altChunk：逐字排版、分页与图片的最终显示尺寸都由 Word 打开时决定，本扩展不产出 Word 原生段落，也不给缩放参数。类型前提也照写：从 ZIP 解包出来的文件不带 MIME 类型，那条 data URI 前缀会是 `application/octet-stream`，不在图片白名单里，会在写出前被剥掉 `src`（`utils/core/html-sanitize.ts:83`）。想真正做一张静态图进文档，请走 GIF→PNG 再 GIF→Word 之类；想要动图本身，这一路与 GIF→HTML 是同一份字节。',
+      en: 'This route is commonly mistaken for "GIF into Word, and only a still survives" — **it takes no frame-selection step at all**. The chain is `gif>html` + `html>docx`, read live from the route baseline: step one encodes the file’s **raw bytes** with `FileReader.readAsDataURL` into a data URI inside an `<img>`, and step two sanitises, strips remote references, then lets the packer **lift that `data:` off the markup into its own base64 media part** and rewrite the reference. The proof is not a comment but the end-to-end case at `scripts/e2e-test.mjs:2262-2266`, pinned with a fixture-unique payload so an eaten image cannot stay green. So every frame is still inside the package, no data URI survives in the `.docx`, and drawing it costs no fetch. The other half is what must be said plainly: **playback belongs to whatever opens the file**. Whether the animation runs is how Word treats a GIF media part, and this extension only guarantees the data side. The contrast is GIF to PNG or JPG, which *must* pass over a canvas, deliver one frame, and disclose it with a fixed «first frame kept» notice — `lostFrames` is a boolean and never a count. The document body is an altChunk, so typesetting, paging and the picture’s displayed size are Word’s when it opens; no native paragraphs and no scaling knobs come from here. The type caveat stays on the page too: a file unpacked from a ZIP carries no MIME type, so its data URI prefix is `application/octet-stream`, which is outside the image allow-list and loses its `src` before writing (`utils/core/html-sanitize.ts:83`). Want a genuine still inside a document, take GIF to PNG first; want the animation itself, this route carries the same bytes as GIF to HTML.',
+    },
+    keeps: {
+      zh: [
+        '不做取帧这一步：整份动图的字节原样进包，一帧都不少',
+        'data URI 被提成包里独立的图片部件，`.docx` 内不留 data URI，显示它不需要取数',
+        '远程引用在写出前剥掉——那份标记由 Word 在你机器上渲染，请求不该由这条链替你决定',
+        '文档体是 altChunk：本扩展不猜 Word 的分页，也不产出原生段落',
+        '一批最多 200 个文件、单个 100 MB，与其他路线共用同一道闸门',
+      ],
+      en: [
+        'No frame-selection step: the whole animation goes into the package, frame for frame',
+        'The data URI is lifted into its own image part, so no data URI survives and drawing it needs no fetch',
+        'Remote references are stripped before writing, because Word renders that markup on your machine — a request is not this chain’s call',
+        'The body is an altChunk: no guessing at Word’s pagination and no native paragraphs produced here',
+        'Up to 200 files per batch and 100 MB each — the same gate every other route shares',
+      ],
+    },
+    limits: {
+      zh: [
+        '播不播由 Word 决定：帧都在包里，但这一路不承诺动画在文档里跑起来',
+        '与 GIF→PNG / JPG 不同，这里没有「只留一帧」的固定提示——因为确实没减帧，也就没有可提示的损失',
+        '文档体是 altChunk：逐字排版、分页与图片显示尺寸由打开它的程序决定',
+        '从 ZIP 解包的文件不带类型，前缀是 `application/octet-stream`，会被剥掉 `src`、那一格留空',
+        '不 OCR、不裁切、不改帧率：要改动画本身，本扩展没有对应功能',
+      ],
+      en: [
+        'Playback is Word’s call: every frame is in the package, but this route does not promise the animation runs inside the document',
+        'Unlike GIF to PNG or JPG there is no fixed first-frame notice here — no frames were removed, so there is no loss to disclose',
+        'The body is an altChunk: typesetting, paging and the picture’s displayed size are decided by whatever opens it',
+        'A file unpacked from a ZIP has no type, so the prefix is `application/octet-stream` and the `src` is stripped, leaving an empty slot',
+        'No OCR, no cropping, no frame-rate editing: nothing here changes the animation itself',
+      ],
+    },
+    notes: {
+      zh: [
+        '只想放进网页：GIF→HTML 与这条共享第一步，动图在那边同样完整',
+        '要一张静态图进文档：先 GIF→PNG（取首帧并固定提示），再 PNG→Word',
+        '要 Markdown 里的图：GIF→Markdown 是第一步加一步序列化，负载同样是整份动图',
+      ],
+      en: [
+        'To put it in a web page: GIF to HTML shares this first step, and the animation is just as complete there',
+        'For a still inside a document: GIF to PNG first (one frame, with the fixed notice), then PNG to Word',
+        'For a picture in Markdown: GIF to Markdown is step one plus a serialisation, with the whole animation as payload',
+      ],
+    },
+    faq: [
+      {
+        q: {
+          zh: '所以我的动图在 Word 里到底会不会动？',
+          en: 'So does my animation actually move inside Word?',
+        },
+        a: {
+          zh: '这一路能保证的是帧数据一段没少：文件字节原样进包、被提成图片部件。会不会播放、循环几次，是 Word 对包内 GIF 部件的处理方式，本扩展无法替它承诺，也不在产物里加任何「强制静态」的处理。要一个确定不动的图，就走 GIF→PNG。',
+          en: 'What this route guarantees is that the frame data is complete: the file’s bytes go into the package untouched and become an image part. Whether it plays and how often it loops is Word’s handling of a GIF part, which this extension neither promises nor forces — it adds no «make it static» step. For a picture that certainly does not move, take GIF to PNG.',
+        },
+      },
+      {
+        q: {
+          zh: '为什么 GIF 转 Word 不报「丢了几帧」？',
+          en: 'Why doesn’t GIF to Word report frames lost?',
+        },
+        a: {
+          zh: '因为它没有丢帧可报：这条链不过画布。会报「只保留第一帧」的是需要重编码的那几条（GIF→PNG / JPG / WebP / PDF），而且那句是一句固定提示——帧数是布尔判断的结果，界面从不给出具体数字。',
+          en: 'Because there is no loss to report: this chain never enters a canvas. The routes that say «first frame kept» are the ones that must re-encode (GIF to PNG, JPG, WebP or PDF), and even there it is a fixed notice — the check yields a boolean, and the interface never prints a count.',
+        },
+      },
+      {
+        q: {
+          zh: '图片会不会又变成「链接到本机某个路径」？',
+          en: 'Will the picture end up linked to a local path again?',
+        },
+        a: {
+          zh: '不会。打包器把那条 data URI 写成包里独立的媒体部件，引用指向部件——换机器、换目录，读的都是包里那一份。真要说风险，是类型没被认出的时候（从 ZIP 解包），那种情况连部件都不会生成，那一格直接空着。',
+          en: 'No. The packer writes that data URI as its own media part and points the reference there, so another machine or folder still reads it from inside the package. The real risk is the unrecognised type — a file unpacked from a ZIP — where no part is created at all and the slot comes out empty.',
+        },
+      },
+    ],
+  },
+  {
+    slug: 'txt-to-png',
+    from: 'txt',
+    to: 'png',
+    shot: 'batch-results',
+    published: '2026-10-21',
+    title: {
+      zh: 'TXT 转 PNG——离线、整页截图、不经 PDF',
+      en: 'TXT to PNG offline — a full-page render, no PDF',
+    },
+    desc: {
+      zh: '把 .txt 排成等宽网页后整页渲染成一张 PNG：一步到图片，中间不经 PDF，空白与换行按源码排版保留。全程离线。',
+      en: 'A .txt laid out as a monospace page and rendered whole into one PNG: no PDF in the middle, whitespace and line breaks kept as written.',
+    },
+    lede: {
+      zh: '这条链值得先讲清它**没有**经过什么：`txt>html` + `html>png`，两步到图片（路径基线现读）。同一族的 Word→JPG、Excel→JPG、TXT→JPG 都多一步「先做一份 PDF、再从 PDF 出图」，而这一条直接把网页交给渲染器——所以它是「文字变图片」里**唯一不套 PDF** 的形状，产出是一张连续的长图，而不是一页一页的纸张。第二步用的是工作台同一套渲染路径：把 HTML 净化后离屏排到 `RENDER_WIDTH = 800` 的宽度，按整页高度决定 `pixelRatio`（整页越高取档越低，避免画布超出上限），再画进画布编成 PNG。因此几件事成立：一，**空白、缩进与换行按源文件的样子保留**（等宽 `<pre>` 排版，不做折行美化）；二，PNG 无损，颜色与字符边缘不会被再量化一次；三，长内容有硬上限——整页高度超过 `MAX_CAPTURE_HEIGHT`（32768 px）时明确报「文档长度超出浏览器单次渲染上限」，让你拆短分批，而不是给你一张被静默截断的图。要说清的代价：产出是**图片**，里面的文字选不中、搜不到、也不能被屏幕阅读器读——要能被复制请留在 TXT / Markdown / HTML，要一份多页文档请走 TXT→PDF；图里的长行会按版心排版，宽表格会被换行。全程只有 storage 权限，不联网，也不上传。',
+      en: 'Start with what this chain does **not** go through: `txt>html` + `html>png` — two steps to an image, read live from the route baseline. Its whole family (Word to JPG, Excel to JPG, TXT to JPG) adds a «make a PDF first, then image it» step, while this one hands the page straight to the renderer. That makes it the only shape in “text into a picture” **without a PDF inside**, producing one continuous tall image rather than a stack of paper. The second step is the same render path the workbench uses: sanitise the HTML, lay it out off-screen at `RENDER_WIDTH = 800`, choose a `pixelRatio` from the full page height (taller pages take a lower tier so the canvas stays within limits), then paint it into a canvas and encode a PNG. Three things follow. Whitespace, indentation and line breaks stay exactly as the source wrote them — a monospace `<pre>` layout with no prettified wrapping. PNG is lossless, so colours and glyph edges are not quantised again. And long content has a hard ceiling: past `MAX_CAPTURE_HEIGHT` (32768 px) the route fails with «the document is longer than the browser can render in one pass» and asks you to split it, instead of returning a silently cropped picture. The cost to say out loud: the output is **an image** — its words cannot be selected, searched or read by a screen reader. Stay in TXT, Markdown or HTML when text must be copied, and take TXT to PDF for a paginated document. Long lines wrap at the page’s measure, so wide tables reflow. All of it on the storage permission: no network, no upload.',
+    },
+    keeps: {
+      zh: [
+        '不套 PDF：两步到图片，产出是一张连续长图，不是一页一页的纸',
+        '空白与换行按源文件保留：等宽 `<pre>` 排版，不做折行美化',
+        'PNG 无损：颜色与字符边缘不被再量化一次；渲染宽度固定 800，像素密度按整页高度取',
+        '过长明确报错而不是静默截断：整页高度超过 32768 px 时提示拆短分批',
+        '一批最多 200 个文件、单个 100 MB，与其他路线共用同一道闸门',
+      ],
+      en: [
+        'No PDF inside: two steps to an image, one continuous tall picture rather than a stack of pages',
+        'Whitespace and line breaks follow the source file — a monospace `<pre>` layout with no prettified wrapping',
+        'PNG is lossless: colours and glyph edges are not quantised again, at a fixed 800 render width with density chosen from the full page height',
+        'Over-long input fails clearly instead of arriving silently cropped: past 32768 px of height you are asked to split it',
+        'Up to 200 files per batch and 100 MB each — the same gate every other route shares',
+      ],
+    },
+    limits: {
+      zh: [
+        '产物是图片：里面的文字选不中、搜不到，屏幕阅读器也读不出来',
+        '整页高度有上限（32768 px）：超长文档会被要求分批，不会给你一张截断图',
+        '版心固定 800：宽表格与长行会按这个宽度换行，不像在编辑器里那样横向铺开',
+        '不加语法高亮、不折行美化、不改缩进：排版就是等宽 `<pre>` 的那一套',
+        '要多页纸张或可分页文档：走 TXT→PDF；要能被复制的文字，留在 TXT / Markdown / HTML',
+      ],
+      en: [
+        'The output is an image: its words cannot be selected, searched or read aloud by a screen reader',
+        'One page height ceiling (32768 px): an over-long document is asked to be split rather than returned cropped',
+        'A fixed 800 measure: wide tables and long lines wrap at that width instead of running sideways as in an editor',
+        'No syntax highlighting, no wrapped-line prettifying, no re-indenting: the layout is the monospace `<pre>` one',
+        'For paginated paper take TXT to PDF; for text that can be copied stay in TXT, Markdown or HTML',
+      ],
+    },
+    notes: {
+      zh: [
+        '要一份多页文档：TXT→PDF，中间会先生成同一份网页再按 A4 切片',
+        '要 JPEG / WebP：TXT→JPG 与 TXT→WebP 都多一步 PDF，且终点是有损编码',
+        '要能被到处复制的文字：TXT→Markdown 或 TXT→HTML，那两条产出仍是文本',
+      ],
+      en: [
+        'For a paginated document: TXT to PDF, which builds the same page first and slices it onto A4',
+        'For JPEG or WebP: TXT to JPG and TXT to WebP each add a PDF step and end on a lossy encode',
+        'For text that stays copyable: TXT to Markdown or HTML, which still produce text',
+      ],
+    },
+    faq: [
+      {
+        q: {
+          zh: '为什么这张 PNG 和 Word 转出来的图长得不一样？',
+          en: 'Why does this PNG look different from the Word one?',
+        },
+        a: {
+          zh: '因为中间形态不同。TXT→PNG 直接把整页排到 800 宽的画布上，得到一张连续长图；Word / Excel 那几族会先按 A4 排成多页、写成一份 PDF，再逐页出图，所以产出是一页一张、纸张比例。同一份文字走两条路，分页与尺寸都会不一样。',
+          en: 'Because the intermediate shape differs. TXT to PNG lays the whole page onto an 800-wide canvas and returns one continuous image; the Word and Excel families first paginate onto A4, write a PDF, then image it page by page — so they come out one sheet per image. Same text, different pagination and proportions.',
+        },
+      },
+      {
+        q: {
+          zh: '很长的日志文件转出来会被截断吗？',
+          en: 'Will a very long log file get cut off?',
+        },
+        a: {
+          zh: '不会静默截断。整页高度超过浏览器单次渲染的上限（32768 px）时，这条路会明确报「文档长度超出上限，请拆短分批」，你拿到的是提示而不是半张图。真要一次装下很多页，请走 TXT→PDF——那份是按页组织的文档，不受这个单次渲染上限约束。',
+          en: 'Nothing is cropped silently. Past the browser’s single-render ceiling (32768 px of page height) the route fails with «longer than the browser can render in one pass — split it», so you get a message instead of half a picture. To fit very long content in one artifact, take TXT to PDF, which is organised by pages and not bound by that single-pass limit.',
+        },
+      },
+      {
+        q: {
+          zh: '图里的文字能复制吗？',
+          en: 'Can I copy the text out of the image?',
+        },
+        a: {
+          zh: '不能——PNG 里没有文字层，字符是被画出来的像素。要能被复制、搜索或朗读，就留在文本类产出（TXT / Markdown / HTML）；这条路的目的是把一段文字变成一张可以贴进只有图片栏位的东西里的图。',
+          en: 'No — a PNG has no text layer; the characters are painted pixels. When words must be copied, searched or read aloud, stay with a text output (TXT, Markdown, HTML). The point of this route is turning a block of text into a picture that fits where only an image is accepted.',
+        },
+      },
+    ],
+  },
 ];

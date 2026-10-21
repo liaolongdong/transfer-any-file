@@ -466,10 +466,6 @@ export const HUBS = [
       },
     ],
     targets: {
-      png: {
-        zh: '按等宽 `<pre>` 排版整页渲染成 PNG，空白与换行保留；高度超过 32768 px 时报错而不是截断。',
-        en: 'The monospace `<pre>` layout is captured whole as PNG, preserving whitespace and line breaks; past 32768 px of height the route fails rather than truncating.',
-      },
       jpg: {
         zh: '按 A4 分页、逐页编码 JPEG，多页 ZIP；等宽文字在 JPEG 下会出现边缘振铃，适合预览。',
         en: 'It is sliced into A4 pages and encoded as JPEG, with several pages in a ZIP. JPEG ringing shows on monospace glyph edges, so this suits previews.',
@@ -865,10 +861,6 @@ export const HUBS = [
       },
     ],
     targets: {
-      docx: {
-        zh: '原字节经 HTML 进 Word：那条 data URI 会被提成包里独立的图片部件，帧一段不少，但播不播由 Word 决定。',
-        en: 'The raw bytes travel through HTML into Word: that data URI becomes its own image part in the package, every frame intact, while Word decides whether it plays.',
-      },
       webp: {
         zh: '取首帧后编码 WebP，动画不保留；透明像素按输出设置处理，多帧文件的结果带丢帧披露。',
         en: 'The first frame is encoded as WebP and the animation is not kept; transparent pixels follow the output settings, and a multi-frame source carries the frame-loss disclosure.',

@@ -1232,7 +1232,21 @@ csv→Word 的另一组事实回读自`html-to-docx.ts`：正文以 MHT altChunk
   实测计数不变：`pages:render` 121 文件、`verify:numbers` 23 事实 × 126 文档、`pages:check`、`lint:all`、`build`、
   产物层两条离线守卫、`verify:meta`、`verify:paths` 全 rc=0。运行时零改动，断言数仍 **452**。
 
-## 3. 收下改动：这一节记的是提交账，不是提交计划
+- **10-21 第四十六轮（gif→Word、txt→PNG，106 张页 / 缺口 10）。** gif→Word 这一格专门纠一个反着传的常见说法：
+  「GIF 进 Word 就只剩一张静态图」。**这条链不做取帧这一步**——`gif>html` 把整份文件的原始字节编成 data URI，
+  `html>docx` 再由打包器把那条 `data:` 提成包里独立的 base64 媒体部件并重写引用（判据同 `scripts/e2e-test.mjs:2262-2266`
+  那条夹具专属载荷用例），所以帧一段不少；而**播不播是 Word 那一边的事**，页面只承诺数据侧完整。
+  与此对照着写的两条：GIF→PNG / JPG / WebP / PDF **必须**过画布、只剩一帧，且那句提示是固定的
+  （`lostFrames` 是布尔值，界面从不报帧数——上一条刚改的那族错话）；gif hub 的 `docx` 摘要按镜像规则摘除。
+  txt→PNG 讲的是**中间形态**：`txt>html` + `html>png` 两步到图片，是文字族里唯一不套 PDF 的形状
+  （同族 Word/Excel/TXT→JPG 都是「先做一份 PDF 再逐页出图」的三步链），产出一张连续长图而非一页一页的纸；
+  渲染走工作台同一套路径——净化后离屏排到 `RENDER_WIDTH = 800`、`pixelRatio` 按整页高度取档（越高取越低），
+  高度超过 `MAX_CAPTURE_HEIGHT`（32768 px）时明确报 `errors.renderTooTall` 而不是静默截断。
+  两条 faq 把「为什么和 Word 出来的图长得不一样」「图里的字能不能复制」直接答掉。
+  txt hub 的 `png` 摘要按镜像规则摘除；四镜像同批补齐。
+  实测计数：`pages:render` **123 文件**、`verify:numbers` 23 事实 × **128 文档**（文件 = 页 + 17、文档 = 页 + 22 仍成立）、
+  `pages:check` 逐字节一致、`lint:all`、`build`、产物层两条离线守卫、`verify:meta`、`verify:paths` 全 rc=0。
+  运行时零改动，断言数仍 **452**。今天累计：配对页 91 → **106**、缺口 25 → **10**。
 
 这一节原先给的是 2026-09-19 那一轮（配对页与博客页改成数据源生成）的两条 `git commit`。那些提交早就落地了，
 所以它现在只记账：本轮写了什么、停在哪、还欠哪一笔。**别抄这里的数字，用下面两条命令现读。**
