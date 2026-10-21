@@ -7735,7 +7735,7 @@ export const PAIRS = [
         '打不开不是空文档：解不出容器报 `errors.docxParse`，解开了但没有可转内容报 `errors.docxEmpty`，两种说法在界面上分开',
       ],
       en: [
-        'Two tables trip the gate: with more than one `<table>` the middle step hands over an object grouped by the document’s `<h2>` text, and the CSV step accepts arrays only, so the interface reports “JSON must be an array containing data to convert to CSV” — one table per file',
+        'Two tables trip the gate: with more than one `<table>` and at least one carrying data rows, the middle step hands over a grouped object — keyed by the `<h2>` at the same index, or a `Sheet2`-style name where there is none — and the CSV step accepts arrays only, so the interface reports “JSON must be an array containing data to convert to CSV” — one table per file',
         'A table nested in a cell also counts as the second one: it does not pollute the data rows, but it fails the batch',
         'Merged ranges are not expanded: positions covered by `colspan` / `rowspan` produce no value, so that row shifts left',
         'Paragraphs, headers and footers, footnote text and comments have no cell to sit in and do not appear — though a footnote reference such as `[1]` stays inside the value of the cell carrying it, and inserted revisions (`w:ins`) are read as ordinary text while only deletions vanish',
@@ -7815,7 +7815,7 @@ export const PAIRS = [
       en: [
         'A value is a number only when its bytes come back exactly: `1727000000000` becomes summable while `00424`, `1/2` and `2024-01-05` stay as written',
         'Identifiers of 16 digits or more stay text, pinned to a text number format (the written cell carries the built-in format id 49)',
-        'Columns are the union of every record’s keys: a missing key is a blank cell and surplus cells are dropped rather than shifting later columns',
+        'Columns are the union of every record’s keys and a missing key is a blank cell, while cells beyond the header row are dropped at the table step, so later columns cannot shift',
         'One table, one worksheet: the intermediate CSV has a single table, so the sheet count is one and its name is whatever the read produced',
       ],
     },

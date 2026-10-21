@@ -154,7 +154,7 @@
             <ul>
         <li><span lang="zh-CN">数字只在字节能逐字回来时才是数字：`1727000000000` 可求和，`00424`、`1/2`、`2024-01-05` 保持原字符</span><span lang="en">A value is a number only when its bytes come back exactly: `1727000000000` becomes summable while `00424`, `1/2` and `2024-01-05` stay as written</span></li>
         <li><span lang="zh-CN">16 位以上的编号留在文本，并钉住文本格式（写出的那一格是内置格式号 49）</span><span lang="en">Identifiers of 16 digits or more stay text, pinned to a text number format (the written cell carries the built-in format id 49)</span></li>
-        <li><span lang="zh-CN">列取所有记录键名的并集：某行缺的键留空格；比表头多出的单元格在取表那一步就被丢掉，所以后面几列不会错位</span><span lang="en">Columns are the union of every record’s keys: a missing key is a blank cell and surplus cells are dropped rather than shifting later columns</span></li>
+        <li><span lang="zh-CN">列取所有记录键名的并集：某行缺的键留空格；比表头多出的单元格在取表那一步就被丢掉，所以后面几列不会错位</span><span lang="en">Columns are the union of every record’s keys and a missing key is a blank cell, while cells beyond the header row are dropped at the table step, so later columns cannot shift</span></li>
         <li><span lang="zh-CN">一张表进一张工作表：中间那份 CSV 只有一个表，产物就是单 sheet，表名沿用读取结果</span><span lang="en">One table, one worksheet: the intermediate CSV has a single table, so the sheet count is one and its name is whatever the read produced</span></li>
             </ul>
           </section>
