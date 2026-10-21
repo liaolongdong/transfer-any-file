@@ -1353,6 +1353,16 @@ csv→Word 的另一组事实回读自`html-to-docx.ts`：正文以 MHT altChunk
   **把守卫的 offending 字符串原样抄进账本，会让账本自己变成它的命中面**：这条句子第一次就红在账本里，不在页面里。
   实测计数：`pages:render` 133 文件、`pages:check` 逐字节一致、`verify:numbers` 23 事实 × 138 文档，
   `lint:all` / `build` / `verify:offline` / `verify:remote-code` / `verify:meta` / `verify:paths` 全 rc=0。运行时零改动。
+  **CI 回执（`472a6a6`，本轮收口时读回）**：三条 job 全绿——Lint & Type Check / Build Extension / E2E Tests 均 completed/success。
+  上一笔 `96bcecf` 的 run 显示 `cancelled`：同分支连推会被取消，那是队列行为、不是失败，不要读成红灯。
+  **覆盖收口后的结构自证（四条都是现量，不是推断）**：14 个 hub 的路由条目合计 **116**，且每条都带「有专页 →」链接
+  （逐 hub：7+10+10+7+10+6+10+10+7+6+7+10+6+10）；`docs/convert/**` 生成页里 `id="to-` 锚点剩 **0** 个，
+  而全站对 `/convert/<hub>/#to-<fmt>` 的入站链接也正好是 **0** 条——两边同时归零，没有悬空片段；
+  配对页引用的 8 个静态资源（截图 / 图标 / `content.css`）**逐个存在**，新增的 `svg-to-md.html` 不是坏图页；
+  索引矩阵里 `mx-open` 格子 **116** 个、全部指向配对页。
+
+  本轮只动 `.github/` 与生成数据源，没碰 TS/Vue/运行时，所以按改动范围执行的验证是：`prettier --check`（该 md）+
+  `verify:numbers` + `pages:check`；`lint:all`/`build`/产物层两条守卫在**上一笔提交里已经跑过并全 rc=0**，本轮没有让它们的结论失效。
 
 ## 3. 收下改动：这一节记的是提交账，不是提交计划
 
