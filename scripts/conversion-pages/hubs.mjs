@@ -207,10 +207,6 @@ export const HUBS = [
         zh: '文档里的表格转成对象数组；没有表格时，正文中的 JSON 代码块可以被读出，否则报「没有表格结构」。',
         en: 'Tables become arrays of objects; with no table, a JSON code block in the body can still be read, and otherwise the route reports that no table structure exists.',
       },
-      webp: {
-        zh: '与 JPEG 相同的渲染与分页，终点为 WebP；多页 ZIP。外部图片取不到字节，会在结果卡上按张数披露。',
-        en: 'It shares the rendering and slicing with JPEG and encodes each page as WebP; several pages arrive as a ZIP. External images without bytes are counted on the result card.',
-      },
     },
   },
   {
@@ -336,10 +332,6 @@ export const HUBS = [
       },
     ],
     targets: {
-      jpg: {
-        zh: '先按 A4 分页再逐页编码 JPEG，长表跨页、多页 ZIP；分页按渲染宽度计算，不读取 Excel 的打印区域。',
-        en: 'The rendering is sliced into A4 pages and encoded as JPEG, with long tables spanning pages and several pages in a ZIP. Pagination follows rendered width, not Excel’s print area.',
-      },
       webp: {
         zh: '与 JPEG 相同的分页与编码路径，终点为 WebP；适合体积优先的表格快照，文字边缘会有有损压缩的代价。',
         en: 'It shares the pagination and encoding path with JPEG and writes WebP instead. A size-first snapshot of a table, at the cost of lossy edges on text.',

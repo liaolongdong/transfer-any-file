@@ -1167,7 +1167,7 @@ csv→Word 的另一组事实回读自`html-to-docx.ts`：正文以 MHT altChunk
   实测计数：`pages:render` 115 文件、`verify:numbers` 23 事实 × 120 文档（文件 = 页 + 17、文档 = 页 + 22 仍成立）、
   `pages:check` 逐字节一致、`lint:all`、`build`、产物层两条离线守卫、`verify:meta`、`verify:paths` 全 rc=0。运行时零改动，断言数仍 **452**。
 
-- **10-21 第卅轮再加三格（webp→HTML、webp→Markdown、bmp→Markdown，101 张页 / 缺口 15）。** 这一批把位图搬运族剩下的三个高频格补上，
+- **10-21 第四十二轮（再加三格：webp→HTML、webp→Markdown、bmp→Markdown，101 张页 / 缺口 15）。** 这批把位图搬运族剩下的三个高频格补上，
   并且**顺带查出一个真的产品缺口**（不是措辞问题）：`utils/core/animated-image.ts` 的说明写明它的量测范围**只有 GIF**——
   动图 WebP 的 `VP8X` ANIM 位与 APNG 的 `acTL` 都不在里面，而 `image-convert.ts:22` 的 `lostFrames` 正是
   `from === FileFormat.GIF && hasMultipleFrames(...)`。于是 **WebP→PNG / JPG 这类会取首帧的路线现在丢了多少动画并不告诉用户**：
@@ -1185,7 +1185,7 @@ csv→Word 的另一组事实回读自`html-to-docx.ts`：正文以 MHT altChunk
   实测计数：`pages:render` 118 文件、`verify:numbers` 23 事实 × 123 文档（文件 = 页 + 17、文档 = 页 + 22 仍成立）、
   `pages:check` 逐字节一致、`lint:all`、`build`、产物层两条离线守卫、`verify:meta`、`verify:paths` 全 rc=0。运行时零改动，断言数仍 **452**。
 
-- **10-21 第卅一轮（再加一格：png→Markdown，102 张页 / 缺口 14）。** 这一页的主角是**透明**：`png>html` 不重新采样也不上画布，
+- **10-21 第四十三轮（再加一格：png→Markdown，102 张页 / 缺口 14）。** 这一页的主角是**透明**：`png>html` 不重新采样也不上画布，
   所以 alpha 与像素都是原样，而 PNG→JPG 那一趟会把它合成到白底上（`image-convert.ts:22` 的白底条件只对 JPEG 成立，本轮已复核）。
   产物经 Turndown 实为**一行图片语法**、`body` 里只有那张 `<img>`、head 里的样式表不参与序列化。
   三条限制照今天的规矩写明：显示由收件端决定（网页端邮件客户端与一些托管站不画 `data:` 图片）、体积按 base64 上浮且整段挤在同一行、
@@ -1196,6 +1196,23 @@ csv→Word 的另一组事实回读自`html-to-docx.ts`：正文以 MHT altChunk
   运行时零改动，断言数仍 **452**，素材不重拍。剩余 14 格：docx(json,webp) xlsx(jpg,webp) csv(webp) txt(png,jpg,webp) json(webp)
   bmp(docx,webp) gif(docx,webp) svg(md)——其中图片族的 `→webp/jpg` 全部是「先到 PDF 再从 PDF 出图」的三步链（`html>pdf` + `pdf>webp`），
   这是下一批文案最该讲清的一条反直觉事实。
+
+- **10-21 第四十四轮（docx→WebP、xlsx→JPG，104 张页 / 缺口 12）。** 这两格写的就是上一条预告的那件反直觉事：**文档转图片中间真的产出一份 PDF**
+  （`docx>html` + `html>pdf` + `pdf>webp`；`xlsx>html` + `html>pdf` + `pdf>jpg`，均为基线现读）。
+  三个可证的具体点全部取自实现：`html-to-pdf.ts:33` 用 `new jsPDF('p','mm','a4')`（A4 纵向）、`:75-77` 每页 `toDataURL('image/png')` 后
+  `addImage(..., 'PNG', ..., 'SLOW')`（**中间那一趟是无损 PNG 切片**，压缩档选的是省字节那一档）；`pdf-to-image.ts:127` 出图前把画布
+  `fillStyle = '#ffffff'` 铺白底、`:133` 用 `encodeCanvas` 带上输出选项（所以质量/目标尺寸**只在终点生效**，整条链只量化一次）；
+  `:37/:92-101` 是 200 页上限与「过长明确报 `errors.pdfTooManyImagePages` 而不是静默截断」；`:166-169` 明确 ZIP 条目名
+  `page-N.jpg` 的 N 是**文档页号**（部分转换也对得上）。xlsx 侧还补了一条常被误会的安慰：这条路**不经过**「JSON 必须是数组」那一步，
+  所以多张工作表不会被那道闸拦下（对照记忆里的 `html→csv/xlsx` 多表失败）。
+  **本轮自犯并已纠正一个操作错误**：删 excel hub 的 `jpg` 摘要时按内容匹配，结果命中的是 **txt hub** 的 `jpg`（两条措辞相近、
+  都提到 A4 分页），于是渲染守卫一次报出两件事——「excel 仍重复解释 jpg」与「txt 的 jpg 没有摘要了」。
+  这条教训的形状与之前「按 slug: 'md' 去 awk 读到空」同源：**hub 摘要必须按归属 hub 定位再改，不能按措辞全局匹配**。
+  修正方式：把 txt 那条原文按字节还原（`png` 与 `webp` 之间），再删 excel 自己那条。
+  实测计数：`pages:render` **121 文件**、`verify:numbers` 23 事实 × **126 文档**（文件 = 页 + 17、文档 = 页 + 22 仍成立）、
+  `pages:check` 逐字节一致、`lint:all`、`build`、产物层两条离线守卫、`verify:meta`、`verify:paths` 全 rc=0。
+  运行时零改动，断言数仍 **452**，素材不重拍。另：本轮把上一条提交里被我写错的两处轮次标题（「第卅轮」「第卅一轮」）改回
+  第四十二、第四十三轮——提交信息本身已推送，不改历史，以这条记录为准。
   实测计数：`pages:render` 113 文件、`verify:numbers` 23 事实 × 118 文档（文件 = 页 + 17、文档 = 页 + 22 仍成立）、
   `pages:check` 逐字节一致、`lint:all`、`build`、产物层两条离线守卫、`verify:meta`、`verify:paths` 全 rc=0。
   这一轮按上一笔的教训**整目录暂存 `docs/convert`**，并在 `git archive HEAD` 的隔离树里重跑 `render --check` 自证。运行时零改动，断言数仍 **452**。
