@@ -1263,6 +1263,21 @@ csv→Word 的另一组事实回读自`html-to-docx.ts`：正文以 MHT altChunk
   （TIFF / EMF / WMF 会被剥成占位框）。第 5、6 条的证据是核查员**内存构造 docx 跑 mammoth、实跑 `sheet_to_html` 出的真字节**。
   实测计数不变：`pages:render` 123 文件、`verify:numbers` 23 事实 × 128 文档、`pages:check` 逐字节一致、`lint:all`、`build`、
   产物层两条离线守卫、`verify:meta` 全 rc=0；`页数太多` / `pdfTooManyImagePages` 在数据源里 grep 已归零。运行时零改动，断言数仍 **452**。
+
+- **10-21 第四十八轮（docx→JSON、gif→WebP，108 张页 / 缺口 8）。** docx→JSON 整页围绕**有几张表决定产出形状**这一条写：
+  `doc.querySelectorAll` 取 `table` 命中**一张**时是对象数组（首行当键名），**两张及以上**时是按文档顺序分组的对象、
+  组名取同级 `h2`、缺标题回落 `SheetN`（`json-to-html.ts:142,187-189`），**没有表**才退去读第一个 `<pre>` / `<code>` 的
+  `textContent` 再 `JSON.parse`，两条都不成立就报 `errors.htmlToJson`（`html-to-json` 那一步，不是「没有表格结构」那句话）。
+  并且把**下游连带后果**写在同一页：分组对象过不了「只吃数组」那道闸（`json>csv` 会拒），所以要多张表就一次转一张或改走不经过它的链——
+  这正是记忆里那条跨转换器形状坑的正向用法。faq 里钉死三个细节：重复/空表头后者赢、`colspan` 只算一键、**多出的单元格在取表这步就丢**。
+  gif→WebP 讲两条常被混为一谈的方向：它**确实丢动画**（一步 `gif>webp` 走 `image-convert.ts`，`drawImage` 只取一帧），
+  但**不铺白底**——那层 `#FFFFFF` 只在终点是 JPEG 时画，所以 GIF 的 1 位透明带着 alpha 进 WebP，与 GIF→JPG 正好相反；
+  并明确「提示是固定一句、界面从不报帧数」以及「要保动画走 GIF→HTML / Markdown / Word 那几条搬运路」。
+  记账：word hub 的 `json` 与 gif hub 的 `webp` 摘要按镜像规则摘除，四镜像同批补齐。
+  数字门这一轮又拦两次：docx→JSON 的 `desc.en` 161 → 削短；gif→WebP 的 `desc.en` 164 → 再削。
+  实测计数：`pages:render` 125 文件、`verify:numbers` 23 事实 × 130 文档（文件 = 页 + 17、文档 = 页 + 22 仍成立）、
+  `pages:check` 逐字节一致、`lint:all`、`build`、产物层两条离线守卫、`verify:meta`、`verify:paths` 全 rc=0。
+  运行时零改动，断言数仍 **452**。
   **另记一处我自己造成的文档损坏**：这一轮的 ledger 追加把「## 3. 收下改动」这条小节标题吞掉了（我用整行标题做锚点替换、
   却忘了把标题写回 new_string），本条已把标题恢复；教训是**用标题做锚点时，new_string 必须原样带回标题**。
 

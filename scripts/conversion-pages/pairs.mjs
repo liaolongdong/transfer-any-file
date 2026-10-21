@@ -9693,4 +9693,194 @@ export const PAIRS = [
       },
     ],
   },
+  {
+    slug: 'docx-to-json',
+    from: 'docx',
+    to: 'json',
+    shot: 'batch-results',
+    published: '2026-10-21',
+    title: {
+      zh: 'Word 转 JSON——离线、有表才成数组、多表会分组',
+      en: 'Word to JSON offline — tables, grouping, no guesswork',
+    },
+    desc: {
+      zh: 'mammoth 出 HTML 再取表格：一张表变对象数组，多张表按文档小标题分组（缺标题时回落成 SheetN），没表时读第一个代码块。全程离线。',
+      en: 'Mammoth to HTML, then the tables: one becomes an array of objects, several group under headings (or SheetN), else the first code block is parsed.',
+    },
+    lede: {
+      zh: '这条链的产出形状完全由文档里**有几张表**决定，这是它最容易被讲反的地方。`docx>html` 先由 mammoth 把文档体还原成语义 HTML（标题层级、列表、表格；内嵌图片读成 data URI；脚注会作为末尾列表进来、插入修订按正文读出、文本框内容照常成段，只有批注不落），`html>json` 再按三条分支取数：`doc.querySelectorAll` 取 `table` **只有一张**时，产出对象数组——第一行当表头、其余行按表头配成键值；**两张及以上**时，产出**按文档顺序分组的对象**，分组名取同级的小标题（`h2`），标题不够用就回落成 `Sheet2` 这类名字；**一张表都没有**时，退一步去读文档里第一个 `<pre>`（或 `<code>`）的文本再 `JSON.parse`——注意这一步取的是 `textContent`，所以用 `<br>` 排的换行在这里会消失，两条路都不成立就明确报 `errors.htmlToJson` 而不是给你一个空数组。有一条重要的下游连带后果要写在这：多张表产出的**不是数组**，所以再往「只吃数组」的步骤走（`json>csv`、`csv>xlsx`）会在下一步报错「JSON 内容必须是包含数据的数组才能转换为 CSV」——**要一次交付多张表，就该走 Word→Excel 之类不经过那道闸的路线，或者干脆把文档拆成每张表单独转**。取值也有边界：mammoth 读的是文档里存下的文字，公式与格式不是它的取数范围；表头里重复或为空的格子会互相覆盖（后者赢），跨 `colspan` 的表头只算一格。全程只有 storage 权限，不联网。',
+      en: 'The shape of the output on this chain is decided entirely by **how many tables the document holds**, and that is where it most often gets explained backwards. `docx>html` first has mammoth restore the body as semantic HTML (heading levels, lists, tables; embedded pictures become data URIs; footnotes arrive as a trailing list, tracked insertions read as body text and text-box content becomes paragraphs — only comments are left out), and `html>json` then takes one of three branches: with **exactly one** `doc.querySelectorAll` 取 `table` hit it produces an array of objects, first row as headers and the rest zipped against them; with **two or more** it produces an **object grouped in document order**, naming each group after the heading at the same level (`h2`), falling back to names like `Sheet2` when there are not enough; with **no table at all** it reads the first `<pre>` (or `<code>`) text and runs `JSON.parse` — and since that step takes `textContent`, line breaks made with `<br>` disappear here — and when neither works it fails with `errors.htmlToJson` rather than handing you an empty array. One downstream consequence belongs on this page: several tables produce **not an array**, so the next step if that step only accepts arrays (`json>csv`, then `csv>xlsx`) refuses with «JSON content must be an array of objects to convert to CSV». **To deliver several sheets at once, take a route that does not pass that gate, or convert one table at a time.** The value boundary is stated too: mammoth reads the words stored in the document, so formulas and formatting are outside what it fetches; duplicate or empty header cells overwrite each other (the later one wins), and a header spanning `colspan` counts as one key. All of it on the storage permission, with no network.',
+    },
+    keeps: {
+      zh: [
+        '一张表就是对象数组：第一行当表头、其余行按键配对，顺序保持文档原样',
+        '多张表按文档顺序分组，键取同级 `h2`；标题不够时回落成 `Sheet2` 这类名字',
+        '没有表格时退到第一个 `<pre>` / `<code>` 的文本再解析，解析不了就明确报错',
+        '标题层级与正文文字都按语义还原（`h1`–`h4`、列表、表格），不是把文档压成一坨文本',
+        '一批最多 200 个文件、单个 100 MB，与其他路线共用同一道闸门',
+      ],
+      en: [
+        'One table becomes an array of objects: the first row as headers, the rest zipped against them, in document order',
+        'Several tables group in document order, keyed by the sibling `h2`; unnamed groups fall back to `Sheet2`-style names',
+        'With no table it falls back to the first `<pre>` / `<code>` text and parses that, and fails clearly when parsing cannot work',
+        'Heading levels and body text are restored semantically (`h1`–`h4`, lists, tables) rather than flattened into one blob',
+        'Up to 200 files per batch and 100 MB each — the same gate every other route shares',
+      ],
+    },
+    limits: {
+      zh: [
+        '多张表产出的是分组对象而不是数组，所以接「只吃数组」的下一步（`json>csv`、`csv>xlsx`）会报错——那张路要走 Word→Excel，或一张表转一次',
+        '读的是文档里存下的文字：公式的值与单元格格式不在取数范围，条件格式更不是',
+        '表头里重复或为空的格子会互相覆盖（后者赢），跨 `colspan` 的表头只算一个键',
+        '用 `<br>` 排的换行在退读代码块那一步会消失（取的是 `textContent`）',
+        '脚注会以 `[1]` 这样的引用留在文字里；批注不进、`w:ins` 按正文读出',
+      ],
+      en: [
+        'Several tables yield a grouped object, not an array, so the next step refuses if it only accepts arrays (`json>csv`, `csv>xlsx`) — take Word to Excel for that, or convert one table at a time',
+        'It reads the words stored in the document: cell formula results and formatting are outside what it fetches, and conditional formatting even more so',
+        'Duplicate or empty header cells overwrite each other (the later wins), and a header spanning `colspan` counts as a single key',
+        'Line breaks made with `<br>` vanish in the code-block fallback, which reads `textContent`',
+        'Footnote references stay in the text as `[1]`-style marks; comments do not come across and `w:ins` reads as body text',
+      ],
+    },
+    notes: {
+      zh: [
+        '要一份表格 CSV / Excel：一张表时用 Word→CSV 或 Word→Excel，多张表请拆开或走 Word→HTML 自己取',
+        '要纯文字：Word→TXT 丢掉表格结构，但正文读得更完整',
+        '要能再编辑的网页或文档：Word→HTML / Word→Markdown，那里表格会带 colspan 信息进标记',
+      ],
+      en: [
+        'For CSV or Excel from a table: use Word to CSV / Excel when there is one table; split several, or take Word to HTML and pick them apart',
+        'For plain words: Word to TXT drops the table structure but reads the body more completely',
+        'For an editable page or document: Word to HTML / Markdown keeps `colspan` in the markup',
+      ],
+    },
+    faq: [
+      {
+        q: {
+          zh: '为什么转出来是一个对象而不是数组？',
+          en: 'Why did I get an object instead of an array?',
+        },
+        a: {
+          zh: '因为文档里有两张以上的表（表格套在单元格里也算两张，取表用的是会下钻的选择器）。这条路会按文档顺序把它们分组，组名取同级小标题、缺标题时用 `SheetN`。这是刻意保留「哪张表是哪个」的信息，代价就是产物不再是数组——所以紧接着走「只吃数组」的那步会报错。要么一次转一张表，要么改走 Word→Excel 那条不经过这道闸的链。',
+          en: 'Because the document held more than one table (a table nested inside a cell counts too, since the selector descends). The route groups them in document order, naming each group after its heading or falling back to `SheetN`. Keeping «which table is which» is deliberate, and the price is that the artifact is no longer an array — which is exactly what the next arrays-only step complains about. Convert one table at a time, or take Word to Excel, which does not pass that gate.',
+        },
+      },
+      {
+        q: {
+          zh: '我的 Word 里没有表格，转 JSON 会怎样？',
+          en: 'What if my Word file has no tables?',
+        },
+        a: {
+          zh: '取表那一步失败后会退到「读第一个 `<pre>` / `<code>` 的文本再解析 JSON」，也就是说文档里得有形如 JSON 的代码块才行；正文段落不会被猜成数据。两条都不成立就明确报 `errors.htmlToJson`，不会给你一份空数组冒充成功。要的是文字，请走 Word→TXT / Markdown。',
+          en: 'After the table branch misses, it falls back to reading the first `<pre>` / `<code>` text and parsing it as JSON, so the document needs a code block that really contains JSON; ordinary paragraphs are not guessed into data. If neither works it fails with `errors.htmlToJson` rather than passing off an empty array as success. If what you want is words, take Word to TXT or Markdown.',
+        },
+      },
+      {
+        q: {
+          zh: '表头那一行会怎么处理？',
+          en: 'How is the header row handled?',
+        },
+        a: {
+          zh: '一张表的场合取第一行当键名、其余行配成对象。三个细节值得知道：表头里出现重复或为空的格子，后写的会盖掉先写的；跨 `colspan` 的表头只算一个键；某一行格子比表头多时，多出的部分是在取表这一步就被丢掉的（不是后面转 CSV 时丢的）。要参与运算的值请在 Word 里算完再转——公式不会被重新求值。',
+          en: 'With a single table, the first row supplies the keys and the rest become objects. Three details matter: repeated or empty header cells let the later one win, a header spanning `colspan` counts as one key, and when a row carries more cells than the header, the extras are dropped right here at the table-reading step (not later, converting to CSV). Values that must be computed belong in Word first — formulas are never re-evaluated.',
+        },
+      },
+    ],
+  },
+  {
+    slug: 'gif-to-webp',
+    from: 'gif',
+    to: 'webp',
+    shot: 'batch-results',
+    published: '2026-10-21',
+    title: {
+      zh: 'GIF 转 WebP——离线、取首帧、透明保留',
+      en: 'GIF to WebP offline — first frame, alpha kept',
+    },
+    desc: {
+      zh: '取首帧重编码成 WebP：这一路会丢动画并在结果上固定提示；与 JPG 不同，它不铺白底，透明像素保留。全程离线。',
+      en: 'The first frame, re-encoded as WebP: the animation goes, with a fixed notice, and unlike JPEG no white ground is painted, so alpha survives. Fully offline.',
+    },
+    lede: {
+      zh: '这一格有两条容易混的方向，先分开说。第一，**它会丢动画**：`gif>webp` 是一步（路径基线现读），走的是图片转图片那条通用管线——解码到画布、`drawImage` 只取一帧，再 `encodeCanvas` 编成 WebP，所以产物是**静帧**；界面上会给出那句固定的「只保留第一帧」提示（`lostFrames` 是个布尔判断，界面从不报具体帧数）。想要动图原样保留，得走不重编码的路：GIF→HTML / GIF→Markdown / GIF→Word 那几条都是把整份文件字节搬过去，帧一段不少。第二，**它不铺白底**：画布上那层 `#FFFFFF` 只在终点是 JPEG 时才画（`utils/converters/image-convert.ts:51-54` 的条件就是 ``mimeType` 恰为 `image/jpeg``），WebP 有透明通道、不需要垫底，所以 GIF 里那一格透明会带着 alpha 进 WebP——这与 GIF→JPG 正好相反（那边先把透明合成成白色再编码）。能调的是输出参数里的最长边与目标尺寸：最长边只在超过时才缩、**不放大**，目标尺寸是有损格式才生效的旋钮，两者都在最后一次编码上起作用。像素之外的东西都不在取数范围：不 OCR、不读内容，产物里没有任何字符串来自对画面的理解。若你要的是「一张透明底的静态图」，这一路是对的；要保动画，回到上面那三条；要更小的静帧，试调质量与最长边。全程只有 storage 权限，不联网、不上传。',
+      en: 'Two directions get confused here, so separate them first. **Yes, the animation is lost**: `gif>webp` is one step (read live from the baseline) through the shared image-to-image pipeline — decode onto a canvas, `drawImage` keeps a single frame, then `encodeCanvas` writes WebP — so the artifact is a **still**, and the interface shows its fixed «first frame kept» notice (`lostFrames` is a boolean test; the interface never prints a frame count). To keep the animation, take a route that does not re-encode: GIF to HTML, to Markdown or to Word all carry the whole file’s bytes with every frame intact. **No, this route does not paint a white ground**: that `#FFFFFF` fill happens only when the endpoint is JPEG (`utils/converters/image-convert.ts:51-54` tests exactly ``mimeType` 恰为 `image/jpeg``), and WebP has a transparency channel, so the GIF’s transparent pixels keep their alpha into the WebP — the opposite of GIF to JPG, which composites them onto white first. What you can adjust is in the output options: the longest edge only scales down, never up, and the target size is a lever that exists only for lossy formats; both act on that final encode. Nothing outside pixels is in scope — no OCR, no reading of content, and no string in the artifact comes from understanding the picture. Want a still with a transparent background, this is the route; want the animation, go back to those three pages; want a smaller still, tune quality and the longest edge. All of it on the storage permission: no network, no upload.',
+    },
+    keeps: {
+      zh: [
+        '透明保留：终点不是 JPEG，所以画布不铺白底，alpha 跟着进 WebP',
+        '最长边只缩不放：超过设定值才等比缩，小图不会被拉糊',
+        '目标尺寸与质量作用在最后那一次编码上（有损格式才有的旋钮）',
+        '会明确给出「只保留第一帧」的固定提示，不静默把动画变成静帧',
+        '一批最多 200 个文件、单个 100 MB，与其他路线共用同一道闸门',
+      ],
+      en: [
+        'Transparency kept: the endpoint is not JPEG, so no white ground is painted and the alpha rides into the WebP',
+        'The longest edge only scales down, never up, so small pictures are not stretched',
+        'Target size and quality act on that final encode — knobs that exist for lossy formats',
+        'A fixed «first frame kept» notice is shown, rather than silently trading the animation for a still',
+        'Up to 200 files per batch and 100 MB each — the same gate every other route shares',
+      ],
+    },
+    limits: {
+      zh: [
+        '动画不保留：产物是单帧静图，要保留动画请走 GIF→HTML / Markdown / Word（那些不重编码）',
+        '提示只说「只保留第一帧」，不报帧数——帧数是布尔判断，界面无处得知',
+        '有损编码：WebP 会量化一次，边缘与渐变处的细节请按目标尺寸与质量自己试',
+        '不 OCR、不读画面内容，也不改帧率或挑某一帧（本扩展没有选帧功能）',
+        '透明虽保留，但 GIF 本身是 1 位透明：半透明边缘不会因此变平滑',
+      ],
+      en: [
+        'The animation does not survive: the artifact is one still frame — keep it by taking GIF to HTML, Markdown or Word, which do not re-encode',
+        'The notice says only «first frame kept» and never a count, because the check yields a boolean',
+        'A lossy encode: WebP quantises once, so edge and gradient detail is yours to tune via target size and quality',
+        'No OCR, no reading of the picture, no frame-rate editing and no frame picking — this extension has no such feature',
+        'Transparency survives, but GIF carries 1-bit alpha, so soft edges do not become smoother here',
+      ],
+    },
+    notes: {
+      zh: [
+        '要保住动画：GIF→HTML（或 GIF→Markdown、GIF→Word），那几条都不重编码、帧段段都在',
+        '要白底静帧：GIF→JPG 会把透明合成到白底，通用性最好',
+        '要无损静帧：GIF→PNG 保留 alpha 且不量化，只是同样只剩首帧',
+      ],
+      en: [
+        'To keep the animation: GIF to HTML (or Markdown, or Word) — none of them re-encode, every frame survives',
+        'For a still on white: GIF to JPG composites transparency onto white and is the most universally accepted',
+        'For a lossless still: GIF to PNG keeps alpha and skips quantisation, and also keeps just the first frame',
+      ],
+    },
+    faq: [
+      {
+        q: {
+          zh: '为什么结果说「只保留第一帧」却不告诉我丢了几帧？',
+          en: 'Why does the result say “first frame kept” without a frame count?',
+        },
+        a: {
+          zh: '因为那个判断只回答「是不是动图」：走查 GIF 的块结构、数到第二个图像描述符就返回真，不为了报数把整份文件读完。界面上因此是一句固定提示，而不是「丢了 N 帧」。（另外：动图 WebP 与 APNG 的动画判断目前不在这条检查的范围内。）',
+          en: 'Because the check only answers «was this an animation»: it walks the GIF’s block structure and returns at the second image descriptor rather than reading the whole file to produce a number. So the interface shows a fixed notice instead of «N frames lost». (Related: animation detection for animated WebP and APNG is outside this check today.)',
+        },
+      },
+      {
+        q: {
+          zh: 'GIF 的透明背景会变白吗？',
+          en: 'Will my GIF’s transparent background turn white?',
+        },
+        a: {
+          zh: '这一路不会——白底只在终点是 JPEG 时才铺。所以透明像素带着 alpha 进 WebP。反过来说 GIF 的透明是 1 位的，边缘不会有半透明的柔和过渡，这一点不会因为换格式而改善。要白底静帧请走 GIF→JPG，要无损静帧走 GIF→PNG。',
+          en: 'Not on this route — the white ground is painted only when the endpoint is JPEG, so transparent pixels ride into the WebP with their alpha. That said, GIF transparency is 1-bit, so edges gain no soft blending, and changing format does not fix that. For a still on white take GIF to JPG; for a lossless still, GIF to PNG.',
+        },
+      },
+      {
+        q: {
+          zh: '怎样才能既小又保留动画？',
+          en: 'How do I keep the animation and still get smaller?',
+        },
+        a: {
+          zh: '这条链做不到：会重编码出 WebP 的路线都只剩一帧，而保留帧的路线（GIF→HTML / Markdown / Word）是搬运、不做优化。要「又是动图又更小」得真正重编码动画帧，本扩展没有这个功能；能做的只有把源 GIF 本身先缩小、或者接受一帧静图。',
+          en: 'This chain cannot: every route that encodes a WebP keeps one frame, while the frame-preserving routes (GIF to HTML, Markdown, Word) carry bytes and do no optimisation. A smaller animated file needs a real animation re-encode, which this extension does not offer; all you can do is shrink the source GIF first, or accept a still.',
+        },
+      },
+    ],
+  },
 ];

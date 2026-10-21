@@ -202,12 +202,7 @@ export const HUBS = [
         },
       },
     ],
-    targets: {
-      json: {
-        zh: '文档里的表格转成对象数组；没有表格时，正文中的 JSON 代码块可以被读出，否则报「没有表格结构」。',
-        en: 'Tables become arrays of objects; with no table, a JSON code block in the body can still be read, and otherwise the route reports that no table structure exists.',
-      },
-    },
+    targets: {},
   },
   {
     from: 'pdf',
@@ -860,12 +855,7 @@ export const HUBS = [
         },
       },
     ],
-    targets: {
-      webp: {
-        zh: '取首帧后编码 WebP，动画不保留；透明像素按输出设置处理，多帧文件的结果带丢帧披露。',
-        en: 'The first frame is encoded as WebP and the animation is not kept; transparent pixels follow the output settings, and a multi-frame source carries the frame-loss disclosure.',
-      },
-    },
+    targets: {},
   },
   {
     from: 'svg',
