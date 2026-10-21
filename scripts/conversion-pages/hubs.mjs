@@ -460,16 +460,7 @@ export const HUBS = [
         },
       },
     ],
-    targets: {
-      jpg: {
-        zh: '按 A4 分页、逐页编码 JPEG，多页 ZIP；等宽文字在 JPEG 下会出现边缘振铃，适合预览。',
-        en: 'It is sliced into A4 pages and encoded as JPEG, with several pages in a ZIP. JPEG ringing shows on monospace glyph edges, so this suits previews.',
-      },
-      webp: {
-        zh: '同样按 A4 分页并编码 WebP；多页 ZIP。文本类内容用有损格式体积收益有限，清晰度会下降。',
-        en: 'The same A4 slicing and a WebP encoder, with several pages in a ZIP. Lossy compression buys little on text and costs some sharpness.',
-      },
-    },
+    targets: {},
   },
   {
     from: 'json',

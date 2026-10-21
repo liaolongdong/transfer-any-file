@@ -206,6 +206,9 @@ Sole author: Better ([github.com/liaolongdong](https://github.com/liaolongdong))
 - [Contributing guide](https://github.com/liaolongdong/transfer-any-file/blob/main/CONTRIBUTING.en.md): the offline-only rule, how to add a converter, and which docs must move together ([简体中文](https://github.com/liaolongdong/transfer-any-file/blob/main/CONTRIBUTING.md))
 - [Chrome Web Store listing copy and disclosures](https://github.com/liaolongdong/transfer-any-file/blob/main/.github/CHROMEWEBSTORE.md)
 
+- [TXT → JPG](https://liaolongdong.github.io/transfer-any-file/convert/txt-to-jpg.html): three steps with a PDF in the middle, so the result is one A4 sheet per image with a single lossy encode at the end — and long lines are clipped at the 734 px content box, never wrapped
+- [TXT → WebP](https://liaolongdong.github.io/transfer-any-file/convert/txt-to-webp.html): the same A4 slicing through an intermediate PDF, ending in WebP instead of JPEG — usually smaller at comparable appearance, with the same clipped-not-wrapped warning about long lines
+
 ## Tech stack
 
 WXT · Vue 3 · TypeScript · Element Plus · Vite · Playwright (end-to-end). Heavy conversion libraries (marked, turndown, mammoth, pdf.js, SheetJS, jsPDF, html-to-image, DOMPurify) are dynamically imported per converter, and so is the ZIP packer (fflate) — loaded at the call site that needs it, not with the workbench. The complete bundle is 3.86 MB.

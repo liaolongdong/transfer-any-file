@@ -9883,4 +9883,194 @@ export const PAIRS = [
       },
     ],
   },
+  {
+    slug: 'txt-to-jpg',
+    from: 'txt',
+    to: 'jpg',
+    shot: 'batch-results',
+    published: '2026-10-21',
+    title: {
+      zh: 'TXT 转 JPG——离线、按 A4 分页、中间过一份 PDF',
+      en: 'TXT to JPG offline — A4 pages, via a PDF',
+    },
+    desc: {
+      zh: '三步：等宽排版成网页、按 A4 渲染成无损 PNG 切片写进 PDF，再逐页画到白底编码成 JPEG。只有终点那一次有损。全程离线。',
+      en: 'Three steps: monospace HTML, A4 render into lossless PNG slices inside a PDF, then each page onto white and encoded once as JPEG.',
+    },
+    lede: {
+      zh: '这条路和 TXT→PNG 不是一回事，差别在**中间那份 PDF**：`txt>html` + `html>pdf` + `pdf>jpg`（三步，路径基线现读）。第一步把纯文本包成等宽 `<pre>` 的网页；第二步交给浏览器按 **A4 纵向**排版（`jsPDF` 的构造参数就是纵向、毫米、A4），逐页渲染成画布并作为 **PNG 无损切片**写进那份临时 PDF；第三步由 pdf.js 把每一页画到**白底画布**上，编成 JPEG。于是几件事同时成立：**产出是一页一张的纸**，不是一张连续长图；**整条链只量化一次**（中间是 PNG 切片，质量参数只作用在终点）；背景是白的（渲染器写死 `backgroundColor` 为白色，所以文字图没有透明通道可言）。要如实说的代价有两条，都和「看不看得见」有关：一，`<pre>` **不折行**——超过约 734 px 内容区的长行不是被换到下一行，而是被版心裁掉，这一步宽度没有闸；二，高度有闸——整页排到 32768 px 上限时渲染那一步明确报错（`errors.renderTooTall`），而不是给你半份图，所以超长文本请先拆短；同一道高度闸也让这份中间 PDF 实际排不到几百页，出图那一步的页数上限在这条链上碰不到。图里的字仍是像素：选不中、搜不到，要能被复制就留在 TXT / Markdown / HTML。全程只有 storage 权限，不联网。',
+      en: 'This is not the same route as TXT to PNG, and the difference is **the PDF in the middle**: `txt>html` + `html>pdf` + `pdf>jpg` — three steps, read live from the baseline. Step one wraps the text as a monospace `<pre>` page. Step two hands it to the browser laid out as **A4 portrait**, renders each page to a canvas and writes it into that temporary PDF as **lossless PNG slices**. Step three has pdf.js draw every page onto a **white canvas** and encode it as JPEG. Three things hold at once: the output is **one sheet per page**, not a single continuous image; **the chain quantises only once** (the middle is PNG slices, and the quality knob acts on the endpoint); and the ground is white — the renderer pins `backgroundColor` to white, so there is no alpha to speak of in a text picture. Two costs have to be said plainly, both about what you can see. First, `<pre>` **does not wrap**: a line longer than the roughly 734 px content box is not pushed to a next line, it is clipped, and nothing gates width here. Second, height is gated: past 32768 px of laid-out page the render step fails with `errors.renderTooTall` instead of handing you half a document, so split long text first — and that same ceiling is why the intermediate PDF never grows to hundreds of pages, which in turn means the image step’s page cap is unreachable on this chain. The words in the image are still pixels: unselectable and unsearchable, so stay in TXT, Markdown or HTML when text must be copied. All of it on the storage permission, with no network.',
+    },
+    keeps: {
+      zh: [
+        '一页一张的纸：按 A4 切页，不是一张连续长图（这是与 TXT→PNG 的实际分界）',
+        '整条链只量化一次：中间是 PNG 无损切片，质量与目标尺寸只作用在 JPEG 终点',
+        '背景固定白底：文字图不会有透明通道，也不会有半透明边缘',
+        '高度有闸：超过 32768 px 明确报 `errors.renderTooTall`，不静默给你半份图',
+        '一批最多 200 个文件、单个 100 MB，与其他路线共用同一道闸门',
+      ],
+      en: [
+        'One sheet per page, sliced on A4 — not a single continuous image, which is the real dividing line with TXT to PNG',
+        'The chain quantises once: the middle is lossless PNG slices, and quality plus target size act only on the JPEG endpoint',
+        'A fixed white ground: a text picture gets no alpha channel and no semi-transparent edges',
+        'Height is gated: past 32768 px the render step fails with `errors.renderTooTall` rather than returning half a document',
+        'Up to 200 files per batch and 100 MB each — the same gate every other route shares',
+      ],
+    },
+    limits: {
+      zh: [
+        '`<pre>` 不折行：超过约 734 px 的长行被裁掉而不是换行，宽度没有闸——请先拆短长行',
+        '产物是图片：字选不中、搜不到，屏幕阅读器也读不出来',
+        '有损终点：文字边缘正是 JPEG 最先出振铃的地方，要归档或再取字请走 PNG 或留在文本',
+        '超长受 32768 px 高度上限约束，TXT→PDF 用同一道闸，绕不开',
+        '没有页码选择这一步：它的分页来自排版，源文件是 PDF 时才有那份选页参数',
+      ],
+      en: [
+        '`<pre>` never wraps: lines past roughly 734 px are clipped, not reflowed, and nothing gates width — break long lines first',
+        'The artifact is an image: words cannot be selected, searched or read aloud',
+        'A lossy endpoint: glyph edges are exactly where JPEG ringing appears first, so use PNG or plain text for archival and for retrievable words',
+        'Very long text hits the 32768 px height ceiling, and TXT to PDF shares that same gate — there is no way around it here',
+        'There is no page-range step: pagination comes from layout, and the range control exists only when the source is a PDF',
+      ],
+    },
+    notes: {
+      zh: [
+        '要一张连续长图：TXT→PNG，两步不经 PDF',
+        '要一份多页文档：TXT→PDF，中间那份 PDF 就是终点、PNG 切片无损',
+        '要体积更小的分页快照：TXT→WebP 是同一条三步链，终点换成 WebP',
+      ],
+      en: [
+        'For one continuous image: TXT to PNG, two steps with no PDF inside',
+        'For a multi-page document: TXT to PDF, where that intermediate PDF becomes the destination',
+        'For a smaller paginated snapshot: TXT to WebP is the same three-step chain with WebP at the end',
+      ],
+    },
+    faq: [
+      {
+        q: {
+          zh: '为什么我的长行右边少了几个字？',
+          en: 'Why did the right end of my long lines go missing?',
+        },
+        a: {
+          zh: '因为这条链按 800 px 版心排版，而 `<pre>` 不折行——超出内容区（约 734 px）的字符不是被挪到下一行，是被裁掉，而且宽度方向没有任何检查会提示你。要么先把行拆短，要么改用会横向滚动的载体（HTML），要么走 TXT→PDF 自己在阅读器里看。',
+          en: 'Because this chain lays out at an 800 px measure and `<pre>` does not wrap: characters past the content box (about 734 px) are not moved down a line, they are clipped, and nothing on the width axis warns you. Break long lines first, use a carrier that scrolls sideways (HTML), or take TXT to PDF and read it in a viewer.',
+        },
+      },
+      {
+        q: {
+          zh: '和 TXT→PNG 该选哪个？',
+          en: 'Should I take TXT to JPG or TXT to PNG?',
+        },
+        a: {
+          zh: '看你要「纸」还是要「原样」。TXT→PNG 是两步、不套 PDF，产出一张连续长图且无损；TXT→JPG 多一道 PDF 中间产物，按 A4 切成一页一张，终点有损。要贴进只收图片的地方且控制体积就选 JPG，要保持边缘锐利或之后再取字就选 PNG。',
+          en: 'Decide whether you want paper or the original. TXT to PNG is two steps with no PDF inside, one lossless continuous image; TXT to JPG adds a PDF in the middle, slices onto A4 one page per image and quantises at the end. Pick JPG where a picture is all the destination accepts and size matters, PNG when edges must stay crisp or the words may be needed later.',
+        },
+      },
+      {
+        q: {
+          zh: '很长的日志能一次转完吗？',
+          en: 'Can I convert a very long log in one go?',
+        },
+        a: {
+          zh: '不能，而且两条路都拦你：排版高度超过 32768 px 时渲染那一步会明确报错，让你拆短分批——TXT→PDF 用的是同一个渲染器与同一道上限，绕不过去。这条链的中间 PDF 也因此排不到几百页，所以出图那一步的页数上限在这条路上其实碰不到。',
+          en: 'No, and both routes stop you: past 32768 px of laid-out height the render step fails and asks you to split the text — TXT to PDF uses the same renderer and the same ceiling, so there is no way around it. The intermediate PDF therefore never grows to hundreds of pages either, which is why the image step’s page cap is unreachable on this chain.',
+        },
+      },
+    ],
+  },
+  {
+    slug: 'txt-to-webp',
+    from: 'txt',
+    to: 'webp',
+    shot: 'batch-results',
+    published: '2026-10-21',
+    title: {
+      zh: 'TXT 转 WebP——离线、按 A4 分页、终点单次量化',
+      en: 'TXT to WebP offline — A4 pages, one lossy encode',
+    },
+    desc: {
+      zh: '与 TXT→JPG 同一条三步链，终点换成 WebP：中间是 PNG 无损切片，只有终点量化一次；质量与目标尺寸都在这一步。全程离线。',
+      en: 'The same three-step chain as TXT to JPG, ending in WebP: lossless PNG slices inside, one quantisation at the endpoint, where quality and target size apply.',
+    },
+    lede: {
+      zh: '这条链的形状和 TXT→JPG 完全一样，只有终点不同：`txt>html` + `html>pdf` + `pdf>webp`（三步，基线现读）。文本先包成等宽 `<pre>` 网页，浏览器按 **A4 纵向**排版、逐页渲染成画布并作为 **PNG 无损切片**写进一份临时 PDF，最后由 pdf.js 把每页画到白底画布、`encodeCanvas` 编成 WebP。三点值得先说：一，**产出是一页一张的纸**（与 TXT→PNG 那张连续长图相对）；二，**整条链只量化一次**——中间那趟是 PNG 切片，质量与目标尺寸这些旋钮只作用在最后那一步；三，背景是白的（渲染器把 `backgroundColor` 写死为白色），文字图不谈透明。代价也照实说：`<pre>` **不折行**，超过约 734 px 内容区的长行是被裁掉而不是换行，宽度方向没有任何检查；高度方向有闸，排版超过 32768 px 时渲染那一步明确报 `errors.renderTooTall`（TXT→PDF 也是同一道闸，绕不开），也因此这份中间 PDF 排不到几百页，出图那一步的页数上限在这条链上碰不到。WebP 与 JPEG 的取舍在终点：同为有损，WebP 通常在同等观感下更小，但它是网页侧的通用格式而不是「哪里都能开」的那一个；要边缘锐利、或之后再从图里取字，请走 TXT→PNG。全程只有 storage 权限、不联网。',
+      en: 'The shape here is identical to TXT to JPG and only the endpoint differs: `txt>html` + `html>pdf` + `pdf>webp` — three steps, read live from the baseline. The text becomes a monospace `<pre>` page, the browser lays it out as **A4 portrait**, renders each page to a canvas and writes it into a temporary PDF as **lossless PNG slices**, and finally pdf.js draws each page onto a white canvas and `encodeCanvas` writes WebP. Three things to say first: the output is **one sheet per page** (against TXT to PNG’s single continuous image); **the chain quantises once** — the middle is PNG slices, and quality and target size act only on that last step; and the ground is white, because the renderer pins `backgroundColor` to white, so a text picture has no alpha talk either. The costs, plainly: `<pre>` **does not wrap**, so a line past the roughly 734 px content box is clipped rather than reflowed, and nothing checks width; height is gated, past 32768 px of laid-out page the render step fails with `errors.renderTooTall` (TXT to PDF carries the same ceiling, no way around it), which is also why this intermediate PDF never reaches hundreds of pages and the image step’s page cap cannot be hit on this chain. WebP versus JPEG is an endpoint trade-off: both lossy, WebP usually smaller at comparable appearance, but it is a web-side format rather than the one that opens everywhere. For crisp edges, or if the words may be needed later, take TXT to PNG. All of it on the storage permission, with no network.',
+    },
+    keeps: {
+      zh: [
+        '一页一张的纸：按 A4 切页，与 TXT→PNG 的连续长图相对',
+        '整条链只量化一次：中间是 PNG 无损切片，质量与目标尺寸只作用在 WebP 终点',
+        '同等观感通常比 JPEG 更小，且同样是网页里能直接 `<img>` 用的格式',
+        '高度有闸：超过 32768 px 明确报 `errors.renderTooTall`，不静默给你半份图',
+        '一批最多 200 个文件、单个 100 MB，与其他路线共用同一道闸门',
+      ],
+      en: [
+        'One sheet per page, sliced on A4 — against TXT to PNG’s single continuous image',
+        'The chain quantises once: the middle is lossless PNG slices, and quality and target size act only on the WebP endpoint',
+        'Usually smaller than JPEG at comparable appearance, and still a format a web page can put straight into an `<img>`',
+        'Height is gated: past 32768 px the render step fails with `errors.renderTooTall` rather than returning half a document',
+        'Up to 200 files per batch and 100 MB each — the same gate every other route shares',
+      ],
+    },
+    limits: {
+      zh: [
+        '`<pre>` 不折行：超过约 734 px 的长行被裁掉而不是换行，宽度没有闸——请先拆短长行',
+        '产物是图片：字选不中、搜不到，也不能被朗读',
+        '有损终点：文字边缘会被量化，锐利度要求高就选 TXT→PNG',
+        '超长受 32768 px 上限约束，TXT→PDF 同一道闸；这条链的中间 PDF 排不到几百页',
+        '通用性不如 JPEG：要发给不知支持面的接收端，先试 JPEG',
+      ],
+      en: [
+        '`<pre>` never wraps: lines past roughly 734 px are clipped, not reflowed, and nothing gates width — break long lines first',
+        'The artifact is an image: the words cannot be selected, searched or read aloud',
+        'A lossy endpoint: glyph edges get quantised, so choose TXT to PNG when crispness matters',
+        'Very long text hits the 32768 px ceiling, shared with TXT to PDF, and this chain’s intermediate PDF never grows to hundreds of pages',
+        'Less universal than JPEG: when the receiving side’s support is unknown, try JPEG first',
+      ],
+    },
+    notes: {
+      zh: [
+        '要连续长图且无损：TXT→PNG（两步、不套 PDF）',
+        '要一份多页文档：TXT→PDF，中间那份 PDF 就是终点',
+        '要一页一张且最通用：TXT→JPG，同一条三步链，终点换成 JPEG',
+      ],
+      en: [
+        'For a continuous lossless image: TXT to PNG — two steps, no PDF inside',
+        'For a multi-page document: TXT to PDF, where the intermediate PDF is the destination',
+        'For one page per image with maximum reach: TXT to JPG, the same three-step chain ending in JPEG',
+      ],
+    },
+    faq: [
+      {
+        q: {
+          zh: '为什么不直接 TXT→PNG，还要多一层 PDF？',
+          en: 'Why not just TXT to PNG instead of going through a PDF?',
+        },
+        a: {
+          zh: '因为这两条路给你的东西不同。要「一张连续长图且无损」，TXT→PNG 更短也更准；会绕这一圈 PDF，是为了拿到**按 A4 分页的一页一张**，以及一个可以有损、能按质量或目标尺寸压小体积的终点。两条路的排版与「长行不折行被裁掉」这个限制是完全相同的。',
+          en: 'Because they hand over different things. For a continuous lossless image, TXT to PNG is shorter and more honest; the detour through a PDF exists to get **one page per A4 sheet** and a lossy endpoint that can be tuned by quality or target size. Layout and the «long lines are clipped, not wrapped» limitation are identical on both.',
+        },
+      },
+      {
+        q: {
+          zh: 'WebP 还是 JPEG？',
+          en: 'WebP or JPEG?',
+        },
+        a: {
+          zh: '都在同一条三步链的终点做一次性有损编码。经验取向是：同等观感下 WebP 通常更小、也是网页里能直接用的格式；JPEG 的通用性更好，遇到支持面不明的接收端更稳。文字边缘两者都会被量化，真要锐利就选 TXT→PNG。',
+          en: 'Both are a single lossy encode at the end of the same chain. As a rule of thumb: WebP is usually smaller at comparable appearance and drops straight into a web page, while JPEG wins on unknown recipients. Both quantise text edges, so take TXT to PNG when edges must stay sharp.',
+        },
+      },
+      {
+        q: {
+          zh: '很长的文本能一次转完吗？',
+          en: 'Can very long text be converted in one go?',
+        },
+        a: {
+          zh: '不能。排版高度超过 32768 px 时，渲染那一步会明确报「超出浏览器单次渲染上限」，要求拆短分批；TXT→PDF 用同一个渲染器、同一道闸。也因此这份中间 PDF 排不到几百页——出图那一步的页数上限在这条链上其实碰不到，别把它当成能撑住长文档的机制。',
+          en: 'No. Past 32768 px of laid-out height the render step fails with «longer than the browser can render in one pass» and asks you to split it; TXT to PDF uses the same renderer and the same gate. So the intermediate PDF never grows to hundreds of pages either — the image step’s page ceiling is unreachable on this chain, and should not be read as what keeps long documents alive.',
+        },
+      },
+    ],
+  },
 ];

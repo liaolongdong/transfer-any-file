@@ -1293,6 +1293,16 @@ csv→Word 的另一组事实回读自`html-to-docx.ts`：正文以 MHT altChunk
   直接喂 GIF data URI 给打包器确实产出独立的 `Content-Type: image/gif` base64 部件且产物内无 data URI 残留。
   实测计数不变：`pages:render` 125 文件、`verify:numbers` 23 事实 × 130 文档、`pages:check` 逐字节一致、`lint:all`、`build`、产物层两条离线守卫、`verify:meta`、`verify:paths` 全 rc=0。运行时零改动，断言数仍 **452**。
 
+- **10-21 第五十轮（txt→JPG、txt→WebP，110 张页 / 缺口 6）。** 这两格把第四十九轮那批教训当成硬约束写：
+  **长行不折行**（`<pre>` 超约 734 px 内容区是被裁掉，宽度无闸）直接进两页的 limits 与 faq 第一条，不再写「按版心换行」；
+  **高度才是闸**（32768 px → `errors.renderTooTall`，TXT→PDF 同一道），并据此写明「这条链的中间 PDF 排不到几百页，
+  出图那一步的页数上限在这里碰不到」——正是上一轮被核查抓出的那条混淆，这次主动写对；页码选择只在源是 PDF 时存在，所以两页都注明
+  「没有选页这一步」。形状上「一页一张的纸」与 TXT→PNG 的连续长图相对，终点唯一一次有损量化、白底来自渲染器写死的
+  `backgroundColor`（`html-raster.ts:7,309,312`）。
+  实测计数：`pages:render` 127 文件、`verify:numbers` 23 事实 × 132 文档（文件 = 页 + 17、文档 = 页 + 22 仍成立）、
+  `pages:check` 逐字节一致、`lint:all`、`build`、产物层两条离线守卫、`verify:meta`、`verify:paths` 全 rc=0；
+  生成物整目录暂存 + `git archive HEAD` 隔离树 `render --check` 自证。运行时零改动，断言数仍 **452**。今日累计 91 → **110** 张页、缺口 25 → **6**。
+
 ## 3. 收下改动」这条小节标题吞掉了（我用整行标题做锚点替换、
 
 却忘了把标题写回 new_string），本条已把标题恢复；教训是**用标题做锚点时，new_string 必须原样带回标题**。
