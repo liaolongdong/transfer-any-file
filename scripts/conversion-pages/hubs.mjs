@@ -326,12 +326,7 @@ export const HUBS = [
         },
       },
     ],
-    targets: {
-      webp: {
-        zh: '与 JPEG 相同的分页与编码路径，终点为 WebP；适合体积优先的表格快照，文字边缘会有有损压缩的代价。',
-        en: 'It shares the pagination and encoding path with JPEG and writes WebP instead. A size-first snapshot of a table, at the cost of lossy edges on text.',
-      },
-    },
+    targets: {},
   },
   {
     from: 'csv',
@@ -393,12 +388,7 @@ export const HUBS = [
         },
       },
     ],
-    targets: {
-      webp: {
-        zh: '与 JPEG 一样的 A4 分页，终点 WebP；多页 ZIP。适合体积优先的表格快照，文字清晰度会下降。',
-        en: 'The same A4 slicing as JPEG, encoded as WebP; several pages arrive as a ZIP. A size-first table snapshot, with softer text.',
-      },
-    },
+    targets: {},
   },
   {
     from: 'txt',

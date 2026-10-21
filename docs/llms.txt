@@ -211,6 +211,9 @@ Sole author: Better ([github.com/liaolongdong](https://github.com/liaolongdong))
 
 - [BMP → Word](https://liaolongdong.github.io/transfer-any-file/convert/bmp-to-docx.html): the raw bytes ride through HTML and are lifted into their own image part inside the .docx — no re-encode and no shrink, and a ZIP-unpacked file with no MIME type loses the picture entirely
 
+- [CSV → WebP](https://liaolongdong.github.io/transfer-any-file/convert/csv-to-webp.html): the table is set into an 800 px measure and paginated on A4 into lossless PNG slices inside a PDF, then encoded once at the WebP endpoint — wide columns are clipped, not wrapped
+- [Excel to WebP](https://liaolongdong.github.io/transfer-any-file/convert/xlsx-to-webp.html): every sheet reaches the image under its own title, values are read and never re-evaluated, and cell styles or conditional formatting do not enter the intermediate HTML at all
+
 ## Tech stack
 
 WXT · Vue 3 · TypeScript · Element Plus · Vite · Playwright (end-to-end). Heavy conversion libraries (marked, turndown, mammoth, pdf.js, SheetJS, jsPDF, html-to-image, DOMPurify) are dynamically imported per converter, and so is the ZIP packer (fflate) — loaded at the call site that needs it, not with the workbench. The complete bundle is 3.86 MB.

@@ -10168,4 +10168,194 @@ export const PAIRS = [
       },
     ],
   },
+  {
+    slug: 'csv-to-webp',
+    from: 'csv',
+    to: 'webp',
+    shot: 'batch-results',
+    published: '2026-10-21',
+    title: {
+      zh: 'CSV 转 WebP——离线、表格按 A4 分页出图',
+      en: 'CSV to WebP offline — the table as A4 pages',
+    },
+    desc: {
+      zh: '三步：表格出 HTML、按 A4 渲染成无损 PNG 切片写进 PDF，再逐页画到白底编码成 WebP。只有终点量化一次。全程离线。',
+      en: 'Three steps: the table becomes HTML, is laid out on A4 into lossless PNG slices inside a PDF, then drawn page by page onto white and encoded as WebP.',
+    },
+    lede: {
+      zh: '这条链是**三步**，中间真的有一份 PDF：`csv>html` + `html>pdf` + `pdf>webp`（路径基线现读）。第一步只出一张表格——SheetJS 的 `sheet_to_html` 把行与格写成 HTML 标记，**只有内容与结构**：列宽、字号、底色、边框样式都不在里面（读取根本没要单元格样式），公式也是文件里存下的值，不会被重算。第二步由浏览器把这份 HTML 排在 **800 px 版心**里、按 **A4** 逐页渲染，每页作为 **PNG 无损切片**写进 PDF；第三步由 pdf.js 把每页画到白底画布上，`encodeCanvas` 编成 WebP——所以**整条链只量化一次**，质量与目标尺寸这些旋钮只作用在最后那一步。要如实说清的代价有三条，都跟「表格比版心宽/长」有关：一，**宽度没有闸**，超出内容区的右侧列会被裁掉而不是换行，宽表请先拆列；二，**高度有闸**，排版超过 32768 px 时渲染那一步明确报 `errors.renderTooTall`（CSV→PDF 用的是同一道闸），所以超长表要分批；三，这条链的中间 PDF 因为同一道高度闸**排不到几百页**，出图那一步的页数上限在这里其实碰不到，别把它当成长表的保险。产物是图片：格子里的字选不中、不能被程序读回，要交付数据本身请走 CSV→JSON / TXT 那几页。全程只有 storage 权限，不联网。',
+      en: 'This chain is **three steps** with a real PDF inside: `csv>html` + `html>pdf` + `pdf>webp`, read live from the baseline. Step one emits a single table — SheetJS’s `sheet_to_html` writes rows and cells as markup carrying **content and structure only**: column widths, font sizes, fills and borders are not in it (the reader never asks for cell styles), and formulas are the stored values, never re-evaluated. Step two lets the browser set that HTML into the **800 px measure**, paginate it on **A4** and write each page into the PDF as a **lossless PNG slice**; step three has pdf.js draw every page onto a white canvas and `encodeCanvas` it into WebP — so **the chain quantises exactly once**, and quality or target-size knobs act only on that last step. Three costs must be stated, all about tables being wider or longer than the page. First, **nothing gates width**: columns running past the content box are clipped, not wrapped, so split a wide table first. Second, height is gated: past 32768 px of laid-out page the render step fails with `errors.renderTooTall` (CSV to PDF shares that gate), so a very long table needs splitting. Third, because the same ceiling keeps the intermediate PDF far from hundreds of pages, the image step’s page cap is unreachable here — it is not a safety net for long tables. And the artifact is a picture: cell values cannot be selected or read back by a program, so deliver the data through CSV to JSON or TXT instead. All of it on the storage permission, with no network.',
+    },
+    keeps: {
+      zh: [
+        '内容与结构都在：行列、单元格顺序与文字按表格原样进标记再进图',
+        '整条链只量化一次：中间是 PNG 无损切片，质量与目标尺寸只作用在 WebP 终点',
+        '按 A4 逐页出图，一页一张 WebP；多页打包成 ZIP，条目按页顺序命名',
+        '背景固定白底：表格图不谈透明，边界也不会带半透明残留',
+        '一批最多 200 个文件、单个 100 MB，与其他路线共用同一道闸门',
+      ],
+      en: [
+        'Content and structure survive: rows, cells and their order go from the table into markup and from there into the image',
+        'One quantisation on the whole chain: the middle is lossless PNG slices, quality and target size act only on the WebP endpoint',
+        'Paginated on A4, one WebP per page; several pages arrive as a ZIP numbered in page order',
+        'A fixed white ground: a table picture has no alpha story and keeps no translucent leftovers',
+        'Up to 200 files per batch and 100 MB each — the same gate every other route shares',
+      ],
+    },
+    limits: {
+      zh: [
+        '宽度没有闸：超出约 800 px 版心的右侧列被裁掉而不是换行，宽表请先拆列',
+        '高度有闸：排版超过 32768 px 时明确报 `errors.renderTooTall`，超长表要分批（CSV→PDF 同一道闸）',
+        '呈现层不进中间那份 HTML：列宽、字号、底色、边框都按渲染默认样式重画',
+        '产物是图片：格子里的字选不中、也不能被程序读回，要数据请走 CSV→JSON / TXT',
+        '没有选页这一步：分页来自排版，页码选择只在源是 PDF 时存在',
+      ],
+      en: [
+        'Nothing gates width: columns past the roughly 800 px measure are clipped, not wrapped — split a wide table first',
+        'Height is gated: past 32768 px of laid-out page it fails with `errors.renderTooTall`, so long tables need splitting (CSV to PDF carries the same ceiling)',
+        'The presentation layer never enters the intermediate HTML: widths, sizes, fills and borders are redrawn with renderer defaults',
+        'The artifact is a picture: cell values cannot be selected or read back by a program — take CSV to JSON or TXT for data',
+        'There is no page-range step: pagination comes from layout, and the range control exists only when the source is a PDF',
+      ],
+    },
+    notes: {
+      zh: [
+        '要一份多页文档：CSV→PDF，中间那份 PDF 就是终点、切片无损',
+        '要一页一张且最通用：CSV→JPG 是同一条三步链，终点换成 JPEG',
+        '要交付数据：CSV→JSON 或 TXT，那里是值而不是画面',
+      ],
+      en: [
+        'For a multi-page document: CSV to PDF, where the intermediate PDF becomes the destination',
+        'For one page per image with maximum reach: CSV to JPG is the same chain ending in JPEG',
+        'To deliver data: CSV to JSON or TXT, which hand over values rather than a picture',
+      ],
+    },
+    faq: [
+      {
+        q: {
+          zh: '我的表有 30 列，转出来右边没了？',
+          en: 'My table has 30 columns and the right side disappeared?',
+        },
+        a: {
+          zh: '这是这条链的实际行为：中间那份 HTML 排在约 800 px 版心里，宽度方向没有任何检查，超出的列被裁掉而不是折到下一行。要么先把表拆成两组列，要么改用 CSV→HTML 自己在浏览器里横向滚动，要么走 CSV→PDF 再在阅读器里缩放。',
+          en: 'That is how this chain behaves: the intermediate HTML is set into a roughly 800 px measure, nothing checks the width, and the overflowing columns are clipped rather than pushed to a second line. Split the columns into two groups, use CSV to HTML and scroll sideways in a browser, or take CSV to PDF and zoom in a reader.',
+        },
+      },
+      {
+        q: {
+          zh: '为什么图里的数字在 Excel 里算不了？',
+          en: 'Why can’t Excel compute with the numbers in the image?',
+        },
+        a: {
+          zh: '因为产物是位图：格子里的字被画成像素，没有可寻址的单元格。要能继续算，就得交付数据本身——CSV→JSON 或 CSV→TXT 走的是同一份 HTML 之前的值，不经这些渲染步骤。',
+          en: 'Because the artifact is a bitmap: the cell text is painted, with no addressable cells. To keep computing, deliver data instead — CSV to JSON or TXT works from the values before any of these rendering steps.',
+        },
+      },
+      {
+        q: {
+          zh: '长表会不会被切成几百页？',
+          en: 'Will a long table be sliced into hundreds of pages?',
+        },
+        a: {
+          zh: '不会走到那一步：排版高度超过 32768 px 时，渲染那一环就会明确报错要求拆短，所以中间那份 PDF 实际排不到几百页——出图那一步的页数上限在这条链上碰不到，别把它当保险。正确做法是分批转换或改交付形式。',
+          en: 'It never gets that far: past 32768 px of laid-out height the render step fails and asks you to split, so the intermediate PDF cannot actually grow to hundreds of pages — the image step’s page ceiling is unreachable on this chain and should not be treated as a safety net. Split the run, or change what you deliver.',
+        },
+      },
+    ],
+  },
+  {
+    slug: 'xlsx-to-webp',
+    from: 'xlsx',
+    to: 'webp',
+    shot: 'batch-results',
+    published: '2026-10-21',
+    title: {
+      zh: 'Excel 转 WebP——离线、多表分节、按 A4 出图',
+      en: 'Excel to WebP offline — sheets, A4 pages',
+    },
+    desc: {
+      zh: '三步：工作表出 HTML、按 A4 渲染成无损 PNG 切片写进 PDF，再逐页画白底编码 WebP。多张表各带标题，值不重算。全程离线。',
+      en: 'Three steps via a PDF: sheets to HTML, A4 pages as lossless PNG slices, then one WebP encode per page. Sheet titles survive; values are not re-evaluated.',
+    },
+    lede: {
+      zh: '和 Excel→JPG 是同一条三步链，只有终点不同：`xlsx>html` + `html>pdf` + `pdf>webp`（基线现读）。第一步由 SheetJS 把工作表写成 HTML 表格，**读的是文件里已经算完存下的值**——公式不会被重新求值，也不会被执行；单元格样式、列宽、底色与条件格式**完全不进这份中间 HTML**（读取没要 `cellStyles`），所以图里的底纹只可能来自渲染器的默认样式，而不是你在工作表里看到的那套配色。多张工作表时中间文档里会是多张表、各带一个标题（这与「多张表会让 JSON 那一步变成分组对象」是两回事——这条路不经过取表成 JSON 的那一步）。第二步由浏览器排在 **800 px 版心**、按 **A4** 分页，每页作为 **PNG 无损切片**写进 PDF；第三步由 pdf.js 逐页画到白底画布、`encodeCanvas` 编成 WebP，因此**整条链只量化一次**，质量与目标尺寸只作用在终点。三条边界照实写：**宽度没有闸**，超出内容区的右侧列被裁掉而不是换行；**高度有闸**，超过 32768 px 时渲染那一步明确报 `errors.renderTooTall`（Excel→PDF 同一道），长表请分批；这条链的中间 PDF 因同一道闸排不到几百页，所以出图那一步的页数上限在这里碰不到。没有选页参数（页码选择只在源是 PDF 时存在），产物是图片、字不能被程序读回。全程只有 storage 权限、不联网。',
+      en: 'This is Excel to JPG’s chain with a different endpoint: `xlsx>html` + `html>pdf` + `pdf>webp`, read live from the baseline. Step one has SheetJS write the sheets as HTML tables and it reads **the values already computed and stored in the file** — no formula is re-evaluated and none is executed; cell styles, column widths, fills and conditional formatting **do not enter that intermediate HTML at all** (the reader never asks for `cellStyles`), so any shading in the image can only come from the renderer’s defaults, not from the palette you see in the workbook. With several sheets the middle document holds several tables, each under a title — which is a different matter from «several tables turn into a grouped object at the JSON step», since this chain never passes that step. Step two lets the browser set the HTML into the **800 px measure** and paginate it on **A4**, writing each page into the PDF as a **lossless PNG slice**; step three has pdf.js draw pages onto a white canvas and `encodeCanvas` them into WebP, so **exactly one quantisation happens** and quality or target size act only there. Three boundaries, stated: **nothing gates width**, so columns past the content box are clipped rather than reflowed; **height is gated**, past 32768 px the render step fails with `errors.renderTooTall` (Excel to PDF carries the same ceiling), so split long sheets; and because that ceiling keeps the intermediate PDF from reaching hundreds of pages, the image step’s page cap is unreachable here. There is no page-range control (it exists only when the source is a PDF), and the artifact is a picture whose words a program cannot read back. All of it on the storage permission, with no network.',
+    },
+    keeps: {
+      zh: [
+        '读的是算完的值：公式不重算也不被执行，格子里存着什么就画什么',
+        '多张工作表都进图，每张前有标题，且这条路不经过「只吃数组」那一步',
+        '整条链只量化一次：中间是 PNG 无损切片，质量与目标尺寸只作用在 WebP 终点',
+        '按 A4 逐页出一页一张 WebP，多页打包成 ZIP、条目按页顺序命名',
+        '一批最多 200 个文件、单个 100 MB，与其他路线共用同一道闸门',
+      ],
+      en: [
+        'It reads computed values: no formula is re-evaluated or executed, and each cell draws what it stores',
+        'Every sheet reaches the image, each under a title, and this chain never passes the arrays-only step',
+        'One quantisation on the chain: the middle is lossless PNG slices, quality and target size act only on the WebP endpoint',
+        'Paginated on A4, one WebP per page; several pages arrive as a ZIP numbered in page order',
+        'Up to 200 files per batch and 100 MB each — the same gate every other route shares',
+      ],
+    },
+    limits: {
+      zh: [
+        '宽度没有闸：超出约 800 px 版心的右侧列被裁掉而不是换行，宽表请先拆列',
+        '高度有闸：排版超过 32768 px 时明确报 `errors.renderTooTall`，长表要分批（Excel→PDF 同一道闸）',
+        '单元格样式与条件格式都不出现：图里的底纹只来自渲染默认样式',
+        '产物是图片：格子里的字选不中、不能被程序读回；要数据走 Excel→CSV / JSON',
+        '没有选页这一步：分页来自排版，页码选择只在源是 PDF 时存在',
+      ],
+      en: [
+        'Nothing gates width: columns past the roughly 800 px measure are clipped, not wrapped — split a wide sheet first',
+        'Height is gated: past 32768 px of laid-out page it fails with `errors.renderTooTall`, so long sheets need splitting (Excel to PDF shares that ceiling)',
+        'Cell styles and conditional formatting never appear: any shading in the image comes from the renderer’s defaults',
+        'The artifact is a picture: cell text cannot be selected or read back by a program — take Excel to CSV or JSON for data',
+        'There is no page-range step: pagination comes from layout, and the range control exists only when the source is a PDF',
+      ],
+    },
+    notes: {
+      zh: [
+        '要一份多页文档：Excel→PDF，中间那份 PDF 就是终点、切片无损',
+        '要最通用的分页快照：Excel→JPG 是同一条三步链，终点换成 JPEG',
+        '要结构与文字都留住：Excel→HTML 或 Excel→Markdown，那里表格还是表格',
+      ],
+      en: [
+        'For a multi-page document: Excel to PDF, where that intermediate PDF is the destination',
+        'For the most universally readable paginated snapshot: Excel to JPG, the same chain ending in JPEG',
+        'To keep structure and words: Excel to HTML or Markdown, where the table stays a table',
+      ],
+    },
+    faq: [
+      {
+        q: {
+          zh: '多个工作表会一起出图吗？',
+          en: 'Do all the sheets come out together?',
+        },
+        a: {
+          zh: '会——每张表前有一个标题，全部排进同一份中间 HTML，再按 A4 逐页成图；页数多的结果打包成 ZIP，条目按页顺序命名。这与「Excel→CSV / JSON 那几页在多张表时的规则」无关，因为这条链不经过取表成 JSON 的那一步。',
+          en: 'They do: each sheet is preceded by a title inside one intermediate HTML, then paginated on A4 into images; long results arrive as a ZIP numbered in page order. This has nothing to do with the rules on the Excel to CSV / JSON pages, because this chain never passes the table-to-JSON step.',
+        },
+      },
+      {
+        q: {
+          zh: '我在工作表里看到的配色会跟着进图吗？',
+          en: 'Does the colour scheme I see in the workbook come along?',
+        },
+        a: {
+          zh: '不会。第一步读的是单元格的值，不取样式，所以底色、字体、条件格式的颜色都不进中间那份 HTML；图里若有底纹，那是渲染器默认样式画出来的。要保住观感，请在 Excel 里导出 PDF 再走 PDF→WebP。',
+          en: 'No. Step one reads values, not styles, so fills, fonts and conditional-formatting colours never enter the intermediate HTML; any shading in the image is what the renderer’s defaults produce. To keep the look, export a PDF in Excel and take PDF to WebP.',
+        },
+      },
+      {
+        q: {
+          zh: '为什么右边几列不见了？',
+          en: 'Why did the columns on the right disappear?',
+        },
+        a: {
+          zh: '因为这条链把 HTML 排在约 800 px 版心里，而宽度方向没有任何检查：超出的列是被裁掉的，不会折到下一行，也不会报错。拆列、或改走 Excel→PDF / Excel→HTML 自己在阅读器里缩放，是三种实际解法。',
+          en: 'Because the HTML is set into a roughly 800 px measure and nothing checks width: overflowing columns are clipped, not wrapped, and no error is raised. Split the columns, or take Excel to PDF / HTML and scale in a reader.',
+        },
+      },
+    ],
+  },
 ];

@@ -1311,6 +1311,15 @@ csv→Word 的另一组事实回读自`html-to-docx.ts`：正文以 MHT altChunk
   `lint:all`、`build`、产物层两条离线守卫、`verify:meta`、`verify:paths` 全 rc=0；生成物整目录暂存 + `git archive HEAD` 隔离树 `render --check` 自证。
   运行时零改动，断言数仍 **452**。今日累计 91 → **111** 张页、缺口 25 → **5**。
 
+- **10-21 第五十二轮（csv→WebP、xlsx→WebP，113 张页 / 缺口 3）。** WebP 族的表格两格按第五十轮的模板写：三步、中间一份 PDF、终点单次量化；
+  四条硬规矩先落在页面上（宽度无闸⇒超约 800 px 版心的右列被裁掉不换行、高度有闸⇒32768 px 报 `errors.renderTooTall`、
+  中间 PDF 排不到几百页所以页数上限不可达、无 pageRange）。xlsx 侧额外写明**多张表各有标题且不经过「只吃数组」那一步**，
+  以及「样式与条件格式完全不进中间 HTML」（第四十九轮核查实测结论，避免与 Excel→WebP 自身的底纹说法自相矛盾）。
+  csv / excel 两个 hub 的 `webp` 摘要按镜像规则摘除，四镜像补齐；`desc.en` 又被 160 预算拦下一次（182 → 削短）。
+  实测计数：`pages:render` 130 文件、`verify:numbers` 23 事实 × 135 文档（文件 = 页 + 17、文档 = 页 + 22 仍成立）、
+  `pages:check` 逐字节一致、`lint:all`、`build`、产物层两条离线守卫、`verify:meta`、`verify:paths` 全 rc=0。
+  运行时零改动，断言数仍 **452**。今日累计 91 → **113** 张页、缺口 25 → **3**。
+
 ## 3. 收下改动」这条小节标题吞掉了（我用整行标题做锚点替换、
 
 却忘了把标题写回 new_string），本条已把标题恢复；教训是**用标题做锚点时，new_string 必须原样带回标题**。
