@@ -1409,6 +1409,12 @@ csv→Word 的另一组事实回读自`html-to-docx.ts`：正文以 MHT altChunk
   没说这个钳制照样生效。已补进 `svg-to-md` 的 limits（中英各一条，条目数保持相等）。
   尺寸回落链也顺量清了：`width`/`height` 只认纯数字或 `px`（`100%` / `20em` 视为缺失）→ 回落 `viewBox` 的宽/高 → 再回落 `DEFAULT_DIM = 1024`。
   CI 回执：`6b490ee` 与 `4535438` 三条 job（Lint & Type Check / Build Extension / E2E Tests）均 completed/success。
+  **上面那条「留给下一轮」的口径差异已经判完，结论是不是缺陷、不要收紧**：`utils/core/svg-embed.ts:108` 返回的 `svgCount`
+  计的是**真的被换掉的那些**（`:83-95` 逐个栅格化，单个失败走 `catch` + `continue`，失败的那个既不计数也不替换），
+  所以 `html-to-docx.ts:55` 的 `svgRasterized: svgCount > 0` 说的就是「产物里至少有一张真的位图部件」，与 e2e 钉住的
+  那条提件用例同向。Markdown 那侧必须改成看产物（`html-to-md.ts:77`），是因为格子摊平发生在替换**之后**，
+  计数器会留下「换过但被抹掉」的窗口；DOCX 这条没有那个窗口（altChunk 原样带着标记走）。
+  **同一个标志两种算法不是不一致，是两条链的形状不同**——下次看到别急着把它们统一掉。
 
 ## 3. 收下改动：这一节记的是提交账，不是提交计划
 
