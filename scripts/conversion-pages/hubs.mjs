@@ -744,16 +744,7 @@ export const HUBS = [
         },
       },
     ],
-    targets: {
-      md: {
-        zh: 'WebP 原始字节以 data URI 进入 Markdown 图片语法；许多 Markdown 阅读器不认 WebP 的 data URI，能否显示取决于目标工具。',
-        en: 'The original WebP bytes enter Markdown image syntax as a data URI; many Markdown readers do not accept WebP data URIs, so display depends on the tool reading it.',
-      },
-      html: {
-        zh: '原样嵌入 WebP 的 data URI，浏览器能直接显示；不转码、不重编码，像素与源文件一致。',
-        en: 'The WebP data URI is embedded as-is and the browser displays it directly; nothing is transcoded or re-encoded, so the pixels match the source.',
-      },
-    },
+    targets: {},
   },
   {
     from: 'bmp',
@@ -816,10 +807,6 @@ export const HUBS = [
       },
     ],
     targets: {
-      md: {
-        zh: 'BMP 原始字节内嵌成 data URI 再转 Markdown 图片语法；多数阅读器不认 BMP 的 data URI，链接可能显示为破图。',
-        en: 'The original BMP bytes are embedded as a data URI and written as Markdown image syntax; most readers do not accept a BMP data URI, so the image may show as broken.',
-      },
       docx: {
         zh: '经 HTML 把原字节带进 Word：那条 data URI 会被提成包里独立的图片部件，不重编码；其它程序怎么读这份 altChunk，由那一侧决定。',
         en: 'The raw bytes travel through HTML into Word: that data URI becomes its own image part inside the package, with no re-encoding, and how other programs read the altChunk is up to them.',

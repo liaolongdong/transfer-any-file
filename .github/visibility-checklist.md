@@ -1166,6 +1166,24 @@ csv→Word 的另一组事实回读自`html-to-docx.ts`：正文以 MHT altChunk
   **数字门又拦下一次**：新页 title.en 61 字符超 60 预算，`pages:render` 直接拒写（改短后 56）。
   实测计数：`pages:render` 115 文件、`verify:numbers` 23 事实 × 120 文档（文件 = 页 + 17、文档 = 页 + 22 仍成立）、
   `pages:check` 逐字节一致、`lint:all`、`build`、产物层两条离线守卫、`verify:meta`、`verify:paths` 全 rc=0。运行时零改动，断言数仍 **452**。
+
+- **10-21 第卅轮再加三格（webp→HTML、webp→Markdown、bmp→Markdown，101 张页 / 缺口 15）。** 这一批把位图搬运族剩下的三个高频格补上，
+  并且**顺带查出一个真的产品缺口**（不是措辞问题）：`utils/core/animated-image.ts` 的说明写明它的量测范围**只有 GIF**——
+  动图 WebP 的 `VP8X` ANIM 位与 APNG 的 `acTL` 都不在里面，而 `image-convert.ts:17` 的 `lostFrames` 正是
+  `from === FileFormat.GIF && hasMultipleFrames(...)`。于是 **WebP→PNG / JPG 这类会取首帧的路线现在丢了多少动画并不告诉用户**：
+  丢帧是真的，披露是没有的。三条相关的页面文案因此都按「限制写明」处理（webp→HTML 的 limits 第 2 条、webp→Markdown 的 limits 第 2 条
+  与 notes 第 2 条、以及两页 faq 里的原话「帧检查目前只覆盖 GIF」），修代码本身**不在本轮做**——它会改变用户可见的提示与
+  e2e 断言计数，属于需要单独确认的行为变更，已单独立项。
+  另外三条正面事实：WebP 带 alpha，而搬运路线不重新采样，所以透明原样保留（对照 WebP→JPG 那一趟会把它合成掉）；
+  搬运路线**没有取首帧这一步**，动图 WebP 的每一帧都在负载里；BMP 则是「最难看的组合」——源常无压缩再乘 base64 的 4/3，
+  且 BMP 的 `data:` 图片在很多阅读器里根本不画，所以那页把「位置是空的未必是转坏了」直接写成 faq 第一条。
+  三页都带今天立的类型前提：`data:image/webp` / `data:image/bmp` 在白名单内**且仅当类型被浏览器认出**，
+  从 ZIP 解包的文件不带类型、前缀是 `application/octet-stream`，往 Word 走一步就会被剥。
+  记账同步：webp hub 的 md / html 摘要与 bmp hub 的 md 摘要按镜像规则摘除（webp hub 的 `targets` 摘完是空对象，守卫接受）；
+  四镜像同批补齐。数字门这一批又拦两次：`bmp-to-md` 的 `desc.en` 185 字符超 160（削到 154），
+  `webp` hub 摘除时先撞了一次锚点不匹配（上一轮删掉 `html` 之后 `md` 的邻居已经变了），按现文重读后才改对。
+  实测计数：`pages:render` 118 文件、`verify:numbers` 23 事实 × 123 文档（文件 = 页 + 17、文档 = 页 + 22 仍成立）、
+  `pages:check` 逐字节一致、`lint:all`、`build`、产物层两条离线守卫、`verify:meta`、`verify:paths` 全 rc=0。运行时零改动，断言数仍 **452**。
   实测计数：`pages:render` 113 文件、`verify:numbers` 23 事实 × 118 文档（文件 = 页 + 17、文档 = 页 + 22 仍成立）、
   `pages:check` 逐字节一致、`lint:all`、`build`、产物层两条离线守卫、`verify:meta`、`verify:paths` 全 rc=0。
   这一轮按上一笔的教训**整目录暂存 `docs/convert`**，并在 `git archive HEAD` 的隔离树里重跑 `render --check` 自证。运行时零改动，断言数仍 **452**。
