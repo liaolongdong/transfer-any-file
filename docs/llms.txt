@@ -209,6 +209,8 @@ Sole author: Better ([github.com/liaolongdong](https://github.com/liaolongdong))
 - [TXT → JPG](https://liaolongdong.github.io/transfer-any-file/convert/txt-to-jpg.html): three steps with a PDF in the middle, so the result is one A4 sheet per image with a single lossy encode at the end — and long lines are clipped at the 734 px content box, never wrapped
 - [TXT → WebP](https://liaolongdong.github.io/transfer-any-file/convert/txt-to-webp.html): the same A4 slicing through an intermediate PDF, ending in WebP instead of JPEG — usually smaller at comparable appearance, with the same clipped-not-wrapped warning about long lines
 
+- [BMP → Word](https://liaolongdong.github.io/transfer-any-file/convert/bmp-to-docx.html): the raw bytes ride through HTML and are lifted into their own image part inside the .docx — no re-encode and no shrink, and a ZIP-unpacked file with no MIME type loses the picture entirely
+
 ## Tech stack
 
 WXT · Vue 3 · TypeScript · Element Plus · Vite · Playwright (end-to-end). Heavy conversion libraries (marked, turndown, mammoth, pdf.js, SheetJS, jsPDF, html-to-image, DOMPurify) are dynamically imported per converter, and so is the ZIP packer (fflate) — loaded at the call site that needs it, not with the workbench. The complete bundle is 3.86 MB.

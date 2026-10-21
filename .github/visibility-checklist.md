@@ -1303,6 +1303,14 @@ csv→Word 的另一组事实回读自`html-to-docx.ts`：正文以 MHT altChunk
   `pages:check` 逐字节一致、`lint:all`、`build`、产物层两条离线守卫、`verify:meta`、`verify:paths` 全 rc=0；
   生成物整目录暂存 + `git archive HEAD` 隔离树 `render --check` 自证。运行时零改动，断言数仍 **452**。今日累计 91 → **110** 张页、缺口 25 → **6**。
 
+- **10-21 第五十一轮（bmp→Word，111 张页 / 缺口 5）。** 这一格复用第卅六与四十九轮真字节验证过的机制（打包器把 `<img>` 上的 data URI 提升成包内独立媒体部件、提升逻辑与 MIME 无关），
+  并把三条边界写在同页：体积**只随源文件上浮**（BMP 常无压缩 + base64 4/3，要小就走会重编码或压缩存放的路）；
+  **类型前提**（ZIP 解包无 MIME 类型 ⇒ 前缀是 `application/octet-stream` ⇒ 不在图片白名单 ⇒ 连部件都不生成，Word 里显示成什么由那一侧决定）；
+  altChunk ⇒ 排版与显示尺寸归 Word。bmp hub 的 `docx` 摘要按镜像规则摘除，四镜像补齐。
+  实测计数：`pages:render` 128 文件、`verify:numbers` 23 事实 × 133 文档（文件 = 页 + 17、文档 = 页 + 22 仍成立）、`pages:check` 逐字节一致、
+  `lint:all`、`build`、产物层两条离线守卫、`verify:meta`、`verify:paths` 全 rc=0；生成物整目录暂存 + `git archive HEAD` 隔离树 `render --check` 自证。
+  运行时零改动，断言数仍 **452**。今日累计 91 → **111** 张页、缺口 25 → **5**。
+
 ## 3. 收下改动」这条小节标题吞掉了（我用整行标题做锚点替换、
 
 却忘了把标题写回 new_string），本条已把标题恢复；教训是**用标题做锚点时，new_string 必须原样带回标题**。

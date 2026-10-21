@@ -10073,4 +10073,99 @@ export const PAIRS = [
       },
     ],
   },
+  {
+    slug: 'bmp-to-docx',
+    from: 'bmp',
+    to: 'docx',
+    shot: 'batch-results',
+    published: '2026-10-21',
+    title: {
+      zh: 'BMP 转 Word——离线、字节进包成图片部件、不重编码',
+      en: 'BMP to Word offline — raw bytes as an image part',
+    },
+    desc: {
+      zh: '整份 .bmp 经 HTML 进 Word，那条 data URI 被提成包里独立的图片部件：不重编码、不降尺寸。体积随源文件，通常不减。',
+      en: 'The whole .bmp travels through HTML into Word and becomes its own image part: no re-encode, no downscale. Size follows the source and rarely shrinks.',
+    },
+    lede: {
+      zh: '两步，而且**这一步不碰像素**：`bmp>html` 用 `FileReader.readAsDataURL` 把文件的原始字节编成 data URI 放进一个 `<img>`，`html>docx` 再把这份文档交给打包器；打包器会把 `<img>` 上那条 `data:` 从标记里提出来，写成包里一个**独立的 base64 媒体部件**并重写引用（提升逻辑与 MIME 无关，位图族都是同一趟）。所以三件事同时成立：像素与你给的字节逐字节相同（不解码、不上画布、不再压一次——这与 BMP→PNG / JPG / WebP 那几条必然重画完全不同）；`.docx` 里不残留 data URI；渲染这张图不需要从网络取任何东西。要说清的代价有两条。**一是体积**：BMP 常常完全不做压缩，base64 又每三个字节写成四个字符，这一路是搬运不是优化，所以产物不会变小——真要压体积得走会重编码的那几条。**二是类型前提**：只有当浏览器认出文件类型时前缀才是 `image/bmp`，而那是白名单内的引用类型；从 ZIP 解包出来的文件不带 MIME 类型，前缀会变成 `application/octet-stream`，它不在白名单里，会在写出前被剥掉——**那种场合连图片部件都不会生成**，Word 里显示成什么由打开它的程序决定，本页不替它担保。文档体是 altChunk：逐字排版、分页与图片的显示尺寸都由 Word 打开时决定，本扩展不产出 Word 原生段落、也不给缩放参数。还有一条边界照旧写明：不 OCR、不读画面内容，产物里唯一来自理解的字符串没有——只有你的文件名（进 `alt` 与 `title`，去扩展名、按属性位置转义）。BMP 在这套界面里**只能作输入**，浏览器不提供 BMP 编码器。全程只有 storage 权限，不联网。',
+      en: 'Two steps, and **neither one touches the pixels**: `bmp>html` encodes the file’s raw bytes with `FileReader.readAsDataURL` into a data URI inside an `<img>`, and `html>docx` hands that document to the packer, which lifts the `<img>`’s `data:` out of the markup and writes it as **its own base64 media part**, rewriting the reference (the lift is independent of MIME — every bitmap in this family takes the same trip). So three things hold at once: the pixels are byte-identical to what you handed over, because nothing decodes, resamples or recompresses — unlike BMP to PNG, JPG or WebP, which must redraw a canvas; no data URI survives in the `.docx`; and drawing the picture needs nothing from the network. Two costs, plainly. **Size first**: BMPs are usually uncompressed and base64 writes four characters per three bytes, so this route carries rather than optimises and the artifact does not shrink — if you need smaller, take a route that re-encodes. **The type premise second**: the prefix is `image/bmp`, a reference type inside the allow-list, only when the browser recognised the file’s type; a file unpacked from a ZIP carries no MIME type, so its prefix comes out as `application/octet-stream`, which is outside that list and is stripped before writing — **in that case no image part is created at all**, and what Word then shows is that program’s decision, which this page does not vouch for. The document body is an altChunk, so typesetting, paging and the picture’s displayed size belong to Word when it opens; no native Word paragraphs and no scaling knobs come from here. The usual boundary holds: no OCR, no reading of the picture, and the only string the route contributes is your file name (into `alt` and `title`, extension dropped, escaped for attribute position). And BMP stays an **input-only** format in this interface — browsers do not encode it. All of it on the storage permission, with no network.',
+    },
+    keeps: {
+      zh: [
+        '像素逐字节不变：不解码、不上画布、不再压一次（与 BMP→PNG / JPG / WebP 的必重画相对）',
+        '那条 data URI 被提成包里独立的媒体部件，`.docx` 内不残留 data URI',
+        '渲染这张图不需要从网络取数：引用指向包内部件',
+        '`alt` 与 `title` 带你的文件名主干（去扩展名、属性转义），名字不会变成标记',
+        '一批最多 200 个文件、单个 100 MB，与其他路线共用同一道闸门',
+      ],
+      en: [
+        'Byte-identical pixels: no decode, no canvas, no re-compression — against BMP to PNG, JPG or WebP, which must redraw',
+        'The data URI is lifted into its own image part, so none survives inside the .docx',
+        'Drawing the picture fetches nothing from the network: the reference points at a part inside the package',
+        '`alt` and `title` carry your file’s basename (extension dropped, escaped for attribute position), so a name cannot become markup',
+        'Up to 200 files per batch and 100 MB each — the same gate every other route shares',
+      ],
+    },
+    limits: {
+      zh: [
+        '不会变小：BMP 常无压缩，base64 又每三字节四字符，这一路是搬运不是优化',
+        '类型前提：从 ZIP 解包的文件不带 MIME 类型，前缀不是 `image/bmp`，会被剥掉、连部件都不生成',
+        '文档体是 altChunk：逐字排版、分页与图片显示尺寸由 Word 打开时决定',
+        '不 OCR、不降尺寸、不裁切：要改画面本身，本扩展没有对应功能',
+        'BMP 只能作输入：浏览器不提供 BMP 编码器，没有任何路线会产出 .bmp',
+      ],
+      en: [
+        'Nothing shrinks: BMPs are often uncompressed and base64 adds four characters per three bytes — this route carries, it does not optimise',
+        'The type premise: a file unpacked from a ZIP has no MIME type, so the prefix is not `image/bmp`, it gets stripped and no part is created',
+        'The body is an altChunk: typesetting, paging and displayed size are Word’s when it opens',
+        'No OCR, no downscale, no cropping: nothing here changes the picture itself',
+        'BMP is input only: browsers do not encode it, so no route produces a .bmp',
+      ],
+    },
+    notes: {
+      zh: [
+        '要压体积：BMP→PNG / WebP 会重编码（必然重画一遍画布），BMP→PDF 则按压缩流存放',
+        '只想放进网页：BMP→HTML 是这条的第一步，产物是 HTML 而不是 .docx',
+        '要一份多页文档：BMP→PDF，一页一张、页面尺寸跟着图片走',
+      ],
+      en: [
+        'To shrink it: BMP to PNG or WebP re-encodes (redrawing the canvas), and BMP to PDF stores the stream compressed',
+        'To put it in a web page: BMP to HTML is this route’s first step, producing HTML rather than a .docx',
+        'For a multi-page document: BMP to PDF, one page per picture sized to the picture',
+      ],
+    },
+    faq: [
+      {
+        q: {
+          zh: '我的 .bmp 很大，转完 Word 会小一点吗？',
+          en: 'My .bmp is huge — will the Word file be smaller?',
+        },
+        a: {
+          zh: '不会，这条链是搬运：字节原样进包，再由 base64 部件承载，所以体积只会随源文件走、并带上编码带来的上浮。要真的变小，得让某一步去重编码——BMP→PNG / WebP 那两条会重画画布，BMP→PDF 会压缩存放图像流；三种做法都会动到像素或分页方式，请按目的选。',
+          en: 'No: this chain carries. The bytes go in as they are and ride inside a base64 part, so the size follows your file and grows with the encoding. Real shrinkage needs a step that re-encodes — BMP to PNG or WebP redraws the canvas, BMP to PDF stores the stream compressed — and each of those changes either the pixels or how pages are laid out, so pick by purpose.',
+        },
+      },
+      {
+        q: {
+          zh: '图片会不会像有些文档那样变成「外部链接」？',
+          en: 'Could the picture end up as an external link?',
+        },
+        a: {
+          zh: '不会，它被提升成包内的一个图片部件，引用指向那个部件。要注意的反而不是路径，而是**类型**：从 ZIP 解包进来的文件不带 MIME 类型，那条 data URI 的前缀会是 `application/octet-stream`，不在图片白名单里——这种情况下部件根本不会生成，Word 里显示成什么由打开它的程序决定。',
+          en: 'No — it is lifted into an image part inside the package and the reference points at that part. The risk is not the path but the **type**: a file coming out of a ZIP has no MIME type, so its data URI prefix is `application/octet-stream`, which sits outside the image allow-list. In that case no part is created at all, and what Word shows is that program’s decision.',
+        },
+      },
+      {
+        q: {
+          zh: '转进 Word 之后能改这张图吗？',
+          en: 'Can I edit the picture once it is in Word?',
+        },
+        a: {
+          zh: '本扩展不产出 Word 原生段落，文档体是一段作为 altChunk 附在包里的 HTML，所以逐字排版、分页与图片显示尺寸都由 Word 处理；能不能用 Word 的图片工具调整它，是那一侧的能力与实现，本页不下结论。要固定像素尺寸的图，请走图片转图片那几页。',
+          en: 'This extension produces no native Word paragraphs: the body is an HTML fragment attached inside the package as an altChunk, so typesetting, paging and the picture’s displayed size are Word’s to handle. Whether Word’s own picture tools can then adjust it depends on that application, and this page draws no conclusion. For a fixed pixel size, take the image-to-image pages.',
+        },
+      },
+    ],
+  },
 ];
