@@ -8304,6 +8304,7 @@ export const PAIRS = [
         '不产生可编辑的文字层：图就是图，Word 里选不中它里面的字，也没有题注、图文式样式可用',
         '显示尺寸由内层 CSS 与 Word 页面共同决定，本扩展不给缩放参数；要精确控制尺寸请在 Word 里改',
         '想要「一页一图」的 PDF 而不是文档，请走 PNG→PDF；想要能再编辑版式，图进 Word 也仍然只是图',
+        '类型没被认出时（例如从 ZIP 解包的文件）前缀不是图片类型，Word 那一步会在写出前把 `src` 剥掉，那一格留空',
         '打包失败会报 `errors.docxGen` 并点名该文件，不会交出一个半成品',
       ],
       en: [
@@ -8311,6 +8312,7 @@ export const PAIRS = [
         'No editable text layer: it stays a picture, its words cannot be selected, and there are no captions or picture styles to apply',
         'Displayed size follows the inner CSS and Word’s page; this route exposes no scaling option — resize it in Word',
         'For one image per page take PNG to PDF; for a layout you can keep editing, a picture inside Word is still just a picture',
+        'When the browser never identified the type — a file unpacked from a ZIP, say — the prefix is not an image type, so the Word step strips `src` before writing and leaves an empty slot',
         'A packing failure reports `errors.docxGen` for that file rather than shipping a half-written file',
       ],
     },
@@ -8399,6 +8401,7 @@ export const PAIRS = [
         '文档体是 altChunk（内嵌 HTML），不是 Word 原生段落：排版与分页由 Word 打开时决定',
         '不产生题注、图文样式或可搜索文字层；要那些请在 Word 里补——本扩展没有任何路线能从图里读出文字',
         '显示尺寸由内层 CSS 与 Word 页面共同决定，本扩展不给缩放参数',
+        '类型没被浏览器认出时（例如从 ZIP 解包出来的文件）前缀不是图片类型，Word 那一步会在写出前把 `src` 剥掉，那一格留空',
         '想要一页一图的 PDF 请走 JPG→PDF；想要真换格式（WebP / PNG）请走图片转图片那几页',
       ],
       en: [
@@ -8406,6 +8409,7 @@ export const PAIRS = [
         'The body is an altChunk — that inner HTML — not native Word paragraphs, so Word decides typesetting and paging when it opens',
         'No captions, picture styles or searchable text layer; add those in Word — no route here can read words out of a picture',
         'Displayed size follows the inner CSS and Word’s page; this route exposes no scaling option',
+        'When the browser never identified the type — a file unpacked from a ZIP, say — the prefix is not an image type, so the Word step strips `src` before writing and leaves an empty slot',
         'For one image per page take JPG to PDF; to actually change format (WebP, PNG) take the image-to-image pages',
       ],
     },
@@ -8469,22 +8473,22 @@ export const PAIRS = [
       en: 'The whole file is embedded as a data URI: no decode, no re-encode, so no frame is dropped. Opens offline, nothing uploaded.',
     },
     lede: {
-      zh: '这条路和图片转 HTML 的其他几位共用同一个转换器，而且刻意做得很薄：`gif>html` 把文件的**原始字节**用 `FileReader.readAsDataURL` 编成 data URI 写进一个 `<img src>`，再包进一份自带样式表的 HTML——**中间没有任何解码、上画布或重编码**。对 GIF 来说这一点正好是要害：动图的全部帧都还在那串字节里，**这一路不丢帧**，因为要丢帧得先读帧、而这条链连像素都不看。对照之下 GIF→PNG / JPG / WebP 那几路确实丢：它们取首帧重编码，并且会动用 `hasMultipleFrames` 在结果上写明丢了几帧——那才是需要披露丢帧的地方。要说清的边界是**播放由谁决定**：字节完整不等于一定动起来，是否播放、循环几遍，是打开这份 HTML 的那一侧的事，本扩展不替它保证。其余与位图转网页同形：`alt` 与 `title` 取**文件名主干**（去扩展名、无名时 `converted`）并按属性位置转义；内层 CSS 让图居中、`max-width: 100%`，版心实测约 800 px，所以宽图显示会收、文件里的一个像素都不变；体积是每三个字节写成四个字符再加约 2.6 KB 外壳（界面上 2 MB 的 GIF 约产出 2.7 MB 的 HTML），这一路不是压缩。`data:image/gif` 在剥远程引用的白名单之内，所以这份 HTML 再往下走一步（转 Markdown、转 Word）引用也不会被剥掉——它不外发任何东西，扩展本身也只有 storage 权限。',
-      en: 'This route shares one converter with the other pictures-to-HTML pages, and it is deliberately thin: `gif>html` takes the file’s **raw bytes**, base64-encodes them through `FileReader.readAsDataURL` into a data URI inside an `<img src>`, and wraps that in a document with the bundled stylesheet — **no decode, no canvas, no re-encode anywhere**. For a GIF that is the whole point: every frame is still inside those bytes, so **this route drops none**, because dropping frames would mean reading them and this chain never looks at pixels. The contrast is real: GIF to PNG, JPG or WebP does take the first frame and re-encodes it, and those routes use `hasMultipleFrames` to say how many frames went missing — that is where the frame-loss disclosure lives. The boundary to state plainly is **who decides playback**: intact bytes do not guarantee motion, since whether it animates and how many times it loops belongs to whatever opens the file, and this extension promises nothing on their behalf. Everything else matches the other picture-to-HTML pages: `alt` and `title` carry the **basename** (extension dropped, `converted` when there is no usable name) escaped for attribute position; the inner CSS centres the image and caps it at `max-width: 100%` within a measure measured at about 800 px, so a wide picture scales on screen while the file stays untouched; the size is four characters per three bytes plus a wrapper of about 2.6 KB, so the 2 MB GIF the interface shows comes out as roughly 2.7 MB of HTML — this is not compression. And because `data:image/gif` is inside the allow-list that keeps references from reaching the network, taking one more step (to Markdown, to Word) does not strip the picture either. Nothing is ever sent out; the extension holds only the storage permission.',
+      zh: '这条路和图片转 HTML 的其他几位共用同一个转换器，而且刻意做得很薄：`gif>html` 把文件的**原始字节**用 `FileReader.readAsDataURL` 编成 data URI 写进一个 `<img src>`，再包进一份自带样式表的 HTML——**中间没有任何解码、上画布或重编码**。对 GIF 来说这一点正好是要害：动图的全部帧都还在那串字节里，**这一路不丢帧**，因为要丢帧得先读帧、而这条链连像素都不看。对照之下 GIF→PNG / JPG / WebP / PDF 那几路确实丢：它们取首帧重编码，并且会动用 `hasMultipleFrames` 在结果上写明丢了几帧——那才是需要披露丢帧的地方。要说清的边界是**播放由谁决定**：字节完整不等于一定动起来，是否播放、循环几遍，是打开这份 HTML 的那一侧的事，本扩展不替它保证。其余与位图转网页同形：`alt` 与 `title` 取**文件名主干**（去扩展名、无名时 `converted`）并按属性位置转义；内层 CSS 让图居中、`max-width: 100%`，版心实测约 800 px，所以宽图显示会收、文件里的一个像素都不变；体积是每三个字节写成四个字符再加约 2.6 KB 外壳（界面上 2 MB 的 GIF 约产出 2.7 MB 的 HTML），这一路不是压缩。`data:image/gif` 在剥远程引用的白名单之内，所以这份 HTML 再往下走一步（转 Markdown、转 Word）通常也不会被剥掉——前提是类型被浏览器认出；从 ZIP 解包出来的文件没有类型，前缀就不是 `image/gif`，Word 那一步会先把 `src` 剥掉——它不外发任何东西，扩展本身也只有 storage 权限。',
+      en: 'This route shares one converter with the other pictures-to-HTML pages, and it is deliberately thin: `gif>html` takes the file’s **raw bytes**, base64-encodes them through `FileReader.readAsDataURL` into a data URI inside an `<img src>`, and wraps that in a document with the bundled stylesheet — **no decode, no canvas, no re-encode anywhere**. For a GIF that is the whole point: every frame is still inside those bytes, so **this route drops none**, because dropping frames would mean reading them and this chain never looks at pixels. The contrast is real: GIF to PNG, JPG, WebP or PDF does take the first frame and re-encodes it, and those routes use `hasMultipleFrames` to say how many frames went missing — that is where the frame-loss disclosure lives. The boundary to state plainly is **who decides playback**: intact bytes do not guarantee motion, since whether it animates and how many times it loops belongs to whatever opens the file, and this extension promises nothing on their behalf. Everything else matches the other picture-to-HTML pages: `alt` and `title` carry the **basename** (extension dropped, `converted` when there is no usable name) escaped for attribute position; the inner CSS centres the image and caps it at `max-width: 100%` within a measure measured at about 800 px, so a wide picture scales on screen while the file stays untouched; the size is four characters per three bytes plus a wrapper of about 2.6 KB, so the 2 MB GIF the interface shows comes out as roughly 2.7 MB of HTML — this is not compression. And because `data:image/gif` is inside the allow-list that keeps references from reaching the network, taking one more step (to Markdown, to Word) does not strip the picture either — provided the browser recognised the type, since a file unpacked from a ZIP has none, and its prefix is not `image/gif`, which the Word step does strip. Nothing is ever sent out; the extension holds only the storage permission.',
     },
     keeps: {
       zh: [
         '一帧都不丢：不解码、不上画布、不再压一次，整份动图原样进 `data:` 负载',
         '`alt` 与 `title` 取文件名的主干（去扩展名），并按属性位置转义——名字不会变成标记',
         '自包含：图就在文件里，打开这份 HTML 不取任何远程资源',
-        '`data:image/gif` 在引用白名单内，再往下一步转 Markdown / Word 也不会被剥掉',
+        '`data:image/gif` 在引用白名单内，类型被浏览器认出时再往下一步转 Markdown / Word 也不会被剥掉',
         '一批最多 200 个文件、单个 100 MB，与其他路线共用同一道闸门',
       ],
       en: [
         'Not one frame lost: no decode, no canvas, no re-compression — the whole animation goes into the `data:` payload',
         '`alt` and `title` carry the file’s basename with the extension dropped, escaped for attribute position so a name cannot become markup',
         'Self-contained: the picture is in the file, and opening it fetches no remote resource',
-        '`data:image/gif` is inside the reference allow-list, so a further step to Markdown or Word will not strip it either',
+        '`data:image/gif` is inside the reference allow-list, so a further step to Markdown or Word keeps it too — provided the browser recognised the type',
         'Up to 200 files per batch and 100 MB each — the same gate every other route shares',
       ],
     },
@@ -8501,7 +8505,7 @@ export const PAIRS = [
         'No OCR and no invented description: the only string in the output comes from your file name',
         'The file only grows: four characters per three bytes plus about 2.6 KB of wrapper, so a 2 MB GIF becomes roughly 2.7 MB of HTML — this is not compression',
         'No resizing, no frame picking, no cropping: take the image-to-image pages, where the size and quality controls live',
-        'One picture per file: convert several one at a time, or tile them yourself first',
+        'One picture per file: convert several one at a time, or tile them yourself first — this extension has no collage or tile feature',
       ],
     },
     notes: {
@@ -8523,8 +8527,8 @@ export const PAIRS = [
           en: 'Will my GIF still animate once it is HTML?',
         },
         a: {
-          zh: '这条能保证的是「帧都还在」：文件字节原样内嵌，没有取首帧、没有重编码，所以动图的数据一个字节都没少。至于播不播、循环几遍，是打开这份 HTML 的那一侧（浏览器或宿主页面）决定的，本页不替它承诺——这也是为什么把 GIF 交给只收 PNG / JPG 的地方才是真正会丢帧的那一步。',
-          en: 'What this route guarantees is that all frames survive: the file’s bytes go in verbatim, with no first-frame grab and no re-encoding, so nothing is subtracted from the animation. Whether it plays and how often it loops is decided by whatever opens the page — a browser or a host document — and this page makes no promise for them. That is also why handing a GIF to something that only accepts PNG or JPEG is the step that actually loses frames.',
+          zh: '这条能保证的是「帧都还在」：文件字节原样内嵌，没有取首帧、没有重编码，所以动图的数据一个字节都没少。至于播不播、循环几遍，是打开这份 HTML 的那一侧（浏览器或宿主页面）决定的，本页不替它承诺——这也是为什么把 GIF 交给只收 PNG / JPG 的地方那是你在本工具之外又多丢一次帧的一步。',
+          en: 'What this route guarantees is that all frames survive: the file’s bytes go in verbatim, with no first-frame grab and no re-encoding, so nothing is subtracted from the animation. Whether it plays and how often it loops is decided by whatever opens the page — a browser or a host document — and this page makes no promise for them. That is also why handing a GIF to something that only accepts PNG or JPEG is where frames get lost a second time, outside this tool.',
         },
       },
       {
@@ -8564,8 +8568,8 @@ export const PAIRS = [
       en: 'One self-contained image tag whose base64 is the whole animation. No first-frame grab, no re-encode; playback is up to the reader.',
     },
     lede: {
-      zh: '两步：`gif>html` 把文件的**原始字节**编成 data URI 放进一个 `<img>`（`alt` 与 `title` 都是文件名主干，去扩展名、无名时 `converted`，并做属性转义），`html>md` 再用 Turndown 把这份文档序列化。实测产物是**一行图片语法**：那张 `<img>` 是页面 `body` 里唯一的元素，样式表在 `<head>`、而序列化只取 `body`，所以 CSS 不会漏进 `.md`。对 GIF 而言关键在「不丢帧」：整份动图（每一帧、每一段扩展块）都在那串 base64 里，这一路既没有取首帧也没有重编码；而 GIF→PNG / JPG / WebP 那几路确实取首帧，并在结果上写明丢了几帧。边界要说清：**帧都在，不等于一定播**——是否播放、循环几遍由打开这份 `.md` 的阅读器决定，本页不替它承诺；`data:` 图片能不能显示也同理，网页端邮件客户端与一些托管站会剥掉它，那种场合请用外链图片。体积按每三字节四字符走，动图往往本就不小，所以整段负载会挤在同一行里，这是内联换来的代价。全程只有 storage 权限，不联网。',
-      en: 'Two steps: `gif>html` encodes the file’s **raw bytes** into a data URI inside one `<img>` (`alt` and `title` both carry the basename of your file, extension dropped, `converted` when there is no usable name, escaped for attribute position), and `html>md` then serialises the document with Turndown. Measured, the artifact is **one line of image syntax**: that `<img>` is the only element in the page’s body, and the stylesheet sits in `<head>` while the serialisation reads only the body, so no CSS leaks into the `.md`. For a GIF the point is that no frame is lost — every frame, every extension block, is inside that base64, since this route neither grabs the first frame nor re-encodes anything, whereas GIF to PNG, JPG or WebP does exactly that and says how many frames went missing. State the boundary clearly: **surviving frames are not a promise of playback** — whether it animates and how it loops is up to whichever reader opens the `.md`, and this page says nothing for them. The same applies to whether a `data:` picture displays at all: webmail clients and some hosting sites strip it, so use an external reference there. The size runs at four characters per three bytes, and animations are rarely small, so the whole payload sits on one line — that is the cost of inlining. All of it on the storage permission, with no network at all.',
+      zh: '两步：`gif>html` 把文件的**原始字节**编成 data URI 放进一个 `<img>`（`alt` 与 `title` 都是文件名主干，去扩展名、无名时 `converted`，并做属性转义），`html>md` 再用 Turndown 把这份文档序列化。实测产物是**一行图片语法**：那张 `<img>` 是页面 `body` 里唯一的元素，样式表在 `<head>`、而序列化只取 `body`，所以 CSS 不会漏进 `.md`。对 GIF 而言关键在「不丢帧」：整份动图（每一帧、每一段扩展块）都在那串 base64 里，这一路既没有取首帧也没有重编码；而 GIF→PNG / JPG / WebP / PDF 那几路确实取首帧，并在结果上写明丢了几帧。边界要说清：**帧都在，不等于一定播**——是否播放、循环几遍由打开这份 `.md` 的阅读器决定，本页不替它承诺；`data:` 图片能不能显示也同理，网页端邮件客户端与一些托管站会剥掉它，那种场合请用外链图片。体积按每三字节四字符走，动图往往本就不小，所以整段负载会挤在同一行里，这是内联换来的代价。全程只有 storage 权限，不联网。',
+      en: 'Two steps: `gif>html` encodes the file’s **raw bytes** into a data URI inside one `<img>` (`alt` and `title` both carry the basename of your file, extension dropped, `converted` when there is no usable name, escaped for attribute position), and `html>md` then serialises the document with Turndown. Measured, the artifact is **one line of image syntax**: that `<img>` is the only element in the page’s body, and the stylesheet sits in `<head>` while the serialisation reads only the body, so no CSS leaks into the `.md`. For a GIF the point is that no frame is lost — every frame, every extension block, is inside that base64, since this route neither grabs the first frame nor re-encodes anything, whereas GIF to PNG, JPG, WebP or PDF does exactly that and says how many frames went missing. State the boundary clearly: **surviving frames are not a promise of playback** — whether it animates and how it loops is up to whichever reader opens the `.md`, and this page says nothing for them. The same applies to whether a `data:` picture displays at all: webmail clients and some hosting sites strip it, so use an external reference there. The size runs at four characters per three bytes, and animations are rarely small, so the whole payload sits on one line — that is the cost of inlining. All of it on the storage permission, with no network at all.',
     },
     keeps: {
       zh: [
@@ -8628,8 +8632,8 @@ export const PAIRS = [
           en: 'Why is one line of my .md absurdly long?',
         },
         a: {
-          zh: '因为整张动图都内联在那一行里：base64 每三个字节写成四个字符，而序列化只产出一行图片语法。想要「文字在文件里、图在目录里」那种可 diff、可读的形状，请自己写外链图片语法（`![说明](动画.gif)`）；这一路选择内联，是为了拷走单个 `.md` 也还能显示。',
-          en: 'Because the whole animation is inlined on that line: base64 is four characters per three bytes, and the serialisation produces one image tag. For the diffable, readable shape — words in the file, pictures in a folder — write an external reference yourself (`![caption](animation.gif)`); this route inlines so that a single copied `.md` still shows the picture.',
+          zh: '因为整张动图都内联在那一行里：base64 每三个字节写成四个字符，而序列化只产出一行图片语法。想要「文字在文件里、图在目录里」那种可 diff、可读的形状，请自己写外链图片语法（`![说明](动画.gif)`）；这一路选择内联，是为了拷走单个 `.md` 也还能带上图。',
+          en: 'Because the whole animation is inlined on that line: base64 is four characters per three bytes, and the serialisation produces one image tag. For the diffable, readable shape — words in the file, pictures in a folder — write an external reference yourself (`![caption](animation.gif)`); this route inlines so that a single copied `.md` still carries the picture.',
         },
       },
       {
@@ -8659,22 +8663,22 @@ export const PAIRS = [
       en: 'The whole .bmp is embedded verbatim as a data URI in a page you can open: no decode, no re-encode, no downscale. Fully offline.',
     },
     lede: {
-      zh: '这条路和 BMP 的另一条出口**形态相反**，这一点值得先说清楚。`bmp>html` 是搬运：`FileReader.readAsDataURL` 把文件的原始字节编成 data URI 写进一个 `<img src>`，再包进自带样式表的 HTML——中间**没有解码、没有上画布、没有重编码**。而 `bmp>pdf` 是处理：它把同一份位图解码后铺在**白底画布**上重编码成 PNG 流（这是刻意的，jsPDF 自带的 BMP 解码分支会强走 quality-100 JPEG、无视白底、不给质量旋钮，写出的流还比源文件大）。所以「同一张 BMP 会不会被动过像素」取决于你走哪条：HTML 这条一个字节都不动，PDF 那条必然重走一遍画布。对 BMP 这种通常不带压缩的容器，搬运的代价要如实说：base64 是每三个字节写成四个字符，再加约 2.6 KB 的文档外壳（它随文件名长度增减），而源文件本身往往已经比同画面的 PNG 大一个数量级——所以**这一路绝不是用来变小的**，它是用来把图交给只收网页的地方。反过来，如果你要的是体积、或者要让背景落在白底上，PDF 那条才有压缩存放。其余与位图转网页同形：`alt` 与 `title` 取**文件名主干**（去扩展名、无名时 `converted`）并按属性位置转义；内层 CSS 居中、`max-width: 100%`，版心实测约 800 px，宽图显示会收而文件不动；`data:image/bmp` 在剥远程引用的白名单之内，所以打开这份 HTML 不发任何请求，再往下一步转 Markdown 也不会被剥掉。BMP 在这套界面里**只能作为输入**（浏览器不提供 BMP 编码器），所以没有「从别的格式转成 BMP」这条路。',
-      en: 'This route is shaped **opposite** to BMP’s other exit, and that is worth saying first. `bmp>html` is carrying: `FileReader.readAsDataURL` turns the file’s raw bytes into a data URI inside an `<img src>`, wrapped in a document with the bundled stylesheet — **no decode, no canvas, no re-encode anywhere**. `bmp>pdf` is processing: it decodes the same bitmap, paints it onto a **white-filled canvas** and re-encodes it as a PNG stream — deliberately, because jsPDF’s own BMP branch forces a quality-100 JPEG, ignores the white fill, offers no quality knob, and writes a stream larger than the file it came from. So whether a BMP’s pixels are touched depends on which page you take: this one changes not a byte, that one necessarily redraws the canvas. For a container that usually ships uncompressed, state the cost honestly: base64 writes four characters per three bytes, plus a wrapper of about 2.6 KB that grows with the length of your file name, and the source is often an order of magnitude bigger than a PNG of the same picture — **this route is not a way to get smaller**, it is a way to hand the picture to something that only accepts a web page. If what you want is size, or a white ground behind the pixels, the PDF page is the one that stores compressed. Everything else matches the other pictures-to-HTML pages: `alt` and `title` carry the **basename** (extension dropped, `converted` when there is no usable name) escaped for attribute position; the inner CSS centres the image and caps it at `max-width: 100%` inside a measure measured at about 800 px, so a wide picture scales on screen while the file stays untouched; and `data:image/bmp` is inside the allow-list of references allowed to survive, so opening the page issues no request and one more step to Markdown keeps the picture too. One boundary belongs in plain sight: BMP is **input-only** in this interface — browsers cannot encode it — so there is no route that produces a .bmp.',
+      zh: '这条路和 BMP 的另一条出口**形态相反**，这一点值得先说清楚。`bmp>html` 是搬运：`FileReader.readAsDataURL` 把文件的原始字节编成 data URI 写进一个 `<img src>`，再包进自带样式表的 HTML——中间**没有解码、没有上画布、没有重编码**。而 `bmp>pdf` 是处理：它把同一份位图解码后铺在**白底画布**上重编码成 PNG 流（这是刻意的，jsPDF 自带的 BMP 解码分支会强走 quality-100 JPEG、无视白底、不给质量旋钮，写出的流还比源文件大）。所以「同一张 BMP 会不会被动过像素」取决于你走哪条：HTML 这条一个字节都不动，PDF 那条必然重走一遍画布。对 BMP 这种通常不带压缩的容器，搬运的代价要如实说：base64 是每三个字节写成四个字符，再加约 2.6 KB 的文档外壳（它随文件名长度增减），而源文件本身通常就比同画面的 PNG 大——画面越平、差距越大，内容越接近噪声、差距越小——所以**这一路绝不是用来变小的**，它是用来把图交给只收网页的地方。反过来，如果你要的是体积、或者要让背景落在白底上，PDF 那条才有压缩存放。其余与位图转网页同形：`alt` 与 `title` 取**文件名主干**（去扩展名、无名时 `converted`）并按属性位置转义；内层 CSS 居中、`max-width: 100%`，版心实测约 800 px，宽图显示会收而文件不动；`data:image/bmp` 在剥远程引用的白名单之内，所以打开这份 HTML 不发任何请求，再往下一步转 Markdown 也不会被剥掉。BMP 在这套界面里**只能作为输入**（浏览器不提供 BMP 编码器），所以没有「从别的格式转成 BMP」这条路。',
+      en: 'This route is shaped **opposite** to BMP’s other exit, and that is worth saying first. `bmp>html` is carrying: `FileReader.readAsDataURL` turns the file’s raw bytes into a data URI inside an `<img src>`, wrapped in a document with the bundled stylesheet — **no decode, no canvas, no re-encode anywhere**. `bmp>pdf` is processing: it decodes the same bitmap, paints it onto a **white-filled canvas** and re-encodes it as a PNG stream — deliberately, because jsPDF’s own BMP branch forces a quality-100 JPEG, ignores the white fill, offers no quality knob, and writes a stream larger than the file it came from. So whether a BMP’s pixels are touched depends on which page you take: this one changes not a byte, that one necessarily redraws the canvas. For a container that usually ships uncompressed, state the cost honestly: base64 writes four characters per three bytes, plus a wrapper of about 2.6 KB that grows with the length of your file name, and the source is usually bigger than a PNG of the same picture — the flatter the artwork, the wider the gap, and the closer it is to noise, the narrower — **this route is not a way to get smaller**, it is a way to hand the picture to something that only accepts a web page. If what you want is size, or a white ground behind the pixels, the PDF page is the one that stores compressed. Everything else matches the other pictures-to-HTML pages: `alt` and `title` carry the **basename** (extension dropped, `converted` when there is no usable name) escaped for attribute position; the inner CSS centres the image and caps it at `max-width: 100%` inside a measure measured at about 800 px, so a wide picture scales on screen while the file stays untouched; and `data:image/bmp` is inside the allow-list of references allowed to survive, so opening the page issues no request and one more step to Markdown keeps the picture too. One boundary belongs in plain sight: BMP is **input-only** in this interface — browsers cannot encode it — so there is no route that produces a .bmp.',
     },
     keeps: {
       zh: [
         '像素逐字节不变：不解码、不上画布、不再压一次（这与 BMP→PDF 必然重走画布相反）',
         '`alt` 与 `title` 取文件名的主干（去扩展名），并按属性位置转义——名字不会变成标记',
         '自包含：图就在文件里，打开这份 HTML 不取任何远程资源',
-        '`data:image/bmp` 在引用白名单内，再往下一步转 Markdown 也不会被剥掉',
+        '`data:image/bmp` 在引用白名单内，类型被认出时再往下一步转 Markdown 也不会被剥掉',
         '一批最多 200 个文件、单个 100 MB，与其他路线共用同一道闸门',
       ],
       en: [
         'Byte-identical pixels: no decode, no canvas, no re-compression — the opposite of BMP to PDF, which must redraw the canvas',
         '`alt` and `title` carry the file’s basename with the extension dropped, escaped for attribute position so a name cannot become markup',
         'Self-contained: the picture is in the file, and opening it fetches no remote resource',
-        '`data:image/bmp` is inside the reference allow-list, so a further step to Markdown will not strip it either',
+        '`data:image/bmp` is inside the reference allow-list, so a further step to Markdown keeps it too — provided the type was recognised',
         'Up to 200 files per batch and 100 MB each — the same gate every other route shares',
       ],
     },
@@ -8697,12 +8701,12 @@ export const PAIRS = [
     notes: {
       zh: [
         '要变小或要白底：BMP→PDF，解码后铺白底、按压缩流写入，每张一页',
-        '要 Markdown 里的图：BMP→Markdown 就是这条再加一步序列化',
+        '要 Markdown 里的图：BMP→Markdown 就是这条再加一步序列化；BMP 的 `data:` 图片在不少阅读器里不一定显示，那种场合请用外链图片',
         '要真正换格式（PNG / JPG / WebP）：那需要重编码，请走图片转图片那几页',
       ],
       en: [
         'For size or a white ground: BMP to PDF, which decodes, fills white and writes a compressed stream, one page per picture',
-        'For a picture in Markdown: BMP to Markdown is this step plus a serialisation',
+        'For a picture in Markdown: BMP to Markdown is this step plus a serialisation; a BMP `data:` picture does not display in every reader, so use an external reference there',
         'To actually change format (PNG, JPG, WebP): that needs re-encoding, so take the image-to-image pages',
       ],
     },
@@ -8830,6 +8834,101 @@ export const PAIRS = [
         a: {
           zh: '能。整批都是可合并的图片且目标为 PDF 时，目标选择器下方会出现「合并为一份 PDF」的开关；勾上后整批按列表顺序写成一份文档、每张一页，混合方向也逐页保留各自形状。上限 200 页；任何一张失败则整组不产出（避免给你一份缺页的文档），重试是整组重来，中途取消则丢弃整份。不勾选时仍是一张一份 PDF。',
           en: 'Yes. When the whole batch is mergeable images and the target is PDF, a «merge into one PDF» switch appears under the target picker; ticking it writes the batch in list order as one document, one page per picture, keeping each page’s own shape in a mixed batch. The ceiling is 200 pages; if any picture fails, nothing is produced rather than a document with holes, the retry is the whole group, and cancelling discards it. Unticked, it stays one PDF per file.',
+        },
+      },
+    ],
+  },
+  {
+    slug: 'svg-to-docx',
+    from: 'svg',
+    to: 'docx',
+    shot: 'batch-results',
+    published: '2026-10-21',
+    title: {
+      zh: 'SVG 转 Word——离线、矢量在第二步变位图、结果会写明',
+      en: 'SVG to Word offline — the vector turns bitmap in step two',
+    },
+    desc: {
+      zh: '两步进 Word：图形在打包前被栅格化成 PNG 并提成包内图片部件，界面会写明这次发生了栅格化。全程离线，不上传。',
+      en: 'Two steps into Word: the artwork is rasterised to PNG before packing and lifted into an image part, and the result card says so. Fully offline.',
+    },
+    lede: {
+      zh: '这条最容易被讲反的地方是「**在哪一步变成位图**」。`svg>html` 那一步**不栅格化**——它把图形作为矢量留在页面里（净化用的是保留 svg 与 svgFilters 的配置，脚本与事件属性去掉，渐变滤镜这些可见结果留下）。真正变位图的是第二步 `html>docx`：它在净化**之前**把文档里每一个内联 SVG 逐个取出来，走「剥活动性内容 → 规范化尺寸 → 画进画布 → 输出 PNG 数据 URL」，再把 `<img>` 换上去。顺序是有原因的：净化用的 html profile 里**根本没有 svg 标签**，如果先净化，用户的图会被当成可执行标记一起删掉，产物是一份合法但空白的 .docx，而界面还报成功。栅格化时按最长边钳制到本扩展的图片上限、**只缩不放**，所以巨大的 SVG 不会撑爆画布，小的也不会被硬拉大。之后 `html>docx` 才净化、剥掉远程引用并交给打包器——那份 PNG 数据 URL 会被提成包里独立的图片部件，`Word` 显示它不需要取数。两件对用户可见的事：结果卡会写明**这一次发生过栅格化**（界面上单独一行提示，不是只写在文档里），以及产物是 altChunk 包装——排版与分页由打开它的程序决定。代价要说清：**缩放不再无损**，进 Word 之后它是一张位图，放大就是像素；想要保留矢量就不要进 Word（SVG→HTML 保留矢量，SVG→PDF 那一条第一步就 `svg>png` 栅格化，反而不是留矢量的路）。依赖 `<use>` 的雪碧图这一类要特别注意：`<symbol>` 的定义会被 svg profile 留下、引用层去掉，栅格化出来的往往是空图——那种文件更适合先 SVG→PNG 再交给 Word。全程只有 storage 权限，不联网。',
+      en: 'The thing most often stated backwards about this route is **which step turns it into a bitmap**. `svg>html` does not rasterise — the artwork stays vector in the page, sanitised with a profile that keeps `svg` and `svgFilters`, so scripts and event handlers go while gradients and filters survive. The bitmap happens in step two, `html>docx`: **before** sanitising, it takes each inline SVG out of the document and runs it through «strip active content → normalise the size → draw on a canvas → emit a PNG data URL», swapping in an `<img>` afterwards. The order is load-bearing: the html profile this step sanitises with has **no svg tags at all**, so sanitising first would delete the user’s diagram as if it were executable markup and hand back a valid, blank .docx that the interface reported as a success. Rasterisation clamps the longest edge to this extension’s image ceiling and **only ever scales down**, so an enormous SVG cannot blow up the canvas and a small one is not stretched. Only then does `html>docx` sanitise, strip remote references and hand the markup to the packer — that PNG data URL becomes its own image part inside the package, so nothing has to be fetched to display it. Two things are visible to the user: the result card **says when rasterisation happened** (a line of its own in the interface, not just fine print on this page), and the artifact is an altChunk wrapper, so layout and paging belong to whichever program opens it. Say the cost plainly: **zooming is no longer lossless** — inside Word it is a bitmap, and enlarging shows pixels. If keeping the vector matters, do not go into Word (SVG to HTML keeps it vector; SVG to PDF rasterises in its very first step, so it is not the vector-preserving road either). One input shape deserves its own warning: a sprite built on `<use>` keeps its `<symbol>` definitions but loses the referencing layer, so what rasterises is often an empty picture — those files are better taken SVG to PNG first, then into Word. All of it on the storage permission, with no network at all.',
+    },
+    keeps: {
+      zh: [
+        '可见结果留下：渐变、滤镜与图形本身的绘制都进图，脚本与事件属性被去掉',
+        '栅格化在净化之前做：所以用户的图形不会被 html profile 当成 svg 标记一并删掉',
+        '只缩不放：按最长边钳到本扩展的图片上限，小图不被拉伸、大图不撑爆画布',
+        'PNG 数据 URL 会被提成包里独立的图片部件，显示它不需要任何一次取数',
+        '结果卡单独一行写明这次发生了栅格化，不是只在文档里提一句',
+      ],
+      en: [
+        'The visible result survives: gradients, filters and the drawing itself reach the image, while scripts and event handlers are removed',
+        'Rasterisation runs before sanitising, so the user’s artwork is not deleted by an html profile that contains no svg tags',
+        'Down-only: the longest edge is clamped to this extension’s image ceiling, so small pictures are not stretched and huge ones cannot blow up the canvas',
+        'The PNG data URL is lifted into its own image part in the package, so displaying it takes no request',
+        'The result card says in its own line that rasterisation happened, rather than leaving it to this page’s fine print',
+      ],
+    },
+    limits: {
+      zh: [
+        '进 Word 之后就是位图：放大看到的是像素，缩放不再无损',
+        '依赖 `<use>` 的雪碧图常栅格化成空图——`<symbol>` 留下、引用层被去掉，这类文件请先 SVG→PNG',
+        '文档体是 altChunk：排版与分页由打开它的程序决定，本扩展不产出 Word 原生段落',
+        '分辨率由画布按钳制后的尺寸决定，不是矢量导出；要更清晰的成品请用更大的源',
+        '一批最多 200 个文件、单个 100 MB，与其他路线共用同一道闸门',
+      ],
+      en: [
+        'Inside Word it is a bitmap: enlarging shows pixels and zoom is no longer lossless',
+        'Sprites built on `<use>` often rasterise to an empty picture — the `<symbol>` definitions stay while the referencing layer goes, so take those files SVG to PNG first',
+        'The body is an altChunk: layout and paging are the reader’s, and no native Word paragraphs are produced',
+        'Resolution comes from the canvas at the clamped size, not from a vector export — use a larger source if you need a crisper result',
+        'Up to 200 files per batch and 100 MB each — the same gate every other route shares',
+      ],
+    },
+    notes: {
+      zh: [
+        '要留矢量：SVG→HTML，图形作为矢量进页面，放大看到的还是路径',
+        '要每页一张图的文档：SVG→PDF（第一步 `svg>png` 栅格化，页面按图片尺寸）',
+        '要固定像素尺寸：SVG→PNG / JPG / WebP，那边才有最长边与质量开关',
+      ],
+      en: [
+        'To keep it vector: SVG to HTML, where zooming still shows paths',
+        'For a document with one image per page: SVG to PDF, which rasterises in its first step and sizes the page to the picture',
+        'For a fixed pixel size: SVG to PNG, JPG or WebP, where the longest-edge and quality controls live',
+      ],
+    },
+    faq: [
+      {
+        q: {
+          zh: 'SVG 进 Word 还是矢量吗？',
+          en: 'Is my SVG still vector once it is in Word?',
+        },
+        a: {
+          zh: '不是，而且这一步发生在 `html>docx`：每个内联 SVG 在净化前被画到画布上、输出 PNG 数据 URL，再被打包器提成包内图片部件。所以进 Word 之后它和一张普通截图没有区别——放大是像素，缩放不再无损。要保留矢量，走 SVG→HTML。',
+          en: 'No, and the step that decides it is `html>docx`: every inline SVG is drawn onto a canvas and emitted as a PNG data URL before sanitising, then lifted by the packer into an image part. So inside Word it behaves like any screenshot — pixels on zoom, no longer lossless. For the vector, take SVG to HTML.',
+        },
+      },
+      {
+        q: {
+          zh: '为什么转换前要先栅格化、而不是先净化？',
+          en: 'Why rasterise before sanitising rather than the other way round?',
+        },
+        a: {
+          zh: '因为净化用的 html profile 里没有 svg 标签。先净化的话，用户的图形会被连同可执行标记一起删掉，而打包那一步照样产出一份能打开的 .docx——界面报成功，内容却是空的。这个顺序就是为了让「砍活动性内容」和「留住图形」同时成立。',
+          en: 'Because the html profile used for sanitising contains no svg tags at all. Sanitising first would delete the user’s artwork along with executable markup, and the packer would still produce an openable .docx — the interface reporting success over an empty page. This order is what lets the step cut active content and keep the drawing at the same time.',
+        },
+      },
+      {
+        q: {
+          zh: '界面会告诉我这次把 SVG 栅格化了吗？',
+          en: 'Does the interface tell me the SVG was rasterised?',
+        },
+        a: {
+          zh: '会。转换器在这一步返回一个「已栅格化」标记，结果卡据此单独显示一行提示，只在真发生了栅格化时出现——多步链里任何一步把它置上都会带到批次结果里。这也是为什么这一路的披露不靠用户自己想到去看分辨率。',
+          en: 'Yes. The converter returns a rasterised flag for that step and the result card shows its own line for it, appearing only when rasterisation actually happened — and in a multi-step chain any step can set it and it carries through to the batch result. That is why the disclosure here does not depend on the user thinking to inspect the resolution.',
         },
       },
     ],

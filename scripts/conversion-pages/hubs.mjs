@@ -963,12 +963,8 @@ export const HUBS = [
     ],
     targets: {
       md: {
-        zh: 'SVG 先栅格化成 PNG 再嵌入 HTML，最后转成 Markdown 图片语法：矢量结构丢失，得到的是位图；含远程资源的引用不会下载。',
-        en: 'The SVG is rasterised to PNG, embedded in HTML and written as Markdown image syntax: the vector structure is replaced by a bitmap, and remote references are not downloaded.',
-      },
-      docx: {
-        zh: 'SVG 栅格化为 PNG 后写入 Word：文档里是位图，失去缩放无损性；脚本与外链在栅格化前被剥离。',
-        en: 'The SVG is rasterised to PNG and written to Word: the document holds a bitmap that no longer scales losslessly, with scripts and external links stripped before rasterising.',
+        zh: '第一步 `svg>html` 不栅格化、图形作为矢量进页面，第二步再序列化成 Markdown；内联图形在 Markdown 侧能否显示由阅读器决定，含远程资源的引用不会下载。',
+        en: 'The first step, `svg>html`, does not rasterise — the artwork stays vector in the page — and the second serialises it into Markdown; whether an inline drawing displays in Markdown is up to the reader, and remote references are never fetched.',
       },
     },
   },

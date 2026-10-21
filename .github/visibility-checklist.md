@@ -1142,6 +1142,30 @@ csv→Word 的另一组事实回读自`html-to-docx.ts`：正文以 MHT altChunk
   实测计数：`pages:render` 114 文件、`verify:numbers` 23 事实 × 119 文档（文件 = 页 + 17、文档 = 页 + 22 仍成立）、
   `pages:check` 逐字节一致、`lint:all`、`build`、产物层两条离线守卫、`verify:meta`、`verify:paths` 全 rc=0；
   生成物整目录暂存 + `git archive HEAD` 隔离树重跑 `render --check` 自证。运行时零改动，断言数仍 **452**。
+
+- **10-21 第卅九轮（svg→Word 一张 + 核查员对 gif/bmp 三页翻掉 7 条，98 张页 / 缺口 18）。**
+  svg→Word 这页的主张全在「**哪一步变位图**」：`svg>docx` = `svg>html` + `html>docx`（基线现读），第一步**不栅格化**
+  （`svg-to-html.ts:21-23` 用保留 svg 与 svgFilters 的配置），位图化发生在第二步——`html-to-docx.ts:29-36` 先把内联 SVG
+  经 `replaceInlineSvgWithPng`（`svg-embed.ts`：剥活动性内容→规范化尺寸→画布→PNG 数据 URL，`fitToMaxDim` **只缩不放**）
+  换成 `<img>`，**再**净化。顺序写成页面上的因果：html profile 里没有 svg 标签，先净化就会把用户的图形连同可执行标记一起删掉、
+  产出一份合法但空白的 .docx 而界面报成功。第三条是用户可见的：`svgRasterized` 由转换器返回、经 `useConversion.ts:775` 上抛、
+  在 `ResultDownload.vue:357-360` 单独成行显示，所以「这次把矢量变位图了」不靠用户自己想到去看分辨率。
+  **核查员这一轮翻出的最有价值的一条不是措辞而是机制**：`FileUpload.vue:386` 从 ZIP 解包出来的文件是
+  `new File([data], base)` **不带 type**，于是 `readAsDataURL` 出来的前缀是 `data:application/octet-stream`，
+  它不匹配 `html-sanitize.ts:83` 的图片白名单，`html>docx` 的 `stripRemoteResources` 会把 `src` 整个删掉——
+  同一张图在「用户直接选文件」与「从 ZIP 解包」两种来源下，进 Word 的结果**不一样**。
+  gif/bmp 页原先写的「类型在白名单内，所以再往下一步不会被剥」因此改成带前提的说法，并给两张 Word 页各补一条 limits 说明这一形。
+  其余六条：① 丢帧枚举漏了 GIF→PDF（`image-pdf.ts:113` 的 GIF 分支同样调 `hasMultipleFrames`、:206 回传 `lostFrames`），四处补齐；
+  ② Markdown 页「拷走单个 .md 也还能显示」与同页 limits「能否显示由收件端决定」互斥，改成「还能带上图」；
+  ③ faq 末句「…才是真正会丢帧的那一步」反向暗示本工具不丢帧，改成「在本工具之外又多丢一次帧的一步」；
+  ④ bmp→Markdown 的 notes 缺显示警示（同站 bmp hub 已写「多数阅读器不认 BMP 的 data URI」），按同口径补上；
+  ⑤ 「比同画面的 PNG 大一个数量级」没有取证，改成不带倍数的方向说法（越平差距越大、越接近噪声差距越小）；
+  ⑥ keeps 第 5 条「本扩展不提供拼图功能」只在中文侧存在，英文补齐。
+  另外把 svg hub 的 `md` 摘要里「SVG 先栅格化成 PNG 再嵌入 HTML」改掉——`svg>md` 的链是 `svg>html`+`html>md`，
+  第一步不栅格化，那句与同页第卅六轮的改口自相矛盾；`docx` 摘要按镜像规则摘除。
+  **数字门又拦下一次**：新页 title.en 61 字符超 60 预算，`pages:render` 直接拒写（改短后 56）。
+  实测计数：`pages:render` 115 文件、`verify:numbers` 23 事实 × 120 文档（文件 = 页 + 17、文档 = 页 + 22 仍成立）、
+  `pages:check` 逐字节一致、`lint:all`、`build`、产物层两条离线守卫、`verify:meta`、`verify:paths` 全 rc=0。运行时零改动，断言数仍 **452**。
   实测计数：`pages:render` 113 文件、`verify:numbers` 23 事实 × 118 文档（文件 = 页 + 17、文档 = 页 + 22 仍成立）、
   `pages:check` 逐字节一致、`lint:all`、`build`、产物层两条离线守卫、`verify:meta`、`verify:paths` 全 rc=0。
   这一轮按上一笔的教训**整目录暂存 `docs/convert`**，并在 `git archive HEAD` 的隔离树里重跑 `render --check` 自证。运行时零改动，断言数仍 **452**。

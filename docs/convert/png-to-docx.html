@@ -164,6 +164,7 @@
         <li><span lang="zh-CN">不产生可编辑的文字层：图就是图，Word 里选不中它里面的字，也没有题注、图文式样式可用</span><span lang="en">No editable text layer: it stays a picture, its words cannot be selected, and there are no captions or picture styles to apply</span></li>
         <li><span lang="zh-CN">显示尺寸由内层 CSS 与 Word 页面共同决定，本扩展不给缩放参数；要精确控制尺寸请在 Word 里改</span><span lang="en">Displayed size follows the inner CSS and Word’s page; this route exposes no scaling option — resize it in Word</span></li>
         <li><span lang="zh-CN">想要「一页一图」的 PDF 而不是文档，请走 PNG→PDF；想要能再编辑版式，图进 Word 也仍然只是图</span><span lang="en">For one image per page take PNG to PDF; for a layout you can keep editing, a picture inside Word is still just a picture</span></li>
+        <li><span lang="zh-CN">类型没被认出时（例如从 ZIP 解包的文件）前缀不是图片类型，Word 那一步会在写出前把 `src` 剥掉，那一格留空</span><span lang="en">When the browser never identified the type — a file unpacked from a ZIP, say — the prefix is not an image type, so the Word step strips `src` before writing and leaves an empty slot</span></li>
         <li><span lang="zh-CN">打包失败会报 `errors.docxGen` 并点名该文件，不会交出一个半成品</span><span lang="en">A packing failure reports `errors.docxGen` for that file rather than shipping a half-written file</span></li>
             </ul>
           </section>

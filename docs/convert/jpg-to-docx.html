@@ -164,6 +164,7 @@
         <li><span lang="zh-CN">文档体是 altChunk（内嵌 HTML），不是 Word 原生段落：排版与分页由 Word 打开时决定</span><span lang="en">The body is an altChunk — that inner HTML — not native Word paragraphs, so Word decides typesetting and paging when it opens</span></li>
         <li><span lang="zh-CN">不产生题注、图文样式或可搜索文字层；要那些请在 Word 里补——本扩展没有任何路线能从图里读出文字</span><span lang="en">No captions, picture styles or searchable text layer; add those in Word — no route here can read words out of a picture</span></li>
         <li><span lang="zh-CN">显示尺寸由内层 CSS 与 Word 页面共同决定，本扩展不给缩放参数</span><span lang="en">Displayed size follows the inner CSS and Word’s page; this route exposes no scaling option</span></li>
+        <li><span lang="zh-CN">类型没被浏览器认出时（例如从 ZIP 解包出来的文件）前缀不是图片类型，Word 那一步会在写出前把 `src` 剥掉，那一格留空</span><span lang="en">When the browser never identified the type — a file unpacked from a ZIP, say — the prefix is not an image type, so the Word step strips `src` before writing and leaves an empty slot</span></li>
         <li><span lang="zh-CN">想要一页一图的 PDF 请走 JPG→PDF；想要真换格式（WebP / PNG）请走图片转图片那几页</span><span lang="en">For one image per page take JPG to PDF; to actually change format (WebP, PNG) take the image-to-image pages</span></li>
             </ul>
           </section>
