@@ -9218,4 +9218,99 @@ export const PAIRS = [
       },
     ],
   },
+  {
+    slug: 'png-to-md',
+    from: 'png',
+    to: 'md',
+    shot: 'batch-results',
+    published: '2026-10-21',
+    title: {
+      zh: 'PNG 转 Markdown——离线、一行内联、透明原样',
+      en: 'PNG to Markdown offline — inline, alpha untouched',
+    },
+    desc: {
+      zh: '一行自包含的图片语法，负载是整份 .png 的字节：不重编码，透明与像素原样。显示与否由阅读器决定，全程离线。',
+      en: 'One inline image tag whose payload is the whole .png: no re-encode, alpha and pixels untouched. Whether it renders is the reader’s call.',
+    },
+    lede: {
+      zh: '两步：`png>html` 把文件的原始字节用 `FileReader.readAsDataURL` 编成 data URI 放进一个 `<img>`（`alt` 与 `title` 是文件名主干，去扩展名、无名时 `converted`，并做属性转义），`html>md` 再用 Turndown 序列化。实测产物是**一行图片语法**：`body` 里只有那张 `<img>`，样式表在 `<head>` 而序列化只取 `body`，CSS 不会漏进 `.md`。PNG 在这一路上真正被保住的是**透明**：这条链不重新采样、也不往画布上画，所以 alpha 通道与像素都是原样；对照 PNG→JPG 那一趟会把它合成掉。代价与边界都摆在明处：一，base64 每三个字节写成四个字符，再加图片语法本身，`.md` 会明显变重，整段负载还挤在同一行——要提交进仓库、要被 diff，外链是更好的形状；二，**显示由收件端决定**，网页端邮件客户端与一些托管站不画 `data:` 图片，本页不替它们承诺；三，类型前提也在这儿——从 ZIP 解包出来的文件不带 MIME 类型，那条 data URI 的前缀会是 `application/octet-stream`，而不是 `image/png`（这条路不受影响，但同一种字节再往 Word 走一步就会被剥掉 `src`）。想要能搜索、能复制的文字得靠识别工具：本扩展不带 OCR 模型与语言包，也不把图上传给任何服务，产物里唯一的字符串来自你的文件名。全程只有 storage 权限，不联网。',
+      en: 'Two steps: `png>html` encodes the file’s raw bytes with `FileReader.readAsDataURL` into a data URI inside one `<img>` (`alt` and `title` carry the basename of your file, extension dropped, `converted` when there is no usable name, escaped for attribute position), and `html>md` then serialises it with Turndown. Measured, the artifact is **one line of image syntax**: that `<img>` is all the body holds, the stylesheet sits in `<head>` and the serialisation reads only the body, so no CSS leaks in. What PNG actually keeps on this route is **its alpha channel** — the chain neither resamples nor redraws a canvas, so transparency and pixels travel byte for byte; the contrast is PNG to JPG, which composites that away. Costs and boundaries stated up front. First, base64 writes four characters per three bytes and the image syntax adds its own weight, so the `.md` gets noticeably heavier with the whole payload on a single line — for anything that goes into a repository and gets diffed, an external reference is the better shape. Second, **display belongs to the recipient**: webmail clients and some hosting sites will not draw a `data:` picture, and this page makes no promise for them. Third, the type caveat: a file unpacked from a ZIP carries no MIME type, so its data URI prefix is `application/octet-stream` rather than `image/png` (harmless on this route, but the same bytes one step toward Word do get their `src` stripped). Searchable, copyable words would need recognition: this extension ships no OCR model or language packs and uploads nothing anywhere, so the only string in the artifact is your file name. All of it on the storage permission, with no network at all.',
+    },
+    keeps: {
+      zh: [
+        '透明通道原样保留：不重新采样、不上画布，alpha 与像素都是你原来那一份',
+        '自包含的一行图片语法：拷走单个 `.md` 就带着图，不必带附件目录',
+        '`alt` 与 `title` 带你的文件名主干，可继续编辑成有意义的描述',
+        '样式表不会漏进产物：那一步只取文档 `body`，head 里的 CSS 不参与',
+        '一批最多 200 个文件、单个 100 MB，与其他路线共用同一道闸门',
+      ],
+      en: [
+        'Alpha survives untouched: no resampling and no canvas, so both the transparency and the pixels are the ones you had',
+        'One self-contained image tag: copying a single `.md` carries the picture with it, no attachments folder needed',
+        '`alt` and `title` carry your file’s basename, ready for you to edit into something meaningful',
+        'No stylesheet leaks: the serialisation reads the document body only, leaving the head’s CSS out',
+        'Up to 200 files per batch and 100 MB each — the same gate every other route shares',
+      ],
+    },
+    limits: {
+      zh: [
+        '`data:` 图片能不能显示由收件端决定：网页端邮件客户端与一些托管站会剥掉它，那种场合请用外链图片',
+        '体积只增不减：base64 每三字节四字符再加图片语法，整段负载挤在同一行，diff 也不友好',
+        '不做 OCR：图里印着的文字不会变成 Markdown 文字，这条路连像素都不读',
+        '从 ZIP 解包的文件不带类型，前缀会是 `application/octet-stream`；同一种字节再往 Word 走一步会被剥 `src`',
+        '一行一文件：只包一张图，多张请分别转换，或自己写成标准外链图片语法',
+      ],
+      en: [
+        'Whether a `data:` picture displays is the recipient’s call: webmail clients and some hosting sites strip it, so use an external reference there',
+        'The file only grows: four characters per three bytes plus the image syntax, all of it on one line that diffs badly',
+        'No OCR: text printed in the picture never becomes Markdown text, because this route never reads pixels',
+        'A file unpacked from a ZIP has no type, so the prefix is `application/octet-stream`; the same bytes one step toward Word lose their `src`',
+        'One picture per file: convert separately, or write a normal external image reference for several',
+      ],
+    },
+    notes: {
+      zh: [
+        '只想放进网页：PNG→HTML 就是这条的第一步，产物是 HTML 而不是 `.md`',
+        '要被到处接受：PNG→JPG 会重编码并把透明合成成白底，那一趟才是「到处能看」的形状',
+        '要一份多页文档：PNG→PDF，一图一份、勾选合并可整批成一份多页',
+      ],
+      en: [
+        'To put it in a web page: PNG to HTML is this route’s first step, and the artifact is HTML rather than `.md`',
+        'To be accepted everywhere: PNG to JPG re-encodes and composites the transparency onto white — that is the “shows anywhere” shape',
+        'For a multi-page document: PNG to PDF, one file per picture, or one merged document for the batch',
+      ],
+    },
+    faq: [
+      {
+        q: {
+          zh: '转完的 `.md` 里图片是外链还是内联？',
+          en: 'Is the picture linked or embedded in the .md?',
+        },
+        a: {
+          zh: '内联：整张 PNG 的字节都在那一行里。好处是拷走单个 `.md` 就带着图；代价是文本文件变重、那一行极长，而且有些阅读器并不画 `data:` 图片。要「文件小 + 可 diff」就自己写外链 `![说明](图.png)`，把图放在同一目录。',
+          en: 'Embedded: the whole PNG sits inside that one line. The upside is that a single copied `.md` carries the picture; the cost is a heavier text file with one very long line, and readers that will not draw a `data:` picture at all. For small and diffable, write the external form yourself — `![caption](picture.png)` with the file kept alongside.',
+        },
+      },
+      {
+        q: {
+          zh: '透明背景还在吗？',
+          en: 'Is the transparent background still there?',
+        },
+        a: {
+          zh: '在，因为这一路根本没碰像素：解码、重编码、合成白底这些步骤一个都没有。要是不透明背景，得走 PNG→JPG 那类要过画布的路线。',
+          en: 'Yes, because this route never touches pixels: no decode, no re-encode, no compositing onto white. If you *want* an opaque background, that takes a canvas route such as PNG to JPG.',
+        },
+      },
+      {
+        q: {
+          zh: '产物长什么样，能给个例子吗？',
+          en: 'What does the artifact look like — an example?',
+        },
+        a: {
+          zh: '一行：`![文件名主干](data:image/png;base64,一长串 "文件名主干")`。`alt` 与 `title` 都来自你的文件名（去掉扩展名；没有可用名字时是 `converted`），中间是整份 PNG 的 base64 负载。实测就这一行——上一步的 `body` 里只有那张 `<img>`，没有别的正文会被序列化下来。',
+          en: 'One line: `![basename](data:image/png;base64,a-long-run "basename")`. `alt` and `title` both come from your file name (extension dropped; `converted` when there is no usable name), and between them is the file’s full base64 payload. Measured, that single line is the artifact — the previous step’s body holds nothing but that `<img>`.',
+        },
+      },
+    ],
+  },
 ];

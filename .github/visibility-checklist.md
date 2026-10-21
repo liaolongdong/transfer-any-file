@@ -1184,6 +1184,18 @@ csv→Word 的另一组事实回读自`html-to-docx.ts`：正文以 MHT altChunk
   `webp` hub 摘除时先撞了一次锚点不匹配（上一轮删掉 `html` 之后 `md` 的邻居已经变了），按现文重读后才改对。
   实测计数：`pages:render` 118 文件、`verify:numbers` 23 事实 × 123 文档（文件 = 页 + 17、文档 = 页 + 22 仍成立）、
   `pages:check` 逐字节一致、`lint:all`、`build`、产物层两条离线守卫、`verify:meta`、`verify:paths` 全 rc=0。运行时零改动，断言数仍 **452**。
+
+- **10-21 第卅一轮（再加一格：png→Markdown，102 张页 / 缺口 14）。** 这一页的主角是**透明**：`png>html` 不重新采样也不上画布，
+  所以 alpha 与像素都是原样，而 PNG→JPG 那一趟会把它合成到白底上（`image-convert.ts:22` 的白底条件只对 JPEG 成立，本轮已复核）。
+  产物经 Turndown 实为**一行图片语法**、`body` 里只有那张 `<img>`、head 里的样式表不参与序列化。
+  三条限制照今天的规矩写明：显示由收件端决定（网页端邮件客户端与一些托管站不画 `data:` 图片）、体积按 base64 上浮且整段挤在同一行、
+  以及类型前提——从 ZIP 解包的文件不带 MIME 类型，前缀会是 `application/octet-stream`，这一路不受影响，但同一种字节再往 Word 走一步会被剥 `src`。
+  记账：png hub 的 `md` 摘要按镜像规则摘除（该 hub 的 `targets` 摘完是空对象），四镜像同批补齐。
+  实测计数：`pages:render` **119 文件**、`verify:numbers` 23 事实 × **124 文档**（文件 = 页 + 17、文档 = 页 + 22 仍成立）、
+  `pages:check` 逐字节一致、`lint:all`、`build`、产物层两条离线守卫、`verify:meta`、`verify:paths` 全 rc=0。
+  运行时零改动，断言数仍 **452**，素材不重拍。剩余 14 格：docx(json,webp) xlsx(jpg,webp) csv(webp) txt(png,jpg,webp) json(webp)
+  bmp(docx,webp) gif(docx,webp) svg(md)——其中图片族的 `→webp/jpg` 全部是「先到 PDF 再从 PDF 出图」的三步链（`html>pdf` + `pdf>webp`），
+  这是下一批文案最该讲清的一条反直觉事实。
   实测计数：`pages:render` 113 文件、`verify:numbers` 23 事实 × 118 文档（文件 = 页 + 17、文档 = 页 + 22 仍成立）、
   `pages:check` 逐字节一致、`lint:all`、`build`、产物层两条离线守卫、`verify:meta`、`verify:paths` 全 rc=0。
   这一轮按上一笔的教训**整目录暂存 `docs/convert`**，并在 `git archive HEAD` 的隔离树里重跑 `render --check` 自证。运行时零改动，断言数仍 **452**。

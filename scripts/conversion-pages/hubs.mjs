@@ -615,12 +615,7 @@ export const HUBS = [
         },
       },
     ],
-    targets: {
-      md: {
-        zh: '图片以 data URI 内嵌进 HTML，再转成 Markdown 图片语法；整张图的 base64 会写进 .md，文件自包含但体积明显增大。',
-        en: 'The picture is embedded in HTML as a data URI and then written as Markdown image syntax; the whole base64 payload lands in the .md, self-contained but noticeably larger.',
-      },
-    },
+    targets: {},
   },
   {
     from: 'jpg',
