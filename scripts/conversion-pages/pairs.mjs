@@ -7694,4 +7694,190 @@ export const PAIRS = [
       },
     ],
   },
+  {
+    slug: 'docx-to-csv',
+    from: 'docx',
+    to: 'csv',
+    shot: 'batch-results',
+    published: '2026-10-21',
+    title: {
+      zh: 'Word 转 CSV——离线、表格首行当列名、不上传',
+      en: 'Word tables to CSV offline — the first row names columns',
+    },
+    desc: {
+      zh: 'mammoth 先把文档变成 HTML，表格里第一行给出列名、其余每行一条记录；值按写下的字符保留。两份表格会撞闸。全程离线。',
+      en: 'Mammoth turns the document into HTML, the first table row supplies keys and values stay exactly as typed. Two tables in one file stop it. Offline.',
+    },
+    lede: {
+      zh: '把 Word 里的表拉成 CSV 要过三道：`docx>html` 用 mammoth 读出文档体（显式 styleMap 把 Heading 1 到 4 映射成 `h1` 到 `h4`、Title 与 Subtitle 分别成 `h1.title` 与 `h2.subtitle`，字符样式认 Strong 与 Emphasis，列表按 `ul` / `ol` / `li` 重开），内嵌图片走 `mammoth.images.imgElement` 读成 data URI；结果过 DOMPurify 的 html profile。如果这一遍什么都没拿到，还有第二条路：`extractAltChunkHtml` 从 MHT 里把正文捞回来——**这个扩展自己产出的 `.docx` 正是那种容器**，所以 HTML→Word 的结果可以再被读回去。两条路都空则报 `errors.docxEmpty`（与打不开的 `errors.docxParse` 是两种报告）。`html>json` 取表格：**第一行给出键名，其余每行一条记录**，这一步不看它在原文里是不是标题行；行与格都按「只看这张表自己」的作用域读，所以套在单元格里的表不会被摊平成外层数据行——但**它的存在算第二张表**，见 limits。`json>csv` 把数组摊平：列是所有记录键名的并集，某行没有的键留空格，元素里没有键可挂的（顶层标量、嵌套数组）写进合成的 `_value` 列而不是丢掉；嵌套对象在其单元里写成 JSON 文本；产物开头带 UTF-8 BOM。全程在这个标签页里完成，只有 storage 权限；净化那一步之后还会 `stripRemoteResources`，因为 altChunk 捞回来的正文不是本项目写的标记——实测过一份 `afchunk.mht` 里带远程 `<img>` 的文档，不剥就会在你打开产物时发出请求。',
+      en: 'Pulling a Word table into CSV passes three doors: `docx>html` reads the body with mammoth (an explicit styleMap maps Heading 1–4 to `h1`–`h4`, Title and Subtitle to `h1.title` and `h2.subtitle`, the Strong and Emphasis character styles are honoured, lists reopen as `ul` / `ol` / `li`) and embedded pictures come in through `mammoth.images.imgElement` as data URIs, then the result passes DOMPurify’s html profile. If that pass yields nothing there is a second one: `extractAltChunkHtml` recovers the body from the MHT — **and the `.docx` files this extension itself writes are exactly that kind of container**, so an HTML→Word result can be read back. When both passes come up empty the route reports `errors.docxEmpty`, deliberately different from the cannot-open `errors.docxParse`. `html>json` then lifts the table: **the first row supplies the keys and every later row is one record**, and that step does not ask whether the source row was a heading; rows and cells are read in a “this table only” scope, so a table nested inside a cell is not flattened into the outer rows — but its presence counts as a second table, see limits. `json>csv` spreads the array: columns are the union of every record’s keys, a key a row lacks becomes a blank cell, elements with no keys to hang on (top-level scalars, nested arrays) go into a synthetic `_value` column instead of being dropped, nested objects are written as JSON text inside their cell, and the file starts with a UTF-8 BOM. All of it happens in this tab on the storage permission, and after sanitising comes `stripRemoteResources`, because the altChunk body is markup this project never wrote — measured on a document whose `afchunk.mht` carried a remote `<img>`: unstripped, the artifact requested that URL when opened.',
+    },
+    keeps: {
+      zh: [
+        '第一行给列名、其余行给记录：这一步只看表格结构，不要求原文把首行标成标题行',
+        '值按写下的字符落地：`00424`、`1/2`、`2024-01-05` 都不被推断成数字或日期',
+        '没有键可挂的元素进合成 `_value` 列，一千条记录出一千行，不静默少行',
+        '本扩展自己写的 `.docx` 能被读回：HTML→Word 与 Word→HTML 是可来回的一对',
+      ],
+      en: [
+        'The first row names the columns and the rest are records: structure decides, no heading markup required',
+        'Values land as the characters written, so `00424`, `1/2` and `2024-01-05` are not inferred into numbers or dates',
+        'Elements with no keys go into a synthetic `_value` column, so 1 000 records write 1 000 rows instead of silently losing some',
+        'The `.docx` files this extension writes can be read back: HTML→Word and Word→HTML are a round trip',
+      ],
+    },
+    limits: {
+      zh: [
+        '两份表格就撞闸：文档里有两张以上 `<table>` 时，中间那步交出的是按 `<h2>` 文字分组的对象，而 CSV 那一步只接受数组，界面报「JSON 内容必须是包含数据的数组才能转换为 CSV」——请一张表一个文件',
+        '表格套在单元格里也算两张：它不会污染数据行，但会让整批失败',
+        '合并区不展开：被 `colspan` / `rowspan` 覆盖的位置不产生值，那一行的列会左移',
+        '段落、页眉页脚、脚注、批注与修订没有单元格可放，不进结果；字体、颜色、行距也不进 CSV——那里没有格式的容身之处',
+        '打不开不是空文档：解不出容器报 `errors.docxParse`，解开了但没有可转内容报 `errors.docxEmpty`，两种说法在界面上分开',
+      ],
+      en: [
+        'Two tables trip the gate: with more than one `<table>` the middle step hands over an object grouped by the document’s `<h2>` text, and the CSV step accepts arrays only, so the interface reports “JSON must be an array containing data to convert to CSV” — one table per file',
+        'A table nested in a cell also counts as the second one: it does not pollute the data rows, but it fails the batch',
+        'Merged ranges are not expanded: positions covered by `colspan` / `rowspan` produce no value, so that row shifts left',
+        'Paragraphs, headers and footers, notes, comments and tracked changes have no cell to sit in and do not appear; fonts, colours and line spacing do not either — CSV has nowhere to put formatting',
+        'Unreadable is not empty: a container that cannot be parsed reports `errors.docxParse`, while one that parses with nothing convertible reports `errors.docxEmpty`, and the interface keeps them apart',
+      ],
+    },
+    notes: {
+      zh: [
+        '要工作簿而不是文本：Word→Excel 是同一条链再加一步取数与格式钉格',
+        '要保留版面给人看：Word→HTML、Word→PDF 或 Word→Markdown，段落与标题都在',
+        '只要文档里的文字本身：Word→TXT 按阅读顺序抽正文，比这里逐格取值更贴近页面',
+      ],
+      en: [
+        'For a workbook rather than text: Word to Excel is this chain plus the typing and format-pinning step',
+        'To keep the layout for a person: Word to HTML, PDF or Markdown, where headings and paragraphs survive',
+        'For the words themselves: Word to TXT takes the body in reading order, which sits closer to the page than cell-by-cell values',
+      ],
+    },
+    faq: [
+      {
+        q: {
+          zh: '我的 Word 文档里有两张表，为什么直接报错？',
+          en: 'My document has two tables — why does it just fail?',
+        },
+        a: {
+          zh: '因为中间那一步为了不把两张表的列混在一起，交出的是「小标题 → 该表数据」的对象，而对象过不了 CSV 那道「必须是数组」的闸。这不是没做完，而是不肯猜哪张表才是你要的。把两张表分别另存成两个文档，各转一次即可。',
+          en: 'Because the middle step, rather than merge two tables’ columns, hands over an object of “heading → that table’s rows”, and an object cannot pass the CSV step’s arrays-only gate. That is a refusal to guess which table you meant, not unfinished work: save the two tables as two documents and convert each.',
+        },
+      },
+      {
+        q: {
+          zh: '表里的日期和编号会被改写吗？',
+          en: 'Will dates and ids in the table be rewritten?',
+        },
+        a: {
+          zh: '不会。中间那步取到的单元文字是字符，这一层不做类型猜测——猜就把 `00424` 变成 `424`、把 `1/2` 变成某个日期。需要可计算的数字，请走 Word→Excel：那条链按「字节能逐字回来」的规则把确实是数字的格子还原成数字。',
+          en: 'No. Cells arrive as characters and this layer guesses nothing — guessing is how `00424` becomes `424` and `1/2` becomes a calendar day. For summable numbers take Word to Excel, which restores the number type only where the bytes come back exactly.',
+        },
+      },
+      {
+        q: {
+          zh: '为什么标题与段落都不在 CSV 里？',
+          en: 'Why are my headings and paragraphs missing?',
+        },
+        a: {
+          zh: '因为 CSV 只有一格一格的值：文档结构在中间那步变成 HTML 后被读成表格数据，标题、正文与批注没有能落值的列。要留结构请用 Word→Markdown、Word→HTML 或 Word→TXT；这里交付的是表格，不是文档。',
+          en: 'Because CSV holds values in cells and nothing else: the document becomes HTML and is then read as table data, so headings, body text and comments have no column to land in. For structure take Word to Markdown, HTML or TXT — this route delivers a table, not a document.',
+        },
+      },
+    ],
+  },
+  {
+    slug: 'docx-to-xlsx',
+    from: 'docx',
+    to: 'xlsx',
+    shot: 'batch-results',
+    published: '2026-10-21',
+    title: {
+      zh: 'Word 转 Excel——离线、一张表进一张工作表、不上传',
+      en: 'Word to Excel offline — one table, values kept',
+    },
+    desc: {
+      zh: 'Word 表格经 HTML、JSON、CSV 三步落进一张工作表：数字只在字节能逐字回来时才是数字，16 位编号保持文本。两份表格会撞闸。全程离线。',
+      en: 'A Word table travels HTML → JSON → CSV into one worksheet, where a number returns only if its bytes do and 16-digit ids stay text. Offline, no uploads.',
+    },
+    lede: {
+      zh: '四步，前两步与 Word→CSV 完全相同：`docx>html` 用 mammoth 读出文档（Heading 1 到 4 成 `h1` 到 `h4`、Title 与 Subtitle 成带 class 的 `h1` / `h2`、列表按 `ul` / `ol` / `li` 重开、内嵌图片成 data URI），净化后成一份自带样式表的 HTML，捞不到正文时再从 MHT altChunk 里恢复；`html>json` 取表格，**第一行给出键名**、其余行成记录，行列都限定在「这张表自己」的作用域内；`json>csv` 摊成表；`csv>xlsx` 写工作簿。真正决定产物的是最后一步：读 CSV 用 `raw: true`，SheetJS 的类型推断器碰不到数据，`00424` 不缩成 `424`、`2024-01-05` 不变成序列号；随后只有一道规则把该是数字的格子还回去——十进制形状、`String(Number(x)) === x` 逐字节回得来、有效数字不超过 15 位。16 位以上刻意留在文本，因为表格软件只渲染 15 位有效数字，卡号那一级编号一旦成数就会被读成 `4.11111111111111E+15`。仍是文本的格子再加公式护栏，并把数字格式钉成文本——写出的 `xl/styles.xml` 里那一格就是内置格式号 49。产物是一张工作表，表名沿用读取 CSV 时得到的那一个。两条要照实说的边界：文档里有两张表（含套在单元格里的那种）时，中间那步交出的是分组对象，CSV 那步只接受数组，整批报「JSON 内容必须是包含数据的数组才能转换为 CSV」；合并区被 `colspan` / `rowspan` 覆盖的位置不产生值，那一行的列会左移。全程离线、只有 storage 权限，净化之后仍会剥掉远程引用。',
+      en: 'Four steps, the first two identical to Word to CSV: `docx>html` reads the document with mammoth (Heading 1–4 become `h1`–`h4`, Title and Subtitle become classed `h1` / `h2`, lists reopen as `ul` / `ol` / `li`, embedded pictures arrive as data URIs), the result is sanitised and wrapped in the bundled stylesheet, and an empty pass falls back to the MHT altChunk; `html>json` lifts the table, **first row naming the keys**, later rows becoming records, all read inside a “this table only” scope; `json>csv` spreads it; `csv>xlsx` writes the workbook. The last step decides the artifact: the CSV is read with `raw: true`, so SheetJS’s inferrer never touches the data — `00424` does not shrink and `2024-01-05` does not become a serial — and one rule alone returns the number type: decimal shape, `String(Number(x)) === x` giving the exact characters back, at most 15 significant digits. Sixteen and above stay text deliberately, because a spreadsheet renders 15 significant digits and a card number turned into a value reads back as `4.11111111111111E+15`. Cells that remain text also get the formula guard and a pinned text number format — that cell carries the built-in format id 49 in the written `xl/styles.xml`. The output is a single worksheet, named whatever the CSV read produced. Two boundaries stated plainly: with two tables in the document (including one nested inside a cell) the middle step hands over a grouped object, the CSV step accepts arrays only, and the batch fails with “JSON must be an array containing data to convert to CSV”; and merged ranges are not expanded, so positions covered by `colspan` / `rowspan` produce no value and that row shifts left. Everything runs in this tab on the storage permission, and remote references are stripped after sanitising.',
+    },
+    keeps: {
+      zh: [
+        '数字只在字节能逐字回来时才是数字：`1727000000000` 可求和，`00424`、`1/2`、`2024-01-05` 保持原字符',
+        '16 位以上的编号留在文本，并钉住文本格式（写出的那一格是内置格式号 49）',
+        '列取所有记录键名的并集：某行缺的键留空格，多余的单元格被丢，不会让后面几列错位',
+        '一张表进一张工作表：中间那份 CSV 只有一个表，产物就是单 sheet，表名沿用读取结果',
+      ],
+      en: [
+        'A value is a number only when its bytes come back exactly: `1727000000000` becomes summable while `00424`, `1/2` and `2024-01-05` stay as written',
+        'Identifiers of 16 digits or more stay text, pinned to a text number format (the written cell carries the built-in format id 49)',
+        'Columns are the union of every record’s keys: a missing key is a blank cell and surplus cells are dropped rather than shifting later columns',
+        'One table, one worksheet: the intermediate CSV has a single table, so the sheet count is one and its name is whatever the read produced',
+      ],
+    },
+    limits: {
+      zh: [
+        '两张表就撞闸：对象过不了「只接受数组」那一步，请一张表一个文档',
+        '段落、页眉页脚、脚注、批注与修订不进工作簿；文档里的标题行也不会变成 Excel 的标题样式',
+        '合并区不展开，被覆盖的位置不产生值；嵌套表算第二张表',
+        '值在中间那步全是字符串，是否还原成数字由最后一步那三条规则决定：`1,234.50`、`¥100`、`45%`、`+33` 都不是十进制形状，留在文本',
+        '本扩展写的 `.docx` 用的是 altChunk 容器，读回时会走恢复那一条路；用其他编辑器写的文档则看它自己的表格结构能否被 mammoth 认出',
+      ],
+      en: [
+        'Two tables trip the gate: an object cannot pass the arrays-only step, so keep one table per document',
+        'Paragraphs, headers and footers, notes, comments and tracked changes do not reach the workbook, and a heading row does not become an Excel header style',
+        'Merged ranges are not expanded and covered positions produce no value; a nested table counts as the second table',
+        'Values are strings in the middle step and the final rule of three decides whether one comes back: `1,234.50`, `¥100`, `45%` and `+33` are not decimal-shaped and stay text',
+        'The `.docx` files this extension writes carry an altChunk container and are read back through the recovery path; documents from other editors depend on whether mammoth recognises their table structure',
+      ],
+    },
+    notes: {
+      zh: [
+        '只要一份文本表格：Word→CSV 是同一条链的前三步，产物是带 BOM 的 CSV',
+        '要保留版面给人读：Word→PDF、Word→HTML 或 Word→Markdown',
+        '只想读回值不要类型判断：Word→JSON，那里值全是字符串、结构按 `<h2>` 分组',
+      ],
+      en: [
+        'For a text table only: Word to CSV is the first three steps of this chain, ending in a BOM’d CSV',
+        'For a person to read: Word to PDF, HTML or Markdown, which keep the layout',
+        'For values without any typing decision: Word to JSON, where everything is a string and grouping follows the `<h2>` text',
+      ],
+    },
+    faq: [
+      {
+        q: {
+          zh: '为什么我的 Word 表转成 Excel 后没有公式与格式？',
+          en: 'Why did my Word table come out with no formulas or formatting?',
+        },
+        a: {
+          zh: '因为这条链搬运的是格子里的值：Word 表格里的内容被读成文字，再以「值是否逐字节回得来」决定要不要还成数字。文档里的样式、条件格式与计算结果都不是它的取数对象——它交付的是一张可算的数据表，不是一份排版副本。',
+          en: 'Because this chain carries values: the cells are read as text, and a number type returns only where the bytes round-trip. Styles, conditional formatting and computed results in the document are not what it extracts — you get a table you can compute on, not a copy of the layout.',
+        },
+      },
+      {
+        q: {
+          zh: '编号前面的零会丢吗？',
+          en: 'Do leading zeros in my ids survive?',
+        },
+        a: {
+          zh: '不会。`00424` 与 16 位账号都留在文本形态并被钉住文本格式（写出的那一格用内置格式号 49），所以表格软件不会再把它读成数字。代价是这些格子不参与求和；这是本项目在「保住编号」与「让它可加」之间刻意选的前者。',
+          en: 'No. `00424` and a 16-digit identifier stay text and are pinned to a text format (the written cell uses the built-in format id 49), so nothing re-reads them as numbers. The price is that those cells do not sum; that is the trade this project deliberately takes in favour of keeping identifiers intact.',
+        },
+      },
+      {
+        q: {
+          zh: '两份表格能分别落到两个 sheet 吗？',
+          en: 'Can two tables land on two worksheets?',
+        },
+        a: {
+          zh: '不能。这条链一次吃得下一张表：多张表在中间那步是分组对象，CSV 那步不接受；而写工作簿那步读的也只有一份 CSV。要两份，请把两张表分成两个文档各转一次，再在 Excel 里合并成两个 sheet——那一步本项目刻意不替你做，因为合并方式本身就是你的判断。',
+          en: 'Not on this route: it eats one table at a time, since several become a grouped object that the CSV step rejects, and the writer reads a single CSV anyway. Split the tables into two documents, convert each, and merge them into two worksheets yourself in Excel — that last step is deliberately left to you, because how to merge is your judgement.',
+        },
+      },
+    ],
+  },
 ];

@@ -203,14 +203,6 @@ export const HUBS = [
       },
     ],
     targets: {
-      xlsx: {
-        zh: 'Word 表格经 HTML 中转后变成工作表，首行是表头；段落、页眉、页脚与批注没有单元格可放，不进入结果。',
-        en: 'Word tables travel through HTML into worksheets with the first row as headers; paragraphs, headers, footers and comments have no cell and do not appear.',
-      },
-      csv: {
-        zh: '表格行写成 CSV，单元格只保留文本；合并单元格按解析后的网格展开，样式、批注与修订全部丢失。',
-        en: 'Table rows become CSV with text-only cells; merged cells expand into the parsed grid, and styling, comments and tracked changes are lost.',
-      },
       json: {
         zh: '文档里的表格转成对象数组；没有表格时，正文中的 JSON 代码块可以被读出，否则报「没有表格结构」。',
         en: 'Tables become arrays of objects; with no table, a JSON code block in the body can still be read, and otherwise the route reports that no table structure exists.',

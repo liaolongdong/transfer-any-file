@@ -988,6 +988,15 @@ csv→Word 的另一组事实回读自`html-to-docx.ts`：正文以 MHT altChunk
 
   四镜像齐备。实测计数：`pages:render` 102 文件、`verify:numbers` 23 事实 × 107 文档（关系仍成立）、`pages:check` 逐字节一致、`lint:all`、`build`、产物层两条离线守卫、`verify:meta` 全 rc=0，`.output` 搜不到两个 slug。运行时零改动，断言数仍 **452**，素材不重拍。
 
+- **10-21 第廿六轮（docx→CSV、docx→Excel，87 张页 / 缺口 29）。** 这两格是站点上「Office 之间」那一族里搜索量最高的两个说法（word to excel / word to csv），
+  每一句都对着实现写：\`docx>html\` 的 styleMap 是显式列出的（Heading 1-4 → \`h1\`-\`h4\`、Title/Subtitle → 带 class 的 \`h1\`/\`h2\`、Strong/Emphasis、\`ul/ol/li\` 重开），内嵌图片经 \`mammoth.images.imgElement\` 读成 data URI；
+  **正文取不到时有第二条路**——\`extractAltChunkHtml\` 从 MHT 里恢复，而本扩展自己写的 .docx 正是那种容器，所以 HTML→Word 与 Word→HTML 构成一对可来回的形状；两条路都空才报 \`errors.docxEmpty\`，与打不开的 \`errors.docxParse\` 分开。
+  取数与落地全部沿用已实测的规则：首行给键名（**不看原文是否把首行标成标题行**）、并集列与缺键空格、合成 \`_value\` 不静默少行、值保真三条件、16 位以上留文本并钉内置格式号 49、多张表（含嵌套表）撞「只接受数组」闸。
+
+  随摘要摘掉的两句错账：docx hub 的 xlsx 摘要写「首行是表头」（同 csv hub 那条一个性质，中间那步并不产出标题行语义），csv 摘要写「合并单元格按解析后的网格展开」（实际被 \`colspan\`/\`rowspan\` 覆盖的位置根本不产生值，那一行的列会左移——与新页写的相反）。
+
+  四镜像齐备。实测计数：`pages:render` 104 文件、`verify:numbers` 23 事实 × 109 文档（关系仍成立）、`pages:check` 逐字节一致、`lint:all`、`build`、产物层两条离线守卫、`verify:meta` 全 rc=0，`.output` 搜不到两个 slug。运行时零改动，断言数仍 **452**，素材不重拍。
+
 ## 3. 收下改动：这一节记的是提交账，不是提交计划
 
 这一节原先给的是 2026-09-19 那一轮（配对页与博客页改成数据源生成）的两条 `git commit`。那些提交早就落地了，
