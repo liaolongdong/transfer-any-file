@@ -1585,6 +1585,20 @@ csv→Word 的另一组事实回读自`html-to-docx.ts`：正文以 MHT altChunk
   `verify:numbers`（138 文档）与 `pages:check`（133 文件）都绿。新增断言要落地，必须配一轮全绿重取基线并回填引用该数的散文（任务 #30）。
   本轮零页面改动（措辞已被实测支持，不需要改），只动这份账本。
 
+- **10-22 第七十轮（撤回上一轮的结论：那份「转换失败」的 APNG 是我自己造坏的）。** 第六十七轮我用手拼字节得出「`PNG→JPG` / `WebP` / `PDF` 对 APNG 一律不产出」，并据此改了三页。这轮做了两个动作把它推翻：
+  ① 用 **Pillow** 生成一份权威 APNG（块序列与我手拼的**完全相同**：`IHDR acTL fcTL IDAT fcTL fdAT IEND`，237 B），
+  ② 先用 headless Chrome 的 `--dump-dom` 探针证明**浏览器解得开它**（`naturalWidth=24`），再把它喂进构建产物：
+  `APNG→JPEG` 与 `APNG→PDF` **都转换完成**（`pillow-frame_*.jpg` / `*.pdf`）。
+  所以失败的是我的样本，不是产品——三页已改回「只留一帧」，并且这一句现在是**实测支持**的（此前它只是推断）。
+  **教训按形状记下来**：自造夹具在被用来指控产品之前，必须先证明**它能被参照实现读**（这里是浏览器自己），
+  否则测的是「我的编码器行不行」而不是「转换器行不行」。这与本日下午那次「结构合法≠语义合法」的
+  `grep 假阴性` 是同族错误：**判据的输入本身也要被验真**。
+  顺带修掉的连带错误：第六十七轮我还把「先 PNG→JPG 再 JPG→PDF」当解法写上页面，理由正是那次错的失败——
+  现在两条都撤了：APNG 在 `PNG→JPG` 上本来就成功，不需要绕路；而目标标签的真实名字是 `JPEG (.jpg)`，不是 `JPG (.jpg)`。
+  探针与临时夹具全部清场：`scripts/e2e-test.mjs` 与 `scripts/__baseline__/e2e-assertions.json` 都 `git checkout` 回 HEAD
+  （基线仍是 **452**，后台套件在写基线前被 `pkill` 停住），`.test-tmp/*.apng|apng-probe.html|pillow.apng` 已删。
+  验证：`pages:check` 133 文件、`verify:numbers` 23 事实 × 138 文档、`lint:all`；运行时零改动。
+
 ## 3. 收下改动：这一节记的是提交账，不是提交计划
 
 这一节原先给的是 2026-09-19 那一轮（配对页与博客页改成数据源生成）的两条 `git commit`。那些提交早就落地了，
