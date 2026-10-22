@@ -162,7 +162,7 @@
         <li><span lang="zh-CN">alpha 是丢掉的，而且不可逆——需要透明请留 PNG 或走 WebP</span><span lang="en">The alpha channel is gone and there is no way back — keep PNG or take WebP when transparency matters</span></li>
         <li><span lang="zh-CN">有损编码每次转手都在丢信息：请从原始 PNG 出发，别把 JPEG 反复转来转去</span><span lang="en">Lossy re-encodes subtract: start from the original PNG rather than handing a JPEG through again</span></li>
         <li><span lang="zh-CN">画布是每通道 8 位，16 位 PNG 的额外精度与宽色域标记不在这条路的保留范围里</span><span lang="en">The canvas is 8-bit per channel, so extra precision from a 16-bit PNG and wide-gamut tags do not survive this route</span></li>
-        <li><span lang="zh-CN">动图 PNG（APNG）同样只剩一张静帧：画布只取一帧，而那句「只保留第一帧」的提示目前只为 GIF 写（`utils/core/animated-image.ts:16` 自陈量测范围只有 GIF）</span><span lang="en">An animated PNG (APNG) comes out as a still as well: the canvas takes one frame, while the «first frame kept» notice is written only for GIF today (`utils/core/animated-image.ts:16` states GIF as its scope)</span></li>
+        <li><span lang="zh-CN">动图 PNG（APNG）不在本页能保证的范围内：本轮拿一个现拼的双帧 APNG 实测，这条路返回的是「转换失败」——既不产出 JPEG 也没有丢帧提示。其它 APNG 未测，所以本页既不承诺成功、也不归因失败落在哪一层；需要静帧请先用能读动图的工具导出一帧</span><span lang="en">Animated PNG is outside what this page can promise: measured with a hand-built two-frame APNG, this route returned a conversion error — no JPEG and no frame-loss notice. Other APNG files were not tested, so nothing here vouches for success or attributes the failure to a layer; export a frame with a tool that reads animated PNGs if you need a still</span></li>
         <li><span lang="zh-CN">元数据不进产物：JPEG 装得下 EXIF，但这条链路交给它的只有像素</span><span lang="en">No metadata is written: JPEG can carry EXIF, but this route hands it pixels only</span></li>
             </ul>
           </section>
