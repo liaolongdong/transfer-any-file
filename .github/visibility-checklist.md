@@ -1487,6 +1487,25 @@ csv→Word 的另一组事实回读自`html-to-docx.ts`：正文以 MHT altChunk
   `lint:all` rc=0，**并且 `pnpm build` 后产物仍是 3,859,043 B / 65 个文件**（与上一轮记下的前瞻基准逐字节相同），
   所以「只动文档与生成数据、没碰运行时」这句是实测不是推断。
 
+- **10-22 第六十三轮（APNG 的第三种形状 + 一次带阳性对照的公网审计）。** 顺着 #27 那条挂账往外读代码，发现「动图只留一帧」在
+  **PNG 这一侧**比原先记的更宽：`utils/core/image-pdf.ts` 的 PNG 分支是**直通**（把原文件的 objectUrl 直接交给打包器，
+  `format: 'PNG'`，只在超过 `MAX_DIM` 时才重画），而那条路径返回的 **`lostFrames` 是写死的 `false`** ——
+  所以对 APNG 输入，产物只剩一帧（**PDF 的图像对象本身没有动画语义**，这句是格式层面的事实，不依赖第三方实现），
+  界面上又不会出现任何提示。`png-to-docx` 同形：只搬字节、不重编码，帧在包里，但提示只为 GIF 写。
+  于是本轮把披露从两条补到**四条**：`png-to-jpg`、`png-to-webp`（`9ddd0dc`）+ `png-to-pdf`、`png-to-docx`（本轮），
+  每条都只讲两件可证的事（这条路径做不做重编码 / 帧检查的范围在哪），**不替 Word 或任何阅读器叙述播放行为**。
+  **#27 的措辞据此更新**：它不只是「检测范围窄」，其中一条路径还**主动把布尔写成了 false** ——
+  将来真要修，修的是那条直通分支的判断，而不是只在 `animated-image.ts` 加两个 chunk 走查。
+  **另一次是给自己的量具做体检**（见第六十二轮那格的两连败）：这轮把公网页面的 on-page 要素用**宽松匹配 + 阳性对照**
+  重扫一遍——136 个可达 html：`canonical` / `og:url` / `og:site_name` / `twitter:card` / `description` **135/136**
+  （唯一没有的 `docs/404.html` 是**对的**），`viewport` 与 `<html lang>` **136/136**，`ld+json` **134 块解析失败 0**；
+  对照样本 `docs/convert/png-to-jpg.html` 逐项为 true，所以这些绿灯是量具有效前提下的绿灯。
+  产品页头部本就写着一条取舍：`?lang=` 变体收敛到干净 URL，且「hreflang 要在有每语言真 URL 之后才给，否则只给一条
+  canonical 才是诚实的」——**「主页面缺 canonical / 缺 hreflang」两次被证伪，别再当缺陷提**。
+  验证：`pages:render` 133 文件、`pages:check` 逐字节一致、`verify:numbers` 23 事实 × 138 文档、
+  `lint:all` / `build` / `verify:offline` / `verify:remote-code` / `verify:meta` / `verify:paths` **七道全 rc=0**，
+  产物仍是 **3,859,043 B / 65 个文件**（与前瞻基准逐字节相同 ⇒「没碰运行时」是实测）。中英条目数保持相等（4/4 页各自配平）。
+
 ## 3. 收下改动：这一节记的是提交账，不是提交计划
 
 这一节原先给的是 2026-09-19 那一轮（配对页与博客页改成数据源生成）的两条 `git commit`。那些提交早就落地了，

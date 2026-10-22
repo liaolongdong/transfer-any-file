@@ -1335,6 +1335,7 @@ export const PAIRS = [
         '默认不做多页合并——不勾选「合并为一份 PDF」时，一批 20 张得到 20 个 PDF；勾选后是一份 20 页的 PDF，任一张解码失败则整批不产出',
         '合并后每页仍是各自的像素尺寸，不会统一成 A4，不同尺寸的图在同一份 PDF 里各占一页',
         'PDF 里没有文字层：源图本来也只有像素，搜索与复制都无从下手',
+        '动图 PNG（APNG）进 PDF 只剩一帧：PDF 的图像对象本身没有动画语义，而这条 PNG 直通分支不数帧（`utils/core/image-pdf.ts` 里那条路径的 `lostFrames` 写死为 false），所以既不会提示、也不会多出一帧',
         '目标是 PDF 时输出参数面板不出现（面板只为图片目标显示），所以这里不能设 DPI 或最长边',
       ],
       en: [
@@ -1342,6 +1343,7 @@ export const PAIRS = [
         'No merging by default — a batch of 20 images without the box ticked still gives 20 PDFs; with “Merge into one PDF” ticked they become one 20-page PDF, and if any image fails to decode nothing is produced at all',
         'Merged pages keep their own pixel dimensions rather than becoming A4, so differently sized images simply each take a page in the same PDF',
         'There is no text layer, because the source had only pixels; searching and copying have nothing to work on',
+        'An animated PNG (APNG) arrives as a single frame: a PDF image object carries no animation semantics of its own, and this pass-through PNG branch never counts frames (`lostFrames` is hard-coded false on that path in `utils/core/image-pdf.ts`), so there is neither a notice nor a second frame',
         'The output panel is not shown for a PDF target (it exists for image targets), so DPI and longest edge are not adjustable here',
       ],
     },
@@ -8307,6 +8309,7 @@ export const PAIRS = [
         '显示尺寸由内层 CSS 与 Word 页面共同决定，本扩展不给缩放参数；要精确控制尺寸请在 Word 里改',
         '想要「一页一图」的 PDF 而不是文档，请走 PNG→PDF；想要能再编辑版式，图进 Word 也仍然只是图',
         '类型没被认出时（例如从 ZIP 解包的文件）前缀不是图片类型，Word 那一步会在写出前把 `src` 剥掉，那一格留空',
+        '动图 PNG 的帧不在我们处理的范围：这条路径只搬字节、不重编码，所以帧仍在包里；但帧检查只对 GIF 生效（`utils/core/animated-image.ts:16` 自陈范围），因此这里也不会出现任何丢帧提示',
         '打包失败会报 `errors.docxGen` 并点名该文件，不会交出一个半成品',
       ],
       en: [
@@ -8315,6 +8318,7 @@ export const PAIRS = [
         'Displayed size follows the inner CSS and Word’s page; this route exposes no scaling option — resize it in Word',
         'For one image per page take PNG to PDF; for a layout you can keep editing, a picture inside Word is still just a picture',
         'When the browser never identified the type — a file unpacked from a ZIP, say — the prefix is not an image type, so the Word step strips `src` before writing and leaves an empty slot',
+        'The frames of an animated PNG are outside what this route touches: it carries the bytes without re-encoding, so they stay inside the package, and since the frame check covers GIF only (`utils/core/animated-image.ts:16` states its scope) no lost-frame notice appears here either',
         'A packing failure reports `errors.docxGen` for that file rather than shipping a half-written file',
       ],
     },
