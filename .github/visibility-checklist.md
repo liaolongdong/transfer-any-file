@@ -1454,6 +1454,22 @@ csv→Word 的另一组事实回读自`html-to-docx.ts`：正文以 MHT altChunk
   归档到 `.test-tmp/pr23-bump.patch` / `.test-tmp/pr23-body.md`；内容是 bot 可重生的，但**删分支与关 PR 仍等所有者点头**。
   同一批 ref 扫描还看到 `release/v1.2.1`（`8a34502`）与 `release/v1.2.2`（`fda6b02`）两条历史分支也还在，属同一类清理项。
 
+- **10-22 第六十一轮（发布后的线上卫生与交付实测）。** 站点刚上线，把「发出去的东西」当成外部状态重新量一遍，
+  而不是只看仓库：
+  ① **没有泄漏内部素材**——`/promo/wechat-article.md`、`/promo/wechat-article.html`（生成过的排稿件）、
+  `/promo/blog-article.en.md`、`/promo/community-posts.md`、`/README.md`、`/.github/CHROMEWEBSTORE.md`、
+  `/docs/index.html` 全部 **404**（`static.yml` 的 promo 排除 + 按扩展名兜底那道闸在真线上是起作用的）；
+  产品页在站点根而不是 `/docs/index.html`，那个 404 是**正确形状**。
+  ② **可被收录的东西都在**：`/robots.txt`、`/llms.txt`、`/security.txt`、`/convert/svg-to-md.html`、
+  `/convert/markdown/index.html` 均 200；`robots.txt` 仍是对 `User-agent: *` 全 Allow、
+  且明确欢迎 AI 检索（无一条 Disallow）；线上 `llms.txt` 现含 **131** 条 convert 引用，说明这一份也跟着发了。
+  ③ **交付与体积**：`Content-Encoding: gzip`、ETag/Last-Modified 齐、`X-Cache: HIT`；
+  索引页压缩后 **38,478 B**（与本地预测的 ~37.8 KB 对得上）、配对页 `svg-to-md` **9,949 B**、
+  `content.css` **8,215 B**。**唯一能改的旋钮是 `Cache-Control: max-age=600`**——GitHub Pages 项目页不给自定义
+  缓存头，这条只能认下来（别把它写成「我们选择了 10 分钟」）。
+  ④ TTFB 三个样本 0.67 / 2.05 / 2.84 s，**不可归因**：这台机器的出口链路本来就在抖（同一轮里 200 与 000 都出现过），
+  单次采样既不能证明也不能否定线上性能；要下性能结论得走重复采样或 CrUX/Field 数据，别拿这三个数写句子。
+
 ## 3. 收下改动：这一节记的是提交账，不是提交计划
 
 这一节原先给的是 2026-09-19 那一轮（配对页与博客页改成数据源生成）的两条 `git commit`。那些提交早就落地了，
