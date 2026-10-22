@@ -1564,6 +1564,27 @@ csv→Word 的另一组事实回读自`html-to-docx.ts`：正文以 MHT altChunk
   （JSON Result Preview）与改动无关地超时 ⇒ 宁可回退，也不留一个偏小的对外数字。测量脚本与结论进任务 #30。
   验证：`pages:check` 133 文件、`verify:numbers` 23 事实 × 138 文档、`lint:all`、`e2e` 脚本 `git checkout` 回 HEAD 且 `node --check` 通过。
 
+- **10-22 第六十八轮（动图 WebP 也实测了，结论与 APNG 相反，正好把上一条句子钉牢）。** 造夹具的坑先记：本机
+  `cwebp` **没有** `-af`（把清单当图片读，直接报 `Cannot read input picture file`），而且它 `Note: Animated PNG and WebP files are not supported`
+  说的是**输入**侧；真正能用的是 PIL 9.5 的 `Image.save(format='WEBP', save_all=True, append_images=[f2], duration=100, loop=1)`
+  ——232 B、块序列 `VP8X ANIM ANMF VP8  ANMF VP8 `（2 帧，用 Node 逐块点数确认）。把这份**真的动图 WebP**喂进构建产物跑四条路：
+
+  | 路线      | 结果                 | 有没有丢帧提示                                 |
+  | --------- | -------------------- | ---------------------------------------------- |
+  | WebP→PNG  | 转换完成，出 `.png`  | 无                                             |
+  | WebP→JPEG | 转换完成，出 `.jpg`  | 无                                             |
+  | WebP→PDF  | 转换完成，出 `.pdf`  | 无（只有「逐页位图、不含文字层」那条既有提示） |
+  | WebP→Word | 转换完成，出 `.docx` | 无                                             |
+
+  两件事因此落定：① `webp-to-png` / `webp-to-jpg` 上「动图 WebP 只画第一帧，而多帧检测只覆盖 GIF、所以不会单独提示」这半句
+  现在是**实测支持**的（四条路都成功、都不提示），不再是和 APNG 同族的推断；② 它与 APNG 的对比本身就是证据——
+  同一个浏览器、同一片画布代码，WebP 成功而 APNG **不产出**，所以 APNG 的失败不在「画布丢帧」那一层，
+  这也验证了页面上那句「不归因到层」的克制是对的（没有顺手把锅推给打包器）。
+  **流程上又守住一次**：探针是临时插进 `scripts/e2e-test.mjs` 的，跑完即 `git checkout` 撤掉；套件是后台跑的，
+  我在它写基线前 `pkill` 停掉，随后确认 `scripts/__baseline__/e2e-assertions.json` 仍是 **452**、
+  `verify:numbers`（138 文档）与 `pages:check`（133 文件）都绿。新增断言要落地，必须配一轮全绿重取基线并回填引用该数的散文（任务 #30）。
+  本轮零页面改动（措辞已被实测支持，不需要改），只动这份账本。
+
 ## 3. 收下改动：这一节记的是提交账，不是提交计划
 
 这一节原先给的是 2026-09-19 那一轮（配对页与博客页改成数据源生成）的两条 `git commit`。那些提交早就落地了，
