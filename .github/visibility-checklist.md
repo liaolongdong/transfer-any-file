@@ -1523,6 +1523,18 @@ csv→Word 的另一组事实回读自`html-to-docx.ts`：正文以 MHT altChunk
   与 `pages:check`（133 文件字节）这两道现成的门，再考虑新的判据形状。本轮**零改动落盘**（只动这份账本），
   所以没有跑构建与产物层守卫——没有可变的量。
 
+- **10-22 第六十五轮（404 页缺的那条入口）。** 第六十四轮扫 on-page 要素时顺手读了 `docs/404.html`，发现它的 nav 只有
+  四条——产品说明页 / 文件对比 / 隐私政策 / GitHub——**不含 `/convert/`**，而那一节现在正是站内最大的部分
+  （116 张配对页 + 14 个 hub + 索引）。两条代价都是真的：走错地址的人（尤其是从旧链接、搜索引擎缓存或别人手打的
+  `/convert/xxx` 缺字版本进来的人）没有一条路直接进到转换目录；爬虫也从 404 这张页拿不到这条 crawl path。
+  补一条 `<a href="…/convert/">转换目录 · Conversion guides</a>` 放在「文件对比」之后，
+  中英同形（这张页本来就是「一句里两种语言并列」的写法，与 `privacy.html` 同一族，不做 `lang` 切换）。
+  **没有改那张页的任何文案句子**——动措辞就会牵 `verify:numbers` 的引用计数（本日已经被这类改动绊过一次），
+  而这次要修的只是链接缺失。验证：`prettier`（该文件 unchanged）、`pages:check` 133 文件、`verify:numbers` 23 事实 × 138 文档、
+  `lint:all` rc=0；`docs/convert/index.html` 在本地存在，线上 `/convert/` 现回 **200**，所以这条 href 不是空指。
+  未跑 `build` 与产物层守卫的理由：只动 `docs/404.html`，它不在扩展产物里（`public/` 只有 `icon/` 与 `_locales/`），
+  也不在生成器射程内（它不是 `docs/convert/**`、不是 `sitemap.xml`、也不是 `docs/diff/index.html` 那份逐字节副本）。
+
 ## 3. 收下改动：这一节记的是提交账，不是提交计划
 
 这一节原先给的是 2026-09-19 那一轮（配对页与博客页改成数据源生成）的两条 `git commit`。那些提交早就落地了，
