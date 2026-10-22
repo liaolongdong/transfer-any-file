@@ -52,7 +52,7 @@
 以后再补跑的成本（本机需要手动装过 ffmpeg 与 chromium 二进制）：
 
 ```bash
-pnpm test:e2e        # = wxt build + node scripts/e2e-test.mjs，断言基线 453 条
+pnpm test:e2e        # = wxt build + node scripts/e2e-test.mjs，断言基线 462 条
 ```
 
 **2026-09-29 这一轮（JSON 预览的树 / 数组表 / 搜索 + 仓库外的对比页）跑满了 e2e，改在 `E2E_HEADLESS=true` 下跑**：
@@ -1653,6 +1653,36 @@ csv→Word 的另一组事实回读自`html-to-docx.ts`：正文以 MHT altChunk
   **一条工具口径**：`pnpm test:e2e` 整条链路超过 Bash 默认 120s 会被 cut，父 `pnpm` 收到 SIGTERM 而 node 子进程
   被 reparent 继续写日志——`ELIFECYCLE Command failed.` 与「后台完成 exit 0」都不能当结论，只认日志尾部的
   `EXIT:` 行；长跑要显式传 timeout，长 `sleep` 也一样。
+
+- **10-23 第七十三轮（顶栏加版本号与两条更新入口；断言总数 453→462，一轮全量绿灯）。**
+  版本号取 `browser.runtime.getManifest().version`，也就是 Chrome 扩展管理页上那一个，不是构建期烘进 bundle
+  的常量——用户报的「我这是哪一版」要和浏览器说的一致。落点与去向由用户选定：品牌名旁一枚芯片，副标题那一行
+  再挂两条链接，商店条目与 `releases/latest` 各一条（商店现停 1.0.0、GitHub 已 1.2.1，所以两条都给，
+  不在界面里断言「有更新」）。
+  **三处 mock 一起改**：`scripts/e2e-test.mjs`、`scripts/capture-store-assets.mjs`、`scripts/render-demo-gif.mjs`
+  各自的 `chrome.storage` 桩此前只给 `chrome.runtime` 一个 `id`，新增的 `getManifest()` 在这三个「用普通页面
+  假装扩展页」的环境里会直接抛错、把整页打崩。桩里的版本从**被测产物**的 `.output/chrome-mv3/manifest.json`
+  现读，于是那条芯片断言不是在跟本文件自己编的数字对齐，截图与 GIF 里印的也是真实号。
+  **外链字符串过不了两道守卫才是这里真会出事的地方**：`check-offline.mjs` 拦的是 `fetch` / `XMLHttpRequest` /
+  `WebSocket` / `EventSource` / `sendBeacon` / `RTCPeerConnection` 这六种调用形状，`check-remote-code.mjs`
+  的 URL 规则要求串以 `.js` / `.mjs` / `.wasm` 结尾（或是 `import("http…")` 那一类），商店条目地址与
+  releases 地址都不成形状，两道都仍绿；先例是 `tools/file-diff.html` 里那条同样的商店链接，它一直在扫描范围内。
+  「不联网检查更新」是这条功能的边界：没有 host 权限就没有可问的服务器，所以界面只给出口，不给判断。
+  e2e 新增一节 9 条：芯片文本与 tooltip、两条链接的存在与**精确地址**（写错的 item ID 会把每个安装者送去
+  404，而仓库里没有任何别的门禁会发现）、`target=_blank` 加 `rel=noopener`、aria-label 以可见文案开头并点名
+  新标签页（WCAG 2.5.3）、链接墨色与 `.brand-name` **同色**（刻意不引入第六组对比度对——那一对已在
+  紧随其后的两节里跑满 12 套主题×模式）、320px 下顶栏换行而不撑宽文档。
+  观感上改了一处：副标题与链接同行时列间距从 `--fat-space-sm` 提到 `--fat-space-md`，8px 时第一条链接读起来
+  像那句话的尾巴。文档同步 4 层：README 中英各三处（功能全览、隐私清单、新增一条 FAQ）、`docs/index.html`
+  隐私段中英各一句、CHANGELOG 双语、断言总数 462 回填 8 处（含本清单第 55 行）。商店文案与 manifest 描述
+  **没动**——一枚版本芯片不是商品卖点，改它会连带牵动 `verify:listing` 的七个粘贴字段。
+  验证：`Results: 462/462 passed (100%)`、`EXIT:0`（`pnpm test:e2e` 的定义性一轮，日志 `/tmp/taf-e2e-final.log`），基线自写到 `462`；
+  build `Σ Total size: 3.86 MB`（对外字样不变）、zip `1.18 MB`；`verify:offline` 96 个第一方文件 + manifest
+  只有 `storage`；`verify:remote-code` 源码 96 / 产物 44；`verify:paths` 48 边 / 182 对；`pages:check` 133 文件；
+  `verify:numbers` 23 事实 × 138 文档；`verify:listing` 7 个粘贴字段；`verify:release-ci` 63 条判定与 10 处接缝；
+  `verify:meta` 短描述 127/132；`lint:all` 全绿。`assets:capture` 重拍 7+7 原图、14 张商店截图与 3 张推广图，
+  两条演示 GIF 重录（zh 1523 KB / en 1493 KB）。
+  **一条工具口径**：Playwright 自带的 ffmpeg 解不了 GIF——`-i demo-zh.gif` 报 `Invalid data found` 并以 183 退出。想验 GIF 内容得换工具，或者直接看同一次构建的截图，别把「量具读不出」记成「素材错了」。
 
 ## 3. 收下改动：这一节记的是提交账，不是提交计划
 

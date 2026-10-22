@@ -455,8 +455,22 @@ function startServer() {
  * The result is passed to `page.addInitScript` as a string, and Playwright evaluates a string as a
  * script body rather than as a factory to call, so the arrow function has to be invoked here.
  */
+/**
+ * The version carried by the build under test.
+ *
+ * Read from the artifact rather than from `package.json`, and used both for the stubbed
+ * `chrome.runtime.getManifest` and for the assertion on the topbar chip — so a passing chip can
+ * never be agreeing with a number this file invented.
+ */
+function servedManifestVersion() {
+  return JSON.parse(fs.readFileSync(path.join(EXTENSION_PATH, 'manifest.json'), 'utf8')).version;
+}
+
 function mockChromeStorage(seed = {}) {
   const initial = JSON.stringify({ 'fat:locale': 'zh', ...seed });
+  // Read here rather than at module scope: `main()` has a friendly "Extension not built" guard that a
+  // top-level read would throw past.
+  const manifestVersion = servedManifestVersion();
   return `(() => {
   // Pin the language: every assertion in this file matches Chinese UI strings, and the app
   // now falls back to navigator.language when nothing is stored — an en-US CI browser would
@@ -464,7 +478,9 @@ function mockChromeStorage(seed = {}) {
   const storage = ${initial};
   window.__storageCalls = [];
   window.chrome = window.chrome || {};
-  window.chrome.runtime = window.chrome.runtime || { id: 'test' };
+  window.chrome.runtime = window.chrome.runtime || { id: 'test', getManifest: () => ({ version: ${JSON.stringify(
+    manifestVersion,
+  )} }) };
   window.chrome.storage = {
     local: {
       get: (keys, cb) => {
@@ -5389,6 +5405,121 @@ async function run() {
     await dirtyPage.close();
   } catch (e) {
     fail('Hand-edited preset store', e.message);
+  }
+
+  // ═══════════════════════════════════════════
+  //  TOPBAR IDENTITY — VERSION CHIP & UPDATE LINKS
+  // ═══════════════════════════════════════════
+  //
+  // The chip is the one place the running build names itself. What this section can pin is the wiring —
+  // the number in the DOM is whatever `runtime.getManifest().version` reported — and it pins it against
+  // the artifact's own manifest rather than a number made up here, so a chip wired to anything else
+  // fails. What real Chrome reports is a different claim, and `scripts/verify-extension.mjs` is the one
+  // that loads the package into a browser. The two links are the only outbound addresses in the
+  // extension; what is asserted is the shape that keeps them harmless — nothing clicks them here, and
+  // the offline sentinel owns what a click could ever do.
+  if (section('Topbar Version & Update Links')) {
+    try {
+      // A fresh load owns the claim: the mock re-runs on navigation, so nothing the previous section
+      // left staged or converted can colour what the header renders.
+      await page.reload();
+      // Wait on the chip itself rather than a wall-clock guess — the boot reads three storage keys
+      // before mounting, and on a loaded machine that is not a fixed number of milliseconds.
+      await page.waitForSelector('.brand-version', { timeout: 15000 });
+
+      const expectedVersion = servedManifestVersion();
+      const header = await page.evaluate(() => {
+        const chip = document.querySelector('.brand-version');
+        const brand = document.querySelector('.brand-name');
+        return {
+          chip: chip ? chip.textContent.trim() : null,
+          chipTitle: chip ? chip.getAttribute('title') : null,
+          brandColor: brand ? getComputedStyle(brand).color : null,
+          links: [...document.querySelectorAll('.brand-link')].map(el => ({
+            href: el.getAttribute('href'),
+            target: el.getAttribute('target'),
+            rel: el.getAttribute('rel'),
+            text: (el.textContent || '').trim(),
+            label: el.getAttribute('aria-label') || '',
+            color: getComputedStyle(el).color,
+          })),
+        };
+      });
+
+      if (header.chip === `v${expectedVersion}`) ok(`Version chip shows the loaded build (${header.chip})`);
+      else fail('Version chip', `expected "v${expectedVersion}", got "${String(header.chip)}"`);
+      if (header.chipTitle === `当前已安装版本 ${expectedVersion}`)
+        ok('Chip tooltip names it as the installed version');
+      else fail('Chip tooltip', `reads "${String(header.chipTitle)}"`);
+
+      if (header.links.length === 2) ok('Two update links in the topbar');
+      else fail('Update link count', `expected 2, got ${header.links.length}`);
+
+      const store = header.links.find(l => (l.href || '').startsWith('https://chromewebstore.google.com/'));
+      const releases = header.links.find(l => (l.href || '').startsWith('https://github.com/'));
+      // The item ID is the live listing (`.github/CHROMEWEBSTORE.md` 的现网状态块). A typo here sends
+      // every installer to a 404 that no other gate in this repository would ever notice.
+      if (store?.href === 'https://chromewebstore.google.com/detail/blkdmpkcaceicinkhindniepbbbaekkb')
+        ok('Store link points at the published item ID');
+      else fail('Store link', `reads "${String(store?.href)}"`);
+      if (releases?.href === 'https://github.com/liaolongdong/transfer-any-file/releases/latest')
+        ok('Releases link uses the always-latest address, not a pinned tag');
+      else fail('Releases link', `reads "${String(releases?.href)}"`);
+
+      const wellFormed = header.links.filter(
+        l => l.target === '_blank' && (l.rel || '').split(' ').includes('noopener'),
+      );
+      if (wellFormed.length === header.links.length && header.links.length === 2)
+        ok('Both links open a new tab with rel=noopener');
+      else
+        fail('Link target hygiene', `${wellFormed.length}/${header.links.length} carry target=_blank + rel=noopener`);
+
+      // WCAG 2.5.3: the accessible name has to contain the visible label, so the new-tab hint is
+      // appended to it rather than replacing it.
+      const named = header.links.filter(l => l.label.startsWith(l.text) && l.label.includes('新标签页'));
+      if (named.length === 2 && header.links.every(l => l.text.length > 0))
+        ok('Each link label keeps its visible text and names the new tab');
+      else fail('Link accessible names', JSON.stringify(header.links.map(l => [l.text, l.label])));
+
+      // No new colour pair enters the system: the links take the same ink as the app name, and that
+      // pairing is measured against all six headers in both modes by the two sections after this one.
+      if (header.links.length > 0 && header.links.every(l => l.color === header.brandColor))
+        ok(`Update links share the already-gated topbar ink (${String(header.brandColor)})`);
+      else
+        fail(
+          'Update link ink',
+          `links ${JSON.stringify(header.links.map(l => l.color))} vs brand ${String(header.brandColor)}`,
+        );
+
+      // The subtitle and two links now share one flex line, so the header is the first place this
+      // change could widen the page instead of wrapping. `scrollWidth > clientWidth` is the shape the
+      // 320px action-row pin already uses: overflow moves the document, wrap does not.
+      await page.setViewportSize({ width: 320, height: 800 });
+      await page.waitForTimeout(500);
+      const narrow = await page.evaluate(() => {
+        const de = document.documentElement;
+        const links = [...document.querySelectorAll('.brand-link')].map(el => el.getBoundingClientRect().right);
+        return {
+          scrollWidth: de.scrollWidth,
+          clientWidth: de.clientWidth,
+          lastRight: links.length > 0 ? Math.max(...links) : -1,
+        };
+      });
+      if (narrow.scrollWidth <= narrow.clientWidth && narrow.lastRight >= 0 && narrow.lastRight <= narrow.clientWidth)
+        ok(
+          `At 320px the header wraps inside the viewport (scrollWidth=${narrow.scrollWidth}, clientWidth=${narrow.clientWidth})`,
+        );
+      else
+        fail(
+          'Header at 320px',
+          `scrollWidth=${narrow.scrollWidth} clientWidth=${narrow.clientWidth} linkRight=${narrow.lastRight}`,
+        );
+      await page.setViewportSize({ width: 1280, height: 900 });
+      await page.waitForTimeout(400);
+    } catch (e) {
+      fail('Topbar version & update links', e.message);
+      await page.setViewportSize({ width: 1280, height: 900 });
+    }
   }
 
   // ═══════════════════════════════════════════

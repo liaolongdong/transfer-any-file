@@ -14,6 +14,10 @@ const en: typeof zh = {
     title: 'Conversion Workbench',
     subtitle: 'Batch convert, preview and edit — all locally',
     preferences: 'Preferences',
+    versionHint: 'Installed version {version}',
+    storeLink: 'Store update',
+    releasesLink: 'Download latest',
+    newTabSuffix: ', opens in a new tab',
   },
 
   upload: {

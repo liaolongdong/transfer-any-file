@@ -17,6 +17,7 @@ Release PR is not by itself a release.
 - **history**: A history entry can bring back the output options and name pattern it ran with; presets can be renamed and overwritten with the current settings
 - **converter**: A batch of PNG / JPEG / WebP / BMP / GIF images can become one multi-page PDF. It is still one PDF per image by default; the merged document is capped at 200 pages, and one undecodable image fails the whole group rather than producing a partial file, with the diagnostic naming that file
 - **site**: Format hub pages and more "one format to another" pages, plus an offline, usage and FAQ section on `/diff/`
+- **ui**: The top bar shows the loaded version beside the app name and offers two update entry points — the store listing and the newest GitHub release. The extension never checks for an update over the network; those links are only doors
 
 ### Changed
 

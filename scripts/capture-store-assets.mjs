@@ -124,12 +124,19 @@ const ONLY = (process.argv.find(a => a.startsWith('--only=')) || '').split('=')[
  * deterministic: `main.ts` reads these keys before the app mounts, so theme,
  * colour mode and language are already applied on first paint — exactly what a
  * real user sees after they have configured the extension once.
+ *
+ * `chrome.runtime.getManifest` is stubbed from the build being served so the topbar's
+ * version chip carries the number this bundle really ships, not a placeholder.
  */
 function mockStorageScript(seed) {
+  const manifestVersion = JSON.parse(fs.readFileSync(path.join(EXTENSION_PATH, 'manifest.json'), 'utf8')).version;
   return `(() => {
     const storage = ${JSON.stringify(seed)};
     window.chrome = window.chrome || {};
-    window.chrome.runtime = window.chrome.runtime || { id: 'assets' };
+    window.chrome.runtime = window.chrome.runtime || {
+      id: 'assets',
+      getManifest: () => ({ version: ${JSON.stringify(manifestVersion)} }),
+    };
     window.chrome.storage = {
       local: {
         get: (keys, cb) => {
