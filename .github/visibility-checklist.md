@@ -1432,6 +1432,28 @@ csv→Word 的另一组事实回读自`html-to-docx.ts`：正文以 MHT altChunk
   （同分支连推被取消，不是失败——这一格按队列行为记账，别读成红灯）。
   本轮只动这份账本，没碰数据源与运行时：按改动范围跑 `prettier --check`（该 md）+ `verify:numbers` + `pages:check`。
 
+- **10-22 第六十轮（#24 已合入、站点真的上线）。** `gh pr merge 24 --merge` 落地于 17:46:22Z，main = **`283b0f6`**
+  （merge commit：本仓 main 的历史一直是 merge commit，squash 会把攒批压成一笔、`scripts/release.mjs` 就没有提交信息可抽）。
+  main@283b0f6 上 **CI 五条 check 全绿**（Lint & Type Check / Build Extension / E2E Tests / Prepare release PR / deploy），
+  `Tag the approved release` 是 **skipped**——那是「标签要人批」的正常形状，不是红灯。
+  **公网实测（不是本地推断）**：`sitemap.xml` 现含 **131** 条 `/convert/`、其中配对页 **116**；
+  昨天还 404 的 `/convert/svg-to-md.html` 与 `/convert/html/index.html` 均回 **200**。
+  也就是说 35 → **116** 这件事**已经完成**，「覆盖率」这条线到此为止，下一轮别再提「再补几张页」。
+  `feature-dev` 已 `--ff-only` 追平到 `283b0f6` 并推送。**一条读数陷阱顺手记下**：那次追平后我跑
+  `node scripts/repair-release-merge.mjs --check`，输出行尾的 `rc=0` 来自管道里的 `tail`，
+  脚本本身是 `fatal: Invalid object name 'MERGE_HEAD'`——**它拒绝是对的**（快进没有合并现场，
+  那条「两份 CHANGELOG 被静默合错」的陷阱只在双向分叉的合并里成立）。判据要读脚本打印的那句，不要读管道尾巴的退出码。
+  **Release PR 还是旧的，且工作流给了官方重建路径**：#23 仍是 `head=5c0b47f`、`base=ff61868`、1 笔 bot 提交，
+  body 写的是「统计区间 `v1.2.1..HEAD`，共 11 笔、收录 5」——**不含本轮 86 笔**。
+  `release-prepare.yml` 在 283b0f6 那次运行的日志把它自己的两条 refusal 印得很清楚：
+  ①「不覆盖、不重开：人很可能正在那个 PR 里补英文说明」→ 有开启的 `release/<TAG>` PR 时只报告并停下（`reason=pr-23-already-open`）；
+  ②「分支还在但没有开着的 PR：本轮不推（避免 non-fast-forward）」→ 要人先删分支。
+  所以重建动作是**两步共享状态写**：关掉 #23 + `git push origin --delete release/v1.3.0`，再
+  `gh workflow run release-prepare.yml -f mode=prepare`（入参是 `mode`，选项 `prepare` / `tag`）。
+  判「唯一份」时查过 ref：`5c0b47f` **只挂在 `release/v1.3.0` 上**，所以已把它的 patch（920 行）与 PR body（42 行）
+  归档到 `.test-tmp/pr23-bump.patch` / `.test-tmp/pr23-body.md`；内容是 bot 可重生的，但**删分支与关 PR 仍等所有者点头**。
+  同一批 ref 扫描还看到 `release/v1.2.1`（`8a34502`）与 `release/v1.2.2`（`fda6b02`）两条历史分支也还在，属同一类清理项。
+
 ## 3. 收下改动：这一节记的是提交账，不是提交计划
 
 这一节原先给的是 2026-09-19 那一轮（配对页与博客页改成数据源生成）的两条 `git commit`。那些提交早就落地了，
