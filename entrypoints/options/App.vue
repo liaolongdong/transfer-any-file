@@ -52,6 +52,11 @@ const epLocale = computed(() => (locale.value === 'zh' ? zhCn : enUs));
 
 const fileUploadRef = ref<InstanceType<typeof FileUpload> | null>(null);
 
+/** Drives the centred preferences dialog. Opening it also locks the uploader and the page-wide drop
+ *  overlay: the overlay's z-index (9999) sits above Element Plus's modal stack (2000+), so a file
+ *  dragged over an open dialog would otherwise paint the "drop here" veil on top of it. */
+const prefsOpen = ref(false);
+
 const {
   sourceFile,
   sourceFormat,
@@ -422,6 +427,8 @@ async function handleRetryFailed(): Promise<void> {
 }
 
 function handleGlobalKeydown(event: KeyboardEvent): void {
+  // The preferences dialog is modal; a batch must not start behind it.
+  if (prefsOpen.value) return;
   if (!shortcutMatches('convert', event)) return;
   const target = event.target as HTMLElement | null;
   // Don't steal the shortcut while the user is typing somewhere
@@ -434,7 +441,7 @@ function handleGlobalKeydown(event: KeyboardEvent): void {
 // The overlay markup lives with this state below; the counter, the `Files`-type guard and the
 // four document-level listeners are all in the composable.
 const { isWorkspaceDragging } = useWorkspaceFileDrop({
-  isLocked: isConverting,
+  isLocked: computed(() => isConverting.value || prefsOpen.value),
   onFilesDropped: dataTransfer => void fileUploadRef.value?.intakeDrop(dataTransfer),
 });
 
@@ -463,31 +470,36 @@ onUnmounted(() => {
             <span class="brand-name">{{ t('appName') }}</span>
             <span class="brand-tag">{{ t('options.subtitle') }}</span>
           </div>
-          <!-- persistent=false: the default keeps the content mounted after the first open,
-             which would leave PreferencesMenu's shortcut-recording state (and its document
-             keydown listener) alive while the popover is closed.
-             width=320: at 260 the mode row's longest label (跟随系统) wrapped onto a second line and
-             its siblings stretched with it, which put 18px on a panel already 657 tall — so the
-             popover hung below the fold in any window shorter than ~724px. Measured at 320: 93px per
-             cell, every label on one line, panel 596 tall. The height cap lives in PreferencesMenu. -->
-          <el-popover
-            :width="320"
-            trigger="click"
-            placement="bottom-end"
-            :persistent="false"
+          <!-- A white capsule rather than the old 32px circle: the panel it opens is now a centred
+               modal with grouped sections, and a labelled control says what it opens at a glance.
+               The label collapses below 640px, where the topbar has no room for it. -->
+          <el-button
+            class="prefs-trigger"
+            round
+            :icon="Setting"
+            :title="t('options.preferences')"
+            :aria-label="t('options.preferences')"
+            @click="prefsOpen = true"
           >
-            <template #reference>
-              <el-button
-                :icon="Setting"
-                circle
-                :title="t('options.preferences')"
-                :aria-label="t('options.preferences')"
-              />
-            </template>
-            <PreferencesMenu />
-          </el-popover>
+            <span class="prefs-trigger-label">{{ t('options.preferences') }}</span>
+          </el-button>
         </div>
       </header>
+
+      <!-- destroy-on-close is what keeps PreferencesMenu's document-level shortcut listener from
+           outliving the panel, and close-on-click-modal stays off because a stray click on the veil
+           must not discard a half-typed shortcut or name pattern. -->
+      <el-dialog
+        v-model="prefsOpen"
+        class="prefs-dialog"
+        :title="t('options.preferences')"
+        width="min(520px, calc(100vw - 32px))"
+        align-center
+        :close-on-click-modal="false"
+        destroy-on-close
+      >
+        <PreferencesMenu />
+      </el-dialog>
 
       <main
         id="main-content"
@@ -495,15 +507,15 @@ onUnmounted(() => {
         tabindex="-1"
       >
         <div class="col col-main">
-          <div class="card">
-            <FileUpload
-              ref="fileUploadRef"
-              :disabled="isConverting"
-              :formats="formatCount"
-              :paths="pathCount"
-              @update:files="handleFilesUpdate"
-            />
-          </div>
+          <!-- No card wrapper: FileUpload paints its own empty/filled surface, so a staged file
+               list is one panel instead of a card inside a card. -->
+          <FileUpload
+            ref="fileUploadRef"
+            :disabled="isConverting || prefsOpen"
+            :formats="formatCount"
+            :paths="pathCount"
+            @update:files="handleFilesUpdate"
+          />
 
           <!-- F10 — live region for status. Visually hidden, but announced by screen readers
              whenever statusAnnouncement (conversion) or listAnnouncement (file list) changes. -->
@@ -525,40 +537,41 @@ onUnmounted(() => {
               key="action-bar"
               class="card action-bar"
             >
-              <div class="action-row">
-                <FormatSelector
-                  :source-formats="uniqueSourceFormats"
-                  :available-targets="availableTargets"
-                  :target-format="targetFormat"
-                  :recent-targets="recentTargets"
-                  :disabled="isConverting"
-                  @update:target-format="setTargetFormat"
-                />
-                <el-button
-                  type="primary"
-                  :icon="RefreshRight"
-                  :loading="isConverting"
-                  :disabled="!canConvert"
-                  class="convert-btn"
-                  :title="t('convert.shortcutHint', { shortcut: formatConvertShortcut('convert') })"
-                  @click="convert"
-                >
-                  {{ convertButtonText }}
-                </el-button>
-                <Transition name="chip">
+              <FormatSelector
+                :source-formats="uniqueSourceFormats"
+                :available-targets="availableTargets"
+                :target-format="targetFormat"
+                :recent-targets="recentTargets"
+                :disabled="isConverting"
+                @update:target-format="setTargetFormat"
+              >
+                <template #actions>
                   <el-button
-                    v-if="isConverting"
-                    :icon="CircleClose"
-                    type="danger"
-                    plain
-                    class="cancel-btn"
-                    :disabled="cancelRequested"
-                    @click="handleCancelConversion"
+                    type="primary"
+                    :icon="RefreshRight"
+                    :loading="isConverting"
+                    :disabled="!canConvert"
+                    class="convert-btn"
+                    :title="t('convert.shortcutHint', { shortcut: formatConvertShortcut('convert') })"
+                    @click="convert"
                   >
-                    {{ t('convert.cancel') }}
+                    {{ convertButtonText }}
                   </el-button>
-                </Transition>
-              </div>
+                  <Transition name="chip">
+                    <el-button
+                      v-if="isConverting"
+                      :icon="CircleClose"
+                      type="danger"
+                      plain
+                      class="cancel-btn"
+                      :disabled="cancelRequested"
+                      @click="handleCancelConversion"
+                    >
+                      {{ t('convert.cancel') }}
+                    </el-button>
+                  </Transition>
+                </template>
+              </FormatSelector>
               <!-- Hidden when the batch cannot merge (non-PDF target, one file, an SVG in the
                    mix). The choice itself stays in memory, so switching back to PDF restores it. -->
               <Transition name="reveal">
@@ -791,12 +804,12 @@ onUnmounted(() => {
 }
 
 .topbar-inner {
-  max-width: 1200px;
+  max-width: 1080px;
   margin: 0 auto;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--fat-space-lg);
+  padding: var(--fat-space-md) var(--fat-space-lg);
 }
 
 .brand {
@@ -819,10 +832,37 @@ onUnmounted(() => {
   color: var(--fat-on-primary);
 }
 
+/* The topbar's only button, and the one piece of chrome that must stay legible against six
+   different coloured headers. The double band is the same contract the skip link uses: a card-
+   coloured ring fills the outline's 2px offset, so the focus-ring colour is always separated from
+   the header by an opaque band — a blue ring directly on the blue header would vanish. */
+.prefs-trigger {
+  flex-shrink: 0;
+  border-radius: var(--fat-radius-pill) !important;
+  background: var(--fat-bg-card);
+  color: var(--fat-text-primary);
+  font-weight: 600;
+}
+
+/* Hover keeps the label on --fat-text-primary: tinting it with the accent would drop green to
+   2.54:1 and orange to 3.56:1 on the card-coloured capsule, below the 4.5:1 this UI holds body
+   text to. The border carries the state instead. */
+.prefs-trigger:hover {
+  border-color: var(--fat-primary);
+  background: var(--fat-bg-card);
+  color: var(--fat-text-primary);
+}
+
+.prefs-trigger:focus-visible {
+  outline: 2px solid var(--fat-focus-ring) !important;
+  outline-offset: 2px !important;
+  box-shadow: 0 0 0 2px var(--fat-bg-card);
+}
+
 .content {
-  max-width: 1200px;
+  max-width: 1080px;
   margin: 0 auto;
-  padding: var(--fat-space-lg);
+  padding: var(--fat-space-xl) var(--fat-space-lg);
 }
 
 .col {
@@ -842,17 +882,6 @@ onUnmounted(() => {
 
 .action-bar {
   padding: var(--fat-space-md);
-}
-
-.action-row {
-  display: flex;
-  align-items: center;
-  gap: var(--fat-space-md);
-}
-
-.action-row :deep(.format-selector) {
-  flex: 1;
-  min-width: 0;
 }
 
 /* Sits between the target row and the output parameters, which is where the decision it changes
@@ -1082,12 +1111,18 @@ onUnmounted(() => {
 }
 
 @media (width <= 640px) {
-  .action-row {
-    flex-direction: column;
-    align-items: stretch;
+  /* The topbar keeps the icon and drops the word; the title and aria-label still name it. */
+  .prefs-trigger-label {
+    display: none;
   }
 
-  .convert-btn {
+  .prefs-trigger {
+    padding-right: 10px;
+    padding-left: 10px;
+  }
+
+  .convert-btn,
+  .cancel-btn {
     width: 100%;
   }
 }

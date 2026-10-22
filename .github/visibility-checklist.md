@@ -52,7 +52,7 @@
 以后再补跑的成本（本机需要手动装过 ffmpeg 与 chromium 二进制）：
 
 ```bash
-pnpm test:e2e        # = wxt build + node scripts/e2e-test.mjs，断言基线 452 条
+pnpm test:e2e        # = wxt build + node scripts/e2e-test.mjs，断言基线 453 条
 ```
 
 **2026-09-29 这一轮（JSON 预览的树 / 数组表 / 搜索 + 仓库外的对比页）跑满了 e2e，改在 `E2E_HEADLESS=true` 下跑**：
@@ -1615,6 +1615,44 @@ csv→Word 的另一组事实回读自`html-to-docx.ts`：正文以 MHT altChunk
   **顺带一条流程记录**：本轮两次「临时探针」（第六十七、七十一轮）都在测完 `git checkout` 撤除，
   且都必须同时回退 `scripts/__baseline__/e2e-assertions.json` —— 套件收尾会自写基线（一次写到 456），
   只撤 harness 不回基线就会把对外主张改成一个偏小的数。
+
+- **10-23 第七十二轮（设置浮层换成居中模态、工作台收成单列；断言总数 452→453，一轮全量绿灯）。**
+  用户截图指的是页头齿轮打开的 `el-popover`（本项目没有 popup，设置一直长在页头）。这轮把它换成
+  `el-dialog`（`align-center`、`destroy-on-close`、点遮罩不关、Esc 关闭），面板重排成「外观 / 通用 / 转换」
+  三组：色板从 3×2 卡片改成一行 6 枚 28px 圆点（≤420px 回落到 3 列，因为六个名字挤不进一行、省略号恰好切掉
+  区分「森林绿」的那一字），语言与模式改用分段控件，快捷键录制保持捕获阶段监听 + 卸载清理。工作台改为单列精修：
+  转换 / 取消移进 `FormatSelector` 的 action 行、空态拖放区自成一整块虚线板、有文件后收成 44px 顶栏。
+  **只用了现有 `--fat-*` 令牌**，没有新增颜色；也没有新增权限、存储键或网络路径（`verify:offline` 仍只有 `storage`）。
+  e2e 随之改口径：`popoverText` → `dialogText`、语言断言改读 `.paste-hint`、新增
+  「Esc 关闭设置并把焦点还给齿轮」一条；Information Text Contrast 原先只在「已选文件」一档里连同
+  `.drop-stats` 一起量满 12 套主题×模式，而 `.drop-stats` 现在只在空态渲染，于是拆成两档：已选态 4 个选择器、
+  空态 3 个，各自仍跑满 12 套。对外散文里的断言总数 452→453 同步到 7 份（`docs/index.html` 中英、
+  `docs/blog/index.html`、
+  `docs/promo/blog-article.en.md`、两份 `community-posts*`、`wechat-article.md`，外加本清单），
+  由 `verify:numbers` 守着。
+  **这一轮真正花时间的是测量自己，不是产品。** ① 第 2 轮在 blue dark 上读到
+  `.file-meta: 3.01:1 — rgb(91,107,128) on rgb(30,30,46)`：浅色墨水配深色卡，是换肤转场被读到了起始值
+  （同一轮里 `oklab()` 那条读数是「颜色还在插值」的旁证）。修法不是放宽阈值，而是给整个「无动效窗口」注入
+  `*, *::before, *::after { transition: none !important; }`，并用深度计数包住 `emulateMedia({ reducedMotion })`
+  ——它是集合语义不是栈，嵌套两层时内层结束就会把外层的设置撤掉。修后三轮该节最差都是 4.95:1
+  （`.file-list-header` / rose）。
+  ② 第 3 轮在 load ~130 时 `XLSX→JSON` 的 `.el-select-dropdown__item:visible` 10 秒超时；把这次等待改成
+  可重试（最多 3 次，前两次先 Esc 清场）并带 `lastFailure` 文本，第 4 轮 load ~15 时一次过——所以它是机器负载
+  敏感，不是选择器断了。
+  ③ 代码评审又收了两处测试侧的空转口：ZIP 展开改成等 `hello.md` 与 `data.csv` 两个已知文件名（原来只数「有 2 行」，
+  理论上可被上一批残留行满足）；设置对话框的文本读取与关闭断言改用 `.prefs-dialog`（`PresetBar` 的 `.el-dialog`
+  在它的小节之后仍留在 DOM 里，只按裸类名取首匹配是在赌渲染顺序），关闭则等 `state: 'detached'` 而不是单读一次
+  `isVisible`。
+  验证：`Results: 453/453 passed (100%)`、`EXIT:0`（收紧断言后的定义性一轮，日志 `/tmp/taf-e2e-run6.log`）；
+  基线未重写，仍是 `453`；
+  build `Σ Total size: 3.86 MB`、zip `1.17 MB`；`verify:offline` 96 个第一方文件 + manifest 只有 `storage`、
+  无 host 权限；`verify:remote-code` 源码 96 / 产物 44 个文件；`verify:paths` 48 边 / 182 对；`pages:check`
+  133 文件；`verify:numbers` 23 事实 × 138 文档；`verify:listing` 7 个粘贴字段；`verify:release-ci` 63 条判定
+  与 10 处接缝；`verify:meta` 短描述 127/132；`lint:all` 全绿。`assets:capture` 重拍 7 张英文原图 + 7 张中文原图、
+  14 张带文案商店截图与 3 张推广图。
+  **一条工具口径**：`pnpm test:e2e` 整条链路超过 Bash 默认 120s 会被 cut，父 `pnpm` 收到 SIGTERM 而 node 子进程
+  被 reparent 继续写日志——`ELIFECYCLE Command failed.` 与「后台完成 exit 0」都不能当结论，只认日志尾部的
+  `EXIT:` 行；长跑要显式传 timeout，长 `sleep` 也一样。
 
 ## 3. 收下改动：这一节记的是提交账，不是提交计划
 

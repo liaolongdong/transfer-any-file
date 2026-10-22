@@ -120,7 +120,7 @@ const ONLY = (process.argv.find(a => a.startsWith('--only=')) || '').split('=')[
 /**
  * A `chrome.storage.local` stub seeded with fixed preferences.
  *
- * Seeding (rather than clicking through the Preferences popover) makes every shot
+ * Seeding (rather than clicking through the Preferences dialog) makes every shot
  * deterministic: `main.ts` reads these keys before the app mounts, so theme,
  * colour mode and language are already applied on first paint — exactly what a
  * real user sees after they have configured the extension once.

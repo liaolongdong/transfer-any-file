@@ -136,6 +136,8 @@ export default {
     disabledImageNoText: '图片无法转换为文本或表格数据（需 OCR，暂不支持）',
     disabledPdfNoData: 'PDF 无法可靠转换为表格/结构化数据',
     recentUsed: '最近使用',
+    sourceTitle: '源格式',
+    targetTitle: '目标格式',
   },
 
   // Image output parameters
@@ -308,6 +310,9 @@ export default {
 
   // Preferences
   prefs: {
+    appearance: '外观',
+    general: '通用',
+    conversion: '转换',
     theme: '主题色',
     language: '界面语言',
     mode: '显示模式',

@@ -468,11 +468,20 @@ async function handleImportChange(e: Event): Promise<void> {
   flex-shrink: 0;
 }
 
+/* One quiet line, not a tall placeholder: when the history is empty its only job is to say so and
+   keep the way back (import) reachable, and the tall centred block pushed the card body out of
+   proportion with the four-line panel above it. The action sits inline with the sentence and both
+   wrap together on a narrow window. */
 .history-empty {
-  padding: var(--fat-space-xl) 0;
-  text-align: center;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--fat-space-xs);
+  padding: var(--fat-space-sm) 0;
   color: var(--fat-text-secondary);
   font-size: 13px;
+  text-align: center;
 }
 
 .history-list {

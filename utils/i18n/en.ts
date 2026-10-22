@@ -126,6 +126,8 @@ const en: typeof zh = {
     disabledImageNoText: 'Images cannot become text or tabular data (needs OCR, not supported)',
     disabledPdfNoData: 'PDF cannot be reliably converted to tabular data',
     recentUsed: 'Recently used',
+    sourceTitle: 'Source format',
+    targetTitle: 'Target format',
   },
 
   output: {
@@ -293,6 +295,9 @@ const en: typeof zh = {
   },
 
   prefs: {
+    appearance: 'Appearance',
+    general: 'General',
+    conversion: 'Conversion',
     theme: 'Theme Color',
     language: 'Language',
     mode: 'Display Mode',

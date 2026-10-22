@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import { Right } from '@element-plus/icons-vue';
 import { FileFormat } from '~/utils/core/types';
 import type { FileFormat as FileFormatType, FileCategory } from '~/utils/core/types';
 import { getFormatLabel, getFormatCategory, FORMAT_INFO } from '~/utils/core/format-labels';
@@ -109,8 +108,10 @@ const noTargetTitle = computed(() => (hasSource.value ? t('format.noTarget') : t
     v-if="hasSource && availableTargets.length > 0"
     class="format-selector"
   >
-    <div class="format-row">
-      <div class="source-badge">
+    <div class="format-header">
+      <span class="format-title">{{ t('format.targetTitle') }}</span>
+      <span class="source-badge">
+        <span class="source-label">{{ t('format.sourceTitle') }}</span>
         <el-tag
           v-if="!isMixed"
           size="small"
@@ -131,13 +132,9 @@ const noTargetTitle = computed(() => (hasSource.value ? t('format.noTarget') : t
             {{ t('format.mixedSource', { count: sourceFormats.length }) }}
           </el-tag>
         </el-tooltip>
-      </div>
-      <el-icon
-        :size="14"
-        color="var(--fat-text-secondary)"
-      >
-        <Right />
-      </el-icon>
+      </span>
+    </div>
+    <div class="action-row">
       <div class="target-select">
         <el-select
           :model-value="targetFormat"
@@ -197,6 +194,12 @@ const noTargetTitle = computed(() => (hasSource.value ? t('format.noTarget') : t
           </el-option-group>
         </el-select>
       </div>
+      <div
+        v-if="$slots.actions"
+        class="format-actions"
+      >
+        <slot name="actions" />
+      </div>
     </div>
     <Transition name="fat-expand">
       <div
@@ -216,12 +219,23 @@ const noTargetTitle = computed(() => (hasSource.value ? t('format.noTarget') : t
     v-else
     class="format-selector"
   >
-    <el-alert
-      :title="noTargetTitle"
-      type="warning"
-      :closable="false"
-      show-icon
-    />
+    <!-- The dead end keeps the action row's shape: Convert stays on screen, disabled, exactly as
+         it did when it was a sibling of this component. Only the picker is replaced by the reason. -->
+    <div class="action-row">
+      <el-alert
+        class="format-alert"
+        :title="noTargetTitle"
+        type="warning"
+        :closable="false"
+        show-icon
+      />
+      <div
+        v-if="$slots.actions"
+        class="format-actions"
+      >
+        <slot name="actions" />
+      </div>
+    </div>
   </div>
 </template>
 
@@ -230,19 +244,81 @@ const noTargetTitle = computed(() => (hasSource.value ? t('format.noTarget') : t
   width: 100%;
 }
 
-.format-row {
+/* The source badge moved out of the control row and onto the title line: it describes the batch,
+   not a choice, and sitting it beside the select forced the select to share a line with an arrow
+   that no longer exists. */
+.format-header {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: var(--fat-space-sm);
+  margin-bottom: var(--fat-space-sm);
+}
+
+.format-title {
+  color: var(--fat-text-primary);
+  font-size: 13px;
+  font-weight: 600;
 }
 
 .source-badge {
-  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--fat-space-xs);
+  min-width: 0;
 }
 
+.source-label {
+  color: var(--fat-text-secondary);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.action-row {
+  display: flex;
+  align-items: center;
+  gap: var(--fat-space-md);
+}
+
+/* Bounded rather than stretched: a 1080px-wide select makes the target list look like a form the
+   page is built around, and leaves the action buttons drifting at the far edge. The row keeps the
+   buttons right-aligned through `margin-left: auto` even while the select shrinks. */
 .target-select {
+  flex: 0 1 420px;
+  min-width: 0;
+}
+
+.format-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--fat-space-sm);
+  margin-left: auto;
+}
+
+/* The alert is the flexible half of the dead-end row, so the disabled Convert button lands where
+   it does in the normal state instead of being squeezed off the line. */
+.format-alert {
   flex: 1;
   min-width: 0;
+}
+
+@media (width <= 640px) {
+  .action-row {
+    flex-wrap: wrap;
+  }
+
+  .target-select {
+    flex: 1 1 100%;
+  }
+
+  .format-actions {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .format-actions :deep(.el-button) {
+    flex: 1;
+  }
 }
 
 /* The gap belongs to the expanding wrapper, not to `.path-hint`: `fat-expand` clamps the row to
