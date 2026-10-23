@@ -73,13 +73,19 @@ function startServer() {
  *
  * The mock starts empty on every navigation, so the locale has to be written before the app boots —
  * otherwise the workbench renders in whatever language the recording machine claims.
+ * `chrome.runtime.getManifest` answers from the build being recorded, so the topbar's version chip
+ * shows the number this bundle really ships rather than a placeholder.
  */
 function mockStorageScript(locale) {
   const initial = JSON.stringify({ 'fat:locale': locale });
+  const manifestVersion = JSON.parse(fs.readFileSync(path.join(EXTENSION_PATH, 'manifest.json'), 'utf8')).version;
   return `(() => {
   const storage = ${initial};
   window.chrome = window.chrome || {};
-  window.chrome.runtime = window.chrome.runtime || { id: 'demo' };
+  window.chrome.runtime = window.chrome.runtime || {
+    id: 'demo',
+    getManifest: () => ({ version: ${JSON.stringify(manifestVersion)} }),
+  };
   window.chrome.storage = {
     local: {
       get: (keys, cb) => {

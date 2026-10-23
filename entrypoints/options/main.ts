@@ -47,7 +47,7 @@ const mode = VALID_MODES.has(stored[STORAGE_KEYS.colorMode]) ? stored[STORAGE_KE
 applyTheme(theme);
 applyMode(mode);
 // The same two values, handed to the module that owns the reactive state: without this seed
-// `initTheme` reads both keys again — when the preferences popover first opens, on the way to
+// `initTheme` reads both keys again — when the preferences dialog first opens, on the way to
 // reproducing what is already on `<html>`.
 seedTheme(theme, mode);
 

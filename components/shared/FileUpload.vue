@@ -579,7 +579,10 @@ defineExpose({
 </script>
 
 <template>
-  <div class="file-upload">
+  <div
+    class="file-upload"
+    :class="{ 'is-filled': selectedFiles.length > 0 }"
+  >
     <div
       class="drop-zone"
       :class="{ dragging: isDragging, 'has-file': selectedFiles.length > 0, disabled: disabled }"
@@ -593,18 +596,18 @@ defineExpose({
       @keydown.enter.prevent="() => triggerFileInput()"
       @keydown.space.prevent="() => triggerFileInput()"
     >
-      <el-icon
-        :size="36"
-        color="var(--fat-primary)"
-      >
+      <el-icon color="var(--fat-primary)">
         <UploadFilled />
       </el-icon>
       <p class="drop-text">{{ dropText }}</p>
       <p class="paste-hint">{{ t('upload.pasteHint', { key: pasteKey }) }}</p>
       <!-- A zero would be a lie, and an empty registry is reachable if this ever renders before
-           `initConverters()` — so the line is gated on both counts, not printed as "0 formats". -->
+           `initConverters()` — so the line is gated on both counts, not printed as "0 formats".
+           It also leaves once a file is staged: the whole block becomes a card whose body is the
+           file list, and the capability line belongs to the empty plate that asks what can be
+           converted at all. -->
       <p
-        v-if="formats > 0 && paths > 0"
+        v-if="formats > 0 && paths > 0 && selectedFiles.length === 0"
         class="drop-stats"
       >
         {{ t('upload.stats', { formats, paths }) }}
@@ -754,26 +757,43 @@ defineExpose({
 </template>
 
 <style scoped>
+/* Empty, this is a dashed plate asking for files. With anything staged the whole block becomes one
+   card: the drop zone collapses into a 44px replace bar and the list runs full-bleed below it, so a
+   loaded workbench reads as one object rather than a drop box stacked on a separate file card. */
 .file-upload {
   width: 100%;
 }
 
+.file-upload.is-filled {
+  border: 1px solid var(--fat-border);
+  border-radius: var(--fat-radius-lg);
+  background: var(--fat-bg-card);
+  box-shadow: var(--fat-shadow-sm);
+}
+
 /* The shared list names the eight properties that actually change on hover, focus, press or
    selection anywhere in this UI, and `all` used to cover a ninth by accident: this zone is the only
-   surface whose *state* is also a change of size, and `.drop-zone.has-file` tightening the plate from
-   24px to 16px used to tween because `all` tweened whatever else happened to change. Appending the
-   one property keeps that movement; restoring `all` would put every future property back up for
+   surface whose *state* is also a change of size, and `.drop-zone.has-file` collapsing the plate
+   into the 44px bar used to tween because `all` tweened whatever else happened to change. Appending
+   the one property keeps that movement; restoring `all` would put every future property back up for
    grabs, and a layout property in the list costs a reflow per frame. */
 .drop-zone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   border: 2px dashed var(--fat-border);
-  border-radius: var(--fat-radius-md);
-  padding: var(--fat-space-xl);
+  border-radius: var(--fat-radius-lg);
+  padding: var(--fat-space-xl) calc(var(--fat-space-xl) + var(--fat-space-sm));
   text-align: center;
   cursor: pointer;
   transition:
     padding var(--fat-duration-base) var(--fat-ease-standard),
     var(--fat-transition);
   background: var(--fat-surface-2);
+}
+
+.drop-zone > .el-icon {
+  font-size: 36px;
 }
 
 /* The border/background shift is the *hover* affordance, and it doubled as the focus affordance
@@ -783,9 +803,10 @@ defineExpose({
    slate/dark: the focused zone computed the same border, background and outline as the unfocused
    one, because the `outline: none` that used to sit here cancelled the global `:focus-visible`
    ring. That left the common state — anything loaded — with no focus indicator, which WCAG 2.4.7
-   does not allow. Only the ring is added back; the hover colors are untouched. */
-.drop-zone:hover,
-.drop-zone:focus-visible {
+   does not allow. The empty plate keeps the colour pair; the staged bar gets its own hover fill
+   below and relies on the global ring. */
+.drop-zone:not(.has-file):hover,
+.drop-zone:not(.has-file):focus-visible {
   border-color: var(--fat-primary);
   background: var(--fat-primary-bg);
 }
@@ -795,16 +816,41 @@ defineExpose({
   background: var(--fat-primary-border);
 }
 
+/* The staged state: a compact bar inside the card. It owns no border except the hairline that
+   separates it from the list, and none of the plate's padding — the min-height is the hit target.
+   The bar is still the whole click surface for replacing the batch, and its copy says so. */
 .drop-zone.has-file {
-  border-style: solid;
-  border-color: var(--fat-primary-border);
-  background: var(--fat-primary-bg);
-  padding: var(--fat-space-lg);
+  flex-direction: row;
+  justify-content: flex-start;
+  gap: var(--fat-space-sm);
+  min-height: 44px;
+  border: none;
+  border-bottom: 1px solid var(--fat-border-light);
+  border-radius: var(--fat-radius-lg) var(--fat-radius-lg) 0 0;
+  padding: 0 var(--fat-space-md);
+  background: transparent;
+  text-align: left;
+}
+
+.drop-zone.has-file > .el-icon {
+  font-size: 16px;
+}
+
+.drop-zone.has-file:hover,
+.drop-zone.has-file:focus-visible {
+  background: var(--fat-bg-hover);
 }
 
 .drop-text {
   color: var(--fat-text-secondary);
   margin: var(--fat-space-sm) 0 0;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.drop-zone.has-file .drop-text {
+  margin: 0;
+  color: var(--fat-text-regular);
   font-size: 13px;
 }
 
@@ -814,10 +860,15 @@ defineExpose({
   font-size: 12px;
 }
 
+.drop-zone.has-file .paste-hint {
+  margin: 0;
+}
+
 /* The capability line sits with the drop hint rather than in a page footer: the doubt it answers
    ("我这格式能不能转") arises before anything is placed, and the footer was below the fold in a
    900px window. Same ink and size as its sibling above, so the contrast contract keeps sampling
-   one shape — `.drop-stats` took `.footer`'s place in that list. */
+   one shape — `.drop-stats` took `.footer`'s place in that list. It renders only on the empty
+   plate; once a batch is staged the list is the subject and this line leaves. */
 .drop-stats {
   color: var(--fat-text-secondary);
   margin: var(--fat-space-xs) 0 0;
@@ -835,22 +886,19 @@ defineExpose({
   pointer-events: none;
 }
 
-/* The 8px gap lives on the expanding wrapper: `fat-expand` clamps its child's row to zero, and a
-   margin on that child would survive the collapse as a strip above an empty list. */
+/* No gap here: the list is part of the card the bar tops, not a second surface beneath it. */
 .file-list-expand {
-  margin-top: var(--fat-space-sm);
+  margin-top: 0;
 }
 
-/* Deliberately `hidden`, which outranks the `clip` that `.fat-expand > *` asks for (a scoped class
-   beats that selector) and so leaves `overflow-clip-margin` inert on this one box. It has to stay
-   `hidden` because the rows are full-bleed inside a rounded border — `clip` plus a clip margin would
-   let them paint over the corner. Nothing is lost to the focus ring either: the header pads its
-   content by `--fat-space-xs` and the rows by `--fat-space-sm`, both at least the ring's own extent
-   (`--fat-focus-ring-inset`, 4px = 2px outline + 2px offset), so a ring reaches the padding box —
-   which is the clip edge — and no farther. */
+/* The card's outer border already surrounds this list, so the only edges left to own are the
+   bottom corners, where a full-bleed row hover has to stop at the rounded outline. `hidden` is
+   deliberate for the same reason as before: `clip` plus a clip margin would let rows paint over
+   the corner. Nothing is lost to a focus ring — the header pads its content by 4px and the rows by
+   8px, both at least the ring's own extent (`--fat-focus-ring-inset`, 4px = 2px outline + 2px
+   offset), so a ring reaches the padding box, which is the clip edge, and no farther. */
 .file-list {
-  border: 1px solid var(--fat-border);
-  border-radius: var(--fat-radius-md);
+  border-radius: 0 0 var(--fat-radius-lg) var(--fat-radius-lg);
   overflow: hidden;
 }
 

@@ -52,7 +52,7 @@
 以后再补跑的成本（本机需要手动装过 ffmpeg 与 chromium 二进制）：
 
 ```bash
-pnpm test:e2e        # = wxt build + node scripts/e2e-test.mjs，断言基线 452 条
+pnpm test:e2e        # = wxt build + node scripts/e2e-test.mjs，断言基线 462 条
 ```
 
 **2026-09-29 这一轮（JSON 预览的树 / 数组表 / 搜索 + 仓库外的对比页）跑满了 e2e，改在 `E2E_HEADLESS=true` 下跑**：
@@ -1431,6 +1431,258 @@ csv→Word 的另一组事实回读自`html-to-docx.ts`：正文以 MHT altChunk
   CI 回执补齐：`832a52a`（HEAD）三条 job 全绿；`44322f7` 的 Lint 与 Build 绿、**E2E 是 `cancelled`**
   （同分支连推被取消，不是失败——这一格按队列行为记账，别读成红灯）。
   本轮只动这份账本，没碰数据源与运行时：按改动范围跑 `prettier --check`（该 md）+ `verify:numbers` + `pages:check`。
+
+- **10-22 第六十轮（#24 已合入、站点真的上线）。** `gh pr merge 24 --merge` 落地于 17:46:22Z，main = **`283b0f6`**
+  （merge commit：本仓 main 的历史一直是 merge commit，squash 会把攒批压成一笔、`scripts/release.mjs` 就没有提交信息可抽）。
+  main@283b0f6 上 **CI 五条 check 全绿**（Lint & Type Check / Build Extension / E2E Tests / Prepare release PR / deploy），
+  `Tag the approved release` 是 **skipped**——那是「标签要人批」的正常形状，不是红灯。
+  **公网实测（不是本地推断）**：`sitemap.xml` 现含 **131** 条 `/convert/`、其中配对页 **116**；
+  昨天还 404 的 `/convert/svg-to-md.html` 与 `/convert/html/index.html` 均回 **200**。
+  也就是说 35 → **116** 这件事**已经完成**，「覆盖率」这条线到此为止，下一轮别再提「再补几张页」。
+  `feature-dev` 已 `--ff-only` 追平到 `283b0f6` 并推送。**一条读数陷阱顺手记下**：那次追平后我跑
+  `node scripts/repair-release-merge.mjs --check`，输出行尾的 `rc=0` 来自管道里的 `tail`，
+  脚本本身是 `fatal: Invalid object name 'MERGE_HEAD'`——**它拒绝是对的**（快进没有合并现场，
+  那条「两份 CHANGELOG 被静默合错」的陷阱只在双向分叉的合并里成立）。判据要读脚本打印的那句，不要读管道尾巴的退出码。
+  **Release PR 还是旧的，且工作流给了官方重建路径**：#23 仍是 `head=5c0b47f`、`base=ff61868`、1 笔 bot 提交，
+  body 写的是「统计区间 `v1.2.1..HEAD`，共 11 笔、收录 5」——**不含本轮 86 笔**。
+  `release-prepare.yml` 在 283b0f6 那次运行的日志把它自己的两条 refusal 印得很清楚：
+  ①「不覆盖、不重开：人很可能正在那个 PR 里补英文说明」→ 有开启的 `release/<TAG>` PR 时只报告并停下（`reason=pr-23-already-open`）；
+  ②「分支还在但没有开着的 PR：本轮不推（避免 non-fast-forward）」→ 要人先删分支。
+  所以重建动作是**两步共享状态写**：关掉 #23 + `git push origin --delete release/v1.3.0`，再
+  `gh workflow run release-prepare.yml -f mode=prepare`（入参是 `mode`，选项 `prepare` / `tag`）。
+  判「唯一份」时查过 ref：`5c0b47f` **只挂在 `release/v1.3.0` 上**，所以已把它的 patch（920 行）与 PR body（42 行）
+  归档到 `.test-tmp/pr23-bump.patch` / `.test-tmp/pr23-body.md`；内容是 bot 可重生的，但**删分支与关 PR 仍等所有者点头**。
+  同一批 ref 扫描还看到 `release/v1.2.1`（`8a34502`）与 `release/v1.2.2`（`fda6b02`）两条历史分支也还在，属同一类清理项。
+
+- **10-22 第六十一轮（发布后的线上卫生与交付实测）。** 站点刚上线，把「发出去的东西」当成外部状态重新量一遍，
+  而不是只看仓库：
+  ① **没有泄漏内部素材**——`/promo/wechat-article.md`、`/promo/wechat-article.html`（生成过的排稿件）、
+  `/promo/blog-article.en.md`、`/promo/community-posts.md`、`/README.md`、`/.github/CHROMEWEBSTORE.md`、
+  `/docs/index.html` 全部 **404**（`static.yml` 的 promo 排除 + 按扩展名兜底那道闸在真线上是起作用的）；
+  产品页在站点根而不是 `/docs/index.html`，那个 404 是**正确形状**。
+  ② **可被收录的东西都在**：`/robots.txt`、`/llms.txt`、`/security.txt`、`/convert/svg-to-md.html`、
+  `/convert/markdown/index.html` 均 200；`robots.txt` 仍是对 `User-agent: *` 全 Allow、
+  且明确欢迎 AI 检索（无一条 Disallow）；线上 `llms.txt` 现含 **131** 条 convert 引用，说明这一份也跟着发了。
+  ③ **交付与体积**：`Content-Encoding: gzip`、ETag/Last-Modified 齐、`X-Cache: HIT`；
+  索引页压缩后 **38,478 B**（与本地预测的 ~37.8 KB 对得上）、配对页 `svg-to-md` **9,949 B**、
+  `content.css` **8,215 B**。**唯一能改的旋钮是 `Cache-Control: max-age=600`**——GitHub Pages 项目页不给自定义
+  缓存头，这条只能认下来（别把它写成「我们选择了 10 分钟」）。
+  ④ TTFB 三个样本 0.67 / 2.05 / 2.84 s，**不可归因**：这台机器的出口链路本来就在抖（同一轮里 200 与 000 都出现过），
+  单次采样既不能证明也不能否定线上性能；要下性能结论得走重复采样或 CrUX/Field 数据，别拿这三个数写句子。
+
+- **10-22 第六十二轮（APNG 的静默丢帧补上披露，以及一把量具第二次自己骗了我）。** 挂账的 #27 里，动图 WebP 那一半**早就写在页面上**
+  （`webp-to-png`、`webp-to-jpg` 的 limits 明确写「多帧检测只覆盖 GIF，所以这条路径不会为动图 WebP 单独给出丢帧提示」），
+  缺的是 **APNG 那一半**：`png-to-jpg` 通篇不提动画，`png-to-webp` 只说 GIF。本轮把这两处补齐——
+  措辞只讲**代码侧可证的两件事**：画布只取一帧，且那句「只保留第一帧」的提示只为 GIF 写
+  （`utils/core/animated-image.ts:16` 自陈范围），**不替浏览器叙述播放行为**。中英各一条、条目数保持相等。
+  **量具又骗我一次（这是同一个错的第二种形状）**：我写第一版 JSON-LD 扫描时，正则要求开标签**恰好**是
+  `<script type="application/ld+json">`，而生成页那份带 `id="fat-ld"`——于是它只数到 **2** 块就报「全部合法」，
+  真实数是 **134** 块。改成 `[^>]*application\/ld\+json[^>]*` 之后 137 个 html 里 134 份有结构化数据、
+  **134 块 JSON 全部解析通过**、形状都是 `@graph`。结论是**这里没有缺口可补**：产物那侧用
+  `JSON.stringify(...).replace(/</g,'\\u003c')` 生成，畸形 JSON 在形状上就不可达，所以我**没有**为它新增一道守卫
+  （为一个不可能发生的状态加检查，是另一种债）；中英两份图的节点数一致那条，`validateStaticDates` 与 FAQ 那两处
+  已在守。**要记住的是量具的这条失败模式**：低计数看起来像好消息，实际是没打开文件——
+  所以判据要写成「文件数 × 命中数」两个都印出来，缺一就当作没跑。
+  验证：`pages:render` 133 文件、`pages:check` 逐字节一致、`verify:numbers` 23 事实 × 138 文档、
+  `lint:all` rc=0，**并且 `pnpm build` 后产物仍是 3,859,043 B / 65 个文件**（与上一轮记下的前瞻基准逐字节相同），
+  所以「只动文档与生成数据、没碰运行时」这句是实测不是推断。
+
+- **10-22 第六十三轮（APNG 的第三种形状 + 一次带阳性对照的公网审计）。** 顺着 #27 那条挂账往外读代码，发现「动图只留一帧」在
+  **PNG 这一侧**比原先记的更宽：`utils/core/image-pdf.ts` 的 PNG 分支是**直通**（把原文件的 objectUrl 直接交给打包器，
+  `format: 'PNG'`，只在超过 `MAX_DIM` 时才重画），而那条路径返回的 **`lostFrames` 是写死的 `false`** ——
+  所以对 APNG 输入，产物只剩一帧（**PDF 的图像对象本身没有动画语义**，这句是格式层面的事实，不依赖第三方实现），
+  界面上又不会出现任何提示。`png-to-docx` 同形：只搬字节、不重编码，帧在包里，但提示只为 GIF 写。
+  于是本轮把披露从两条补到**四条**：`png-to-jpg`、`png-to-webp`（`9ddd0dc`）+ `png-to-pdf`、`png-to-docx`（本轮），
+  每条都只讲两件可证的事（这条路径做不做重编码 / 帧检查的范围在哪），**不替 Word 或任何阅读器叙述播放行为**。
+  **#27 的措辞据此更新**：它不只是「检测范围窄」，其中一条路径还**主动把布尔写成了 false** ——
+  将来真要修，修的是那条直通分支的判断，而不是只在 `animated-image.ts` 加两个 chunk 走查。
+  **另一次是给自己的量具做体检**（见第六十二轮那格的两连败）：这轮把公网页面的 on-page 要素用**宽松匹配 + 阳性对照**
+  重扫一遍——136 个可达 html：`canonical` / `og:url` / `og:site_name` / `twitter:card` / `description` **135/136**
+  （唯一没有的 `docs/404.html` 是**对的**），`viewport` 与 `<html lang>` **136/136**，`ld+json` **134 块解析失败 0**；
+  对照样本 `docs/convert/png-to-jpg.html` 逐项为 true，所以这些绿灯是量具有效前提下的绿灯。
+  产品页头部本就写着一条取舍：`?lang=` 变体收敛到干净 URL，且「hreflang 要在有每语言真 URL 之后才给，否则只给一条
+  canonical 才是诚实的」——**「主页面缺 canonical / 缺 hreflang」两次被证伪，别再当缺陷提**。
+  验证：`pages:render` 133 文件、`pages:check` 逐字节一致、`verify:numbers` 23 事实 × 138 文档、
+  `lint:all` / `build` / `verify:offline` / `verify:remote-code` / `verify:meta` / `verify:paths` **七道全 rc=0**，
+  产物仍是 **3,859,043 B / 65 个文件**（与前瞻基准逐字节相同 ⇒「没碰运行时」是实测）。中英条目数保持相等（4/4 页各自配平）。
+
+- **10-22 第六十四轮（三条对外主张线做一次「已穷尽」的封顶审计）。** 这轮不是找新缺陷，是把**还没被机器覆盖过的三类句子**
+  各扫一遍、并给出「不用再扫」的依据：
+  ① **具名错误键的可达性**：从 `utils/converters/*.ts` 与四个 `utils/core/*.ts` 现读「哪个文件会抛哪个 `errors.X`」
+  （读到 **22** 个键），再把 116 张页的 lede/keeps/limits/notes/faq 全扫一遍，命中 **12 条**「会报 `errors.X`」类断言，
+  逐条用**这条链自己的步骤**去匹配产生者：**0 条不可达**。量具自带两个对照：
+  `docxGen` 落在含 `html>docx` 的链上判 **true**（阳性），`jsonNotArray` 落在 `[html>png]` 上判 **false**（阴性）——
+  所以这个 0 是量具有牙齿前提下的 0，不是没打开文件的 0（本日已有两次那样的假绿，见第六十二、六十三轮）。
+  ② **「发布态」类过期句子**：对 `README*`、`docs/index.html`、`docs/llms.txt`、`.github/CHROMEWEBSTORE.md`、
+  `repo-metadata.json`、`AGENTS.md` 扫「尚未发布 / 待发布 / not yet published / coming soon / 只有 35」这一族 ——
+  **零命中**（唯一几处「未发布」全是「未发布的稿件」这种用户文件举例，以及 `## [未发布]` 这个 CHANGELOG 小节名，语义无关）。
+  ③ **上下文内链**：配对页里指向**兄弟配对页**的链接共 **696** 条、平均每页 **6.00**、
+  **零兄弟链接的页 = 0**、只有 1–2 条的页也 = 0（最低 3 条）。这条此前一直由生成器自动做（`svg-to-md` 一页就有 6 条），
+  我只是从没量过它的分布——结论是**没有孤页面**，不需要再加「相关路线」块。
+  **判据**：这三条线到此穷尽，下一轮不要重跑同样的扫描；真要再动对外文案，先用 `pnpm verify:numbers`（23 个事实）
+  与 `pages:check`（133 文件字节）这两道现成的门，再考虑新的判据形状。本轮**零改动落盘**（只动这份账本），
+  所以没有跑构建与产物层守卫——没有可变的量。
+
+- **10-22 第六十五轮（404 页缺的那条入口）。** 第六十四轮扫 on-page 要素时顺手读了 `docs/404.html`，发现它的 nav 只有
+  四条——产品说明页 / 文件对比 / 隐私政策 / GitHub——**不含 `/convert/`**，而那一节现在正是站内最大的部分
+  （116 张配对页 + 14 个 hub + 索引）。两条代价都是真的：走错地址的人（尤其是从旧链接、搜索引擎缓存或别人手打的
+  `/convert/xxx` 缺字版本进来的人）没有一条路直接进到转换目录；爬虫也从 404 这张页拿不到这条 crawl path。
+  补一条 `<a href="…/convert/">转换目录 · Conversion guides</a>` 放在「文件对比」之后，
+  中英同形（这张页本来就是「一句里两种语言并列」的写法，与 `privacy.html` 同一族，不做 `lang` 切换）。
+  **没有改那张页的任何文案句子**——动措辞就会牵 `verify:numbers` 的引用计数（本日已经被这类改动绊过一次），
+  而这次要修的只是链接缺失。验证：`prettier`（该文件 unchanged）、`pages:check` 133 文件、`verify:numbers` 23 事实 × 138 文档、
+  `lint:all` rc=0；`docs/convert/index.html` 在本地存在，线上 `/convert/` 现回 **200**，所以这条 href 不是空指。
+  未跑 `build` 与产物层守卫的理由：只动 `docs/404.html`，它不在扩展产物里（`public/` 只有 `icon/` 与 `_locales/`），
+  也不在生成器射程内（它不是 `docs/convert/**`、不是 `sitemap.xml`、也不是 `docs/diff/index.html` 那份逐字节副本）。
+
+- **10-22 第六十六轮（发布保真度：线上字节 == main 的树，且能证伪「已修的一切都已上线」）。** 合并 85 笔之后第一次把
+  「发出去的东西」与「仓库里的那份」按**字节**对齐：`convert/svg-to-md.html`、`convert/index.html`、`index.html`
+  三份的线上 md5 与 `docs/` 里对应文件**逐一相同**（`2fafb3cd` / `ca6e1eef` / `995e6c81`），
+  新页线上 `<title>` 中英并列齐、`rel="canonical"` 在。
+  同一条量具**反向往回用了一次**，得到一个必须写清的结论：`curl /404.html | grep -c "convert/"` 得 **0** ——
+  第六十五轮那条 404 nav 修正**还没上线**，它在 PR #25（未合）里。也就是说
+  **「站点已发布 116 张页」与「404 缺入口已修」是两种状态**：前者是 main 的事实，后者是分支的事实。
+  这类区分之所以重要，是因为只查「线上有没有 A」而不查「线上有没有 B」，会把分支就绪态悄悄说成已发布
+  （本仓第六十轮就为这个专门记过一格）。
+  另外这轮自己的判据又错了一次，已记进记忆：第一次扫 nav 时用绝对地址串 `transfer-any-file/convert/` 去匹配，
+  于是把产品页 159 个 href 里那条**相对**写法 `href="convert/"` 读成「产品页不链转换目录」——
+  差点据此去"修"一个不存在的缺陷。**规矩**：断言「某页没链 X」之前，先把那页所有 href 原样打出来看形状
+  （相对 / 绝对 / `../` / `#锚点` 在这个站是混用的），判据必须同时覆盖这几种。
+
+- **10-22 第六十七轮（用一个现拼 APNG 把四条 PNG 出路实测了一遍，其中三页的句子被证据改写）。** 夹具是在 Node 里现拼的
+  双帧 APNG（`IHDR` → `acTL(num_frames=2)` → `fcTL(0)` → `IDAT` → `fcTL(1)` → `fdAT(seq=2)` → `IEND`，逐块 CRC 自证通过、201 B），
+  用真实构建产物跑四条路，结果**和我按代码形状推的完全不一样**：
+  `PNG→JPG` **转换失败**、`PNG→WebP` **转换失败**、`PNG→PDF` **转换失败**、只有 `PNG→Word` **成功产出**且没有丢帧提示。
+  于是：`png-to-jpg`、`png-to-webp` 原先那句「APNG 同样只剩一张静帧」**是错的**（不是一帧，是根本不产出），
+  `png-to-pdf` 上一笔刚写的「只留一帧」也是错的；三页都改成「实测返回转换失败」，并明确写上
+  **其它 APNG 文件未测**、**不归因失败落在哪一层**（是 Chrome 解不开我这份样本，还是打包器的 PNG 读取拒绝，本轮没查——
+  而且样本是我手搓的，不能拿它的失败当成「所有 APNG 都会失败」）。`png-to-docx` 那句（只搬字节、帧在包里、没有提示）
+  是这一轮**唯一被实测支持住**的，保留。
+  **两条流程上的收获值得记住**：① 我第一版把解法建议「先 PNG→JPG 再 JPG→PDF」写上了页面，而那条**从没验过**——
+  用例里连目标标签都要猜（真名是 `JPEG (.jpg)` 不是 `JPG (.jpg)`），未验证的建议不许印；② 为测量临时加的 3 条
+  特征化断言在测完后**整体撤销**：新增断言会让对外主张的断言总数 452→455，而重取基线要求一轮全绿，本轮另有一节
+  （JSON Result Preview）与改动无关地超时 ⇒ 宁可回退，也不留一个偏小的对外数字。测量脚本与结论进任务 #30。
+  验证：`pages:check` 133 文件、`verify:numbers` 23 事实 × 138 文档、`lint:all`、`e2e` 脚本 `git checkout` 回 HEAD 且 `node --check` 通过。
+
+- **10-22 第六十八轮（动图 WebP 也实测了，结论与 APNG 相反，正好把上一条句子钉牢）。** 造夹具的坑先记：本机
+  `cwebp` **没有** `-af`（把清单当图片读，直接报 `Cannot read input picture file`），而且它 `Note: Animated PNG and WebP files are not supported`
+  说的是**输入**侧；真正能用的是 PIL 9.5 的 `Image.save(format='WEBP', save_all=True, append_images=[f2], duration=100, loop=1)`
+  ——232 B、块序列 `VP8X ANIM ANMF VP8  ANMF VP8 `（2 帧，用 Node 逐块点数确认）。把这份**真的动图 WebP**喂进构建产物跑四条路：
+
+  | 路线      | 结果                 | 有没有丢帧提示                                 |
+  | --------- | -------------------- | ---------------------------------------------- |
+  | WebP→PNG  | 转换完成，出 `.png`  | 无                                             |
+  | WebP→JPEG | 转换完成，出 `.jpg`  | 无                                             |
+  | WebP→PDF  | 转换完成，出 `.pdf`  | 无（只有「逐页位图、不含文字层」那条既有提示） |
+  | WebP→Word | 转换完成，出 `.docx` | 无                                             |
+
+  两件事因此落定：① `webp-to-png` / `webp-to-jpg` 上「动图 WebP 只画第一帧，而多帧检测只覆盖 GIF、所以不会单独提示」这半句
+  现在是**实测支持**的（四条路都成功、都不提示），不再是和 APNG 同族的推断；② 它与 APNG 的对比本身就是证据——
+  同一个浏览器、同一片画布代码，WebP 成功而 APNG **不产出**，所以 APNG 的失败不在「画布丢帧」那一层，
+  这也验证了页面上那句「不归因到层」的克制是对的（没有顺手把锅推给打包器）。
+  **流程上又守住一次**：探针是临时插进 `scripts/e2e-test.mjs` 的，跑完即 `git checkout` 撤掉；套件是后台跑的，
+  我在它写基线前 `pkill` 停掉，随后确认 `scripts/__baseline__/e2e-assertions.json` 仍是 **452**、
+  `verify:numbers`（138 文档）与 `pages:check`（133 文件）都绿。新增断言要落地，必须配一轮全绿重取基线并回填引用该数的散文（任务 #30）。
+  本轮零页面改动（措辞已被实测支持，不需要改），只动这份账本。
+
+- **10-22 第七十轮（撤回上一轮的结论：那份「转换失败」的 APNG 是我自己造坏的）。** 第六十七轮我用手拼字节得出「`PNG→JPG` / `WebP` / `PDF` 对 APNG 一律不产出」，并据此改了三页。这轮做了两个动作把它推翻：
+  ① 用 **Pillow** 生成一份权威 APNG（块序列与我手拼的**完全相同**：`IHDR acTL fcTL IDAT fcTL fdAT IEND`，237 B），
+  ② 先用 headless Chrome 的 `--dump-dom` 探针证明**浏览器解得开它**（`naturalWidth=24`），再把它喂进构建产物：
+  `APNG→JPEG` 与 `APNG→PDF` **都转换完成**（`pillow-frame_*.jpg` / `*.pdf`）。
+  所以失败的是我的样本，不是产品——三页已改回「只留一帧」，并且这一句现在是**实测支持**的（此前它只是推断）。
+  **教训按形状记下来**：自造夹具在被用来指控产品之前，必须先证明**它能被参照实现读**（这里是浏览器自己），
+  否则测的是「我的编码器行不行」而不是「转换器行不行」。这与本日下午那次「结构合法≠语义合法」的
+  `grep 假阴性` 是同族错误：**判据的输入本身也要被验真**。
+  顺带修掉的连带错误：第六十七轮我还把「先 PNG→JPG 再 JPG→PDF」当解法写上页面，理由正是那次错的失败——
+  现在两条都撤了：APNG 在 `PNG→JPG` 上本来就成功，不需要绕路；而目标标签的真实名字是 `JPEG (.jpg)`，不是 `JPG (.jpg)`。
+  探针与临时夹具全部清场：`scripts/e2e-test.mjs` 与 `scripts/__baseline__/e2e-assertions.json` 都 `git checkout` 回 HEAD
+  （基线仍是 **452**，后台套件在写基线前被 `pkill` 停住），`.test-tmp/*.apng|apng-probe.html|pillow.apng` 已删。
+  验证：`pages:check` 133 文件、`verify:numbers` 23 事实 × 138 文档、`lint:all`；运行时零改动。
+
+- **10-22 第七十一轮（想把「帧仍在包里」验到内容层，探针自己先坏了——于是按证据等级把话说准）。** `png-to-docx` 那句
+  「APNG 只搬字节、不重编码，所以帧仍在包里」此前只被「结果行出现 + 转换完成」支持过，那是**成功信号不是内容证明**。
+  这轮临时插了一节探针：APNG→Word 成功后 `downloadBatchArtifact` 取回 .docx，用 `fflate.unzipSync` 列出 `word/media/*`
+  并比对字节数（源 237 B）。结果探针自己抛 `invalid zip data` —— 是**我这条取件路径不对**（同一次运行里前面的转换
+  留下的行/按钮状态，或取到的不是那份 docx），不是产品产出了坏 zip：同一份夹具走 `PNG→JPEG` / `PNG→PDF` 都正常产出。
+  **判断：不为这一句再烧一轮调试**。把支持等级如实写清就够了——
+  ① 机制侧有既有覆盖：套件早就钉住「`data:` 负载被从 altChunk 里提出来，作为独立部件附在后面」（`scripts/e2e-test.mjs:646-653`
+  那段注释与 2271 附近那条用例，用的还是夹具专属载荷，防「图被吃掉仍绿」）；
+  ② 打包器那条路径对图片类型没有分支（它提的是 data URI，不看是不是动图）；
+  ③ 直接内容级验证（解包对比 `word/media` 字节）仍缺，已记在任务 #30 作为下一轮的口子。
+  页面句子**不改**：它说的是「不重编码、字节照搬」，与 ①② 一致；没有把「Word 里会不会播」写成承诺（那句在本页一直是
+  「由打开它的程序决定」），所以不存在过度主张。探针撤除、基线仍 **452**、临时 `pillow.apng` 删除、
+  `node --check` 通过、`verify:numbers` 138 文档绿、`git status` 干净。
+  **顺带一条流程记录**：本轮两次「临时探针」（第六十七、七十一轮）都在测完 `git checkout` 撤除，
+  且都必须同时回退 `scripts/__baseline__/e2e-assertions.json` —— 套件收尾会自写基线（一次写到 456），
+  只撤 harness 不回基线就会把对外主张改成一个偏小的数。
+
+- **10-23 第七十二轮（设置浮层换成居中模态、工作台收成单列；断言总数 452→453，一轮全量绿灯）。**
+  用户截图指的是页头齿轮打开的 `el-popover`（本项目没有 popup，设置一直长在页头）。这轮把它换成
+  `el-dialog`（`align-center`、`destroy-on-close`、点遮罩不关、Esc 关闭），面板重排成「外观 / 通用 / 转换」
+  三组：色板从 3×2 卡片改成一行 6 枚 28px 圆点（≤420px 回落到 3 列，因为六个名字挤不进一行、省略号恰好切掉
+  区分「森林绿」的那一字），语言与模式改用分段控件，快捷键录制保持捕获阶段监听 + 卸载清理。工作台改为单列精修：
+  转换 / 取消移进 `FormatSelector` 的 action 行、空态拖放区自成一整块虚线板、有文件后收成 44px 顶栏。
+  **只用了现有 `--fat-*` 令牌**，没有新增颜色；也没有新增权限、存储键或网络路径（`verify:offline` 仍只有 `storage`）。
+  e2e 随之改口径：`popoverText` → `dialogText`、语言断言改读 `.paste-hint`、新增
+  「Esc 关闭设置并把焦点还给齿轮」一条；Information Text Contrast 原先只在「已选文件」一档里连同
+  `.drop-stats` 一起量满 12 套主题×模式，而 `.drop-stats` 现在只在空态渲染，于是拆成两档：已选态 4 个选择器、
+  空态 3 个，各自仍跑满 12 套。对外散文里的断言总数 452→453 同步到 7 份（`docs/index.html` 中英、
+  `docs/blog/index.html`、
+  `docs/promo/blog-article.en.md`、两份 `community-posts*`、`wechat-article.md`，外加本清单），
+  由 `verify:numbers` 守着。
+  **这一轮真正花时间的是测量自己，不是产品。** ① 第 2 轮在 blue dark 上读到
+  `.file-meta: 3.01:1 — rgb(91,107,128) on rgb(30,30,46)`：浅色墨水配深色卡，是换肤转场被读到了起始值
+  （同一轮里 `oklab()` 那条读数是「颜色还在插值」的旁证）。修法不是放宽阈值，而是给整个「无动效窗口」注入
+  `*, *::before, *::after { transition: none !important; }`，并用深度计数包住 `emulateMedia({ reducedMotion })`
+  ——它是集合语义不是栈，嵌套两层时内层结束就会把外层的设置撤掉。修后三轮该节最差都是 4.95:1
+  （`.file-list-header` / rose）。
+  ② 第 3 轮在 load ~130 时 `XLSX→JSON` 的 `.el-select-dropdown__item:visible` 10 秒超时；把这次等待改成
+  可重试（最多 3 次，前两次先 Esc 清场）并带 `lastFailure` 文本，第 4 轮 load ~15 时一次过——所以它是机器负载
+  敏感，不是选择器断了。
+  ③ 代码评审又收了两处测试侧的空转口：ZIP 展开改成等 `hello.md` 与 `data.csv` 两个已知文件名（原来只数「有 2 行」，
+  理论上可被上一批残留行满足）；设置对话框的文本读取与关闭断言改用 `.prefs-dialog`（`PresetBar` 的 `.el-dialog`
+  在它的小节之后仍留在 DOM 里，只按裸类名取首匹配是在赌渲染顺序），关闭则等 `state: 'detached'` 而不是单读一次
+  `isVisible`。
+  验证：`Results: 453/453 passed (100%)`、`EXIT:0`（收紧断言后的定义性一轮，日志 `/tmp/taf-e2e-run6.log`）；
+  基线未重写，仍是 `453`；
+  build `Σ Total size: 3.86 MB`、zip `1.17 MB`；`verify:offline` 96 个第一方文件 + manifest 只有 `storage`、
+  无 host 权限；`verify:remote-code` 源码 96 / 产物 44 个文件；`verify:paths` 48 边 / 182 对；`pages:check`
+  133 文件；`verify:numbers` 23 事实 × 138 文档；`verify:listing` 7 个粘贴字段；`verify:release-ci` 63 条判定
+  与 10 处接缝；`verify:meta` 短描述 127/132；`lint:all` 全绿。`assets:capture` 重拍 7 张英文原图 + 7 张中文原图、
+  14 张带文案商店截图与 3 张推广图。
+  **一条工具口径**：`pnpm test:e2e` 整条链路超过 Bash 默认 120s 会被 cut，父 `pnpm` 收到 SIGTERM 而 node 子进程
+  被 reparent 继续写日志——`ELIFECYCLE Command failed.` 与「后台完成 exit 0」都不能当结论，只认日志尾部的
+  `EXIT:` 行；长跑要显式传 timeout，长 `sleep` 也一样。
+
+- **10-23 第七十三轮（顶栏加版本号与两条更新入口；断言总数 453→462，一轮全量绿灯）。**
+  版本号取 `browser.runtime.getManifest().version`，也就是 Chrome 扩展管理页上那一个，不是构建期烘进 bundle
+  的常量——用户报的「我这是哪一版」要和浏览器说的一致。落点与去向由用户选定：品牌名旁一枚芯片，副标题那一行
+  再挂两条链接，商店条目与 `releases/latest` 各一条（商店现停 1.0.0、GitHub 已 1.2.1，所以两条都给，
+  不在界面里断言「有更新」）。
+  **三处 mock 一起改**：`scripts/e2e-test.mjs`、`scripts/capture-store-assets.mjs`、`scripts/render-demo-gif.mjs`
+  各自的 `chrome.storage` 桩此前只给 `chrome.runtime` 一个 `id`，新增的 `getManifest()` 在这三个「用普通页面
+  假装扩展页」的环境里会直接抛错、把整页打崩。桩里的版本从**被测产物**的 `.output/chrome-mv3/manifest.json`
+  现读，于是那条芯片断言不是在跟本文件自己编的数字对齐，截图与 GIF 里印的也是真实号。
+  **外链字符串过不了两道守卫才是这里真会出事的地方**：`check-offline.mjs` 拦的是 `fetch` / `XMLHttpRequest` /
+  `WebSocket` / `EventSource` / `sendBeacon` / `RTCPeerConnection` 这六种调用形状，`check-remote-code.mjs`
+  的 URL 规则要求串以 `.js` / `.mjs` / `.wasm` 结尾（或是 `import("http…")` 那一类），商店条目地址与
+  releases 地址都不成形状，两道都仍绿；先例是 `tools/file-diff.html` 里那条同样的商店链接，它一直在扫描范围内。
+  「不联网检查更新」是这条功能的边界：没有 host 权限就没有可问的服务器，所以界面只给出口，不给判断。
+  e2e 新增一节 9 条：芯片文本与 tooltip、两条链接的存在与**精确地址**（写错的 item ID 会把每个安装者送去
+  404，而仓库里没有任何别的门禁会发现）、`target=_blank` 加 `rel=noopener`、aria-label 以可见文案开头并点名
+  新标签页（WCAG 2.5.3）、链接墨色与 `.brand-name` **同色**（刻意不引入第六组对比度对——那一对已在
+  紧随其后的两节里跑满 12 套主题×模式）、320px 下顶栏换行而不撑宽文档。
+  观感上改了一处：副标题与链接同行时列间距从 `--fat-space-sm` 提到 `--fat-space-md`，8px 时第一条链接读起来
+  像那句话的尾巴。文档同步 4 层：README 中英各三处（功能全览、隐私清单、新增一条 FAQ）、`docs/index.html`
+  隐私段中英各一句、CHANGELOG 双语、断言总数 462 回填 8 处（含本清单第 55 行）。商店文案与 manifest 描述
+  **没动**——一枚版本芯片不是商品卖点，改它会连带牵动 `verify:listing` 的七个粘贴字段。
+  验证：`Results: 462/462 passed (100%)`、`EXIT:0`（`pnpm test:e2e` 的定义性一轮，日志 `/tmp/taf-e2e-final.log`），基线自写到 `462`；
+  build `Σ Total size: 3.86 MB`（对外字样不变）、zip `1.18 MB`；`verify:offline` 96 个第一方文件 + manifest
+  只有 `storage`；`verify:remote-code` 源码 96 / 产物 44；`verify:paths` 48 边 / 182 对；`pages:check` 133 文件；
+  `verify:numbers` 23 事实 × 138 文档；`verify:listing` 7 个粘贴字段；`verify:release-ci` 63 条判定与 10 处接缝；
+  `verify:meta` 短描述 127/132；`lint:all` 全绿。`assets:capture` 重拍 7+7 原图、14 张商店截图与 3 张推广图，
+  两条演示 GIF 重录（zh 1523 KB / en 1493 KB）。
+  **一条工具口径**：Playwright 自带的 ffmpeg 解不了 GIF——`-i demo-zh.gif` 报 `Invalid data found` 并以 183 退出。想验 GIF 内容得换工具，或者直接看同一次构建的截图，别把「量具读不出」记成「素材错了」。
 
 ## 3. 收下改动：这一节记的是提交账，不是提交计划
 

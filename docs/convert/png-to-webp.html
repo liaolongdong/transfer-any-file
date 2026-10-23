@@ -160,7 +160,7 @@
             <ul class="limits">
         <li><span lang="zh-CN">目标体积是「追得上就追」：质量降到底仍不够时会继续缩像素，但极小的目标可能到不了，产物只保证不超过约束能达到的最小值</span><span lang="en">A target size is chased, not guaranteed: once quality bottoms out the encoder starts shedding pixels, and a very small target may still be unreachable</span></li>
         <li><span lang="zh-CN">有损编码不可逆：WebP / JPEG 反复转手的每一次都在丢信息，请始终从原始 PNG 出发</span><span lang="en">Lossy is not reversible — every extra WebP or JPEG handoff discards more. Always start from the original PNG</span></li>
-        <li><span lang="zh-CN">GIF 动图取首帧（只有真含多帧时才提示丢帧）；BMP / GIF / SVG 不能被浏览器编码，所以只能作为输入</span><span lang="en">Animated GIF yields its first frame (and says so only when the file really had several); BMP, GIF and SVG cannot be encoded by a browser, so they are input-only</span></li>
+        <li><span lang="zh-CN">动图取首帧：GIF 会给出「只保留第一帧」那句提示，APNG 不会——实测一份 Pillow 生成、可被浏览器解出的双帧 APNG 成功转出静帧 WebP，界面无任何丢帧提示（帧检查只对 GIF 生效，`utils/core/animated-image.ts:16`）；BMP / GIF / SVG 不能被浏览器编码，所以只能作为输入</span><span lang="en">Animations yield their first frame, and only a GIF says so: measured with a Pillow-written two-frame APNG the browser decodes normally, this route produced a still WebP with no frame-loss notice, because the check covers GIF only (`utils/core/animated-image.ts:16`). BMP, GIF and SVG cannot be encoded by a browser, so they are input-only</span></li>
         <li><span lang="zh-CN">不做 OCR、不做智能裁剪、不替你去网上取图</span><span lang="en">No OCR, no smart crop, and it never fetches an image for you</span></li>
             </ul>
           </section>

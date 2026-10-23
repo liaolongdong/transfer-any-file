@@ -16,6 +16,12 @@ export default {
     title: '转换工作台',
     subtitle: '批量转换、预览与编辑，全部在本地完成',
     preferences: '偏好设置',
+    versionHint: '当前已安装版本 {version}',
+    storeLink: '商店更新',
+    releasesLink: '下载最新版',
+    /** Appended to the visible link text rather than replacing it, so the accessible name keeps that
+     *  text as a substring (WCAG 2.5.3) while still naming the new tab. */
+    newTabSuffix: '，在新标签页打开',
   },
 
   // Upload
@@ -136,6 +142,8 @@ export default {
     disabledImageNoText: '图片无法转换为文本或表格数据（需 OCR，暂不支持）',
     disabledPdfNoData: 'PDF 无法可靠转换为表格/结构化数据',
     recentUsed: '最近使用',
+    sourceTitle: '源格式',
+    targetTitle: '目标格式',
   },
 
   // Image output parameters
@@ -308,6 +316,9 @@ export default {
 
   // Preferences
   prefs: {
+    appearance: '外观',
+    general: '通用',
+    conversion: '转换',
     theme: '主题色',
     language: '界面语言',
     mode: '显示模式',

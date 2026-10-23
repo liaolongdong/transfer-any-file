@@ -41,7 +41,7 @@ function shot(name) {
  * rasterize the whole document, and on 2026-10-17, with the editor holding the machine at load
  * average 11, the renderer sat past the 30 s default *after* printing "fonts loaded". Three of those
  * in one run, each thrown from inside a `try`, meant three sections that stopped before their own
- * cleanup — the popover left open, the locale left English, the staged file left staged — which is
+ * cleanup — the settings dialog left open, the locale left English, the staged file left staged — which is
  * how one stall became the twenty-five colour samples and four History failures after it.
  *
  * Only a capture with a `path` is swallowed. One that returns bytes is a measurement, and a
@@ -242,37 +242,58 @@ async function finishAnimations(page) {
   });
 }
 
-async function sampleWithoutMotion(page, read) {
-  await page.emulateMedia({ reducedMotion: 'reduce' });
+/** How deep the current no-motion window is nested. `emulateMedia` is a *set*, not a stack: a
+ *  nested sampler that reset `reducedMotion: null` in its own `finally` would hand motion back to
+ *  the outer window, so everything after the first read inside that window (clearing the list,
+ *  staging a file) would animate again. Counting keeps it closed until the outermost caller ends. */
+let motionWindowDepth = 0;
+
+const SETTLE_STYLE_ID = 'fat-e2e-settle';
+
+/**
+ * Open a window in which no CSS transition exists at all.
+ *
+ * `prefers-reduced-motion` collapses every duration token to 0.01ms but still *creates* a
+ * transition, and on a starved main thread the frames that would advance it may never arrive: the
+ * read then gets the transition's start value while the root's custom properties are already the
+ * new theme's. That is how a 2026-10-23 run printed light ink on a dark card for `.file-meta`
+ * (`rgb(91,107,128)` on `rgb(30,30,46)`) as a plain `rgb()` — an in-flight colour would have
+ * computed as `oklab()`. `transition: none` keeps the transition from existing, so the first
+ * style recalc already carries the target value. The window must span the *state change* too,
+ * not only the read that follows it.
+ */
+async function withNoMotion(page, run) {
+  if (motionWindowDepth === 0) {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.evaluate(id => {
+      if (document.getElementById(id)) return;
+      const style = document.createElement('style');
+      style.id = id;
+      style.textContent = '*, *::before, *::after { transition: none !important; }';
+      document.head.appendChild(style);
+    }, SETTLE_STYLE_ID);
+  }
+  motionWindowDepth += 1;
   try {
-    await finishAnimations(page);
-    return await read();
+    return await run();
   } finally {
-    await page.emulateMedia({ reducedMotion: null });
+    motionWindowDepth -= 1;
+    if (motionWindowDepth === 0) {
+      await page.evaluate(id => document.getElementById(id)?.remove(), SETTLE_STYLE_ID);
+      await page.emulateMedia({ reducedMotion: null });
+    }
   }
 }
 
-/**
- * Collapse motion around a *state change*, not only around the read that follows it.
- *
- * `sampleWithoutMotion` cannot fix a theme switch on its own: an interpolation that has already
- * started under normal motion keeps its own timeline, and `prefers-reduced-motion` does not
- * retroactively collapse it. On a starved main thread the frames that would advance it never
- * arrive, so the read stays parked on the previous theme's ink while the root's custom properties —
- * recalculated synchronously — are already the new theme's. That is the pairing a 2026-10-17 run
- * printed as `[green light] .file-list-header: 2.13:1 — rgb(166,173,200) on rgb(240,253,244)`: dark
- * ink, light backdrop, in the same sample. The switch has to happen inside the window.
- *
- * Nesting is harmless (`emulateMedia` is a set, not a stack), so the samplers below keep wrapping
- * their own reads.
- */
+async function sampleWithoutMotion(page, read) {
+  return withNoMotion(page, async () => {
+    await finishAnimations(page);
+    return await read();
+  });
+}
+
 async function changeWithoutMotion(page, change) {
-  await page.emulateMedia({ reducedMotion: 'reduce' });
-  try {
-    return await change();
-  } finally {
-    await page.emulateMedia({ reducedMotion: null });
-  }
+  return withNoMotion(page, change);
 }
 
 /** Drive `dataset` straight from the page, the way `useTheme` ends up doing it. */
@@ -434,8 +455,22 @@ function startServer() {
  * The result is passed to `page.addInitScript` as a string, and Playwright evaluates a string as a
  * script body rather than as a factory to call, so the arrow function has to be invoked here.
  */
+/**
+ * The version carried by the build under test.
+ *
+ * Read from the artifact rather than from `package.json`, and used both for the stubbed
+ * `chrome.runtime.getManifest` and for the assertion on the topbar chip — so a passing chip can
+ * never be agreeing with a number this file invented.
+ */
+function servedManifestVersion() {
+  return JSON.parse(fs.readFileSync(path.join(EXTENSION_PATH, 'manifest.json'), 'utf8')).version;
+}
+
 function mockChromeStorage(seed = {}) {
   const initial = JSON.stringify({ 'fat:locale': 'zh', ...seed });
+  // Read here rather than at module scope: `main()` has a friendly "Extension not built" guard that a
+  // top-level read would throw past.
+  const manifestVersion = servedManifestVersion();
   return `(() => {
   // Pin the language: every assertion in this file matches Chinese UI strings, and the app
   // now falls back to navigator.language when nothing is stored — an en-US CI browser would
@@ -443,7 +478,9 @@ function mockChromeStorage(seed = {}) {
   const storage = ${initial};
   window.__storageCalls = [];
   window.chrome = window.chrome || {};
-  window.chrome.runtime = window.chrome.runtime || { id: 'test' };
+  window.chrome.runtime = window.chrome.runtime || { id: 'test', getManifest: () => ({ version: ${JSON.stringify(
+    manifestVersion,
+  )} }) };
   window.chrome.storage = {
     local: {
       get: (keys, cb) => {
@@ -527,6 +564,7 @@ async function convertFile(page, fixture, targetText, timeout = 30000, prepare) 
   // same predicate that enables the button. A failed attempt is retried rather than reported, and
   // only a target that is not offered at all fails immediately.
   let selected = false;
+  let lastFailure = 'selection did not commit';
   for (let attempt = 0; attempt < 3 && !selected; attempt++) {
     if (attempt > 0) {
       await page.keyboard.press('Escape').catch(() => {});
@@ -534,7 +572,18 @@ async function convertFile(page, fixture, targetText, timeout = 30000, prepare) 
     }
     const sel = await page.waitForSelector('.action-row .el-select', { timeout: 10000 });
     await sel.click();
-    await page.waitForSelector('.el-select-dropdown__item:visible', { timeout: 10000 });
+    // Retried rather than thrown: on a loaded machine the popper can miss the 10s window, and a
+    // failure name pointing at the converter would be the expensive kind of red. Only three misses
+    // in a row fail the route, with the step that actually stalled.
+    const opened = await page
+      .waitForSelector('.el-select-dropdown__item:visible', { timeout: 10000 })
+      .then(() => true)
+      .catch(() => false);
+    if (!opened) {
+      lastFailure = 'target dropdown did not open';
+      continue;
+    }
+    lastFailure = 'selection did not commit';
 
     // Same reason as the two waits above, and this is the one that used to lie: a fixed 500 ms for the
     // dropdown to paint, then `isVisible()`. On 2026-10-17, at load average 11, it reported
@@ -560,7 +609,7 @@ async function convertFile(page, fixture, targetText, timeout = 30000, prepare) 
       .then(() => true)
       .catch(() => false);
   }
-  if (!selected) throw new Error(`${targetText} selection did not commit`);
+  if (!selected) throw new Error(`${targetText} ${lastFailure}`);
   await page.waitForTimeout(300);
 
   // Some conversions need a field filled between choosing the target and clicking convert — the PDF
@@ -1058,8 +1107,9 @@ async function run() {
   // fetched twice before any interaction means some module re-read state the entry already resolved.
   // One such key was live until now — two cards mounting in one flush each paid for
   // `fat:collapsedState`. `useTheme` re-read theme and colour mode the same way after `main.ts` had
-  // applied them, but that pair never entered this window: `PreferencesMenu` lives in a popover with
-  // `persistent=false`, so its `useTheme()` runs on the first open, not at boot. An empty record is not
+  // applied them, but that pair never entered this window: `PreferencesMenu` lives in the settings
+  // dialog, whose body Element Plus does not render until it is first opened, so its `useTheme()`
+  // runs then rather than at boot. An empty record is not
   // "no duplicates", it is a stub that stopped recording, so it fails.
   const calls = boot.storageCalls;
   const readCounts = new Map();
@@ -1770,11 +1820,24 @@ async function run() {
     await resetWorkbench(page);
     const fi = await page.$('input[type="file"]');
     await fi.setInputFiles(path.join(FIXTURE_PATH, 'sample-archive.zip'));
-    await page.waitForTimeout(1000);
+    // Expansion is asynchronous (unzip, then a state commit), so a fixed delay races it. Waiting on
+    // the two entry names — not just a row count — is also what proves the unsupported `notes.bin`
+    // was skipped rather than some other pair of rows happening to be in the list.
+    await page
+      .waitForFunction(
+        () => {
+          const names = [...document.querySelectorAll('.file-item .file-name')].map(el => el.textContent?.trim());
+          return names.length === 2 && names.includes('hello.md') && names.includes('data.csv');
+        },
+        undefined,
+        { timeout: 10000 },
+      )
+      .catch(() => {});
 
-    const itemCount = await page.$$eval('.file-item', els => els.length);
-    if (itemCount === 2) ok('ZIP expanded to its 2 supported files (unsupported entry skipped)');
-    else fail('ZIP expansion', `expected 2 files, got ${itemCount}`);
+    const extracted = await page.$$eval('.file-item .file-name', els => els.map(el => el.textContent?.trim()));
+    if (extracted.length === 2 && extracted.includes('hello.md') && extracted.includes('data.csv'))
+      ok('ZIP expanded to its 2 supported files (unsupported entry skipped)');
+    else fail('ZIP expansion', `expected hello.md + data.csv, got ${extracted.join(', ') || '(none)'}`);
 
     // Batch-convert the extracted files to HTML
     const sel = await page.$('.action-row .el-select');
@@ -4057,7 +4120,10 @@ async function run() {
         await reusePage.waitForTimeout(400);
       };
       const closePrefs = async () => {
-        await gear.click();
+        // The preferences surface is a modal dialog: its overlay covers the gear, so the old
+        // "same click closes it" trick would hit the mask instead. Escape is the keyboard path a
+        // user takes, and Element Plus closes on it by default (`close-on-press-escape`).
+        await reusePage.keyboard.press('Escape');
         await reusePage.waitForTimeout(300);
       };
       const targetText = async () => (await reusePage.locator('.action-row .el-select').first().innerText()).trim();
@@ -4105,6 +4171,10 @@ async function run() {
       else fail('Reuse precondition', 'no stale notice after moving away from PNG');
       await reusePage.locator('.history-item .history-actions .el-button').first().click();
       await reusePage.waitForTimeout(600);
+      // Toasts live three seconds. Read this one now, while the reuse action is what every check
+      // below is about: opening and closing preferences in between can outlast it on a loaded
+      // machine, and the toast would then be absent for a reason that has nothing to do with reuse.
+      const reuseToast = await lastMessage();
 
       if ((await targetText()) === 'PNG (.png)') ok('Reuse restores the target the batch ran under');
       else fail('Reuse target', `selector reads "${await targetText()}"`);
@@ -4121,7 +4191,6 @@ async function run() {
       await closePrefs();
       if (patternNow === '{name}') ok('Reuse restores the name pattern the batch ran with');
       else fail('Reuse pattern', `field reads "${patternNow}"`);
-      const reuseToast = await lastMessage();
       if (reuseToast.includes('已应用目标') && reuseToast.includes('800 px') && reuseToast.includes('{name}'))
         ok('The reuse toast names everything that came back');
       else fail('Reuse toast', reuseToast);
@@ -4439,14 +4508,15 @@ async function run() {
         namePage.$$eval('.result-item .result-name', els => els.map(el => el.textContent.trim()).sort());
       const gear = await namePage.$('.topbar-inner .el-button');
       if (!gear) throw new Error('settings button not found');
-      // The pattern field lives in the preferences popover, and the popover has to be closed before a
-      // conversion runs — the same click that opens it closes it, so these two are one handle apart.
+      // The pattern field lives in the centred preferences dialog, and the dialog has to be closed
+      // before a conversion runs — its modal overlay swallows the click on `.convert-btn`, so these
+      // two are one Escape apart.
       const openPrefs = async () => {
         await gear.click();
         await namePage.waitForTimeout(500);
       };
       const closePrefs = async () => {
-        await gear.click();
+        await namePage.keyboard.press('Escape');
         await namePage.waitForTimeout(300);
       };
       /** Type a pattern into the preferences field and commit it, then report what was stored. */
@@ -5338,6 +5408,121 @@ async function run() {
   }
 
   // ═══════════════════════════════════════════
+  //  TOPBAR IDENTITY — VERSION CHIP & UPDATE LINKS
+  // ═══════════════════════════════════════════
+  //
+  // The chip is the one place the running build names itself. What this section can pin is the wiring —
+  // the number in the DOM is whatever `runtime.getManifest().version` reported — and it pins it against
+  // the artifact's own manifest rather than a number made up here, so a chip wired to anything else
+  // fails. What real Chrome reports is a different claim, and `scripts/verify-extension.mjs` is the one
+  // that loads the package into a browser. The two links are the only outbound addresses in the
+  // extension; what is asserted is the shape that keeps them harmless — nothing clicks them here, and
+  // the offline sentinel owns what a click could ever do.
+  if (section('Topbar Version & Update Links')) {
+    try {
+      // A fresh load owns the claim: the mock re-runs on navigation, so nothing the previous section
+      // left staged or converted can colour what the header renders.
+      await page.reload();
+      // Wait on the chip itself rather than a wall-clock guess — the boot reads three storage keys
+      // before mounting, and on a loaded machine that is not a fixed number of milliseconds.
+      await page.waitForSelector('.brand-version', { timeout: 15000 });
+
+      const expectedVersion = servedManifestVersion();
+      const header = await page.evaluate(() => {
+        const chip = document.querySelector('.brand-version');
+        const brand = document.querySelector('.brand-name');
+        return {
+          chip: chip ? chip.textContent.trim() : null,
+          chipTitle: chip ? chip.getAttribute('title') : null,
+          brandColor: brand ? getComputedStyle(brand).color : null,
+          links: [...document.querySelectorAll('.brand-link')].map(el => ({
+            href: el.getAttribute('href'),
+            target: el.getAttribute('target'),
+            rel: el.getAttribute('rel'),
+            text: (el.textContent || '').trim(),
+            label: el.getAttribute('aria-label') || '',
+            color: getComputedStyle(el).color,
+          })),
+        };
+      });
+
+      if (header.chip === `v${expectedVersion}`) ok(`Version chip shows the loaded build (${header.chip})`);
+      else fail('Version chip', `expected "v${expectedVersion}", got "${String(header.chip)}"`);
+      if (header.chipTitle === `当前已安装版本 ${expectedVersion}`)
+        ok('Chip tooltip names it as the installed version');
+      else fail('Chip tooltip', `reads "${String(header.chipTitle)}"`);
+
+      if (header.links.length === 2) ok('Two update links in the topbar');
+      else fail('Update link count', `expected 2, got ${header.links.length}`);
+
+      const store = header.links.find(l => (l.href || '').startsWith('https://chromewebstore.google.com/'));
+      const releases = header.links.find(l => (l.href || '').startsWith('https://github.com/'));
+      // The item ID is the live listing (`.github/CHROMEWEBSTORE.md` 的现网状态块). A typo here sends
+      // every installer to a 404 that no other gate in this repository would ever notice.
+      if (store?.href === 'https://chromewebstore.google.com/detail/blkdmpkcaceicinkhindniepbbbaekkb')
+        ok('Store link points at the published item ID');
+      else fail('Store link', `reads "${String(store?.href)}"`);
+      if (releases?.href === 'https://github.com/liaolongdong/transfer-any-file/releases/latest')
+        ok('Releases link uses the always-latest address, not a pinned tag');
+      else fail('Releases link', `reads "${String(releases?.href)}"`);
+
+      const wellFormed = header.links.filter(
+        l => l.target === '_blank' && (l.rel || '').split(' ').includes('noopener'),
+      );
+      if (wellFormed.length === header.links.length && header.links.length === 2)
+        ok('Both links open a new tab with rel=noopener');
+      else
+        fail('Link target hygiene', `${wellFormed.length}/${header.links.length} carry target=_blank + rel=noopener`);
+
+      // WCAG 2.5.3: the accessible name has to contain the visible label, so the new-tab hint is
+      // appended to it rather than replacing it.
+      const named = header.links.filter(l => l.label.startsWith(l.text) && l.label.includes('新标签页'));
+      if (named.length === 2 && header.links.every(l => l.text.length > 0))
+        ok('Each link label keeps its visible text and names the new tab');
+      else fail('Link accessible names', JSON.stringify(header.links.map(l => [l.text, l.label])));
+
+      // No new colour pair enters the system: the links take the same ink as the app name, and that
+      // pairing is measured against all six headers in both modes by the two sections after this one.
+      if (header.links.length > 0 && header.links.every(l => l.color === header.brandColor))
+        ok(`Update links share the already-gated topbar ink (${String(header.brandColor)})`);
+      else
+        fail(
+          'Update link ink',
+          `links ${JSON.stringify(header.links.map(l => l.color))} vs brand ${String(header.brandColor)}`,
+        );
+
+      // The subtitle and two links now share one flex line, so the header is the first place this
+      // change could widen the page instead of wrapping. `scrollWidth > clientWidth` is the shape the
+      // 320px action-row pin already uses: overflow moves the document, wrap does not.
+      await page.setViewportSize({ width: 320, height: 800 });
+      await page.waitForTimeout(500);
+      const narrow = await page.evaluate(() => {
+        const de = document.documentElement;
+        const links = [...document.querySelectorAll('.brand-link')].map(el => el.getBoundingClientRect().right);
+        return {
+          scrollWidth: de.scrollWidth,
+          clientWidth: de.clientWidth,
+          lastRight: links.length > 0 ? Math.max(...links) : -1,
+        };
+      });
+      if (narrow.scrollWidth <= narrow.clientWidth && narrow.lastRight >= 0 && narrow.lastRight <= narrow.clientWidth)
+        ok(
+          `At 320px the header wraps inside the viewport (scrollWidth=${narrow.scrollWidth}, clientWidth=${narrow.clientWidth})`,
+        );
+      else
+        fail(
+          'Header at 320px',
+          `scrollWidth=${narrow.scrollWidth} clientWidth=${narrow.clientWidth} linkRight=${narrow.lastRight}`,
+        );
+      await page.setViewportSize({ width: 1280, height: 900 });
+      await page.waitForTimeout(400);
+    } catch (e) {
+      fail('Topbar version & update links', e.message);
+      await page.setViewportSize({ width: 1280, height: 900 });
+    }
+  }
+
+  // ═══════════════════════════════════════════
   //  THEME & DARK MODE
   // ═══════════════════════════════════════════
 
@@ -5347,28 +5532,29 @@ async function run() {
     if (!gear) throw new Error('settings button not found');
     await gear.click();
     await page.waitForTimeout(800);
-    await page.screenshot({ path: shot(`${String(shotIdx++).padStart(2, '0')}-prefs-popover.png`), fullPage: true });
-    ok('Preferences popover opened');
+    await page.screenshot({ path: shot(`${String(shotIdx++).padStart(2, '0')}-prefs-dialog.png`), fullPage: true });
+    ok('Preferences dialog opened');
 
-    // Verify all sections exist
-    const popoverText = await page.$eval('.el-popover', el => el.textContent).catch(() => '');
-    if (popoverText.includes('主题色')) ok('Theme section label visible');
-    else fail('Theme label', 'not found in popover');
-    if (popoverText.includes('显示模式')) ok('Display mode section label visible');
-    else fail('Mode label', 'not found in popover');
-    if (popoverText.includes('界面语言')) ok('Language section label visible');
-    else fail('Language label', 'not found in popover');
+    // Verify all sections exist. `.prefs-dialog` rather than `.el-dialog`: the preset editor is also
+    // an `.el-dialog` and stays mounted after its section, so the bare class depends on DOM order.
+    const dialogText = await page.$eval('.prefs-dialog', el => el.textContent).catch(() => '');
+    if (dialogText.includes('主题色')) ok('Theme section label visible');
+    else fail('Theme label', 'not found in dialog');
+    if (dialogText.includes('显示模式')) ok('Display mode section label visible');
+    else fail('Mode label', 'not found in dialog');
+    if (dialogText.includes('界面语言')) ok('Language section label visible');
+    else fail('Language label', 'not found in dialog');
 
     // Verify all 6 theme names
     const themeNames = ['经典蓝', '森林绿', '梦幻紫', '活力橙', '玫瑰红', '石墨灰'];
     for (const name of themeNames) {
-      if (popoverText.includes(name)) ok(`Theme name "${name}" displayed`);
+      if (dialogText.includes(name)) ok(`Theme name "${name}" displayed`);
       else fail(`Theme name "${name}"`, 'not found');
     }
 
     // Verify mode labels
     for (const label of ['亮色', '暗色', '跟随系统']) {
-      if (popoverText.includes(label)) ok(`Mode option "${label}" displayed`);
+      if (dialogText.includes(label)) ok(`Mode option "${label}" displayed`);
       else fail(`Mode option "${label}"`, 'not found');
     }
 
@@ -5410,7 +5596,7 @@ async function run() {
 
   section('Dark Mode');
   try {
-    // Find the mode section buttons (second .lang-options group in popover)
+    // Find the mode section buttons (second .lang-options group in the dialog)
     const modeButtons = await page.$$('.pref-section .lang-options .lang-btn');
     // modeButtons: [亮色, 暗色, 跟随系统, 中文, English]
     // Dark mode button is index 1
@@ -5508,9 +5694,11 @@ async function run() {
       const titleEn = await page.title();
       if (titleEn === 'Transfer Any File · Conversion Workbench') ok('Tab title follows the switch to English');
       else fail('Document title after switch', `"${titleEn}"`);
-      const footerEn = await page.$eval('.drop-stats', el => el.textContent).catch(() => '');
-      if (footerEn.includes('formats supported')) ok('Strings re-render in English without a reload');
-      else fail('English UI', `drop zone read "${footerEn.trim()}"`);
+      // `.paste-hint` renders in both the empty plate and the staged bar; `.drop-stats`, which this
+      // read before, only exists while the plate is empty — and a batch is staged by this point.
+      const hintEn = await page.$eval('.paste-hint', el => el.textContent).catch(() => '');
+      if (hintEn.includes('paste')) ok('Strings re-render in English without a reload');
+      else fail('English UI', `paste hint read "${hintEn.trim()}"`);
       await page.screenshot({ path: shot(`${String(shotIdx++).padStart(2, '0')}-english-ui.png`), fullPage: true });
     } finally {
       // Restoring here rather than after the assertions is the only thing that keeps a starved
@@ -5522,12 +5710,36 @@ async function run() {
     }
 
     const langZh = await page.evaluate(() => document.documentElement.lang);
-    const footerZh = await page.$eval('.drop-stats', el => el.textContent).catch(() => '');
-    if (langZh === 'zh-CN' && footerZh.includes('格式')) ok('Switching back restores zh and the Chinese strings');
-    else fail('Chinese restore', `lang="${langZh}", footer="${footerZh.trim()}"`);
+    const hintZh = await page.$eval('.paste-hint', el => el.textContent).catch(() => '');
+    if (langZh === 'zh-CN' && hintZh.includes('粘贴')) ok('Switching back restores zh and the Chinese strings');
+    else fail('Chinese restore', `lang="${langZh}", paste hint="${hintZh.trim()}"`);
   } catch (e) {
     fail('Language switch', e.message);
   }
+
+  // The dialog is still open from the theme/dark/language sections, and it is modal: its overlay
+  // sits over the whole workbench, so every interaction below (target picker, convert button,
+  // history) would hit the mask. Escape is the dismissal a keyboard user has; assert the surface is
+  // actually gone rather than only that the key was pressed.
+  await page.keyboard.press('Escape');
+  // `.prefs-dialog`, not `.el-dialog`: PresetBar's dialog also matches the bare class, stays mounted
+  // after its section, and sorts later in the DOM only by accident of today's layout order.
+  // `destroy-on-close` detaches the prefs surface once the leave transition finishes.
+  const dialogGone = await page
+    .waitForSelector('.prefs-dialog', { state: 'detached', timeout: 10000 })
+    .then(() => true)
+    .catch(() => false);
+  // Element Plus hands focus back to whatever was focused when the trap engaged — the gear here.
+  const focusBack = await page
+    .waitForFunction(() => document.activeElement?.classList.contains('prefs-trigger'), undefined, { timeout: 10000 })
+    .then(() => true)
+    .catch(() => false);
+  if (dialogGone && focusBack) ok('Escape dismisses the settings dialog and returns focus to the gear');
+  else
+    fail(
+      'Settings dialog dismissal',
+      `dialog ${dialogGone ? 'gone' : 'still visible'}; focus ${focusBack ? 'on gear' : 'elsewhere'}`,
+    );
 
   // ═══════════════════════════════════════════
   //  PRIMARY BUTTON CONTRAST
@@ -5910,27 +6122,40 @@ async function run() {
 
   if (section('Information Text Contrast')) {
     try {
-      // WCAG 1.4.3 asks 4.5:1 of every string a user is meant to read, and these five used to
-      // sit on --fat-text-placeholder (2.33–2.56:1). Each is sampled with a file staged because
-      // that is when the drop zone takes --fat-primary-bg — in the rose theme #fff1f2, the
-      // weakest backdrop in the palette and the one a blue-theme screenshot would never show.
+      // WCAG 1.4.3 asks 4.5:1 of every string a user is meant to read, and these strings used to
+      // sit on --fat-text-placeholder (2.33–2.56:1). Two surfaces are sampled because the workbench
+      // paints the same three strings on two different backdrops: with files staged, the uploader is
+      // a card whose drop zone is a compact bar (card and surface), while the empty plate is tinted
+      // surface-2 and is the only state that renders the capability line. Sampling only the staged
+      // card would silently drop `.drop-stats` from the gate; sampling only the plate would miss the
+      // list header and the row meta. Both are re-tinted per theme, so the worst case in the palette
+      // (rose #fff1f2) is invisible to a blue-theme screenshot.
       // Not covered here: --fat-text-placeholder itself, which stays on input placeholders,
       // disabled controls and decoration whose state is carried by an ARIA attribute, all three
       // exempt from 1.4.3.
-      const INFO_TEXT = ['.drop-text', '.paste-hint', '.file-list-header', '.file-meta', '.drop-stats'];
-      const fi2 = await page.$('input[type="file"]');
-      if (!fi2) throw new Error('file input not found');
-      await fi2.setInputFiles(path.join(FIXTURE_PATH, 'sample.txt'));
-      // Wait for the list to render rather than sleeping: the previous section ends on
-      // resetWorkbench, whose clear can land after a fixed timeout and take `.file-meta` away
-      // mid-loop.
-      await page.waitForSelector('.file-item .file-meta', { timeout: 5000 });
+      const INFO_TEXT_FILLED = ['.drop-text', '.paste-hint', '.file-list-header', '.file-meta'];
+      const INFO_TEXT_EMPTY = ['.drop-text', '.paste-hint', '.drop-stats'];
+      const stageOne = async () => {
+        const input = await page.$('input[type="file"]');
+        if (!input) throw new Error('file input not found');
+        await input.setInputFiles(path.join(FIXTURE_PATH, 'sample.txt'));
+        // Wait for the list to render rather than sleeping: the clear below can land after a fixed
+        // timeout and take `.file-meta` away mid-loop.
+        await page.waitForSelector('.file-item .file-meta', { timeout: 5000 });
+      };
+      const clearOne = async () => {
+        const clear = await page.$('.clear-files-btn');
+        if (!clear) throw new Error('clear-files button not found');
+        await clear.click();
+        await page.waitForSelector('.drop-stats', { timeout: 5000 });
+      };
+      await stageOne();
 
       const appliedTheme2 = await page.evaluate(() => document.documentElement.dataset.theme ?? '');
       const appliedMode2 = await page.evaluate(() => document.documentElement.dataset.mode ?? '');
       let worst = Number.POSITIVE_INFINITY;
       let worstLabel = '';
-      // One `ok` for the whole group rather than twelve like the button gate: the 60 samples are
+      // One `ok` for the whole group rather than twelve like the button gate: the 84 samples are
       // one assertion ("every string you read clears 4.5:1"), and a partial pass would be read as
       // "some themes are fine" when the standard has no such exemption. The failures still print
       // per sample, and this flag keeps the group line from reporting success next to them.
@@ -5943,7 +6168,14 @@ async function run() {
             // immediately reads a colour between the old theme's and the new one's — an earlier
             // draft of this gate "failed" at 1.17:1 on a mid-flight blue-to-dark backdrop.
             await page.waitForTimeout(400);
-            return infoTextSamples(page, INFO_TEXT);
+            const filled = await infoTextSamples(page, INFO_TEXT_FILLED);
+            // Swap to the empty plate within the same theme so `.drop-stats` is measured against
+            // this theme's tint rather than whichever one the stage happened to start in.
+            await clearOne();
+            await page.waitForTimeout(400);
+            const empty = await infoTextSamples(page, INFO_TEXT_EMPTY);
+            await stageOne();
+            return { found: [...filled.found, ...empty.found], missing: [...filled.missing, ...empty.missing] };
           });
           if (missing.length) {
             groupFailed = true;
@@ -6072,7 +6304,7 @@ async function run() {
 
   section('History Clear Confirmation');
   try {
-    // Close popover first
+    // Make sure no modal survived the sections above (Escape is a no-op when none is open).
     await page.keyboard.press('Escape');
     await page.waitForTimeout(300);
 
@@ -6431,7 +6663,7 @@ async function run() {
       { timeout: 90000 },
     );
 
-    // Restore the preference the way a user would, which also proves the popover toggle and the
+    // Restore the preference the way a user would, which also proves the dialog toggle and the
     // conversion gate read the same singleton.
     const gear = await page.$('.topbar-inner .el-button');
     await gear.click();
@@ -6655,12 +6887,12 @@ async function run() {
 
   section('Custom Shortcut Recording');
   try {
-    // The panel is anchored under the header, so an uncapped one ran past the fold in a short window
-    // and the shortcut row — this section's own subject — could only be reached by scrolling the page
-    // out from under a popover pinned to the topbar. Measured at 500px tall, before the viewport goes
-    // back to the size the rest of the section assumes. Scrolled to the top first on purpose: the
-    // topbar is not sticky, so without this the anchor's viewport position — and with it where the
-    // panel's last row lands — depends on wherever the previous section left the scroll.
+    // The settings surface is a centred modal, so a short window pushes its own body past the
+    // viewport instead of anchoring a panel under the header. The panel is capped and scrolls
+    // internally; the dialog stays centred. Measured at 500px tall, before the viewport goes back to
+    // the size the rest of the section assumes. Scrolled to the top first on purpose: without it the
+    // reading could inherit whatever scroll the previous section left, and `lastBottom` is a
+    // viewport coordinate.
     await page.setViewportSize({ width: 1280, height: 500 });
     await page.waitForTimeout(300);
     await page.evaluate(() => window.scrollTo(0, 0));
@@ -6671,8 +6903,8 @@ async function run() {
     await page.waitForTimeout(800);
     const panel = await page.evaluate(() => {
       const menu = document.querySelector('.preferences-menu');
-      const pop = document.querySelector('.el-popover');
-      if (!menu || !pop) return null;
+      const dialog = document.querySelector('.prefs-dialog');
+      if (!menu || !dialog) return null;
       const scrollable = menu.scrollHeight > menu.clientHeight;
       menu.scrollTop = menu.scrollHeight;
       const last = menu.lastElementChild?.getBoundingClientRect();
@@ -6683,7 +6915,7 @@ async function run() {
         // panel that cannot scroll at all leaves this at 0 and the last item stays wherever it was.
         atBottom: Math.abs(menu.scrollTop + menu.clientHeight - menu.scrollHeight) < 2,
         lastBottom: Math.round(last?.bottom ?? -1),
-        popBottom: Math.round(pop.getBoundingClientRect().bottom),
+        dialogBottom: Math.round(dialog.getBoundingClientRect().bottom),
         innerHeight: window.innerHeight,
       };
     });
@@ -6700,7 +6932,7 @@ async function run() {
       ok(
         `Preferences panel scrolls itself to its last row in a short window (last ${String(panel.lastBottom)} ≤ ${String(
           panel.innerHeight,
-        )}, popover ${String(panel.popBottom)})`,
+        )}, dialog ${String(panel.dialogBottom)})`,
       );
     } else {
       fail('Preferences panel height', JSON.stringify(panel));
@@ -6874,9 +7106,9 @@ async function run() {
 
   section('Skip Link & Focus Ring');
   try {
-    // Reload first so this section cannot inherit state from the previous one: a popover
-    // left open owns the tab order (Element Plus teleports it to the end of <body>) and
-    // the skip link would never be reached. addInitScript re-runs on every navigation, so
+    // Reload first so this section cannot inherit state from the previous one: a modal dialog
+    // left open owns the tab order and its mask makes the skip link unreachable, so the walk below
+    // would never reach it. addInitScript re-runs on every navigation, so
     // the mocked chrome.storage survives.
     await page.reload();
     await page.waitForTimeout(2000);
@@ -7029,7 +7261,7 @@ async function run() {
     // paint the ring on a *sibling* proxy, so the global `:focus-visible` rule cannot reach them and
     // Element Plus's own declaration decides the colour. It uses its primary, not --fat-focus-ring,
     // and light + green is the one combination where the two disagree enough to matter: measured on
-    // the built bundle before the override, the focused switch drew #10b981 at 2.54:1 on the popover
+    // the built bundle before the override, the focused switch drew #10b981 at 2.54:1 on the dialog
     // (2.42:1 on the workbench surface) while the token this app certifies at 3:1 resolves to
     // #059669. Every other theme and mode passed on Element Plus's colour, so only a colour
     // comparison — not a geometry check — can tell the fixed build from the broken one.
@@ -7069,8 +7301,8 @@ async function run() {
       await ri.setInputFiles([path.join(FIXTURE_PATH, 'sample.bmp'), path.join(FIXTURE_PATH, 'sample.gif')]);
       await ringPage.waitForTimeout(1200);
       await pickTarget(ringPage, 'PDF (.pdf)');
-      await ringPage.locator('.topbar .el-button.is-circle').first().click();
-      await ringPage.waitForTimeout(600);
+      await ringPage.locator('.prefs-trigger').click();
+      await ringPage.waitForTimeout(800);
 
       const readHiddenRing = `(function () {
         const a = document.activeElement;
@@ -7139,22 +7371,39 @@ async function run() {
 
       const controls = [];
       const seen = new Set();
-      // Four is the expected yield: two switches (the popover's), one merge checkbox, one radio
-      // segment — `el-radio-group` moves its tabindex between segments, so three buttons contribute
-      // one tab stop. Reading inside `sampleWithoutMotion` because the theme flip animates the
-      // ancestor surfaces as well as the ring, and wall time is not a synchronisation point here.
-      await sampleWithoutMotion(ringPage, async () => {
-        await ringPage.evaluate(() => document.activeElement && document.activeElement.blur());
-        for (let i = 0; i < 160 && controls.length < 4; i++) {
-          await ringPage.keyboard.press('Tab');
-          const hit = await ringPage.evaluate(readHiddenRing);
-          if (!hit) continue;
-          const key = `${hit.kind}|${hit.name}`;
-          if (seen.has(key)) continue;
-          seen.add(key);
-          controls.push(hit);
-        }
-      });
+      const countOf = kind => controls.filter(c => c.kind === kind).length;
+      /**
+       * Tab until every requested family has the requested number of controls.
+       *
+       * The walk is split because the two switches live inside the settings dialog and the merge
+       * checkbox and history radio group live on the page behind its modal mask: one continuous Tab
+       * sequence can never see both sides. Element Plus's own focus trap keeps the first walk inside
+       * the dialog; Escape releases it and returns focus to the trigger for the second.
+       *
+       * Two switches, one merge checkbox, one radio segment are the expected yield —
+       * `el-radio-group` moves its tabindex between segments, so three buttons contribute one tab
+       * stop. Reading inside `sampleWithoutMotion` because the theme flip animates the ancestor
+       * surfaces as well as the ring, and wall time is not a synchronisation point here.
+       */
+      const walk = async targets => {
+        await sampleWithoutMotion(ringPage, async () => {
+          for (let i = 0; i < 160 && Object.entries(targets).some(([kind, n]) => countOf(kind) < n); i++) {
+            await ringPage.keyboard.press('Tab');
+            const hit = await ringPage.evaluate(readHiddenRing);
+            if (!hit) continue;
+            const key = `${hit.kind}|${hit.name}`;
+            if (seen.has(key)) continue;
+            seen.add(key);
+            controls.push(hit);
+          }
+        });
+      };
+
+      await walk({ switch: 2 });
+      await ringPage.keyboard.press('Escape');
+      await ringPage.waitForTimeout(500);
+      await ringPage.evaluate(() => document.activeElement && document.activeElement.blur());
+      await walk({ checkbox: 1, radio: 1 });
       const families = {};
       for (const c of controls) if (!families[c.kind]) families[c.kind] = c;
 

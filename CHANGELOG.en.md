@@ -17,6 +17,12 @@ Release PR is not by itself a release.
 - **history**: A history entry can bring back the output options and name pattern it ran with; presets can be renamed and overwritten with the current settings
 - **converter**: A batch of PNG / JPEG / WebP / BMP / GIF images can become one multi-page PDF. It is still one PDF per image by default; the merged document is capped at 200 pages, and one undecodable image fails the whole group rather than producing a partial file, with the diagnostic naming that file
 - **site**: Format hub pages and more "one format to another" pages, plus an offline, usage and FAQ section on `/diff/`
+- **ui**: The top bar shows the loaded version beside the app name and offers two update entry points — the store listing and the newest GitHub release. The extension never checks for an update over the network; those links are only doors
+
+### Changed
+
+- **ui**: Preferences move from a header popover to a centred dialog grouped into Appearance, General and Conversion; theme colours become a single-ring swatch grid and mode and language share one segmented control. While it is open the page-wide drop target is locked, and Escape closes it with focus returning to the gear button
+- **ui**: The workbench is a single column: an empty dashed drop panel folds into a compact file bar once files are staged; the target picker and convert button share one action row, and the empty history state is a single line
 
 ### Performance
 

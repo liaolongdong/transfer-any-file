@@ -62,9 +62,9 @@ export function applyMode(mode: ColorMode): void {
  *
  * `main.ts` reads both keys pre-mount anyway — a theme that corrects itself after the first frame is a
  * visible flash — so this module already holds the answer twice over. Without the seed, `initTheme`
- * fetches the same pair again and `state.theme` sits at `DEFAULT_THEME` until that resolves: the
- * preferences popover is `persistent=false`, so the first open paints the picker on the wrong theme and
- * flips it a round trip later. Seeding marks the state as resolved so the read is skipped, and both paths
+ * fetches the same pair again and `state.theme` sits at `DEFAULT_THEME` until that resolves: opening the
+ * preferences dialog before then paints the picker on the wrong theme and flips it a round trip later.
+ * Seeding marks the state as resolved so the read is skipped, and both paths
  * apply the same whitelists because the caller validates before it calls.
  */
 export function seedTheme(theme: ThemeName, mode: ColorMode): void {

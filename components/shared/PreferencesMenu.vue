@@ -36,7 +36,7 @@ const recording = ref<ShortcutAction | null>(null);
 function startRecording(action: ShortcutAction): void {
   recording.value = action;
   // The listener lives only while recording: a permanently attached capture-phase handler
-  // would keep swallowing keystrokes if the popover ever closed mid-recording.
+  // would keep swallowing keystrokes if the dialog ever closed mid-recording.
   // Capture phase so recording a shortcut never reaches App.vue's bubbling convert handler
   // (captureKey calls stopPropagation before it can fire).
   document.addEventListener('keydown', captureKey, true);
@@ -91,8 +91,8 @@ async function resetShortcut(action: ShortcutAction): Promise<void> {
 }
 
 // The capture-phase listener is attached by startRecording and detached by stopRecording;
-// this is the safety net for unmount-while-recording (the popover no longer keeps this
-// component alive once closed, but a hot-reload or view swap can still cut it mid-capture).
+// this is the safety net for unmount-while-recording (the dialog destroys this component
+// once closed, but a hot-reload or view swap can still cut it mid-capture).
 onBeforeUnmount(() => {
   document.removeEventListener('keydown', captureKey, true);
 });
@@ -136,7 +136,7 @@ async function handleConfirmToggle(value: string | number | boolean): Promise<vo
 const { template: savedNameTemplate, setTemplate: setNameTemplate } = useNameTemplate();
 const nameTemplateDraft = ref(savedNameTemplate.value);
 
-// Storage answers a few milliseconds after this component mounts. If the popover was opened inside
+// Storage answers a few milliseconds after this component mounts. If the dialog was opened inside
 // that window the draft would still show the default, and committing it would discard a pattern the
 // user had saved — so a draft nobody has touched follows the stored value when it arrives.
 watch(savedNameTemplate, value => {
@@ -189,173 +189,215 @@ const notifyStatusKey = computed<string>(() => {
 
 <template>
   <div class="preferences-menu">
-    <div class="pref-section">
-      <span class="pref-label">{{ t('prefs.theme') }}</span>
-      <div class="theme-grid">
-        <button
-          v-for="item in themes"
-          :key="item.value"
-          class="theme-item"
-          :class="{ active: theme === item.value }"
-          type="button"
-          :aria-pressed="theme === item.value"
-          :aria-label="t('a11y.theme', { name: t('prefs.themeNames.' + item.value) })"
-          @click="handleTheme(item.value)"
-        >
-          <span
-            class="swatch"
-            :style="{ background: item.color }"
+    <section class="pref-group">
+      <h3 class="pref-group-title">{{ t('prefs.appearance') }}</h3>
+
+      <div class="pref-section">
+        <span class="pref-label">{{ t('prefs.theme') }}</span>
+        <div class="theme-grid">
+          <button
+            v-for="item in themes"
+            :key="item.value"
+            class="theme-item"
+            :class="{ active: theme === item.value }"
+            type="button"
+            :aria-pressed="theme === item.value"
+            :aria-label="t('a11y.theme', { name: t('prefs.themeNames.' + item.value) })"
+            @click="handleTheme(item.value)"
           >
-            <el-icon
-              v-if="theme === item.value"
-              :size="14"
-              color="#fff"
+            <span
+              class="swatch"
+              :style="{ background: item.color }"
             >
-              <Check />
-            </el-icon>
-          </span>
-          <span class="swatch-label">{{ t('prefs.themeNames.' + item.value) }}</span>
-        </button>
-      </div>
-    </div>
-
-    <div class="pref-section">
-      <span class="pref-label">{{ t('prefs.mode') }}</span>
-      <div class="lang-options">
-        <button
-          v-for="item in COLOR_MODES"
-          :key="item.value"
-          class="lang-btn"
-          :class="{ active: colorMode === item.value }"
-          type="button"
-          :aria-pressed="colorMode === item.value"
-          :aria-label="t('a11y.mode', { name: t(item.labelKey) })"
-          @click="handleMode(item.value)"
-        >
-          {{ t(item.labelKey) }}
-        </button>
-      </div>
-    </div>
-
-    <div class="pref-section">
-      <span class="pref-label">{{ t('prefs.language') }}</span>
-      <div class="lang-options">
-        <button
-          v-for="item in availableLocales"
-          :key="item.value"
-          class="lang-btn"
-          :class="{ active: locale === item.value }"
-          type="button"
-          :aria-pressed="locale === item.value"
-          :aria-label="t('a11y.language', { name: item.label })"
-          @click="handleLocale(item.value)"
-        >
-          {{ item.label }}
-        </button>
-      </div>
-    </div>
-
-    <div class="pref-section">
-      <div class="notify-row">
-        <span class="pref-label notify-label">{{ t('prefs.notifyOnComplete') }}</span>
-        <el-switch
-          :model-value="notifyEnabled"
-          :aria-label="t('prefs.notifyOnComplete')"
-          :disabled="notifyPermission === 'denied'"
-          @update:model-value="handleNotifyToggle"
-        />
-      </div>
-      <span
-        v-if="notifyStatusKey"
-        class="notify-status"
-        >{{ t(notifyStatusKey) }}</span
-      >
-    </div>
-
-    <div class="pref-section">
-      <div class="notify-row">
-        <span class="pref-label notify-label">{{ t('prefs.confirmConvert') }}</span>
-        <el-switch
-          :model-value="confirmEnabled"
-          :aria-label="t('prefs.confirmConvert')"
-          @update:model-value="handleConfirmToggle"
-        />
-      </div>
-    </div>
-
-    <div class="pref-section">
-      <span class="pref-label">{{ t('prefs.nameTemplate') }}</span>
-      <el-input
-        v-model="nameTemplateDraft"
-        class="name-input"
-        size="small"
-        :placeholder="DEFAULT_NAME_TEMPLATE"
-        :aria-label="t('prefs.nameTemplate')"
-        @change="commitNameTemplate"
-      />
-      <span class="name-hint">
-        {{ t('prefs.nameTemplateHint') }}
-        <code>{{ nameTemplateExample }}</code>
-      </span>
-      <span
-        v-if="nameTemplateUnknown"
-        class="name-warning"
-      >
-        {{ t('prefs.nameTemplateUnknown', { tokens: nameTemplateUnknown }) }}
-      </span>
-    </div>
-
-    <div class="pref-section">
-      <span class="pref-label">{{ t('prefs.shortcutsTitle') }}</span>
-      <div class="shortcut-row">
-        <span class="shortcut-action-label">{{ t('prefs.shortcutAction.convert') }}</span>
-        <div class="shortcut-controls">
-          <button
-            v-if="recording !== 'convert'"
-            type="button"
-            class="shortcut-key"
-            :aria-label="t('prefs.shortcutChange') + ': ' + shortcuts.formatAction('convert')"
-            @click="startRecording('convert')"
-          >
-            {{ shortcuts.formatAction('convert') }}
-          </button>
-          <span
-            v-else
-            class="shortcut-key recording"
-            role="status"
-            aria-live="polite"
-            >{{ t('prefs.shortcutRecording') }}</span
-          >
-          <button
-            v-if="recording !== 'convert'"
-            type="button"
-            class="shortcut-reset"
-            :aria-label="t('prefs.shortcutReset')"
-            @click="resetShortcut('convert')"
-          >
-            {{ t('prefs.shortcutReset') }}
+              <span
+                v-if="theme === item.value"
+                class="swatch-check"
+              >
+                <el-icon
+                  :size="12"
+                  :color="item.color"
+                >
+                  <Check />
+                </el-icon>
+              </span>
+            </span>
+            <span class="swatch-label">{{ t('prefs.themeNames.' + item.value) }}</span>
           </button>
         </div>
       </div>
-    </div>
+
+      <div class="pref-section">
+        <span class="pref-label">{{ t('prefs.mode') }}</span>
+        <div
+          class="lang-options"
+          role="group"
+          :aria-label="t('prefs.mode')"
+        >
+          <button
+            v-for="item in COLOR_MODES"
+            :key="item.value"
+            class="lang-btn"
+            :class="{ active: colorMode === item.value }"
+            type="button"
+            :aria-pressed="colorMode === item.value"
+            :aria-label="t('a11y.mode', { name: t(item.labelKey) })"
+            @click="handleMode(item.value)"
+          >
+            {{ t(item.labelKey) }}
+          </button>
+        </div>
+      </div>
+
+      <div class="pref-section">
+        <span class="pref-label">{{ t('prefs.language') }}</span>
+        <div
+          class="lang-options"
+          role="group"
+          :aria-label="t('prefs.language')"
+        >
+          <button
+            v-for="item in availableLocales"
+            :key="item.value"
+            class="lang-btn"
+            :class="{ active: locale === item.value }"
+            type="button"
+            :aria-pressed="locale === item.value"
+            :aria-label="t('a11y.language', { name: item.label })"
+            @click="handleLocale(item.value)"
+          >
+            {{ item.label }}
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <section class="pref-group">
+      <h3 class="pref-group-title">{{ t('prefs.general') }}</h3>
+
+      <div class="pref-section">
+        <div class="notify-row">
+          <span class="pref-label notify-label">{{ t('prefs.notifyOnComplete') }}</span>
+          <el-switch
+            :model-value="notifyEnabled"
+            :aria-label="t('prefs.notifyOnComplete')"
+            :disabled="notifyPermission === 'denied'"
+            @update:model-value="handleNotifyToggle"
+          />
+        </div>
+        <span
+          v-if="notifyStatusKey"
+          class="notify-status"
+          >{{ t(notifyStatusKey) }}</span
+        >
+      </div>
+
+      <div class="pref-section">
+        <div class="notify-row">
+          <span class="pref-label notify-label">{{ t('prefs.confirmConvert') }}</span>
+          <el-switch
+            :model-value="confirmEnabled"
+            :aria-label="t('prefs.confirmConvert')"
+            @update:model-value="handleConfirmToggle"
+          />
+        </div>
+      </div>
+    </section>
+
+    <section class="pref-group">
+      <h3 class="pref-group-title">{{ t('prefs.conversion') }}</h3>
+
+      <div class="pref-section">
+        <span class="pref-label">{{ t('prefs.nameTemplate') }}</span>
+        <el-input
+          v-model="nameTemplateDraft"
+          class="name-input"
+          size="small"
+          :placeholder="DEFAULT_NAME_TEMPLATE"
+          :aria-label="t('prefs.nameTemplate')"
+          @change="commitNameTemplate"
+        />
+        <span class="name-hint">
+          {{ t('prefs.nameTemplateHint') }}
+          <code>{{ nameTemplateExample }}</code>
+        </span>
+        <span
+          v-if="nameTemplateUnknown"
+          class="name-warning"
+        >
+          {{ t('prefs.nameTemplateUnknown', { tokens: nameTemplateUnknown }) }}
+        </span>
+      </div>
+
+      <div class="pref-section">
+        <span class="pref-label">{{ t('prefs.shortcutsTitle') }}</span>
+        <div class="shortcut-row">
+          <span class="shortcut-action-label">{{ t('prefs.shortcutAction.convert') }}</span>
+          <div class="shortcut-controls">
+            <button
+              v-if="recording !== 'convert'"
+              type="button"
+              class="shortcut-key"
+              :aria-label="t('prefs.shortcutChange') + ': ' + shortcuts.formatAction('convert')"
+              @click="startRecording('convert')"
+            >
+              {{ shortcuts.formatAction('convert') }}
+            </button>
+            <span
+              v-else
+              class="shortcut-key recording"
+              role="status"
+              aria-live="polite"
+              >{{ t('prefs.shortcutRecording') }}</span
+            >
+            <button
+              v-if="recording !== 'convert'"
+              type="button"
+              class="shortcut-reset"
+              :aria-label="t('prefs.shortcutReset')"
+              @click="resetShortcut('convert')"
+            >
+              {{ t('prefs.shortcutReset') }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
   </div>
 </template>
 
 <style scoped>
+/* The dialog's own frame reserves 54px of header and 16px of body padding above and below this
+   panel, and it is centred, so 220px keeps the whole surface inside a 500px-tall window. Past that
+   cap the menu scrolls inside itself rather than pushing the dialog off-screen. The 4px padding
+   (canceled by the negative margin, so it costs no space) gives edge controls' 2px outline plus
+   2px offset somewhere to paint — without it the scroll box clips the ring on focus. */
 .preferences-menu {
   display: flex;
   flex-direction: column;
   gap: var(--fat-space-lg);
   min-width: 200px;
-
-  /* The popover hangs 67px under the viewport's top edge and its own frame costs 26px (12px padding
-     twice, 1px border twice), so 110px leaves the panel bottom 17px clear of the fold. Past that cap
-     the menu scrolls inside itself instead of running below the fold, where it could only be read by
-     scrolling the page out from under a popover anchored to the header. `contain` stops that scroll
-     from chaining to the page once it hits either end. */
-  max-height: calc(100vh - 110px);
+  max-height: calc(100vh - 220px);
+  padding: var(--fat-space-xs);
+  margin: calc(var(--fat-space-xs) * -1);
   overflow-y: auto;
   overscroll-behavior: contain;
+}
+
+.pref-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fat-space-md);
+}
+
+.pref-group-title {
+  margin: 0;
+  padding-bottom: var(--fat-space-xs);
+  border-bottom: 1px solid var(--fat-border-light);
+  color: var(--fat-text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .pref-section {
@@ -365,37 +407,43 @@ const notifyStatusKey = computed<string>(() => {
 }
 
 .pref-label {
+  color: var(--fat-text-primary);
   font-size: 13px;
   font-weight: 600;
-  color: var(--fat-text-primary);
 }
 
+/* Six swatches across, which is the whole theme list in one row: the previous 3×2 grid read as
+   two unrelated groups. The label is what carries the name; the swatch only has to be big enough
+   to see the colour and the selection badge. */
 .theme-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: var(--fat-space-sm);
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: var(--fat-space-xs);
+}
+
+/* Six name labels no longer fit one row once the dialog is near phone width, and an ellipsis cuts
+   exactly the character that tells 森林绿 from 经典蓝. Three columns keep each name whole. */
+@media (width <= 420px) {
+  .theme-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 .theme-item {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  cursor: pointer;
-  padding: var(--fat-space-xs);
-  border-radius: var(--fat-radius-md);
-  transition: var(--fat-transition-fast);
-  border: 2px solid transparent;
+  gap: 6px;
+  padding: var(--fat-space-xs) 2px;
+  border: none;
+  border-radius: var(--fat-radius-sm);
   background: none;
+  cursor: pointer;
+  transition: var(--fat-transition-fast);
 }
 
 .theme-item:hover {
   background: var(--fat-surface-hover);
-}
-
-.theme-item.active {
-  border-color: var(--fat-primary);
-  background: var(--fat-primary-bg);
 }
 
 .theme-item:focus-visible {
@@ -404,41 +452,53 @@ const notifyStatusKey = computed<string>(() => {
 }
 
 .swatch {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  border: 2px solid rgb(0 0 0 / 8%);
-  padding: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: var(--fat-transition-fast);
   flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+  transition: var(--fat-transition-fast);
 }
 
 /* The one size change in this menu, and it is a token rather than a literal so the reduced-motion
-   block can take the growth away without taking the hover feedback with it — the border and the
-   background still answer the pointer at `scale: 1`. */
+   block can take the growth away without taking the hover background with it. */
 .theme-item:hover .swatch {
   transform: scale(var(--fat-swatch-scale));
 }
 
+/* A single ring in the same colour the keyboard ring uses — no second, theme-coloured ring and no
+   tinted plate behind the item, which is what made the old 3×2 grid look like a set of cards. The
+   ring is declared transparent above so only its colour animates. */
 .theme-item.active .swatch {
-  border-color: transparent;
-  box-shadow:
-    0 0 0 2px var(--fat-bg-card),
-    0 0 0 4px var(--fat-primary);
+  outline-color: var(--fat-focus-ring);
+}
+
+.swatch-check {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+
+  /* Deliberately not a token: the plate is a cut-out in the swatch's own colour, so it has to stay
+     white in dark mode — `--fat-bg-card` would turn it into another disc. */
+  background: #fff;
 }
 
 .swatch-label {
-  font-size: 11px;
-  color: var(--fat-text-secondary);
-  text-align: center;
-  line-height: 1.2;
-  white-space: nowrap;
   overflow: hidden;
-  text-overflow: ellipsis;
   max-width: 100%;
+  color: var(--fat-text-secondary);
+  font-size: 11px;
+  line-height: 1.2;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .theme-item.active .swatch-label {
@@ -446,45 +506,45 @@ const notifyStatusKey = computed<string>(() => {
   font-weight: 600;
 }
 
+/* Segmented control. The selected segment is a raised card rather than a tinted one: the theme
+   colour is not legible as small text on a light background in the green and orange themes
+   (2.54:1 and 3.56:1), and `--fat-text-primary` keeps every theme above 4.5:1 in both modes. */
 .lang-options {
   display: flex;
-  gap: var(--fat-space-sm);
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--fat-border);
+  border-radius: var(--fat-radius-sm);
+  background: var(--fat-surface-2);
 }
 
 .lang-btn {
   flex: 1;
-  padding: var(--fat-space-sm) var(--fat-space-md);
-  font-size: 13px;
-  border: 1px solid var(--fat-border);
-  border-radius: var(--fat-radius-sm);
-  background: var(--fat-bg-card);
+  padding: 5px var(--fat-space-sm);
+  border: 1px solid transparent;
+  border-radius: calc(var(--fat-radius-sm) - 2px);
+  background: transparent;
   color: var(--fat-text-regular);
+  font-size: 12px;
+  font-weight: 500;
   cursor: pointer;
   transition: var(--fat-transition-fast);
 }
 
 .lang-btn:hover {
-  border-color: var(--fat-primary);
-  color: var(--fat-primary);
+  color: var(--fat-text-primary);
+}
+
+.lang-btn:focus-visible {
+  outline: 2px solid var(--fat-focus-ring);
+  outline-offset: 1px;
 }
 
 .lang-btn.active {
-  border-color: var(--fat-primary);
-  background: var(--fat-primary-bg);
+  border-color: var(--fat-border);
+  background: var(--fat-bg-card);
+  box-shadow: var(--fat-shadow-sm);
   color: var(--fat-text-primary);
-  font-weight: 600;
-}
-
-:root[data-mode='dark'] .theme-item.active {
-  border-color: var(--fat-primary);
-  background: var(--fat-primary-bg);
-  box-shadow: 0 0 0 1px var(--fat-primary-border);
-}
-
-:root[data-mode='dark'] .lang-btn.active {
-  border-color: var(--fat-primary);
-  background: var(--fat-primary-bg);
-  color: var(--fat-primary);
   font-weight: 600;
 }
 
@@ -501,8 +561,8 @@ const notifyStatusKey = computed<string>(() => {
 }
 
 .notify-status {
-  font-size: 12px;
   color: var(--fat-text-secondary);
+  font-size: 12px;
   line-height: 1.4;
 }
 
@@ -511,23 +571,23 @@ const notifyStatusKey = computed<string>(() => {
 }
 
 .name-hint {
-  font-size: 12px;
   color: var(--fat-text-secondary);
+  font-size: 12px;
   line-height: 1.4;
 }
 
 .name-hint code {
+  color: var(--fat-text-primary);
   font-family: var(--fat-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
   font-size: 11px;
-  color: var(--fat-text-primary);
   word-break: break-all;
 }
 
 /* The same red `FailureDiagnosticItem` uses for a line the user has to act on — an unknown
    placeholder is kept literal rather than dropped, so the pattern needs to say so out loud. */
 .name-warning {
-  font-size: 12px;
   color: var(--el-color-danger);
+  font-size: 12px;
   line-height: 1.4;
 }
 
@@ -540,9 +600,9 @@ const notifyStatusKey = computed<string>(() => {
 
 .shortcut-action-label {
   flex: 1;
-  font-size: 13px;
-  color: var(--fat-text-primary);
   min-width: 0;
+  color: var(--fat-text-primary);
+  font-size: 13px;
 }
 
 .shortcut-controls {
@@ -551,20 +611,22 @@ const notifyStatusKey = computed<string>(() => {
   gap: var(--fat-space-sm);
 }
 
+/* Reads as a key cap: the inset grey is what separates it from the dialog's card surface, so the
+   control does not look like another input row. */
 .shortcut-key {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 4px;
   min-width: 88px;
-  justify-content: center;
   padding: 4px var(--fat-space-sm);
+  border: 1px solid var(--fat-border);
+  border-radius: var(--fat-radius-sm);
+  background: var(--fat-surface-2);
+  color: var(--fat-text-primary);
   font-family: var(--fat-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
   font-size: 12px;
   line-height: 1.4;
-  color: var(--fat-text-primary);
-  background: var(--fat-bg-card);
-  border: 1px solid var(--fat-border);
-  border-radius: var(--fat-radius-sm);
   cursor: pointer;
   transition: var(--fat-transition-fast);
 }
@@ -580,11 +642,11 @@ const notifyStatusKey = computed<string>(() => {
 }
 
 .shortcut-key.recording {
-  cursor: default;
   border-color: var(--fat-primary);
   background: var(--fat-primary-bg);
   color: var(--fat-primary);
   font-style: italic;
+  cursor: default;
   animation: shortcut-pulse 1.4s ease-in-out infinite;
 }
 
@@ -598,6 +660,7 @@ const notifyStatusKey = computed<string>(() => {
   100% {
     opacity: 1;
   }
+
   50% {
     opacity: 0.65;
   }
@@ -605,18 +668,18 @@ const notifyStatusKey = computed<string>(() => {
 
 .shortcut-reset {
   padding: 4px var(--fat-space-sm);
-  font-size: 12px;
-  color: var(--fat-text-secondary);
-  background: none;
   border: 1px solid transparent;
   border-radius: var(--fat-radius-sm);
+  background: none;
+  color: var(--fat-text-secondary);
+  font-size: 12px;
   cursor: pointer;
   transition: var(--fat-transition-fast);
 }
 
 .shortcut-reset:hover {
-  color: var(--fat-primary);
   border-color: var(--fat-border);
+  color: var(--fat-primary);
 }
 
 .shortcut-reset:focus-visible {
