@@ -2,9 +2,10 @@
 /**
  * GitHub Actions adapter for `scripts/release.mjs`.
  *
- * Eight commands: three turn one plan document into the things a workflow step needs, one answers the
+ * Nine commands: three turn one plan document into the things a workflow step needs, one answers the
  * question a *merged* release asks when nobody ran a plan (which version on this branch is still
- * untagged), and four read the Chrome Web Store's own answer back to the workflow.
+ * untagged), four read the Chrome Web Store's own answer back to the workflow, and one reads GitHub's
+ * answer about whether the approval gate in front of that workflow is real.
  *
  *     node scripts/release-ci.mjs output        plan.json   # -> $GITHUB_OUTPUT
  *     node scripts/release-ci.mjs summary       plan.json   # -> $GITHUB_STEP_SUMMARY
@@ -14,6 +15,7 @@
  *     node scripts/release-ci.mjs upload-state  resp.json   # -> the store's receipt, or exit 1
  *     node scripts/release-ci.mjs submit-check  item.json 1.2.1  # -> verdict, exit 0/10/20
  *     node scripts/release-ci.mjs publish-state resp.json   # -> the submission receipt, or exit 1
+ *     node scripts/release-ci.mjs approval-gate env.json    # -> the gate is real, or exit 1
  *
  * ## Why this is a file and not `node -e '…'` in the workflow
  *
@@ -67,7 +69,8 @@ if (!command) {
       '   or: node scripts/release-ci.mjs item-version <item.json>\n' +
       '   or: node scripts/release-ci.mjs upload-state <resp.json>\n' +
       '   or: node scripts/release-ci.mjs submit-check <item.json> <version>\n' +
-      '   or: node scripts/release-ci.mjs publish-state <resp.json>\n',
+      '   or: node scripts/release-ci.mjs publish-state <resp.json>\n' +
+      '   or: node scripts/release-ci.mjs approval-gate <env.json>\n',
   );
   process.exit(2);
 }
@@ -665,6 +668,75 @@ function publishState(file) {
   process.stdout.write(`商店回执：state=${state}${testers}${suffix}\n`);
 }
 
+/**
+ * Whether the GitHub environment in front of `:publish` actually contains a human.
+ *
+ * `release.yml` puts `environment: cws-release` on the submit job, and the whole reason that job exists
+ * separately is that a person has to click Approve. But referencing an environment that is not configured
+ * does not fail the run — GitHub creates one with that name and **no protection rules**, and the job simply
+ * proceeds. So the YAML can prove the intent while the repository proves nothing, and the first release
+ * after an environment is deleted (or after this repo is copied into a new one) submits itself to review
+ * with no human in the loop. `CWS_AUTO_SUBMIT` narrows how often that can happen; it does not close it.
+ *
+ * Hence this check, one step before the publish call, reading the same endpoint the platform itself reads:
+ * exit 0 only when `protection_rules` carries a `required_reviewers` rule with at least one named reviewer.
+ * Everything else — a shell environment, a wait timer but no reviewers, an unreadable response — is
+ * fail-closed, because the cost of not submitting is a red step and the cost of submitting wrongly is an
+ * irreversible request to Google.
+ *
+ * @param {string|undefined} file Path to the `GET /repos/{owner}/{repo}/environments/{name}` response body.
+ */
+function approvalGate(file) {
+  const failWith = reason => {
+    process.stderr.write(`release-ci: ${reason}\n`);
+    process.exit(1);
+  };
+  if (!file) {
+    failWith('approval-gate 需要环境响应的路径，例如 approval-gate env.json');
+    return;
+  }
+  let body;
+  try {
+    body = JSON.parse(fs.readFileSync(path.resolve(process.cwd(), file), 'utf8'));
+  } catch (error) {
+    failWith(`读不到环境的响应（${error.message}）——闸门无法自证，不提审`);
+    return;
+  }
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    failWith('环境响应不是一个对象——闸门无法自证，不提审');
+    return;
+  }
+  const rules = Array.isArray(body.protection_rules) ? body.protection_rules : null;
+  if (!rules) {
+    failWith(
+      `环境响应里没有 protection_rules 数组（顶层字段：${Object.keys(body).join(', ') || '无'}）` +
+        '——闸门无法自证，不提审',
+    );
+    return;
+  }
+  const reviewerRule = rules.find(rule => rule && rule.type === 'required_reviewers');
+  if (!reviewerRule) {
+    const types = rules.map(rule => (rule && rule.type) || '?').join(' / ') || '（空）';
+    failWith(
+      `这个环境只有 ${types} 规则，没有 required_reviewers——等待时间是机器自己过的，没有人必须先点头，因此不提审。` +
+        '按 .github/CWS_PUBLISHING_GUIDE.md 的 3.4 配上 Required reviewers，再设 CWS_AUTO_SUBMIT。',
+    );
+    return;
+  }
+  const reviewers = Array.isArray(reviewerRule.reviewers) ? reviewerRule.reviewers : [];
+  if (reviewers.length === 0) {
+    failWith('required_reviewers 规则里的名单是空的——没有人能批准，这道门看着在、实际拦不住任何事，因此不提审。');
+    return;
+  }
+  // prevent_self_review 只如实报出来，不作判据：个人仓库只有所有者一人，勾上它等于把这条链路锁死，
+  // 那是配置选择而不是闸门缺失。
+  const selfReview =
+    typeof reviewerRule.prevent_self_review === 'boolean'
+      ? `，prevent_self_review=${String(reviewerRule.prevent_self_review)}`
+      : '';
+  process.stdout.write(`审批门自证通过：${reviewers.length} 名必需审查员${selfReview}\n`);
+}
+
 switch (command) {
   case 'output':
     writeOutputs(['releasable', 'version', 'tag', 'subject'], readPlan(inputFile));
@@ -696,9 +768,12 @@ switch (command) {
   case 'publish-state':
     publishState(inputFile);
     break;
+  case 'approval-gate':
+    approvalGate(inputFile);
+    break;
   default:
     process.stderr.write(
-      `release-ci: 未知命令 ${command}（可用：output / summary / pr-body / pending-tag / item-version / upload-state / submit-check / publish-state）\n`,
+      `release-ci: 未知命令 ${command}（可用：output / summary / pr-body / pending-tag / item-version / upload-state / submit-check / publish-state / approval-gate）\n`,
     );
     process.exit(2);
 }

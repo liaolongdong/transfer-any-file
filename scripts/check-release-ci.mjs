@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
- * 商店响应四条命令的契约守卫：`item-version` / `upload-state` / `submit-check` / `publish-state`。
+ * 商店响应四条命令的契约守卫：`item-version` / `upload-state` / `submit-check` / `publish-state`，
+ * 外加第九条 `approval-gate`——它读的不是商店而是 GitHub 自己（那道审批门的保护规则）。
  *
  * 为什么这份守卫必须入库：那四条命令是 `release.yml` 里 `case "$rc"` 唯一的数字来源，也是 step
  * summary 上「商店回执」那句话唯一的作者。真商店在本机跑不到，验证它用的仿真夹具又落在 gitignore 的
@@ -26,6 +27,9 @@
  * - 只读档 `store_status` 的五处：作业在、不挂 `environment`、`if` 认 `store_status_only`、版本号仍经
  *   `item-version` 读（同一条 `crxVersion` 路径只许一个实现），以及 `release` 作业的 `if` 把这一档排除
  *   在构建与上传之外。
+ * - 审批门自证 `approval-gate` 的四处：两处调用都在（上传前报告、提审前拦下）、拦下那一处在 `:publish`
+ *   **之前**、它失败时真的 `exit 1`、以及它读的环境名就是 `store_submit` 挂着的那个 `environment.name`。
+ *   这一组防的是同一类静默：引用一个不存在的环境不会失败，GitHub 会建一个不带保护规则的同名环境。
  *
  * 调用方式：`pnpm verify:release-ci`，以及 CI 的 lint job。
  */
@@ -466,6 +470,71 @@ const CASES = [
     err: '必须是本次要发布的版本号',
   },
   { name: 'unknown-command', cmd: 'bogus', body: { x: 1 }, exit: 2, err: 'submit-check / publish-state' },
+
+  // ---- approval-gate
+  // 钉的全是「闸门算不算真实存在」这一件事。放行只有一种形状（required_reviewers + 至少一名审查员），
+  // 其余一律拦下——被拦下的代价是一次红灯，误放行的代价是一次没有人点头的提审，不可撤回。
+  {
+    name: 'gate-ok-one-reviewer',
+    cmd: 'approval-gate',
+    body: {
+      name: 'cws-release',
+      protection_rules: [
+        {
+          type: 'required_reviewers',
+          prevent_self_review: false,
+          reviewers: [{ reviewer: { type: 'User', login: 'owner' } }],
+        },
+      ],
+    },
+    exit: 0,
+    starts: '审批门自证通过：1 名必需审查员，prevent_self_review=false',
+  },
+  {
+    name: 'gate-ok-two-reviewers',
+    cmd: 'approval-gate',
+    body: {
+      protection_rules: [
+        {
+          type: 'required_reviewers',
+          prevent_self_review: true,
+          reviewers: [{ reviewer: { login: 'a' } }, { reviewer: { login: 'b' } }],
+        },
+      ],
+    },
+    exit: 0,
+    out: '审批门自证通过：2 名必需审查员，prevent_self_review=true',
+  },
+  {
+    name: 'gate-shell-environment',
+    cmd: 'approval-gate',
+    body: { name: 'cws-release', protection_rules: [] },
+    exit: 1,
+    err: '没有 required_reviewers',
+  },
+  {
+    name: 'gate-wait-timer-only',
+    cmd: 'approval-gate',
+    body: { protection_rules: [{ type: 'wait_timer', wait_timer: 30 }] },
+    exit: 1,
+    err: '没有 required_reviewers',
+  },
+  {
+    name: 'gate-zero-reviewers',
+    cmd: 'approval-gate',
+    body: { protection_rules: [{ type: 'required_reviewers', reviewers: [] }] },
+    exit: 1,
+    err: '名单是空的',
+  },
+  {
+    name: 'gate-no-protection-field',
+    cmd: 'approval-gate',
+    body: { name: 'cws-release', can_admins_bypass: true },
+    exit: 1,
+    err: '没有 protection_rules 数组',
+  },
+  { name: 'gate-unparseable', cmd: 'approval-gate', body: 'not json', exit: 1, err: '读不到环境的响应' },
+  { name: 'gate-no-argument', cmd: 'approval-gate', exit: 1, err: '需要环境响应的路径' },
 ];
 
 /**
@@ -569,6 +638,58 @@ function checkWorkflow(failures) {
       'release.yml：release 作业的 if 不再否定 store_status_only——跑一次只读查询会顺带构建、打包，' +
         '并在 dry_run 没勾时把包传给商店。',
     );
+
+  // ── 审批门自证（approval-gate）那四处 ────────────────────────
+  // 引用一个不存在的环境不会失败，GitHub 会建一个没有保护规则的同名环境，于是「作业挂了 environment」
+  // 与「有人必须先点头」可以是两件事。这四处钉的是：这道自证存在、它在动手之前跑、它会真的拦下来，
+  // 以及它查的就是这道门本身指向的那个环境。
+  const gateCalls = wf.match(/release-ci\.mjs approval-gate/g) || [];
+  if (gateCalls.length < 2)
+    failures.push(
+      `release.yml：approval-gate 只被调用 ${String(gateCalls.length)} 次——应当是两处：上传前只报告（每次发布都跑，` +
+        '好让「Actions 令牌读不到环境」这类意外在有人开自动提审之前暴露），提审前才拦。',
+    );
+  const submitAt = lines.findIndex(l => /^ {2}store_submit:$/.test(l));
+  if (submitAt === -1) {
+    failures.push('release.yml：找不到 store_submit 作业——审批门无从谈起，自证也无从谈起。');
+  } else {
+    const submitBlock = lines.slice(submitAt).join('\n');
+    const gatePos = submitBlock.indexOf('approval-gate');
+    // 比对的是真正那次写请求的 URL，不是正文里提到 `:publish` 的地方——注释里说这个词说了好几次，
+    // 拿第一次出现的位置比就会把「拦在动手之前」误判成「拦在动手之后」。
+    const publishPos = submitBlock.search(/\$api\/\$name:publish/);
+    if (publishPos === -1)
+      failures.push(
+        'release.yml：store_submit 里找不到 `$api/$name:publish` 那行——排序钉失去参照，这道守卫会一直报绿。',
+      );
+    if (gatePos === -1)
+      failures.push('release.yml：store_submit 里没有 approval-gate——环境被删过一次就变成无人批准直接提审。');
+    else if (publishPos !== -1 && gatePos > publishPos)
+      failures.push(
+        'release.yml：store_submit 里的 approval-gate 排在 :publish 之后——拦在不可撤回的动作后面等于没拦。',
+      );
+    else {
+      // 只要求这条判据存在：这一步失败必须让作业变红，否则自证只是日志里的一句话。
+      const nextStep = submitBlock.indexOf('- name:', gatePos + 1);
+      const gateStep = submitBlock.slice(gatePos, nextStep === -1 ? submitBlock.length : nextStep);
+      if (!/exit 1/.test(gateStep))
+        failures.push('release.yml：store_submit 的闸门自证失败时没有 exit 1——它会在说完「不提审」之后继续提审。');
+    }
+    // 自证读的环境名必须就是这道门指向的环境，否则查的是一个、等的是另一个。
+    // 只在自证真的在这个作业里时才核对：步骤被整块删掉时上面那条已经说清楚了，这里再报一句
+    // 「环境名读不出来」会把人往「是不是改了环境名」的方向带——那是另一件没发生的事。
+    const envName = /^\s+name:\s*([a-z0-9-]+)\s*$/m.test(submitBlock)
+      ? submitBlock.match(/^\s+name:\s*([a-z0-9-]+)\s*$/m)[1]
+      : null;
+    if (gatePos !== -1) {
+      if (!envName)
+        failures.push('release.yml：store_submit 的 environment.name 读不出来——无法核对自证查的是哪个环境。');
+      else if (!submitBlock.includes(`environments/${envName}`))
+        failures.push(
+          `release.yml：这道门挂的是 environment「${envName}」，但自证读的不是它——查一个环境、等另一个环境的批准，两个都不可信。`,
+        );
+    }
+  }
 }
 
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'taf-release-ci-'));
@@ -596,6 +717,6 @@ if (failures.length) {
   process.exit(1);
 }
 console.log(
-  `OK  release-ci：${String(CASES.length)} 条商店响应判定与契约句子一致，` +
-    '外加 release.yml 那 10 处接缝钉（1 处标签拼接 + 4 处 case 形状 + 5 处只读档）',
+  `OK  release-ci：${String(CASES.length)} 条判定与契约句子一致，` +
+    '外加 release.yml 的接缝钉四组（标签拼接 / submit-check 的 case 形状 / 只读档 / 审批门自证，形状清单见本文件头）',
 );

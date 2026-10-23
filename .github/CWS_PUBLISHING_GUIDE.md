@@ -413,6 +413,14 @@ pbpaste | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{r
    `type` 写作 `required_reviewers`，`reviewers` 列出被指定的人）。返回 `[]` 或者压根没有这个键，就是
    「环境存在但没有门」——回到第 2 步。字段名以你实际看到的返回体为准，这条判断只要求**非空且能看到评审人**。
 
+   从 2026-10-23 起，上面这条 curl 之外还有一道运行时的兜底：`release.yml` 自己读同一个端点。上传之前那一格
+   `Report whether the approval gate is real` 只把结论写成 `::warning::`（这一版可能压根不打算自动提审，为一道
+   没打算走的门把发布判红是不对的）；`store_submit` 在 `:publish` 之前跑的是**拦下版**——读不到环境，或者
+   `protection_rules` 里没有带审查人的 `required_reviewers`，作业变红、不提审。判据不在 YAML 里，在
+   `scripts/release-ci.mjs` 的 `approval-gate`，由 `pnpm verify:release-ci` 用夹具钉住（放行只有一种形状；
+   空壳环境、只有 `wait_timer`、名单为空、响应读不出，四种都判拦）。于是「引用了环境」和「有人必须先点头」
+   不再是同一句话的两种写法。
+
 6. **开变量**。Repository → Settings → Secrets and variables → Actions → **Variables** →
    **Repository variables** → New：
 
@@ -632,7 +640,7 @@ A: 那是**网络层没出去**，不构成任何凭据结论。`scripts/cws-tok
 - 「本地红」**推不出**「凭据错」——它报的是 `fetch failed` / 超时，而不是商店给的状态码
 - 判绿改走 CI 的第 0 档（3.3 的 `store_status_only`）：不构建、不写商店、不要批准，runner 侧没有这层代理问题
 - 本地仍然可做的两件事都不联网：3.2 那条剪贴板自检（只报行数与判据、不回显密钥），以及
-  `pnpm verify:release-ci`（拿夹具打四条商店响应判定，全程零网络）
+  `pnpm verify:release-ci`（拿夹具打五条判定：四条商店响应 + 一条环境审批门自证，全程零网络）
 - 别把私钥 `export` 进 `~/.zshrc` 之类的启动文件来「省得再贴」；只在当前 shell 里导，
   要看它长什么样用 3.2 那条自检，`echo "$CWS_SERVICE_ACCOUNT_PRIVATE_KEY"` 会把整段 PEM 打进回滚缓冲
 

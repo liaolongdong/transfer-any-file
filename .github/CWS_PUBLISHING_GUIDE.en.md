@@ -470,6 +470,17 @@ is in item 5 below.
    names from what you actually get back: the test is "non-empty and reviewers visible", not an exact
    document match.
 
+   Since 2026-10-23 that curl is no longer the only thing standing between a missing gate and a submission:
+   `release.yml` reads the same endpoint itself. Before the upload, a step named
+   `Report whether the approval gate is real` writes its verdict as a `::warning::` only — this release may not
+   intend to auto-submit at all, and failing the release over a gate nobody planned to walk through is wrong.
+   `store_submit` runs the **blocking** version of the same test before `:publish`: unreadable environment, or no
+   `required_reviewers` rule with people listed, means a red job and no submission. The decision does not live in
+   YAML — it is `approval-gate` in `scripts/release-ci.mjs`, pinned by `pnpm verify:release-ci` with fixtures
+   (exactly one shape passes; a shell environment, a `wait_timer`-only environment, an empty reviewer list and an
+   unreadable response all fail closed). So "the job references an environment" and "a human must approve first"
+   are no longer two spellings of the same sentence.
+
 6. **Set the variable.** Repository → Settings → Secrets and variables → Actions → **Variables** →
    **Repository variables** → New:
 
@@ -725,8 +736,8 @@ like this one:
 - take the green from CI's depth 0 instead (3.3's `store_status_only`): no build, no store write, no approval,
   and runners do not have this proxy problem
 - the two checks you can still do locally are both offline: the clipboard self-test in 3.2 (reports line count
-  and the predicate, never echoes the key), and `pnpm verify:release-ci` (fixtures against the four
-  store-response verdicts, zero network throughout)
+  and the predicate, never echoes the key), and `pnpm verify:release-ci` (fixtures against five verdicts — four store responses plus the
+  approval-gate self-check, zero network throughout)
 - do not `export` the private key into `~/.zshrc` or another startup file to "save pasting it again"; export it
   in the current shell only, and if you want to know what it looks like use that 3.2 self-test —
   `echo "$CWS_SERVICE_ACCOUNT_PRIVATE_KEY"` puts the whole PEM into the scrollback
