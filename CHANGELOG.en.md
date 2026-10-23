@@ -11,6 +11,8 @@ Release PR is not by itself a release.
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-10-23
+
 ### Added
 
 - **ui**: Changing the target, appending or removing files no longer throws away finished results; each row names the format it was made in and explains how to rerun it when it no longer matches the picker
