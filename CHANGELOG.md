@@ -10,6 +10,72 @@ manifest 的版本号。一次发布 = 在 `main` 上打 `vX.Y.Z` 标签，由 `
 
 ## [未发布]
 
+## [1.4.0] - 2026-10-23
+
+### 新增
+
+- **site**：站点第一张交互页——tools/file-diff.html 逐字节发布成 docs/diff/，守卫仍扫源（`dd8bf65`）
+- **ui**：历史两个空态与转换错误条补入场过渡，离开侧不留一个还能被读到的旧标题（`f2ce7e1`）
+- **ui**：格式数与路径数那行字从页脚搬进空态拖放区，五处耦合一起跟上（`781887a`）
+- **site,ux**：站点补齐 58 张生成页、工作台可合并 PDF / 保留旧结果 / 编辑预设 / 两百文件窗口化（`672211d`）
+- **site**：六张「某格式 → 某格式」配对页落地，文案逐条对回实现（`4f76dc1`）
+- **site**：六张配对页 49 → 55，并把每条主张对回实现（`ae7c95f`）
+- **site**：表格类配对页补三张——CSV↔Markdown 与 HTML→CSV（`4ebdcd9`）
+- **site**：Excel→Markdown 配对页，表格类缺口再吃一格（58 → 59 张）（`1de47eb`）
+- **site**：缺口再吃两格——TXT→Word 与 JSON→PDF（59 → 61 张配对页）（`7ecbfdf`）
+- **site**：再加两格纯文本出口——JSON→TXT 与 CSV→TXT（61 → 63 张配对页）（`56de579`）
+- **site**：JSON→Word 配对页，并把 hub 上那句无法验证的「颜色退化为文字样式」一起换掉（`71498fa`）
+- **site**：再补两张——Markdown→TXT 与 TXT→HTML（64 → 66 张配对页）（`4dd485e`）
+- **site**：两张高频出口——JSON→HTML 查看器与 HTML→JSON 表格提取（66 → 68 张配对页）（`fe24f5d`）
+- **site**：补上 Markdown 族最后两格——md→JSON 与 md→Excel（68 → 70 张配对页）（`e693b71`）
+- **site**：TXT 族再补两格——txt→JSON 与 txt→CSV（70 → 72 张配对页）（`ffb942b`）
+- **site**：JSON→Markdown 与 HTML→Excel 两格（72 → 74 张配对页）（`ab347c8`）
+- **site**：图片出口两格——JSON→PNG 与 JSON→JPG（74 → 76 张配对页）（`a050485`）
+- **site**：Markdown→PNG 一格——排版由自带样式表决定（76 → 77 张配对页）（`0cb8521`）
+- **site**：CSV 出口两格——csv→Word 与 csv→PNG（77 → 79 张配对页）（`e6bdb8b`）
+- **site**：图片出口两格——CSV→JPG 与 Excel→PNG（79 → 81 张配对页）（`0b3d899`）
+- **site**：网页与笔记的图片出口两格——HTML→JPG 与 Markdown→JPG（81 → 83 张配对页）（`cdbdefb`）
+- **site**：WebP 出口两格——HTML→WebP 与 Markdown→WebP（83 → 85 张配对页）（`47e19ba`）
+- **site**：Office 族最高频两格——Word→CSV 与 Word→Excel（85 → 87 张配对页）（`c795567`）
+- **site**：TXT→Excel 与 Word→JPG 两格（87 → 89 张配对页）（`dd5c9e7`）
+- **site**：图片进文本的两条高频问法——JPG→HTML 与 JPG→Markdown（89 → 91 张配对页）（`0a535d6`）
+- **site**：补 png→Word 与 jpg→Word 两格（93 张配对页 / 缺口 23）（`aed09ce`）
+- **site**：补 gif→HTML 与 gif→Markdown 两格（95 张配对页 / 缺口 21），并翻掉 gif hub 一条错账（`99b7235`）
+- **site**：补 bmp→HTML 一张（96 张配对页 / 缺口 20），并改掉 bmp hub 一条替消费端说话的说法（`5dc958c`）
+- **site**：补 bmp→PDF 一张（97 张配对页 / 缺口 19），与 bmp→HTML 形成同一处的两条相反形状（`882c922`）
+- **site**：补 svg→Word 一张并按核查翻掉 gif/bmp 三页的 7 条（98 张配对页 / 缺口 18）（`13546e9`）
+- **site**：补 webp→HTML、webp→Markdown、bmp→Markdown 三格（101 张配对页 / 缺口 15）（`704e9f4`）
+- **site**：补 png→Markdown 一格（102 张配对页 / 缺口 14）（`8ce8d9f`）
+- **site**：补 docx→WebP 与 xlsx→JPG 两格（104 张配对页 / 缺口 12）（`0ae3401`）
+- **site**：补 gif→Word 与 txt→PNG 两格（106 张配对页 / 缺口 10）（`082b9da`）
+- **site**：补 docx→JSON 与 gif→WebP 两格（108 张配对页 / 缺口 8）（`c773661`）
+- **site**：补 txt→JPG 与 txt→WebP 两格（110 张配对页 / 缺口 6）（`9dd784d`）
+- **site**：补 bmp→Word 一格（111 张配对页 / 缺口 5）（`4c7a5bf`）
+- **site**：补 csv→WebP 与 xlsx→WebP 两格（113 张配对页 / 缺口 3）（`507133f`）
+- **site**：补 json→WebP 与 bmp→WebP 两格（115 张配对页 / 缺口 1）（`aef4291`）
+- **site**：补最后一格 svg→Markdown（116 张页 / 缺口 0），并按核查修掉四页 9 条（`96bcecf`）
+- **guards**：把「英文字段不许混中文」升进站点生成器，判据按内联代码段划界（`6b490ee`）
+- **ui**：偏好设置改为居中模态，工作台收成单列（`3f5b70f`）
+- **ui**：顶栏显示装载版本，并给出商店与 Releases 两条更新入口（`b1dfd8c`）
+
+### 修复
+
+- **ui**：历史两个空态改只淡入，并把评审查出的四处不实注释按实测改写（`b9cb63f`）
+- **site**：给站点导航加一道跨页对账守卫，隐私政策补上本站交互页的数据说明（`50592fd`）
+- **site**：/diff/ 说明区补回 #about 锚点并让守卫盯着它（`dc304cc`）
+- **ux**：禁用按钮改用弱化令牌，结果卡图标顶对齐，窄屏工具栏允许换行（`db8c952`）
+- **ux**：窄屏两处不肯缩的控件行改为可换行（历史头与结果动作行）（`3c02a73`）
+- **ui**：JSON 数组表的行号列钉在左侧，横向滚动时不再滚出视野（`6e68ecf`）
+- **converters**：SVG 转 HTML 的产物不再带远程引用，打开时不发请求（`0edc403`）
+- **converters**：docx→html 还原出的 altChunk 正文不再带远程引用（`c23f492`）
+- **a11y**：隐藏输入控件的焦点环并回 --fat-focus-ring，通知开关补上可读名字（`477f918`）
+- **site**：HTML→TXT 页里「表格按行输出」是错的，按实测改成「换行照抄、可能一格一行」（`f3e35e3`）
+- **site**：评审推翻四处对外主张——目标体积不是 PNG 的档位、排版宽度不等于像素宽度（`2ed2a61`）
+- **site**：评审又推翻六类对外主张——有损软化的说法没有取证、32768 量的是整篇画布（`4c1354f`）
+- **site**：评审再更正九处——密度值会随链传递、虚线框只是两种形状之一（`d0e706a`）
+- **site**：补上第卅六轮漏提的生成物（convert 索引与 jpg/png hub）（`e5cf4be`）
+- **site**：404 页补上转换目录入口——站内最大的那一节此前不在 nav 里（`f318515`）
+
 ## [1.3.0] - 2026-10-23
 
 ### 新增
