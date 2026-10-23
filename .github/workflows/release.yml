@@ -318,6 +318,30 @@ jobs:
             exit 1
           fi
 
+      # 提审前面那道门到底是不是真的，这里先替人看一眼。
+      # 引用一个**不存在**的环境不会让工作流失败——GitHub 会按那个名字创建一个不带任何保护规则的环境，
+      # 于是 YAML 里写了 `environment:` 与「有人必须先点头」是两件事（官方文档原文：Running a workflow that
+      # references an environment that does not exist will create an environment with the referenced name）。
+      # 这一步只报告、不拦：这一版可能压根不打算自动提审（`CWS_AUTO_SUBMIT` 未设就是这种状态），
+      # 为一道没打算走的门把发布判红是不对的。真正的拦在 store_submit 的第一步。
+      # 判据不在这里写：`approval-gate` 与它的六种失败形状都在 scripts/release-ci.mjs，由
+      # `pnpm verify:release-ci` 用夹具钉住——与这个文件里其余四处「shell 里不写判断」是同一条理由。
+      - name: Report whether the approval gate is real
+        if: steps.store.outputs.ready == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -uo pipefail
+          if ! gh api "repos/$REPOSITORY/environments/cws-release" > gate.json 2> gate.err; then
+            echo "::warning::读不到环境 cws-release（$(head -1 gate.err)）——无法确认这道审批门是否真实存在。"
+          elif gate="$(node scripts/release-ci.mjs approval-gate gate.json 2> gate.msg)"; then
+            echo "审批门自证：$gate。"
+          else
+            echo "::warning::提审那道审批门不是真的：$(cat gate.msg)"
+            echo "在配好 Required reviewers 之前，不要把仓库变量 CWS_AUTO_SUBMIT 设为 true。"
+          fi
+
       # 直接打 Chrome Web Store API v2 的上传端点，不引入第三方 npm 包或 action：
       # 本项目的全部主张就是「没有外部东西碰你的构建」，所以发布路径只用 runner 自带的 curl，
       # 与上面用 `gh release create` 而不是第三方 action 是同一条理由。换令牌那一步交给
@@ -561,6 +585,26 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
+
+      # 批准已经点过了，下一步就是不可撤回的 :publish——所以这里再确认一次「门是真的」，而且是拦下的口径。
+      # 为什么放在批准之后而不是之前：这道门防的是「没有人点头就提审」，而环境如果被删过或被自动创建成
+      # 空壳，批准这一步会被**静默跳过**（作业直接开跑，日志里看不到有人点过）。放在上传之前又会让一次
+      # 与商店无关的配置问题挡住本该成功的发布，所以：上传前只报告，动手前才拦。
+      - name: Verify the approval gate before publishing
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -uo pipefail
+          if ! gh api "repos/$REPOSITORY/environments/cws-release" > gate.json 2> gate.err; then
+            echo "::error::读不到环境 cws-release 的保护规则（$(head -1 gate.err)）——证明不了这道门需要人点头，因此不提审。"
+            exit 1
+          fi
+          if ! gate="$(node scripts/release-ci.mjs approval-gate gate.json 2> gate.msg)"; then
+            echo "::error::$(cat gate.msg)"
+            exit 1
+          fi
+          echo "闸门自证通过，$gate，继续提审。"
 
       - name: Submit the uploaded package for review
         id: cws_publish

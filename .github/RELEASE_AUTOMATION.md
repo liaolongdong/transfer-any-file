@@ -31,13 +31,14 @@ release-prepare.yml（tag job，自动）
 release.yml（由标签触发，自动）
    ├─ 版本一致性 → 源码层守卫 → pnpm build → 打包 → 产物层两道守卫 → 校验包内容
    ├─ gh release create（附商店 zip，说明取 CHANGELOG.md 的对应区块）
-   └─ release 作业 · 商店那步：四项 secrets 齐备才走 → 令牌校验 → ID 格式 → 版本预检 → 上传包
+   └─ release 作业 · 商店那步：四项 secrets 齐备才走 → 令牌校验 → ID 格式 → 审批门自证（只报告）→ 版本预检 → 上传包
         │                    ← 这个作业到上传为止，从不调用 :publish
         ▼
 store_submit 作业（同一工作流，needs: release）
    ├─ 排队要四个条件同时成立（作业级 if：uploaded / store_ready / 仓库变量 CWS_AUTO_SUBMIT / 手动触发时的复选框）
    ├─ 排在门口：environment `cws-release` 的 Required reviewers → 状态是 Waiting，一行脚本都没跑
-   └─ 被批准之后：:fetchStatus → submit-check →（判定可以才）:publish {"publishType":"DEFAULT_PUBLISH"}
+   ├─ 批准后第一件事是证明这道门是真的：读不到环境、或没有带审查人的 required_reviewers → 变红，不提审
+   └─ 自证过了才：:fetchStatus → submit-check →（判定可以才）:publish {"publishType":"DEFAULT_PUBLISH"}
         │
         ▼
 你：在那次运行页点 Approve and deploy   ★ 默认到此为止，提审是你的决定
@@ -124,6 +125,13 @@ GitHub 有一条硬规则：**由 `GITHUB_TOKEN` 产生的事件不再触发其�
   `Required reviewers must have at least one reviewer`——填本人 id、填不存在的 id、填别人的 id 回的都是同一句，
   所以那不是 id 校验失败，是整条规则没被接受。判法与那张实测表在手册 Q16；它顺带给出一种比空壳更坏的形态：
   `protection_rules` 里**只有** `wait_timer` 是会自动放行的假门，谁都不用点批准。
+- **上面那句「先验证再设变量」从今天起多了一道运行时的兜底。** 顺序仍然要是「先门后变量」，因为工作流
+  引用环境这件事本身不能证明门的存在——而仓库里的环境可以被删、可以被换名、可以在一次误操作后变成自动创建的
+  空壳。所以 `release.yml` 现在自己读同一个端点：上传前那一格把结论只写成 `::warning::`（这一版可能压根不打算
+  自动提审，为一道没打算走的门把发布判红是不对的，而且这样每次发布都会真的执行一次「Actions 令牌读环境」，
+  权限类意外在有人开变量之前就会暴露）；`store_submit` 在 `:publish` 之前跑同一判据的**拦下版**。判据在
+  `scripts/release-ci.mjs` 的 `approval-gate`，由 `pnpm verify:release-ci` 钉形状：放行只有一种（`required_reviewers`
+  且 `reviewers` 非空），空壳、只有 `wait_timer`、名单为空、响应读不出四种一律拦。
 
 动手配之前先跑手册新增的 **3.0 那五条只读命令**：本链路最容易被误读的地方是「流水线全绿而商店什么都没发生」，
 而它的三种成因（四项凭据缺任一项、门是假的、变量没设）在 Actions 页面上长得一模一样。
@@ -366,6 +374,15 @@ softwareVersion` 1.2.1 与双语区块各 23 行，随后 `node scripts/check-pa
   `--write` 的写入面，`pages:check` 不在它的调用链里。修法是 `--write` 自己重渲染并把生成页纳进暂存集
   （第三节那条），上面「四份文件」的说法也随之改成「四份手写 + 生成页」。Actions 自身的触发规则仍然只有真跑
   一次才算证据——这一次就是它的证据。
+- **审批门自证那两格还没在 CI 里跑过**（2026-10-23 落地）。手上有的证据是三类：`approval-gate` 的八种响应
+  形状由 `pnpm verify:release-ci` 的夹具钉住；对**当天真实的环境响应**做了阳性与反向对照——真实返回体判
+  「1 名必需审查员，`prevent_self_review=false`」并放行，把同一份文件的 `protection_rules` 清空后判拦并退出 1；
+  四条接缝钉各做过一次变异（删掉整块拦下步骤 / 去掉 `exit 1` / 把环境名改成 `cws-OTHER` / 不变异作基线），
+  前三次红在该红的那一句、第四次绿——中间有一次变异其实没生效（`exit 1` 的计数没变），是量具自己骗人，
+  把 delta 断言加进去之后才真的测到。**还没跑过的那半**：上传前那一格要等下一次发布才真的执行（`store_ready=true`
+  才会跑），届时才能确认 Actions 令牌确实读得到 `GET /repos/{owner}/{repo}/environments/{name}`——本机那两次
+  用的是所有者令牌，这一条推不出来；拦下版更要等 `CWS_AUTO_SUBMIT=true` 之后才有机会执行。在那之前，它是
+  一道理所当然应该在、但从未在真实运行里亮过的灯。
 
 ---
 
