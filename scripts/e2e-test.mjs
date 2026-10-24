@@ -4459,6 +4459,70 @@ async function run() {
       else fail('Unlocks after clearing results', (await names()).join(','));
 
       await resetWorkbench(page);
+
+      // ── The same move inside a windowed list. Order is what a merged PDF writes its pages in, and
+      // that does not stop at 100 files — but past the threshold the mounted window is derived from
+      // the scroll position, so a move that relocates the window without relocating the scroll leaves
+      // the viewport on blank spacer and unmounts the row it just focused (focus landed on `<body>`,
+      // which silently dead-ends every following arrow key).
+      const winPage = await browser.newPage();
+      tolerateScreenshotTimeout(winPage);
+      trackPageErrors(winPage);
+      try {
+        await winPage.setViewportSize({ width: 1280, height: 900 });
+        await winPage.addInitScript(mockChromeStorage());
+        await winPage.goto(`http://localhost:${PORT}/options.html`);
+        await winPage.waitForTimeout(1200);
+        const many = Array.from({ length: 200 }, (_, i) => ({
+          name: `perf-${i}.txt`,
+          mimeType: 'text/plain',
+          buffer: Buffer.from(`row ${i}`),
+        }));
+        const wfi = await winPage.waitForSelector('input[type="file"]', { state: 'attached', timeout: 10000 });
+        await wfi.setInputFiles(many);
+        await winPage.waitForFunction(() => document.querySelectorAll('.file-item').length > 0, undefined, {
+          timeout: 20000,
+        });
+        await winPage.waitForTimeout(600);
+
+        const winState = () =>
+          winPage.evaluate(() => {
+            const rows = [...document.querySelectorAll('.file-item')];
+            const el = document.activeElement;
+            const focused = el?.classList?.contains('file-handle') ? el.closest('.file-item') : null;
+            const box = focused?.getBoundingClientRect();
+            return {
+              mounted: rows.length,
+              focusedIndex: focused?.dataset.fileIndex ?? null,
+              focusedName: focused?.querySelector('.file-name')?.textContent.trim() ?? null,
+              inViewport: !!box && box.top >= 0 && box.bottom <= window.innerHeight,
+            };
+          });
+
+        await winPage.focus('.file-item[data-file-index="0"] .file-handle');
+        await winPage.keyboard.press('End');
+        await winPage.waitForTimeout(700);
+        const atEnd = await winState();
+        if (atEnd.focusedIndex === '199' && atEnd.focusedName === 'perf-0.txt' && atEnd.mounted < 200)
+          ok('In a 200-file windowed list End moves the row to the last slot and keeps the window mounted');
+        else fail('Windowed End move', JSON.stringify(atEnd));
+        if (atEnd.inViewport) ok('The moved row is scrolled into view rather than left on blank spacer');
+        else fail('Windowed scroll follows the move', JSON.stringify(atEnd));
+
+        await winPage.keyboard.press('Home');
+        await winPage.waitForTimeout(700);
+        const atHome = await winState();
+        if (atHome.focusedIndex === '0' && atHome.focusedName === 'perf-0.txt')
+          ok('Home brings it back to the top with focus still on its handle');
+        else fail('Windowed Home move', JSON.stringify(atHome));
+        if (atHome.inViewport && atHome.mounted < 200)
+          ok('The window re-derives from the new scroll position instead of unmounting the focused row');
+        else fail('Windowed Home keeps focus', JSON.stringify(atHome));
+      } catch (e) {
+        fail('Windowed reorder', e.message);
+      } finally {
+        await winPage.close();
+      }
     } catch (e) {
       fail('Staged list reorder', e.message);
     }

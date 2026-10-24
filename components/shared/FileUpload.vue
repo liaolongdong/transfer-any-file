@@ -568,23 +568,42 @@ function onRowDrop(event: DragEvent): void {
   commitMove(from, slot);
 }
 
-/** Keep a keyboard-moved row inside the mounted window before focus follows it. */
-function revealIndex(index: number): void {
-  if (!windowed.value) return;
-  if (index >= windowStart.value && index < windowEnd.value) return;
-  const span = windowSpan();
-  const start = Math.max(0, Math.min(index - Math.floor(span / 2), selectedFiles.value.length - span));
-  windowStart.value = start;
-  windowEnd.value = Math.min(selectedFiles.value.length, start + span);
+/**
+ * Scroll the document so a given row sits inside the viewport.
+ *
+ * The mounted window is *derived* from the scroll position (`updateWindow`), so a keyboard move
+ * across a windowed list has to move the scroll. Writing `windowStart` by hand instead leaves the
+ * viewport showing blank spacer, and the scroll event that follows re-derives the window and
+ * unmounts the very row that was just focused — so focus lands on `<body>` and the next arrow key
+ * reaches nobody.
+ */
+function scrollRowIntoView(index: number): void {
+  const list = listEl.value;
+  const header = headerEl.value;
+  if (!list || !header) return;
+  const docTop = list.getBoundingClientRect().top + list.clientTop + header.offsetHeight + window.scrollY;
+  const max = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+  // 96 px of context above the row keeps it clear of the viewport edge and of anything sticky.
+  window.scrollTo({ top: Math.min(Math.max(0, docTop + rowsHeight(index) - 96), max), behavior: 'auto' });
 }
 
+function focusHandle(index: number): void {
+  const handle = listEl.value?.querySelector<HTMLElement>(`[data-file-index="${index}"] .file-handle`);
+  if (!handle) return;
+  handle.focus({ preventScroll: true });
+  handle.scrollIntoView({ block: 'nearest' });
+}
+
+/** Follow a keyboard move with focus — after the window has been re-derived from the new scroll. */
 function focusRow(index: number): void {
-  revealIndex(index);
-  void nextTick(() => {
-    const handle = listEl.value?.querySelector<HTMLElement>(`[data-file-index="${index}"] .file-handle`);
-    if (!handle) return;
-    handle.focus({ preventScroll: true });
-    handle.scrollIntoView({ block: 'nearest' });
+  if (!windowed.value) {
+    void nextTick(() => focusHandle(index));
+    return;
+  }
+  scrollRowIntoView(index);
+  requestAnimationFrame(() => {
+    updateWindow();
+    void nextTick(() => focusHandle(index));
   });
 }
 
