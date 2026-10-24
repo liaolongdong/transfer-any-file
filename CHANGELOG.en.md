@@ -11,6 +11,15 @@ Release PR is not by itself a release.
 
 ## [Unreleased]
 
+### Added
+
+- **ui**: The staged file list can be reordered — drag a row's handle, or focus it and use ↑ / ↓ / Home / End. A merged PDF writes its pages in that order; reordering locks once results exist, and the handle stays focusable while locked so its name carries the reason
+- **site**: An offline image demo on the product page: pick a PNG / JPEG / WebP / BMP / GIF, choose WebP / JPEG / PNG and a quality, re-encode it with a canvas inside the page and download the result, with a thumbnail and the size delta in the result card
+
+### Fixed
+
+- **site**: The product page's version, last-updated date and pair-page count now match 1.3.0 (version 1.3.0, 116 pair pages)
+
 ## [1.3.0] - 2026-10-23
 
 ### Added
