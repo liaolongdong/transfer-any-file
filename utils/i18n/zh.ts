@@ -50,6 +50,10 @@ export default {
     ariaLabel: '选择文件',
     preview: '预览',
     previewUnsupported: '此格式暂不支持预览',
+    reorderHandle: '调整顺序：{name}，第 {position} 项，共 {total} 项',
+    reorderHandleLocked: '调整顺序：{name}，第 {position} 项，共 {total} 项。已有转换结果，清空结果后才能调整顺序',
+    reorderHint: '拖动或按上下方向键调整顺序；合并 PDF 时按这个顺序排页',
+    reorderLocked: '已有转换结果，清空结果后才能调整顺序',
   },
 
   // Workspace drop overlay (F9)
@@ -422,6 +426,7 @@ export default {
     convertCancelledPartial: '转换已取消：已完成 {done} / {total} 个文件',
     filesLoaded: '已载入 {count} 个文件',
     filesCleared: '已清空文件列表',
+    fileMoved: '{name} 已移到第 {position} 项，共 {total} 项',
     // Accessible names for controls with no visible label (el-select, etc.)
     targetFormat: '目标格式',
     historyFormatFilter: '按格式筛选历史记录',

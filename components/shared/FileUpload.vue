@@ -25,12 +25,19 @@ const props = withDefaults(
      * workbench's own numbers are the provenance the outward docs cite for "14 formats / 48+ paths". */
     formats?: number;
     paths?: number;
+    /** Blocks reordering while the current results still describe the old order (e.g. a merged PDF) */
+    reorderDisabled?: boolean;
   }>(),
-  { multiple: true, disabled: false, formats: 0, paths: 0 },
+  { multiple: true, disabled: false, formats: 0, paths: 0, reorderDisabled: false },
 );
 
 const emit = defineEmits<{
   (e: 'update:files', files: File[]): void;
+  /**
+   * A reorder is a list edit like removal, but it keeps every file — so it gets its own event
+   * instead of `update:files`: the workbench must announce the move, not "loaded N files".
+   */
+  (e: 'reorder', files: File[], name: string, position: number, total: number): void;
 }>();
 
 const { t } = useI18n();
@@ -495,6 +502,132 @@ async function removeFile(index: number): Promise<void> {
   emit('update:files', next);
 }
 
+// --- Reordering -----------------------------------------------------------
+// Order is not cosmetic: a merged image→PDF writes its pages in list order. Reordering is
+// therefore locked while results exist, because those results were produced from the old order
+// and nothing on screen would say so — the user would download a PDF whose page order no longer
+// matches the list they can see. A plain batch has no such coupling, so only results lock it.
+const canReorder = computed(() => props.multiple && !props.disabled && !props.reorderDisabled);
+const reorderHint = computed(() => (props.reorderDisabled ? t('upload.reorderLocked') : t('upload.reorderHint')));
+
+/**
+ * Accessible name for a row's handle.
+ *
+ * While reordering is locked the reason goes into the name rather than only the tooltip: the handle
+ * stays focusable on purpose (`aria-disabled`, not `disabled`), because a keyboard user has to be
+ * able to reach the row to learn why it will not move.
+ */
+function handleLabel(name: string, index: number): string {
+  const params = { name, position: index + 1, total: selectedFiles.value.length };
+  return t(canReorder.value ? 'upload.reorderHandle' : 'upload.reorderHandleLocked', params);
+}
+const draggingIndex = ref<number | null>(null);
+/** Insertion boundary in the *current* array (0…length), not a row index. */
+const dropSlot = ref<number | null>(null);
+
+function clearDragState(): void {
+  draggingIndex.value = null;
+  dropSlot.value = null;
+}
+
+function onDragStart(index: number, event: DragEvent): void {
+  if (!canReorder.value) {
+    event.preventDefault();
+    return;
+  }
+  draggingIndex.value = index;
+  dropSlot.value = null;
+  const transfer = event.dataTransfer;
+  if (transfer) {
+    transfer.effectAllowed = 'move';
+    transfer.setData('text/plain', String(index));
+    const row = (event.currentTarget as HTMLElement | null)?.closest('.file-item');
+    if (row) transfer.setDragImage(row, 24, 20);
+  }
+}
+
+function onRowDragOver(index: number, event: DragEvent): void {
+  const from = draggingIndex.value;
+  if (from === null) return;
+  event.preventDefault();
+  if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
+  const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+  const after = event.clientY > rect.top + rect.height / 2;
+  const slot = index + (after ? 1 : 0);
+  // Dropping on the row itself or right below it changes nothing; showing a line there would
+  // promise a move that the drop handler would then refuse to make.
+  dropSlot.value = slot === from || slot === from + 1 ? null : slot;
+}
+
+function onRowDrop(event: DragEvent): void {
+  const from = draggingIndex.value;
+  const slot = dropSlot.value;
+  clearDragState();
+  if (from === null || slot === null) return;
+  event.preventDefault();
+  commitMove(from, slot);
+}
+
+/** Keep a keyboard-moved row inside the mounted window before focus follows it. */
+function revealIndex(index: number): void {
+  if (!windowed.value) return;
+  if (index >= windowStart.value && index < windowEnd.value) return;
+  const span = windowSpan();
+  const start = Math.max(0, Math.min(index - Math.floor(span / 2), selectedFiles.value.length - span));
+  windowStart.value = start;
+  windowEnd.value = Math.min(selectedFiles.value.length, start + span);
+}
+
+function focusRow(index: number): void {
+  revealIndex(index);
+  void nextTick(() => {
+    const handle = listEl.value?.querySelector<HTMLElement>(`[data-file-index="${index}"] .file-handle`);
+    if (!handle) return;
+    handle.focus({ preventScroll: true });
+    handle.scrollIntoView({ block: 'nearest' });
+  });
+}
+
+/**
+ * Move one file to an insertion boundary.
+ *
+ * `slot` is where the moved row lands *before* it is taken out, which is what the drop line shows;
+ * shifting it back by one when moving down is the whole difference between "after row 5" and the
+ * index the row would have once row 5 is gone.
+ */
+function commitMove(from: number, slot: number): number | null {
+  if (!canReorder.value) return null;
+  const count = selectedFiles.value.length;
+  if (from < 0 || from >= count || slot < 0 || slot > count) return null;
+  if (slot === from || slot === from + 1) return null;
+  const target = slot > from ? slot - 1 : slot;
+  const next = [...selectedFiles.value];
+  const [moved] = next.splice(from, 1);
+  next.splice(target, 0, moved);
+  const formats = [...detectedFormats.value];
+  const [format] = formats.splice(from, 1);
+  formats.splice(target, 0, format);
+  selectedFiles.value = next;
+  detectedFormats.value = formats;
+  emit('reorder', next, moved.name, target + 1, count);
+  return target;
+}
+
+function onHandleKeydown(event: KeyboardEvent, index: number): void {
+  const count = selectedFiles.value.length;
+  let slot: number | null = null;
+  if (event.key === 'ArrowUp') slot = index - 1;
+  else if (event.key === 'ArrowDown') slot = index + 2;
+  else if (event.key === 'Home') slot = 0;
+  else if (event.key === 'End') slot = count;
+  if (slot === null) return;
+  event.preventDefault();
+  // Only keyboard moves pull focus back: a mouse drop already leaves the handle where the user
+  // dropped it, and a programmatic focus() there paints a ring nobody asked for.
+  const target = commitMove(index, slot);
+  if (target !== null) focusRow(target);
+}
+
 // --- Source file preview (F12) -------------------------------------------
 // Lets users confirm they picked the right file before committing to a
 // (potentially long) conversion. The dialog reuses PreviewDialog and is only
@@ -685,8 +818,71 @@ defineExpose({
               v-for="row in visibleRows"
               :key="rowKey(row.file)"
               class="file-item"
-              :class="{ 'file-item--divided': row.index > 0 }"
+              :class="{
+                'file-item--divided': row.index > 0,
+                'file-item--drag-source': draggingIndex === row.index,
+                'file-item--drop-before': dropSlot === row.index,
+                'file-item--drop-after': dropSlot === row.index + 1,
+              }"
+              :data-file-index="row.index"
+              @dragover="onRowDragOver(row.index, $event)"
+              @drop="onRowDrop"
             >
+              <button
+                v-if="multiple"
+                type="button"
+                class="file-handle"
+                draggable="true"
+                :aria-disabled="!canReorder"
+                :title="reorderHint"
+                :aria-label="handleLabel(row.file.name, row.index)"
+                @click.stop
+                @dragstart="onDragStart(row.index, $event)"
+                @dragend="clearDragState"
+                @keydown="onHandleKeydown($event, row.index)"
+              >
+                <!-- Six dots, not the four-way `Rank` arrow: at 14 px that arrow reads as a plus,
+                     and this row already has an add-files button a screen above it. -->
+                <svg
+                  class="file-handle__grip"
+                  width="14"
+                  height="14"
+                  viewBox="0 0 16 16"
+                  aria-hidden="true"
+                  focusable="false"
+                >
+                  <circle
+                    cx="6"
+                    cy="3.5"
+                    r="1.35"
+                  />
+                  <circle
+                    cx="10"
+                    cy="3.5"
+                    r="1.35"
+                  />
+                  <circle
+                    cx="6"
+                    cy="8"
+                    r="1.35"
+                  />
+                  <circle
+                    cx="10"
+                    cy="8"
+                    r="1.35"
+                  />
+                  <circle
+                    cx="6"
+                    cy="12.5"
+                    r="1.35"
+                  />
+                  <circle
+                    cx="10"
+                    cy="12.5"
+                    r="1.35"
+                  />
+                </svg>
+              </button>
               <el-icon
                 class="file-icon"
                 :size="18"
@@ -931,6 +1127,7 @@ defineExpose({
 .file-item {
   content-visibility: auto;
   contain-intrinsic-size: auto 38px;
+  position: relative;
   display: flex;
   align-items: center;
   gap: var(--fat-space-sm);
@@ -940,6 +1137,96 @@ defineExpose({
 
 .file-item:hover {
   background: var(--fat-bg-hover);
+}
+
+/* A grab handle rather than making the whole row draggable: the row already carries two buttons
+   and a filename users select, and a drag that starts on those reads as a misfire. The icon stays
+   quiet until the row is hovered or the handle is focused, but it is never `visibility: hidden` —
+   the hit target has to exist before the first hover. */
+.file-handle {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 26px;
+  padding: 0;
+  margin-left: -6px;
+  color: var(--fat-text-secondary);
+  background: transparent;
+  border: 0;
+  border-radius: var(--fat-radius-sm);
+  cursor: grab;
+  opacity: 0.55;
+  transition: var(--fat-transition-fast);
+}
+
+.file-handle__grip {
+  fill: currentcolor;
+}
+
+.file-item:hover .file-handle:not([aria-disabled='true']),
+.file-handle:focus-visible {
+  opacity: 1;
+}
+
+.file-handle:hover:not([aria-disabled='true']) {
+  color: var(--fat-primary);
+  background: var(--fat-primary-bg);
+}
+
+.file-handle:active:not([aria-disabled='true']) {
+  cursor: grabbing;
+}
+
+/* The glyph is 22×26 to keep the row's rhythm, but the grab target extends 3px on every side:
+   a pointer should not have to land on the icon itself, and a transparent overlay moves nothing. */
+.file-handle::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+}
+
+.file-handle:focus-visible {
+  outline: 2px solid var(--fat-focus-ring);
+  outline-offset: 2px;
+}
+
+/* Locked is `aria-disabled`, not `disabled`: the row's handle must stay reachable so that its
+   name can carry the reason. `cursor` and the faded glyph say "not grabbable" without taking the
+   element out of the tab order. */
+.file-handle[aria-disabled='true'] {
+  cursor: not-allowed;
+  opacity: 0.22;
+}
+
+/* The drop indicator is a line in the 1px separator's own place, so a row does not appear to
+   change height while the pointer moves over it. */
+.file-item--drop-before::before,
+.file-item--drop-after::after {
+  content: '';
+  position: absolute;
+  right: var(--fat-space-md);
+  left: var(--fat-space-md);
+  z-index: 2;
+  height: 2px;
+  background: var(--fat-primary);
+  border-radius: var(--fat-radius-pill);
+  box-shadow: 0 0 0 3px var(--fat-primary-bg);
+  pointer-events: none;
+}
+
+.file-item--drop-before::before {
+  top: -1px;
+}
+
+.file-item--drop-after::after {
+  bottom: -1px;
+}
+
+.file-item--drag-source {
+  opacity: 0.55;
 }
 
 /* The separator used to come from `.file-item + .file-item`. With a window mounted at an

@@ -325,6 +325,17 @@ function handleFilesUpdate(files: File[]): void {
 }
 
 /**
+ * A reorder keeps every file, so it must not take the "loaded N files" announcement with it.
+ * `setFiles` still runs — it re-derives the target intersection and keeps the selected target —
+ * but the only thing a screen reader hears is where the row went.
+ */
+function handleReorder(files: File[], name: string, position: number, total: number): void {
+  if (isConverting.value) return;
+  setFiles(files);
+  announce(t('a11y.fileMoved', { name, position, total }));
+}
+
+/**
  * Adopt a remembered target, and with it any output parameters and name pattern it carried.
  *
  * Returns whether the target was reachable. The callers decide how to say so: a pending request
@@ -559,9 +570,11 @@ onUnmounted(() => {
           <FileUpload
             ref="fileUploadRef"
             :disabled="isConverting || prefsOpen"
+            :reorder-disabled="batchResults.length > 0 || batchFailures.length > 0"
             :formats="formatCount"
             :paths="pathCount"
             @update:files="handleFilesUpdate"
+            @reorder="handleReorder"
           />
 
           <!-- F10 — live region for status. Visually hidden, but announced by screen readers

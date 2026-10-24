@@ -174,6 +174,7 @@ Summarised from the typical behaviour of each class of tool rather than one spec
 - **Folder intake** — drop a folder and its convertible files are collected recursively, hidden entries and unsupported formats skipped; the batch cap, the size guards and the `.zip` expansion behave exactly as they do for files dropped one by one
 - **Multi-sheet and multi-page aware** — XLSX → CSV exports every worksheet; PDF → image exports every page, or only the pages you name
 - **Merge images into one PDF** — when every file in the batch is a PNG / JPEG / WebP / BMP / GIF and the target is PDF, a **Merge into one PDF** box appears under the picker: the whole batch becomes one PDF, one page per image in list order (up to 200 pages), named with a `-merged` suffix. It is off by default, so a single image still yields a single-page PDF. If any image fails to decode nothing is produced, the failure list names the file, and retrying re-runs the whole group
+- **Reorder the staged list** — every row has a drag handle on its left: drag it, or focus the handle and press ↑ / ↓ to move one slot, Home / End to jump to either end. The order is the output order, and a merged PDF writes its pages in it. Reordering is locked once results exist — those results came from the old order, and letting the list diverge would download a PDF whose pages no longer match what is on screen; while locked the handle stays focusable and names the reason in its tooltip and accessible name
 - **PDF page range** — when the batch holds a PDF and the target is an image, the parameters panel gains a **Pages** field: `1-3, 5` rasterizes just those pages (it accepts `-`, `–` and `~` as the range dash, and `,` `，` `、` `;` `；` as separators; empty means the whole document). It states which pages _this file_ has in mind rather than what the output should look like, so it is **never written to storage and never part of a preset** — a remembered range would quietly truncate the next, unrelated PDF. A range that matches no page fails the file outright instead of handing back every page as if nothing had been set, and ZIP entries keep their original page numbers, so converting pages 2 and 4 gives you `page-2.png` and `page-4.png`
 - **Size guards at the boundary** — warns above 20 MB, rejects above 100 MB per file, caps a batch at 200 files
 
@@ -218,7 +219,7 @@ Summarised from the typical behaviour of each class of tool rather than one spec
 - The only permission requested is `storage`, used for history (file names, formats, sizes — never contents) and preferences
 - Exactly two things in the interface lead off-site: the "Store update" and "Download latest" links in the top bar. They are ordinary links — the browser opens them after you click, the extension issues no request of its own and never asks whether a newer version exists
 - No analytics, no tracking, no account, no ads, no paid tier
-- Want to test the claim before installing: [File diff](https://liaolongdong.github.io/transfer-any-file/diff/) is the one page on this site that asks for a file of yours — two files are read into the page's own memory and compared line by line and word by word. The code shipped with it issues no request at all, and no extension is needed (its source is `tools/file-diff.html` in this repository, and what is served is a byte-for-byte copy of it)
+- Want to test the claim before installing: [File diff](https://liaolongdong.github.io/transfer-any-file/diff/) is the second page on this site that asks for a file of yours, after the product page's one-image demo — two files are read into the page's own memory and compared line by line and word by word. The code shipped with it issues no request at all, and no extension is needed (its source is `tools/file-diff.html` in this repository, and what is served is a byte-for-byte copy of it)
 - Full text: [privacy policy (online, bilingual)](https://liaolongdong.github.io/transfer-any-file/privacy.html) (repository source `docs/privacy.html`) · store-facing answers: [`CHROMEWEBSTORE.md`](.github/CHROMEWEBSTORE.md)
 
 ## 📥 Installation and usage
@@ -226,6 +227,8 @@ Summarised from the typical behaviour of each class of tool rather than one spec
 ### Install
 
 **From the Chrome Web Store (recommended)**: [Transfer Any File](https://chromewebstore.google.com/detail/blkdmpkcaceicinkhindniepbbbaekkb). You get the stable build, updates arrive on their own, and Developer mode stays off.
+
+**Want to try before installing?** The [product page](https://liaolongdong.github.io/transfer-any-file/#try) converts one PNG / JPEG / WebP / BMP / GIF on the spot: pick an image, pick an output format, download the result — all re-encoded by a canvas inside that tab, with no upload and no install.
 
 **From source** — for reviewing the built artifact or changing the code:
 

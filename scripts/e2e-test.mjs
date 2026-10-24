@@ -4302,6 +4302,169 @@ async function run() {
   }
 
   // ═══════════════════════════════════════════
+  //  STAGED LIST REORDER (the order a merged PDF writes its pages in)
+  // ═══════════════════════════════════════════
+  //
+  // Order is load-bearing, not cosmetic: `buildMergedPdf` writes pages in list order, so a row that
+  // moves silently changes which page comes first. Two input paths have to agree (a real pointer
+  // drag and the handle's arrow keys), the detected format has to travel with its row, and the lock
+  // that appears once results exist must stay *readable* — a plain `disabled` button would answer a
+  // keyboard user's arrow key with nothing at all and never say why.
+  if (section('Staged List Reorder')) {
+    try {
+      await resetWorkbench(page);
+      const clearBtn = await page.$('.clear-files-btn');
+      if (clearBtn) {
+        await clearBtn.click();
+        await page.waitForTimeout(400);
+      }
+      const fi = await page.waitForSelector('input[type="file"]', { state: 'attached', timeout: 10000 });
+      await fi.setInputFiles(
+        ['sample.md', 'sample.csv', 'sample.json', 'sample.txt'].map(f => path.join(FIXTURE_PATH, f)),
+      );
+      await page.waitForFunction(() => document.querySelectorAll('.file-item').length === 4, undefined, {
+        timeout: 10000,
+      });
+      await page.waitForFunction(
+        () => [...document.querySelectorAll('.file-item')].every(row => row.querySelector('.el-tag--primary')),
+        undefined,
+        { timeout: 10000 },
+      );
+
+      const names = () => page.$$eval('.file-item .file-name', els => els.map(e => e.textContent.trim()));
+      const announced = () =>
+        page.$$eval('[role="status"]', els =>
+          els
+            .map(e => e.textContent.trim())
+            .filter(Boolean)
+            .join(' / '),
+        );
+      const focusedRow = () =>
+        page.evaluate(() => {
+          const el = document.activeElement;
+          if (!el) return 'none';
+          if (el.classList && el.classList.contains('file-handle')) {
+            return el.closest('.file-item')?.dataset.fileIndex ?? 'handle';
+          }
+          return el.tagName;
+        });
+
+      const handleState = await page.$$eval('.file-handle', els =>
+        els.map(e => [e.getAttribute('aria-disabled'), e.disabled]),
+      );
+      if (handleState.length === 4 && handleState.every(([aria, dom]) => aria === 'false' && dom === false))
+        ok('Every row carries a handle, and none is locked while the batch is still editable');
+      else fail('Handle state', JSON.stringify(handleState));
+
+      // Counting the drag phases inside the page is what makes the mouse assertion below mean
+      // "Chrome ran a drag session" rather than "the list changed somehow".
+      await page.evaluate(() => {
+        window.__dnd = { dragstart: 0, dragover: 0, drop: 0, dragend: 0 };
+        const list = document.querySelector('.file-list');
+        for (const kind of Object.keys(window.__dnd)) {
+          list.addEventListener(kind, () => (window.__dnd[kind] += 1), true);
+        }
+      });
+
+      await page.focus('.file-item[data-file-index="0"] .file-handle');
+      await page.keyboard.press('ArrowDown');
+      await page.waitForTimeout(500);
+      if ((await names()).join(',') === 'sample.csv,sample.md,sample.json,sample.txt')
+        ok('ArrowDown moves the focused row down one slot');
+      else fail('ArrowDown move', (await names()).join(','));
+
+      if ((await announced()).includes('sample.md 已移到第 2 项，共 4 项'))
+        ok('The move is announced with the file, its new position and the total');
+      else fail('Reorder announcement', `"${await announced()}"`);
+
+      if ((await focusedRow()) === '1') ok('Focus follows the row to its new position');
+      else fail('Focus follows the move', String(await focusedRow()));
+
+      await page.keyboard.press('Home');
+      await page.waitForTimeout(500);
+      if ((await names())[0] === 'sample.md') ok('Home jumps the focused row to the top');
+      else fail('Home move', (await names()).join(','));
+
+      await page.keyboard.press('End');
+      await page.waitForTimeout(500);
+      const beforeDrag = await names();
+      if (beforeDrag[3] === 'sample.md') ok('End jumps it to the bottom');
+      else fail('End move', beforeDrag.join(','));
+
+      const rows = await page.$$eval('.file-item', els =>
+        els.map(r => ({
+          name: r.querySelector('.file-name')?.textContent.trim() ?? '',
+          tag: r.querySelector('.el-tag--primary')?.textContent.trim() ?? '',
+        })),
+      );
+      const expectedTag = { 'sample.md': 'Markdown', 'sample.csv': 'CSV', 'sample.json': 'JSON', 'sample.txt': 'Text' };
+      const crossed = rows.filter(r => !(expectedTag[r.name] && r.tag.includes(expectedTag[r.name])));
+      if (crossed.length === 0) ok('Each row keeps its own detected format after three moves');
+      else fail('Format travels with its row', JSON.stringify(crossed));
+
+      await page
+        .locator('.file-item[data-file-index="3"] .file-handle')
+        .dragTo(page.locator('.file-item[data-file-index="0"]'), { targetPosition: { x: 120, y: 6 }, force: true });
+      await page.waitForTimeout(600);
+      const afterDrag = await names();
+      if (afterDrag.join(',') === [beforeDrag[3], beforeDrag[0], beforeDrag[1], beforeDrag[2]].join(','))
+        ok('A real mouse drag moves the row its handle belongs to');
+      else
+        fail('Mouse drag', `${afterDrag.join(',')} (expected ${[beforeDrag[3], ...beforeDrag.slice(0, 3)].join(',')})`);
+
+      const dnd = await page.evaluate(() => window.__dnd);
+      if (dnd.dragstart === 1 && dnd.drop === 1 && dnd.dragend === 1)
+        ok(
+          `The reorder ran through Chrome's own drag session (dragstart/drop/dragend = ${dnd.dragstart}/${dnd.drop}/${dnd.dragend})`,
+        );
+      else fail('Native drag session', JSON.stringify(dnd));
+
+      if ((await focusedRow()) === 'BODY') ok('A mouse drop leaves focus alone — only keyboard moves pull it');
+      else fail('Mouse drop leaves focus', String(await focusedRow()));
+
+      // Two files, so `End` from row 0 is a real move: with one row left there would be nothing to
+      // refuse, and the locked assertion below would pass on an empty list. Markdown and JSON, not
+      // Markdown and TXT — a mixed batch only offers targets valid for *every* file in it, and TXT
+      // is one of those files' own format, so the option would never appear.
+      await convertFile(page, ['sample.md', 'sample.json'], 'Text (.txt)');
+      await page.waitForTimeout(400);
+      const locked = await page.$$eval('.file-handle', els =>
+        els.map(e => [e.getAttribute('aria-disabled'), e.disabled]),
+      );
+      if (locked.every(([aria, dom]) => aria === 'true' && dom === false))
+        ok('Once results are on screen the handles say aria-disabled but stay focusable');
+      else fail('Locked handles stay focusable', JSON.stringify(locked));
+
+      const lockedName = await page.$eval('.file-item[data-file-index="0"] .file-handle', el =>
+        el.getAttribute('aria-label'),
+      );
+      if (lockedName.includes('已有转换结果'))
+        ok('The reason for the lock rides in the handle name, not only the tooltip');
+      else fail('Lock reason reachable', `"${lockedName}"`);
+
+      const lockedOrder = await names();
+      await page.focus('.file-item[data-file-index="0"] .file-handle');
+      await page.keyboard.press('End');
+      await page.waitForTimeout(400);
+      if ((await names()).join(',') === lockedOrder.join(','))
+        ok('The keyboard refuses to move a row whose results are still shown');
+      else fail('Locked move ignored', (await names()).join(','));
+
+      await (await page.$('.reset-btn')).click();
+      await page.waitForTimeout(600);
+      await page.focus('.file-item[data-file-index="0"] .file-handle');
+      await page.keyboard.press('End');
+      await page.waitForTimeout(500);
+      if ((await names()).join(',') !== lockedOrder.join(',')) ok('Clearing the results gives the order back');
+      else fail('Unlocks after clearing results', (await names()).join(','));
+
+      await resetWorkbench(page);
+    } catch (e) {
+      fail('Staged list reorder', e.message);
+    }
+  }
+
+  // ═══════════════════════════════════════════
   //  DROPPED FOLDER EXPANDS INTO ITS FILES (F4)
   // ═══════════════════════════════════════════
   //
@@ -6530,6 +6693,8 @@ async function run() {
     //    only if it really finished — anything else means the affordance was never usable.
     if (cancel.clicked) ok('Cancel button visible during conversion');
     else if (convertedCount === 3) ok('Batch finished before the cancel affordance could be clicked (fast machine)');
+    else if (cancelAlert.includes('已取消'))
+      ok('Cancel button visible during conversion (the click unmounted its own button, the batch stopped)');
     else if (cancel.visible) fail('Cancel button', 'came up but the click did not land while files were still pending');
     else fail('Cancel button', `never offered while only ${convertedCount}/3 files had converted`);
     // 2. Cancelling has to be visible afterwards: a truncated batch used to render exactly

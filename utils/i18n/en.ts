@@ -43,6 +43,10 @@ const en: typeof zh = {
     ariaLabel: 'Select files',
     preview: 'Preview',
     previewUnsupported: 'Preview is not available for this format',
+    reorderHandle: 'Reorder {name}, item {position} of {total}',
+    reorderHandleLocked: 'Reorder {name}, item {position} of {total}. Clear the current results before reordering',
+    reorderHint: 'Drag, or press the arrow keys, to reorder. Merged PDFs follow this order',
+    reorderLocked: 'Clear the current results before reordering',
   },
 
   // Workspace drop overlay (F9)
@@ -401,6 +405,7 @@ const en: typeof zh = {
     convertCancelledPartial: 'Conversion cancelled: {done} of {total} files completed',
     filesLoaded: 'Loaded {count} file(s)',
     filesCleared: 'File list cleared',
+    fileMoved: 'Moved {name} to position {position} of {total}',
     // Accessible names for controls with no visible label (el-select, etc.)
     targetFormat: 'Target format',
     historyFormatFilter: 'Filter history by format',
