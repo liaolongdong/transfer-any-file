@@ -13,7 +13,7 @@ Release PR is not by itself a release.
 
 ### Added
 
-- **ui**: The staged file list can be reordered — drag a row's handle, or focus it and use ↑ / ↓ / Home / End. A merged PDF writes its pages in that order; reordering locks once results exist, and the handle stays focusable while locked so its name carries the reason
+- **ui**: The staged file list can be reordered — drag a row's handle, or focus it and use ↑ / ↓ / Home / End. A merged PDF writes its pages in that order, and in a windowed long list the scroll follows the move so focus stays on the row that moved; reordering locks once results exist, and the handle stays focusable while locked so its name carries the reason
 - **site**: An offline image demo on the product page: pick a PNG / JPEG / WebP / BMP / GIF, choose WebP / JPEG / PNG and a quality, re-encode it with a canvas inside the page and download the result, with a thumbnail and the size delta in the result card
 
 ### Fixed
