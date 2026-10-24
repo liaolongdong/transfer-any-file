@@ -11,6 +11,8 @@ Release PR is not by itself a release.
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-10-24
+
 ### Added
 
 - **ui**: The staged file list can be reordered — drag a row's handle, or focus it and use ↑ / ↓ / Home / End. A merged PDF writes its pages in that order; reordering locks once results exist, and the handle stays focusable while locked so its name carries the reason
