@@ -11,6 +11,16 @@ Release PR is not by itself a release.
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-10-24
+
+### Added
+
+- **ui**: The staged file list can be reordered by drag or keyboard, and the product page gained an offline one-image demo usable before installing (`17ec37e`)
+
+### Fixed
+
+- **ui**: Reordering a windowed long list with the keyboard no longer drops focus to the body — the scroll now follows the move (`8e2bba7`)
+
 ## [1.4.0] - 2026-10-24
 
 ### Added
