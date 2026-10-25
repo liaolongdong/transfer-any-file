@@ -5635,17 +5635,17 @@ async function run() {
   }
 
   // ═══════════════════════════════════════════
-  //  TOPBAR IDENTITY — VERSION CHIP & UPDATE LINKS
+  //  TOPBAR IDENTITY — VERSION CHIP & OUTBOUND SCOPE
   // ═══════════════════════════════════════════
   //
   // The chip is the one place the running build names itself. What this section can pin is the wiring —
   // the number in the DOM is whatever `runtime.getManifest().version` reported — and it pins it against
   // the artifact's own manifest rather than a number made up here, so a chip wired to anything else
   // fails. What real Chrome reports is a different claim, and `scripts/verify-extension.mjs` is the one
-  // that loads the package into a browser. The two links are the only outbound addresses in the
-  // extension; what is asserted is the shape that keeps them harmless — nothing clicks them here, and
-  // the offline sentinel owns what a click could ever do.
-  if (section('Topbar Version & Update Links')) {
+  // that loads the package into a browser. The header also carries no off-site anchor: every door out
+  // lives in the About drawer, whose own addresses the next section pins literally. In-page anchors are
+  // allowed (none exist today); what must not come back is a second door that leaves this page.
+  if (section('Topbar Version Chip & Outbound Scope')) {
     try {
       // A fresh load owns the claim: the mock re-runs on navigation, so nothing the previous section
       // left staged or converted can colour what the header renders.
@@ -5656,20 +5656,18 @@ async function run() {
 
       const expectedVersion = servedManifestVersion();
       const header = await page.evaluate(() => {
+        const topbar = document.querySelector('header');
         const chip = document.querySelector('.brand-version');
-        const brand = document.querySelector('.brand-name');
         return {
+          found: topbar !== null,
           chip: chip ? chip.textContent.trim() : null,
           chipTitle: chip ? chip.getAttribute('title') : null,
-          brandColor: brand ? getComputedStyle(brand).color : null,
-          links: [...document.querySelectorAll('.brand-link')].map(el => ({
-            href: el.getAttribute('href'),
-            target: el.getAttribute('target'),
-            rel: el.getAttribute('rel'),
-            text: (el.textContent || '').trim(),
-            label: el.getAttribute('aria-label') || '',
-            color: getComputedStyle(el).color,
-          })),
+          // In-page anchors are fine; an href that leaves the page is the duplicate door this pins out.
+          offsite: topbar
+            ? [...topbar.querySelectorAll('a[href]')]
+                .map(el => el.getAttribute('href') || '')
+                .filter(href => !href.startsWith('#'))
+            : null,
         };
       });
 
@@ -5679,72 +5677,49 @@ async function run() {
         ok('Chip tooltip names it as the installed version');
       else fail('Chip tooltip', `reads "${String(header.chipTitle)}"`);
 
-      if (header.links.length === 2) ok('Two update links in the topbar');
-      else fail('Update link count', `expected 2, got ${header.links.length}`);
+      // A second door in the header would duplicate one of the drawer's ten addresses, and the public
+      // docs say the drawer is the only place the interface keeps one. Measured as "no anchor in the
+      // header leaves this page", not as a class name, so a link reintroduced under any markup fails.
+      // The header itself must also exist: without it the empty list would read as a pass.
+      if (header.found && header.offsite.length === 0) ok('The top bar carries no off-site anchor');
+      else fail('Topbar outbound anchors', `header=${header.found} anchors=${JSON.stringify(header.offsite)}`);
 
-      const store = header.links.find(l => (l.href || '').startsWith('https://chromewebstore.google.com/'));
-      const releases = header.links.find(l => (l.href || '').startsWith('https://github.com/'));
-      // The item ID is the live listing (`.github/CHROMEWEBSTORE.md` 的现网状态块). A typo here sends
-      // every installer to a 404 that no other gate in this repository would ever notice.
-      if (store?.href === 'https://chromewebstore.google.com/detail/blkdmpkcaceicinkhindniepbbbaekkb')
-        ok('Store link points at the published item ID');
-      else fail('Store link', `reads "${String(store?.href)}"`);
-      if (releases?.href === 'https://github.com/liaolongdong/transfer-any-file/releases/latest')
-        ok('Releases link uses the always-latest address, not a pinned tag');
-      else fail('Releases link', `reads "${String(releases?.href)}"`);
-
-      const wellFormed = header.links.filter(
-        l => l.target === '_blank' && (l.rel || '').split(' ').includes('noopener'),
-      );
-      if (wellFormed.length === header.links.length && header.links.length === 2)
-        ok('Both links open a new tab with rel=noopener');
-      else
-        fail('Link target hygiene', `${wellFormed.length}/${header.links.length} carry target=_blank + rel=noopener`);
-
-      // WCAG 2.5.3: the accessible name has to contain the visible label, so the new-tab hint is
-      // appended to it rather than replacing it.
-      const named = header.links.filter(l => l.label.startsWith(l.text) && l.label.includes('新标签页'));
-      if (named.length === 2 && header.links.every(l => l.text.length > 0))
-        ok('Each link label keeps its visible text and names the new tab');
-      else fail('Link accessible names', JSON.stringify(header.links.map(l => [l.text, l.label])));
-
-      // No new colour pair enters the system: the links take the same ink as the app name, and that
-      // pairing is measured against all six headers in both modes by the two sections after this one.
-      if (header.links.length > 0 && header.links.every(l => l.color === header.brandColor))
-        ok(`Update links share the already-gated topbar ink (${String(header.brandColor)})`);
-      else
-        fail(
-          'Update link ink',
-          `links ${JSON.stringify(header.links.map(l => l.color))} vs brand ${String(header.brandColor)}`,
-        );
-
-      // The subtitle and two links now share one flex line, so the header is the first place this
-      // change could widen the page instead of wrapping. `scrollWidth > clientWidth` is the shape the
-      // 320px action-row pin already uses: overflow moves the document, wrap does not.
+      // The header is the first place this change could widen the page instead of wrapping;
+      // `scrollWidth > clientWidth` is the shape the 320px action-row pin already uses: overflow
+      // moves the document, wrap does not. The right-hand capsules never shrink, so their right edge
+      // must stay inside the viewport; the chip needs a width of its own, or a chip hidden by a
+      // future rule would turn this into a measurement of nothing.
       await page.setViewportSize({ width: 320, height: 800 });
       await page.waitForTimeout(500);
       const narrow = await page.evaluate(() => {
         const de = document.documentElement;
-        const links = [...document.querySelectorAll('.brand-link')].map(el => el.getBoundingClientRect().right);
+        const chip = document.querySelector('.brand-version');
+        const actions = document.querySelector('.topbar-actions');
         return {
           scrollWidth: de.scrollWidth,
           clientWidth: de.clientWidth,
-          lastRight: links.length > 0 ? Math.max(...links) : -1,
+          chipWidth: chip ? chip.getBoundingClientRect().width : 0,
+          actionsRight: actions ? actions.getBoundingClientRect().right : -1,
         };
       });
-      if (narrow.scrollWidth <= narrow.clientWidth && narrow.lastRight >= 0 && narrow.lastRight <= narrow.clientWidth)
+      if (
+        narrow.scrollWidth <= narrow.clientWidth &&
+        narrow.chipWidth > 0 &&
+        narrow.actionsRight >= 0 &&
+        narrow.actionsRight <= narrow.clientWidth
+      )
         ok(
-          `At 320px the header wraps inside the viewport (scrollWidth=${narrow.scrollWidth}, clientWidth=${narrow.clientWidth})`,
+          `At 320px the header stays inside the viewport (scrollWidth=${narrow.scrollWidth}, clientWidth=${narrow.clientWidth}, actionsRight=${narrow.actionsRight})`,
         );
       else
         fail(
           'Header at 320px',
-          `scrollWidth=${narrow.scrollWidth} clientWidth=${narrow.clientWidth} linkRight=${narrow.lastRight}`,
+          `scrollWidth=${narrow.scrollWidth} clientWidth=${narrow.clientWidth} chipWidth=${narrow.chipWidth} actionsRight=${narrow.actionsRight}`,
         );
       await page.setViewportSize({ width: 1280, height: 900 });
       await page.waitForTimeout(400);
     } catch (e) {
-      fail('Topbar version & update links', e.message);
+      fail('Topbar version chip', e.message);
       await page.setViewportSize({ width: 1280, height: 900 });
     }
   }

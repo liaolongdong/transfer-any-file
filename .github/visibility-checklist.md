@@ -52,7 +52,7 @@
 以后再补跑的成本（本机需要手动装过 ffmpeg 与 chromium 二进制）：
 
 ```bash
-pnpm test:e2e        # = wxt build + node scripts/e2e-test.mjs，断言基线 491 条
+pnpm test:e2e        # = wxt build + node scripts/e2e-test.mjs，断言基线 486 条
 ```
 
 **2026-09-29 这一轮（JSON 预览的树 / 数组表 / 搜索 + 仓库外的对比页）跑满了 e2e，改在 `E2E_HEADLESS=true` 下跑**：
@@ -1732,6 +1732,46 @@ csv→Word 的另一组事实回读自`html-to-docx.ts`：正文以 MHT altChunk
   **一条工具口径**：本机 Playwright 的 ffmpeg 二进制会随缓存清理消失，而 `npx playwright install ffmpeg` 在
   macOS 13 上直接报 `Playwright does not support ffmpeg on mac13`——把官方构建包手动解到
   `~/Library/Caches/ms-playwright/ffmpeg-1011/ffmpeg-mac` 并 `chmod +x` 即可，软链系统 ffmpeg 不行。
+
+- **10-25 第七十五轮（撤掉顶栏两条外链，对外地址只剩「关于」抽屉；断言总数 491→486，一轮全量绿灯）。**
+  用户看顶栏截图问「这两条是不是可以删了」；结论是可以——「商店更新」与「下载最新版」两个目的地在抽屉里
+  各有一条（`linkStore` / `linkReview` 共用商店地址，`linkReleases` 指向 `releases/latest`），顶栏再留一遍
+  就是同一目的地开两扇门；而「商店更新」这个名字会被读成「点一下会拉新版本」，可扩展从不检查更新，
+  从商店装的由 Chrome 自己更新。删除后顶栏只剩品牌名 + 版本芯片、「关于」「偏好设置」两颗胶囊。
+  **改动**：`App.vue` 删掉两个 `<a class="brand-link">` 与 `.brand-meta` / `.brand-link*` 样式，`brand-tag`
+  直接挂在 `.brand` 列里；`options.storeLink` / `options.releasesLink` 两个 key 从中英字典移除
+  （`versionHint` 与 `newTabSuffix` 仍在使用）；`utils/urls.ts` 一个字节没动。
+  **守卫收窄但不放空**：e2e 原来的「Topbar Version & Update Links」一节 9 条断言（两条链接的 href / target /
+  rel / aria-label / 墨色 / 320px 不越界）随链接一起退场，改成「Topbar Version Chip & Outbound Scope」4 条：
+  版本芯片对被测产物、芯片 tooltip、`<header>` 里没有任何离开本页的锚点、320px 下文档不撑宽且右侧胶囊的右缘
+  仍在视口内。那条「no off-site anchor」是新增的**正面**断言——它把「对外地址只在抽屉里」这句对外承诺变成
+  可执行的门，以后谁再把外链塞回顶栏（不管用什么 class）都会红；判据是 href 不以 `#` 开头，不是某个类名，
+  同时要求那个 `<header>` 真的存在（否则空列表会被读成通过）。
+  **评审修掉的两处**：① 320px 那条最初量的是版本芯片的右缘，可芯片是品牌侧**最窄**的元素——真正的风险在
+  不收缩的右侧两颗胶囊，而且芯片若被某条规则隐藏，`rect.right` 会静默变成 0 而照样通过。改成同时要求
+  `documentElement.scrollWidth <= clientWidth`、芯片宽度 `> 0`、`.topbar-actions` 的右缘在视口内。
+  ② 段首注释原写「skip link 是 header 里剩下的唯一锚点」——skip link 在 `<header>` **外面**；改成「页内锚点
+  允许，离开本页的锚点不许」。CHANGELOG 那句「两个目的地各一条入口」也不准：抽屉里商店条目与评价共用同一个
+  地址（两条入口、一个 URL），措辞改成「改由抽屉承接（商店条目与评价共用同一个地址）」。
+  **一个顺带的好处**：`utils/urls.ts` 原先既被入口静态引入、也被抽屉动态引入，被迫单独成 chunk；入口那条边
+  一断，它被内联进抽屉 chunk。用 `git archive 9282ad3` 在 `/tmp` 重建上一版核实：旧产物 **75 个文件**、
+  有 `chunks/urls-C16hK4fE.js` 且商店地址就在那个 chunk 里；新产物 **74 个文件**（3,886,557 → 3,885,158 B，
+  −1,399 B），`grep -rl 'chromewebstore.google.com' .output/chrome-mv3 --include='*.js'` 只命中
+  `chunks/AboutDrawer-*.js`——商店地址不再随入口 chunk 发出，`verify:remote-code` 的产物扫描也随之从 51 个文件
+  变成 50。zip 1,187,014 → 1,186,481 B。同一棵树重跑 build 两次，文件数与字节数相同。
+  **文档同步**：README 中英各三处（功能段 / 隐私段 / FAQ 的升级路径）、`docs/index.html` 隐私段中英各一句、
+  CHANGELOG 中英未发布条目；断言总数 491→486 除 `scripts/__baseline__/e2e-assertions.json`（测试自写）外，
+  还要跟改 `docs/index.html`、`docs/blog/index.html` 与四份推广稿（`verify:numbers` 盯的就是这一组）。
+  历史记录不改：本轮上方 round 74 的 480→491 与 CHANGELOG 1.3.0 的「两条更新入口」都是当时的账。
+  商店文案与 manifest 描述没动——撤两条链接不是商品卖点，改它只会牵动 `verify:listing` 的七个粘贴字段。
+  验证：`Results: 486/486 passed (100%)`、`EXIT:0`（`/tmp/taf-e2e-round75.log`），基线自写到 `486`；
+  build `Σ Total size: 3.89 MB`（74 个文件 / 3,885,158 B）、zip `1.19 MB`（1,186,481 B）；
+  `verify:offline:source` / `verify:offline` 98 个第一方文件 + manifest 只有 `storage`、无 host 权限；
+  `verify:remote-code` 源码 98 / 产物 50；`verify:paths` 48 边 / 182 对；`pages:check` 133 文件；
+  `verify:numbers` 23 事实 × 138 文档；`verify:listing` 7 个粘贴字段；`verify:release-ci` 71 条判定与四组接缝；
+  `verify:meta` 短描述 127/132；`lint:all` 全绿（十二道按顺序跑在收口后的同一棵树上）。
+  `assets:capture` 重拍 7 张英文原图 + 7 张中文原图、14 张带文案商店截图与 3 张推广图；
+  两条演示 GIF 重录（zh 1925 KB / en 1439 KB）。
 
 ## 3. 收下改动：这一节记的是提交账，不是提交计划
 

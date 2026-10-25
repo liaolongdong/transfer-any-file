@@ -15,8 +15,6 @@ const en: typeof zh = {
     subtitle: 'Batch convert, preview and edit — all locally',
     preferences: 'Preferences',
     versionHint: 'Installed version {version}',
-    storeLink: 'Store update',
-    releasesLink: 'Download latest',
     newTabSuffix: ', opens in a new tab',
   },
 
