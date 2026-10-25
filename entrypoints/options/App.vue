@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, ref, watch, nextTick, defineAsyncComponent, onMounted, onUnmounted } from 'vue';
+import { computed, ref, watch, nextTick, defineAsyncComponent, onMounted, onUnmounted, shallowRef } from 'vue';
+import type { Component } from 'vue';
 import { Setting, InfoFilled, RefreshRight, CircleClose, UploadFilled } from '@element-plus/icons-vue';
 import zhCn from 'element-plus/es/locale/lang/zh-cn';
 import enUs from 'element-plus/es/locale/lang/en';
@@ -36,8 +37,6 @@ const FormatSelector = defineAsyncComponent(() => import('~/components/shared/Fo
 const OutputOptions = defineAsyncComponent(() => import('~/components/shared/OutputOptions.vue'));
 const ResultDownload = defineAsyncComponent(() => import('~/components/shared/ResultDownload.vue'));
 const ComparisonView = defineAsyncComponent(() => import('~/components/shared/ComparisonView.vue'));
-// Ten links' worth of drawer, none of it needed until the button in the topbar is pressed.
-const AboutDrawer = defineAsyncComponent(() => import('~/components/options/AboutDrawer.vue'));
 
 initConverters();
 
@@ -64,9 +63,23 @@ const fileUploadRef = ref<InstanceType<typeof FileUpload> | null>(null);
  *  dragged over an open dialog would otherwise paint the "drop here" veil on top of it. */
 const prefsOpen = ref(false);
 
-/** Drives the About drawer. Like the preferences dialog it locks the uploader and the page-wide drop
- *  overlay, whose z-index sits above Element Plus's modal stack. */
+/** The About drawer's component, fetched on first open rather than at first paint. Mounting it a
+ *  tick before the model flips is what keeps Element Plus's enter transition: a drawer that first
+ *  renders with `visible` already true opens with no animation (its Transition has no `appear`). */
+const AboutDrawer = shallowRef<Component>();
 const aboutOpen = ref(false);
+
+/** Any open modal overlay. It keeps the convert shortcut off, disables the uploader and suppresses
+ *  the page-wide drop veil, whose z-index sits above Element Plus's modal stack. */
+const overlayOpen = computed(() => prefsOpen.value || aboutOpen.value);
+
+async function openAbout(): Promise<void> {
+  if (!AboutDrawer.value) {
+    AboutDrawer.value = (await import('~/components/options/AboutDrawer.vue')).default;
+    await nextTick();
+  }
+  aboutOpen.value = true;
+}
 
 const {
   sourceFile,
@@ -450,7 +463,7 @@ async function handleRetryFailed(): Promise<void> {
 
 function handleGlobalKeydown(event: KeyboardEvent): void {
   // Both overlays are modal; a batch must not start behind either.
-  if (prefsOpen.value || aboutOpen.value) return;
+  if (overlayOpen.value) return;
   if (!shortcutMatches('convert', event)) return;
   const target = event.target as HTMLElement | null;
   // Don't steal the shortcut while the user is typing somewhere
@@ -463,7 +476,7 @@ function handleGlobalKeydown(event: KeyboardEvent): void {
 // The overlay markup lives with this state below; the counter, the `Files`-type guard and the
 // four document-level listeners are all in the composable.
 const { isWorkspaceDragging } = useWorkspaceFileDrop({
-  isLocked: computed(() => isConverting.value || prefsOpen.value || aboutOpen.value),
+  isLocked: computed(() => isConverting.value || overlayOpen.value),
   onFilesDropped: dataTransfer => void fileUploadRef.value?.intakeDrop(dataTransfer),
 });
 
@@ -533,7 +546,7 @@ onUnmounted(() => {
               :icon="InfoFilled"
               :title="t('about.open')"
               :aria-label="t('about.open')"
-              @click="aboutOpen = true"
+              @click="openAbout"
             >
               <span class="about-trigger-label">{{ t('about.open') }}</span>
             </el-button>
@@ -566,7 +579,9 @@ onUnmounted(() => {
         <PreferencesMenu />
       </el-dialog>
 
-      <AboutDrawer
+      <component
+        :is="AboutDrawer"
+        v-if="AboutDrawer"
         v-model="aboutOpen"
         :version="appVersion"
       />
@@ -581,7 +596,7 @@ onUnmounted(() => {
                list is one panel instead of a card inside a card. -->
           <FileUpload
             ref="fileUploadRef"
-            :disabled="isConverting || prefsOpen || aboutOpen"
+            :disabled="isConverting || overlayOpen"
             :reorder-disabled="batchResults.length > 0 || batchFailures.length > 0"
             :formats="formatCount"
             :paths="pathCount"

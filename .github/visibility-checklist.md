@@ -1707,15 +1707,26 @@ csv→Word 的另一组事实回读自`html-to-docx.ts`：正文以 MHT altChunk
   文档同步：README 中英各三处、`docs/index.html` 隐私段中英各一句（原来那句「只有顶栏两条外链」已经是错账）、
   CHANGELOG 双语；版本与最后更新日期、`docs/sitemap.xml` 里 home 与 blog 两条 `lastmod` 一起跟到 2026-10-25
   （`STATIC_PAGES` 是这两个日期的唯一来源，页面里的 `dateModified`、可见行与 `lastmod` 必须同一天）。
-  **对外体积字样第一次动了**：3.86 → 3.89 MB。多出的 27,340 B 是抽屉自己的 chunk（`AboutDrawer` 7.55 kB JS +
+  **对外体积字样第一次动了**：3.86 → 3.89 MB。多出的 27,514 B 是抽屉自己的 chunk（`AboutDrawer` 7.57 kB JS +
   6.39 kB CSS）与它拉进来的 Element Plus drawer / overlay / focus-trap 分块，zip 1.18 → 1.19 MB；
   写死 3.86 MB 的地方全部跟改（`CONTRIBUTING*`、`docs/index.html`、`docs/blog`、`docs/llms.txt` 与四份推广稿）。
+  **评审后修掉的一处真缺陷**：抽屉最初写成 `defineAsyncComponent` + 无条件挂载的 `<AboutDrawer>`，而异步组件在标签
+  第一次渲染时就解析自己的 chunk——7.57 kB 的抽屉连同它带的 Element Plus drawer / overlay 分块于是落进首屏，
+  注释里那句「按下按钮前不需要」当时是假的（正是 `AGENTS.md` 性能约定点名的坑：`defineAsyncComponent` 不等于
+  import 也懒）。改法是 `shallowRef<Component>` 存组件、`v-if` 门控、`openAbout()` 里 `await import()` 之后再
+  `nextTick()` 一帧才翻 `v-model`：先挂载、后可见，因为 Element Plus 的抽屉 `Transition` 没有 `appear`，
+  反序会让第一次打开没有滑入动画。顺带把三处 `prefsOpen || aboutOpen` 收成一个 `overlayOpen` computed，
+  三条事实的 `v-for` key 换成稳定 `id`（原来拿译文当 key，切语言会整列重挂）。产物侧核对：`options.html` 的
+  modulepreload 列表里没有抽屉 chunk，`options-*.js` 里只剩 `openAbout()` 内那一个动态 `import()`；这处修复
+  让整包 +174 B（3,886,383 → 3,886,557）。
   商店文案与 manifest 描述**没动**——一个抽屉不是商品卖点，改它会连带牵动 `verify:listing` 的七个粘贴字段。
-  验证：`Results: 491/491 passed (100%)`、`EXIT:0`（`pnpm test:e2e` 的定义性一轮，日志 `/tmp/taf-e2e-about.log`），
-  基线自写到 `491`；build `Σ Total size: 3.89 MB`（75 个文件 / 3,886,383 B）、zip `1.19 MB`；
+  验证：`Results: 491/491 passed (100%)`、`EXIT:0`（`pnpm test:e2e` 的定义性一轮在修前，`/tmp/taf-e2e-about.log`；
+  修后复跑 `/tmp/taf-e2e-review.log`，两轮同一读数），
+  基线自写到 `491`；build `Σ Total size: 3.89 MB`（75 个文件 / 3,886,557 B）、zip `1.19 MB`（1,187,014 B）；
   `verify:offline` 98 个第一方文件 + manifest 只有 `storage`、无 host 权限；`verify:remote-code` 源码 98 / 产物 51；
   `verify:paths` 48 边 / 182 对；`pages:check` 133 文件；`verify:numbers` 23 事实 × 138 文档；`verify:listing`
-  7 个粘贴字段；`verify:release-ci` 71 条判定与四组接缝；`verify:meta` 短描述 127/132；`lint:all` 全绿。
+  7 个粘贴字段；`verify:release-ci` 71 条判定与四组接缝；`verify:meta` 短描述 127/132；`lint:all` 全绿
+  （以上九道连同 build 都在评审修复之后重跑过一遍）。
   `assets:capture` 重拍 7 张英文原图 + 7 张中文原图（只用于商店截图）、14 张带文案商店截图与 3 张推广图；
   两条演示 GIF 重录（zh 2038 KB / en 2297 KB）。
   **一条工具口径**：本机 Playwright 的 ffmpeg 二进制会随缓存清理消失，而 `npx playwright install ffmpeg` 在

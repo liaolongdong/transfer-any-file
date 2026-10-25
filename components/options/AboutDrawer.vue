@@ -66,16 +66,15 @@ const links = computed(() =>
 );
 
 const facts = computed(() => [
-  { label: t('about.factNetwork'), value: t('about.factNetworkValue') },
-  { label: t('about.factPermission'), value: t('about.factPermissionValue') },
-  { label: t('about.factAccount'), value: t('about.factAccountValue') },
+  { id: 'network', label: t('about.factNetwork'), value: t('about.factNetworkValue') },
+  { id: 'permission', label: t('about.factPermission'), value: t('about.factPermissionValue') },
+  { id: 'account', label: t('about.factAccount'), value: t('about.factAccountValue') },
 ]);
 </script>
 
 <template>
   <el-drawer
     v-model="visible"
-    class="about-drawer"
     :title="t('about.title')"
     direction="rtl"
     size="min(400px, 100vw)"
@@ -92,7 +91,7 @@ const facts = computed(() => [
       <dl class="about-facts">
         <div
           v-for="fact in facts"
-          :key="fact.label"
+          :key="fact.id"
           class="about-fact"
         >
           <dt>{{ fact.label }}</dt>
