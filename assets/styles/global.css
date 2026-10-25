@@ -154,12 +154,12 @@ body {
 
 .el-button--default:hover {
   border-color: var(--fat-primary) !important;
-  color: var(--fat-primary) !important;
+  color: var(--fat-primary-ink) !important;
 }
 
 /* Text button hover */
 .el-button--text:hover {
-  color: var(--fat-primary) !important;
+  color: var(--fat-primary-ink) !important;
 }
 
 /* F10 — global keyboard focus ring. `:focus-visible` only fires for keyboard
@@ -209,11 +209,12 @@ body {
 
 /* Element Plus draws its own rings for the controls whose real input is visually hidden — the
    switch, the checkbox and the segmented radio buttons — and paints them with its primary, not
-   with `--fat-focus-ring`. Measured on the built bundle across all six themes in both modes: only
-   one combination falls under 3:1, but it is the light `green` theme, where `--el-color-primary`
-   is `#10b981` while this file's own token resolves to `--fat-primary-active` (`#059669`). All
-   three families measured 2.54:1 on a card and 2.42:1 on the workbench surface before this rule
-   and 3.77 / 3.60 after it, which is what the `Hidden-Input Focus Rings` e2e section pins.
+   with `--fat-focus-ring`. Measured on the built bundle across all six themes in both modes, two
+   light combinations fall under 3:1 on a card: green (`--el-color-primary` #10b981 at 2.54:1,
+   where this file's token resolves to #059669) and blue (#409eff at 2.78:1, where it resolves to
+   the strong ink #0069d5). Those are the two the override below exists for; after it all three
+   families measure 3.77 / 3.60 on green's card and workbench surface, and 5.27 / 5.04 on blue's,
+   which is what the `Hidden-Input Focus Rings` e2e section pins.
    The selectors are Element Plus's verbatim, so geometry and offset stay theirs and only the
    colour joins the contract every other control already keeps. */
 .el-switch__input:focus-visible ~ .el-switch__core,
@@ -302,7 +303,7 @@ body {
   border: none;
   font: inherit;
   font-weight: 600;
-  color: var(--fat-primary);
+  color: var(--fat-primary-ink);
   background: none;
   cursor: pointer;
 }
@@ -320,7 +321,7 @@ body {
 
 /* Readable ink for Element Plus's light-effect alerts and tags.
    Both components paint their text with a semantic colour and set the background to that same
-   colour's 10% tint, which measures 2.04–2.80:1 for the four fixed types and 2.31–4.49:1 for a
+   colour's 10% tint, which measures 2.04–2.80:1 for the four fixed types and 2.31–2.53:1 for a
    default `type="primary"` tag — the format badge on every file row. WCAG 1.4.3 wants 4.5:1, so the
    hue is kept and only its lightness is corrected, through the tokens that state the measurements
    (`--fat-state-ink-*`); the tinted background is left alone because it is a precomputed value that

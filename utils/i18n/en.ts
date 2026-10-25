@@ -14,7 +14,7 @@ const en: typeof zh = {
     title: 'Conversion Workbench',
     subtitle: 'Batch convert, preview and edit — all locally',
     preferences: 'Preferences',
-    versionHint: 'Installed version {version}',
+    versionLinkHint: 'v{version}, the installed version; opens the latest GitHub release to download (new tab)',
     newTabSuffix: ', opens in a new tab',
   },
 
@@ -358,7 +358,7 @@ const en: typeof zh = {
     notificationBodyPartial: '{ok} succeeded, {fail} failed',
     notificationBodyAllFail: 'All {count} file(s) failed to convert',
     themeNames: {
-      blue: 'Classic Blue',
+      blue: 'Sky Blue',
       green: 'Forest Green',
       purple: 'Dreamy Purple',
       orange: 'Vivid Orange',

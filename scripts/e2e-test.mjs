@@ -5638,13 +5638,17 @@ async function run() {
   //  TOPBAR IDENTITY — VERSION CHIP & OUTBOUND SCOPE
   // ═══════════════════════════════════════════
   //
-  // The chip is the one place the running build names itself. What this section can pin is the wiring —
+  // The chip is the one place the running build names itself, and the header's one outbound door: it
+  // opens the latest release page, where the download lives. What this section can pin is the wiring —
   // the number in the DOM is whatever `runtime.getManifest().version` reported — and it pins it against
   // the artifact's own manifest rather than a number made up here, so a chip wired to anything else
   // fails. What real Chrome reports is a different claim, and `scripts/verify-extension.mjs` is the one
-  // that loads the package into a browser. The header also carries no off-site anchor: every door out
-  // lives in the About drawer, whose own addresses the next section pins literally. In-page anchors are
-  // allowed (none exist today); what must not come back is a second door that leaves this page.
+  // that loads the package into a browser.
+  //
+  // The header keeps exactly this one off-site anchor: the About drawer is the index of every address,
+  // so a second door here would duplicate a row in it. Measured as "the only href that leaves this page
+  // is the chip", not as a class name, so a link reintroduced under any markup fails. In-page anchors
+  // are allowed (none exist today).
   if (section('Topbar Version Chip & Outbound Scope')) {
     try {
       // A fresh load owns the claim: the mock re-runs on navigation, so nothing the previous section
@@ -5655,34 +5659,67 @@ async function run() {
       await page.waitForSelector('.brand-version', { timeout: 15000 });
 
       const expectedVersion = servedManifestVersion();
+      const SOURCE = 'https://github.com/liaolongdong/transfer-any-file';
       const header = await page.evaluate(() => {
         const topbar = document.querySelector('header');
         const chip = document.querySelector('.brand-version');
+        const links = topbar ? [...topbar.querySelectorAll('a[href]')] : [];
+        const offsite = links.map(el => el.getAttribute('href') || '').filter(href => !href.startsWith('#'));
         return {
           found: topbar !== null,
-          chip: chip ? chip.textContent.trim() : null,
-          chipTitle: chip ? chip.getAttribute('title') : null,
-          // In-page anchors are fine; an href that leaves the page is the duplicate door this pins out.
-          offsite: topbar
-            ? [...topbar.querySelectorAll('a[href]')]
-                .map(el => el.getAttribute('href') || '')
-                .filter(href => !href.startsWith('#'))
+          chip: chip
+            ? {
+                tag: chip.tagName,
+                text: chip.textContent.trim(),
+                href: chip.getAttribute('href'),
+                target: chip.getAttribute('target'),
+                rel: (chip.getAttribute('rel') || '').split(' ').filter(Boolean),
+                title: chip.getAttribute('title'),
+                aria: chip.getAttribute('aria-label') || '',
+              }
             : null,
+          offsite,
+          // The drawer is the index; this is the one row of it that also lives in the header. Measured
+          // on the nodes themselves, so the single off-site href has to be the chip's own href — while
+          // an in-page anchor, which the comment above allows, does not enter this list at all.
+          onlyOffsiteIsChip: offsite.length === 1 && chip !== null && chip.getAttribute('href') === offsite[0],
         };
       });
 
-      if (header.chip === `v${expectedVersion}`) ok(`Version chip shows the loaded build (${header.chip})`);
-      else fail('Version chip', `expected "v${expectedVersion}", got "${String(header.chip)}"`);
-      if (header.chipTitle === `当前已安装版本 ${expectedVersion}`)
-        ok('Chip tooltip names it as the installed version');
-      else fail('Chip tooltip', `reads "${String(header.chipTitle)}"`);
+      if (header.chip && header.chip.text === `v${expectedVersion}`)
+        ok(`Version chip shows the loaded build (${header.chip.text})`);
+      else fail('Version chip', `expected "v${expectedVersion}", got "${String(header.chip?.text)}"`);
 
-      // A second door in the header would duplicate one of the drawer's ten addresses, and the public
-      // docs say the drawer is the only place the interface keeps one. Measured as "no anchor in the
-      // header leaves this page", not as a class name, so a link reintroduced under any markup fails.
-      // The header itself must also exist: without it the empty list would read as a pass.
-      if (header.found && header.offsite.length === 0) ok('The top bar carries no off-site anchor');
-      else fail('Topbar outbound anchors', `header=${header.found} anchors=${JSON.stringify(header.offsite)}`);
+      // Pinned literally, for the same reason the drawer's ten addresses are: `releases/latest` follows
+      // whatever tag is newest, so this address never has to be edited on a release. The tag is part of
+      // the claim — a span carrying the same href would read right and still be unclickable.
+      if (header.chip && header.chip.tag === 'A' && header.chip.href === `${SOURCE}/releases/latest`)
+        ok(`Version chip links to the latest release (${header.chip.href})`);
+      else fail('Chip href', `<${String(header.chip?.tag)}> reads "${String(header.chip?.href)}"`);
+
+      if (header.chip && header.chip.target === '_blank' && header.chip.rel.includes('noopener'))
+        ok('Chip opens a new tab with rel=noopener');
+      else fail('Chip link hygiene', JSON.stringify(header.chip && [header.chip.target, header.chip.rel]));
+
+      // WCAG 2.5.3 keeps the visible text inside the accessible name; the new-tab hint is appended to
+      // it because the number alone does not say where a click goes, and a title tooltip is not a name.
+      if (header.chip && header.chip.aria.startsWith(`v${expectedVersion}`) && header.chip.aria.includes('新标签页'))
+        ok('Chip accessible name keeps the visible version and names the new tab');
+      else fail('Chip accessible name', `reads "${String(header.chip?.aria)}"`);
+
+      // One string serves tooltip and screen reader; pinning it here is what keeps them from drifting.
+      const expectedHint = `v${expectedVersion}，当前已安装版本；点开 GitHub 最新发布页下载新版（在新标签页打开）`;
+      if (header.chip && header.chip.title === expectedHint)
+        ok('Chip tooltip names the installed version and where a click goes');
+      else fail('Chip tooltip', `reads "${String(header.chip?.title)}"`);
+
+      // The header itself must exist: without it the empty list would read as a pass.
+      if (header.found && header.onlyOffsiteIsChip) ok("The version chip is the header's only off-site anchor");
+      else
+        fail(
+          'Topbar outbound anchors',
+          `header=${header.found} chip=${header.chip !== null} anchors=${JSON.stringify(header.offsite)}`,
+        );
 
       // The header is the first place this change could widen the page instead of wrapping;
       // `scrollWidth > clientWidth` is the shape the 320px action-row pin already uses: overflow
@@ -5973,7 +6010,7 @@ async function run() {
     else fail('Language label', 'not found in dialog');
 
     // Verify all 6 theme names
-    const themeNames = ['经典蓝', '森林绿', '梦幻紫', '活力橙', '玫瑰红', '石墨灰'];
+    const themeNames = ['晴空蓝', '森林绿', '梦幻紫', '活力橙', '玫瑰红', '石墨灰'];
     for (const name of themeNames) {
       if (dialogText.includes(name)) ok(`Theme name "${name}" displayed`);
       else fail(`Theme name "${name}"`, 'not found');
@@ -7689,11 +7726,15 @@ async function run() {
     // The switch, the checkbox and the segmented radio buttons all focus a transparent input and
     // paint the ring on a *sibling* proxy, so the global `:focus-visible` rule cannot reach them and
     // Element Plus's own declaration decides the colour. It uses its primary, not --fat-focus-ring,
-    // and light + green is the one combination where the two disagree enough to matter: measured on
-    // the built bundle before the override, the focused switch drew #10b981 at 2.54:1 on the dialog
-    // (2.42:1 on the workbench surface) while the token this app certifies at 3:1 resolves to
-    // #059669. Every other theme and mode passed on Element Plus's colour, so only a colour
-    // comparison — not a geometry check — can tell the fixed build from the broken one.
+    // and two light themes are where the two disagree enough to matter: green (measured on the built
+    // bundle before the override, the focused switch drew #10b981 at 2.54:1 on the dialog and 2.42:1
+    // on the workbench surface while the token this app certifies at 3:1 resolves to #059669) and
+    // blue (#409eff at 2.78:1, token #0069d5). This walk pins green because it also needs the
+    // radio/checkbox families on a page that has them; blue is covered by the theme loops above,
+    // which measure that same token against the card, plus the one binding this walk proves — the
+    // proxies paint whatever --fat-focus-ring resolves to. Every other theme and mode passed
+    // on Element Plus's colour, so only a colour comparison — not a geometry check — can tell the
+    // fixed build from the broken one.
     const ringPage = await browser.newPage();
     trackPageErrors(ringPage);
     await ringPage.setViewportSize({ width: 1280, height: 900 });

@@ -927,7 +927,7 @@ function toggleEdit(): void {
 
 .divider-btn:hover {
   border-color: var(--fat-primary);
-  color: var(--fat-primary);
+  color: var(--fat-primary-ink);
   background: var(--fat-primary-bg);
 }
 
@@ -1142,7 +1142,7 @@ function toggleEdit(): void {
 }
 
 .mode-btn.active {
-  color: var(--fat-primary);
+  color: var(--fat-primary-ink);
   background: var(--fat-bg-card);
   font-weight: 600;
   box-shadow: var(--fat-shadow-sm);
@@ -1158,7 +1158,7 @@ function toggleEdit(): void {
 }
 
 :root[data-mode='dark'] .mode-btn.active {
-  color: var(--fat-primary);
+  color: var(--fat-primary-ink);
   background: var(--fat-primary-bg);
   box-shadow: inset 0 0 0 1px var(--fat-primary-border);
 }
@@ -1171,7 +1171,7 @@ function toggleEdit(): void {
 
 :root[data-mode='dark'] .divider-btn:hover {
   border-color: var(--fat-primary);
-  color: var(--fat-primary);
+  color: var(--fat-primary-ink);
   background: var(--fat-primary-bg);
 }
 

@@ -1191,7 +1191,7 @@ defineExpose({
 }
 
 .file-handle:hover:not([aria-disabled='true']) {
-  color: var(--fat-primary);
+  color: var(--fat-primary-ink);
   background: var(--fat-primary-bg);
 }
 

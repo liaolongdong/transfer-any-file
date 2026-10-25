@@ -1,11 +1,23 @@
 :root {
-  /* ---- Theme: blue (default, Flat design) ---- */
-  --fat-primary: #2563eb;
-  --fat-primary-hover: #3b82f6;
-  --fat-primary-active: #1d4ed8;
-  --fat-primary-rgb: 37 99 235;
-  --fat-primary-bg: #eff6ff;
-  --fat-primary-border: #bfdbfe;
+  /* ---- Theme: blue (default, Flat design) ----
+     Element Plus's own primary, matching the sibling extensions' 晴空蓝. Its five-step ladder is
+     the library's published palette rather than hand-picked shades, so EP components and this
+     file's tokens cannot drift: #409eff / #66b3ff / #337ecc, with #ecf5ff and #d9ecff as the
+     two tints. */
+  --fat-primary: #409eff;
+  --fat-primary-hover: #66b3ff;
+  --fat-primary-active: #337ecc;
+  --fat-primary-rgb: 64 158 255;
+  --fat-primary-bg: #ecf5ff;
+  --fat-primary-border: #d9ecff;
+
+  /* The accent when it has to be *read* rather than painted on. #409eff as 11–12px text is
+     only 2.78:1 on the card and 2.53:1 on its own tint, so light blue overrides this with the
+     sibling extensions' "strong" blue (#0072e8, further darkened for tinted backdrops — see the
+     blue theme block below). The other five themes need no such split, hence a token that
+     falls back to the primary itself. Fills, borders, backgrounds and decorative glyphs keep
+     --fat-primary: only text and data graphics move here. */
+  --fat-primary-ink: var(--fat-primary);
 
   /* Keyboard focus ring colour. Declared once per mode and referenced by every
      focus rule, so light and dark differ without a `!important` override war:
@@ -25,9 +37,9 @@
   --fat-focus-ring-inset: 4px;
 
   /* Foreground for anything painted on a primary-coloured surface (the topbar brand,
-     selected chips). White suits 4 of the 6 light primaries but only reaches 2.54:1 on
-     green and 3.56:1 on orange, so those two themes flip to the dark ink (7.04 / 5.02).
-     Declared per theme because CSS still has no portable colour-contrast(). */
+     selected chips). White suits 3 of the 6 light primaries but only reaches 2.78:1 on blue,
+     2.54:1 on green and 3.56:1 on orange, so those three flip to the dark ink (6.42 / 7.04 /
+     5.02). Declared per theme because CSS still has no portable colour-contrast(). */
   --fat-on-primary: #fff;
 
   /* The topbar is the only primary-coloured surface on screen permanently, so it gets a
@@ -250,11 +262,11 @@
      EP paints those two with a semantic colour *as the text* on that same colour's 10% tint, and the
      pair is not readable: WCAG 2.x contrast on sRGB measures 2.04:1 (warning), 2.08:1 (success),
      2.61:1 (danger/error), 2.80:1 (info) in light mode, and 2.31:1 (green) / 3.15:1 (orange) /
-     4.00:1 (rose) / 4.49:1 (blue) for a default `type="primary"` tag, which is what every format
+     4.00:1 (rose) / 2.53:1 (blue) for a default `type="primary"` tag, which is what every format
      badge on the workbench is. Deepening each hue toward black is the only lever that keeps the hue
      recognizable — 60% for the four fixed semantics (worst pair then 5.13:1) and 65% for the theme
-     primary, whose worst case is green (4.99:1); the other five primaries land 6.3–10.4:1 at the
-     same 65%, which is why this is one number rather than six.
+     primary, whose worst case is green (4.99:1); the other five primaries land 5.31–10.4:1 at the
+     same 65% (blue's new #409eff is the 5.31), which is why this is one number rather than six.
      Dark mode is not in scope: there the tint is mixed toward `#1e1e2e`, so the unaltered hues
      already measure 4.59–6.31:1 for the semantics and 5.22–8.13:1 for the six theme primaries, and
      darkening them would move them off the page. */
@@ -301,6 +313,22 @@
 }
 
 /* ---- Theme variants ---- */
+
+/* Blue is the default palette declared at `:root`, but it is the only light theme that has to
+   restate the three derived tokens: #409eff under white is 2.78:1 (below AA for body text), so
+   the accent text/ink side gets the siblings' strong blue. The two `color-mix` values are theirs
+   too: #0072e8 kept for plain cards (5.27:1 on white) and mixed 92% toward black for tinted
+   backdrops (4.79:1 at worst on #ecf5ff). The focus ring takes the ink for the same reason it
+   always did — 5.27:1 against the card, well past 1.4.11's 3:1 — and the button steps toward
+   white because its label is now the dark ink. All three are re-declared in the dark-blue block
+   below rather than left to a specificity tie against `:root[data-mode='dark']`. */
+:root[data-theme='blue'] {
+  --fat-primary-ink: color-mix(in srgb, #0072e8 92%, black);
+  --fat-on-primary: var(--fat-text-primary);
+  --fat-focus-ring: var(--fat-primary-ink);
+  --fat-btn-solid-step: #fff;
+}
+
 :root[data-theme='green'] {
   --fat-primary: #10b981;
   --fat-primary-hover: #34d399;
@@ -538,12 +566,23 @@
 }
 
 :root[data-mode='dark'][data-theme='blue'] {
-  --fat-primary: #6d9ef6;
-  --fat-primary-hover: #93bbf9;
-  --fat-primary-active: #2b5cb8;
-  --fat-primary-rgb: 109 158 246;
-  --fat-primary-bg: #141c30;
-  --fat-primary-border: #2e4470;
+  --fat-primary: #66b3ff;
+  --fat-primary-hover: #85c1ff;
+
+  /* Deeper than the light ladder's dark-2 on purpose: this theme's topbar paints itself with
+     --fat-primary-active (see the dark block above), and #337ecc only carries white at 4.20:1.
+     #1d6fd6 keeps the same hue and measures 4.89:1 under the brand text. */
+  --fat-primary-active: #1d6fd6;
+  --fat-primary-rgb: 102 179 255;
+  --fat-primary-bg: #212b43;
+  --fat-primary-border: #253858;
+
+  /* Undo the light-blue overrides. White on this topbar shade is 4.89:1, the accent text is the
+     light tint itself (6.33:1 at worst on the theme's own tint), and the ring keeps the
+     lighter --fat-primary-hover it shares with every other dark theme (8.65:1 on the card). */
+  --fat-on-primary: #fff;
+  --fat-focus-ring: var(--fat-primary-hover);
+  --fat-primary-ink: var(--fat-primary);
 }
 
 :root[data-mode='dark'][data-theme='green'] {

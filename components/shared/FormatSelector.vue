@@ -345,7 +345,7 @@ const noTargetTitle = computed(() => (hasSource.value ? t('format.noTarget') : t
 }
 
 .path-steps {
-  color: var(--fat-primary);
+  color: var(--fat-primary-ink);
   font-weight: 500;
   font-family: var(--fat-font-mono);
 }

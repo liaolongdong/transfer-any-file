@@ -1,13 +1,7 @@
 <svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#3B82F6"/>
-      <stop offset="1" stop-color="#1D4ED8"/>
-    </linearGradient>
-  </defs>
-
-  <!-- App tile -->
-  <rect width="32" height="32" rx="7" fill="url(#bg)"/>
+  <!-- App tile. Flat #409EFF (Element Plus primary) rather than the old gradient: the tile has to
+       read as the same brand colour as the workbench topbar and the two sibling extensions. -->
+  <rect width="32" height="32" rx="7" fill="#409EFF"/>
 
   <!--
     Bold swap arrows: stays legible at 16px. This is the brand mark and the geometry source of

@@ -148,7 +148,7 @@ It separately asserts that the first Tab lands on the skip link and that the lin
 
 **Which ink goes where**: `--fat-text-secondary` is the only colour informational text may take (4.95–5.44:1 light, 7.37–8.42:1 dark). `--fat-text-placeholder` (2.33–2.56:1 light) is reserved for the three cases 1.4.3 does not cover — real input placeholders, disabled controls, and decoration whose state is already carried by an ARIA attribute. Point informational text at the placeholder token and the fourth group above turns red.
 
-**Known limitation**: a control's fill also needs 3:1 against the surface behind it (WCAG 1.4.11). That holds in 10 of the 12 combinations but not under the forest-green and orange buttons in light mode (2.21 / 2.96:1 at their lightest state) — those two fills sit close to white, and deepening them to clear 3:1 would spend the label's margin. Change a theme token in `assets/theme/tokens.css` and these assertions catch the regression.
+**Known limitation**: a control's fill also needs 3:1 against the surface behind it (WCAG 1.4.11). That holds in 9 of the 12 combinations but not under the sky-blue, forest-green and orange buttons in light mode (2.34 / 2.21 / 2.96:1 at their lightest state) — those three fills sit close to white, and deepening them to clear 3:1 would spend the label's margin. Change a theme token in `assets/theme/tokens.css` and these assertions catch the regression.
 
 ## Licence
 

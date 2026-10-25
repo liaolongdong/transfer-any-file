@@ -366,7 +366,7 @@ async function handleRename(): Promise<void> {
 }
 
 .preset-edit:hover:not(:disabled) {
-  color: var(--fat-primary);
+  color: var(--fat-primary-ink);
 }
 
 .preset-remove:hover:not(:disabled) {

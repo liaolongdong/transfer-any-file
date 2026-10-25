@@ -16,7 +16,10 @@ export default {
     title: '转换工作台',
     subtitle: '批量转换、预览与编辑，全部在本地完成',
     preferences: '偏好设置',
-    versionHint: '当前已安装版本 {version}',
+    /** The version chip is a link to the latest release, so its tooltip and accessible name say both
+     *  what the number is and where a click goes. It opens with the visible text ("v1.2.3") because
+     *  WCAG 2.5.3 keeps that text inside the accessible name. */
+    versionLinkHint: 'v{version}，当前已安装版本；点开 GitHub 最新发布页下载新版（在新标签页打开）',
     /** Appended to the visible link text rather than replacing it, so the accessible name keeps that
      *  text as a substring (WCAG 2.5.3) while still naming the new tab. */
     newTabSuffix: '，在新标签页打开',
@@ -376,7 +379,7 @@ export default {
     notificationBodyPartial: '{ok} 个成功，{fail} 个失败',
     notificationBodyAllFail: '全部 {count} 个文件转换失败',
     themeNames: {
-      blue: '经典蓝',
+      blue: '晴空蓝',
       green: '森林绿',
       purple: '梦幻紫',
       orange: '活力橙',

@@ -52,7 +52,7 @@
 以后再补跑的成本（本机需要手动装过 ffmpeg 与 chromium 二进制）：
 
 ```bash
-pnpm test:e2e        # = wxt build + node scripts/e2e-test.mjs，断言基线 486 条
+pnpm test:e2e        # = wxt build + node scripts/e2e-test.mjs，断言基线 489 条
 ```
 
 **2026-09-29 这一轮（JSON 预览的树 / 数组表 / 搜索 + 仓库外的对比页）跑满了 e2e，改在 `E2E_HEADLESS=true` 下跑**：
@@ -1772,6 +1772,74 @@ csv→Word 的另一组事实回读自`html-to-docx.ts`：正文以 MHT altChunk
   `verify:meta` 短描述 127/132；`lint:all` 全绿（十二道按顺序跑在收口后的同一棵树上）。
   `assets:capture` 重拍 7 张英文原图 + 7 张中文原图、14 张带文案商店截图与 3 张推广图；
   两条演示 GIF 重录（zh 1925 KB / en 1439 KB）。
+
+- **10-25 第七十六轮（版本号芯片接管「最新发布」的出口；断言总数 486→489，一轮全量绿灯）。**
+  上一轮撤掉顶栏两条外链后，用户圈出版本号芯片问「帮我给版本号增加最新的 github 下载链接」。撤回的是**两扇
+  并列的门**（而且「商店更新」听起来像会去拉新版本，可扩展从不检查更新）；芯片本身就是「我是哪一版、有没有
+  新版」这个问题的锚点，把最新发布页挂到它身上既不多一处陌生入口，也没把抽屉挤掉——抽屉仍是十条地址的全量
+  索引，芯片只是其中「最新版本与下载」这一条在页头的快捷方式。
+  **改动**：`App.vue` 的芯片由 `<span>` 改为 `<a :href="GITHUB_RELEASES_PAGE_URL" target="_blank"
+rel="noopener noreferrer">`，因此 `utils/urls` 重新被入口静态引用，上一轮被内联进抽屉 chunk 的它又独立成
+  chunk：产物 74→75 个文件、3,885,158→3,886,027 B（+869 B），zip 1,186,481→1,186,918 B。
+  `options.versionHint` 换成 `options.versionLinkHint`（中英同步）：字符串以可见文案 `v{version}` 开头以满足
+  WCAG 2.5.3，并说明点开的是 GitHub 最新发布页、在新标签页打开；同一个字符串同时做 `title` 与 `aria-label`，
+  免得两处措辞漂移（`title` 只做描述，不能当可访问名）。
+  **静止态像素未变，所以没有重拍素材**：盒模型、字号、卡片底、圆角、墨色全部是显式声明，UA 对 `<a>` 只多
+  `color` / `text-decoration` / `cursor` 三样，前两样已被显式覆盖；hover 用 `box-shadow` 画 1px 环（不占布局；
+  墨色仍留 `--fat-text-primary`——强调色绿/橙在这张卡片上只有 2.54:1 / 3.56:1，低于正文 4.5:1 的线），
+  焦点环沿用两枚胶囊的双层契约（卡片色 shadow 填掉 outline 的 2px offset，环不会直接落在彩色页头上）。
+  截图拍的就是静止态，且 `assets:capture` 本身不逐字节可复现，为一次像素无变化的改动重拍 24 张图只会留下
+  24 份无法解释的二进制 diff。
+  **守卫改写而不收窄**：e2e 顶栏一节 4→7 条——芯片文本、`A` 标签 + href 逐字钉 `releases/latest`、`target`/`rel`、
+  可访问名以可见文案开头且点名新标签页、tooltip 全文、**页头唯一对外锚点就是这个芯片**、320px 不撑宽文档。
+  最后那条仍是**正面**断言，只是从「一个都没有」改成「恰好是这一个、而且就是它」：判据是 `offsite.length === 1`
+  且芯片自己的 href 等于那一条；页内锚点（`#…`）不进这个列表，才与注释里「页内锚点允许」不矛盾。芯片被换回
+  `<span>` 时 `tag` 不是 `A`、`href` 也读不到，两条各自会红，空集不会被读成通过。
+  **文档同步**：README 中英各两处（功能段 / 隐私段）、`docs/index.html` 隐私段中英各一句、CHANGELOG 中英未发布
+  条目；断言总数 486→489 除 `scripts/__baseline__/e2e-assertions.json`（测试自写）外，同批跟改
+  `docs/index.html`、`docs/blog/index.html` 与四份推广稿。商店文案、manifest 与 `_locales` 没动。
+  验证：`Results: 489/489 passed (100%)`、`EXIT:0`（`.test-tmp/e2e-full-2.log`；第七十六、七十七两轮在同一棵树上，
+  这一轮全量运行把两笔改动一并覆盖），基线自写到 `489`；`lint:all` 全绿；`verify:meta` 短描述 127/132；
+  `verify:listing` 7 个粘贴字段；`verify:paths` 48 边 / 182 对；`pages:check` 133 文件；`verify:numbers` 23 事实 ×
+  138 文档；`verify:release-ci` 71 条判定与四组接缝；`verify:offline` 98 个第一方文件 + 产物 manifest 只有 `storage`；
+  `verify:remote-code` 源码 98 / 产物 51。构建读数见本轮正文（74→75 文件、+869 B）。
+
+- **10-25 第七十七轮（默认蓝换成 Element Plus 的晴空蓝 `#409eff`，强调色拆出「墨」一层；图标与全部素材重生成）。**
+  用户要求把默认的深蓝换成 EP 主题色浅蓝、与作者另外两个插件（`account-password-helper`、`cross-origin-proxy`）
+  一致，图标一起改，并重拍截图。
+  **只换一个变量做不到**：`#409eff` 当填充没问题，当墨色（链接式文字、文件路径、图表线、图标描边）铺在白卡上
+  只有 2.78:1，而原来的 `#2563eb` 是 5.17:1。于是新增 `--fat-primary-ink`：默认 `var(--fat-primary)`，另外五个
+  主题一个字都不用改；只有 `:root[data-theme='blue']` 把它改成 `color-mix(in srgb, #0072e8 92%, black)`，实测卡面
+  6.42:1。填充、边框、底色与装饰性图形仍是 `#409eff`（hover `#66b3ff`、active `#337ecc`、浅底 `#ecf5ff`、
+  浅边 `#d9ecff`——EP 自己那套浅蓝阶梯）。八个组件与页头遮罩层里凡是把 `--fat-primary` 当墨色用的都改指 ink
+  （历史徽章、对比分隔按钮、失败诊断的 from/to、文件句柄按钮、路径步骤、趋势线、快捷键键帽、预设编辑）。
+  **顶栏与主按钮反着翻**：白字压在 `#409eff` 上只有 2.78:1，所以浅色下 `--fat-on-primary` 翻成深墨
+  `--fat-text-primary`（顶栏品牌 6.42:1）；主按钮再用 `--fat-btn-solid-step: #fff` 让悬停/按下往浅里走、标签仍是
+  深墨（6.42 / 7.00 / 7.64，最差是静止态）。浅色焦点环改用 ink（卡面 5.27:1）。
+  **暗色不照抄**：`#66b3ff` 当墨色在暗卡上够亮（8.44:1），所以 ink 回到 primary；顶栏改用压深过的
+  `--fat-primary-active: #1d6fd6`——`#337ecc` 配白字只有 4.20:1，压深后 4.89:1；焦点环沿用各暗色主题共享的
+  `--fat-primary-hover`（8.65:1）。
+  **把限制写进文档**：实测量了 6 主题 × 亮/暗共 12 组的主按钮填充对卡面（亮色卡 `#fff`），9 组低于 3:1——蓝 2.78 / 2.55 / 2.34
+  （静止 / 悬停 / 按下）、绿 2.54 / 2.36 / 2.21、橙 3.56 / 3.26 / 2.96；紫 5.70+、玫 4.70+、石墨 7.58+ 与六个暗色
+  全部过线。这条本来就在 `CONTRIBUTING` 的已知限制里（旧口径只写绿/橙两族 2.21 / 2.96），现在把晴空蓝并进去、
+  改成「12 组里 9 组」，中英与商店手册三处同改。
+  **图标**：两档母版都换成平涂 `#409EFF`（详细档折页 `#D9ECFF`、文档线 `#A0CFFF`、徽章箭头 `#337ECC`；简化档
+  白箭头不动），去掉原来的 `#2563eb → #1d4ed8` 渐变。四张 `public/icon/*.png` 与两张 `docs/assets/icon*` 由
+  `pnpm icons:build` 重渲染，合计 −4,818 B。
+  **素材全部重拍**：`pnpm build && pnpm assets:capture` 出 7 张英文原图 + 7 张中文原图 + 14 张商店截图 + 3 张推广图，
+  两条演示 GIF 重录（zh 1,565 KB / en 1,838 KB）。
+  产物：75 个文件 / 3,881,576 B（3.88 MB），比第七十六轮的 3,886,027 少 4,451 B；zip 1,182,110 B（1.18 MB，
+  1,186,918 → −4,808 B）。同一棵树连续两次 build，文件数与字节多重集完全相同。
+  **商店品牌层刻意没动**：`docs/assets/content.css` 的 `--brand`、404 页与生成页的 `theme-color`、
+  `tools/file-diff.html` 仍是 `#2563eb`——它们属于站点与工具的配色，不是扩展主题；要一起换是另一笔。
+  e2e 的主题名断言同步成「晴空蓝」，对比度矩阵在 6 主题 × 亮/暗共 12 组上读数：顶栏品牌 6.42（蓝浅）/ 4.89（蓝深）、焦点环
+  5.27 / 8.65、主按钮标签 6.42 / 8.44（最差全场 4.70，玫红浅色）、提示性正文最差 4.94、EP 浅色提示与格式标签
+  墨色最差 5.13 / 4.99、关于抽屉链接最差 5.44——全部过线。
+  验证：`Results: 489/489 passed (100%)`、`EXIT:0`（`.test-tmp/e2e-full-2.log`），基线 `489` 未变（本轮只改颜色，
+  不加断言）；`lint:all` 全绿（首轮 stylelint 在 `tokens.css` 暗色块的注释前少了空行，补上后转绿）；
+  `verify:numbers` 23 事实 × 138 文档；`verify:offline` 98 个第一方文件 + manifest 只有 `storage`；
+  `verify:remote-code` 源码 98 / 产物 51；`verify:meta`、`verify:listing`、`verify:paths`、`pages:check`、
+  `verify:release-ci` 一并绿。
 
 ## 3. 收下改动：这一节记的是提交账，不是提交计划
 

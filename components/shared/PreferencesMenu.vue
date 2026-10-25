@@ -422,7 +422,7 @@ const notifyStatusKey = computed<string>(() => {
 }
 
 /* Six name labels no longer fit one row once the dialog is near phone width, and an ellipsis cuts
-   exactly the character that tells 森林绿 from 经典蓝. Three columns keep each name whole. */
+   exactly the character that tells 森林绿 from 晴空蓝. Three columns keep each name whole. */
 @media (width <= 420px) {
   .theme-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -633,7 +633,7 @@ const notifyStatusKey = computed<string>(() => {
 
 .shortcut-key:hover {
   border-color: var(--fat-primary);
-  color: var(--fat-primary);
+  color: var(--fat-primary-ink);
 }
 
 .shortcut-key:focus-visible {
@@ -644,7 +644,7 @@ const notifyStatusKey = computed<string>(() => {
 .shortcut-key.recording {
   border-color: var(--fat-primary);
   background: var(--fat-primary-bg);
-  color: var(--fat-primary);
+  color: var(--fat-primary-ink);
   font-style: italic;
   cursor: default;
   animation: shortcut-pulse 1.4s ease-in-out infinite;
@@ -652,7 +652,7 @@ const notifyStatusKey = computed<string>(() => {
 
 .shortcut-key.recording:hover {
   border-color: var(--fat-primary);
-  color: var(--fat-primary);
+  color: var(--fat-primary-ink);
 }
 
 @keyframes shortcut-pulse {
@@ -679,7 +679,7 @@ const notifyStatusKey = computed<string>(() => {
 
 .shortcut-reset:hover {
   border-color: var(--fat-border);
-  color: var(--fat-primary);
+  color: var(--fat-primary-ink);
 }
 
 .shortcut-reset:focus-visible {

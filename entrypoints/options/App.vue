@@ -18,6 +18,7 @@ import { converterRegistry } from '~/utils/core/registry';
 import { isImageOutputFormat } from '~/utils/core/output-options';
 import { MAX_MERGED_PAGES } from '~/utils/core/image-pdf';
 import { getFormatLabel } from '~/utils/core/format-labels';
+import { GITHUB_RELEASES_PAGE_URL } from '~/utils/urls';
 import { FileFormat } from '~/utils/core/types';
 import type { ConversionPreset, ConvertResult, ImageOutputOptions } from '~/utils/core/types';
 import type { HistoryRecord } from '~/composables/useHistory';
@@ -505,16 +506,23 @@ onUnmounted(() => {
               <span class="brand-name">{{ t('appName') }}</span>
               <!-- The card-coloured pill the skip link and the preferences button already use: its ink
                    is `--fat-text-primary` on `--fat-bg-card`, and those two flip together with the mode,
-                   so the chip needs no contrast measurement of its own on any of the six headers. -->
-              <span
+                   so the chip needs no contrast measurement of its own on any of the six headers.
+                   It is also a link: the one question a version number invites is "is this current?",
+                   and the latest release page is that answer with the download on it. This is the
+                   header's only outbound door — the drawer still lists every address, this included. -->
+              <a
                 class="brand-version"
-                :title="t('options.versionHint', { version: appVersion })"
-                >v{{ appVersion }}</span
+                :href="GITHUB_RELEASES_PAGE_URL"
+                target="_blank"
+                rel="noopener noreferrer"
+                :title="t('options.versionLinkHint', { version: appVersion })"
+                :aria-label="t('options.versionLinkHint', { version: appVersion })"
+                >v{{ appVersion }}</a
               >
             </div>
-            <!-- The top bar carries no off-site anchor: every outbound address, including the store
-                 and the latest release, lives in the About drawer. Clicking one there is the only way
-                 the interface reaches the network, and the browser opens it — not this page. -->
+            <!-- The chip above is the header's one off-site anchor; every other address lives in the
+                 About drawer. Either way the browser opens the destination after a click — this page
+                 issues no request of its own, and never asks whether a newer version exists. -->
             <span class="brand-tag">{{ t('options.subtitle') }}</span>
           </div>
           <!-- Two capsules on the right: the drawer of exits, then preferences. Both share the
@@ -910,6 +918,8 @@ onUnmounted(() => {
 }
 
 .brand-version {
+  display: inline-flex;
+  align-items: center;
   padding: 2px var(--fat-space-sm);
   background: var(--fat-bg-card);
   border-radius: var(--fat-radius-pill);
@@ -917,6 +927,22 @@ onUnmounted(() => {
   font-size: 12px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
+  text-decoration: none;
+}
+
+/* The pill has no border to tint, so hover is a 1px ring drawn outside the box — a shadow, so the
+   header does not shift by a pixel. Ink stays --fat-text-primary: the accent drops to 2.78:1
+   (blue), 2.54:1 (green) and 3.56:1 (orange) on this card, under the 4.5:1 body-text floor. */
+.brand-version:hover {
+  box-shadow: 0 0 0 1px var(--fat-primary);
+}
+
+/* Same double-band contract as the two capsules: a card-coloured shadow fills the outline's 2px
+   offset, so the focus ring is never painted straight onto a coloured header. */
+.brand-version:focus-visible {
+  outline: 2px solid var(--fat-focus-ring);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 2px var(--fat-bg-card);
 }
 
 /* The topbar's right-hand controls. They travel as one flex item so the header keeps a two-sided
@@ -1203,7 +1229,7 @@ onUnmounted(() => {
   background: var(--fat-bg-card);
   border-radius: var(--fat-radius-lg);
   box-shadow: var(--fat-shadow-lg);
-  color: var(--fat-primary);
+  color: var(--fat-primary-ink);
   font-size: 18px;
   font-weight: 600;
   animation: fat-place var(--fat-duration-slow) var(--fat-ease-enter);

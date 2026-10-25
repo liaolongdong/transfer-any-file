@@ -307,7 +307,7 @@ function toggle(): void {
 .path-segment.is-source,
 .path-segment.is-target {
   border-color: var(--fat-primary-border, var(--fat-primary));
-  color: var(--fat-primary);
+  color: var(--fat-primary-ink);
 }
 
 .path-segment.is-failed {
