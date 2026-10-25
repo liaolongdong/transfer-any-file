@@ -24,6 +24,31 @@ export default {
     newTabSuffix: '，在新标签页打开',
   },
 
+  // About drawer
+  about: {
+    title: '关于',
+    open: '关于',
+    factsTitle: '离线与隐私',
+    factNetwork: '网络访问',
+    factNetworkValue: '扩展自身不发起任何请求，文件不出本机',
+    factPermission: '权限',
+    factPermissionValue: '仅 storage（本机存储）',
+    factAccount: '账号与遥测',
+    factAccountValue: '无账号、无遥测、无数据收集',
+    linksTitle: '对外链接',
+    linkDocs: '完整使用说明',
+    linkGuides: '格式转换说明',
+    linkStore: 'Chrome 应用商店',
+    linkReview: '在商店里评价',
+    linkRepo: 'GitHub 开源仓库',
+    linkIssues: '反馈与问题',
+    linkPrivacy: '隐私政策',
+    linkLicense: '开源许可证全文',
+    linkReleases: '最新版本与下载',
+    linkAuthor: '作者 GitHub 主页',
+    license: '本项目以 MIT 许可证开源',
+  },
+
   // Upload
   upload: {
     drop: '拖拽文件或文件夹到此处，或点击选择文件',

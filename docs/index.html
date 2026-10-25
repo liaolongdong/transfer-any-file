@@ -211,7 +211,7 @@
       · 143 combinations -> BFS closure over the same graph (utils/core/registry.ts)
       · 116 selectable   -> 143 minus the 27 pairs utils/core/conversion-policy.ts greys out
                             (24 image -> text/data + 3 PDF -> data)
-      · 3.86 MB          -> `pnpm build` total output size
+      · 3.89 MB          -> `pnpm build` total output size
     -->
     <script
       type="application/ld+json"
@@ -227,7 +227,7 @@
             "alternateName": ["Transfer Any File — Offline File Format Converter", "文件格式任意转换助手"],
             "softwareVersion": "1.4.0",
             "datePublished": "2026-09-07",
-            "dateModified": "2026-10-24",
+            "dateModified": "2026-10-25",
             "applicationCategory": "UtilitiesApplication",
             "applicationSubCategory": "File Format Converter",
             "keywords": "offline file format converter, file converter chrome extension, markdown to pdf, word to pdf, csv to excel, json to csv, png to webp, svg to png, html to docx, batch file conversion, convert files without uploading, local-first, privacy",
@@ -4477,7 +4477,7 @@
               class="metric metric-size"
               data-onview="in"
             >
-              <b>3.86&nbsp;MB</b>
+              <b>3.89&nbsp;MB</b>
               <span class="label"><span lang="zh-CN">完整包体</span><span lang="en">whole bundle</span></span>
               <span
                 class="size-bar"
@@ -7765,16 +7765,17 @@ pnpm build</code><button
               <span lang="zh-CN"
                 >扩展只申请一项权限：<code>storage</code>，用于历史记录与偏好设置。它不声明任何
                 <code>host_permissions</code
-                >，自身代码中也不发起任何网络调用，因此不存在能把文件发出去的代码路径。界面上通向站外的只有顶栏那两个链接（商店条目与最新
-                Release），点了才由浏览器打开，扩展既不检查更新也不预取任何东西。完整政策：<a href="privacy.html"
+                >，自身代码中也不发起任何网络调用，因此不存在能把文件发出去的代码路径。界面上的对外地址集中在顶栏的「关于」抽屉里——使用说明、商店、源码、反馈、隐私政策等十条——顶栏另有两颗快捷链接；每一条都是普通链接，点了才由浏览器打开，扩展既不检查更新也不预取任何东西。完整政策：<a
+                  href="privacy.html"
                   >隐私政策</a
                 >（中英双语）。</span
               >
               <span lang="en"
                 >The extension requests exactly one permission, <code>storage</code>, for history and preferences. It
                 declares no <code>host_permissions</code> and issues no network call of its own, so there is no path by
-                which a file could be transmitted. The only two ways out of the interface are the top-bar links to the
-                store listing and to the newest release: the browser opens them when you click, and the extension
+                which a file could be transmitted. Every off-site address lives in the About drawer in the top bar —
+                usage guide, store listing, source, feedback, privacy policy and so on, ten in all — alongside two
+                shortcuts in the header: each is a plain link the browser opens when you click it, and the extension
                 neither checks for updates nor prefetches anything. Full text:
                 <a href="privacy.html">privacy policy</a> (bilingual).</span
               >
@@ -8859,8 +8860,8 @@ pnpm build</code><button
               <p>
                 <span lang="zh-CN"
                   >一套 Playwright 端到端套件加载真正的构建产物，用仓库内的夹具跑完各类转换场景、批量与
-                  ZIP、取消与改键、预览与编辑、图片输出参数与转换预设、PDF 选页、输出文件名模板、历史与偏好，共 480
-                  项断言全部通过（1.3.0 构建，2026-10-24 实测）；另在 6 主题 × 浅/深共 12
+                  ZIP、取消与改键、预览与编辑、图片输出参数与转换预设、PDF 选页、输出文件名模板、历史与偏好，共 491
+                  项断言全部通过（1.3.0 构建，2026-10-25 实测）；另在 6 主题 × 浅/深共 12
                   种组合下逐项校验五组对比度：顶栏文字、主按钮文字（常态 / 悬停 / 按下）、焦点环、正文信息文字，以及
                   Element Plus 浅色效果的警示框与格式标签。CI 每次推送跑 lint + build + e2e。</span
                 >
@@ -8868,8 +8869,8 @@ pnpm build</code><button
                   >A Playwright end-to-end suite drives the actual build output over the repository fixtures — every
                   conversion scenario, batching and ZIP handling, cancellation and shortcut rebinding, preview and
                   editing, image output parameters and conversion presets, PDF page selection, output file-name
-                  patterns, history and preferences — with 480/480 assertions passing (the 1.3.0 build, measured
-                  2026-10-24). It also checks five contrast pairs — topbar text, the primary button's label in its rest,
+                  patterns, history and preferences — with 491/491 assertions passing (the 1.3.0 build, measured
+                  2026-10-25). It also checks five contrast pairs — topbar text, the primary button's label in its rest,
                   hover and pressed states, the focus ring, informational text such as the drop hint and file sizes, and
                   the ink Element Plus paints on its light-effect alerts and per-file format tags — in all 12 theme ×
                   light/dark combinations. CI runs lint, build and e2e on every push.</span
@@ -8894,9 +8895,9 @@ pnpm build</code><button
           </div>
           <p class="updated">
             <span lang="zh-CN"
-              ><strong>版本 1.3.0 · 本页最后更新 2026-10-24。</strong>文中全部数字从代码取证：14 种格式来自
+              ><strong>版本 1.3.0 · 本页最后更新 2026-10-25。</strong>文中全部数字从代码取证：14 种格式来自
               <code>FileFormat</code> 枚举，48 条路径与 143 个可达组合来自转换器注册表的邻接图，116 个可选组合是 143
-              减去 <code>utils/core/conversion-policy.ts</code> 置灰的 27 个，3.86 MB 来自
+              减去 <code>utils/core/conversion-policy.ts</code> 置灰的 27 个，3.89 MB 来自
               <code>pnpm build</code> 输出，权限与上限来自 manifest 与源码常量。截图与推广图由
               <code>pnpm assets:capture</code> 从构建产物生成；<code>docs/convert/</code> 的 116 张配对页、14
               张来源格式页与 1 个索引页由 <code>pnpm pages:render</code> 生成，与
@@ -8904,10 +8905,10 @@ pnpm build</code><button
               <code>tools/file-diff.html</code> 的逐字节副本，由同一条命令发布到 <code>docs/diff/</code>。</span
             >
             <span lang="en"
-              ><strong>Version 1.3.0 · page last updated 2026-10-24.</strong> Every number on this page is taken from
+              ><strong>Version 1.3.0 · page last updated 2026-10-25.</strong> Every number on this page is taken from
               the code: 14 formats from the <code>FileFormat</code> enum, 48 routes and 143 reachable combinations from
               the converter registry's adjacency graph, and 116 selectable combinations — that is 143 minus the 27 pairs
-              <code>utils/core/conversion-policy.ts</code> greys out. 3.86 MB comes from <code>pnpm build</code> output,
+              <code>utils/core/conversion-policy.ts</code> greys out. 3.89 MB comes from <code>pnpm build</code> output,
               permissions and limits from the manifest and source constants. Screenshots are generated from the built
               bundle by <code>pnpm assets:capture</code>, and the per-pair pages — 116 of them, plus 14 source-format
               hub pages and an index — come from <code>pnpm pages:render</code>, which writes the sitemap they are
@@ -9231,7 +9232,7 @@ pnpm build</code><button
               </a>
             </span>
             <span>
-              <span lang="zh-CN">最后更新 2026-10-24 · </span><span lang="en">Last updated 2026-10-24 · </span
+              <span lang="zh-CN">最后更新 2026-10-25 · </span><span lang="en">Last updated 2026-10-25 · </span
               ><a
                 href="https://github.com/liaolongdong/transfer-any-file/blob/main/CHANGELOG.md"
                 rel="noopener"
@@ -9628,7 +9629,7 @@ pnpm build</code><button
         }
 
         // ---- Roll the metric band up, once, as it comes into view ----------
-        // Only bare integers are touched: "3.86 MB" is a measurement with a unit, not a tally, and
+        // Only bare integers are touched: "3.89 MB" is a measurement with a unit, not a tally, and
         // rolling it would advertise a precision the build does not have. The real value stays in the
         // HTML, so crawlers, no-JS readers and reduced-motion readers all see the answer immediately.
         var metricNums = Array.prototype.slice.call(document.querySelectorAll('.metric b')).filter(function (el) {
@@ -9793,7 +9794,7 @@ pnpm build</code><button
 
         // ---- One-pass scroll reveals declared in the markup -------------------
         // data-onview names the class an element gains the first time it is 35% in view:
-        // the size bar under "3.86 MB" (in) and the light sweep over the comparison column
+        // the size bar under "3.89 MB" (in) and the light sweep over the comparison column
         // (shine). Both classes only arm finite animations, so reduced-motion readers get
         // the end state directly and there is nothing to unsee.
         var onView = Array.prototype.slice.call(document.querySelectorAll('[data-onview]'));

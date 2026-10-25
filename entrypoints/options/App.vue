@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed, ref, watch, nextTick, defineAsyncComponent, onMounted, onUnmounted } from 'vue';
-import { Setting, RefreshRight, CircleClose, UploadFilled } from '@element-plus/icons-vue';
+import { computed, ref, watch, nextTick, defineAsyncComponent, onMounted, onUnmounted, shallowRef } from 'vue';
+import type { Component } from 'vue';
+import { Setting, InfoFilled, RefreshRight, CircleClose, UploadFilled } from '@element-plus/icons-vue';
 import zhCn from 'element-plus/es/locale/lang/zh-cn';
 import enUs from 'element-plus/es/locale/lang/en';
 import { browser } from 'wxt/browser';
@@ -17,6 +18,7 @@ import { converterRegistry } from '~/utils/core/registry';
 import { isImageOutputFormat } from '~/utils/core/output-options';
 import { MAX_MERGED_PAGES } from '~/utils/core/image-pdf';
 import { getFormatLabel } from '~/utils/core/format-labels';
+import { CHROME_WEB_STORE_URL, GITHUB_RELEASES_PAGE_URL } from '~/utils/urls';
 import { FileFormat } from '~/utils/core/types';
 import type { ConversionPreset, ConvertResult, ImageOutputOptions } from '~/utils/core/types';
 import type { HistoryRecord } from '~/composables/useHistory';
@@ -37,18 +39,6 @@ const ResultDownload = defineAsyncComponent(() => import('~/components/shared/Re
 const ComparisonView = defineAsyncComponent(() => import('~/components/shared/ComparisonView.vue'));
 
 initConverters();
-
-/**
- * The two places a newer build can be had, printed beside the installed version in the topbar.
- *
- * Both are fixed addresses and neither is probed: this page asks the network nothing, so a
- * "检查更新" that claimed an upgrade was available — or silent when one was — would be worse than a
- * link that lets the reader look for themselves. The item ID is the live listing recorded at the top
- * of `.github/CHROMEWEBSTORE.md`; `releases/latest` is the second half because the store copy trails
- * GitHub until the next submission clears.
- */
-const STORE_URL = 'https://chromewebstore.google.com/detail/blkdmpkcaceicinkhindniepbbbaekkb';
-const RELEASES_URL = 'https://github.com/liaolongdong/transfer-any-file/releases/latest';
 
 /** The version actually loaded, so the number a bug report quotes is the one on screen. */
 const appVersion = browser.runtime.getManifest().version;
@@ -72,6 +62,24 @@ const fileUploadRef = ref<InstanceType<typeof FileUpload> | null>(null);
  *  overlay: the overlay's z-index (9999) sits above Element Plus's modal stack (2000+), so a file
  *  dragged over an open dialog would otherwise paint the "drop here" veil on top of it. */
 const prefsOpen = ref(false);
+
+/** The About drawer's component, fetched on first open rather than at first paint. Mounting it a
+ *  tick before the model flips is what keeps Element Plus's enter transition: a drawer that first
+ *  renders with `visible` already true opens with no animation (its Transition has no `appear`). */
+const AboutDrawer = shallowRef<Component>();
+const aboutOpen = ref(false);
+
+/** Any open modal overlay. It keeps the convert shortcut off, disables the uploader and suppresses
+ *  the page-wide drop veil, whose z-index sits above Element Plus's modal stack. */
+const overlayOpen = computed(() => prefsOpen.value || aboutOpen.value);
+
+async function openAbout(): Promise<void> {
+  if (!AboutDrawer.value) {
+    AboutDrawer.value = (await import('~/components/options/AboutDrawer.vue')).default;
+    await nextTick();
+  }
+  aboutOpen.value = true;
+}
 
 const {
   sourceFile,
@@ -454,8 +462,8 @@ async function handleRetryFailed(): Promise<void> {
 }
 
 function handleGlobalKeydown(event: KeyboardEvent): void {
-  // The preferences dialog is modal; a batch must not start behind it.
-  if (prefsOpen.value) return;
+  // Both overlays are modal; a batch must not start behind either.
+  if (overlayOpen.value) return;
   if (!shortcutMatches('convert', event)) return;
   const target = event.target as HTMLElement | null;
   // Don't steal the shortcut while the user is typing somewhere
@@ -468,7 +476,7 @@ function handleGlobalKeydown(event: KeyboardEvent): void {
 // The overlay markup lives with this state below; the counter, the `Files`-type guard and the
 // four document-level listeners are all in the composable.
 const { isWorkspaceDragging } = useWorkspaceFileDrop({
-  isLocked: computed(() => isConverting.value || prefsOpen.value),
+  isLocked: computed(() => isConverting.value || overlayOpen.value),
   onFilesDropped: dataTransfer => void fileUploadRef.value?.intakeDrop(dataTransfer),
 });
 
@@ -512,7 +520,7 @@ onUnmounted(() => {
                    which `aria-label` supplies in full (visible text first, WCAG 2.5.3). -->
               <a
                 class="brand-link"
-                :href="STORE_URL"
+                :href="CHROME_WEB_STORE_URL"
                 target="_blank"
                 rel="noopener"
                 :aria-label="`${t('options.storeLink')}${t('options.newTabSuffix')}`"
@@ -520,7 +528,7 @@ onUnmounted(() => {
               >
               <a
                 class="brand-link"
-                :href="RELEASES_URL"
+                :href="GITHUB_RELEASES_PAGE_URL"
                 target="_blank"
                 rel="noopener"
                 :aria-label="`${t('options.releasesLink')}${t('options.newTabSuffix')}`"
@@ -528,19 +536,31 @@ onUnmounted(() => {
               >
             </div>
           </div>
-          <!-- A white capsule rather than the old 32px circle: the panel it opens is now a centred
-               modal with grouped sections, and a labelled control says what it opens at a glance.
-               The label collapses below 640px, where the topbar has no room for it. -->
-          <el-button
-            class="prefs-trigger"
-            round
-            :icon="Setting"
-            :title="t('options.preferences')"
-            :aria-label="t('options.preferences')"
-            @click="prefsOpen = true"
-          >
-            <span class="prefs-trigger-label">{{ t('options.preferences') }}</span>
-          </el-button>
+          <!-- Two capsules on the right: the drawer of exits, then preferences. Both share the
+               card-coloured chrome and collapse to icon-only below 640px, where the topbar has no
+               room for the words. -->
+          <div class="topbar-actions">
+            <el-button
+              class="about-trigger"
+              round
+              :icon="InfoFilled"
+              :title="t('about.open')"
+              :aria-label="t('about.open')"
+              @click="openAbout"
+            >
+              <span class="about-trigger-label">{{ t('about.open') }}</span>
+            </el-button>
+            <el-button
+              class="prefs-trigger"
+              round
+              :icon="Setting"
+              :title="t('options.preferences')"
+              :aria-label="t('options.preferences')"
+              @click="prefsOpen = true"
+            >
+              <span class="prefs-trigger-label">{{ t('options.preferences') }}</span>
+            </el-button>
+          </div>
         </div>
       </header>
 
@@ -559,6 +579,13 @@ onUnmounted(() => {
         <PreferencesMenu />
       </el-dialog>
 
+      <component
+        :is="AboutDrawer"
+        v-if="AboutDrawer"
+        v-model="aboutOpen"
+        :version="appVersion"
+      />
+
       <main
         id="main-content"
         class="content"
@@ -569,7 +596,7 @@ onUnmounted(() => {
                list is one panel instead of a card inside a card. -->
           <FileUpload
             ref="fileUploadRef"
-            :disabled="isConverting || prefsOpen"
+            :disabled="isConverting || overlayOpen"
             :reorder-disabled="batchResults.length > 0 || batchFailures.length > 0"
             :formats="formatCount"
             :paths="pathCount"
@@ -952,11 +979,21 @@ onUnmounted(() => {
   box-shadow: 0 0 0 2px var(--fat-bg-card);
 }
 
-/* The topbar's only button, and the one piece of chrome that must stay legible against six
+/* The topbar's right-hand controls. They travel as one flex item so the header keeps a two-sided
+   `space-between` layout instead of spreading three children across it. */
+.topbar-actions {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: var(--fat-space-sm);
+}
+
+/* Both capsules the topbar can show, and the one piece of chrome that must stay legible against six
    different coloured headers. The double band is the same contract the skip link uses: a card-
    coloured ring fills the outline's 2px offset, so the focus-ring colour is always separated from
    the header by an opaque band — a blue ring directly on the blue header would vanish. */
-.prefs-trigger {
+.prefs-trigger,
+.about-trigger {
   flex-shrink: 0;
   border-radius: var(--fat-radius-pill) !important;
   background: var(--fat-bg-card);
@@ -967,13 +1004,15 @@ onUnmounted(() => {
 /* Hover keeps the label on --fat-text-primary: tinting it with the accent would drop green to
    2.54:1 and orange to 3.56:1 on the card-coloured capsule, below the 4.5:1 this UI holds body
    text to. The border carries the state instead. */
-.prefs-trigger:hover {
+.prefs-trigger:hover,
+.about-trigger:hover {
   border-color: var(--fat-primary);
   background: var(--fat-bg-card);
   color: var(--fat-text-primary);
 }
 
-.prefs-trigger:focus-visible {
+.prefs-trigger:focus-visible,
+.about-trigger:focus-visible {
   outline: 2px solid var(--fat-focus-ring) !important;
   outline-offset: 2px !important;
   box-shadow: 0 0 0 2px var(--fat-bg-card);
@@ -1231,12 +1270,14 @@ onUnmounted(() => {
 }
 
 @media (width <= 640px) {
-  /* The topbar keeps the icon and drops the word; the title and aria-label still name it. */
-  .prefs-trigger-label {
+  /* The topbar keeps the icons and drops the words; the title and aria-label still name them. */
+  .prefs-trigger-label,
+  .about-trigger-label {
     display: none;
   }
 
-  .prefs-trigger {
+  .prefs-trigger,
+  .about-trigger {
     padding-right: 10px;
     padding-left: 10px;
   }

@@ -50,11 +50,15 @@ docs/promo/*.html
 # `:(exclude).qoder/**` on the commit range it summarizes. The only mention from outside this directory
 # is the historical note about `popup-verify.png` further up in this file, which reads the same either way.
 # `.qoder/rules/` is NOT in this group — that directory is the project's coding contract and must
-# stay tracked, so do not "tidy" these two lines into a blanket `.qoder/`. And note that
+# stay tracked, so do not "tidy" these lines into a blanket `.qoder/`. And note that
 # `.github/visibility-checklist.md` / `CWS_PUBLISHING_GUIDE*.md` / `CHROMEWEBSTORE.md` are in
 # `verify:numbers`' list: those operational docs are tracked on purpose and untracking them turns CI red.
 .qoder/specs/
 .qoder/plans/
+# Qoder's Repo Wiki output (106 files, ~22k lines): regenerated from whatever commit is checked out,
+# and nothing compares a committed copy to anything — so tracking it goes stale silently and turns
+# every regeneration into a review-sized diff. Regenerate it locally instead of committing it.
+.qoder/repowiki/
 # 2026-09-28: the four specs and the one plan committed before the two rules above existed are now
 # untracked (`git rm --cached`), so the ignore rules finally bite. Local copies survive; history is not
 # rewritten, so those paths still appear in old commits and simply do not exist on `main`.
