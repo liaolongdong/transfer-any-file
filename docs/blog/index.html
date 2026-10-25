@@ -813,34 +813,37 @@ SVG      ──► HTML ──► PNG</code></pre>
                 ><span lang="en">Accessibility is a measurable number, not a goodwill gesture.</span></b
               >
               <span lang="zh-CN"
-                >五组颜色从真实页面上读回来，在 6 种主题 × 明暗共 12 组配置下逐主题断言：顶栏品牌文字对顶栏底色 ≥
-                4.5:1，主按钮文字在静止 / 悬停 / 按下三种状态下对按钮底色 ≥ 4.5:1（这两项是 WCAG 2.1 AA
-                对文本的要求），焦点环对卡片底色 ≥ 3:1（AA
-                对界面组件的要求），拖放提示、文件大小、页脚这些给人读的句子对各自底色 ≥ 4.5:1，Element Plus
+                >五组颜色从真实页面上读回来，在 6 种主题 × 明暗共 12
+                组配置下逐主题断言：顶栏品牌文字除晴空蓝外在各组配置下对顶栏底色 ≥
+                4.5:1——晴空蓝是与另外两个扩展一致的白字顶栏，对 #409eff 为 2.78:1，作为明示的例外单列；主按钮文字在静止
+                / 悬停 / 按下三种状态下对按钮底色 ≥ 4.5:1（这两项是 WCAG 2.1 AA 对文本的要求），焦点环对卡片底色 ≥
+                3:1（AA 对界面组件的要求），拖放提示、文件大小、页脚这些给人读的句子对各自底色 ≥ 4.5:1，Element Plus
                 浅色效果的警示框标题与文件行的格式标签——同一支语义色同时当墨与底——对各自的淡色底 ≥
                 4.5:1；测试还单独断言第一次 Tab 落在 skip link
                 上、并且它显示可见的焦点环——不是「看着还行」。主按钮这一条最值回票价：先把它写成测量时，12 组里有 7
                 组不达标，最差
-                3.45:1，而且失败点全在悬停或按下的中间色阶上，静止态反而是过的——修法是让这两档色阶从文字颜色的反方向推导，不再跟着主题的明度阶梯走。今天最差的一组是
-                4.70:1。还有一个缺口公开写着而不是藏起来：控件填充色对所在卡片底色 ≥ 3:1（WCAG 1.4.11）在 12 组里成立 10
-                组，浅色的森林绿与活力橙不成立，因为那两档填充本身就接近白色。</span
+                3.45:1，而且失败点全在悬停或按下的中间色阶上，静止态反而是过的——修法是让这两档色阶从文字颜色的反方向推导，不再跟着主题的明度阶梯走。除晴空蓝顶栏这个例外，今天最差的一组是
+                4.70:1。还有一个缺口公开写着而不是藏起来：控件填充色对所在卡片底色 ≥ 3:1（WCAG 1.4.11）在 12 组里成立 9
+                组，浅色的晴空蓝、森林绿与活力橙不成立，因为那三档填充本身就接近白色。</span
               >
               <span lang="en"
                 >Five contrast pairs are read back off the live page in 6 accent themes × light and dark, 12
-                configurations, and asserted per theme: topbar brand text against the topbar at 4.5:1 or better, the
-                primary button's label in its rest, hover <b>and</b> pressed states at 4.5:1 or better, the focus ring
-                against a card at 3:1 or better (WCAG 2.1 AA for text and for user-interface components respectively),
-                informational text — the drop hint, file sizes, the footer — against its own backdrop at 4.5:1 or
-                better, and the titles of Element Plus's light-effect alerts plus the format tag on every file row —
-                there one semantic colour serves as both ink and fill — against the tint underneath them at 4.5:1 or
-                better. The suite separately asserts that the first Tab lands on the skip link and that it shows a
-                visible ring. Not "looks fine". The button gate is the one that earned its keep: written as a
-                measurement first, it reported the label failing 4.5:1 in 7 of the 12 configurations — 3.45:1 at worst,
-                always in a hover or active shade rather than at rest — and the fix was to derive those two shades from
-                where the label sits instead of from the theme's lightness ladder. The worst case today is 4.70:1. One
-                gap stays documented rather than hidden: 3:1 between a control's fill and the card behind it (WCAG
-                1.4.11) holds in 10 of the 12 but not under the light forest-green and orange buttons, whose fills sit
-                close to white.</span
+                configurations, and asserted per theme: topbar brand text against the topbar at 4.5:1 or better in every
+                configuration except light sky blue — which carries the sibling extensions' white bar (2.78:1 on
+                #409eff) and is listed as the stated exception; the primary button's label in its rest, hover
+                <b>and</b> pressed states at 4.5:1 or better, the focus ring against a card at 3:1 or better (WCAG 2.1
+                AA for text and for user-interface components respectively), informational text — the drop hint, file
+                sizes, the footer — against its own backdrop at 4.5:1 or better, and the titles of Element Plus's
+                light-effect alerts plus the format tag on every file row — there one semantic colour serves as both ink
+                and fill — against the tint underneath them at 4.5:1 or better. The suite separately asserts that the
+                first Tab lands on the skip link and that it shows a visible ring. Not "looks fine". The button gate is
+                the one that earned its keep: written as a measurement first, it reported the label failing 4.5:1 in 7
+                of the 12 configurations — 3.45:1 at worst, always in a hover or active shade rather than at rest — and
+                the fix was to derive those two shades from where the label sits instead of from the theme's lightness
+                ladder. Outside the sky-blue topbar exception, the worst case today is 4.70:1. One gap stays documented
+                rather than hidden: 3:1 between a control's fill and the card behind it (WCAG 1.4.11) holds in 9 of the
+                12 but not under the light sky-blue, forest-green and orange buttons, whose fills sit close to
+                white.</span
               >
             </p>
             <p>

@@ -36,17 +36,41 @@
      clips permanently must reserve this much (see `overflow-clip-margin`). */
   --fat-focus-ring-inset: 4px;
 
-  /* Foreground for anything painted on a primary-coloured surface (the topbar brand,
+  /* Foreground for filled primary surfaces other than the bar (the primary button's label,
      selected chips). White suits 3 of the 6 light primaries but only reaches 2.78:1 on blue,
      2.54:1 on green and 3.56:1 on orange, so those three flip to the dark ink (6.42 / 7.04 /
-     5.02). Declared per theme because CSS still has no portable colour-contrast(). */
+     5.02). Declared per theme because CSS still has no portable colour-contrast(). The topbar
+     does NOT read this token — it has --fat-topbar-ink of its own, which is what lets the
+     default blue bar carry white text without turning the primary button's label white too. */
   --fat-on-primary: #fff;
 
-  /* The topbar is the only primary-coloured surface on screen permanently, so it gets a
-     shade its text can actually sit on. Light keeps --fat-primary; dark uses
+  /* The topbar is the only primary-coloured surface on screen permanently. Light keeps
+     --fat-primary so the default bar matches the siblings' sky blue; dark uses
      --fat-primary-active, where white measures 4.58–6.34:1 instead of the 1.69–2.67:1 it
-     gets on the pastel primaries. */
+     gets on the pastel primaries. Light blue's white-on-sky pairing sits at 2.78:1 by the
+     same sibling decision recorded in CONTRIBUTING. */
   --fat-topbar-bg: var(--fat-primary);
+
+  /* The topbar's own ink. Defaults to --fat-on-primary — green and orange keep the dark ink
+     there, every dark theme keeps white — while the blue theme overrides it to white for
+     sibling parity (2.78:1 on #409eff, recorded as a known limitation in CONTRIBUTING).
+     Separate from --fat-on-primary because the primary button is painted with the same blue
+     and its label must stay at 6.42:1. */
+  --fat-topbar-ink: var(--fat-on-primary);
+
+  /* The topbar skin the sibling extensions use: a 135° wash plus one frosted film for every
+     control that sits on it (version chip, both capsules). The film steps *away* from
+     --fat-topbar-ink, so a label only gains contrast when the surface changes: green and
+     orange still carry the dark ink and lighten toward --fat-primary-hover under a white
+     film, while blue (white ink), purple, rose, slate and every dark theme deepen instead —
+     those blocks override the endpoint and the film. The film is not decoration alone:
+     14–18% is what keeps the capsules readable without turning them into solid pills on top
+     of a bar that is itself a brand surface. */
+  --fat-topbar-bg-end: var(--fat-primary-hover);
+  --fat-topbar-film: rgb(255 255 255 / 18%);
+  --fat-topbar-film-hover: rgb(255 255 255 / 28%);
+  --fat-topbar-film-border: rgb(255 255 255 / 45%);
+  --fat-topbar-film-border-hover: rgb(255 255 255 / 70%);
 
   /* Filled-button scale. WCAG 1.4.3 wants 4.5:1 from the label in *every* state, and the
      resting fills already clear it in all 6 themes × light/dark (4.70:1 at worst); every
@@ -315,18 +339,28 @@
 /* ---- Theme variants ---- */
 
 /* Blue is the default palette declared at `:root`, but it is the only light theme that has to
-   restate the three derived tokens: #409eff under white is 2.78:1 (below AA for body text), so
-   the accent text/ink side gets the siblings' strong blue. The two `color-mix` values are theirs
+   restate the derived tokens: #409eff under white is 2.78:1 (below AA for body text), so the
+   accent text/ink side gets the siblings' strong blue. The two `color-mix` values are theirs
    too: #0072e8 kept for plain cards (5.27:1 on white) and mixed 92% toward black for tinted
    backdrops (4.79:1 at worst on #ecf5ff). The focus ring takes the ink for the same reason it
    always did — 5.27:1 against the card, well past 1.4.11's 3:1 — and the button steps toward
    white because its label is now the dark ink. All three are re-declared in the dark-blue block
-   below rather than left to a specificity tie against `:root[data-mode='dark']`. */
+   below rather than left to a specificity tie against `:root[data-mode='dark']`.
+
+   The bar, unlike the button, carries white ink on purpose: the sibling extensions paint their
+   headers white-on-sky, and this is the one deliberate contrast deviation in the palette
+   (brand 2.78:1, documented in CONTRIBUTING). --fat-on-primary still feeds the primary button,
+   so only --fat-topbar-ink changes. The white-ink film then steps black — 14% at rest, 22% on
+   hover — which is the only direction that helps white: the chip measures 3.68:1 at the wash's
+   start, the capsules 2.98:1 at its far end. */
 :root[data-theme='blue'] {
   --fat-primary-ink: color-mix(in srgb, #0072e8 92%, black);
   --fat-on-primary: var(--fat-text-primary);
+  --fat-topbar-ink: #fff;
   --fat-focus-ring: var(--fat-primary-ink);
   --fat-btn-solid-step: #fff;
+  --fat-topbar-film: rgb(0 0 0 / 14%);
+  --fat-topbar-film-hover: rgb(0 0 0 / 22%);
 }
 
 :root[data-theme='green'] {
@@ -365,6 +399,13 @@
   --fat-primary-rgb: 124 58 237;
   --fat-primary-bg: #f5f3ff;
   --fat-primary-border: #ddd6fe;
+
+  /* The bar's ink is white here (--fat-topbar-ink follows --fat-on-primary), so the skin
+     deepens: the gradient runs to a darker end and the film is black, which is the only
+     direction that raises the white labels' contrast. Border stays the shared white rim. */
+  --fat-topbar-bg-end: color-mix(in srgb, var(--fat-primary) 84%, black);
+  --fat-topbar-film: rgb(0 0 0 / 14%);
+  --fat-topbar-film-hover: rgb(0 0 0 / 22%);
   --fat-surface: #faf5ff;
   --fat-surface-2: #fdf8ff;
   --fat-surface-line: #f3e8ff;
@@ -411,6 +452,12 @@
   --fat-primary-rgb: 225 29 72;
   --fat-primary-bg: #fff1f2;
   --fat-primary-border: #fecdd3;
+
+  /* Same white-ink skin as purple: deeper endpoint, black film. Rose's white on the resting
+     bar is the tightest of the six (4.70:1), so its film is the one that matters most. */
+  --fat-topbar-bg-end: color-mix(in srgb, var(--fat-primary) 84%, black);
+  --fat-topbar-film: rgb(0 0 0 / 14%);
+  --fat-topbar-film-hover: rgb(0 0 0 / 22%);
   --fat-surface: #fff1f2;
   --fat-surface-2: #fff8f9;
   --fat-surface-line: #ffe4e6;
@@ -431,6 +478,11 @@
   --fat-primary-rgb: 71 85 105;
   --fat-primary-bg: #f8fafc;
   --fat-primary-border: #cbd5e1;
+
+  /* White ink like purple and rose; same deepened skin. */
+  --fat-topbar-bg-end: color-mix(in srgb, var(--fat-primary) 84%, black);
+  --fat-topbar-film: rgb(0 0 0 / 14%);
+  --fat-topbar-film-hover: rgb(0 0 0 / 22%);
   --fat-surface: #f8fafc;
   --fat-surface-2: #fbfcfd;
   --fat-surface-line: #f1f5f9;
@@ -479,6 +531,13 @@
      — comfortably past the 3:1 WCAG 1.4.11 non-text minimum in all 6 themes. */
   --fat-focus-ring: var(--fat-primary-hover);
   --fat-topbar-bg: var(--fat-primary-active);
+
+  /* Every dark theme paints white ink on the bar, so the skin takes the white-ink recipe:
+     the wash deepens away from its start and the film is black. The endpoint chains off
+     --fat-topbar-bg, which each theme block already resolves to its own deep shade. */
+  --fat-topbar-bg-end: color-mix(in srgb, var(--fat-topbar-bg) 84%, black);
+  --fat-topbar-film: rgb(0 0 0 / 16%);
+  --fat-topbar-film-hover: rgb(0 0 0 / 24%);
 
   /* A dark-mode primary button keeps the theme's light tint as its fill — the same reason
      the focus ring does — so white would sit at 1.35–2.66:1 on it. The label therefore

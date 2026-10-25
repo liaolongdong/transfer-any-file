@@ -1844,6 +1844,36 @@ rel="noopener noreferrer">`，因此 `utils/urls` 重新被入口静态引用，
   `verify:remote-code` 源码 98 / 产物 51；`verify:meta`、`verify:listing`、`verify:paths`、`pages:check`、
   `verify:release-ci` 一并绿。
 
+- **10-26 第七十八轮（顶栏换成兄弟仓库同一套皮肤；晴空蓝顶栏改白字，作为明示的对比度例外）。**
+  第七十七轮之后顶栏仍是「平涂主色 + 白底深字胶囊」，与 `account-password-helper` / `cross-origin-proxy`
+  的「渐变 + 玻璃胶囊」不是一套。本轮先按兄弟仓库做结构对齐：135° 主色渐变、版本号芯片与「关于 / 偏好设置」
+  两枚玻璃胶囊（悬停加厚薄膜与描边，按本项目扁平约定不做位移）。第一版顶栏字仍留深墨（6.42:1），全量 e2e
+  `489/489` 绿；随后用户看过中文渲染效果，要求字体改白——`#409eff` 上白字只有 2.78:1，低于 4.5:1，
+  经确认选择「白字 + 保留晴空蓝」，按兄弟仓库原样呈现，并把这条写成明示的已知限制。
+  **令牌层的做法**：新增 `--fat-topbar-ink`（默认 `var(--fat-on-primary)`，只有 `:root[data-theme='blue']`
+  覆盖成 `#fff`）——`--fat-on-primary` 仍是主按钮标签的墨色（深墨，6.42:1），所以顶栏变白不会把主按钮一起带白；
+  `--fat-topbar-bg-end`、`--fat-topbar-film` / `-hover` 三个皮肤令牌按墨色极性分派：绿 / 橙仍深墨配白膜、
+  渐变向 `--fat-primary-hover`；晴空蓝白字配黑膜（14% / 22%，芯片实测 3.68:1，渐变远端胶囊 2.98:1）；
+  紫 / 玫瑰 / 石板与全部深色主题白字配黑膜、渐变压深（`color-mix(… 84%, black)`）。`.topbar` 用
+  `background-color` + `background-image` 两层写，前者留给对比度采样器（单写渐变会读成透明）。
+  **e2e 没有放宽，而是把例外钉住**：版本号芯片的实测折进原有的顶栏断言（`surfaceColors` 多读 chip 的墨与薄膜，
+  Node 侧 `alphaOf` / `compositedOver` 先合成再算对比度），断言条数不变（489）；light 循环给晴空蓝单独一条下限
+  `2.7 / 3.6`，其余主题仍是 4.5:1。实测：蓝浅 2.78 / 3.68（例外）、绿浅 7.04 / 8.26、紫浅 5.70 / 7.11、
+  橙浅 5.02 / 6.19、玫浅 4.70 / 6.00、石墨浅 7.58 / 9.13；深色六档 4.58–6.34 / 6.06–8.07。
+  **对外文案同批改**：`README*`、`CONTRIBUTING*`、`.github/CHROMEWEBSTORE.md`、`docs/index.html`（能力卡、
+  深色外观说明、测试覆盖）、`docs/blog/index.html`、`docs/promo/{wechat-article,blog-article.en}.md` 都把
+  「顶栏文字 ≥ 4.5:1」改成「除晴空蓝外 ≥ 4.5:1；晴空蓝 2.78 / 3.68 为明示例外」，顺带把博客与公众号稿里
+  过期的按钮填充「10/12」更新为「9/12」。`prose-number-quotes.json` 只把 `docs/index.html` 的 `themeCombos`
+  引用数从 4 改成 2（本轮删掉两处「12 种组合」句式）；`--update` 会一并吸收 150 行生成页漂移，所以没有用它。
+  **量具自证**：同一棵树连续两次 build，75 个文件的排序尺寸多重集 diff 为空；产物 3,882,874 B（`Σ` 仍打印
+  3.88 MB，比第七十七轮的 3,881,576 多 1,298 B，对外 16 处体积字样一处不用动），zip 1,182,291 B。
+  素材重拍 7 张原图 + 14 张商店截图 + 3 张推广图，两条 GIF 重录（zh 1,802 KB / en 1,614 KB）。
+  验证：`Results: 489/489 passed (100%)`、`E2E_EXIT=0`（`.test-tmp/e2e-white-ink.log`，基线仍 489）；
+  `lint:all`、`verify:meta`、`verify:listing`（7 字段）、`verify:paths`（48 / 182）、`pages:check`（133）、
+  `verify:numbers`（23 × 138）、`verify:release-ci`（71 + 4）、`verify:offline`（98 文件 / 仅 `storage`）、
+  `verify:remote-code`（源码 98 / 产物 51）全绿。定案跑之后只把 `scripts/e2e-test.mjs` 注释里的 3.69 改成 3.68
+  （可执行行未动），所以那轮 `489/489` 仍对提交树成立。
+
 ## 3. 收下改动：这一节记的是提交账，不是提交计划
 
 这一节原先给的是 2026-09-19 那一轮（配对页与博客页改成数据源生成）的两条 `git commit`。那些提交早就落地了，

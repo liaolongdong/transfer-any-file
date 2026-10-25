@@ -504,9 +504,11 @@ onUnmounted(() => {
           <div class="brand">
             <div class="brand-line">
               <span class="brand-name">{{ t('appName') }}</span>
-              <!-- The card-coloured pill the skip link and the preferences button already use: its ink
-                   is `--fat-text-primary` on `--fat-bg-card`, and those two flip together with the mode,
-                   so the chip needs no contrast measurement of its own on any of the six headers.
+              <!-- The version chip wears the same frosted film as the two capsules, not a card-coloured
+                   solid: the siblings' header puts every control on one translucent layer over the wash.
+                   Its ink is `--fat-topbar-ink` (the brand name's ink), and the film always steps away
+                   from that ink — so the chip can only gain contrast over the bar it sits on, and the
+                   `topbar brand` assertion that certifies that pair covers it too.
                    It is also a link: the one question a version number invites is "is this current?",
                    and the latest release page is that answer with the download on it. This is the
                    header's only outbound door — the drawer still lists every address, this included. -->
@@ -875,8 +877,17 @@ onUnmounted(() => {
     var(--fat-shadow-lg);
 }
 
+/* The siblings' header skin: a 135° wash rather than a flat fill, and one frosted film for the
+   controls on it. `background-color` stays the wash's start on purpose — the contrast sampler
+   reads it (a gradient alone computes as transparent), and the brand block sits at the start
+   where that colour is the real backdrop. The wash's far end and the film's polarity are theme
+   tokens: green and orange carry dark ink and lighten under a white film; blue keeps the
+   sibling light→lighter wash with a black film under its white ink; purple / rose / slate and
+   every dark theme deepen both. */
 .topbar {
-  background: var(--fat-topbar-bg);
+  background-color: var(--fat-topbar-bg);
+  background-image: linear-gradient(135deg, var(--fat-topbar-bg) 0%, var(--fat-topbar-bg-end) 100%);
+  box-shadow: var(--fat-shadow-primary);
 }
 
 .topbar-inner {
@@ -897,15 +908,17 @@ onUnmounted(() => {
 .brand-name {
   font-size: 18px;
   font-weight: 700;
-  color: var(--fat-on-primary);
+  color: var(--fat-topbar-ink);
 }
 
-/* Full-strength rather than the previous 85% alpha: at 12px that translucent white
-   measured 4.20:1 on light blue and 3.71:1 on light rose, both under the 4.5:1 body-text
-   floor. Hierarchy is already carried by the size difference. */
+/* Full strength rather than a translucent alpha: at 12px the old 70–85% white measured 4.20:1
+   on light blue and 3.71:1 on light rose. Blue's bar now carries white by the sibling-parity
+   decision (2.78:1, the documented deviation); green and orange keep the dark ink and the
+   other three light themes already carried white at full strength. Hierarchy is carried by
+   the size difference alone. */
 .brand-tag {
   font-size: 12px;
-  color: var(--fat-on-primary);
+  color: var(--fat-topbar-ink);
 }
 
 /* Name and its version on one line. The chip is the smaller of the two, so it rides the name's
@@ -917,24 +930,29 @@ onUnmounted(() => {
   gap: var(--fat-space-sm);
 }
 
+/* The sibling chip shape: a translucent tag on the wash, not a solid card pill. Ink is
+   --fat-topbar-ink (same as the brand name), and the film is the token that steps away from
+   that ink per theme, so contrast can only rise. The 1px rim carries the resting edge. */
 .brand-version {
   display: inline-flex;
   align-items: center;
   padding: 2px var(--fat-space-sm);
-  background: var(--fat-bg-card);
+  background: var(--fat-topbar-film);
+  border: 1px solid var(--fat-topbar-film-border);
   border-radius: var(--fat-radius-pill);
-  color: var(--fat-text-primary);
+  color: var(--fat-topbar-ink);
   font-size: 12px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   text-decoration: none;
 }
 
-/* The pill has no border to tint, so hover is a 1px ring drawn outside the box — a shadow, so the
-   header does not shift by a pixel. Ink stays --fat-text-primary: the accent drops to 2.78:1
-   (blue), 2.54:1 (green) and 3.56:1 (orange) on this card, under the 4.5:1 body-text floor. */
+/* Hover thickens the film and its rim instead of tinting the ink: the accent as ink would lose
+   the contrast the bar's own ink already has, and on several bars it is the ink that carries
+   the label. */
 .brand-version:hover {
-  box-shadow: 0 0 0 1px var(--fat-primary);
+  background: var(--fat-topbar-film-hover);
+  border-color: var(--fat-topbar-film-border-hover);
 }
 
 /* Same double-band contract as the two capsules: a card-coloured shadow fills the outline's 2px
@@ -955,30 +973,36 @@ onUnmounted(() => {
 }
 
 /* Both capsules the topbar can show, and the one piece of chrome that must stay legible against six
-   different coloured headers. The double band is the same contract the skip link uses: a card-
-   coloured ring fills the outline's 2px offset, so the focus-ring colour is always separated from
-   the header by an opaque band — a blue ring directly on the blue header would vanish. */
-.prefs-trigger,
-.about-trigger {
+   different coloured headers. Siblings' skin: the same frosted film as the version chip, with the
+   label on --fat-topbar-ink (the ink the wash was built around). `!important` on colour and border
+   is load-bearing — global.css paints every `.el-button--default` (and its hover, and the dark
+   variant) with those two properties at `!important`, and the `.topbar` ancestor is what outranks
+   them without widening the rule to buttons elsewhere. The focus ring keeps the double band the
+   skip link uses: a card-coloured shadow fills the outline's 2px offset, so the ring never lands
+   straight on a coloured header. */
+.topbar .prefs-trigger,
+.topbar .about-trigger {
   flex-shrink: 0;
   border-radius: var(--fat-radius-pill) !important;
-  background: var(--fat-bg-card);
-  color: var(--fat-text-primary);
+  background: var(--fat-topbar-film);
+  border: 1px solid var(--fat-topbar-film-border) !important;
+  color: var(--fat-topbar-ink) !important;
   font-weight: 600;
+  backdrop-filter: blur(10px);
 }
 
-/* Hover keeps the label on --fat-text-primary: tinting it with the accent would drop green to
-   2.54:1 and orange to 3.56:1 on the card-coloured capsule, below the 4.5:1 this UI holds body
-   text to. The border carries the state instead. */
-.prefs-trigger:hover,
-.about-trigger:hover {
-  border-color: var(--fat-primary);
-  background: var(--fat-bg-card);
-  color: var(--fat-text-primary);
+/* Hover thickens the film and its rim. Deliberately no translateY: global.css states the
+   flat-design rule (colour shift only, no lift) and the workbench's primary button already
+   follows it; the sibling header lifts, this one keeps the house rule. */
+.topbar .prefs-trigger:hover,
+.topbar .about-trigger:hover {
+  background: var(--fat-topbar-film-hover);
+  border-color: var(--fat-topbar-film-border-hover) !important;
+  color: var(--fat-topbar-ink) !important;
 }
 
-.prefs-trigger:focus-visible,
-.about-trigger:focus-visible {
+.topbar .prefs-trigger:focus-visible,
+.topbar .about-trigger:focus-visible {
   outline: 2px solid var(--fat-focus-ring) !important;
   outline-offset: 2px !important;
   box-shadow: 0 0 0 2px var(--fat-bg-card);

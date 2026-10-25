@@ -7099,20 +7099,24 @@
                   >跳转主内容链接、可见焦点环、<code>prefers-reduced-motion</code> 降级；转换进度与文件列表的增减通过
                   <code>role="status"</code>
                   区域播报，删除历史后 5 秒内还可以撤销。端到端套件在 6 主题 × 浅/深共 12
-                  种组合下逐项实测五组承担对比度契约的颜色：顶栏品牌文字对顶栏背景 ≥ 4.5:1，主按钮文字在常态 / 悬停 /
-                  按下三种状态下均 ≥ 4.5:1（读数取自确实可点击的按钮，文本规则豁免禁用控件），焦点环对卡片背景 ≥
+                  种组合下逐项实测五组承担对比度契约的颜色：主按钮文字在常态 / 悬停 / 按下三种状态下均 ≥
+                  4.5:1（读数取自确实可点击的按钮，文本规则豁免禁用控件），焦点环对卡片背景 ≥
                   3:1，拖放提示与文件大小这类正文信息文字对各自底色 ≥ 4.5:1，Element Plus
-                  浅色效果的警示框标题与文件行的格式标签——它们用同一支语义色既当墨又当底——对各自的浅色底 ≥ 4.5:1。</span
+                  浅色效果的警示框标题与文件行的格式标签——它们用同一支语义色既当墨又当底——对各自的浅色底 ≥ 4.5:1。
+                  顶栏品牌文字在除晴空蓝外的组合里 ≥ 4.5:1；晴空蓝为与作者的另外两个扩展保持同一套白字顶栏，品牌字对
+                  <code>#409eff</code> 为 2.78:1、玻璃胶囊 3.68:1，作为明示的已知限制：它低于 AA，其余组合仍达标。</span
                 >
                 <span lang="en"
                   >Skip link to the main content, visible focus rings and a
                   <code>prefers-reduced-motion</code> fallback. The end-to-end suite measures the five colour pairs that
-                  carry the contrast contract — brand text on the topbar at 4.5:1 or better, the primary button's label
-                  in its rest, hover and pressed states at 4.5:1 or better (read off the enabled button, because the
-                  text rule exempts disabled controls), focus ring on a card at 3:1 or better, informational text such
-                  as the drop hint and file sizes at 4.5:1 or better on their own backdrop, and the light-effect alerts
-                  and per-file format tags, whose semantic colour serves as both ink and fill — at 4.5:1 or better
-                  against the tint underneath them — in all 12 theme × light/dark combinations.</span
+                  carry the contrast contract — the primary button's label in its rest, hover and pressed states at
+                  4.5:1 or better (read off the enabled button, because the text rule exempts disabled controls), focus
+                  ring on a card at 3:1 or better, informational text such as the drop hint and file sizes at 4.5:1 or
+                  better on their own backdrop, and the light-effect alerts and per-file format tags, whose semantic
+                  colour serves as both ink and fill — at 4.5:1 or better against the tint underneath them — in all 12
+                  theme × light/dark combinations. Topbar brand text clears 4.5:1 in every combination except light sky
+                  blue, which carries white to match the author's other two extensions (2.78:1 for the wordmark, 3.68:1
+                  for the glass capsules); that one is a stated known limitation, not a pass.</span
                 >
               </p>
             </article>
@@ -7292,12 +7296,14 @@
                 />
                 <figcaption>
                   <span lang="zh-CN"
-                    >深色外观：6 种主题色 × 浅 / 深 / 跟随系统，顶栏文字、主按钮文字、焦点环与正文信息文字的对比度在全部
-                    12 种组合下逐项实测。</span
+                    >深色外观：6 种主题色 × 浅 / 深 /
+                    跟随系统。深色六档的顶栏、主按钮、焦点环与正文信息文字对比度全部实测；
+                    浅色晴空蓝顶栏按另外两个扩展的同款白字配色呈现，是文档中明示的唯一例外。</span
                   >
                   <span lang="en"
-                    >Dark appearance: 6 accent colours × light / dark / system, with the topbar text, primary button
-                    label, focus-ring and informational-text contrast measured in all 12 combinations.</span
+                    >Dark appearance: 6 accent colours × light / dark / system. Every dark combination's topbar,
+                    primary-button, focus-ring and informational-text contrast is measured; the light sky-blue topbar
+                    carries the sibling extensions' white-on-sky pairing, the one stated exception.</span
                   >
                 </figcaption>
               </figure>
@@ -8864,18 +8870,21 @@ pnpm build</code><button
                   >一套 Playwright 端到端套件加载真正的构建产物，用仓库内的夹具跑完各类转换场景、批量与
                   ZIP、取消与改键、预览与编辑、图片输出参数与转换预设、PDF 选页、输出文件名模板、历史与偏好，共 489
                   项断言全部通过（1.3.0 构建，2026-10-25 实测）；另在 6 主题 × 浅/深共 12
-                  种组合下逐项校验五组对比度：顶栏文字、主按钮文字（常态 / 悬停 / 按下）、焦点环、正文信息文字，以及
-                  Element Plus 浅色效果的警示框与格式标签。CI 每次推送跑 lint + build + e2e。</span
+                  种组合下逐项校验五组对比度：主按钮文字（常态 / 悬停 / 按下）、焦点环、正文信息文字，以及 Element Plus
+                  浅色效果的警示框与格式标签。顶栏品牌字除晴空蓝外均达标；晴空蓝按另外两个扩展的同款白字配色
+                  呈现（2.78:1），作为已知限制单列，断言为其钉了下限。CI 每次推送跑 lint + build + e2e。</span
                 >
                 <span lang="en"
                   >A Playwright end-to-end suite drives the actual build output over the repository fixtures — every
                   conversion scenario, batching and ZIP handling, cancellation and shortcut rebinding, preview and
                   editing, image output parameters and conversion presets, PDF page selection, output file-name
                   patterns, history and preferences — with 489/489 assertions passing (the 1.3.0 build, measured
-                  2026-10-25). It also checks five contrast pairs — topbar text, the primary button's label in its rest,
-                  hover and pressed states, the focus ring, informational text such as the drop hint and file sizes, and
-                  the ink Element Plus paints on its light-effect alerts and per-file format tags — in all 12 theme ×
-                  light/dark combinations. CI runs lint, build and e2e on every push.</span
+                  2026-10-25). It also checks five contrast pairs — the primary button's label in its rest, hover and
+                  pressed states, the focus ring, informational text such as the drop hint and file sizes, and the ink
+                  Element Plus paints on its light-effect alerts and per-file format tags — in all 12 theme × light/dark
+                  combinations. Topbar brand text clears the threshold in 11 of them; light sky blue carries the sibling
+                  extensions' white pairing (2.78:1) and is listed as a known limitation with its own pinned floor. CI
+                  runs lint, build and e2e on every push.</span
                 >
               </p>
             </div>
