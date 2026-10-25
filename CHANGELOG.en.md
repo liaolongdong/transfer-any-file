@@ -15,6 +15,7 @@ Release PR is not by itself a release.
 
 - **ui**: The staged file list can be reordered — drag a row's handle, or focus it and use ↑ / ↓ / Home / End. A merged PDF writes its pages in that order, and in a windowed long list the scroll follows the move so focus stays on the row that moved; reordering locks once results exist, and the handle stays focusable while locked so its name carries the reason
 - **site**: An offline image demo on the product page: pick a PNG / JPEG / WebP / BMP / GIF, choose WebP / JPEG / PNG and a quality, re-encode it with a canvas inside the page and download the result, with a thumbnail and the size delta in the result card
+- **ui**: A new About drawer in the top bar gathers ten off-site addresses in one place — the full usage guide, format conversion guides, the store listing and rating, the GitHub repository, the feedback entry point, the privacy policy, the full license, the latest release and the author's profile — each labelled with its destination host, alongside three offline facts (network, permissions, account and telemetry) and the loaded version. Every address now lives in `utils/urls.ts`, and the top bar's existing "Store update" and "Download latest" links read from it too; the extension still issues no request
 
 ### Fixed
 

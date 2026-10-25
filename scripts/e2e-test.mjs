@@ -4105,7 +4105,7 @@ async function run() {
       await reusePage.goto(`http://localhost:${PORT}/options.html`);
       await reusePage.waitForTimeout(1200);
 
-      const gear = await reusePage.$('.topbar-inner .el-button');
+      const gear = await reusePage.$('.prefs-trigger');
       if (!gear) throw new Error('settings button not found');
       const openPrefs = async () => {
         await gear.click();
@@ -4733,7 +4733,7 @@ async function run() {
       /** Every result name on screen, sorted so a batch of two is compared without ordering luck. */
       const resultNames = () =>
         namePage.$$eval('.result-item .result-name', els => els.map(el => el.textContent.trim()).sort());
-      const gear = await namePage.$('.topbar-inner .el-button');
+      const gear = await namePage.$('.prefs-trigger');
       if (!gear) throw new Error('settings button not found');
       // The pattern field lives in the centred preferences dialog, and the dialog has to be closed
       // before a conversion runs — its modal overlay swallows the click on `.convert-btn`, so these
@@ -5750,12 +5750,237 @@ async function run() {
   }
 
   // ═══════════════════════════════════════════
+  //  ABOUT DRAWER & OUTBOUND LINKS
+  // ═══════════════════════════════════════════
+  //
+  // The About drawer is the one place the interface lists every off-site address it knows. The
+  // addresses are pinned literally: a typo in any of them is a 404 no other gate in this repository
+  // would notice. What else is measured — the new-tab hygiene, the visible host column, the ink on
+  // all six themes in both modes (the label is `--fat-text-primary`, not the accent: green and
+  // orange put that accent at 2.54:1 and 3.56:1 on a card), and that a 320px window does not clip it.
+  if (section('About Drawer & Outbound Links')) {
+    try {
+      await page.reload();
+      await page.waitForSelector('.about-trigger', { timeout: 15000 });
+
+      const SOURCE = 'https://github.com/liaolongdong/transfer-any-file';
+      const DOCS = 'https://liaolongdong.github.io/transfer-any-file/';
+      const STORE = 'https://chromewebstore.google.com/detail/blkdmpkcaceicinkhindniepbbbaekkb';
+      const EXPECTED = [
+        DOCS, // 完整使用说明
+        `${DOCS}convert/`, // 格式转换说明
+        STORE, // Chrome 应用商店
+        // 评价也落在商店页：CWS 没有稳定的评价锚点，也不挂 UTM，免得把站点来源混进商店数据。
+        STORE,
+        SOURCE,
+        `${SOURCE}/issues/new/choose`, // 模板选择器，不是空白 issue
+        `${DOCS}privacy.html`,
+        `${SOURCE}/blob/main/LICENSE`,
+        `${SOURCE}/releases/latest`,
+        'https://github.com/liaolongdong',
+      ];
+
+      await page.click('.about-trigger');
+      await page.waitForSelector('.about-link', { timeout: 10000 });
+
+      const drawer = await page.evaluate(() => {
+        const links = [...document.querySelectorAll('.about-link')].map(a => ({
+          href: a.getAttribute('href'),
+          target: a.getAttribute('target'),
+          rel: a.getAttribute('rel') || '',
+          label: a.querySelector('.about-link-label')?.textContent?.trim() || '',
+          host: a.querySelector('.about-link-host')?.textContent?.trim() || '',
+          aria: a.getAttribute('aria-label') || '',
+        }));
+        return {
+          links,
+          version: document.querySelector('.about-version')?.textContent?.trim() || '',
+          title: document.querySelector('.el-drawer__title')?.textContent?.trim() || '',
+          facts: document.querySelectorAll('.about-fact').length,
+          license: document.querySelector('.about-license')?.textContent?.trim() || '',
+        };
+      });
+
+      if (drawer.links.length === EXPECTED.length) ok(`About drawer lists ${EXPECTED.length} outbound links`);
+      else fail('About link count', `expected ${EXPECTED.length}, got ${drawer.links.length}`);
+
+      const hrefs = drawer.links.map(l => l.href);
+      if (hrefs.length === EXPECTED.length && hrefs.every((h, i) => h === EXPECTED[i]))
+        ok('Every About address matches the pinned list, in order');
+      else fail('About addresses', JSON.stringify(hrefs));
+
+      if (
+        drawer.links.length > 0 &&
+        drawer.links.every(l => l.target === '_blank' && l.rel.split(' ').includes('noopener'))
+      )
+        ok('Every About link opens a new tab with rel=noopener');
+      else fail('About link hygiene', JSON.stringify(drawer.links.map(l => [l.target, l.rel])));
+
+      // WCAG 2.5.3 keeps the visible text inside the accessible name; the new-tab hint is appended
+      // to it because the arrow is decorative and a screen reader never reads it.
+      if (
+        drawer.links.length > 0 &&
+        drawer.links.every(l => l.label.length > 0 && l.aria.startsWith(l.label) && l.aria.includes('新标签页'))
+      )
+        ok('Each About label keeps its visible text and names the new tab');
+      else fail('About accessible names', JSON.stringify(drawer.links.map(l => [l.label, l.aria])));
+
+      // The host column is a visible fact — "where will this take me" — so it has to be derived
+      // from the href rather than typed twice.
+      if (drawer.links.length > 0 && drawer.links.every(l => l.host === new URL(l.href).host))
+        ok('The visible host column matches each href');
+      else fail('About host column', JSON.stringify(drawer.links.map(l => [l.href, l.host])));
+
+      if (drawer.version === `v${servedManifestVersion()}`)
+        ok(`About drawer names the loaded build (${drawer.version})`);
+      else fail('About version chip', `expected "v${servedManifestVersion()}", got "${drawer.version}"`);
+
+      if (drawer.title === '关于') ok('Drawer is titled as the About panel');
+      else fail('About title', `reads "${drawer.title}"`);
+
+      if (drawer.facts === 3 && drawer.license.length > 0)
+        ok('Three offline/privacy facts and the license line are rendered');
+      else fail('About facts', `facts=${drawer.facts} license="${drawer.license}"`);
+
+      // Same shape as the information-text gate: 24 samples are one assertion ("every string you
+      // read clears 4.5:1"), with per-sample failures printed when it does not.
+      const appliedTheme3 = await page.evaluate(() => document.documentElement.dataset.theme ?? '');
+      const appliedMode3 = await page.evaluate(() => document.documentElement.dataset.mode ?? '');
+      let worst = Number.POSITIVE_INFINITY;
+      let worstLabel = '';
+      let groupFailed = false;
+      for (const mode of ['light', 'dark']) {
+        for (const theme of themeValues) {
+          const { found, missing } = await changeWithoutMotion(page, async () => {
+            await applyTheme(page, mode, theme);
+            // The drawer's body paints `--el-bg-color`, which tokens.css maps to the card token;
+            // that mapping is what this sample actually proves.
+            await page.waitForTimeout(400);
+            return infoTextSamples(page, ['.about-link-label', '.about-link-host']);
+          });
+          if (missing.length) {
+            groupFailed = true;
+            fail(`[${theme} ${mode}] about link text`, `not sampled: ${missing.join(', ')}`);
+            continue;
+          }
+          for (const s of found) {
+            const ratio = contrast(s.color, s.bg);
+            const name = `[${theme} ${mode}] ${s.sel}`;
+            if (!(ratio >= 4.5)) {
+              groupFailed = true;
+              fail(name, `${ratio.toFixed(2)}:1 — ${s.color} on ${s.bg}`);
+            } else if (ratio < worst) {
+              worst = ratio;
+              worstLabel = `${s.sel} (${theme})`;
+            }
+          }
+        }
+      }
+      if (!groupFailed && worstLabel) {
+        ok(`About link text ≥ 4.5:1 in 6 themes × 2 modes (worst ${worst.toFixed(2)}:1, ${worstLabel})`);
+      }
+      await page.evaluate(
+        ([m, t]) => {
+          if (m) document.documentElement.dataset.mode = m;
+          else delete document.documentElement.dataset.mode;
+          if (t) document.documentElement.dataset.theme = t;
+          else delete document.documentElement.dataset.theme;
+        },
+        [appliedMode3, appliedTheme3],
+      );
+
+      // A 400px panel on a 320px window would either clip its host column or push the document
+      // sideways; `size="min(400px, 100vw)"` is what keeps both from happening.
+      await page.setViewportSize({ width: 320, height: 800 });
+      await page.waitForTimeout(500);
+      const narrow = await page.evaluate(() => {
+        const de = document.documentElement;
+        const panel = document.querySelector('.el-overlay .el-drawer');
+        const rects = [...document.querySelectorAll('.about-link')].map(el => el.getBoundingClientRect());
+        return {
+          scrollWidth: de.scrollWidth,
+          clientWidth: de.clientWidth,
+          panelWidth: panel ? panel.getBoundingClientRect().width : -1,
+          minLeft: rects.length > 0 ? Math.min(...rects.map(r => r.left)) : -1,
+          maxRight: rects.length > 0 ? Math.max(...rects.map(r => r.right)) : -1,
+        };
+      });
+      if (
+        narrow.scrollWidth <= narrow.clientWidth &&
+        narrow.panelWidth > 0 &&
+        narrow.panelWidth <= narrow.clientWidth &&
+        narrow.minLeft >= 0 &&
+        narrow.maxRight <= narrow.clientWidth
+      )
+        ok(
+          `At 320px the drawer stays inside the viewport (panel=${narrow.panelWidth}, links ${narrow.minLeft}–${narrow.maxRight})`,
+        );
+      else fail('About drawer at 320px', JSON.stringify(narrow));
+      await page.setViewportSize({ width: 1280, height: 900 });
+      await page.waitForTimeout(400);
+
+      // Esc is the keyboard exit every modal in this app answers to, and the focus has to come
+      // back to the control that opened it rather than to `<body>`. Both facts are awaited: the
+      // focus is restored when the leave transition starts, the panel leaves the viewport when it
+      // ends, and reading in between sees a drawer already on its way out.
+      await page.keyboard.press('Escape');
+      const readClose = () =>
+        page.evaluate(() => {
+          const link = document.querySelector('.about-link');
+          const overlay = link?.closest('.el-overlay');
+          let hidden = !overlay;
+          if (overlay) {
+            const cs = getComputedStyle(overlay);
+            const panel = overlay.querySelector('.el-drawer');
+            hidden =
+              cs.display === 'none' ||
+              cs.visibility === 'hidden' ||
+              Number(cs.opacity) < 0.01 ||
+              // A right-aligned drawer exits by translating past the right edge; the panel's own
+              // computed opacity stays 1 in that case, so geometry is the only signal.
+              (!!panel && panel.getBoundingClientRect().right <= 0);
+          }
+          return {
+            focusBack: document.activeElement?.classList.contains('about-trigger') === true,
+            hidden,
+          };
+        });
+      const settled = await page
+        .waitForFunction(
+          () => {
+            const link = document.querySelector('.about-link');
+            const overlay = link?.closest('.el-overlay');
+            const focusBack = document.activeElement?.classList.contains('about-trigger') === true;
+            if (!overlay) return focusBack;
+            const cs = getComputedStyle(overlay);
+            const panel = overlay.querySelector('.el-drawer');
+            const hidden =
+              cs.display === 'none' ||
+              cs.visibility === 'hidden' ||
+              Number(cs.opacity) < 0.01 ||
+              (!!panel && panel.getBoundingClientRect().right <= 0);
+            return hidden && focusBack;
+          },
+          undefined,
+          { timeout: 10000 },
+        )
+        .then(() => true)
+        .catch(() => false);
+      if (settled) ok('Escape closes the drawer and returns focus to its trigger');
+      else fail('About drawer close', JSON.stringify(await readClose()));
+    } catch (e) {
+      fail('About drawer & outbound links', e.message);
+      await page.setViewportSize({ width: 1280, height: 900 });
+    }
+  }
+
+  // ═══════════════════════════════════════════
   //  THEME & DARK MODE
   // ═══════════════════════════════════════════
 
   section('Theme Switcher');
   try {
-    const gear = await page.$('.topbar-inner .el-button');
+    const gear = await page.$('.prefs-trigger');
     if (!gear) throw new Error('settings button not found');
     await gear.click();
     await page.waitForTimeout(800);
@@ -6894,7 +7119,7 @@ async function run() {
 
     // Restore the preference the way a user would, which also proves the dialog toggle and the
     // conversion gate read the same singleton.
-    const gear = await page.$('.topbar-inner .el-button');
+    const gear = await page.$('.prefs-trigger');
     await gear.click();
     await page.waitForTimeout(600);
     await page.locator('.notify-row', { hasText: '大批量转换前显示确认对话框' }).first().locator('.el-switch').click();
@@ -7126,7 +7351,7 @@ async function run() {
     await page.waitForTimeout(300);
     await page.evaluate(() => window.scrollTo(0, 0));
     await page.waitForTimeout(200);
-    const gear = await page.$('.topbar-inner .el-button');
+    const gear = await page.$('.prefs-trigger');
     if (!gear) throw new Error('settings button not found');
     await gear.click();
     await page.waitForTimeout(800);
@@ -7240,7 +7465,7 @@ async function run() {
     try {
       const openPreferences = async () => {
         await page.evaluate(() => window.scrollTo(0, 0));
-        const gear = await page.$('.topbar-inner .el-button');
+        const gear = await page.$('.prefs-trigger');
         if (!gear) throw new Error('settings button not found');
         await gear.click();
         await page.waitForSelector('.shortcut-key', { timeout: 5000 });
@@ -7398,15 +7623,15 @@ async function run() {
     // `transition: outline-offset, outline`, so reading in the same task as .focus() returns
     // an interpolation frame (width still `medium`=3px, colour still `currentcolor`)
     // instead of the cascaded result.
-    await page.evaluate(() => document.querySelector('.topbar-inner .el-button')?.focus());
+    await page.evaluate(() => document.querySelector('.prefs-trigger')?.focus());
     await page.waitForTimeout(500);
     const btnOutline = await page.evaluate(() => {
-      const b = document.querySelector('.topbar-inner .el-button');
+      const b = document.querySelector('.prefs-trigger');
       if (!(b instanceof HTMLElement)) return null;
       const cs = getComputedStyle(b);
       return { style: cs.outlineStyle, width: cs.outlineWidth, color: cs.outlineColor };
     });
-    if (!btnOutline) throw new Error('.topbar-inner .el-button not found');
+    if (!btnOutline) throw new Error('.prefs-trigger not found');
     if (btnOutline.style === 'solid' && btnOutline.width === '2px')
       ok(`Interactive controls keep the 2px primary ring (${btnOutline.color})`);
     else fail('Focus ring', `topbar button outline: ${btnOutline.style} ${btnOutline.width} ${btnOutline.color}`);
@@ -7434,7 +7659,7 @@ async function run() {
         };
         const tokens = getComputedStyle(root);
         const link = document.querySelector('.skip-link');
-        const button = document.querySelector('.topbar-inner .el-button');
+        const button = document.querySelector('.prefs-trigger');
         button?.focus();
         // Same transition caveat as above: EP animates `outline`, so the cascaded colour
         // is only readable after it settles.

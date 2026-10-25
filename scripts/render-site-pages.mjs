@@ -2120,7 +2120,7 @@ ${lists}
 const STATIC_PAGES = {
   home: {
     path: '/',
-    updated: '2026-10-24',
+    updated: '2026-10-25',
     changefreq: 'monthly',
     priority: '1.0',
     file: 'docs/index.html',
@@ -2134,7 +2134,7 @@ const STATIC_PAGES = {
   },
   blog: {
     path: '/blog/',
-    updated: '2026-10-17',
+    updated: '2026-10-25',
     changefreq: 'monthly',
     priority: '0.8',
     file: 'docs/blog/index.html',

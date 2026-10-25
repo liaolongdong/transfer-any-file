@@ -52,7 +52,7 @@
 以后再补跑的成本（本机需要手动装过 ffmpeg 与 chromium 二进制）：
 
 ```bash
-pnpm test:e2e        # = wxt build + node scripts/e2e-test.mjs，断言基线 480 条
+pnpm test:e2e        # = wxt build + node scripts/e2e-test.mjs，断言基线 491 条
 ```
 
 **2026-09-29 这一轮（JSON 预览的树 / 数组表 / 搜索 + 仓库外的对比页）跑满了 e2e，改在 `E2E_HEADLESS=true` 下跑**：
@@ -1683,6 +1683,44 @@ csv→Word 的另一组事实回读自`html-to-docx.ts`：正文以 MHT altChunk
   `verify:meta` 短描述 127/132；`lint:all` 全绿。`assets:capture` 重拍 7+7 原图、14 张商店截图与 3 张推广图，
   两条演示 GIF 重录（zh 1523 KB / en 1493 KB）。
   **一条工具口径**：Playwright 自带的 ffmpeg 解不了 GIF——`-i demo-zh.gif` 报 `Invalid data found` 并以 183 退出。想验 GIF 内容得换工具，或者直接看同一次构建的截图，别把「量具读不出」记成「素材错了」。
+
+- **10-25 第七十四轮（顶栏加「关于」抽屉，十条对外地址收口；断言总数 480→491，一轮全量绿灯）。**
+  落位与清单由用户选定：顶栏右侧一排两颗胶囊，「关于」排在「偏好设置」左边，抽屉从右滑出
+  （`size="min(400px, 100vw)"`，320px 下不撑宽文档）。十条按读者找信息的顺序排：完整使用说明、格式转换说明、
+  商店条目、商店评价、GitHub 仓库、反馈（`issues/new/choose` 的模板选择器，不是空白 issue）、隐私政策、
+  许可证全文、最新发布、作者主页；商店条目与评价指向**同一个地址**（CWS 没有稳定的评价锚点，也不挂 UTM），
+  所以列表键用 `id` 而不是 `href`。每条右侧印出目标域名，那个字段由 `new URL(href).host` 现算，不是手抄第二遍。
+  **地址只剩一处**：`utils/urls.ts`；顶栏原有的「商店更新」「下载最新版」也改从它取，两个字面量从此不再各写一遍。
+  抽屉里另有三条离线事实（网络访问 / 权限 / 账号与遥测）与 `runtime.getManifest()` 报出的版本号。
+  **外链形状仍是两道守卫的边界**：十条都是普通 `<a target="_blank" rel="noopener noreferrer">`，`check-offline`
+  拦的六种调用形状与 `check-remote-code` 的 URL 形状（要求串以 `.js` / `.mjs` / `.wasm` 结尾）都不命中，
+  产物 manifest 仍只有 `storage`——「不联网」是这条功能的边界：没有 host 权限就没有可问的服务器，界面只给出口。
+  **e2e 有两个别人也会踩的坑**：① 十处旧断言用 `.topbar-inner .el-button` 点齿轮，About 按钮排到它前面之后，
+  首匹配变成「关于」——全部改成 `.prefs-trigger`（这类靠 DOM 顺序的裸选择器是这轮唯一差点静默点错面板的地方）；
+  ② 关闭断言读得太早：Element Plus 的遮罩是 `vShow` + `persisted` 的 Transition，焦点在 leave 一开始就还给了
+  触发器，遮罩却还停在 `display:block`，单读一次必然读到「未隐藏」。改成 `waitForFunction`，同时要求焦点回位与
+  遮罩消失（区分「节点被移除 / `display:none` / 不可见 / 面板翻译出右边界」四种形状），超时才打印现场读数。
+  新增一节 11 条：十条地址按顺序逐字比对、`target`/`rel`、aria-label 以可见文案开头并点名新标签页（WCAG 2.5.3）、
+  可见域名与 href 同源、版本芯片等于**被测产物**的 manifest、标题与三条事实、12 套主题×模式的链接墨色
+  （≥4.5:1，最差一档读数写进断言名；墨色取 `--fat-text-primary` 而不是强调色——绿 2.54:1、橙 3.56:1 都不够）、
+  320px 不撑宽文档也不裁掉域名列、Esc 关闭并把焦点还给触发器。
+  文档同步：README 中英各三处、`docs/index.html` 隐私段中英各一句（原来那句「只有顶栏两条外链」已经是错账）、
+  CHANGELOG 双语；版本与最后更新日期、`docs/sitemap.xml` 里 home 与 blog 两条 `lastmod` 一起跟到 2026-10-25
+  （`STATIC_PAGES` 是这两个日期的唯一来源，页面里的 `dateModified`、可见行与 `lastmod` 必须同一天）。
+  **对外体积字样第一次动了**：3.86 → 3.89 MB。多出的 27,340 B 是抽屉自己的 chunk（`AboutDrawer` 7.55 kB JS +
+  6.39 kB CSS）与它拉进来的 Element Plus drawer / overlay / focus-trap 分块，zip 1.18 → 1.19 MB；
+  写死 3.86 MB 的地方全部跟改（`CONTRIBUTING*`、`docs/index.html`、`docs/blog`、`docs/llms.txt` 与四份推广稿）。
+  商店文案与 manifest 描述**没动**——一个抽屉不是商品卖点，改它会连带牵动 `verify:listing` 的七个粘贴字段。
+  验证：`Results: 491/491 passed (100%)`、`EXIT:0`（`pnpm test:e2e` 的定义性一轮，日志 `/tmp/taf-e2e-about.log`），
+  基线自写到 `491`；build `Σ Total size: 3.89 MB`（75 个文件 / 3,886,383 B）、zip `1.19 MB`；
+  `verify:offline` 98 个第一方文件 + manifest 只有 `storage`、无 host 权限；`verify:remote-code` 源码 98 / 产物 51；
+  `verify:paths` 48 边 / 182 对；`pages:check` 133 文件；`verify:numbers` 23 事实 × 138 文档；`verify:listing`
+  7 个粘贴字段；`verify:release-ci` 71 条判定与四组接缝；`verify:meta` 短描述 127/132；`lint:all` 全绿。
+  `assets:capture` 重拍 7 张英文原图 + 7 张中文原图（只用于商店截图）、14 张带文案商店截图与 3 张推广图；
+  两条演示 GIF 重录（zh 2038 KB / en 2297 KB）。
+  **一条工具口径**：本机 Playwright 的 ffmpeg 二进制会随缓存清理消失，而 `npx playwright install ffmpeg` 在
+  macOS 13 上直接报 `Playwright does not support ffmpeg on mac13`——把官方构建包手动解到
+  `~/Library/Caches/ms-playwright/ffmpeg-1011/ffmpeg-mac` 并 `chmod +x` 即可，软链系统 ffmpeg 不行。
 
 ## 3. 收下改动：这一节记的是提交账，不是提交计划
 
