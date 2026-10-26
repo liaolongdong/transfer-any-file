@@ -14,23 +14,22 @@
   /* The accent when it has to be *read* rather than painted on. #409eff as 11–12px text is
      only 2.78:1 on the card and 2.53:1 on its own tint, so light blue overrides this with the
      sibling extensions' "strong" blue (#0072e8, further darkened for tinted backdrops — see the
-     blue theme block below). The other five themes need no such split, hence a token that
-     falls back to the primary itself. Fills, borders, backgrounds and decorative glyphs keep
+     blue theme block below). Green and orange need the same split for the same reason — their
+     light primaries are 2.54:1 and 3.56:1 as text — while purple (#7c3aed, 5.70:1), rose
+     (#e11d48, 4.70:1) and slate (#475569, 7.58:1) can carry their own primary, hence a token
+     those three leave at the fallback. Fills, borders, backgrounds and decorative glyphs keep
      --fat-primary: only text and data graphics move here. */
   --fat-primary-ink: var(--fat-primary);
 
-  /* The accent for link text. The About drawer's outbound rows are the only links this UI paints
-     on a card, and the siblings set their labels in the theme accent rather than body ink.
-     That works only where the accent clears AA as 13px text on a card: purple (#7c3aed, 5.70:1),
-     rose's active shade (#be123c, 6.29:1), slate (#475569, 7.58:1) and blue's already-deepened
-     --fat-primary-ink (5.27:1) do. Green and orange have no readable step in their light
-     primaries (2.54 / 3.56), so green takes a 60%-toward-black mix (6.19:1) and orange takes its
-     active #c2410c (5.18:1). Dark mode reverses the recipe per theme (see the (0,3,0) dark
-     blocks): the accent itself is the light end there, 7.39–9.73:1 against the dark card. The
-     tinted surfaces these inks also land on — a hovered row (`--fat-surface-hover`) and a
-     theme's own tint (`--fat-primary-bg`) — measure 4.70:1 at worst (orange), so the link never
-     needs a permanent underline as its affordance; the row's hover wash and trailing arrow carry it. */
-  --fat-link-ink: var(--fat-primary);
+  /* The accent for link text — the About drawer's outbound rows, the history row's reuse action
+     and every other `text` / `link` primary button. It rides --fat-primary-ink because that is
+     already the readable half of the accent; rose is the one theme that has to step further
+     down, since its primary sits at 4.28:1 on the theme's own tint (#fff1f2) where a link row
+     lands under the pointer, and its pressed shade measures 5.72:1 there. Dark mode reverses
+     the recipe per theme (see the (0,3,0) dark blocks): the accent itself is the light end
+     there, 7.39–9.73:1 against the dark card. So the link never needs a permanent underline as
+     its affordance — the row's hover wash and the trailing arrow carry it. */
+  --fat-link-ink: var(--fat-primary-ink);
 
   /* Keyboard focus ring colour. Declared once per mode and referenced by every
      focus rule, so light and dark differ without a `!important` override war:
@@ -119,6 +118,17 @@
   --fat-text-secondary: #5b6b80;
   --fat-text-placeholder: #94a3b8;
   --fat-text-disabled: #cbd5e1;
+
+  /* Hint text — the `::placeholder` of an input or textarea and the unchosen state of a select.
+     It sits with the informational inks rather than the decorative ones because it is the only
+     thing that says what a field expects ("按文件名搜索", "全部"), and a reader has to be able to
+     read it: Element Plus paints it with #a8abb2, which is 2.30:1 on a white card. It cannot
+     simply take --fat-text-secondary, because that (#5b6b80, 5.44:1) is *darker* than the value
+     Element Plus writes into a filled field (#606266, 6.11:1) — the hint would out-shout the
+     text it annotates. This is the band in between: 5.04:1 on white and 4.58:1 at worst across
+     the eight light surfaces it actually lands on, still a step below the input value. Dark
+     mode mirrors the same ordering against #bac2de values (6.37:1 on the card, 4.88:1 worst). */
+  --fat-text-hint: #64707f;
 
   /* JSON preview inks (tree rows and array-table cells).
      Each of these five is painted on every surface the pane can show — the card, the row hover, the
@@ -368,7 +378,6 @@
    start, the capsules 2.98:1 at its far end. */
 :root[data-theme='blue'] {
   --fat-primary-ink: color-mix(in srgb, #0072e8 92%, black);
-  --fat-link-ink: var(--fat-primary-ink);
   --fat-on-primary: var(--fat-text-primary);
   --fat-topbar-ink: #fff;
   --fat-focus-ring: var(--fat-primary-ink);
@@ -393,7 +402,10 @@
   --fat-on-primary: var(--fat-text-primary);
   --fat-focus-ring: var(--fat-primary-active);
   --fat-btn-solid-step: #fff;
-  --fat-link-ink: color-mix(in srgb, var(--fat-primary) 60%, black);
+
+  /* #10b981 as 12px text is 2.54:1 on a card and 2.42:1 on this theme's own tint, so the read
+     side of the accent takes a 60%-toward-black mix (6.19:1 on white, 5.91:1 on #f0fdf4). */
+  --fat-primary-ink: color-mix(in srgb, var(--fat-primary) 60%, black);
   --fat-surface: #f0fdf4;
   --fat-surface-2: #f7fdf9;
   --fat-surface-line: #dcfce7;
@@ -447,7 +459,10 @@
      and, like light green, the ink label means the button lightens on interaction. */
   --fat-on-primary: var(--fat-text-primary);
   --fat-btn-solid-step: #fff;
-  --fat-link-ink: var(--fat-primary-active);
+
+  /* #ea580c as text is 3.56:1 on white and 3.43:1 on this theme's tint; its pressed shade
+     #c2410c is the same hue at 5.18 / 4.99. */
+  --fat-primary-ink: var(--fat-primary-active);
   --fat-surface: #fffbeb;
   --fat-surface-2: #fffdf7;
   --fat-surface-line: #fef3c7;
@@ -524,6 +539,9 @@
   --fat-text-secondary: #a6adc8;
   --fat-text-placeholder: #6c7086;
   --fat-text-disabled: #45475a;
+
+  /* Same ordering as light: a readable hint, still a step below this mode's #bac2de values. */
+  --fat-text-hint: #98a2b3;
 
   /* The JSON inks flip to the light end of the same hues. The worst backdrop the pane can paint in
      this mode is the row hover --fat-surface-hover #2a2a3c — lighter than the page (#11111b), the
@@ -659,7 +677,6 @@
   --fat-on-primary: #fff;
   --fat-focus-ring: var(--fat-primary-hover);
   --fat-primary-ink: var(--fat-primary);
-  --fat-link-ink: var(--fat-primary);
 }
 
 :root[data-mode='dark'][data-theme='green'] {
@@ -675,7 +692,7 @@
      so the outcome never depends on rule order in this file. */
   --fat-on-primary: #fff;
   --fat-focus-ring: var(--fat-primary-hover);
-  --fat-link-ink: var(--fat-primary);
+  --fat-primary-ink: var(--fat-primary);
 }
 
 :root[data-mode='dark'][data-theme='purple'] {
@@ -695,9 +712,10 @@
   --fat-primary-bg: #221408;
   --fat-primary-border: #5c3418;
 
-  /* Same reasoning as dark-green: white is 4.58:1 on this theme's topbar shade. */
+  /* Same reasoning as dark-green: white is 4.58:1 on this theme's topbar shade, and the light
+     block's deepened read-ink is tuned for a white card. */
   --fat-on-primary: #fff;
-  --fat-link-ink: var(--fat-primary);
+  --fat-primary-ink: var(--fat-primary);
 }
 
 :root[data-mode='dark'][data-theme='rose'] {

@@ -6631,9 +6631,11 @@ async function run() {
       // card would silently drop `.drop-stats` from the gate; sampling only the plate would miss the
       // list header and the row meta. Both are re-tinted per theme, so the worst case in the palette
       // (rose #fff1f2) is invisible to a blue-theme screenshot.
-      // Not covered here: --fat-text-placeholder itself, which stays on input placeholders,
-      // disabled controls and decoration whose state is carried by an ARIA attribute, all three
-      // exempt from 1.4.3.
+      // Not covered here: --fat-text-placeholder itself, which stays on disabled controls and on
+      // decoration whose state is carried by an ARIA attribute. Real hint text moved to
+      // --fat-text-hint (see the placeholder overrides in `assets/styles/global.css`), and a
+      // `::placeholder` is a pseudo-element these samples cannot reach — that pair is measured
+      // directly in the Alert & Tag sweep below via the select's unchosen state.
       const INFO_TEXT_FILLED = ['.drop-text', '.paste-hint', '.file-list-header', '.file-meta'];
       const INFO_TEXT_EMPTY = ['.drop-text', '.paste-hint', '.drop-stats'];
       const stageOne = async () => {
@@ -6723,8 +6725,20 @@ async function run() {
       // leaves behind, and a clean conversion gives the `success` alert plus the `primary` format
       // badge every file row carries. `error` and `info` need a failed or cancelled batch, which
       // later sections produce; they are not claimed here.
+      // The second sweep also carries the row actions and the accent-as-text labels, because those
+      // are the surfaces `--fat-state-ink-*` and `--fat-primary-ink` exist for and nothing else
+      // measured them: a danger `text` button used to be EP's raw #f56c6c (2.57:1) and an info one
+      // #909399 (3.08:1), and green's / orange's accent labels sat at 2.54 / 3.56:1 on a card.
       const UNRECOGNIZED = ['.file-item .el-tag--danger', '.format-selector .el-alert__title'];
-      const SUCCEEDED = ['.result-download .el-alert__title', '.file-item .el-tag--primary'];
+      const SUCCEEDED = [
+        '.result-download .el-alert__title',
+        '.file-item .el-tag--primary',
+        '.clear-files-btn',
+        '.reset-btn',
+        '.history-item .fmt-badge.target',
+        '.comparison-toolbar .mode-btn.active',
+        '.history-filter .el-select__placeholder.is-transparent',
+      ];
 
       const appliedTheme = await page.evaluate(() => document.documentElement.dataset.theme ?? '');
       const appliedMode = await page.evaluate(() => document.documentElement.dataset.mode ?? '');

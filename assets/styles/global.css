@@ -170,6 +170,50 @@ body {
   color: var(--fat-link-ink) !important;
 }
 
+/* Hint text inside a field. Element Plus paints all three of these with #a8abb2 (2.30:1 on a
+   card), which is the decorative tier — but a placeholder is the only label an empty field has,
+   so it takes --fat-text-hint instead. The descendant combinators lift each rule above the
+   library's own (0,1,*) declaration without depending on chunk order.
+   `select` must exclude `is-disabled`: Element Plus puts the disabled colour on the wrapper and
+   relies on inheritance, so an unqualified rule here would make a disabled select look live.
+   `input` and `textarea` need no such carve-out — EP ships a (0,3,1) disabled `::placeholder`
+   rule that outranks this one. No font-size change: a select's placeholder node is the same
+   element that displays the chosen value, so resizing it would jump between states. */
+.el-input .el-input__inner::placeholder,
+.el-textarea .el-textarea__inner::placeholder,
+.el-select .el-select__wrapper:not(.is-disabled) .el-select__placeholder.is-transparent {
+  color: var(--fat-text-hint);
+}
+
+/* Semantic colours used *as text* take the same deepened inks the alert / tag overrides already
+   use, because Element Plus paints `text` / `link` actions with the raw hue: a danger row action
+   sits at 2.57:1 on a card and an info one at 3.08:1, which is exactly the pair `--fat-state-ink-*`
+   exists for. The knobs are remapped rather than the `color` property painted, so EP's own state
+   machine keeps working — a plain button's hover still flips to white on the solid fill, and a
+   disabled one still drops to the disabled ink. Three selectors deep because EP declares the same
+   pair at (0,2,0) and this file is bundled ahead of its chunks. */
+.el-button.el-button--danger.is-text,
+.el-button.el-button--danger.is-link {
+  --el-button-text-color: var(--fat-state-ink-danger);
+  --el-button-hover-text-color: var(--fat-state-ink-danger);
+}
+
+.el-button.el-button--danger.is-plain {
+  --el-button-text-color: var(--fat-state-ink-danger);
+}
+
+.el-button.el-button--info.is-text,
+.el-button.el-button--info.is-link {
+  --el-button-text-color: var(--fat-state-ink-info);
+  --el-button-hover-text-color: var(--fat-state-ink-info);
+}
+
+/* The chosen entry inside a select's dropdown is accent-as-text too; EP draws it with
+   --el-color-primary, which is 2.54:1 on green's white and 3.56:1 on orange's. */
+.el-select-dropdown .el-select-dropdown__item.is-selected {
+  color: var(--fat-primary-ink);
+}
+
 .el-button--default {
   border-color: var(--fat-primary-border) !important;
   color: var(--fat-text-regular) !important;
