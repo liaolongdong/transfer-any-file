@@ -19,6 +19,17 @@
      --fat-primary: only text and data graphics move here. */
   --fat-primary-ink: var(--fat-primary);
 
+  /* The accent for link text. The About drawer's outbound rows are the only links this UI paints
+     on a card, and the siblings set their labels in the theme accent rather than body ink.
+     That works only where the accent clears AA as 13px text on a card: purple (#7c3aed, 5.70:1),
+     rose's active shade (#be123c, 6.29:1), slate (#475569, 7.58:1) and blue's already-deepened
+     --fat-primary-ink (5.27:1) do. Green and orange have no readable step in their light
+     primaries (2.54 / 3.56), so green takes a 60%-toward-black mix (6.19:1) and orange takes its
+     active #c2410c (5.18:1). Dark mode restores the light tint, which measures 7.39–9.73:1
+     against the dark card. The link is therefore always colour-identifiable and always legible,
+     which is why the label no longer needs a permanent underline as its affordance. */
+  --fat-link-ink: var(--fat-primary);
+
   /* Keyboard focus ring colour. Declared once per mode and referenced by every
      focus rule, so light and dark differ without a `!important` override war:
      the previous `:root[data-mode='dark'] :focus-visible { outline-color }` tint
@@ -355,6 +366,7 @@
    start, the capsules 2.98:1 at its far end. */
 :root[data-theme='blue'] {
   --fat-primary-ink: color-mix(in srgb, #0072e8 92%, black);
+  --fat-link-ink: var(--fat-primary-ink);
   --fat-on-primary: var(--fat-text-primary);
   --fat-topbar-ink: #fff;
   --fat-focus-ring: var(--fat-primary-ink);
@@ -379,6 +391,7 @@
   --fat-on-primary: var(--fat-text-primary);
   --fat-focus-ring: var(--fat-primary-active);
   --fat-btn-solid-step: #fff;
+  --fat-link-ink: color-mix(in srgb, var(--fat-primary) 60%, black);
   --fat-surface: #f0fdf4;
   --fat-surface-2: #f7fdf9;
   --fat-surface-line: #dcfce7;
@@ -432,6 +445,7 @@
      and, like light green, the ink label means the button lightens on interaction. */
   --fat-on-primary: var(--fat-text-primary);
   --fat-btn-solid-step: #fff;
+  --fat-link-ink: var(--fat-primary-active);
   --fat-surface: #fffbeb;
   --fat-surface-2: #fffdf7;
   --fat-surface-line: #fef3c7;
@@ -458,6 +472,7 @@
   --fat-topbar-bg-end: color-mix(in srgb, var(--fat-primary) 84%, black);
   --fat-topbar-film: rgb(0 0 0 / 14%);
   --fat-topbar-film-hover: rgb(0 0 0 / 22%);
+  --fat-link-ink: var(--fat-primary-active);
   --fat-surface: #fff1f2;
   --fat-surface-2: #fff8f9;
   --fat-surface-line: #ffe4e6;
@@ -530,6 +545,11 @@
      6.15–9.41:1 against the card, while --fat-primary-hover reaches 8.37–12.12:1
      — comfortably past the 3:1 WCAG 1.4.11 non-text minimum in all 6 themes. */
   --fat-focus-ring: var(--fat-primary-hover);
+
+  /* Link text reverses the light-mode recipe: the theme accent itself is now the light end
+     (7.39–9.73:1 on this card), so green's light-mode mix and blue's strong ink are both undone
+     by this later, same-specificity declaration. */
+  --fat-link-ink: var(--fat-primary);
   --fat-topbar-bg: var(--fat-primary-active);
 
   /* Every dark theme paints white ink on the bar, so the skin takes the white-ink recipe:

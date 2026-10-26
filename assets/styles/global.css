@@ -128,23 +128,45 @@ body {
 
 /* The filled-button scale lives in tokens.css (--fat-btn-solid*), because which shade a
    state takes depends on the label colour, and that differs per theme and mode. Keeping the
-   three states here as plain token references means no mode-specific selector is needed. */
-.el-button--primary {
+   three states here as plain token references means no mode-specific selector is needed.
+   The `is-text` / `is-link` variants are excluded: a text button's label *is* the action, so
+   painting the same accent behind it would leave accent-on-accent. The siblings' stylesheet
+   excludes them for exactly that reason, and the history row's "reuse" action is a primary
+   text button — its ink is handled by the rule below instead. */
+.el-button--primary:not(.is-text, .is-link) {
   background: var(--fat-btn-solid) !important;
   border-color: var(--fat-btn-solid) !important;
   color: var(--fat-on-btn-solid) !important;
 }
 
-.el-button--primary:not(.is-disabled):hover {
+.el-button--primary:not(.is-text, .is-link, .is-disabled):hover {
   background: var(--fat-btn-solid-hover) !important;
   border-color: var(--fat-btn-solid-hover) !important;
   color: var(--fat-on-btn-solid) !important;
 }
 
-.el-button--primary:not(.is-disabled):active {
+.el-button--primary:not(.is-text, .is-link, .is-disabled):active {
   background: var(--fat-btn-solid-active) !important;
   border-color: var(--fat-btn-solid-active) !important;
   color: var(--fat-on-btn-solid) !important;
+}
+
+/* Row actions keep the accent as ink on the card, so they take --fat-link-ink rather than the
+   fill: the same token the About drawer's outbound labels use, and the one that certifies the
+   accent as small text in every theme. The hover wash is the row's own background token so the
+   action reads as part of the list rather than as a floating chip. */
+.el-button--primary.is-text:not(.is-disabled),
+.el-button--primary.is-link:not(.is-disabled) {
+  background: transparent !important;
+  border-color: transparent !important;
+  color: var(--fat-link-ink) !important;
+}
+
+.el-button--primary.is-text:not(.is-disabled):hover,
+.el-button--primary.is-link:not(.is-disabled):hover {
+  background: var(--fat-surface-hover) !important;
+  border-color: transparent !important;
+  color: var(--fat-link-ink) !important;
 }
 
 .el-button--default {
@@ -223,6 +245,17 @@ body {
   outline-color: var(--fat-focus-ring) !important;
 }
 
+/* The selected segment wears the same filled scale as a primary button. Element Plus paints it
+   with --el-color-primary plus a white label — the one pairing this palette rejects everywhere
+   else (2.54:1 on green, 2.78:1 on blue, 3.56:1 on orange). Its three knobs are declared on
+   `.el-radio-button` itself, so a `:root` mapping is shadowed and this descendant selector is
+   what actually reaches them regardless of stylesheet order. The focus ring is separate (above). */
+.el-radio-group .el-radio-button {
+  --el-radio-button-checked-bg-color: var(--fat-btn-solid);
+  --el-radio-button-checked-text-color: var(--fat-on-btn-solid);
+  --el-radio-button-checked-border-color: var(--fat-btn-solid);
+}
+
 /* Dark mode button enhancements (primary is handled by the token scale above) */
 :root[data-mode='dark'] .el-button--default {
   border-color: var(--fat-border) !important;
@@ -257,14 +290,25 @@ body {
    One selector is enough because EP builds the class as `ns.m(type)` with `type` defaulting to
    `""`: an untyped `<el-button>` carries no `el-button--default`, and the `text` / `link` /
    `plain` props add `is-text` / `is-link` / `is-plain` beside the type modifier rather than
-   replacing it. So `--primary` covers every solid button in the workbench, chip-shaped variants
-   included — which is how those variants already look when enabled, under the rules above.
+   replacing it. So `--primary` covers every solid button in the workbench; the enabled text /
+   link variants are excluded from the fill above, but this disabled rule still reaches them,
+   which is the state the "text button mid-conversion" measurement above is about.
    The `.el-button--default` and `.el-button--text` selectors that remain in this file match no
    element today; they are pre-existing and left alone here. */
 :root .el-button--primary.is-disabled:not(.is-loading) {
   background: var(--fat-surface-2) !important;
   border-color: var(--fat-border) !important;
   color: var(--fat-text-placeholder) !important;
+}
+
+/* The About drawer's title-to-content band. Element Plus writes `margin-bottom: 32px` on the
+   header while the body carries its own 20px padding, so the first row of a 400px-wide panel
+   starts 52px under a title that no longer looks attached to anything. The siblings' stylesheet
+   trims the same 32px to 4px for the same reason; the drawer's own section spacing
+   (`--fat-space-md` on `.about`) then does the separating. The descendant combinator lifts this
+   to (0,2,0) so it does not depend on which chunk lands last. */
+.el-drawer .el-drawer__header {
+  margin-bottom: 4px;
 }
 
 /* Large-batch confirmation dialog. The markup is a VNode built in useConversion.ts and the

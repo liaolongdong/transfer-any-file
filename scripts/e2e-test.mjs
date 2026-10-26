@@ -5791,8 +5791,9 @@ async function run() {
   // The About drawer is the one place the interface lists every off-site address it knows. The
   // addresses are pinned literally: a typo in any of them is a 404 no other gate in this repository
   // would notice. What else is measured — the new-tab hygiene, the visible host column, the ink on
-  // all six themes in both modes (the label is `--fat-text-primary`, not the accent: green and
-  // orange put that accent at 2.54:1 and 3.56:1 on a card), and that a 320px window does not clip it.
+  // all six themes in both modes (the label is `--fat-link-ink`: the theme accent, deepened wherever
+  // that accent cannot carry 13px text on a card — green's and orange's light primaries are 2.54:1
+  // and 3.56:1), and that a 320px window does not clip it.
   if (section('About Drawer & Outbound Links')) {
     try {
       await page.reload();

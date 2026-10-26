@@ -241,11 +241,12 @@ const facts = computed(() => [
   outline-offset: 2px;
 }
 
-/* Underline rather than the accent colour: the green and orange themes measure 2.54:1 and 3.56:1
-   as small text on a card, so the affordance cannot be colour-only and must not be the hue. */
+/* Accent ink rather than body ink and no permanent underline: this is the siblings' link-row
+   treatment, and --fat-link-ink is the token that certifies the accent as 13px text on the card
+   in all six themes and both modes (blue's 2.78:1 primary is deliberately not used here). The
+   row's hover wash and the trailing arrow still carry the "this leaves the page" affordance. */
 .about-link-label {
-  text-decoration: underline;
-  text-underline-offset: 2px;
+  color: var(--fat-link-ink);
 }
 
 .about-link-host {
