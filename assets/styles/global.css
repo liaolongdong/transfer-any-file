@@ -119,11 +119,17 @@ body {
   cursor: pointer;
 }
 
-/* Buttons - flat design: color shift only, no lift */
+/* Buttons, on the sibling extensions' scale: a 6px corner, regular weight, and a 1px lift under
+   the pointer. `--fat-transition` already tweens transform, and the reduced-motion block at the
+   top of this file collapses the duration, so the lift disappears for users who ask for that. */
 .el-button {
-  border-radius: var(--fat-radius-md) !important;
+  border-radius: var(--fat-radius-sm) !important;
   transition: var(--fat-transition) !important;
-  font-weight: 500;
+  font-weight: 400;
+}
+
+.el-button:hover {
+  transform: translateY(-1px);
 }
 
 /* The filled-button scale lives in tokens.css (--fat-btn-solid*), because which shade a

@@ -527,13 +527,12 @@ onUnmounted(() => {
                  issues no request of its own, and never asks whether a newer version exists. -->
             <span class="brand-tag">{{ t('options.subtitle') }}</span>
           </div>
-          <!-- Two capsules on the right: the drawer of exits, then preferences. Both share the
-               card-coloured chrome and collapse to icon-only below 640px, where the topbar has no
-               room for the words. -->
+          <!-- Two glass buttons on the right: the drawer of exits, then preferences. Both wear the
+               same film as the version chip and collapse to icon-only below 640px, where the topbar
+               has no room for the words. -->
           <div class="topbar-actions">
             <el-button
               class="about-trigger"
-              round
               :icon="InfoFilled"
               :title="t('about.open')"
               :aria-label="t('about.open')"
@@ -543,7 +542,6 @@ onUnmounted(() => {
             </el-button>
             <el-button
               class="prefs-trigger"
-              round
               :icon="Setting"
               :title="t('options.preferences')"
               :aria-label="t('options.preferences')"
@@ -877,13 +875,12 @@ onUnmounted(() => {
     var(--fat-shadow-lg);
 }
 
-/* The siblings' header skin: a 135° wash rather than a flat fill, and one frosted film for the
-   controls on it. `background-color` stays the wash's start on purpose — the contrast sampler
-   reads it (a gradient alone computes as transparent), and the brand block sits at the start
-   where that colour is the real backdrop. The wash's far end and the film's polarity are theme
-   tokens: green and orange carry dark ink and lighten under a white film; blue keeps the
-   sibling light→lighter wash with a black film under its white ink; purple / rose / slate and
-   every dark theme deepen both. */
+/* The siblings' header skin: a 135° wash from the primary to its hover shade, white ink, and one
+   frosted film (15% → 20% under the pointer) for the controls on it. `background-color` stays the
+   wash's start on purpose — the contrast sampler reads it (a gradient alone computes as
+   transparent), and the brand block sits at the start where that colour is the real backdrop.
+   Dark mode overrides the endpoint and the film's polarity in tokens.css, because there the bar is
+   already a deep shade and white ink has somewhere to step toward. */
 .topbar {
   background-color: var(--fat-topbar-bg);
   background-image: linear-gradient(135deg, var(--fat-topbar-bg) 0%, var(--fat-topbar-bg-end) 100%);
@@ -911,11 +908,11 @@ onUnmounted(() => {
   color: var(--fat-topbar-ink);
 }
 
-/* Full strength rather than a translucent alpha: at 12px the old 70–85% white measured 4.20:1
-   on light blue and 3.71:1 on light rose. Blue's bar now carries white by the sibling-parity
-   decision (2.78:1, the documented deviation); green and orange keep the dark ink and the
-   other three light themes already carried white at full strength. Hierarchy is carried by
-   the size difference alone. */
+/* Full strength white in every theme, which is what the sibling headers do (`.header { color: white }`).
+   That is 2.78:1 on sky blue, 2.54:1 on green and 3.56:1 on orange — below AA for this 12px line, and
+   kept anyway because the parity across the author's three products is the stated priority; the
+   numbers are recorded as a known limitation in CONTRIBUTING rather than quietly smoothed over.
+   Hierarchy against the brand name is carried by the size difference alone. */
 .brand-tag {
   font-size: 12px;
   color: var(--fat-topbar-ink);
@@ -930,16 +927,15 @@ onUnmounted(() => {
   gap: var(--fat-space-sm);
 }
 
-/* The sibling chip shape: a translucent tag on the wash, not a solid card pill. Ink is
-   --fat-topbar-ink (same as the brand name), and the film is the token that steps away from
-   that ink per theme, so contrast can only rise. The 1px rim carries the resting edge. */
+/* The sibling chip shape: a small translucent tag on the wash, not a solid pill — 6px corner like
+   every other button in this skin, 15% film, 25% rim. */
 .brand-version {
   display: inline-flex;
   align-items: center;
   padding: 2px var(--fat-space-sm);
   background: var(--fat-topbar-film);
   border: 1px solid var(--fat-topbar-film-border);
-  border-radius: var(--fat-radius-pill);
+  border-radius: var(--fat-radius-sm);
   color: var(--fat-topbar-ink);
   font-size: 12px;
   font-weight: 600;
@@ -983,22 +979,24 @@ onUnmounted(() => {
 .topbar .prefs-trigger,
 .topbar .about-trigger {
   flex-shrink: 0;
-  border-radius: var(--fat-radius-pill) !important;
+  border-radius: var(--fat-radius-sm) !important;
   background: var(--fat-topbar-film);
   border: 1px solid var(--fat-topbar-film-border) !important;
   color: var(--fat-topbar-ink) !important;
-  font-weight: 600;
-  backdrop-filter: blur(10px);
+  font-weight: 400;
+  backdrop-filter: var(--fat-topbar-blur);
 }
 
-/* Hover thickens the film and its rim. Deliberately no translateY: global.css states the
-   flat-design rule (colour shift only, no lift) and the workbench's primary button already
-   follows it; the sibling header lifts, this one keeps the house rule. */
+/* Hover thickens the film and its rim and lifts 1px, which is the sibling header's button
+   hover (`transform: translateY(-1px)` plus a soft shadow). The lift is inside
+   `--fat-transition` already, and the reduced-motion block collapses it. */
 .topbar .prefs-trigger:hover,
 .topbar .about-trigger:hover {
   background: var(--fat-topbar-film-hover);
   border-color: var(--fat-topbar-film-border-hover) !important;
   color: var(--fat-topbar-ink) !important;
+  box-shadow: 0 4px 12px rgb(0 0 0 / 15%);
+  transform: translateY(-1px);
 }
 
 .topbar .prefs-trigger:focus-visible,

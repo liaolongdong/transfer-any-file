@@ -7099,24 +7099,29 @@
                   >跳转主内容链接、可见焦点环、<code>prefers-reduced-motion</code> 降级；转换进度与文件列表的增减通过
                   <code>role="status"</code>
                   区域播报，删除历史后 5 秒内还可以撤销。端到端套件在 6 主题 × 浅/深共 12
-                  种组合下逐项实测五组承担对比度契约的颜色：主按钮文字在常态 / 悬停 / 按下三种状态下均 ≥
-                  4.5:1（读数取自确实可点击的按钮，文本规则豁免禁用控件），焦点环对卡片背景 ≥
-                  3:1，拖放提示与文件大小这类正文信息文字对各自底色 ≥ 4.5:1，Element Plus
-                  浅色效果的警示框标题与文件行的格式标签——它们用同一支语义色既当墨又当底——对各自的浅色底 ≥ 4.5:1。
-                  顶栏品牌文字在除晴空蓝外的组合里 ≥ 4.5:1；晴空蓝为与作者的另外两个扩展保持同一套白字顶栏，品牌字对
-                  <code>#409eff</code> 为 2.78:1、玻璃胶囊 3.68:1，作为明示的已知限制：它低于 AA，其余组合仍达标。</span
+                  种组合下逐项实测五组承担对比度契约的颜色。卡片上的文字全部达标：拖放提示与文件大小这类正文信息文字对各自底色
+                  ≥ 4.5:1，Element Plus
+                  浅色效果的警示框标题与文件行的格式标签——它们用同一支语义色既当墨又当底——对各自的浅色底 ≥
+                  4.5:1，焦点环对卡片背景 ≥ 3:1。彩色表面上的白字是刻意的取舍：主按钮文字在常态 / 悬停 /
+                  按下三种状态下，紫、玫瑰、石板与全部深色主题 ≥
+                  4.5:1（读数取自确实可点击的按钮，文本规则豁免禁用控件），而晴空蓝 / 森林绿 / 活力橙为
+                  2.78→2.22、2.54→1.92、3.56→2.80；顶栏品牌字 2.78 / 2.54 / 3.56，版本号芯片与两枚玻璃按钮在白色薄膜上
+                  2.36 / 2.22 /
+                  3.00——为与作者的另外两个扩展共用同一套皮肤，这些读数作为明示的已知限制逐主题钉住下限，而不是当作已达标呈现。</span
                 >
                 <span lang="en"
                   >Skip link to the main content, visible focus rings and a
                   <code>prefers-reduced-motion</code> fallback. The end-to-end suite measures the five colour pairs that
-                  carry the contrast contract — the primary button's label in its rest, hover and pressed states at
-                  4.5:1 or better (read off the enabled button, because the text rule exempts disabled controls), focus
-                  ring on a card at 3:1 or better, informational text such as the drop hint and file sizes at 4.5:1 or
-                  better on their own backdrop, and the light-effect alerts and per-file format tags, whose semantic
-                  colour serves as both ink and fill — at 4.5:1 or better against the tint underneath them — in all 12
-                  theme × light/dark combinations. Topbar brand text clears 4.5:1 in every combination except light sky
-                  blue, which carries white to match the author's other two extensions (2.78:1 for the wordmark, 3.68:1
-                  for the glass capsules); that one is a stated known limitation, not a pass.</span
+                  carry the contrast contract — informational text such as the drop hint and file sizes at 4.5:1 or
+                  better on their own backdrop, the light-effect alerts and per-file format tags, whose semantic colour
+                  serves as both ink and fill, at 4.5:1 or better against the tint underneath them, and the focus ring
+                  on a card at 3:1 or better — in all 12 theme × light/dark combinations. White on the coloured surfaces
+                  is the deliberate trade: the primary button's label clears 4.5:1 under purple, rose, slate and every
+                  dark theme (read off the enabled button, because the text rule exempts disabled controls), while sky
+                  blue, forest green and orange run 2.78 → 2.22, 2.54 → 1.92 and 3.56 → 2.80 from rest to hover, and the
+                  topbar wordmark measures 2.78 / 2.54 / 3.56 with its chip and two glass buttons at 2.36 / 2.22 / 3.00
+                  on the white film. Those readings are stated known limitations, pinned per theme so they cannot
+                  quietly widen — not a pass.</span
                 >
               </p>
             </article>
