@@ -153,8 +153,9 @@ body {
 
 /* Row actions keep the accent as ink on the card, so they take --fat-link-ink rather than the
    fill: the same token the About drawer's outbound labels use, and the one that certifies the
-   accent as small text in every theme. The hover wash is the row's own background token so the
-   action reads as part of the list rather than as a floating chip. */
+   accent as small text in every theme. The hover wash is `--fat-surface-hover`, the tint the
+   About link rows already wear — deliberately not the row's own `--fat-bg-hover`, so the action
+   still reads as a target inside a hovered row. */
 .el-button--primary.is-text:not(.is-disabled),
 .el-button--primary.is-link:not(.is-disabled) {
   background: transparent !important;
@@ -290,9 +291,11 @@ body {
    One selector is enough because EP builds the class as `ns.m(type)` with `type` defaulting to
    `""`: an untyped `<el-button>` carries no `el-button--default`, and the `text` / `link` /
    `plain` props add `is-text` / `is-link` / `is-plain` beside the type modifier rather than
-   replacing it. So `--primary` covers every solid button in the workbench; the enabled text /
-   link variants are excluded from the fill above, but this disabled rule still reaches them,
-   which is the state the "text button mid-conversion" measurement above is about.
+   replacing it. So `--primary` covers every solid button in the workbench. The enabled text /
+   link variants are excluded from the fill above, and this block still reaches them when they
+   are disabled — no call site does that today (the three `:loading` buttons are all solid),
+   and a disabled *and* loading text button would fall through to Element Plus's own light-5
+   disabled pair rather than to these tokens.
    The `.el-button--default` and `.el-button--text` selectors that remain in this file match no
    element today; they are pre-existing and left alone here. */
 :root .el-button--primary.is-disabled:not(.is-loading) {
