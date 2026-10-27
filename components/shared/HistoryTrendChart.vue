@@ -123,8 +123,10 @@ const headHit = computed(() => {
   overflow: visible;
 }
 
+/* The line and its head are the chart's data, so they take the readable accent (3:1 as a
+   non-text graphic); the 12 % area underneath is decoration and keeps the plain primary. */
 .trend-line {
-  stroke: var(--fat-primary);
+  stroke: var(--fat-primary-ink);
   stroke-width: 1.25;
   stroke-linecap: round;
   stroke-linejoin: round;
@@ -137,7 +139,7 @@ const headHit = computed(() => {
 }
 
 .trend-head {
-  fill: var(--fat-primary);
+  fill: var(--fat-primary-ink);
 }
 
 .trend-hit {

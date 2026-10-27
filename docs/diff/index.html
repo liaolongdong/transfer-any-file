@@ -10,10 +10,10 @@
       name="color-scheme"
       content="light dark"
     />
-    <title>文件差异对比 · 离线，不上传</title>
+    <title>文件差异对比 · 离线，不上传 | Compare Two Files — Offline</title>
     <meta
       name="description"
-      content="完全离线的两个文件差异对比：行级与词级差异、并排与统一视图、折叠相同内容、复制补丁文本。文件只在本机处理，不上传、不需要联网。"
+      content="完全离线的两个文件差异对比：行级与词级差异、并排与统一视图、折叠相同内容、复制补丁文本。文件只在本机处理，不上传、不需要联网。 | An offline line and word-level diff for two files, with split and unified views and a copyable patch. Nothing is uploaded."
     />
     <!-- Site attribution lives in this file, not in the generator: `docs/diff/index.html` is a byte-for-byte
          copy of it, so the two source-layer offline guards keep scanning exactly what the site serves. That
@@ -45,11 +45,11 @@
     />
     <meta
       property="og:title"
-      content="文件差异对比 · 离线，不上传"
+      content="文件差异对比 · 离线，不上传 | Compare Two Files — Offline"
     />
     <meta
       property="og:description"
-      content="完全离线的两个文件差异对比：行级与词级差异、并排与统一视图、折叠相同内容、复制补丁文本。文件只在本机处理，不上传、不需要联网。"
+      content="完全离线的两个文件差异对比：行级与词级差异、并排与统一视图、折叠相同内容、复制补丁文本。文件只在本机处理，不上传、不需要联网。 | An offline line and word-level diff for two files, with split and unified views and a copyable patch. Nothing is uploaded."
     />
     <meta
       property="og:image"
@@ -73,11 +73,11 @@
     />
     <meta
       name="twitter:title"
-      content="文件差异对比 · 离线，不上传"
+      content="文件差异对比 · 离线，不上传 | Compare Two Files — Offline"
     />
     <meta
       name="twitter:description"
-      content="完全离线的两个文件差异对比：行级与词级差异、并排与统一视图、折叠相同内容、复制补丁文本。文件只在本机处理，不上传、不需要联网。"
+      content="完全离线的两个文件差异对比：行级与词级差异、并排与统一视图、折叠相同内容、复制补丁文本。文件只在本机处理，不上传、不需要联网。 | An offline line and word-level diff for two files, with split and unified views and a copyable patch. Nothing is uploaded."
     />
     <meta
       name="twitter:image"
@@ -93,7 +93,7 @@
             "name": "文件差异对比",
             "alternateName": "File Diff",
             "url": "https://liaolongdong.github.io/transfer-any-file/diff/",
-            "dateModified": "2026-10-20",
+            "dateModified": "2026-10-27",
             "inLanguage": ["zh-CN", "en"],
             "browserRequirements": "Requires a JavaScript-enabled browser. Works without a server: the page can also be opened from a local file.",
             "description": [
@@ -108,7 +108,7 @@
             ],
             "isPartOf": {
               "@type": "WebSite",
-              "@id": "https://liaolongdong.github.io/transfer-any-file/#app",
+              "@id": "https://liaolongdong.github.io/transfer-any-file/#website",
               "url": "https://liaolongdong.github.io/transfer-any-file/"
             },
             "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
@@ -866,6 +866,18 @@
         display: block;
       }
 
+      /* The H1 is written in both languages in the markup so a crawler that never runs the script
+         reads a real heading; the language attribute set in <head> picks one before first paint. */
+      .i18n-zh,
+      .i18n-en {
+        display: none;
+      }
+
+      html[lang='zh-CN'] .i18n-zh,
+      html[lang='en'] .i18n-en {
+        display: inline;
+      }
+
       footer.foot {
         margin-top: 16px;
         color: var(--fd-text-secondary);
@@ -1124,7 +1136,10 @@
       </nav>
       <header class="masthead">
         <div>
-          <h1 data-i18n="appTitle"></h1>
+          <h1 data-i18n="appTitle">
+            <span class="i18n-zh">文件差异对比 · 离线，不上传</span
+            ><span class="i18n-en">Compare Two Files — Offline, Nothing Uploaded</span>
+          </h1>
           <p
             class="tagline"
             data-i18n="appTagline"
@@ -1716,7 +1731,7 @@
           // One of the three date claims `validateStaticDates()` cross-checks against
           // `STATIC_PAGES.diff.updated`, alongside `"dateModified"` above and this very string in the
           // English value. Changing the date means changing all three at once, or the render stops.
-          footUpdated: ['最后更新：2026-10-20', 'Last updated: 2026-10-20'],
+          footUpdated: ['最后更新：2026-10-27', 'Last updated: 2026-10-27'],
           wordSkipped: ['（超长行：仅行级差异）', '(very long line: line-level diff only)'],
           unexpectedError: [
             '页面出现异常：{msg}。输入仍然保留，可重试或清空。',

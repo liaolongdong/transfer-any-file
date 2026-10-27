@@ -119,32 +119,105 @@ body {
   cursor: pointer;
 }
 
-/* Buttons - flat design: color shift only, no lift */
+/* Buttons, on the sibling extensions' scale: a 6px corner, regular weight, and a 1px lift under
+   the pointer. `--fat-transition` already tweens transform, and the reduced-motion block at the
+   top of this file collapses the duration, so the lift disappears for users who ask for that. */
 .el-button {
-  border-radius: var(--fat-radius-md) !important;
+  border-radius: var(--fat-radius-sm) !important;
   transition: var(--fat-transition) !important;
-  font-weight: 500;
+  font-weight: 400;
+}
+
+.el-button:hover {
+  transform: translateY(-1px);
 }
 
 /* The filled-button scale lives in tokens.css (--fat-btn-solid*), because which shade a
    state takes depends on the label colour, and that differs per theme and mode. Keeping the
-   three states here as plain token references means no mode-specific selector is needed. */
-.el-button--primary {
+   three states here as plain token references means no mode-specific selector is needed.
+   The `is-text` / `is-link` variants are excluded: a text button's label *is* the action, so
+   painting the same accent behind it would leave accent-on-accent. The siblings' stylesheet
+   excludes them for exactly that reason, and the history row's "reuse" action is a primary
+   text button — its ink is handled by the rule below instead. */
+.el-button--primary:not(.is-text, .is-link) {
   background: var(--fat-btn-solid) !important;
   border-color: var(--fat-btn-solid) !important;
   color: var(--fat-on-btn-solid) !important;
 }
 
-.el-button--primary:not(.is-disabled):hover {
+.el-button--primary:not(.is-text, .is-link, .is-disabled):hover {
   background: var(--fat-btn-solid-hover) !important;
   border-color: var(--fat-btn-solid-hover) !important;
   color: var(--fat-on-btn-solid) !important;
 }
 
-.el-button--primary:not(.is-disabled):active {
+.el-button--primary:not(.is-text, .is-link, .is-disabled):active {
   background: var(--fat-btn-solid-active) !important;
   border-color: var(--fat-btn-solid-active) !important;
   color: var(--fat-on-btn-solid) !important;
+}
+
+/* Row actions keep the accent as ink on the card, so they take --fat-link-ink rather than the
+   fill: the same token the About drawer's outbound labels use, and the one that certifies the
+   accent as small text in every theme. The hover wash is `--fat-surface-hover`, the tint the
+   About link rows already wear — deliberately not the row's own `--fat-bg-hover`, so the action
+   still reads as a target inside a hovered row. */
+.el-button--primary.is-text:not(.is-disabled),
+.el-button--primary.is-link:not(.is-disabled) {
+  background: transparent !important;
+  border-color: transparent !important;
+  color: var(--fat-link-ink) !important;
+}
+
+.el-button--primary.is-text:not(.is-disabled):hover,
+.el-button--primary.is-link:not(.is-disabled):hover {
+  background: var(--fat-surface-hover) !important;
+  border-color: transparent !important;
+  color: var(--fat-link-ink) !important;
+}
+
+/* Hint text inside a field. Element Plus paints all three of these with #a8abb2 (2.30:1 on a
+   card), which is the decorative tier — but a placeholder is the only label an empty field has,
+   so it takes --fat-text-hint instead. The descendant combinators lift each rule above the
+   library's own (0,1,*) declaration without depending on chunk order.
+   `select` must exclude `is-disabled`: Element Plus puts the disabled colour on the wrapper and
+   relies on inheritance, so an unqualified rule here would make a disabled select look live.
+   `input` and `textarea` need no such carve-out — EP ships a (0,3,1) disabled `::placeholder`
+   rule that outranks this one. No font-size change: a select's placeholder node is the same
+   element that displays the chosen value, so resizing it would jump between states. */
+.el-input .el-input__inner::placeholder,
+.el-textarea .el-textarea__inner::placeholder,
+.el-select .el-select__wrapper:not(.is-disabled) .el-select__placeholder.is-transparent {
+  color: var(--fat-text-hint);
+}
+
+/* Semantic colours used *as text* take the same deepened inks the alert / tag overrides already
+   use, because Element Plus paints `text` / `link` actions with the raw hue: a danger row action
+   sits at 2.57:1 on a card and an info one at 3.08:1, which is exactly the pair `--fat-state-ink-*`
+   exists for. The knobs are remapped rather than the `color` property painted, so EP's own state
+   machine keeps working — a plain button's hover still flips to white on the solid fill, and a
+   disabled one still drops to the disabled ink. Three selectors deep because EP declares the same
+   pair at (0,2,0) and this file is bundled ahead of its chunks. */
+.el-button.el-button--danger.is-text,
+.el-button.el-button--danger.is-link {
+  --el-button-text-color: var(--fat-state-ink-danger);
+  --el-button-hover-text-color: var(--fat-state-ink-danger);
+}
+
+.el-button.el-button--danger.is-plain {
+  --el-button-text-color: var(--fat-state-ink-danger);
+}
+
+.el-button.el-button--info.is-text,
+.el-button.el-button--info.is-link {
+  --el-button-text-color: var(--fat-state-ink-info);
+  --el-button-hover-text-color: var(--fat-state-ink-info);
+}
+
+/* The chosen entry inside a select's dropdown is accent-as-text too; EP draws it with
+   --el-color-primary, which is 2.54:1 on green's white and 3.56:1 on orange's. */
+.el-select-dropdown .el-select-dropdown__item.is-selected {
+  color: var(--fat-primary-ink);
 }
 
 .el-button--default {
@@ -154,12 +227,12 @@ body {
 
 .el-button--default:hover {
   border-color: var(--fat-primary) !important;
-  color: var(--fat-primary) !important;
+  color: var(--fat-primary-ink) !important;
 }
 
 /* Text button hover */
 .el-button--text:hover {
-  color: var(--fat-primary) !important;
+  color: var(--fat-primary-ink) !important;
 }
 
 /* F10 — global keyboard focus ring. `:focus-visible` only fires for keyboard
@@ -209,17 +282,29 @@ body {
 
 /* Element Plus draws its own rings for the controls whose real input is visually hidden — the
    switch, the checkbox and the segmented radio buttons — and paints them with its primary, not
-   with `--fat-focus-ring`. Measured on the built bundle across all six themes in both modes: only
-   one combination falls under 3:1, but it is the light `green` theme, where `--el-color-primary`
-   is `#10b981` while this file's own token resolves to `--fat-primary-active` (`#059669`). All
-   three families measured 2.54:1 on a card and 2.42:1 on the workbench surface before this rule
-   and 3.77 / 3.60 after it, which is what the `Hidden-Input Focus Rings` e2e section pins.
+   with `--fat-focus-ring`. Measured on the built bundle across all six themes in both modes, two
+   light combinations fall under 3:1 on a card: green (`--el-color-primary` #10b981 at 2.54:1,
+   where this file's token resolves to #059669) and blue (#409eff at 2.78:1, where it resolves to
+   the strong ink #0069d5). Those are the two the override below exists for; after it all three
+   families measure 3.77 / 3.60 on green's card and workbench surface, and 5.27 / 5.04 on blue's,
+   which is what the `Hidden-Input Focus Rings` e2e section pins.
    The selectors are Element Plus's verbatim, so geometry and offset stay theirs and only the
    colour joins the contract every other control already keeps. */
 .el-switch__input:focus-visible ~ .el-switch__core,
 .el-checkbox input:focus-visible + .el-checkbox__inner,
 .el-radio-button__original-radio:focus-visible + .el-radio-button__inner {
   outline-color: var(--fat-focus-ring) !important;
+}
+
+/* The selected segment wears the same filled scale as a primary button. Element Plus paints it
+   with --el-color-primary plus a white label — the one pairing this palette rejects everywhere
+   else (2.54:1 on green, 2.78:1 on blue, 3.56:1 on orange). Its three knobs are declared on
+   `.el-radio-button` itself, so a `:root` mapping is shadowed and this descendant selector is
+   what actually reaches them regardless of stylesheet order. The focus ring is separate (above). */
+.el-radio-group .el-radio-button {
+  --el-radio-button-checked-bg-color: var(--fat-btn-solid);
+  --el-radio-button-checked-text-color: var(--fat-on-btn-solid);
+  --el-radio-button-checked-border-color: var(--fat-btn-solid);
 }
 
 /* Dark mode button enhancements (primary is handled by the token scale above) */
@@ -256,14 +341,27 @@ body {
    One selector is enough because EP builds the class as `ns.m(type)` with `type` defaulting to
    `""`: an untyped `<el-button>` carries no `el-button--default`, and the `text` / `link` /
    `plain` props add `is-text` / `is-link` / `is-plain` beside the type modifier rather than
-   replacing it. So `--primary` covers every solid button in the workbench, chip-shaped variants
-   included — which is how those variants already look when enabled, under the rules above.
+   replacing it. So `--primary` covers every solid button in the workbench. The enabled text /
+   link variants are excluded from the fill above, and this block still reaches them when they
+   are disabled — no call site does that today (the three `:loading` buttons are all solid),
+   and a disabled *and* loading text button would fall through to Element Plus's own light-5
+   disabled pair rather than to these tokens.
    The `.el-button--default` and `.el-button--text` selectors that remain in this file match no
    element today; they are pre-existing and left alone here. */
 :root .el-button--primary.is-disabled:not(.is-loading) {
   background: var(--fat-surface-2) !important;
   border-color: var(--fat-border) !important;
   color: var(--fat-text-placeholder) !important;
+}
+
+/* The About drawer's title-to-content band. Element Plus writes `margin-bottom: 32px` on the
+   header while the body carries its own 20px padding, so the first row of a 400px-wide panel
+   starts 52px under a title that no longer looks attached to anything. The siblings' stylesheet
+   trims the same 32px to 4px for the same reason; the drawer's own section spacing
+   (`--fat-space-md` on `.about`) then does the separating. The descendant combinator lifts this
+   to (0,2,0) so it does not depend on which chunk lands last. */
+.el-drawer .el-drawer__header {
+  margin-bottom: 4px;
 }
 
 /* Large-batch confirmation dialog. The markup is a VNode built in useConversion.ts and the
@@ -302,7 +400,7 @@ body {
   border: none;
   font: inherit;
   font-weight: 600;
-  color: var(--fat-primary);
+  color: var(--fat-primary-ink);
   background: none;
   cursor: pointer;
 }
@@ -320,7 +418,7 @@ body {
 
 /* Readable ink for Element Plus's light-effect alerts and tags.
    Both components paint their text with a semantic colour and set the background to that same
-   colour's 10% tint, which measures 2.04–2.80:1 for the four fixed types and 2.31–4.49:1 for a
+   colour's 10% tint, which measures 2.04–2.80:1 for the four fixed types and 2.31–2.53:1 for a
    default `type="primary"` tag — the format badge on every file row. WCAG 1.4.3 wants 4.5:1, so the
    hue is kept and only its lightness is corrected, through the tokens that state the measurements
    (`--fat-state-ink-*`); the tinted background is left alone because it is a precomputed value that

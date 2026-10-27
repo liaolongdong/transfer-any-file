@@ -531,7 +531,7 @@ async function handleImportChange(e: Event): Promise<void> {
 }
 
 .fmt-badge.target {
-  color: var(--fat-primary);
+  color: var(--fat-primary-ink);
 }
 
 .history-meta {

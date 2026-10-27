@@ -5,7 +5,7 @@ export type ThemeName = 'blue' | 'green' | 'purple' | 'orange' | 'rose' | 'slate
 export type ColorMode = 'light' | 'dark' | 'system';
 
 export const AVAILABLE_THEMES: { value: ThemeName; color: string }[] = [
-  { value: 'blue', color: '#2563eb' },
+  { value: 'blue', color: '#409eff' },
   { value: 'green', color: '#16a34a' },
   { value: 'purple', color: '#7c3aed' },
   { value: 'orange', color: '#ea580c' },

@@ -52,7 +52,7 @@
 以后再补跑的成本（本机需要手动装过 ffmpeg 与 chromium 二进制）：
 
 ```bash
-pnpm test:e2e        # = wxt build + node scripts/e2e-test.mjs，断言基线 491 条
+pnpm test:e2e        # = wxt build + node scripts/e2e-test.mjs，断言基线 501 条
 ```
 
 **2026-09-29 这一轮（JSON 预览的树 / 数组表 / 搜索 + 仓库外的对比页）跑满了 e2e，改在 `E2E_HEADLESS=true` 下跑**：
@@ -1732,6 +1732,147 @@ csv→Word 的另一组事实回读自`html-to-docx.ts`：正文以 MHT altChunk
   **一条工具口径**：本机 Playwright 的 ffmpeg 二进制会随缓存清理消失，而 `npx playwright install ffmpeg` 在
   macOS 13 上直接报 `Playwright does not support ffmpeg on mac13`——把官方构建包手动解到
   `~/Library/Caches/ms-playwright/ffmpeg-1011/ffmpeg-mac` 并 `chmod +x` 即可，软链系统 ffmpeg 不行。
+
+- **10-25 第七十五轮（撤掉顶栏两条外链，对外地址只剩「关于」抽屉；断言总数 491→486，一轮全量绿灯）。**
+  用户看顶栏截图问「这两条是不是可以删了」；结论是可以——「商店更新」与「下载最新版」两个目的地在抽屉里
+  各有一条（`linkStore` / `linkReview` 共用商店地址，`linkReleases` 指向 `releases/latest`），顶栏再留一遍
+  就是同一目的地开两扇门；而「商店更新」这个名字会被读成「点一下会拉新版本」，可扩展从不检查更新，
+  从商店装的由 Chrome 自己更新。删除后顶栏只剩品牌名 + 版本芯片、「关于」「偏好设置」两颗胶囊。
+  **改动**：`App.vue` 删掉两个 `<a class="brand-link">` 与 `.brand-meta` / `.brand-link*` 样式，`brand-tag`
+  直接挂在 `.brand` 列里；`options.storeLink` / `options.releasesLink` 两个 key 从中英字典移除
+  （`versionHint` 与 `newTabSuffix` 仍在使用）；`utils/urls.ts` 一个字节没动。
+  **守卫收窄但不放空**：e2e 原来的「Topbar Version & Update Links」一节 9 条断言（两条链接的 href / target /
+  rel / aria-label / 墨色 / 320px 不越界）随链接一起退场，改成「Topbar Version Chip & Outbound Scope」4 条：
+  版本芯片对被测产物、芯片 tooltip、`<header>` 里没有任何离开本页的锚点、320px 下文档不撑宽且右侧胶囊的右缘
+  仍在视口内。那条「no off-site anchor」是新增的**正面**断言——它把「对外地址只在抽屉里」这句对外承诺变成
+  可执行的门，以后谁再把外链塞回顶栏（不管用什么 class）都会红；判据是 href 不以 `#` 开头，不是某个类名，
+  同时要求那个 `<header>` 真的存在（否则空列表会被读成通过）。
+  **评审修掉的两处**：① 320px 那条最初量的是版本芯片的右缘，可芯片是品牌侧**最窄**的元素——真正的风险在
+  不收缩的右侧两颗胶囊，而且芯片若被某条规则隐藏，`rect.right` 会静默变成 0 而照样通过。改成同时要求
+  `documentElement.scrollWidth <= clientWidth`、芯片宽度 `> 0`、`.topbar-actions` 的右缘在视口内。
+  ② 段首注释原写「skip link 是 header 里剩下的唯一锚点」——skip link 在 `<header>` **外面**；改成「页内锚点
+  允许，离开本页的锚点不许」。CHANGELOG 那句「两个目的地各一条入口」也不准：抽屉里商店条目与评价共用同一个
+  地址（两条入口、一个 URL），措辞改成「改由抽屉承接（商店条目与评价共用同一个地址）」。
+  **一个顺带的好处**：`utils/urls.ts` 原先既被入口静态引入、也被抽屉动态引入，被迫单独成 chunk；入口那条边
+  一断，它被内联进抽屉 chunk。用 `git archive 9282ad3` 在 `/tmp` 重建上一版核实：旧产物 **75 个文件**、
+  有 `chunks/urls-C16hK4fE.js` 且商店地址就在那个 chunk 里；新产物 **74 个文件**（3,886,557 → 3,885,158 B，
+  −1,399 B），`grep -rl 'chromewebstore.google.com' .output/chrome-mv3 --include='*.js'` 只命中
+  `chunks/AboutDrawer-*.js`——商店地址不再随入口 chunk 发出，`verify:remote-code` 的产物扫描也随之从 51 个文件
+  变成 50。zip 1,187,014 → 1,186,481 B。同一棵树重跑 build 两次，文件数与字节数相同。
+  **文档同步**：README 中英各三处（功能段 / 隐私段 / FAQ 的升级路径）、`docs/index.html` 隐私段中英各一句、
+  CHANGELOG 中英未发布条目；断言总数 491→486 除 `scripts/__baseline__/e2e-assertions.json`（测试自写）外，
+  还要跟改 `docs/index.html`、`docs/blog/index.html` 与四份推广稿（`verify:numbers` 盯的就是这一组）。
+  历史记录不改：本轮上方 round 74 的 480→491 与 CHANGELOG 1.3.0 的「两条更新入口」都是当时的账。
+  商店文案与 manifest 描述没动——撤两条链接不是商品卖点，改它只会牵动 `verify:listing` 的七个粘贴字段。
+  验证：`Results: 486/486 passed (100%)`、`EXIT:0`（`/tmp/taf-e2e-round75.log`），基线自写到 `486`；
+  build `Σ Total size: 3.89 MB`（74 个文件 / 3,885,158 B）、zip `1.19 MB`（1,186,481 B）；
+  `verify:offline:source` / `verify:offline` 98 个第一方文件 + manifest 只有 `storage`、无 host 权限；
+  `verify:remote-code` 源码 98 / 产物 50；`verify:paths` 48 边 / 182 对；`pages:check` 133 文件；
+  `verify:numbers` 23 事实 × 138 文档；`verify:listing` 7 个粘贴字段；`verify:release-ci` 71 条判定与四组接缝；
+  `verify:meta` 短描述 127/132；`lint:all` 全绿（十二道按顺序跑在收口后的同一棵树上）。
+  `assets:capture` 重拍 7 张英文原图 + 7 张中文原图、14 张带文案商店截图与 3 张推广图；
+  两条演示 GIF 重录（zh 1925 KB / en 1439 KB）。
+
+- **10-25 第七十六轮（版本号芯片接管「最新发布」的出口；断言总数 486→489，一轮全量绿灯）。**
+  上一轮撤掉顶栏两条外链后，用户圈出版本号芯片问「帮我给版本号增加最新的 github 下载链接」。撤回的是**两扇
+  并列的门**（而且「商店更新」听起来像会去拉新版本，可扩展从不检查更新）；芯片本身就是「我是哪一版、有没有
+  新版」这个问题的锚点，把最新发布页挂到它身上既不多一处陌生入口，也没把抽屉挤掉——抽屉仍是十条地址的全量
+  索引，芯片只是其中「最新版本与下载」这一条在页头的快捷方式。
+  **改动**：`App.vue` 的芯片由 `<span>` 改为 `<a :href="GITHUB_RELEASES_PAGE_URL" target="_blank"
+rel="noopener noreferrer">`，因此 `utils/urls` 重新被入口静态引用，上一轮被内联进抽屉 chunk 的它又独立成
+  chunk：产物 74→75 个文件、3,885,158→3,886,027 B（+869 B），zip 1,186,481→1,186,918 B。
+  `options.versionHint` 换成 `options.versionLinkHint`（中英同步）：字符串以可见文案 `v{version}` 开头以满足
+  WCAG 2.5.3，并说明点开的是 GitHub 最新发布页、在新标签页打开；同一个字符串同时做 `title` 与 `aria-label`，
+  免得两处措辞漂移（`title` 只做描述，不能当可访问名）。
+  **静止态像素未变，所以没有重拍素材**：盒模型、字号、卡片底、圆角、墨色全部是显式声明，UA 对 `<a>` 只多
+  `color` / `text-decoration` / `cursor` 三样，前两样已被显式覆盖；hover 用 `box-shadow` 画 1px 环（不占布局；
+  墨色仍留 `--fat-text-primary`——强调色绿/橙在这张卡片上只有 2.54:1 / 3.56:1，低于正文 4.5:1 的线），
+  焦点环沿用两枚胶囊的双层契约（卡片色 shadow 填掉 outline 的 2px offset，环不会直接落在彩色页头上）。
+  截图拍的就是静止态，且 `assets:capture` 本身不逐字节可复现，为一次像素无变化的改动重拍 24 张图只会留下
+  24 份无法解释的二进制 diff。
+  **守卫改写而不收窄**：e2e 顶栏一节 4→7 条——芯片文本、`A` 标签 + href 逐字钉 `releases/latest`、`target`/`rel`、
+  可访问名以可见文案开头且点名新标签页、tooltip 全文、**页头唯一对外锚点就是这个芯片**、320px 不撑宽文档。
+  最后那条仍是**正面**断言，只是从「一个都没有」改成「恰好是这一个、而且就是它」：判据是 `offsite.length === 1`
+  且芯片自己的 href 等于那一条；页内锚点（`#…`）不进这个列表，才与注释里「页内锚点允许」不矛盾。芯片被换回
+  `<span>` 时 `tag` 不是 `A`、`href` 也读不到，两条各自会红，空集不会被读成通过。
+  **文档同步**：README 中英各两处（功能段 / 隐私段）、`docs/index.html` 隐私段中英各一句、CHANGELOG 中英未发布
+  条目；断言总数 486→489 除 `scripts/__baseline__/e2e-assertions.json`（测试自写）外，同批跟改
+  `docs/index.html`、`docs/blog/index.html` 与四份推广稿。商店文案、manifest 与 `_locales` 没动。
+  验证：`Results: 489/489 passed (100%)`、`EXIT:0`（`.test-tmp/e2e-full-2.log`；第七十六、七十七两轮在同一棵树上，
+  这一轮全量运行把两笔改动一并覆盖），基线自写到 `489`；`lint:all` 全绿；`verify:meta` 短描述 127/132；
+  `verify:listing` 7 个粘贴字段；`verify:paths` 48 边 / 182 对；`pages:check` 133 文件；`verify:numbers` 23 事实 ×
+  138 文档；`verify:release-ci` 71 条判定与四组接缝；`verify:offline` 98 个第一方文件 + 产物 manifest 只有 `storage`；
+  `verify:remote-code` 源码 98 / 产物 51。构建读数见本轮正文（74→75 文件、+869 B）。
+
+- **10-25 第七十七轮（默认蓝换成 Element Plus 的晴空蓝 `#409eff`，强调色拆出「墨」一层；图标与全部素材重生成）。**
+  用户要求把默认的深蓝换成 EP 主题色浅蓝、与作者另外两个插件（`account-password-helper`、`cross-origin-proxy`）
+  一致，图标一起改，并重拍截图。
+  **只换一个变量做不到**：`#409eff` 当填充没问题，当墨色（链接式文字、文件路径、图表线、图标描边）铺在白卡上
+  只有 2.78:1，而原来的 `#2563eb` 是 5.17:1。于是新增 `--fat-primary-ink`：默认 `var(--fat-primary)`，另外五个
+  主题一个字都不用改；只有 `:root[data-theme='blue']` 把它改成 `color-mix(in srgb, #0072e8 92%, black)`，实测卡面
+  6.42:1。填充、边框、底色与装饰性图形仍是 `#409eff`（hover `#66b3ff`、active `#337ecc`、浅底 `#ecf5ff`、
+  浅边 `#d9ecff`——EP 自己那套浅蓝阶梯）。八个组件与页头遮罩层里凡是把 `--fat-primary` 当墨色用的都改指 ink
+  （历史徽章、对比分隔按钮、失败诊断的 from/to、文件句柄按钮、路径步骤、趋势线、快捷键键帽、预设编辑）。
+  **顶栏与主按钮反着翻**：白字压在 `#409eff` 上只有 2.78:1，所以浅色下 `--fat-on-primary` 翻成深墨
+  `--fat-text-primary`（顶栏品牌 6.42:1）；主按钮再用 `--fat-btn-solid-step: #fff` 让悬停/按下往浅里走、标签仍是
+  深墨（6.42 / 7.00 / 7.64，最差是静止态）。浅色焦点环改用 ink（卡面 5.27:1）。
+  **暗色不照抄**：`#66b3ff` 当墨色在暗卡上够亮（8.44:1），所以 ink 回到 primary；顶栏改用压深过的
+  `--fat-primary-active: #1d6fd6`——`#337ecc` 配白字只有 4.20:1，压深后 4.89:1；焦点环沿用各暗色主题共享的
+  `--fat-primary-hover`（8.65:1）。
+  **把限制写进文档**：实测量了 6 主题 × 亮/暗共 12 组的主按钮填充对卡面（亮色卡 `#fff`），9 组低于 3:1——蓝 2.78 / 2.55 / 2.34
+  （静止 / 悬停 / 按下）、绿 2.54 / 2.36 / 2.21、橙 3.56 / 3.26 / 2.96；紫 5.70+、玫 4.70+、石墨 7.58+ 与六个暗色
+  全部过线。这条本来就在 `CONTRIBUTING` 的已知限制里（旧口径只写绿/橙两族 2.21 / 2.96），现在把晴空蓝并进去、
+  改成「12 组里 9 组」，中英与商店手册三处同改。
+  **图标**：两档母版都换成平涂 `#409EFF`（详细档折页 `#D9ECFF`、文档线 `#A0CFFF`、徽章箭头 `#337ECC`；简化档
+  白箭头不动），去掉原来的 `#2563eb → #1d4ed8` 渐变。四张 `public/icon/*.png` 与两张 `docs/assets/icon*` 由
+  `pnpm icons:build` 重渲染，合计 −4,818 B。
+  **素材全部重拍**：`pnpm build && pnpm assets:capture` 出 7 张英文原图 + 7 张中文原图 + 14 张商店截图 + 3 张推广图，
+  两条演示 GIF 重录（zh 1,565 KB / en 1,838 KB）。
+  产物：75 个文件 / 3,881,576 B（3.88 MB），比第七十六轮的 3,886,027 少 4,451 B；zip 1,182,110 B（1.18 MB，
+  1,186,918 → −4,808 B）。同一棵树连续两次 build，文件数与字节多重集完全相同。图标压小跨过了取整边界，
+  所以对外体积 16 处一并从 3.89 回填到 **3.88**（9 份文件：`CONTRIBUTING*`、`docs/index.html` 6 处、
+  `docs/blog/index.html` 2 处、`docs/llms.txt`、四份推广稿），替换脚本带「每串唯一命中」守卫并确认 octicon
+  路径里的 `13.89` 未被误伤——体积不在 `verify:numbers` 的 23 个事实里，这条边界只能靠实测回填。
+  **商店品牌层刻意没动**：`docs/assets/content.css` 的 `--brand`、404 页与生成页的 `theme-color`、
+  `tools/file-diff.html` 仍是 `#2563eb`——它们属于站点与工具的配色，不是扩展主题；要一起换是另一笔。
+  e2e 的主题名断言同步成「晴空蓝」，对比度矩阵在 6 主题 × 亮/暗共 12 组上读数：顶栏品牌 6.42（蓝浅）/ 4.89（蓝深）、焦点环
+  5.27 / 8.65、主按钮标签 6.42 / 8.44（最差全场 4.70，玫红浅色）、提示性正文最差 4.94、EP 浅色提示与格式标签
+  墨色最差 5.13 / 4.99、关于抽屉链接最差 5.44——全部过线。
+  验证：`Results: 489/489 passed (100%)`、`EXIT:0`（`.test-tmp/e2e-full-2.log`），基线 `489` 未变（本轮只改颜色，
+  不加断言）；`lint:all` 全绿（首轮 stylelint 在 `tokens.css` 暗色块的注释前少了空行，补上后转绿）；
+  `verify:numbers` 23 事实 × 138 文档；`verify:offline` 98 个第一方文件 + manifest 只有 `storage`；
+  `verify:remote-code` 源码 98 / 产物 51；`verify:meta`、`verify:listing`、`verify:paths`、`pages:check`、
+  `verify:release-ci` 一并绿。
+
+- **10-26 第七十八轮（顶栏换成兄弟仓库同一套皮肤；晴空蓝顶栏改白字，作为明示的对比度例外）。**
+  第七十七轮之后顶栏仍是「平涂主色 + 白底深字胶囊」，与 `account-password-helper` / `cross-origin-proxy`
+  的「渐变 + 玻璃胶囊」不是一套。本轮先按兄弟仓库做结构对齐：135° 主色渐变、版本号芯片与「关于 / 偏好设置」
+  两枚玻璃胶囊（悬停加厚薄膜与描边，按本项目扁平约定不做位移）。第一版顶栏字仍留深墨（6.42:1），全量 e2e
+  `489/489` 绿；随后用户看过中文渲染效果，要求字体改白——`#409eff` 上白字只有 2.78:1，低于 4.5:1，
+  经确认选择「白字 + 保留晴空蓝」，按兄弟仓库原样呈现，并把这条写成明示的已知限制。
+  **令牌层的做法**：新增 `--fat-topbar-ink`（默认 `var(--fat-on-primary)`，只有 `:root[data-theme='blue']`
+  覆盖成 `#fff`）——`--fat-on-primary` 仍是主按钮标签的墨色（深墨，6.42:1），所以顶栏变白不会把主按钮一起带白；
+  `--fat-topbar-bg-end`、`--fat-topbar-film` / `-hover` 三个皮肤令牌按墨色极性分派：绿 / 橙仍深墨配白膜、
+  渐变向 `--fat-primary-hover`；晴空蓝白字配黑膜（14% / 22%，芯片实测 3.68:1，渐变远端胶囊 2.98:1）；
+  紫 / 玫瑰 / 石板与全部深色主题白字配黑膜、渐变压深（`color-mix(… 84%, black)`）。`.topbar` 用
+  `background-color` + `background-image` 两层写，前者留给对比度采样器（单写渐变会读成透明）。
+  **e2e 没有放宽，而是把例外钉住**：版本号芯片的实测折进原有的顶栏断言（`surfaceColors` 多读 chip 的墨与薄膜，
+  Node 侧 `alphaOf` / `compositedOver` 先合成再算对比度），断言条数不变（489）；light 循环给晴空蓝单独一条下限
+  `2.7 / 3.6`，其余主题仍是 4.5:1。实测：蓝浅 2.78 / 3.68（例外）、绿浅 7.04 / 8.26、紫浅 5.70 / 7.11、
+  橙浅 5.02 / 6.19、玫浅 4.70 / 6.00、石墨浅 7.58 / 9.13；深色六档 4.58–6.34 / 6.06–8.07。
+  **对外文案同批改**：`README*`、`CONTRIBUTING*`、`.github/CHROMEWEBSTORE.md`、`docs/index.html`（能力卡、
+  深色外观说明、测试覆盖）、`docs/blog/index.html`、`docs/promo/{wechat-article,blog-article.en}.md` 都把
+  「顶栏文字 ≥ 4.5:1」改成「除晴空蓝外 ≥ 4.5:1；晴空蓝 2.78 / 3.68 为明示例外」，顺带把博客与公众号稿里
+  过期的按钮填充「10/12」更新为「9/12」。`prose-number-quotes.json` 只把 `docs/index.html` 的 `themeCombos`
+  引用数从 4 改成 2（本轮删掉两处「12 种组合」句式）；`--update` 会一并吸收 150 行生成页漂移，所以没有用它。
+  **量具自证**：同一棵树连续两次 build，75 个文件的排序尺寸多重集 diff 为空；产物 3,882,874 B（`Σ` 仍打印
+  3.88 MB，比第七十七轮的 3,881,576 多 1,298 B，对外 16 处体积字样一处不用动），zip 1,182,291 B。
+  素材重拍 7 张原图 + 14 张商店截图 + 3 张推广图，两条 GIF 重录（zh 1,802 KB / en 1,614 KB）。
+  验证：`Results: 489/489 passed (100%)`、`E2E_EXIT=0`（`.test-tmp/e2e-white-ink.log`，基线仍 489）；
+  `lint:all`、`verify:meta`、`verify:listing`（7 字段）、`verify:paths`（48 / 182）、`pages:check`（133）、
+  `verify:numbers`（23 × 138）、`verify:release-ci`（71 + 4）、`verify:offline`（98 文件 / 仅 `storage`）、
+  `verify:remote-code`（源码 98 / 产物 51）全绿。定案跑之后只把 `scripts/e2e-test.mjs` 注释里的 3.69 改成 3.68
+  （可执行行未动），所以那轮 `489/489` 仍对提交树成立。
 
 ## 3. 收下改动：这一节记的是提交账，不是提交计划
 

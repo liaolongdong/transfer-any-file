@@ -1,11 +1,35 @@
 :root {
-  /* ---- Theme: blue (default, Flat design) ---- */
-  --fat-primary: #2563eb;
-  --fat-primary-hover: #3b82f6;
-  --fat-primary-active: #1d4ed8;
-  --fat-primary-rgb: 37 99 235;
-  --fat-primary-bg: #eff6ff;
-  --fat-primary-border: #bfdbfe;
+  /* ---- Theme: blue (default, Flat design) ----
+     Element Plus's own primary, matching the sibling extensions' 晴空蓝. Its five-step ladder is
+     the library's published palette rather than hand-picked shades, so EP components and this
+     file's tokens cannot drift: #409eff / #66b3ff / #337ecc, with #ecf5ff and #d9ecff as the
+     two tints. */
+  --fat-primary: #409eff;
+  --fat-primary-hover: #66b3ff;
+  --fat-primary-active: #337ecc;
+  --fat-primary-rgb: 64 158 255;
+  --fat-primary-bg: #ecf5ff;
+  --fat-primary-border: #d9ecff;
+
+  /* The accent when it has to be *read* rather than painted on. #409eff as 11–12px text is
+     only 2.78:1 on the card and 2.53:1 on its own tint, so light blue overrides this with the
+     sibling extensions' "strong" blue (#0072e8, further darkened for tinted backdrops — see the
+     blue theme block below). Green and orange need the same split for the same reason — their
+     light primaries are 2.54:1 and 3.56:1 as text — while purple (#7c3aed, 5.70:1), rose
+     (#e11d48, 4.70:1) and slate (#475569, 7.58:1) can carry their own primary, hence a token
+     those three leave at the fallback. Fills, borders, backgrounds and decorative glyphs keep
+     --fat-primary: only text and data graphics move here. */
+  --fat-primary-ink: var(--fat-primary);
+
+  /* The accent for link text — the About drawer's outbound rows, the history row's reuse action
+     and every other `text` / `link` primary button. It rides --fat-primary-ink because that is
+     already the readable half of the accent; rose is the one theme that has to step further
+     down, since its primary sits at 4.28:1 on the theme's own tint (#fff1f2) where a link row
+     lands under the pointer, and its pressed shade measures 5.72:1 there. Dark mode reverses
+     the recipe per theme (see the (0,3,0) dark blocks): the accent itself is the light end
+     there, 7.39–9.73:1 against the dark card. So the link never needs a permanent underline as
+     its affordance — the row's hover wash and the trailing arrow carry it. */
+  --fat-link-ink: var(--fat-primary-ink);
 
   /* Keyboard focus ring colour. Declared once per mode and referenced by every
      focus rule, so light and dark differ without a `!important` override war:
@@ -24,30 +48,40 @@
      clips permanently must reserve this much (see `overflow-clip-margin`). */
   --fat-focus-ring-inset: 4px;
 
-  /* Foreground for anything painted on a primary-coloured surface (the topbar brand,
-     selected chips). White suits 4 of the 6 light primaries but only reaches 2.54:1 on
-     green and 3.56:1 on orange, so those two themes flip to the dark ink (7.04 / 5.02).
-     Declared per theme because CSS still has no portable colour-contrast(). */
+  /* Foreground for filled primary surfaces — the sibling extensions' answer is the same for all
+     six themes: white. It is 2.78:1 on sky blue, 2.54:1 on green and 3.56:1 on orange, which is
+     below WCAG AA for text; the parity with the author's other two products is the deliberate
+     trade and it is recorded as a known limitation in CONTRIBUTING rather than smoothed over.
+     The topbar reads this too now (--fat-topbar-ink below). */
   --fat-on-primary: #fff;
 
-  /* The topbar is the only primary-coloured surface on screen permanently, so it gets a
-     shade its text can actually sit on. Light keeps --fat-primary; dark uses
-     --fat-primary-active, where white measures 4.58–6.34:1 instead of the 1.69–2.67:1 it
-     gets on the pastel primaries. */
+  /* The topbar is the only primary-coloured surface on screen permanently. Light keeps
+     --fat-primary so the default bar matches the siblings' sky blue; dark uses
+     --fat-primary-active, where the pastel primaries would otherwise leave white at 1.69–2.67:1. */
   --fat-topbar-bg: var(--fat-primary);
 
-  /* Filled-button scale. WCAG 1.4.3 wants 4.5:1 from the label in *every* state, and the
-     resting fills already clear it in all 6 themes × light/dark (4.70:1 at worst); every
-     measured failure sat in a hover or active shade, because those used to track the theme's
-     lightness ladder rather than the label. So the two interaction states mix the resting
-     fill toward the side opposite its label, which can only raise contrast, and the label is
-     a button token of its own instead of --fat-on-primary: the topbar keeps white on the deep
-     dark shade, while a dark-mode button painted with the theme's light tint needs the page
-     ink (7.03–11.12:1, and 6.15–9.73:1 against the card, which also settles 1.4.11). */
+  /* White ink on the bar in every theme, exactly like the siblings' `.header { color: white }`. */
+  --fat-topbar-ink: #fff;
+
+  /* The topbar skin lifted from the sibling extensions verbatim: a 135° wash from the primary to
+     its hover shade, and one frosted film for every control that sits on it (version chip, both
+     capsules) — 15% at rest, 20% under the pointer, with a 25% rim thickening to 40%. Those four
+     numbers are `account-password-helper/components/options/HeaderBar.vue`'s, not a local
+     approximation; the blur is what makes them read as glass rather than as a lighter pill. */
+  --fat-topbar-bg-end: var(--fat-primary-hover);
+  --fat-topbar-film: rgb(255 255 255 / 15%);
+  --fat-topbar-film-hover: rgb(255 255 255 / 20%);
+  --fat-topbar-film-border: rgb(255 255 255 / 25%);
+  --fat-topbar-film-border-hover: rgb(255 255 255 / 40%);
+  --fat-topbar-blur: blur(10px);
+
+  /* Filled-button scale, also the siblings': the resting fill is the primary, hover *lightens*
+     toward --fat-primary-hover and the label is white in every theme. The dark blocks below keep
+     their own label ink because a dark-mode fill is a light tint — white there would sit at
+     1.35–2.66:1. */
   --fat-btn-solid: var(--fat-primary);
-  --fat-btn-solid-step: #000;
-  --fat-btn-solid-hover: color-mix(in srgb, var(--fat-btn-solid) 92%, var(--fat-btn-solid-step));
-  --fat-btn-solid-active: color-mix(in srgb, var(--fat-btn-solid) 84%, var(--fat-btn-solid-step));
+  --fat-btn-solid-hover: var(--fat-primary-hover);
+  --fat-btn-solid-active: var(--fat-primary-active);
   --fat-on-btn-solid: var(--fat-on-primary);
 
   /* Neutral surfaces */
@@ -70,6 +104,17 @@
   --fat-text-secondary: #5b6b80;
   --fat-text-placeholder: #94a3b8;
   --fat-text-disabled: #cbd5e1;
+
+  /* Hint text — the `::placeholder` of an input or textarea and the unchosen state of a select.
+     It sits with the informational inks rather than the decorative ones because it is the only
+     thing that says what a field expects ("按文件名搜索", "全部"), and a reader has to be able to
+     read it: Element Plus paints it with #a8abb2, which is 2.30:1 on a white card. It cannot
+     simply take --fat-text-secondary, because that (#5b6b80, 5.44:1) is *darker* than the value
+     Element Plus writes into a filled field (#606266, 6.11:1) — the hint would out-shout the
+     text it annotates. This is the band in between: 5.04:1 on white and 4.58:1 at worst across
+     the eight light surfaces it actually lands on, still a step below the input value. Dark
+     mode mirrors the same ordering against #bac2de values (6.37:1 on the card, 4.88:1 worst). */
+  --fat-text-hint: #64707f;
 
   /* JSON preview inks (tree rows and array-table cells).
      Each of these five is painted on every surface the pane can show — the card, the row hover, the
@@ -250,11 +295,11 @@
      EP paints those two with a semantic colour *as the text* on that same colour's 10% tint, and the
      pair is not readable: WCAG 2.x contrast on sRGB measures 2.04:1 (warning), 2.08:1 (success),
      2.61:1 (danger/error), 2.80:1 (info) in light mode, and 2.31:1 (green) / 3.15:1 (orange) /
-     4.00:1 (rose) / 4.49:1 (blue) for a default `type="primary"` tag, which is what every format
+     4.00:1 (rose) / 2.53:1 (blue) for a default `type="primary"` tag, which is what every format
      badge on the workbench is. Deepening each hue toward black is the only lever that keeps the hue
      recognizable — 60% for the four fixed semantics (worst pair then 5.13:1) and 65% for the theme
-     primary, whose worst case is green (4.99:1); the other five primaries land 6.3–10.4:1 at the
-     same 65%, which is why this is one number rather than six.
+     primary, whose worst case is green (4.99:1); the other five primaries land 5.31–10.4:1 at the
+     same 65% (blue's new #409eff is the 5.31), which is why this is one number rather than six.
      Dark mode is not in scope: there the tint is mixed toward `#1e1e2e`, so the unaltered hues
      already measure 4.59–6.31:1 for the semantics and 5.22–8.13:1 for the six theme primaries, and
      darkening them would move them off the page. */
@@ -301,6 +346,20 @@
 }
 
 /* ---- Theme variants ---- */
+
+/* Blue is the default palette declared at `:root`, but it is the only light theme that has to
+   restate the *text* side of the accent: #409eff as 11–13px text is 2.78:1 on a card, so
+   --fat-primary-ink takes the siblings' strong blue (#0072e8 mixed 92% toward black — 5.27:1 on
+   white, 4.79:1 at worst on #ecf5ff). The focus ring follows the ink for the same reason it
+   always did (5.27:1 against the card, past 1.4.11's 3:1). Fills, the bar and its film are no
+   longer special-cased here: the siblings paint all of those with white ink and a white film, and
+   this palette now does the same in every theme. Re-declared in the dark-blue block below rather
+   than left to a specificity tie against `:root[data-mode='dark']`. */
+:root[data-theme='blue'] {
+  --fat-primary-ink: color-mix(in srgb, #0072e8 92%, black);
+  --fat-focus-ring: var(--fat-primary-ink);
+}
+
 :root[data-theme='green'] {
   --fat-primary: #10b981;
   --fat-primary-hover: #34d399;
@@ -309,14 +368,16 @@
   --fat-primary-bg: #ecfdf5;
   --fat-primary-border: #a7f3d0;
 
-  /* #fff on #10b981 is 2.54:1 — under even the 3:1 large-text floor; the dark ink gives
-     7.04. The focus ring has the same problem against a white card (2.54), so it takes
-     the active shade (3.77), and the button has to lighten on interaction instead of
-     darkening (see --fat-btn-solid-step). All three are re-declared in the dark-green block
-     below rather than left to a specificity tie against `:root[data-mode='dark']`. */
-  --fat-on-primary: var(--fat-text-primary);
+  /* The focus ring is the one thing here that still has to step away from the primary: #10b981
+     against a white card is 2.54:1, under 1.4.11's 3:1, so the ring takes the active shade
+     (3.77). The fill and its white label are no longer special-cased — the siblings paint green
+     the same way they paint blue. Re-declared in the dark-green block below rather than left to
+     a specificity tie against `:root[data-mode='dark']`. */
   --fat-focus-ring: var(--fat-primary-active);
-  --fat-btn-solid-step: #fff;
+
+  /* #10b981 as 12px text is 2.54:1 on a card and 2.42:1 on this theme's own tint, so the read
+     side of the accent takes a 60%-toward-black mix (6.19:1 on white, 5.91:1 on #f0fdf4). */
+  --fat-primary-ink: color-mix(in srgb, var(--fat-primary) 60%, black);
   --fat-surface: #f0fdf4;
   --fat-surface-2: #f7fdf9;
   --fat-surface-line: #dcfce7;
@@ -358,11 +419,10 @@
   --fat-primary-bg: #fff7ed;
   --fat-primary-border: #fed7aa;
 
-  /* #fff on #ea580c is 3.56:1, below the 4.5 body-text floor; the dark ink gives 5.02.
-     Its focus ring is fine at 3.56 (≥ the 3:1 non-text minimum), so only the ink changes —
-     and, like light green, the ink label means the button lightens on interaction. */
-  --fat-on-primary: var(--fat-text-primary);
-  --fat-btn-solid-step: #fff;
+  /* #ea580c as text is 3.56:1 on white and 3.43:1 on this theme's tint; its pressed shade
+     #c2410c is the same hue at 5.18 / 4.99. Its focus ring is fine at 3.56 (≥ the 3:1
+     non-text minimum), so only the read side moves. */
+  --fat-primary-ink: var(--fat-primary-active);
   --fat-surface: #fffbeb;
   --fat-surface-2: #fffdf7;
   --fat-surface-line: #fef3c7;
@@ -383,6 +443,7 @@
   --fat-primary-rgb: 225 29 72;
   --fat-primary-bg: #fff1f2;
   --fat-primary-border: #fecdd3;
+  --fat-link-ink: var(--fat-primary-active);
   --fat-surface: #fff1f2;
   --fat-surface-2: #fff8f9;
   --fat-surface-line: #ffe4e6;
@@ -428,6 +489,9 @@
   --fat-text-placeholder: #6c7086;
   --fat-text-disabled: #45475a;
 
+  /* Same ordering as light: a readable hint, still a step below this mode's #bac2de values. */
+  --fat-text-hint: #98a2b3;
+
   /* The JSON inks flip to the light end of the same hues. The worst backdrop the pane can paint in
      this mode is the row hover --fat-surface-hover #2a2a3c — lighter than the page (#11111b), the
      card (#1e1e2e), the zebra stripe (#181825) and all six themes' active-row tints — and against it
@@ -452,12 +516,20 @@
   --fat-focus-ring: var(--fat-primary-hover);
   --fat-topbar-bg: var(--fat-primary-active);
 
+  /* Dark mode has no counterpart in the sibling products, so this is the one place the skin keeps
+     its own reading: the bar stays on the deep shade and the wash runs *darker*, because white ink
+     on a light tint would sit at 1.69–2.67:1. The film stays black for the same direction. */
+  --fat-topbar-bg-end: color-mix(in srgb, var(--fat-topbar-bg) 84%, black);
+  --fat-topbar-film: rgb(0 0 0 / 16%);
+  --fat-topbar-film-hover: rgb(0 0 0 / 24%);
+
   /* A dark-mode primary button keeps the theme's light tint as its fill — the same reason
      the focus ring does — so white would sit at 1.35–2.66:1 on it. The label therefore
      takes the darkest ink in the palette (7.03–11.12:1 on the fill, and 6.15–9.73:1 of fill
-     against the card), and the interaction states step toward white, away from it. */
+     against the card), and the pressed shade lightens rather than darkening so that label
+     keeps its margin in the transient state too. */
   --fat-on-btn-solid: var(--fat-bg-page);
-  --fat-btn-solid-step: #fff;
+  --fat-btn-solid-active: color-mix(in srgb, var(--fat-primary) 85%, white);
   --fat-shadow-sm: 0 1px 2px rgb(0 0 0 / 20%);
   --fat-shadow-md: 0 2px 6px rgb(0 0 0 / 30%);
   --fat-shadow-lg: 0 4px 12px rgb(0 0 0 / 40%);
@@ -538,12 +610,23 @@
 }
 
 :root[data-mode='dark'][data-theme='blue'] {
-  --fat-primary: #6d9ef6;
-  --fat-primary-hover: #93bbf9;
-  --fat-primary-active: #2b5cb8;
-  --fat-primary-rgb: 109 158 246;
-  --fat-primary-bg: #141c30;
-  --fat-primary-border: #2e4470;
+  --fat-primary: #66b3ff;
+  --fat-primary-hover: #85c1ff;
+
+  /* Deeper than the light ladder's dark-2 on purpose: this theme's topbar paints itself with
+     --fat-primary-active (see the dark block above), and #337ecc only carries white at 4.20:1.
+     #1d6fd6 keeps the same hue and measures 4.89:1 under the brand text. */
+  --fat-primary-active: #1d6fd6;
+  --fat-primary-rgb: 102 179 255;
+  --fat-primary-bg: #212b43;
+  --fat-primary-border: #253858;
+
+  /* Undo the light-blue overrides. White on this topbar shade is 4.89:1, the accent text is the
+     light tint itself (6.33:1 at worst on the theme's own tint), and the ring keeps the
+     lighter --fat-primary-hover it shares with every other dark theme (8.65:1 on the card). */
+  --fat-on-primary: #fff;
+  --fat-focus-ring: var(--fat-primary-hover);
+  --fat-primary-ink: var(--fat-primary);
 }
 
 :root[data-mode='dark'][data-theme='green'] {
@@ -559,6 +642,7 @@
      so the outcome never depends on rule order in this file. */
   --fat-on-primary: #fff;
   --fat-focus-ring: var(--fat-primary-hover);
+  --fat-primary-ink: var(--fat-primary);
 }
 
 :root[data-mode='dark'][data-theme='purple'] {
@@ -578,8 +662,10 @@
   --fat-primary-bg: #221408;
   --fat-primary-border: #5c3418;
 
-  /* Same reasoning as dark-green: white is 4.58:1 on this theme's topbar shade. */
+  /* Same reasoning as dark-green: white is 4.58:1 on this theme's topbar shade, and the light
+     block's deepened read-ink is tuned for a white card. */
   --fat-on-primary: #fff;
+  --fat-primary-ink: var(--fat-primary);
 }
 
 :root[data-mode='dark'][data-theme='rose'] {
@@ -589,6 +675,11 @@
   --fat-primary-rgb: 253 164 175;
   --fat-primary-bg: #220c14;
   --fat-primary-border: #5c1a2a;
+
+  /* The light-rose block points link ink at the pressed shade, which on this card would sit at
+     about 2:1; the dark primary is already the light end of the hue (8.67:1). Declared at (0,3,0)
+     so the outcome never depends on rule order in this file. */
+  --fat-link-ink: var(--fat-primary);
 }
 
 :root[data-mode='dark'][data-theme='slate'] {

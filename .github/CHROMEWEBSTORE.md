@@ -110,7 +110,7 @@ curl -Is https://liaolongdong.github.io/transfer-any-file/privacy.html | head -1
 | ----------------------------- | ----------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
 | 名称 Extension Name           | `Transfer Any File — Offline File Format Converter` (49/75)                                                 | `文件格式任意转换助手 — 离线转换无上传` (20/75)                                                                                        |
 | 简介 Short description        | `Convert between 14 common document, spreadsheet and image file formats right in your browser...` (127/132) | `在本机浏览器内互转 14 种常见的文档、表格与图片格式。支持混合批量、多步链路、预览编辑与 ZIP 打包，全程离线，不上传、无账号。` (66/132) |
-| 详描 Full description         | [英文详细介绍](#英文详细介绍) (9,413 字符)                                                                  | [中文详细介绍](#中文详细介绍) (3,317 字符)                                                                                             |
+| 详描 Full description         | [英文详细介绍](#英文详细介绍) (9,737 字符)                                                                  | [中文详细介绍](#中文详细介绍) (3,405 字符)                                                                                             |
 | 类别 Category                 | `Productivity`                                                                                              | `Productivity`                                                                                                                         |
 | 主要语言 Primary Language     | -                                                                                                           | `Chinese (China)`                                                                                                                      |
 | 附加语言 Additional Languages | `English (United States)`                                                                                   | -                                                                                                                                      |
@@ -124,7 +124,7 @@ Transfer Any File — Offline File Format Converter
 Convert between 14 common document, spreadsheet and image file formats right in your browser — offline, in batches, no uploads.
 ```
 
-**Chinese (China) —— 默认语言标签页，先贴这一套。** 三个字段（名称 20/75、简介 66/132、详描 3,317 字符）在
+**Chinese (China) —— 默认语言标签页，先贴这一套。** 三个字段（名称 20/75、简介 66/132、详描 3,405 字符）在
 [商店文案](#商店文案)里；名称与简介同时活在 `public/_locales/zh_CN/messages.json`，`pnpm verify:listing` 逐字比对两边。
 那个标签页要等**带 `_locales/zh_CN/` 的包上传之后**才出现——先传包再填表，手上那份旧草稿看不到它是正常的。
 
@@ -306,7 +306,7 @@ Convert between 14 common document, spreadsheet and image file formats right in 
 扩展真正具备的能力（混格式批量、多步链路、预览与编辑、ZIP 下载），而不是文件扩展名。依旧不写 PDF 转 Word、PDF 转 Excel，
 因为这个扩展做不到无损的 PDF 转换。
 
-**详细介绍（Detailed Description）** [必填] —— 纯文本，本仓库自设上限 16,000 字符（英文块实测 9,413；下面的中文块实测 3,317）
+**详细介绍（Detailed Description）** [必填] —— 纯文本，本仓库自设上限 16,000 字符（英文块实测 9,737；下面的中文块实测 3,405）
 
 _Google 没有为这个字段公布长度_——75 与 132 是写在文档里的，16,000 不是。把它当成本仓库自己的守卫
 （`pnpm verify:listing`），按后台计数器设定，提交时以那个计数器为准，不要把 16,000 背给审核员。
@@ -342,6 +342,7 @@ BUILT FOR REAL WORKLOADS
 • Paste to convert: copy an image or a block of text and press Ctrl+V (⌘V on Mac)
 • Preview and edit: view the source and the result side by side, and correct a text result before downloading it
 • Recent targets: the formats you convert to most often are grouped at the top of the target picker
+• Built-in samples and suggested targets: the empty workbench offers three locally generated samples, and while no target is selected it suggests up to three targets for the current source format — a suggestion only applies when you click it. Long batches gain a file-name search and All / Succeeded / Failed result filters
 • Image output parameters: an image target exposes a longest edge (800–4096 px), and a compressed image target additionally takes encoder quality (40–90%) and a target file size (20 KB–2 MB); a source that is rendered page by page takes a render density of 96–300 DPI — every knob starts untouched
 • PDF page selection: converting a PDF to images can be limited to the pages you name (1-3, 5) instead of the whole document; that choice belongs to the batch in front of you and is never stored, so it cannot silently truncate the next PDF
 • Merge images into one PDF: when every file in a batch is a PNG, JPEG, WebP, BMP or GIF and the target is PDF, a merge box appears — ticked, the batch becomes one document in list order, one page per image (up to 200 pages), named with a -merged suffix; it is off by default, so a single conversion is unchanged, and an image that will not decode fails the whole group rather than leaving a partial file
@@ -421,6 +422,7 @@ Found a bug, or need a format added? Open an issue at https://github.com/liaolon
 • 粘贴即转换：复制一张图片或一段文字，按 Ctrl+V（Mac 上为 ⌘V）即可
 • 预览与编辑：源文件与结果左右对照显示，文本类结果可在下载前就地修改
 • 最近使用：你常转的目标格式会以下拉顶部的「最近使用」分组呈现
+• 内置示例与目标建议：空工作台提供三个本机生成的示例；还没选目标时，按源格式给出最多三个推荐目标，只有点击才生效。长批次结果还支持按文件名搜索与全部 / 成功 / 失败筛选
 • 图片输出参数：目标为图片时可设最长边（800–4096 px）；目标为压缩图片格式时还可设质量（40–90%）与目标体积（20 KB–2 MB）；逐页渲染的源文件另可按「清晰度」选 96–300 DPI；不设置即保持默认
 • PDF 选页：把 PDF 转成图片时可以只点名要渲染的页（如 1-3, 5），不必整份出图；这个选择只属于眼前这一批、不落存储，所以不会悄悄截断下一份 PDF
 • 多图合并为一份 PDF：整批都是 PNG / JPEG / WebP / BMP / GIF 且目标为 PDF 时会出现合并开关——勾上后整批按列表顺序写成一份，每张一页（最多 200 页），文件名带 -merged；默认关闭，单张转换与以前完全一样；任一张解码失败整批都不产出，而不是给出残缺文档
@@ -836,12 +838,11 @@ rm -f /tmp/cws.cfg
 - BMP / GIF / SVG 只能作为输入，因为浏览器不给它们提供编码器。
 - 内联 SVG 进 Word 或 Markdown 时栅格成 PNG 嵌入：Word 的 HTML 导入不画内联 SVG，栅格化是「必定渲染」的那条
   路，代价是那张图在 .docx 与 .md 里是位图，放大不再是矢量。README 与产品页同步写明这一点。
-- 五组对比度由端到端套件在 6 主题色 × 浅/深（12 种组合）下断言：顶栏品牌文字对顶栏 ≥ 4.5:1；主按钮标签在
-  常态 / hover / 按下三态 ≥ 4.5:1（取自已启用的按钮，因为文本规则豁免禁用控件）；卡片上的焦点环 ≥ 3:1；
-  正文信息文字（拖放提示、文件大小、拖放区那行能力计数等五串）对各自底色 ≥ 4.5:1；Element Plus 浅色效果的警示框标题与
-  文件行的格式标签（同一支语义色同时当墨与底）对各自的浅色底 ≥ 4.5:1。
-  最差实测值（2026-09-14）：4.70:1。已知缺口：控件的填充色还需要与它底下的表面满足 3:1（WCAG 1.4.11），
-  12 种组合里 10 种满足，浅森林绿与橙色按钮不满足（2.21 / 2.96:1）——这一点写在 README 里，而不是当作已达标呈现。
+- 五组对比度由端到端套件在 6 主题色 × 浅/深（12 种组合）下断言：卡片上的文字全部达标——正文信息文字（拖放提示、文件大小、拖放区那行能力计数等五串）对各自底色 ≥ 4.5:1；Element Plus 浅色效果的警示框标题与
+  文件行的格式标签（同一支语义色同时当墨与底）对各自的浅色底 ≥ 4.5:1；卡片上的焦点环 ≥ 3:1。彩色表面上的白字是**刻意的取舍**：顶栏与实心主按钮共用作者另外两个扩展的白字皮肤，主按钮标签在
+  常态 / hover / 按下三态下，梦幻紫、玫瑰红、石板灰与全部深色主题 ≥ 4.5:1，晴空蓝 / 森林绿 / 活力橙为 2.78→2.22、2.54→1.92、3.56→2.80（悬停按兄弟仓的做法提亮一档）；顶栏品牌字同向，为
+  2.78 / 2.54 / 3.56（蓝 / 绿 / 橙），版本号芯片与两枚玻璃按钮在白色薄膜上再低一档（2.36 / 2.22 / 3.00）。这些读数写在 README / CONTRIBUTING 里并由 e2e 逐主题钉住下限，而不是当作已达标呈现。
+  已知缺口：控件的填充色还需要与它底下的表面满足 3:1（WCAG 1.4.11），12 种组合里 9 种满足，浅晴空蓝、浅森林绿与橙色按钮不满足（2.34 / 2.21 / 2.96:1）。
 
 ### 发布前检查清单
 

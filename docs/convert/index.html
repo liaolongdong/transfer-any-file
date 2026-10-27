@@ -113,6 +113,66 @@
           <p class="lede">
             <span lang="zh-CN">这些页面不是「我们支持 14 种格式」的另一种说法。格式数只是图的顶点数：14 种格式、48 条注册路径，图上任意一种源格式都能走到全部 11 种可写格式，共 143 个组合，其中界面对用户实际提供 116 个。剩下的 27 个不是没做，而是语义上无效，所以置灰并说明原因——每个配对页面里的「不做什么」写的就是这一类事。</span><span lang="en">These pages are not another way of saying “14 formats supported”. The format count is just the number of vertices: 14 formats and 48 registered direct routes, and every source format reaches all 11 writable ones, which makes 143 combinations reachable and 116 selectable. The other 27 are not missing work — they are semantically invalid, so the picker greys them out and says why. Each pair page spells that class of limits out in its own “what it does not do”.</span>
           </p>
+        <section id="finder" class="reveal">
+      <h2><span lang="zh-CN">查一条转换路径</span><span lang="en">Find a route</span></h2>
+          <p>
+            <span lang="zh-CN">选一个源格式和一个目标格式，这里给出扩展实际执行的链路、步数，以及这一对的说明入口。工作台里的下拉会按你拖进来的那批文件实时收窄，这里给的是图上的完整答案。</span><span lang="en">Pick a source and a target to see the chain the extension actually runs, how many steps it takes, and where that pair is written up. The workbench narrows its picker to the batch you dropped; this is the full answer on the graph.</span>
+          </p>
+          <p class="finder-fallback">
+            <span lang="zh-CN">这个查找器需要脚本运行；下面的格式矩阵始终列出每一条链路。</span><span lang="en">The finder needs its script to run; the format matrix below always lists every route.</span>
+          </p>
+          <div class="finder">
+            <div class="finder-controls">
+              <label class="finder-field">
+                <span><span lang="zh-CN">从</span><span lang="en">From</span></span>
+                <select id="finderFrom">
+                  <option value="">选择源格式 / Choose a source</option>
+                  <option value="md">Markdown</option>
+                  <option value="html">HTML</option>
+                  <option value="docx">Word (.docx)</option>
+                  <option value="pdf">PDF</option>
+                  <option value="xlsx">Excel (.xlsx)</option>
+                  <option value="csv">CSV</option>
+                  <option value="txt">纯文本 (TXT) / plain text (TXT)</option>
+                  <option value="json">JSON</option>
+                  <option value="png">PNG</option>
+                  <option value="jpg">JPEG</option>
+                  <option value="webp">WebP</option>
+                  <option value="bmp">BMP</option>
+                  <option value="gif">GIF</option>
+                  <option value="svg">SVG</option>
+                </select>
+              </label>
+              <label class="finder-field">
+                <span><span lang="zh-CN">到</span><span lang="en">To</span></span>
+                <select id="finderTo">
+                  <option value="">选择目标格式 / Choose a target</option>
+                  <option value="md">Markdown</option>
+                  <option value="html">HTML</option>
+                  <option value="docx">Word (.docx)</option>
+                  <option value="pdf">PDF</option>
+                  <option value="xlsx">Excel (.xlsx)</option>
+                  <option value="csv">CSV</option>
+                  <option value="txt">纯文本 (TXT) / plain text (TXT)</option>
+                  <option value="json">JSON</option>
+                  <option value="png">PNG</option>
+                  <option value="jpg">JPEG</option>
+                  <option value="webp">WebP</option>
+                </select>
+              </label>
+            </div>
+            <div
+              class="finder-output"
+              id="finderOut"
+              role="status"
+              aria-live="polite"
+            >
+              <p class="finder-hint">
+                <span lang="zh-CN">选两个格式，看看它走几步。</span><span lang="en">Choose two formats to see how many steps it takes.</span>
+              </p>
+            </div>
+          </div>
+        </section>
           <figure class="shot reveal">
             <img
               src="../assets/screenshots/workbench-empty.png"
@@ -642,6 +702,7 @@
               <span class="fine"><span lang="zh-CN">mammoth 出 HTML 再取表格：一张表变对象数组，多张表按位置与文档小标题配对分组（配不上时回落成 SheetN），没表时依次试代码块与整份正文。全程离线。</span><span lang="en">Mammoth to HTML, then the tables: one becomes an array of objects, several group by heading position (or SheetN), else the first text found is parsed.</span></span>
             </li>
           </ul>
+
         </section>
         <section class="reveal">
           <h2><span lang="zh-CN">数据</span><span lang="en">Data</span></h2>
@@ -672,6 +733,7 @@
               <span class="fine"><span lang="zh-CN">浏览器本地把 JSON 数组转成 .xlsx：表头取所有对象键的并集，嵌套对象与数组以 JSON 文本进单元格。链路是 JSON → CSV → Excel，中间不落盘。</span><span lang="en">Turn a JSON array into .xlsx locally: the header is the union of every object’s keys and nested values go into the cell as JSON text, routed via CSV.</span></span>
             </li>
           </ul>
+
         </section>
         <section class="reveal">
           <h2><span lang="zh-CN">图片</span><span lang="en">Images</span></h2>
@@ -930,9 +992,13 @@
               <span class="fine"><span lang="zh-CN">两步：先包成能打开的网页，再序列化时把内联 SVG 栅格化成 PNG，产物是一行内联图片语法。矢量结构到此为止。</span><span lang="en">Two steps: wrap it as a page, then on the way out each inline SVG is rasterised to PNG, leaving one inline image line. The vector ends here.</span></span>
             </li>
           </ul>
+          <p class="fine">
+            <span lang="zh-CN">需要把一张图压到指定体积？用</span><span lang="en">Need a target size? Use the</span>
+            <a href="../compress/"><span lang="zh-CN">独立的图片压缩工具</span><span lang="en">standalone image compressor</span></a><span lang="zh-CN">。</span><span lang="en">.</span>
+          </p>
         </section>
           <p class="fine reveal">
-            <span lang="zh-CN">这里列出的是常被搜索的配对，不是全部 116 个；工作台里的目标格式下拉按批次实时给出可用项。</span><span lang="en">This index lists the pairs people search for, not all 116; the workbench shows what is available for the exact batch you dropped in.</span>
+            <span lang="zh-CN">这里列出的是全部 116 个配对；工作台里的目标格式下拉按批次实时给出可用项。</span><span lang="en">This index lists all 116 pairs; the workbench shows what is available for the exact batch you dropped in.</span>
           </p>
           <p class="cta-links reveal">
             <a class="btn" href="https://chromewebstore.google.com/detail/blkdmpkcaceicinkhindniepbbbaekkb" rel="noopener" target="_blank"><span lang="zh-CN">从 Chrome 应用商店安装</span><span lang="en">Install from the Chrome Web Store</span></a>
@@ -1181,6 +1247,196 @@
         cells[current].focus();
       });
     })();
+  </script>
+    <script>
+/**
+ * Route finder for /convert/ — inlined by scripts/render-site-pages.mjs.
+ *
+ * It reads the matrix the page already ships (data-kind / data-steps / data-chain / data-page and
+ * the bilingual header labels) instead of carrying a second route table. The file lives under
+ * tools/ so the offline and remote-code guards open the same source that is published; tools/ is
+ * never bundled into the extension.
+ */
+(function () {
+  var from = document.getElementById('finderFrom');
+  var to = document.getElementById('finderTo');
+  var out = document.getElementById('finderOut');
+  var table = document.getElementById('mx-table');
+  if (!from || !to || !out || !table) return;
+
+  var columns = [].slice.call(table.querySelectorAll('thead th[data-f]')).map(function (th) {
+    return th.getAttribute('data-f');
+  });
+  var labels = {};
+  var hubs = {};
+  var cells = {};
+  [].slice.call(table.querySelectorAll('th[data-f]')).forEach(function (th) {
+    var code = th.getAttribute('data-f');
+    var zh = th.querySelector('span[lang="zh-CN"]');
+    var en = th.querySelector('span[lang="en"]');
+    labels[code] = { zh: zh ? zh.textContent : code, en: en ? en.textContent : code };
+  });
+  [].slice.call(table.querySelectorAll('tbody tr')).forEach(function (tr) {
+    var head = tr.querySelector('th[data-f]');
+    if (!head) return;
+    var source = head.getAttribute('data-f');
+    var hub = head.querySelector('a');
+    if (hub) hubs[source] = hub.getAttribute('href');
+    var tds = tr.querySelectorAll('td');
+    columns.forEach(function (column, i) {
+      if (tds[i]) cells[source + '->' + column] = tds[i];
+    });
+  });
+
+  function el(tag, className) {
+    var node = document.createElement(tag);
+    if (className) node.className = className;
+    return node;
+  }
+
+  function bilingual(text, tag, className) {
+    var node = el(tag || 'span', className);
+    [
+      ['zh-CN', text.zh],
+      ['en', text.en],
+    ].forEach(function (pair) {
+      var span = document.createElement('span');
+      span.setAttribute('lang', pair[0]);
+      span.textContent = pair[1];
+      node.appendChild(span);
+    });
+    return node;
+  }
+
+  function chip(code) {
+    var node = el('span', 'chip');
+    var copy = labels[code] || { zh: code, en: code };
+    [
+      ['zh-CN', copy.zh],
+      ['en', copy.en],
+    ].forEach(function (pair) {
+      var span = document.createElement('span');
+      span.setAttribute('lang', pair[0]);
+      span.textContent = pair[1];
+      node.appendChild(span);
+    });
+    return node;
+  }
+
+  function reset() {
+    while (out.firstChild) out.removeChild(out.firstChild);
+  }
+
+  function hint(text) {
+    out.appendChild(bilingual(text, 'p', 'finder-hint'));
+  }
+
+  function cellText(cell, lang) {
+    var node = cell.querySelector('.mx-sr[lang="' + lang + '"]');
+    return node ? node.textContent : '';
+  }
+
+  function routeCard(cell) {
+    var card = el('div', 'route-card finder-route');
+    card.appendChild(bilingual({ zh: '这条链路怎么走', en: 'How the route runs' }, 'p', 'route-label'));
+    var steps = el('p', 'route-steps');
+    var chain = (cell.getAttribute('data-chain') || '').split('>').filter(Boolean);
+    chain.forEach(function (code, i) {
+      if (i) {
+        var arrow = el('span', 'arrow');
+        arrow.setAttribute('aria-hidden', 'true');
+        arrow.textContent = '→';
+        steps.appendChild(arrow);
+      }
+      steps.appendChild(chip(code));
+    });
+    card.appendChild(steps);
+    var count = Number(cell.getAttribute('data-steps')) || 0;
+    card.appendChild(
+      bilingual(
+        {
+          zh: count + ' 步，由扩展自动选出，中间产物不落盘。',
+          en:
+            count + (count === 1 ? ' step' : ' steps') + ', chosen by the extension; no intermediate touches the disk.',
+        },
+        'p',
+        'route-note',
+      ),
+    );
+    var href = cell.getAttribute('data-page');
+    if (href) {
+      var link = el('a', 'finder-link');
+      link.href = href;
+      var isPage = cell.getAttribute('data-dest') === 'page';
+      link.appendChild(
+        bilingual({
+          zh: isPage ? '查看这一对的完整说明 →' : '查看来源格式页 →',
+          en: isPage ? 'Read the full write-up →' : 'Open the source-format page →',
+        }),
+      );
+      card.appendChild(link);
+    }
+    out.appendChild(card);
+  }
+
+  function blockedCard(cell, source) {
+    var card = el('div', 'route-card finder-route finder-blocked');
+    card.appendChild(bilingual({ zh: '界面不提供这个组合', en: 'The picker greys this pair out' }, 'p', 'route-label'));
+    card.appendChild(
+      bilingual(
+        {
+          zh: cellText(cell, 'zh-CN') || '这条组合在语义上无效。',
+          en: cellText(cell, 'en') || 'This pair is semantically invalid.',
+        },
+        'p',
+        'route-note',
+      ),
+    );
+    var hub = hubs[source];
+    if (hub) {
+      var link = el('a', 'finder-link');
+      link.href = hub;
+      link.appendChild(bilingual({ zh: '查看来源格式页 →', en: 'Open the source-format page →' }));
+      card.appendChild(link);
+    }
+    out.appendChild(card);
+  }
+
+  function render() {
+    reset();
+    if (!from.value || !to.value) {
+      hint({ zh: '选两个格式，看看它走几步。', en: 'Choose two formats to see how many steps it takes.' });
+      return;
+    }
+    if (from.value === to.value) {
+      hint({
+        zh: '源与目标是同一格式，没有转换这回事。',
+        en: 'A format meeting itself — there is no conversion here.',
+      });
+      return;
+    }
+    var cell = cells[from.value + '->' + to.value];
+    if (!cell) {
+      hint({ zh: '这条组合没有可达路径。', en: 'No reachable route for this pair.' });
+      return;
+    }
+    var kind = cell.getAttribute('data-kind');
+    if (kind === 'block') {
+      blockedCard(cell, from.value);
+      return;
+    }
+    if (kind === 'open') {
+      routeCard(cell);
+      return;
+    }
+    hint({ zh: '这条组合没有可达路径。', en: 'No reachable route for this pair.' });
+  }
+
+  from.addEventListener('change', render);
+  to.addEventListener('change', render);
+  render();
+  document.getElementById('finder').classList.add('finder-live');
+})();
   </script>
     <script>
     (function () {

@@ -19,9 +19,9 @@
  * named by `aria-labelledby` so the same CSS that hides the inactive `<span>` hides it from AT too.
  *
  * The sitemap is generated for the same reason: eleven of its URLs are one per pair page, and a list
- * maintained by hand is how a cluster gets published without ever being discoverable. The three
- * hand-written URLs it also carries keep their own `lastmod` in `STATIC_PAGES` below, because a date
- * taken from the filesystem would say "today" on every clean checkout.
+ * maintained by hand is how a cluster gets published without ever being discoverable. The hand-written
+ * URLs it also carries keep their own `lastmod` in `STATIC_PAGES` below, because a date taken from the
+ * filesystem would say "today" on every clean checkout.
  *
  * Usage:
  *   node scripts/render-site-pages.mjs           # write the pages and the sitemap
@@ -40,6 +40,7 @@ import path from 'node:path';
 import {
   APP,
   FORMAT_LABEL,
+  INDEX_UPDATED,
   PAIRS,
   PAGES_PUBLISHED,
   PAGES_UPDATED,
@@ -52,14 +53,15 @@ import { HUBS } from './conversion-pages/hubs.mjs';
 const ROOT = path.resolve(import.meta.dirname, '..');
 const OUT_DIR = path.join(ROOT, 'docs', 'convert');
 const SITEMAP = path.join(ROOT, 'docs', 'sitemap.xml');
-// `tools/file-diff.html` is the only source for the one page on this site that takes a file as input, and
-// `docs/diff/index.html` is a byte-for-byte copy of it. That is not tidiness: `check-offline.mjs` and
-// `check-remote-code.mjs` name `tools` in their scan directories and deliberately do not name `docs`, so
-// the copy can never be ahead of what the guards actually opened. `--check` then compares those bytes
-// against the source on every run, which is what makes the copy a guarded artifact rather than a file
-// nobody reads.
+// The two tool pages keep their source in `tools/`, and each `docs/` copy is byte-for-byte identical
+// to it. That is not tidiness: `check-offline.mjs` and `check-remote-code.mjs` name `tools` in their
+// scan directories and deliberately do not name `docs`, so the copy can never be ahead of what the
+// guards actually opened. `--check` then compares those bytes against the source on every run, which
+// is what makes each copy a guarded artifact rather than a file nobody reads.
 const DIFF_SRC = path.join(ROOT, 'tools', 'file-diff.html');
 const DIFF_OUT = path.join(ROOT, 'docs', 'diff', 'index.html');
+const COMPRESS_SRC = path.join(ROOT, 'tools', 'image-compressor.html');
+const COMPRESS_OUT = path.join(ROOT, 'docs', 'compress', 'index.html');
 const CHECK = process.argv.includes('--check');
 
 /**
@@ -1261,6 +1263,89 @@ function matrixScript() {
 }
 
 /**
+ * A two-select route finder for the conversion index.
+ *
+ * The matrix already answers this question one cell at a time, but it is 154 cells wide and scrolls
+ * sideways on a phone. This is the same fact as a single question: source, target, route, step count,
+ * where the full write-up lives. The options carry English format names because a native `<option>`
+ * cannot hold the bilingual span pair the rest of the page uses; the answer reads the matrix itself,
+ * so there is no second copy of the route data on the page. Without JavaScript the finder is hidden
+ * and a sentence points at the matrix, which is fully rendered.
+ * @returns {string} the section markup
+ */
+function routeFinderSection() {
+  // A native <option> cannot hold the bilingual span pair the rest of the page uses. Most format
+  // names are identical in both languages; the one that is not (TXT) carries both here, so the
+  // initial HTML still states both names and the page needs no per-option language hook.
+  const optionLabel = code => {
+    const label = FORMAT_LABEL[code];
+    return label.zh === label.en ? label.en : `${label.zh} / ${label.en}`;
+  };
+  const options = codes =>
+    codes.map(code => `                  <option value="${code}">${esc(optionLabel(code))}</option>`).join('\n');
+  return `        <section id="finder" class="reveal">
+${sectionHeading('查一条转换路径', 'Find a route')}
+          <p>
+            ${bi(
+              '选一个源格式和一个目标格式，这里给出扩展实际执行的链路、步数，以及这一对的说明入口。工作台里的下拉会按你拖进来的那批文件实时收窄，这里给的是图上的完整答案。',
+              'Pick a source and a target to see the chain the extension actually runs, how many steps it takes, and where that pair is written up. The workbench narrows its picker to the batch you dropped; this is the full answer on the graph.',
+            )}
+          </p>
+          <p class="finder-fallback">
+            ${bi(
+              '这个查找器需要脚本运行；下面的格式矩阵始终列出每一条链路。',
+              'The finder needs its script to run; the format matrix below always lists every route.',
+            )}
+          </p>
+          <div class="finder">
+            <div class="finder-controls">
+              <label class="finder-field">
+                <span>${bi('从', 'From')}</span>
+                <select id="finderFrom">
+                  <option value="">${esc('选择源格式 / Choose a source')}</option>
+${options(MATRIX_ROWS)}
+                </select>
+              </label>
+              <label class="finder-field">
+                <span>${bi('到', 'To')}</span>
+                <select id="finderTo">
+                  <option value="">${esc('选择目标格式 / Choose a target')}</option>
+${options(MATRIX_COLS)}
+                </select>
+              </label>
+            </div>
+            <div
+              class="finder-output"
+              id="finderOut"
+              role="status"
+              aria-live="polite"
+            >
+              <p class="finder-hint">
+                ${bi('选两个格式，看看它走几步。', 'Choose two formats to see how many steps it takes.')}
+              </p>
+            </div>
+          </div>
+        </section>`;
+}
+
+/**
+ * The route finder's interaction layer.
+ *
+ * It reads the matrix the page already ships rather than carrying a second copy of the route data:
+ * every cell has `data-kind`, `data-steps`, `data-chain`, `data-page` and `data-dest` on it, and the
+ * row/column headers carry the bilingual labels. That makes the finder follow a new edge or policy
+ * block without an extra object to keep in sync, and keeps the page at the size it was. Nodes are
+ * built with `createElement`/`textContent` rather than `innerHTML`.
+ * @returns {string} markup for the script tag
+ */
+function routeFinderScript() {
+  const script = fs.readFileSync(path.join(ROOT, 'tools/route-finder.js'), 'utf8').trimEnd();
+  return `<script>
+${script}
+  </script>`;
+}
+
+/**
  * Site header + footer shared by every generated page, so the cluster is one navigable set and every
  * page hands the reader back to the product page and the privacy policy.
  * @param {number} depth how many directories down from the site root the page sits
@@ -1885,12 +1970,20 @@ function renderIndex() {
             </li>`,
         )
         .join('\n');
+      const extra =
+        index === 2
+          ? `          <p class="fine">
+            ${bi('需要把一张图压到指定体积？用', 'Need a target size? Use the')}
+            <a href="../compress/">${bi('独立的图片压缩工具', 'standalone image compressor')}</a>${bi('。', '.')}
+          </p>`
+          : '';
       return `        <section class="reveal">
           <h2>${bi(group.zh, group.en)}</h2>
           <p>${bi(group.note.zh, group.note.en)}</p>
           <ul class="index-list">
 ${items}
           </ul>
+${extra}
         </section>`;
     })
     .join('\n');
@@ -2049,6 +2142,7 @@ ${items}
               'These pages are not another way of saying “14 formats supported”. The format count is just the number of vertices: 14 formats and 48 registered direct routes, and every source format reaches all 11 writable ones, which makes 143 combinations reachable and 116 selectable. The other 27 are not missing work — they are semantically invalid, so the picker greys them out and says why. Each pair page spells that class of limits out in its own “what it does not do”.',
             )}
           </p>
+${routeFinderSection()}
 ${shotFigure(shot, 1)}
           <section id="sources" class="reveal">
 ${sectionHeading('按来源格式浏览', 'Browse by source format')}
@@ -2066,8 +2160,8 @@ ${matrixSection()}
 ${lists}
           <p class="fine reveal">
             ${bi(
-              '这里列出的是常被搜索的配对，不是全部 116 个；工作台里的目标格式下拉按批次实时给出可用项。',
-              'This index lists the pairs people search for, not all 116; the workbench shows what is available for the exact batch you dropped in.',
+              '这里列出的是全部 116 个配对；工作台里的目标格式下拉按批次实时给出可用项。',
+              'This index lists all 116 pairs; the workbench shows what is available for the exact batch you dropped in.',
             )}
           </p>
           <p class="cta-links reveal">
@@ -2080,6 +2174,7 @@ ${lists}
     </main>
     ${foot}
     ${matrixScript()}
+    ${routeFinderScript()}
     ${revealScript()}
   </body>
 </html>
@@ -2120,7 +2215,7 @@ ${lists}
 const STATIC_PAGES = {
   home: {
     path: '/',
-    updated: '2026-10-25',
+    updated: '2026-10-27',
     changefreq: 'monthly',
     priority: '1.0',
     file: 'docs/index.html',
@@ -2134,13 +2229,13 @@ const STATIC_PAGES = {
   },
   blog: {
     path: '/blog/',
-    updated: '2026-10-25',
+    updated: '2026-10-27',
     changefreq: 'monthly',
     priority: '0.8',
     file: 'docs/blog/index.html',
     dateClaims: [
       /"dateModified":\s*"(\d{4}-\d{2}-\d{2})"/g,
-      /og:article:modified_time[\s\S]{0,60}?content="(\d{4}-\d{2}-\d{2})"/g,
+      /article:modified_time[\s\S]{0,60}?content="(\d{4}-\d{2}-\d{2})"/g,
     ],
   },
   privacy: {
@@ -2156,10 +2251,22 @@ const STATIC_PAGES = {
   // `docs/diff/` render at all, instead of deadlocking on a file only this script creates.
   diff: {
     path: '/diff/',
-    updated: '2026-10-20',
+    updated: '2026-10-27',
     changefreq: 'monthly',
     priority: '0.7',
     file: 'tools/file-diff.html',
+    dateClaims: [
+      /"dateModified":\s*"(\d{4}-\d{2}-\d{2})"/g,
+      /最后更新[：:]?\s*(\d{4}-\d{2}-\d{2})/g,
+      /Last updated:\s*(\d{4}-\d{2}-\d{2})/gi,
+    ],
+  },
+  compress: {
+    path: '/compress/',
+    updated: '2026-10-27',
+    changefreq: 'monthly',
+    priority: '0.8',
+    file: 'tools/image-compressor.html',
     dateClaims: [
       /"dateModified":\s*"(\d{4}-\d{2}-\d{2})"/g,
       /最后更新[：:]?\s*(\d{4}-\d{2}-\d{2})/g,
@@ -2421,6 +2528,86 @@ function validateDiffPage() {
  * many questions that category actually holds. Adding a question is a one-line edit and nothing else on the
  * page would ever notice, which is exactly the drift this pins.
  */
+/**
+ * Check the image compressor's page identity and tool wiring.
+ *
+ * The page is a source file under `tools/` copied byte-for-byte into `docs/compress/`; the offline
+ * guards read that source, so this only has to pin the claims a crawler or a reader sees: one
+ * canonical URL, the same URL in `og:url`, a store CTA on the short form, and a JSON-LD graph that
+ * describes this page rather than the product page. `tool-ready` is the line that makes the form
+ * visible; a page that lost it would render no tool at all.
+ */
+function validateCompressPage() {
+  const source = fs.existsSync(COMPRESS_SRC) ? fs.readFileSync(COMPRESS_SRC, 'utf8') : null;
+  if (source === null) {
+    fail(`${COMPRESS_SRC} is missing, so the site page ${STATIC_PAGES.compress.path} cannot be produced`);
+    return;
+  }
+
+  const expected = `${SITE.origin}/compress/`;
+  const exactlyOne = (pattern, what) => {
+    const hits = [...source.matchAll(pattern)];
+    if (hits.length !== 1) {
+      fail(`tools/image-compressor.html carries ${hits.length} ${what}, expected exactly 1`);
+      return null;
+    }
+    return hits[0][1];
+  };
+
+  const canonical = exactlyOne(/rel="canonical"\s+href="([^"]+)"/g, 'canonical link');
+  if (canonical !== null && canonical !== expected) {
+    fail(`tools/image-compressor.html canonicalises to ${canonical}, but this site serves the page at ${expected}`);
+  }
+  const ogUrl = exactlyOne(/property="og:url"\s+content="([^"]+)"/g, 'og:url');
+  if (ogUrl !== null && ogUrl !== expected) {
+    fail(`tools/image-compressor.html shares ${ogUrl}, but canonicalises to ${expected} — those are one claim`);
+  }
+  if (!source.includes(`href="${SITE.store}"`)) {
+    fail(
+      'tools/image-compressor.html has no store CTA on the canonical short URL, so the page cannot point at the listing',
+    );
+  }
+  if (!/<html\s+lang="zh-CN"/.test(source)) {
+    fail(
+      'tools/image-compressor.html no longer opens with <html lang="zh-CN">, so a client that does not run the script has no default language',
+    );
+  }
+  if (!source.includes('lang="zh-CN"') || !source.includes('lang="en"')) {
+    fail('tools/image-compressor.html no longer carries both languages in its initial markup');
+  }
+  if (!source.includes("classList.add('tool-ready')")) {
+    fail('tools/image-compressor.html no longer marks the page tool-ready, so the form would never become visible');
+  }
+
+  const ld = /<script\s+type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/.exec(source);
+  if (!ld) {
+    fail('tools/image-compressor.html has no JSON-LD block, so a crawler gets no description of the tool');
+    return;
+  }
+  let graph;
+  try {
+    graph = JSON.parse(ld[1])['@graph'];
+  } catch (error) {
+    fail(`tools/image-compressor.html JSON-LD is not valid JSON: ${error.message}`);
+    return;
+  }
+  const nodes = Array.isArray(graph) ? graph : [];
+  const app = nodes.find(node => node['@type'] === 'WebApplication');
+  const page = nodes.find(node => node['@type'] === 'WebPage');
+  if (!app || app['@id'] !== `${expected}#app`) {
+    fail(`tools/image-compressor.html has no WebApplication node with @id ${expected}#app`);
+  }
+  if (!page || page['@id'] !== `${expected}#webpage`) {
+    fail(`tools/image-compressor.html has no WebPage node with @id ${expected}#webpage`);
+  }
+  if (!app?.isPartOf || app.isPartOf['@id'] !== `${SITE.origin}/#website`) {
+    fail('tools/image-compressor.html WebApplication is not part of the site #website node');
+  }
+  if (!app?.about || app.about['@id'] !== `${SITE.origin}/#app`) {
+    fail('tools/image-compressor.html WebApplication does not point at the product #app node');
+  }
+}
+
 function validateFaqRail() {
   const file = 'docs/index.html';
   const source = fs.existsSync(path.join(ROOT, file)) ? fs.readFileSync(path.join(ROOT, file), 'utf8') : null;
@@ -2760,7 +2947,7 @@ function validateHubCoverage() {
  * @returns {string} `docs/sitemap.xml`
  */
 function renderSitemap() {
-  const index = { path: '/convert/', updated: PAGES_UPDATED, changefreq: 'monthly', priority: '0.9' };
+  const index = { path: '/convert/', updated: INDEX_UPDATED, changefreq: 'monthly', priority: '0.9' };
   const hubs = HUBS.map(hub => ({
     path: `/convert/${hub.slug}/`,
     updated: PAGES_UPDATED,
@@ -2773,7 +2960,16 @@ function renderSitemap() {
     changefreq: 'monthly',
     priority: '0.8',
   }));
-  const urls = [STATIC_PAGES.home, index, ...hubs, ...pairs, STATIC_PAGES.blog, STATIC_PAGES.privacy, STATIC_PAGES.diff]
+  const urls = [
+    STATIC_PAGES.home,
+    index,
+    ...hubs,
+    ...pairs,
+    STATIC_PAGES.blog,
+    STATIC_PAGES.privacy,
+    STATIC_PAGES.diff,
+    STATIC_PAGES.compress,
+  ]
     .map(
       entry => `  <url>
     <loc>${SITE.origin}${entry.path}</loc>
@@ -2805,6 +3001,7 @@ validateFaqRail();
 validateLinkMirrors();
 validateSiteNav();
 validateDiffPage();
+validateCompressPage();
 for (const hub of HUBS) validateHub(hub);
 for (const pair of PAIRS) {
   const chain = validatePair(pair);
@@ -2822,6 +3019,7 @@ if (errors.length === 0) {
   // inside the `--check` comparison below; a copy written outside `files` would be committed once and
   // then drift forever, with the guard printing OK over a file it never opened.
   files.set(DIFF_OUT, fs.readFileSync(DIFF_SRC, 'utf8'));
+  files.set(COMPRESS_OUT, fs.readFileSync(COMPRESS_SRC, 'utf8'));
 }
 if (errors.length === 0) validateHubCoverage();
 

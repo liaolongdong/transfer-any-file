@@ -121,6 +121,17 @@ export default [
     },
   },
 
+  // Standalone browser scripts under tools/ (the route finder is inlined into a generated site
+  // page and is scanned there by the offline guards; this file is not part of any Node toolchain).
+  {
+    files: ['tools/**/*.js'],
+    languageOptions: {
+      globals: {
+        document: 'readonly',
+      },
+    },
+  },
+
   // Prettier config (must be last to override)
   eslintConfigPrettier,
 ];

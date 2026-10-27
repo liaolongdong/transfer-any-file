@@ -380,6 +380,106 @@ figcaption {
   font-size: 14px;
 }
 
+/* --------------------------------------------------------- route finder */
+/* The same route-card vocabulary as the pair pages, wrapped in one control surface. The output box
+   keeps a floor so choosing a second format does not make the sections below jump. */
+.finder {
+  display: none;
+  gap: 16px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--paper);
+  box-shadow: var(--shadow-sm);
+}
+
+/* The finder is an enhancement over the matrix, not a second source of truth. It appears only after
+   its script has wired the controls and added `finder-live`; if the script is absent or returns early,
+   the dead form stays hidden and the fallback sentence points at the matrix, which is fully static. */
+.finder-live .finder {
+  display: grid;
+}
+
+.finder-fallback {
+  margin: 0 0 12px;
+  color: var(--ink-soft);
+  font-size: 14px;
+}
+
+.finder-live .finder-fallback {
+  display: none;
+}
+
+.finder-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.finder-field {
+  display: flex;
+  flex: 1 1 220px;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--ink-soft);
+  font-size: 13px;
+}
+
+.finder-field select {
+  width: 100%;
+  padding: 10px 12px;
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  font: inherit;
+}
+
+.finder-field select:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+.finder-output {
+  min-height: 120px;
+  padding: 16px;
+  background: var(--paper-alt);
+  border: 1px dashed var(--line);
+  border-radius: var(--radius-sm);
+}
+
+.finder-hint {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 14px;
+}
+
+.finder-route {
+  margin: 0;
+}
+
+.finder-link {
+  display: inline-block;
+  margin-top: 10px;
+  color: var(--brand-dark);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.finder-link:hover {
+  text-decoration: underline;
+}
+
+.finder-blocked {
+  border-color: var(--warn);
+  background: var(--warn-soft);
+}
+
+.finder-blocked .route-label {
+  color: var(--warn);
+}
+
 /* -------------------------------------------------------------------- faq */
 
 details {

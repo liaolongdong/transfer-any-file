@@ -193,6 +193,24 @@ function contrast(a, b) {
   return (x + 0.05) / (y + 0.05);
 }
 
+/** Alpha of an `rgba()` computed style, 1 for every opaque form.
+ *  The topbar's frosted film is translucent on purpose, so the version chip's label can only
+ *  be measured after compositing the film over the bar it covers. */
+function alphaOf(input) {
+  const m = /^rgba\(\s*\d+[,\s]+\d+[,\s]+\d+[,\s/]+([\d.]+)\s*\)$/.exec(String(input).trim());
+  return m ? +m[1] : 1;
+}
+
+/** `fg` (possibly translucent) composited over the opaque `bg`, both as computed-style strings.
+ *  Returns null so the caller reports NaN instead of silently measuring the film alone. */
+function compositedOver(fg, bg) {
+  const f = parseColor(fg);
+  const b = parseColor(bg);
+  if (!f || !b) return null;
+  const a = alphaOf(fg);
+  return `rgb(${f.map((v, i) => Math.round(v * a + b[i] * (1 - a))).join(', ')})`;
+}
+
 /**
  * Collapse the page's motion for the length of one colour sample.
  *
@@ -309,16 +327,21 @@ function applyTheme(page, mode, theme) {
 
 /** The two colours that carry the Option-A contrast contract, read from the page: the
  *  topbar's own background vs the brand text drawn on it, plus the resolved focus ring
- *  against a card. Compared with `contrast()` on the Node side. */
+ *  against a card. Compared with `contrast()` on the Node side.
+ *  The version chip's ink and its translucent film ride along: the film is composited over
+ *  the same bar before measuring, which covers the two capsules too (they share both tokens). */
 async function surfaceColors(page) {
   return sampleWithoutMotion(page, () =>
     page.evaluate(() => {
       const root = getComputedStyle(document.documentElement);
       const topbar = document.querySelector('.topbar');
       const brand = document.querySelector('.brand-name');
+      const chip = document.querySelector('.brand-version');
       return {
         topbar: topbar ? getComputedStyle(topbar).backgroundColor : '',
         brand: brand ? getComputedStyle(brand).color : '',
+        chipFill: chip ? getComputedStyle(chip).backgroundColor : '',
+        chipInk: chip ? getComputedStyle(chip).color : '',
         ring: root.getPropertyValue('--fat-focus-ring').trim(),
         card: root.getPropertyValue('--fat-bg-card').trim(),
       };
@@ -1125,6 +1148,187 @@ async function run() {
       Array.isArray(calls) ? `calls=${calls.length} duplicates=${JSON.stringify(twiceRead)}` : 'no call recorded',
     );
   }
+
+  // ═══════════════════════════════════════════
+  //  EMPTY-STATE SAMPLES & TARGET SUGGESTIONS
+  // ═══════════════════════════════════════════
+  //
+  // The empty workbench used to offer one thing: a drop plate. These two rows are the first-run
+  // answer for someone who has no file at hand and for someone who has one but no target yet. Both
+  // are inert additions — the sample button only stages the file it names, and a suggestion is an
+  // ordinary target click — so the checks are about the route each one takes, not about a new
+  // conversion semantic.
+  section('Empty-State Samples & Suggestions');
+
+  const sampleLabels = await page.$$eval('.sample-chip .sample-label', els => els.map(el => el.textContent.trim()));
+  if (sampleLabels.length === 3) ok(`Empty state offers three samples (${sampleLabels.join(' / ')})`);
+  else fail('Empty state sample chips', `found ${sampleLabels.length}`);
+
+  await page.locator('.sample-chip').first().click();
+  await page.waitForSelector('.file-item', { timeout: 10000 });
+  await page.waitForTimeout(400);
+  const mdSample = await page.evaluate(() => ({
+    name: document.querySelector('.file-item .file-name')?.textContent?.trim() ?? '',
+    target: document.querySelector('.action-row .el-select')?.textContent?.trim() ?? '',
+    path: document.querySelector('.path-steps')?.textContent?.trim() ?? '',
+    strip: !!document.querySelector('.sample-strip'),
+  }));
+  if (mdSample.name === 'sample-document.md' && mdSample.target.includes('PDF') && mdSample.path.includes('HTML')) {
+    ok(`Markdown sample selects PDF through HTML (${mdSample.path})`);
+  } else {
+    fail('Markdown sample', JSON.stringify(mdSample));
+  }
+  if (!mdSample.strip) ok('Sample strip retracts once a sample is staged');
+  else fail('Sample strip after staging', 'still visible');
+
+  await page.click('.clear-files-btn');
+  await page.waitForSelector('.sample-strip', { timeout: 5000 });
+  await page.locator('.sample-chip').nth(1).click();
+  await page.waitForSelector('.file-item', { timeout: 10000 });
+  await page.waitForTimeout(400);
+  const csvSample = await page.evaluate(() => ({
+    name: document.querySelector('.file-item .file-name')?.textContent?.trim() ?? '',
+    target: document.querySelector('.action-row .el-select')?.textContent?.trim() ?? '',
+  }));
+  if (csvSample.name === 'sample-table.csv' && csvSample.target.includes('JSON')) ok('CSV sample selects JSON');
+  else fail('CSV sample', JSON.stringify(csvSample));
+
+  await page.click('.clear-files-btn');
+  await page.waitForSelector('.sample-strip', { timeout: 5000 });
+  await page.locator('.sample-chip').nth(2).click();
+  await page.waitForSelector('.file-item', { timeout: 10000 });
+  await page.waitForTimeout(400);
+  const imageSample = await page.evaluate(() => ({
+    name: document.querySelector('.file-item .file-name')?.textContent?.trim() ?? '',
+    target: document.querySelector('.action-row .el-select')?.textContent?.trim() ?? '',
+  }));
+  if (imageSample.name === 'sample-image.png' && imageSample.target.includes('WebP')) {
+    ok('Canvas image sample selects WebP');
+  } else {
+    fail('Image sample', JSON.stringify(imageSample));
+  }
+
+  // A real upload starts from no target, which is the state the suggestion row exists for. The
+  // reload also drops the target the previous sample set, so this checks the real first-run path.
+  await page.click('.clear-files-btn');
+  await page.reload();
+  await page.waitForTimeout(1200);
+  const sampleInput = await page.$('#file-upload-input');
+  await sampleInput.setInputFiles(path.join(FIXTURE_PATH, 'sample.md'));
+  await page.waitForSelector('.file-item', { timeout: 10000 });
+  await page.waitForTimeout(400);
+  const suggested = await page.evaluate(() => ({
+    target: document.querySelector('.action-row .el-select')?.textContent?.trim() ?? '',
+    chips: [...document.querySelectorAll('.suggestion-chip')].map(el => el.textContent.trim()),
+  }));
+  if (suggested.target.includes('请选择') && suggested.chips.some(text => text.includes('PDF'))) {
+    ok(`Suggested targets appear while the picker is empty (${suggested.chips.join(' / ')})`);
+  } else {
+    fail('Suggested targets', JSON.stringify(suggested));
+  }
+  await page.locator('.suggestion-chip').first().click();
+  await page.waitForTimeout(300);
+  const suggestionCommitted = await page.evaluate(() => ({
+    target: document.querySelector('.action-row .el-select')?.textContent?.trim() ?? '',
+    chips: document.querySelectorAll('.suggestion-chip').length,
+  }));
+  if (suggestionCommitted.target.includes('PDF') && suggestionCommitted.chips === 0) {
+    ok('Suggested target commits and the row retracts');
+  } else {
+    fail('Suggested target commit', JSON.stringify(suggestionCommitted));
+  }
+  await page.reload();
+  await page.waitForTimeout(1000);
+
+  // ═══════════════════════════════════════════
+  //  RESULT FILTER & SEARCH
+  // ═══════════════════════════════════════════
+  //
+  // Failures are appended after every success, so on a long batch the rows a user most needs are
+  // the ones furthest away. The filter is a view over the same arrays (the alert title and the ZIP
+  // still count the whole batch), which is what these checks pin: the default state shows every row,
+  // a query narrows without changing the total, and the failure view does not keep successes around.
+  section('Result Filter & Search');
+
+  const filterInput = await page.$('#file-upload-input');
+  await filterInput.setInputFiles(
+    Array.from({ length: 9 }, (_, i) => ({
+      name: `r${i + 1}.md`,
+      mimeType: 'text/markdown',
+      buffer: Buffer.from(`# Row ${i + 1}\n\nsample\n`),
+    })),
+  );
+  await page.waitForSelector('.file-item', { timeout: 10000 });
+  await page.waitForTimeout(400);
+  await page.locator('.suggestion-chip').filter({ hasText: 'HTML' }).click();
+  await page.click('.convert-btn');
+  // Nine files cross the large-batch confirmation threshold; the default preference is on.
+  const confirmBatch = await page.waitForSelector('.el-message-box', { timeout: 2500 }).catch(() => null);
+  if (confirmBatch) {
+    await page.locator('.el-message-box__btns .el-button--primary').click();
+    await page.waitForTimeout(300);
+  }
+  await page.waitForFunction(() => document.querySelectorAll('.result-item').length === 9, undefined, {
+    timeout: 20000,
+  });
+  await page.waitForSelector('.result-filter', { timeout: 5000 });
+  await page.screenshot({ path: shot('result-filter.png'), fullPage: true });
+
+  const filterButtons = await page.$$eval('.result-filter-btn', els => els.map(el => el.textContent.trim()));
+  if (filterButtons.length === 2) ok(`Long batch exposes the filter (${filterButtons.join(' / ')})`);
+  else fail('Result filter visibility', JSON.stringify(filterButtons));
+
+  await page.fill('.result-filter-search input', 'r3');
+  await page.waitForTimeout(300);
+  const searched = await page.$$eval('.result-item .result-name', els => els.map(el => el.textContent.trim()));
+  if (searched.length === 1 && searched[0].includes('r3')) ok('Result search narrows the list');
+  else fail('Result search', JSON.stringify(searched));
+
+  await page.fill('.result-filter-search input', '');
+  await page.waitForTimeout(300);
+  await page.locator('.result-filter-btn').nth(1).click();
+  await page.waitForTimeout(300);
+  const successRows = await page.$$eval('.result-item', els => els.length);
+  const showing = await page.$eval('.result-filter-showing', el => el.textContent.trim()).catch(() => '');
+  if (successRows === 9 && showing.includes('9')) ok('Success view keeps every success and reports the count');
+  else fail('Success filter', `rows=${successRows} showing="${showing}"`);
+
+  await page.reload();
+  await page.waitForTimeout(1200);
+  const mixedInput = await page.$('#file-upload-input');
+  await mixedInput.setInputFiles([
+    { name: 'good.md', mimeType: 'text/markdown', buffer: Buffer.from('# Good\n') },
+    { name: 'broken.xyz', mimeType: 'application/octet-stream', buffer: Buffer.from('unknown') },
+  ]);
+  await page.waitForSelector('.file-item', { timeout: 10000 });
+  await page.waitForTimeout(400);
+  await page.locator('.suggestion-chip').filter({ hasText: 'HTML' }).click();
+  await page.click('.convert-btn');
+  await page.waitForFunction(
+    () =>
+      document.querySelectorAll('.result-item').length === 1 && document.querySelectorAll('.failure-item').length === 1,
+    undefined,
+    { timeout: 20000 },
+  );
+  await page.locator('.result-filter-btn').nth(2).click();
+  await page.waitForTimeout(300);
+  const failureView = await page.evaluate(() => ({
+    results: document.querySelectorAll('.result-item').length,
+    failures: document.querySelectorAll('.failure-item').length,
+  }));
+  if (failureView.results === 0 && failureView.failures === 1) ok('Failure view hides successes and keeps the failure');
+  else fail('Failure filter', JSON.stringify(failureView));
+  await page.locator('.result-filter-btn').nth(0).click();
+  await page.waitForTimeout(300);
+  const allView = await page.evaluate(() => ({
+    results: document.querySelectorAll('.result-item').length,
+    failures: document.querySelectorAll('.failure-item').length,
+  }));
+  if (allView.results === 1 && allView.failures === 1) ok('All view restores both rows');
+  else fail('All filter', JSON.stringify(allView));
+
+  await page.reload();
+  await page.waitForTimeout(1000);
 
   // ═══════════════════════════════════════════
   //  EVERY CARD'S COLLAPSE STATE SURVIVES THE OTHER'S
@@ -4025,7 +4229,7 @@ async function run() {
       await editPage.waitForTimeout(1200);
       if (!(await openPresetCard(editPage))) throw new Error('presets card did not open');
 
-      const chipName = () => editPage.$eval('.preset-apply', el => el.textContent.trim()).catch(() => '');
+      const chipName = () => editPage.$eval('.preset-chip-name', el => el.textContent.trim()).catch(() => '');
       const storedPresets = () =>
         editPage.evaluate(() => window.chrome.storage.local.get('fat:presets')).then(r => r['fat:presets']);
       const lastMessage = async () => ((await editPage.locator('.el-message').last().textContent()) || '').trim();
@@ -5477,7 +5681,9 @@ async function run() {
 
   section('Conversion Presets');
   try {
-    const chipTexts = () => page.$$eval('.preset-apply', els => els.map(e => e.textContent.trim()));
+    // The chip now carries a second line with its target and parameters; assertions about the
+    // preset's *name* read the name span, not the button's concatenated text.
+    const chipTexts = () => page.$$eval('.preset-chip-name', els => els.map(e => e.textContent.trim()));
     const targetText = async () => (await page.locator('.action-row .el-select').first().innerText()).trim();
     const lastMessage = async () => ((await page.locator('.el-message').last().textContent()) || '').trim();
 
@@ -5610,7 +5816,7 @@ async function run() {
     await dirtyPage.waitForTimeout(1500);
     if (!(await openPresetCard(dirtyPage))) throw new Error('presets card did not open on the seeded page');
 
-    const dirtyChips = await dirtyPage.$$eval('.preset-apply', els => els.map(e => e.textContent.trim()));
+    const dirtyChips = await dirtyPage.$$eval('.preset-chip-name', els => els.map(e => e.textContent.trim()));
     if (dirtyChips.length === 2) ok(`Illegal preset entries are dropped (kept ${dirtyChips.length})`);
     else fail('Preset sanitization', `chips [${dirtyChips.join(', ')}]`);
     if (dirtyChips[0] === 'good') ok('A valid preset keeps its name');
@@ -5635,17 +5841,21 @@ async function run() {
   }
 
   // ═══════════════════════════════════════════
-  //  TOPBAR IDENTITY — VERSION CHIP & UPDATE LINKS
+  //  TOPBAR IDENTITY — VERSION CHIP & OUTBOUND SCOPE
   // ═══════════════════════════════════════════
   //
-  // The chip is the one place the running build names itself. What this section can pin is the wiring —
+  // The chip is the one place the running build names itself, and the header's one outbound door: it
+  // opens the latest release page, where the download lives. What this section can pin is the wiring —
   // the number in the DOM is whatever `runtime.getManifest().version` reported — and it pins it against
   // the artifact's own manifest rather than a number made up here, so a chip wired to anything else
   // fails. What real Chrome reports is a different claim, and `scripts/verify-extension.mjs` is the one
-  // that loads the package into a browser. The two links are the only outbound addresses in the
-  // extension; what is asserted is the shape that keeps them harmless — nothing clicks them here, and
-  // the offline sentinel owns what a click could ever do.
-  if (section('Topbar Version & Update Links')) {
+  // that loads the package into a browser.
+  //
+  // The header keeps exactly this one off-site anchor: the About drawer is the index of every address,
+  // so a second door here would duplicate a row in it. Measured as "the only href that leaves this page
+  // is the chip", not as a class name, so a link reintroduced under any markup fails. In-page anchors
+  // are allowed (none exist today).
+  if (section('Topbar Version Chip & Outbound Scope')) {
     try {
       // A fresh load owns the claim: the mock re-runs on navigation, so nothing the previous section
       // left staged or converted can colour what the header renders.
@@ -5655,96 +5865,104 @@ async function run() {
       await page.waitForSelector('.brand-version', { timeout: 15000 });
 
       const expectedVersion = servedManifestVersion();
+      const SOURCE = 'https://github.com/liaolongdong/transfer-any-file';
       const header = await page.evaluate(() => {
+        const topbar = document.querySelector('header');
         const chip = document.querySelector('.brand-version');
-        const brand = document.querySelector('.brand-name');
+        const links = topbar ? [...topbar.querySelectorAll('a[href]')] : [];
+        const offsite = links.map(el => el.getAttribute('href') || '').filter(href => !href.startsWith('#'));
         return {
-          chip: chip ? chip.textContent.trim() : null,
-          chipTitle: chip ? chip.getAttribute('title') : null,
-          brandColor: brand ? getComputedStyle(brand).color : null,
-          links: [...document.querySelectorAll('.brand-link')].map(el => ({
-            href: el.getAttribute('href'),
-            target: el.getAttribute('target'),
-            rel: el.getAttribute('rel'),
-            text: (el.textContent || '').trim(),
-            label: el.getAttribute('aria-label') || '',
-            color: getComputedStyle(el).color,
-          })),
+          found: topbar !== null,
+          chip: chip
+            ? {
+                tag: chip.tagName,
+                text: chip.textContent.trim(),
+                href: chip.getAttribute('href'),
+                target: chip.getAttribute('target'),
+                rel: (chip.getAttribute('rel') || '').split(' ').filter(Boolean),
+                title: chip.getAttribute('title'),
+                aria: chip.getAttribute('aria-label') || '',
+              }
+            : null,
+          offsite,
+          // The drawer is the index; this is the one row of it that also lives in the header. Measured
+          // on the nodes themselves, so the single off-site href has to be the chip's own href — while
+          // an in-page anchor, which the comment above allows, does not enter this list at all.
+          onlyOffsiteIsChip: offsite.length === 1 && chip !== null && chip.getAttribute('href') === offsite[0],
         };
       });
 
-      if (header.chip === `v${expectedVersion}`) ok(`Version chip shows the loaded build (${header.chip})`);
-      else fail('Version chip', `expected "v${expectedVersion}", got "${String(header.chip)}"`);
-      if (header.chipTitle === `当前已安装版本 ${expectedVersion}`)
-        ok('Chip tooltip names it as the installed version');
-      else fail('Chip tooltip', `reads "${String(header.chipTitle)}"`);
+      if (header.chip && header.chip.text === `v${expectedVersion}`)
+        ok(`Version chip shows the loaded build (${header.chip.text})`);
+      else fail('Version chip', `expected "v${expectedVersion}", got "${String(header.chip?.text)}"`);
 
-      if (header.links.length === 2) ok('Two update links in the topbar');
-      else fail('Update link count', `expected 2, got ${header.links.length}`);
+      // Pinned literally, for the same reason the drawer's ten addresses are: `releases/latest` follows
+      // whatever tag is newest, so this address never has to be edited on a release. The tag is part of
+      // the claim — a span carrying the same href would read right and still be unclickable.
+      if (header.chip && header.chip.tag === 'A' && header.chip.href === `${SOURCE}/releases/latest`)
+        ok(`Version chip links to the latest release (${header.chip.href})`);
+      else fail('Chip href', `<${String(header.chip?.tag)}> reads "${String(header.chip?.href)}"`);
 
-      const store = header.links.find(l => (l.href || '').startsWith('https://chromewebstore.google.com/'));
-      const releases = header.links.find(l => (l.href || '').startsWith('https://github.com/'));
-      // The item ID is the live listing (`.github/CHROMEWEBSTORE.md` 的现网状态块). A typo here sends
-      // every installer to a 404 that no other gate in this repository would ever notice.
-      if (store?.href === 'https://chromewebstore.google.com/detail/blkdmpkcaceicinkhindniepbbbaekkb')
-        ok('Store link points at the published item ID');
-      else fail('Store link', `reads "${String(store?.href)}"`);
-      if (releases?.href === 'https://github.com/liaolongdong/transfer-any-file/releases/latest')
-        ok('Releases link uses the always-latest address, not a pinned tag');
-      else fail('Releases link', `reads "${String(releases?.href)}"`);
+      if (header.chip && header.chip.target === '_blank' && header.chip.rel.includes('noopener'))
+        ok('Chip opens a new tab with rel=noopener');
+      else fail('Chip link hygiene', JSON.stringify(header.chip && [header.chip.target, header.chip.rel]));
 
-      const wellFormed = header.links.filter(
-        l => l.target === '_blank' && (l.rel || '').split(' ').includes('noopener'),
-      );
-      if (wellFormed.length === header.links.length && header.links.length === 2)
-        ok('Both links open a new tab with rel=noopener');
-      else
-        fail('Link target hygiene', `${wellFormed.length}/${header.links.length} carry target=_blank + rel=noopener`);
+      // WCAG 2.5.3 keeps the visible text inside the accessible name; the new-tab hint is appended to
+      // it because the number alone does not say where a click goes, and a title tooltip is not a name.
+      if (header.chip && header.chip.aria.startsWith(`v${expectedVersion}`) && header.chip.aria.includes('新标签页'))
+        ok('Chip accessible name keeps the visible version and names the new tab');
+      else fail('Chip accessible name', `reads "${String(header.chip?.aria)}"`);
 
-      // WCAG 2.5.3: the accessible name has to contain the visible label, so the new-tab hint is
-      // appended to it rather than replacing it.
-      const named = header.links.filter(l => l.label.startsWith(l.text) && l.label.includes('新标签页'));
-      if (named.length === 2 && header.links.every(l => l.text.length > 0))
-        ok('Each link label keeps its visible text and names the new tab');
-      else fail('Link accessible names', JSON.stringify(header.links.map(l => [l.text, l.label])));
+      // One string serves tooltip and screen reader; pinning it here is what keeps them from drifting.
+      const expectedHint = `v${expectedVersion}，当前已安装版本；点开 GitHub 最新发布页下载新版（在新标签页打开）`;
+      if (header.chip && header.chip.title === expectedHint)
+        ok('Chip tooltip names the installed version and where a click goes');
+      else fail('Chip tooltip', `reads "${String(header.chip?.title)}"`);
 
-      // No new colour pair enters the system: the links take the same ink as the app name, and that
-      // pairing is measured against all six headers in both modes by the two sections after this one.
-      if (header.links.length > 0 && header.links.every(l => l.color === header.brandColor))
-        ok(`Update links share the already-gated topbar ink (${String(header.brandColor)})`);
+      // The header itself must exist: without it the empty list would read as a pass.
+      if (header.found && header.onlyOffsiteIsChip) ok("The version chip is the header's only off-site anchor");
       else
         fail(
-          'Update link ink',
-          `links ${JSON.stringify(header.links.map(l => l.color))} vs brand ${String(header.brandColor)}`,
+          'Topbar outbound anchors',
+          `header=${header.found} chip=${header.chip !== null} anchors=${JSON.stringify(header.offsite)}`,
         );
 
-      // The subtitle and two links now share one flex line, so the header is the first place this
-      // change could widen the page instead of wrapping. `scrollWidth > clientWidth` is the shape the
-      // 320px action-row pin already uses: overflow moves the document, wrap does not.
+      // The header is the first place this change could widen the page instead of wrapping;
+      // `scrollWidth > clientWidth` is the shape the 320px action-row pin already uses: overflow
+      // moves the document, wrap does not. The right-hand capsules never shrink, so their right edge
+      // must stay inside the viewport; the chip needs a width of its own, or a chip hidden by a
+      // future rule would turn this into a measurement of nothing.
       await page.setViewportSize({ width: 320, height: 800 });
       await page.waitForTimeout(500);
       const narrow = await page.evaluate(() => {
         const de = document.documentElement;
-        const links = [...document.querySelectorAll('.brand-link')].map(el => el.getBoundingClientRect().right);
+        const chip = document.querySelector('.brand-version');
+        const actions = document.querySelector('.topbar-actions');
         return {
           scrollWidth: de.scrollWidth,
           clientWidth: de.clientWidth,
-          lastRight: links.length > 0 ? Math.max(...links) : -1,
+          chipWidth: chip ? chip.getBoundingClientRect().width : 0,
+          actionsRight: actions ? actions.getBoundingClientRect().right : -1,
         };
       });
-      if (narrow.scrollWidth <= narrow.clientWidth && narrow.lastRight >= 0 && narrow.lastRight <= narrow.clientWidth)
+      if (
+        narrow.scrollWidth <= narrow.clientWidth &&
+        narrow.chipWidth > 0 &&
+        narrow.actionsRight >= 0 &&
+        narrow.actionsRight <= narrow.clientWidth
+      )
         ok(
-          `At 320px the header wraps inside the viewport (scrollWidth=${narrow.scrollWidth}, clientWidth=${narrow.clientWidth})`,
+          `At 320px the header stays inside the viewport (scrollWidth=${narrow.scrollWidth}, clientWidth=${narrow.clientWidth}, actionsRight=${narrow.actionsRight})`,
         );
       else
         fail(
           'Header at 320px',
-          `scrollWidth=${narrow.scrollWidth} clientWidth=${narrow.clientWidth} linkRight=${narrow.lastRight}`,
+          `scrollWidth=${narrow.scrollWidth} clientWidth=${narrow.clientWidth} chipWidth=${narrow.chipWidth} actionsRight=${narrow.actionsRight}`,
         );
       await page.setViewportSize({ width: 1280, height: 900 });
       await page.waitForTimeout(400);
     } catch (e) {
-      fail('Topbar version & update links', e.message);
+      fail('Topbar version chip', e.message);
       await page.setViewportSize({ width: 1280, height: 900 });
     }
   }
@@ -5756,8 +5974,9 @@ async function run() {
   // The About drawer is the one place the interface lists every off-site address it knows. The
   // addresses are pinned literally: a typo in any of them is a 404 no other gate in this repository
   // would notice. What else is measured — the new-tab hygiene, the visible host column, the ink on
-  // all six themes in both modes (the label is `--fat-text-primary`, not the accent: green and
-  // orange put that accent at 2.54:1 and 3.56:1 on a card), and that a 320px window does not clip it.
+  // all six themes in both modes (the label is `--fat-link-ink`: the theme accent, deepened wherever
+  // that accent cannot carry 13px text on a card — green's and orange's light primaries are 2.54:1
+  // and 3.56:1), and that a 320px window does not clip it.
   if (section('About Drawer & Outbound Links')) {
     try {
       await page.reload();
@@ -5998,7 +6217,7 @@ async function run() {
     else fail('Language label', 'not found in dialog');
 
     // Verify all 6 theme names
-    const themeNames = ['经典蓝', '森林绿', '梦幻紫', '活力橙', '玫瑰红', '石墨灰'];
+    const themeNames = ['晴空蓝', '森林绿', '梦幻紫', '活力橙', '玫瑰红', '石墨灰'];
     for (const name of themeNames) {
       if (dialogText.includes(name)) ok(`Theme name "${name}" displayed`);
       else fail(`Theme name "${name}"`, 'not found');
@@ -6025,17 +6244,39 @@ async function run() {
         else fail(`Theme "${themeValues[i]}"`, `got "${applied}"`);
         return surfaceColors(page);
       });
-      // Contrast is measured off the rendered page, per theme, so a future palette edit
-      // that pushes any of the 12 combos under AA fails here instead of being a manual
-      // audit. The topbar carries 4.5:1 body text (brand-tag); the ring needs 3:1 as
-      // non-text content (WCAG 1.4.11) against the card it is usually drawn on.
+      // Contrast is measured off the rendered page, per theme, so a future palette edit that
+      // pushes any of the 12 combos below its own floor fails here instead of becoming a manual
+      // audit. The bar's skin is the sibling extensions' — white ink and a white film over the
+      // primary — and on the three light pastel primaries that pairing is under WCAG AA by
+      // design: 2.78 / 2.54 / 3.56:1 for blue / green / orange, with the chip landing lower
+      // still because the film brightens what the white sits on. Those numbers are recorded as
+      // known limitations in README / CONTRIBUTING / the store sheet; the floors below are the
+      // same readings rounded down, so the deviation is pinned and cannot quietly widen.
+      // Purple, rose and slate clear 4.5 and keep the body-text floor.
+      // The ring needs 3:1 as non-text content (WCAG 1.4.11) against the card it is drawn on.
+      const topbarFloors = {
+        blue: { brand: 2.7, chip: 2.3 },
+        green: { brand: 2.5, chip: 2.2 },
+        purple: { brand: 5.6, chip: 4.3 },
+        orange: { brand: 3.5, chip: 2.9 },
+        rose: { brand: 4.6, chip: 3.9 },
+        slate: { brand: 4.5, chip: 4.5 },
+      };
+      const floor = topbarFloors[themeValues[i]] ?? { brand: 4.5, chip: 4.5 };
+      const pinned = floor.brand < 4.5 || floor.chip < 4.5;
       const onTopbar = contrast(surface.brand, surface.topbar);
+      const onFilm = contrast(surface.chipInk, compositedOver(surface.chipFill, surface.topbar));
       const ringOnCard = contrast(surface.ring, surface.card);
-      if (onTopbar >= 4.5) ok(`[${themeValues[i]} light] topbar brand ${onTopbar.toFixed(2)}:1`);
+      if (onTopbar >= floor.brand && onFilm >= floor.chip)
+        ok(
+          `[${themeValues[i]} light] topbar brand ${onTopbar.toFixed(2)}:1, chip ${onFilm.toFixed(2)}:1` +
+            (pinned ? ` (sibling-skin floor ${floor.brand} / ${floor.chip})` : ''),
+        );
       else
         fail(
           `[${themeValues[i]} light] topbar contrast`,
-          `${onTopbar.toFixed(2)}:1 — ${surface.brand} on ${surface.topbar}`,
+          `brand ${onTopbar.toFixed(2)}:1 — ${surface.brand} on ${surface.topbar}; ` +
+            `chip ${onFilm.toFixed(2)}:1 — ${surface.chipInk} on ${compositedOver(surface.chipFill, surface.topbar)}`,
         );
       if (ringOnCard >= 3) ok(`[${themeValues[i]} light] focus ring ${ringOnCard.toFixed(2)}:1 on card`);
       else
@@ -6100,12 +6341,15 @@ async function run() {
         // Same contract as the light loop. White-on-pastel is exactly what used to fail
         // here (1.69–2.67:1) because the dark primaries are deliberately light tints.
         const onTopbar = contrast(surface.brand, surface.topbar);
+        const onFilm = contrast(surface.chipInk, compositedOver(surface.chipFill, surface.topbar));
         const ringOnCard = contrast(surface.ring, surface.card);
-        if (onTopbar >= 4.5) ok(`[${themeValues[i]} dark] topbar brand ${onTopbar.toFixed(2)}:1`);
+        if (onTopbar >= 4.5 && onFilm >= 4.5)
+          ok(`[${themeValues[i]} dark] topbar brand ${onTopbar.toFixed(2)}:1, chip ${onFilm.toFixed(2)}:1`);
         else
           fail(
             `[${themeValues[i]} dark] topbar contrast`,
-            `${onTopbar.toFixed(2)}:1 — ${surface.brand} on ${surface.topbar}`,
+            `brand ${onTopbar.toFixed(2)}:1 — ${surface.brand} on ${surface.topbar}; ` +
+              `chip ${onFilm.toFixed(2)}:1 — ${surface.chipInk} on ${compositedOver(surface.chipFill, surface.topbar)}`,
           );
         if (ringOnCard >= 3) ok(`[${themeValues[i]} dark] focus ring ${ringOnCard.toFixed(2)}:1 on card`);
         else
@@ -6233,7 +6477,18 @@ async function run() {
         };
         const worst = Math.min(...Object.values(states));
         const which = Object.keys(states).reduce((a, k) => (states[k] < states[a] ? k : a), 'rest');
-        if (worst >= 4.5) ok(`[${theme} ${mode}] primary button label ${worst.toFixed(2)}:1 (worst state: ${which})`);
+        // The filled button is the sibling's shape too: theme colour, white label, and a hover
+        // that *lightens* the fill — so in the three light pastel themes the label is under AA
+        // in the resting state and further under at hover (1.92:1 green, 2.22 blue, 2.80 orange).
+        // These floors are those readings rounded down; the dark themes and purple / rose /
+        // slate keep the 4.5:1 body-text floor because their fills are deep enough for white.
+        const labelFloors = { blue: 2.2, green: 1.9, purple: 4.2, orange: 2.75, rose: 3.6, slate: 4.5 };
+        const labelFloor = mode === 'dark' ? 4.5 : (labelFloors[theme] ?? 4.5);
+        if (worst >= labelFloor)
+          ok(
+            `[${theme} ${mode}] primary button label ${worst.toFixed(2)}:1 (worst state: ${which})` +
+              (labelFloor < 4.5 ? ` (sibling-skin floor ${labelFloor})` : ''),
+          );
         else
           fail(
             `[${theme} ${mode}] primary button label`,
@@ -6582,9 +6837,11 @@ async function run() {
       // card would silently drop `.drop-stats` from the gate; sampling only the plate would miss the
       // list header and the row meta. Both are re-tinted per theme, so the worst case in the palette
       // (rose #fff1f2) is invisible to a blue-theme screenshot.
-      // Not covered here: --fat-text-placeholder itself, which stays on input placeholders,
-      // disabled controls and decoration whose state is carried by an ARIA attribute, all three
-      // exempt from 1.4.3.
+      // Not covered here: --fat-text-placeholder itself, which stays on disabled controls and on
+      // decoration whose state is carried by an ARIA attribute. Real hint text moved to
+      // --fat-text-hint (see the placeholder overrides in `assets/styles/global.css`), and a
+      // `::placeholder` is a pseudo-element these samples cannot reach — that pair is measured
+      // directly in the Alert & Tag sweep below via the select's unchosen state.
       const INFO_TEXT_FILLED = ['.drop-text', '.paste-hint', '.file-list-header', '.file-meta'];
       const INFO_TEXT_EMPTY = ['.drop-text', '.paste-hint', '.drop-stats'];
       const stageOne = async () => {
@@ -6674,8 +6931,20 @@ async function run() {
       // leaves behind, and a clean conversion gives the `success` alert plus the `primary` format
       // badge every file row carries. `error` and `info` need a failed or cancelled batch, which
       // later sections produce; they are not claimed here.
+      // The second sweep also carries the row actions and the accent-as-text labels, because those
+      // are the surfaces `--fat-state-ink-*` and `--fat-primary-ink` exist for and nothing else
+      // measured them: a danger `text` button used to be EP's raw #f56c6c (2.57:1) and an info one
+      // #909399 (3.08:1), and green's / orange's accent labels sat at 2.54 / 3.56:1 on a card.
       const UNRECOGNIZED = ['.file-item .el-tag--danger', '.format-selector .el-alert__title'];
-      const SUCCEEDED = ['.result-download .el-alert__title', '.file-item .el-tag--primary'];
+      const SUCCEEDED = [
+        '.result-download .el-alert__title',
+        '.file-item .el-tag--primary',
+        '.clear-files-btn',
+        '.reset-btn',
+        '.history-item .fmt-badge.target',
+        '.comparison-toolbar .mode-btn.active',
+        '.history-filter .el-select__placeholder.is-transparent',
+      ];
 
       const appliedTheme = await page.evaluate(() => document.documentElement.dataset.theme ?? '');
       const appliedMode = await page.evaluate(() => document.documentElement.dataset.mode ?? '');
@@ -7714,11 +7983,15 @@ async function run() {
     // The switch, the checkbox and the segmented radio buttons all focus a transparent input and
     // paint the ring on a *sibling* proxy, so the global `:focus-visible` rule cannot reach them and
     // Element Plus's own declaration decides the colour. It uses its primary, not --fat-focus-ring,
-    // and light + green is the one combination where the two disagree enough to matter: measured on
-    // the built bundle before the override, the focused switch drew #10b981 at 2.54:1 on the dialog
-    // (2.42:1 on the workbench surface) while the token this app certifies at 3:1 resolves to
-    // #059669. Every other theme and mode passed on Element Plus's colour, so only a colour
-    // comparison — not a geometry check — can tell the fixed build from the broken one.
+    // and two light themes are where the two disagree enough to matter: green (measured on the built
+    // bundle before the override, the focused switch drew #10b981 at 2.54:1 on the dialog and 2.42:1
+    // on the workbench surface while the token this app certifies at 3:1 resolves to #059669) and
+    // blue (#409eff at 2.78:1, token #0069d5). This walk pins green because it also needs the
+    // radio/checkbox families on a page that has them; blue is covered by the theme loops above,
+    // which measure that same token against the card, plus the one binding this walk proves — the
+    // proxies paint whatever --fat-focus-ring resolves to. Every other theme and mode passed
+    // on Element Plus's colour, so only a colour comparison — not a geometry check — can tell the
+    // fixed build from the broken one.
     const ringPage = await browser.newPage();
     trackPageErrors(ringPage);
     await ringPage.setViewportSize({ width: 1280, height: 900 });
