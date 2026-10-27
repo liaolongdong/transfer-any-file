@@ -227,11 +227,15 @@ function reportTreeState() {
  * Find the commit this release starts from, most precise signal first.
  *
  * 1. `--from`, when given.
- * 2. The newest `v*` tag reachable from HEAD.
- * 3. No tag yet — the very first cut, which is exactly this repository's state: the commit that wrote
- *    the highest `## [X.Y.Z] - <date>` heading into the changelog. That heading is a statement about a
- *    released version, so by definition the work after it belongs to this one. It survives a repo where
- *    tags were never pushed, which a tag-only rule would not.
+ * 2. The newest `v*` tag reachable from HEAD — but only while the changelog does not already state a
+ *    higher released version.
+ * 3. That heading: the commit which wrote the highest `## [X.Y.Z] - <date>` line into the changelog. The
+ *    heading is a statement about a released version, so by definition the work after it belongs to this
+ *    one. It survives a repo where tags were never pushed *and* one where they stopped being pushed,
+ *    which is the distinction this function used to get wrong: with the tag trusted unconditionally, a
+ *    repo whose newest tag is behind its newest release re-lists every already-promoted commit on every
+ *    push to `main` — and because each release commit bumps `package.json`, the version it computes keeps
+ *    advancing, so nothing detects the duplicate.
  * 4. Neither: the root commit, i.e. all of history, said out loud.
  *
  * @returns {{rev: string, source: string, label: string}}
@@ -244,9 +248,15 @@ function resolveStartPoint() {
   }
 
   const described = git(['describe', '--tags', '--abbrev=0', 'HEAD'], { allowFail: true });
-  if (described) return { rev: git(['rev-parse', `${described}^{commit}`]), source: 'tag', label: described };
-
   const newest = newestReleasedHeading(CHANGELOG_FILES.zh.file);
+  // A tag that is not shaped like a version is not overruled: there is no number to compare it against,
+  // and guessing from the changelog there would change the answer for tags this script cannot read.
+  const tagVersion = described ? tagVersionOf(described) : null;
+  const tagIsBehind = Boolean(tagVersion && newest && compareVersions(newest.version, tagVersion) > 0);
+  if (described && !tagIsBehind) {
+    return { rev: git(['rev-parse', `${described}^{commit}`]), source: 'tag', label: described };
+  }
+
   if (newest) {
     const hits = (
       git(['log', '-S', newest.heading, '--format=%H', '--', CHANGELOG_FILES.zh.file], { allowFail: true }) || ''
@@ -255,10 +265,12 @@ function resolveStartPoint() {
       .filter(Boolean);
     const rev = hits.at(-1);
     if (rev) {
+      // The label is quoted into the PR body and the step summary, so it has to say which signal lost.
+      const reason = tagVersion ? `标签 ${described} 已落后于该版本，` : '无 tag，';
       return {
         rev,
         source: 'changelog-heading',
-        label: `${newest.version}（无 tag，改用写入该标题的提交 ${rev.slice(0, 7)}）`,
+        label: `${newest.version}（${reason}改用写入该标题的提交 ${rev.slice(0, 7)}）`,
       };
     }
     // The heading is the answer only if history can point at the commit that wrote it. A heading with no
@@ -272,6 +284,12 @@ function resolveStartPoint() {
 
   const root = git(['rev-list', '--max-parents=0', 'HEAD']).split('\n')[0];
   return { rev: root, source: 'root', label: '仓库起点（既无 tag 也无版本标题，将汇总全部历史）' };
+}
+
+/** The `X.Y.Z` inside a `vX.Y.Z` tag name, or `null` when that newest tag is not a comparable version. */
+function tagVersionOf(refName) {
+  const match = /^v?(\d+\.\d+\.\d+)$/.exec(refName);
+  return match ? match[1] : null;
 }
 
 /**
