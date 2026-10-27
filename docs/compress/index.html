@@ -48,8 +48,8 @@
       content="light"
     />
     <!-- The tool decodes a file the visitor chose. `connect-src 'none'` and an image-only `img-src`
-         keep the page's "no network" claim true even if a malformed image tries to reach out; the
-         inline styles and the two inline scripts are the only script/style sources. -->
+         keep a malformed image from reaching an off-site resource; the inline styles and the two
+         inline scripts are the only script/style sources. -->
     <meta
       http-equiv="Content-Security-Policy"
       content="default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; connect-src 'none'; frame-src 'none'; object-src 'none'; worker-src 'none'; base-uri 'none'; form-action 'none'"
