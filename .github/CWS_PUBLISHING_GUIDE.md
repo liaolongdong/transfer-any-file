@@ -714,29 +714,34 @@ git ls-tree <那个tag> scripts/cws-token.mjs     # 输出为空 = 那个 tag �
 
 ### Q18: 合并了 Release PR，既没有标签、`release.yml` 也没跑？
 
-缺 `RELEASE_PAT`。GitHub 有一条硬规则：**由 `GITHUB_TOKEN` 产生的事件不再触发其他工作流**，所以工作流自带的
-令牌推上去的标签是「标签有了、下游从没跑过」的静默半成品。配法见 `.github/RELEASE_AUTOMATION.md` 的 1.2
-（细粒度令牌，只选这一个仓库，权限勾 Contents + Pull requests）。
+**2026-10-27 起，这一格不再是「缺 `RELEASE_PAT`」**：标签由作业令牌创建，紧接着 `release-prepare.yml` 的
+`publish` 那一格用 `workflow_call` **显式**把 `release.yml` 调起来。链路不再赌「标签触发工作流」这件事，
+所以 GitHub 那条硬规则（**由 `GITHUB_TOKEN` 产生的事件不再触发其他工作流**）被绕开而不是被满足。
+`RELEASE_PAT` 现在只决定 Release PR 的作者是谁，也就是那条 PR 上有没有状态检查（配法见
+`.github/RELEASE_AUTOMATION.md` 的 1.2；不配也照样发版）。
 
-没配它时链路不是坏掉而是**退一步**：`Push the tag` 那步只报 warning，摘要里给出三行本机命令，你在终端补完，
-`release.yml` 一样会被触发。这一格在 3.0 的第 ⑤ 条读得出来——`git ls-remote --tags origin` 为空而 `main` 上
-已经有版本小节，就是这个形状。
+于是现在有两种形状，读法相反。`Push the tag` 那一格是**红的**：标签没建成，最常见是仓库把
+Settings → Actions → General 的 Workflow permissions 设成 Read repository，把作业声明的 `contents: write`
+压掉了；摘要里给出本机那三行，补完就走 `push: tags` 那一路。那一格**绿、而 `publish` 显示 skipped**：
+标签本来就存在（人已推过），发布应由那一次推送负责——要补就直接手动运行 `release.yml` 并填 `tag`。
+这一格在 3.0 的第 ⑤ 条读得出来——`git ls-remote --tags origin` 为空而 `main` 上已经有版本小节，就是这个形状。
 
 ### Q19: 现在想跑一次 dry run 验产物，结果第一步就失败？
 
 如果 3.0 的第 ⑤ 条读出标签数是 `0`，那第 1 / 2 / 3 档此刻**都跑不了**，且失败点与凭据无关：`release` 作业
-`Check out the tag` 用的是 `ref: ${{ github.event.inputs.tag || github.ref }}`，你填的那个标签在仓库里不存在，
-检出这一步就红了。dry run 也是从这一步开始的——「不创建 Release、不碰商店」发生在后面，不改变它需要一个真实
-ref 才能开工。
+第一步 `Resolve which tag to build` 把三路的标签信号（标签事件的 ref 名、手动触发的 `tag`、接力传进来的
+`tag`）收敛成一个值，**形状不是 `v` 前缀就当场失败**，检出拿的是它算出的 `refs/tags/<tag>`——你填的那个标签
+在仓库里不存在，红的是检出那一步，而它不会带着一个错误的 ref 去构建别的树。dry run 也是从这一步开始的——
+「不创建 Release、不碰商店」发生在后面，不改变它需要一个真实标签才能开工。
 
 想验的东西按深浅各有对应的入口：
 
-| 想验什么                                 | 用什么                                                                                                  | 需不需要标签 |
-| ---------------------------------------- | ------------------------------------------------------------------------------------------------------- | ------------ |
-| 产物本身合规（构建 + 全部守卫 + 包内容） | 本地 `pnpm build && pnpm verify:offline && pnpm verify:remote-code`；CI 侧由 `ci.yml` 的 build job 代跑 | 不需要       |
-| 判定逻辑与 `release.yml` 的接缝没被改坏  | `pnpm verify:release-ci`（零网络）                                                                      | 不需要       |
-| 凭据链通不通                             | 第 0 档 `store_status_only`，它固定检出本次触发所在的 ref                                               | 不需要       |
-| 整条发布链                               | 先按 Q18 把标签弄出来（配 `RELEASE_PAT` 或本机补那三行），再谈第 1 / 2 / 3 档                           | **需要**     |
+| 想验什么                                 | 用什么                                                                                                                                      | 需不需要标签 |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
+| 产物本身合规（构建 + 全部守卫 + 包内容） | 本地 `pnpm build && pnpm verify:offline && pnpm verify:remote-code`；CI 侧由 `ci.yml` 的 build job 代跑                                     | 不需要       |
+| 判定逻辑与 `release.yml` 的接缝没被改坏  | `pnpm verify:release-ci`（零网络）                                                                                                          | 不需要       |
+| 凭据链通不通                             | 第 0 档 `store_status_only`，它固定检出本次触发所在的 ref                                                                                   | 不需要       |
+| 整条发布链                               | 合并 Release PR 就够（标签由作业令牌建、`publish` 接力发布，见 Q18）；标签已存在而没发布时本机补那三行，或直接手动跑 `release.yml` 填 `tag` | **需要**     |
 
 ### Q20: `uploadState=IN_PROGRESS` 的时候会发生什么？会不会把上一版提审上去？
 
@@ -838,7 +843,8 @@ fork 上想验证产物本身合规，用零凭据的那几条就够：`pnpm bui
 
 - [ ] **先跑 3.0 那五条只读命令**，按那张表确认此刻缺的是哪几块——「流水线全绿而商店什么都没发生」的三种成因
       （凭据缺项、假门、变量没设）全都长得像成功，只有那五条读数能把它们分开
-- [ ] GitHub Secrets 配置齐全（发布商级 3 个 + 本扩展专用 1 个；要让标签自动触发发版，再加 `RELEASE_PAT`）
+- [ ] GitHub Secrets 配置齐全（发布商级 3 个 + 本扩展专用 1 个；`RELEASE_PAT` 自 2026-10-27 起是**可选项**，
+      它只决定 Release PR 有没有状态检查，标签与发版都不经过它）
 - [ ] **那四项都在 Repository secrets 那一档**，不在 environment `cws-release` 的 secrets 里（配错级别不报错，
       只让商店两步一起静默跳过，3.2 的第 4 条 ⚠️ 与 Q6）
 - [ ] 那四项是**新链路的四个名字**，不是 `CWS_CLIENT_ID` / `CWS_CLIENT_SECRET` / `CWS_EXTENSION_ID` 那三个旧名字

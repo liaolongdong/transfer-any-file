@@ -1,4 +1,6 @@
 # 从版本 tag 构建一次发布：扩展产物 → 商店 zip → 包内容校验 → 附带该 zip 的 GitHub Release。
+# 「哪一版」有三个来源：`push: tags` 的 ref 名、手动触发的 `tag` 输入、以及 `release-prepare.yml`
+# 推完标签之后用 `workflow_call` 传进来的那一个；三者在同一格里收敛，读不出 v 前缀就当场失败。
 # 然后是商店的两步：上传包（release 作业的最后一步），提审（store_submit 作业）。两步都只在四项
 # secrets 齐备时才走——本扩展专用的 `CHROME_EXTENSION_ID_TAF`，加上发布商级的 `CWS_PUBLISHER_ID` /
 # `CWS_SERVICE_ACCOUNT_EMAIL` / `CWS_SERVICE_ACCOUNT_PRIVATE_KEY`；缺任何一项只报告跳过原因，不让发布失败。
@@ -28,6 +30,16 @@ name: Release
 on:
   push:
     tags: ['v*']
+  # 由 `release-prepare.yml` 在推完标签那一格之后**显式调用**。为什么不能只靠上面那个 push：
+  # GitHub 规定由作业令牌产生的事件不再起跑新工作流，所以作业令牌推的这枚标签唤不醒这一条——
+  # 链路会停在「标签有了、商店没吃到包」那个看着成功的中间态，而它正是本文件开头警告过的形状。
+  # 人从本机推标签仍然走 push 那一路（两条路都在，实现只有这一份）。
+  workflow_call:
+    inputs:
+      tag:
+        description: '要发布的 v 前缀版本标签，例如 v1.8.0'
+        required: true
+        type: string
   workflow_dispatch:
     inputs:
       tag:
@@ -77,10 +89,30 @@ jobs:
       uploaded: ${{ steps.cws_upload.outputs.uploaded }}
       uploaded_version: ${{ steps.cws_upload.outputs.uploaded_version }}
     steps:
+      # 三种触发方式对「发哪一版」给的信号不一样：push 给 `github.ref_name`（形如 v1.2.3），
+      # workflow_dispatch 与 workflow_call 各给一个输入。这里一次收敛成唯一事实，并且**读不出
+      # v 前缀就当场失败**：让接力那一路退回 `github.ref`（调用方的 main 或 PR ref）等于把
+      # 「发这一版」悄悄变成「发工作区那一版」，而 package.json 与标签的比对是最后一道闸，
+      # 它不该是唯一一道——何况那道闸在检出之后才跑。形状校验必须在检出之前。
+      - name: Resolve which tag to build
+        id: want
+        env:
+          REF_NAME: ${{ github.ref_name }}
+          INPUT_TAG: ${{ github.event.inputs.tag || inputs.tag }}
+        run: |
+          set -euo pipefail
+          tag="${INPUT_TAG:-$REF_NAME}"
+          case "$tag" in
+            v[0-9]*) ;;
+            *) echo "::error::'$tag' 不是 v 前缀的版本 tag（事件 ${GITHUB_EVENT_NAME}）—— 拒绝检出读不出标签的那棵树"; exit 1 ;;
+          esac
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "ref=refs/tags/$tag" >> "$GITHUB_OUTPUT"
+
       - name: Check out the tag
         uses: actions/checkout@v7
         with:
-          ref: ${{ github.event.inputs.tag || github.ref }}
+          ref: ${{ steps.want.outputs.ref }}
 
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v7
@@ -88,19 +120,14 @@ jobs:
           node-version: 22
           cache: pnpm
 
-      # tag、manifest 版本与商店包三者永远不许不一致。
+      # tag、manifest 版本与商店包三者永远不许不一致。标签的形状已在上一步校验过，
+      # 这一格只做那一件跨文件的事：把 `package.json` 现读出来比对。
       - name: Resolve version
         id: version
         env:
-          REF_NAME: ${{ github.ref_name }}
-          INPUT_TAG: ${{ github.event.inputs.tag }}
+          TAG: ${{ steps.want.outputs.tag }}
         run: |
-          tag="$REF_NAME"
-          if [ -n "$INPUT_TAG" ]; then tag="$INPUT_TAG"; fi
-          case "$tag" in
-            v[0-9]*) ;;
-            *) echo "::error::'$tag' 不是 v 前缀的版本 tag"; exit 1 ;;
-          esac
+          tag="$TAG"
           version="${tag#v}"
           pkg_version="$(node -p "require('./package.json').version")"
           if [ "$version" != "$pkg_version" ]; then

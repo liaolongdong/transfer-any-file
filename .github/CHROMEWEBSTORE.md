@@ -42,9 +42,12 @@
 >   不在 git 里，也不在 `:fetchStatus` 的响应里——2026-10-18 与 10-23 两次只读查询都只返回
 >   `publishedItemRevisionStatus`）。先把上面那两处（商品文案的替换、数据披露的勾选）在后台改好再点更划算：
 >   审核看的是这次提交的整体，而文案字段 API 写不了。
->   GitHub 侧两版标签都是人推的：`v1.2.1` 是本仓库第一个 tag 与第一个 Release，`v1.3.0` 是第二个；仓库至今没有
->   `RELEASE_PAT`（刚查过 secrets 列表），所以 `release-prepare.yml` 的 `Push the tag` 每次只报 warning，
->   而 `GITHUB_TOKEN` 推的标签按 GitHub 的规则不会触发 `release.yml`。
+>   GitHub 侧两版标签都是人推的：`v1.2.1` 是本仓库第一个 tag 与第一个 Release，`v1.3.0` 是第二个——那两次
+>   `Push the tag` 只报 warning（当时缺 `RELEASE_PAT`，而 `GITHUB_TOKEN` 推的标签按 GitHub 的规则不会触发
+>   `release.yml`）。**2026-10-27 起这一格变了**：标签由作业令牌创建，紧接着 `release-prepare.yml` 的 `publish`
+>   作业用 `workflow_call` 显式调起 `release.yml`，所以合并 Release PR 就真会出 Release；`RELEASE_PAT`
+>   此后只决定那条 PR 有没有状态检查。形状由 `pnpm verify:release-ci` 的接力钉守着（链路与失败读法见
+>   `.github/RELEASE_AUTOMATION.md` 第一节那张图与第五节）。
 >
 > 因此本文件从这一刻起是**现网列表的镜像 + 下一次提交的手术单**，而不只是可提交素材包：
 > 每个字段仍要复制进 [Chrome Developer Dashboard](https://chrome.google.com/webstore/devconsole)，
