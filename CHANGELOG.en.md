@@ -11,6 +11,32 @@ Release PR is not by itself a release.
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-10-27
+
+### Added
+
+- **ui**: The staged file list can be reordered by drag or keyboard, and the product page gained an offline one-image demo usable before installing (`17ec37e`)
+- **ui**: A new About drawer in the top bar gathers ten off-site addresses in one place, each labelled with its destination host, alongside three offline facts and the loaded version; every address now lives in utils/urls.ts and the extension still issues no request (`e87b112`)
+- **ui**: The version chip opens the latest GitHub release and is the header's only off-site link; the default theme becomes Element Plus sky blue (#409eff) with a darker accent ink, repainted icons and re-captured store assets. (`ffd7462`)
+- **ui**: Repaint the top bar with the sibling extensions' gradient-and-glass skin, switch the sky-blue bar to white text and record it as a stated contrast exception. (`977151d`)
+- **ui**: Paint the About drawer's outbound links and the history row's reuse action in the theme accent the way the sibling extension does — a new --fat-link-ink keeps both legible in all six themes — stop the global fill rule from turning text buttons into solid chips, and give the selected radio segment a readable label instead of white on a light primary. (`58453ac`)
+- **ui**: Ports the sibling extension's header and button skin as-is — white ink on the bar in all six themes, white frosted film at the siblings' exact percentages, 6px corners, regular weight and a 1px hover lift, and a white label on the theme-coloured primary button whose hover lightens the fill — replacing the previous same-hue-deepened compromise; the resulting sub-AA pairs on the pastel themes are recorded per theme and pinned by measured floors. (`3546ca6`)
+- **ui**: Built-in samples and suggested targets, long-batch result search and outcome filters, preset parameter chips, and a route finder on the conversion index; corrected stale blog/index/diff SEO copy and dates, refreshed docs and screenshots. (`1a66803`)
+- **site**: Added an offline image compressor tool page for a target KB, refreshed the demo GIFs and the store copy and screenshot assets. (`4dd7233`)
+
+### Changed
+
+- **ui**: The two top-bar shortcuts (store updates, latest download) are gone — the About drawer already serves both destinations, and the header now carries no off-site link while every address and the offline facts still live in one place (`c0a014e`)
+
+### Fixed
+
+- **ui**: Reordering a windowed long list with the keyboard no longer drops focus to the body — the scroll now follows the move (`8e2bba7`)
+- **ui**: Wires the accent-as-text and semantic-as-text family into the inks this repo already defines: green and orange get a readable --fat-primary-ink, danger/info text buttons take --fat-state-ink-*, and field hints move off the decorative tier onto a new --fat-text-hint — after the sweep, the only sub-AA text left on the page is the sky-blue topbar already recorded as a deliberate exception. (`3cbcb61`)
+
+### Performance
+
+- **ui**: The About drawer's chunk is now fetched on the first click instead of at first paint, so the workbench's initial load no longer carries the drawer and its Element Plus modules (`e2b1595`)
+
 ## [1.5.0] - 2026-10-24
 
 ### Added
