@@ -14,7 +14,7 @@
     </title>
     <meta
       name="description"
-      content="在浏览器本地把一张 PNG / JPEG / WebP / BMP / GIF 压到指定 KB 或最长边。可调质量与目标体积，图片不上传、不联网。 | Compress one PNG, JPEG, WebP, BMP or GIF to a target KB or longest edge in your browser. Nothing is uploaded."
+      content="在浏览器本地把一张 PNG / JPEG / WebP / BMP / GIF 压到指定 KB 或最长边。可调质量与目标体积，图片不上传；压缩在本页完成。 | Compress one PNG, JPEG, WebP, BMP or GIF to a target KB or longest edge in your browser. Nothing is uploaded."
     />
     <meta
       name="author"
@@ -84,7 +84,7 @@
     />
     <meta
       property="og:description"
-      content="在浏览器本地把一张图片压到指定 KB 或最长边。可调质量与目标体积，图片不上传、不联网。 | Compress one image to a target KB or longest edge in your browser. Nothing is uploaded."
+      content="在浏览器本地把一张图片压到指定 KB 或最长边。可调质量与目标体积，图片不上传；压缩在本页完成。 | Compress one image to a target KB or longest edge in your browser. Nothing is uploaded."
     />
     <meta
       property="og:image"
@@ -112,7 +112,7 @@
     />
     <meta
       name="twitter:description"
-      content="在浏览器本地把一张图片压到指定 KB 或最长边。可调质量与目标体积，图片不上传、不联网。 | Compress one image to a target KB or longest edge in your browser. Nothing is uploaded."
+      content="在浏览器本地把一张图片压到指定 KB 或最长边。可调质量与目标体积，图片不上传；压缩在本页完成。 | Compress one image to a target KB or longest edge in your browser. Nothing is uploaded."
     />
     <meta
       name="twitter:image"
@@ -146,12 +146,12 @@
             "featureList": [
               "Compress one PNG, JPEG, WebP, BMP or GIF in the browser",
               "Set a quality, a longest edge or a target file size in KB",
-              "Files never leave the page; no upload and no network request"
+              "Files never leave the page; nothing is uploaded and the conversion runs locally"
             ],
             "description": [
               {
                 "@language": "zh-CN",
-                "@value": "在浏览器本地把一张 PNG / JPEG / WebP / BMP / GIF 压到指定 KB 或最长边。JPEG 与 WebP 支持目标体积，PNG 只通过最长边控制大小；图片不上传、不联网。"
+                "@value": "在浏览器本地把一张 PNG / JPEG / WebP / BMP / GIF 压到指定 KB 或最长边。JPEG 与 WebP 支持目标体积，PNG 只通过最长边控制大小；图片不上传；压缩在本页完成。"
               },
               {
                 "@language": "en",
@@ -180,7 +180,7 @@
             "about": { "@id": "https://liaolongdong.github.io/transfer-any-file/compress/#app" },
             "datePublished": "2026-10-27",
             "dateModified": "2026-10-27",
-            "description": "在浏览器本地把一张图片压到指定 KB 或最长边。可调质量与目标体积，图片不上传、不联网。"
+            "description": "在浏览器本地把一张图片压到指定 KB 或最长边。可调质量与目标体积，图片不上传；压缩在本页完成。"
           },
           {
             "@type": "BreadcrumbList",
@@ -210,7 +210,7 @@
                 "name": "图片会被上传吗？",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "不会。页面没有后端，也不发起网络请求；图片被读进当前标签页的内存，压缩与下载都在本页完成。"
+                  "text": "不会。页面没有后端，也不会为图片发起网络请求；图片被读进当前标签页的内存，压缩与下载都在本页完成。"
                 }
               },
               {
@@ -273,7 +273,7 @@
         var META = {
           'zh-CN': {
             t: '图片压缩到指定 KB——本地重编码，不上传',
-            d: '在浏览器本地把一张 PNG / JPEG / WebP / BMP / GIF 压到指定 KB 或最长边。可调质量与目标体积，图片不上传、不联网。',
+            d: '在浏览器本地把一张 PNG / JPEG / WebP / BMP / GIF 压到指定 KB 或最长边。可调质量与目标体积，图片不上传；压缩在本页完成。',
           },
           en: {
             t: 'Compress an image to a target KB — local, no upload',
@@ -606,12 +606,12 @@
           <p class="lede">
             <span lang="zh-CN"
               >把一张 PNG / JPEG / WebP / BMP / GIF
-              放进页面，选质量、最长边或目标体积，画布在本机重新编码。这里没有后端，也没有网络请求；图片只存在于当前标签页的内存里。</span
+              放进页面，选质量、最长边或目标体积，画布在本机重新编码。这里没有后端，图片也不会被发到任何地方；压缩与下载都在本页完成。</span
             >
             <span lang="en"
               >Drop one PNG, JPEG, WebP, BMP or GIF, choose a quality, a longest edge or a target size, and let the
-              canvas re-encode it locally. There is no backend here and no network request; the image lives in this
-              tab's memory only.</span
+              canvas re-encode it locally. There is no backend here, and your image is never sent anywhere; compression
+              and download happen in this tab.</span
             >
           </p>
 
@@ -848,11 +848,11 @@
               <summary><span lang="zh-CN">图片会上传吗？</span><span lang="en">Is the image uploaded?</span></summary>
               <p>
                 <span lang="zh-CN"
-                  >不会。页面没有后端，也不发起网络请求；图片被读进当前标签页的内存，压缩与下载都在本页完成。</span
+                  >不会。页面没有后端，也不会为图片发起网络请求；图片被读进当前标签页的内存，压缩与下载都在本页完成。</span
                 >
                 <span lang="en"
-                  >No. The page has no backend and makes no network request; the image is read into this tab's memory,
-                  and both compression and download happen here.</span
+                  >No. The page has no backend and never sends your image anywhere; the image is read into this tab's
+                  memory, and both compression and download happen here.</span
                 >
               </p>
             </details>
@@ -971,9 +971,10 @@
           </section>
 
           <p class="fine">
-            <span lang="zh-CN">最后更新 2026-10-27 · 本页只处理你放入的那一张图片，不上传、不联网。</span>
+            <span lang="zh-CN">最后更新 2026-10-27 · 本页只处理你放入的那一张图片，不上传；处理在本页完成。</span>
             <span lang="en"
-              >Last updated: 2026-10-27 · This page only processes the image you give it; no upload, no network.</span
+              >Last updated: 2026-10-27 · This page only processes the image you give it; nothing is uploaded and
+              processing happens here.</span
             >
           </p>
         </article>
