@@ -702,6 +702,7 @@
               <span class="fine"><span lang="zh-CN">mammoth 出 HTML 再取表格：一张表变对象数组，多张表按位置与文档小标题配对分组（配不上时回落成 SheetN），没表时依次试代码块与整份正文。全程离线。</span><span lang="en">Mammoth to HTML, then the tables: one becomes an array of objects, several group by heading position (or SheetN), else the first text found is parsed.</span></span>
             </li>
           </ul>
+
         </section>
         <section class="reveal">
           <h2><span lang="zh-CN">数据</span><span lang="en">Data</span></h2>
@@ -732,6 +733,7 @@
               <span class="fine"><span lang="zh-CN">浏览器本地把 JSON 数组转成 .xlsx：表头取所有对象键的并集，嵌套对象与数组以 JSON 文本进单元格。链路是 JSON → CSV → Excel，中间不落盘。</span><span lang="en">Turn a JSON array into .xlsx locally: the header is the union of every object’s keys and nested values go into the cell as JSON text, routed via CSV.</span></span>
             </li>
           </ul>
+
         </section>
         <section class="reveal">
           <h2><span lang="zh-CN">图片</span><span lang="en">Images</span></h2>
@@ -990,6 +992,10 @@
               <span class="fine"><span lang="zh-CN">两步：先包成能打开的网页，再序列化时把内联 SVG 栅格化成 PNG，产物是一行内联图片语法。矢量结构到此为止。</span><span lang="en">Two steps: wrap it as a page, then on the way out each inline SVG is rasterised to PNG, leaving one inline image line. The vector ends here.</span></span>
             </li>
           </ul>
+          <p class="fine">
+            <span lang="zh-CN">需要把一张图压到指定体积？用</span><span lang="en">Need a target size? Use the</span>
+            <a href="../compress/"><span lang="zh-CN">独立的图片压缩工具</span><span lang="en">standalone image compressor</span></a><span lang="zh-CN">。</span><span lang="en">.</span>
+          </p>
         </section>
           <p class="fine reveal">
             <span lang="zh-CN">这里列出的是全部 116 个配对；工作台里的目标格式下拉按批次实时给出可用项。</span><span lang="en">This index lists all 116 pairs; the workbench shows what is available for the exact batch you dropped in.</span>

@@ -10,6 +10,7 @@ Category: productivity / file conversion. Price: free, no paid tier, no ads, no 
 - [Product page](https://liaolongdong.github.io/transfer-any-file/): Formats, how a conversion is routed, features, comparison with online converters, install steps, FAQ, technical details, contact — plus an in-page demo that converts one PNG / JPEG / WebP / BMP / GIF with a canvas, with no install and no upload
 - [Privacy policy](https://liaolongdong.github.io/transfer-any-file/privacy.html): Bilingual (EN / 简体中文) — no data collection, no transmission, on-device storage only
 - [File diff](https://liaolongdong.github.io/transfer-any-file/diff/): Interactive — drop in two files (or paste two texts) and the line and word-level diff is computed in the visitor's own browser. The second page on this site that takes a file as input, after the product page's one-image demo; it is a byte-for-byte copy of `tools/file-diff.html`, which is the file the offline guards actually open, and no code in it issues a request
+- [Image compressor](https://liaolongdong.github.io/transfer-any-file/compress/): Interactive — drop one PNG, JPEG, WebP, BMP or GIF and compress it to a target KB, a quality or a longest edge in the visitor's own browser. JPEG and WebP support a target size; PNG is controlled by its longest edge. The third page on this site that takes a file as input; its source is `tools/image-compressor.html`, and no code in it issues a request
 
 ## By source format
 

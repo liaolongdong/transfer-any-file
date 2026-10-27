@@ -242,7 +242,7 @@ _图上可达但语义不成立，因此置灰并说明原因，而不是等你�
 - 仅申请 `storage` 一项权限，用于保存历史（文件名、格式、体积——绝不含文件内容）与偏好设置
 - 界面上的对外地址都是普通链接：顶栏的版本号芯片直达 GitHub 最新发布页，十条地址的完整清单在「关于」抽屉里（使用说明、格式转换说明、商店与评价、仓库、反馈、隐私政策、许可证、最新发布、作者）。您点击之后由浏览器打开，扩展自身不发起请求，也不查询有没有新版本
 - 无统计埋点、无追踪、无账号、无广告、无付费版
-- 想先自己验一次再装：[文件对比](https://liaolongdong.github.io/transfer-any-file/diff/) 是这个站点上第二张要你放入自己文件的页面（另一张是产品页的单图试用）——两个文件被读进页面自己的内存做行级与词级比对，它自带的代码不发起任何请求，也不需要装扩展（同一份源码就是仓库里的 `tools/file-diff.html`，发布的是它的逐字节副本）
+- 想先自己验一次再装：[文件对比](https://liaolongdong.github.io/transfer-any-file/diff/) 是这个站点上第二张要你放入自己文件的页面（另外两张是产品页的单图试用与[图片压缩工具](https://liaolongdong.github.io/transfer-any-file/compress/)）——两个文件被读进页面自己的内存做行级与词级比对，它自带的代码不发起任何请求，也不需要装扩展（同一份源码就是仓库里的 `tools/file-diff.html`，发布的是它的逐字节副本）
 - 完整文本：[隐私政策（在线，中英双语）](https://liaolongdong.github.io/transfer-any-file/privacy.html)（仓库源文件 `docs/privacy.html`） · 面向商店的披露答复：[`CHROMEWEBSTORE.md`](.github/CHROMEWEBSTORE.md)
 
 ## 📥 安装与上手

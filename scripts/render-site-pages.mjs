@@ -19,9 +19,9 @@
  * named by `aria-labelledby` so the same CSS that hides the inactive `<span>` hides it from AT too.
  *
  * The sitemap is generated for the same reason: eleven of its URLs are one per pair page, and a list
- * maintained by hand is how a cluster gets published without ever being discoverable. The three
- * hand-written URLs it also carries keep their own `lastmod` in `STATIC_PAGES` below, because a date
- * taken from the filesystem would say "today" on every clean checkout.
+ * maintained by hand is how a cluster gets published without ever being discoverable. The hand-written
+ * URLs it also carries keep their own `lastmod` in `STATIC_PAGES` below, because a date taken from the
+ * filesystem would say "today" on every clean checkout.
  *
  * Usage:
  *   node scripts/render-site-pages.mjs           # write the pages and the sitemap
@@ -53,14 +53,15 @@ import { HUBS } from './conversion-pages/hubs.mjs';
 const ROOT = path.resolve(import.meta.dirname, '..');
 const OUT_DIR = path.join(ROOT, 'docs', 'convert');
 const SITEMAP = path.join(ROOT, 'docs', 'sitemap.xml');
-// `tools/file-diff.html` is the only source for the one page on this site that takes a file as input, and
-// `docs/diff/index.html` is a byte-for-byte copy of it. That is not tidiness: `check-offline.mjs` and
-// `check-remote-code.mjs` name `tools` in their scan directories and deliberately do not name `docs`, so
-// the copy can never be ahead of what the guards actually opened. `--check` then compares those bytes
-// against the source on every run, which is what makes the copy a guarded artifact rather than a file
-// nobody reads.
+// The two tool pages keep their source in `tools/`, and each `docs/` copy is byte-for-byte identical
+// to it. That is not tidiness: `check-offline.mjs` and `check-remote-code.mjs` name `tools` in their
+// scan directories and deliberately do not name `docs`, so the copy can never be ahead of what the
+// guards actually opened. `--check` then compares those bytes against the source on every run, which
+// is what makes each copy a guarded artifact rather than a file nobody reads.
 const DIFF_SRC = path.join(ROOT, 'tools', 'file-diff.html');
 const DIFF_OUT = path.join(ROOT, 'docs', 'diff', 'index.html');
+const COMPRESS_SRC = path.join(ROOT, 'tools', 'image-compressor.html');
+const COMPRESS_OUT = path.join(ROOT, 'docs', 'compress', 'index.html');
 const CHECK = process.argv.includes('--check');
 
 /**
@@ -1969,12 +1970,20 @@ function renderIndex() {
             </li>`,
         )
         .join('\n');
+      const extra =
+        index === 2
+          ? `          <p class="fine">
+            ${bi('需要把一张图压到指定体积？用', 'Need a target size? Use the')}
+            <a href="../compress/">${bi('独立的图片压缩工具', 'standalone image compressor')}</a>${bi('。', '.')}
+          </p>`
+          : '';
       return `        <section class="reveal">
           <h2>${bi(group.zh, group.en)}</h2>
           <p>${bi(group.note.zh, group.note.en)}</p>
           <ul class="index-list">
 ${items}
           </ul>
+${extra}
         </section>`;
     })
     .join('\n');
@@ -2252,6 +2261,18 @@ const STATIC_PAGES = {
       /Last updated:\s*(\d{4}-\d{2}-\d{2})/gi,
     ],
   },
+  compress: {
+    path: '/compress/',
+    updated: '2026-10-27',
+    changefreq: 'monthly',
+    priority: '0.8',
+    file: 'tools/image-compressor.html',
+    dateClaims: [
+      /"dateModified":\s*"(\d{4}-\d{2}-\d{2})"/g,
+      /最后更新[：:]?\s*(\d{4}-\d{2}-\d{2})/g,
+      /Last updated:\s*(\d{4}-\d{2}-\d{2})/gi,
+    ],
+  },
 };
 
 /**
@@ -2507,6 +2528,86 @@ function validateDiffPage() {
  * many questions that category actually holds. Adding a question is a one-line edit and nothing else on the
  * page would ever notice, which is exactly the drift this pins.
  */
+/**
+ * Check the image compressor's page identity and tool wiring.
+ *
+ * The page is a source file under `tools/` copied byte-for-byte into `docs/compress/`; the offline
+ * guards read that source, so this only has to pin the claims a crawler or a reader sees: one
+ * canonical URL, the same URL in `og:url`, a store CTA on the short form, and a JSON-LD graph that
+ * describes this page rather than the product page. `tool-ready` is the line that makes the form
+ * visible; a page that lost it would render no tool at all.
+ */
+function validateCompressPage() {
+  const source = fs.existsSync(COMPRESS_SRC) ? fs.readFileSync(COMPRESS_SRC, 'utf8') : null;
+  if (source === null) {
+    fail(`${COMPRESS_SRC} is missing, so the site page ${STATIC_PAGES.compress.path} cannot be produced`);
+    return;
+  }
+
+  const expected = `${SITE.origin}/compress/`;
+  const exactlyOne = (pattern, what) => {
+    const hits = [...source.matchAll(pattern)];
+    if (hits.length !== 1) {
+      fail(`tools/image-compressor.html carries ${hits.length} ${what}, expected exactly 1`);
+      return null;
+    }
+    return hits[0][1];
+  };
+
+  const canonical = exactlyOne(/rel="canonical"\s+href="([^"]+)"/g, 'canonical link');
+  if (canonical !== null && canonical !== expected) {
+    fail(`tools/image-compressor.html canonicalises to ${canonical}, but this site serves the page at ${expected}`);
+  }
+  const ogUrl = exactlyOne(/property="og:url"\s+content="([^"]+)"/g, 'og:url');
+  if (ogUrl !== null && ogUrl !== expected) {
+    fail(`tools/image-compressor.html shares ${ogUrl}, but canonicalises to ${expected} — those are one claim`);
+  }
+  if (!source.includes(`href="${SITE.store}"`)) {
+    fail(
+      'tools/image-compressor.html has no store CTA on the canonical short URL, so the page cannot point at the listing',
+    );
+  }
+  if (!/<html\s+lang="zh-CN"/.test(source)) {
+    fail(
+      'tools/image-compressor.html no longer opens with <html lang="zh-CN">, so a client that does not run the script has no default language',
+    );
+  }
+  if (!source.includes('lang="zh-CN"') || !source.includes('lang="en"')) {
+    fail('tools/image-compressor.html no longer carries both languages in its initial markup');
+  }
+  if (!source.includes("classList.add('tool-ready')")) {
+    fail('tools/image-compressor.html no longer marks the page tool-ready, so the form would never become visible');
+  }
+
+  const ld = /<script\s+type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/.exec(source);
+  if (!ld) {
+    fail('tools/image-compressor.html has no JSON-LD block, so a crawler gets no description of the tool');
+    return;
+  }
+  let graph;
+  try {
+    graph = JSON.parse(ld[1])['@graph'];
+  } catch (error) {
+    fail(`tools/image-compressor.html JSON-LD is not valid JSON: ${error.message}`);
+    return;
+  }
+  const nodes = Array.isArray(graph) ? graph : [];
+  const app = nodes.find(node => node['@type'] === 'WebApplication');
+  const page = nodes.find(node => node['@type'] === 'WebPage');
+  if (!app || app['@id'] !== `${expected}#app`) {
+    fail(`tools/image-compressor.html has no WebApplication node with @id ${expected}#app`);
+  }
+  if (!page || page['@id'] !== `${expected}#webpage`) {
+    fail(`tools/image-compressor.html has no WebPage node with @id ${expected}#webpage`);
+  }
+  if (!app?.isPartOf || app.isPartOf['@id'] !== `${SITE.origin}/#website`) {
+    fail('tools/image-compressor.html WebApplication is not part of the site #website node');
+  }
+  if (!app?.about || app.about['@id'] !== `${SITE.origin}/#app`) {
+    fail('tools/image-compressor.html WebApplication does not point at the product #app node');
+  }
+}
+
 function validateFaqRail() {
   const file = 'docs/index.html';
   const source = fs.existsSync(path.join(ROOT, file)) ? fs.readFileSync(path.join(ROOT, file), 'utf8') : null;
@@ -2859,7 +2960,16 @@ function renderSitemap() {
     changefreq: 'monthly',
     priority: '0.8',
   }));
-  const urls = [STATIC_PAGES.home, index, ...hubs, ...pairs, STATIC_PAGES.blog, STATIC_PAGES.privacy, STATIC_PAGES.diff]
+  const urls = [
+    STATIC_PAGES.home,
+    index,
+    ...hubs,
+    ...pairs,
+    STATIC_PAGES.blog,
+    STATIC_PAGES.privacy,
+    STATIC_PAGES.diff,
+    STATIC_PAGES.compress,
+  ]
     .map(
       entry => `  <url>
     <loc>${SITE.origin}${entry.path}</loc>
@@ -2891,6 +3001,7 @@ validateFaqRail();
 validateLinkMirrors();
 validateSiteNav();
 validateDiffPage();
+validateCompressPage();
 for (const hub of HUBS) validateHub(hub);
 for (const pair of PAIRS) {
   const chain = validatePair(pair);
@@ -2908,6 +3019,7 @@ if (errors.length === 0) {
   // inside the `--check` comparison below; a copy written outside `files` would be committed once and
   // then drift forever, with the guard printing OK over a file it never opened.
   files.set(DIFF_OUT, fs.readFileSync(DIFF_SRC, 'utf8'));
+  files.set(COMPRESS_OUT, fs.readFileSync(COMPRESS_SRC, 'utf8'));
 }
 if (errors.length === 0) validateHubCoverage();
 
