@@ -1150,6 +1150,187 @@ async function run() {
   }
 
   // ═══════════════════════════════════════════
+  //  EMPTY-STATE SAMPLES & TARGET SUGGESTIONS
+  // ═══════════════════════════════════════════
+  //
+  // The empty workbench used to offer one thing: a drop plate. These two rows are the first-run
+  // answer for someone who has no file at hand and for someone who has one but no target yet. Both
+  // are inert additions — the sample button only stages the file it names, and a suggestion is an
+  // ordinary target click — so the checks are about the route each one takes, not about a new
+  // conversion semantic.
+  section('Empty-State Samples & Suggestions');
+
+  const sampleLabels = await page.$$eval('.sample-chip .sample-label', els => els.map(el => el.textContent.trim()));
+  if (sampleLabels.length === 3) ok(`Empty state offers three samples (${sampleLabels.join(' / ')})`);
+  else fail('Empty state sample chips', `found ${sampleLabels.length}`);
+
+  await page.locator('.sample-chip').first().click();
+  await page.waitForSelector('.file-item', { timeout: 10000 });
+  await page.waitForTimeout(400);
+  const mdSample = await page.evaluate(() => ({
+    name: document.querySelector('.file-item .file-name')?.textContent?.trim() ?? '',
+    target: document.querySelector('.action-row .el-select')?.textContent?.trim() ?? '',
+    path: document.querySelector('.path-steps')?.textContent?.trim() ?? '',
+    strip: !!document.querySelector('.sample-strip'),
+  }));
+  if (mdSample.name === 'sample-document.md' && mdSample.target.includes('PDF') && mdSample.path.includes('HTML')) {
+    ok(`Markdown sample selects PDF through HTML (${mdSample.path})`);
+  } else {
+    fail('Markdown sample', JSON.stringify(mdSample));
+  }
+  if (!mdSample.strip) ok('Sample strip retracts once a sample is staged');
+  else fail('Sample strip after staging', 'still visible');
+
+  await page.click('.clear-files-btn');
+  await page.waitForSelector('.sample-strip', { timeout: 5000 });
+  await page.locator('.sample-chip').nth(1).click();
+  await page.waitForSelector('.file-item', { timeout: 10000 });
+  await page.waitForTimeout(400);
+  const csvSample = await page.evaluate(() => ({
+    name: document.querySelector('.file-item .file-name')?.textContent?.trim() ?? '',
+    target: document.querySelector('.action-row .el-select')?.textContent?.trim() ?? '',
+  }));
+  if (csvSample.name === 'sample-table.csv' && csvSample.target.includes('JSON')) ok('CSV sample selects JSON');
+  else fail('CSV sample', JSON.stringify(csvSample));
+
+  await page.click('.clear-files-btn');
+  await page.waitForSelector('.sample-strip', { timeout: 5000 });
+  await page.locator('.sample-chip').nth(2).click();
+  await page.waitForSelector('.file-item', { timeout: 10000 });
+  await page.waitForTimeout(400);
+  const imageSample = await page.evaluate(() => ({
+    name: document.querySelector('.file-item .file-name')?.textContent?.trim() ?? '',
+    target: document.querySelector('.action-row .el-select')?.textContent?.trim() ?? '',
+  }));
+  if (imageSample.name === 'sample-image.png' && imageSample.target.includes('WebP')) {
+    ok('Canvas image sample selects WebP');
+  } else {
+    fail('Image sample', JSON.stringify(imageSample));
+  }
+
+  // A real upload starts from no target, which is the state the suggestion row exists for. The
+  // reload also drops the target the previous sample set, so this checks the real first-run path.
+  await page.click('.clear-files-btn');
+  await page.reload();
+  await page.waitForTimeout(1200);
+  const sampleInput = await page.$('#file-upload-input');
+  await sampleInput.setInputFiles(path.join(FIXTURE_PATH, 'sample.md'));
+  await page.waitForSelector('.file-item', { timeout: 10000 });
+  await page.waitForTimeout(400);
+  const suggested = await page.evaluate(() => ({
+    target: document.querySelector('.action-row .el-select')?.textContent?.trim() ?? '',
+    chips: [...document.querySelectorAll('.suggestion-chip')].map(el => el.textContent.trim()),
+  }));
+  if (suggested.target.includes('请选择') && suggested.chips.some(text => text.includes('PDF'))) {
+    ok(`Suggested targets appear while the picker is empty (${suggested.chips.join(' / ')})`);
+  } else {
+    fail('Suggested targets', JSON.stringify(suggested));
+  }
+  await page.locator('.suggestion-chip').first().click();
+  await page.waitForTimeout(300);
+  const suggestionCommitted = await page.evaluate(() => ({
+    target: document.querySelector('.action-row .el-select')?.textContent?.trim() ?? '',
+    chips: document.querySelectorAll('.suggestion-chip').length,
+  }));
+  if (suggestionCommitted.target.includes('PDF') && suggestionCommitted.chips === 0) {
+    ok('Suggested target commits and the row retracts');
+  } else {
+    fail('Suggested target commit', JSON.stringify(suggestionCommitted));
+  }
+  await page.reload();
+  await page.waitForTimeout(1000);
+
+  // ═══════════════════════════════════════════
+  //  RESULT FILTER & SEARCH
+  // ═══════════════════════════════════════════
+  //
+  // Failures are appended after every success, so on a long batch the rows a user most needs are
+  // the ones furthest away. The filter is a view over the same arrays (the alert title and the ZIP
+  // still count the whole batch), which is what these checks pin: the default state shows every row,
+  // a query narrows without changing the total, and the failure view does not keep successes around.
+  section('Result Filter & Search');
+
+  const filterInput = await page.$('#file-upload-input');
+  await filterInput.setInputFiles(
+    Array.from({ length: 9 }, (_, i) => ({
+      name: `r${i + 1}.md`,
+      mimeType: 'text/markdown',
+      buffer: Buffer.from(`# Row ${i + 1}\n\nsample\n`),
+    })),
+  );
+  await page.waitForSelector('.file-item', { timeout: 10000 });
+  await page.waitForTimeout(400);
+  await page.locator('.suggestion-chip').filter({ hasText: 'HTML' }).click();
+  await page.click('.convert-btn');
+  // Nine files cross the large-batch confirmation threshold; the default preference is on.
+  const confirmBatch = await page.waitForSelector('.el-message-box', { timeout: 2500 }).catch(() => null);
+  if (confirmBatch) {
+    await page.locator('.el-message-box__btns .el-button--primary').click();
+    await page.waitForTimeout(300);
+  }
+  await page.waitForFunction(() => document.querySelectorAll('.result-item').length === 9, undefined, {
+    timeout: 20000,
+  });
+  await page.waitForSelector('.result-filter', { timeout: 5000 });
+  await page.screenshot({ path: shot('result-filter.png'), fullPage: true });
+
+  const filterButtons = await page.$$eval('.result-filter-btn', els => els.map(el => el.textContent.trim()));
+  if (filterButtons.length === 2) ok(`Long batch exposes the filter (${filterButtons.join(' / ')})`);
+  else fail('Result filter visibility', JSON.stringify(filterButtons));
+
+  await page.fill('.result-filter-search input', 'r3');
+  await page.waitForTimeout(300);
+  const searched = await page.$$eval('.result-item .result-name', els => els.map(el => el.textContent.trim()));
+  if (searched.length === 1 && searched[0].includes('r3')) ok('Result search narrows the list');
+  else fail('Result search', JSON.stringify(searched));
+
+  await page.fill('.result-filter-search input', '');
+  await page.waitForTimeout(300);
+  await page.locator('.result-filter-btn').nth(1).click();
+  await page.waitForTimeout(300);
+  const successRows = await page.$$eval('.result-item', els => els.length);
+  const showing = await page.$eval('.result-filter-showing', el => el.textContent.trim()).catch(() => '');
+  if (successRows === 9 && showing.includes('9')) ok('Success view keeps every success and reports the count');
+  else fail('Success filter', `rows=${successRows} showing="${showing}"`);
+
+  await page.reload();
+  await page.waitForTimeout(1200);
+  const mixedInput = await page.$('#file-upload-input');
+  await mixedInput.setInputFiles([
+    { name: 'good.md', mimeType: 'text/markdown', buffer: Buffer.from('# Good\n') },
+    { name: 'broken.xyz', mimeType: 'application/octet-stream', buffer: Buffer.from('unknown') },
+  ]);
+  await page.waitForSelector('.file-item', { timeout: 10000 });
+  await page.waitForTimeout(400);
+  await page.locator('.suggestion-chip').filter({ hasText: 'HTML' }).click();
+  await page.click('.convert-btn');
+  await page.waitForFunction(
+    () =>
+      document.querySelectorAll('.result-item').length === 1 && document.querySelectorAll('.failure-item').length === 1,
+    undefined,
+    { timeout: 20000 },
+  );
+  await page.locator('.result-filter-btn').nth(2).click();
+  await page.waitForTimeout(300);
+  const failureView = await page.evaluate(() => ({
+    results: document.querySelectorAll('.result-item').length,
+    failures: document.querySelectorAll('.failure-item').length,
+  }));
+  if (failureView.results === 0 && failureView.failures === 1) ok('Failure view hides successes and keeps the failure');
+  else fail('Failure filter', JSON.stringify(failureView));
+  await page.locator('.result-filter-btn').nth(0).click();
+  await page.waitForTimeout(300);
+  const allView = await page.evaluate(() => ({
+    results: document.querySelectorAll('.result-item').length,
+    failures: document.querySelectorAll('.failure-item').length,
+  }));
+  if (allView.results === 1 && allView.failures === 1) ok('All view restores both rows');
+  else fail('All filter', JSON.stringify(allView));
+
+  await page.reload();
+  await page.waitForTimeout(1000);
+
+  // ═══════════════════════════════════════════
   //  EVERY CARD'S COLLAPSE STATE SURVIVES THE OTHER'S
   // ═══════════════════════════════════════════
   //
@@ -4048,7 +4229,7 @@ async function run() {
       await editPage.waitForTimeout(1200);
       if (!(await openPresetCard(editPage))) throw new Error('presets card did not open');
 
-      const chipName = () => editPage.$eval('.preset-apply', el => el.textContent.trim()).catch(() => '');
+      const chipName = () => editPage.$eval('.preset-chip-name', el => el.textContent.trim()).catch(() => '');
       const storedPresets = () =>
         editPage.evaluate(() => window.chrome.storage.local.get('fat:presets')).then(r => r['fat:presets']);
       const lastMessage = async () => ((await editPage.locator('.el-message').last().textContent()) || '').trim();
@@ -5500,7 +5681,9 @@ async function run() {
 
   section('Conversion Presets');
   try {
-    const chipTexts = () => page.$$eval('.preset-apply', els => els.map(e => e.textContent.trim()));
+    // The chip now carries a second line with its target and parameters; assertions about the
+    // preset's *name* read the name span, not the button's concatenated text.
+    const chipTexts = () => page.$$eval('.preset-chip-name', els => els.map(e => e.textContent.trim()));
     const targetText = async () => (await page.locator('.action-row .el-select').first().innerText()).trim();
     const lastMessage = async () => ((await page.locator('.el-message').last().textContent()) || '').trim();
 
@@ -5633,7 +5816,7 @@ async function run() {
     await dirtyPage.waitForTimeout(1500);
     if (!(await openPresetCard(dirtyPage))) throw new Error('presets card did not open on the seeded page');
 
-    const dirtyChips = await dirtyPage.$$eval('.preset-apply', els => els.map(e => e.textContent.trim()));
+    const dirtyChips = await dirtyPage.$$eval('.preset-chip-name', els => els.map(e => e.textContent.trim()));
     if (dirtyChips.length === 2) ok(`Illegal preset entries are dropped (kept ${dirtyChips.length})`);
     else fail('Preset sanitization', `chips [${dirtyChips.join(', ')}]`);
     if (dirtyChips[0] === 'good') ok('A valid preset keeps its name');

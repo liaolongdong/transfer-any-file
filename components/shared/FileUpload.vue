@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick, onMounted, onUnmounted, defineAsyncComponent } from 'vue';
 import type { Component } from 'vue';
-import { UploadFilled, Delete, Plus, Picture, Document, Grid, View } from '@element-plus/icons-vue';
+import { UploadFilled, Delete, Plus, Picture, Document, Grid, View, Loading } from '@element-plus/icons-vue';
 import { FileFormat } from '~/utils/core/types';
 import { getFormatLabel, getFormatCategory } from '~/utils/core/format-labels';
 import { formatSize } from '~/utils/core/format';
@@ -10,6 +10,8 @@ import { isMac } from '~/utils/core/platform';
 import { detectFormat, SUPPORTED_EXTENSIONS } from '~/utils/core/file-detect';
 import { collectDropped, snapshotDrop } from '~/utils/core/folder-drop';
 import { createRowKey } from '~/utils/core/row-key';
+import { createSampleFile, SAMPLE_TARGETS } from '~/utils/core/sample-files';
+import type { SampleKind } from '~/utils/core/sample-files';
 import { useI18n } from '~/composables/useI18n';
 
 // Heavy component — only loaded when the user actually opens a source preview,
@@ -38,9 +40,11 @@ const emit = defineEmits<{
    * instead of `update:files`: the workbench must announce the move, not "loaded N files".
    */
   (e: 'reorder', files: File[], name: string, position: number, total: number): void;
+  /** A sample was staged; the workbench adopts the target it was built to demonstrate. */
+  (e: 'sample-loaded', target: FileFormat): void;
 }>();
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
 
 const fileInput = ref<HTMLInputElement | null>(null);
 const selectedFiles = ref<File[]>([]);
@@ -158,6 +162,15 @@ const acceptExtensions = [...SUPPORTED_EXTENSIONS, '.zip'].join(',');
 // not enough (it misses iPadOS and Chromium builds with a reduced UA).
 const pasteKey = isMac ? '⌘V' : 'Ctrl+V';
 
+/** One chip per built-in sample; the target is read from the same table the generator uses. */
+const SAMPLE_CHIPS: readonly { kind: SampleKind; labelKey: string }[] = [
+  { kind: 'markdown', labelKey: 'upload.sampleMarkdown' },
+  { kind: 'csv', labelKey: 'upload.sampleCsv' },
+  { kind: 'image', labelKey: 'upload.sampleImage' },
+];
+const sampleBusyKind = ref<SampleKind | null>(null);
+const sampleBusy = computed(() => sampleBusyKind.value !== null);
+
 const dropText = computed(() => (selectedFiles.value.length === 0 ? t('upload.drop') : t('upload.replace')));
 
 /**
@@ -254,6 +267,22 @@ function clearAll(): void {
 let takenDrop: DataTransfer | null = null;
 
 /**
+ * A counter rather than a boolean: a folder drop runs `collectDropped` and then starts the
+ * `expandArchives` pipeline, and each half has its own `finally`. Nesting them keeps the status
+ * line up until the last one settles instead of blinking off between the two.
+ */
+const intakeDepth = ref(0);
+const isIntaking = computed(() => intakeDepth.value > 0);
+
+function beginIntake(): void {
+  intakeDepth.value++;
+}
+
+function endIntake(): void {
+  intakeDepth.value = Math.max(0, intakeDepth.value - 1);
+}
+
+/**
  * Take everything a drop offers through the one intake pipeline.
  *
  * **Must be entered synchronously from the `drop` handler**: the folder entries `snapshotDrop`
@@ -273,21 +302,26 @@ async function intakeDrop(dataTransfer: DataTransfer | null): Promise<void> {
   const items = snapshotDrop(dataTransfer);
   if (items.length === 0) return;
 
-  const collected = await collectDropped(items, MAX_BATCH_FILES);
-  // A truncated walk always says which limit it hit: `{max}` is interpolated by the batch-cap
-  // message and simply ignored by the depth/scan one. `folderEmpty` is kept for the case where the
-  // folder really did hold nothing convertible — claiming that after refusing entries for a limit
-  // would name the wrong reason.
-  if (collected.truncated) {
-    const key = collected.truncated === 'cap' ? 'upload.batchCap' : 'upload.folderTruncated';
-    ElMessage.warning(t(key, { max: MAX_BATCH_FILES }));
+  beginIntake();
+  try {
+    const collected = await collectDropped(items, MAX_BATCH_FILES);
+    // A truncated walk always says which limit it hit: `{max}` is interpolated by the batch-cap
+    // message and simply ignored by the depth/scan one. `folderEmpty` is kept for the case where the
+    // folder really did hold nothing convertible — claiming that after refusing entries for a limit
+    // would name the wrong reason.
+    if (collected.truncated) {
+      const key = collected.truncated === 'cap' ? 'upload.batchCap' : 'upload.folderTruncated';
+      ElMessage.warning(t(key, { max: MAX_BATCH_FILES }));
+    }
+    if (collected.files.length === 0) {
+      if (!collected.truncated) ElMessage.warning(t('upload.folderEmpty'));
+      return;
+    }
+    if (collected.fromFolders > 0) ElMessage.success(t('upload.folderImported', { count: collected.fromFolders }));
+    selectFiles(collected.files);
+  } finally {
+    endIntake();
   }
-  if (collected.files.length === 0) {
-    if (!collected.truncated) ElMessage.warning(t('upload.folderEmpty'));
-    return;
-  }
-  if (collected.fromFolders > 0) ElMessage.success(t('upload.folderImported', { count: collected.fromFolders }));
-  selectFiles(collected.files);
 }
 
 function handleDrop(event: DragEvent): void {
@@ -414,43 +448,54 @@ async function expandArchives(files: File[]): Promise<File[]> {
 // slower one would clobber the newer list on completion.
 let applyGeneration = 0;
 /** The selection currently being inflated, so a removal can wait for it instead of racing it. */
-let pendingApply: Promise<void> | null = null;
+let pendingApply: Promise<boolean> | null = null;
 
-async function expandAndApply(files: File[]): Promise<void> {
-  const generation = ++applyGeneration;
-  const expanded = await expandArchives(files);
-  if (generation !== applyGeneration) return;
-  // The entry guards above all refuse while a batch is running; `expandArchives` is the one await
-  // between the refusal and the write, and a folder or ZIP still inflating when the user pressed
-  // 开始转换 would otherwise land here and replace the list under the running batch. The batch keeps
-  // converting its own snapshot, so what breaks is everything that reads the list by position: the
-  // name in the progress row, and the file a failure row blames. Refusing late costs the user the
-  // drop they could not make while the panel was disabled anyway.
-  if (props.disabled) return;
-  const validFiles: File[] = [];
-  for (const file of expanded) {
-    if (file.size > MAX_REJECT_SIZE) {
-      ElMessage.error(t('upload.tooLarge', { name: file.name }));
-      continue;
+/**
+ * Returns whether this run was the one that reached the list. A superseded run (a newer selection
+ * started while an archive was inflating) and a run that hit `disabled` both return `false`; the
+ * caller that staged a sample uses that to avoid announcing a target for a file that never landed.
+ */
+async function expandAndApply(files: File[]): Promise<boolean> {
+  beginIntake();
+  try {
+    const generation = ++applyGeneration;
+    const expanded = await expandArchives(files);
+    if (generation !== applyGeneration) return false;
+    // The entry guards above all refuse while a batch is running; `expandArchives` is the one await
+    // between the refusal and the write, and a folder or ZIP still inflating when the user pressed
+    // 开始转换 would otherwise land here and replace the list under the running batch. The batch keeps
+    // converting its own snapshot, so what breaks is everything that reads the list by position: the
+    // name in the progress row, and the file a failure row blames. Refusing late costs the user the
+    // drop they could not make while the panel was disabled anyway.
+    if (props.disabled) return false;
+    const validFiles: File[] = [];
+    for (const file of expanded) {
+      if (file.size > MAX_REJECT_SIZE) {
+        ElMessage.error(t('upload.tooLarge', { name: file.name }));
+        continue;
+      }
+      if (file.size > MAX_WARN_SIZE) {
+        ElMessage.warning(t('upload.largeWarning', { name: file.name, size: formatSize(file.size) }));
+      }
+      validFiles.push(file);
     }
-    if (file.size > MAX_WARN_SIZE) {
-      ElMessage.warning(t('upload.largeWarning', { name: file.name, size: formatSize(file.size) }));
+    let next = props.multiple ? validFiles : validFiles.slice(0, 1);
+    if (next.length > MAX_BATCH_FILES) {
+      next = next.slice(0, MAX_BATCH_FILES);
+      ElMessage.warning(t('upload.batchCap', { max: MAX_BATCH_FILES }));
     }
-    validFiles.push(file);
+    selectedFiles.value = next;
+    detectedFormats.value = next.map(f => detectFormat(f));
+    primeWindow(next.length);
+    const unknownCount = detectedFormats.value.filter(f => f === null).length;
+    if (unknownCount > 0) {
+      ElMessage.warning(t('upload.unknownFormatNotice', { count: unknownCount }));
+    }
+    emit('update:files', next);
+    return true;
+  } finally {
+    endIntake();
   }
-  let next = props.multiple ? validFiles : validFiles.slice(0, 1);
-  if (next.length > MAX_BATCH_FILES) {
-    next = next.slice(0, MAX_BATCH_FILES);
-    ElMessage.warning(t('upload.batchCap', { max: MAX_BATCH_FILES }));
-  }
-  selectedFiles.value = next;
-  detectedFormats.value = next.map(f => detectFormat(f));
-  primeWindow(next.length);
-  const unknownCount = detectedFormats.value.filter(f => f === null).length;
-  if (unknownCount > 0) {
-    ElMessage.warning(t('upload.unknownFormatNotice', { count: unknownCount }));
-  }
-  emit('update:files', next);
 }
 
 /**
@@ -459,7 +504,7 @@ async function expandAndApply(files: File[]): Promise<void> {
  * rather than on the pre-drop list, which the in-flight apply would otherwise overwrite a second
  * later — taking the user's removal with it.
  */
-function applyFiles(files: File[]): Promise<void> {
+function applyFiles(files: File[]): Promise<boolean> {
   const run = expandAndApply(files);
   pendingApply = run;
   const settled = () => {
@@ -471,6 +516,31 @@ function applyFiles(files: File[]): Promise<void> {
 
 function selectFiles(files: File[]): void {
   void applyFiles(files);
+}
+
+/**
+ * Stage one built-in sample and tell the workbench which target it was made for.
+ *
+ * `selectFiles` only starts the asynchronous pipeline; the target is emitted immediately and lands
+ * before the `update:files` microtask, so `setFiles` sees a target that is already selected. The
+ * target is a suggestion in the same sense as the empty-picker chips: it is set because the user
+ * clicked a sample built to demonstrate that route, not as a new default for real uploads.
+ */
+async function loadSample(kind: SampleKind): Promise<void> {
+  if (props.disabled || sampleBusy.value) return;
+  sampleBusyKind.value = kind;
+  try {
+    const file = await createSampleFile(kind, locale.value);
+    // Wait for the staging pipeline, not just the generator: a newer selection or a disabled panel
+    // can still drop this file, and the target must not outlive the sample it was chosen for.
+    const applied = await applyFiles([file]);
+    if (!applied || !selectedFiles.value.includes(file)) return;
+    emit('sample-loaded', SAMPLE_TARGETS[kind]);
+  } catch {
+    ElMessage.warning(t('upload.sampleFailed'));
+  } finally {
+    sampleBusyKind.value = null;
+  }
 }
 
 /**
@@ -741,6 +811,7 @@ defineExpose({
       role="button"
       tabindex="0"
       :aria-disabled="disabled"
+      :aria-busy="isIntaking"
       @drop.prevent="handleDrop"
       @dragover.prevent="handleDragOver"
       @dragleave="handleDragLeave"
@@ -765,6 +836,60 @@ defineExpose({
         {{ t('upload.stats', { formats, paths }) }}
       </p>
     </div>
+    <Transition name="fat-fade">
+      <p
+        v-if="isIntaking"
+        class="intake-status"
+        role="status"
+        aria-live="polite"
+      >
+        <el-icon
+          class="is-loading"
+          :size="14"
+        >
+          <Loading />
+        </el-icon>
+        <span>{{ t('upload.reading') }}</span>
+      </p>
+    </Transition>
+    <Transition name="fat-fade">
+      <div
+        v-if="selectedFiles.length === 0"
+        class="sample-strip"
+        role="group"
+        :aria-label="t('upload.sampleTitle')"
+      >
+        <div class="sample-copy">
+          <span class="sample-title">{{ t('upload.sampleTitle') }}</span>
+          <span class="sample-hint">{{ t('upload.sampleHint') }}</span>
+        </div>
+        <div class="sample-actions">
+          <button
+            v-for="sample in SAMPLE_CHIPS"
+            :key="sample.kind"
+            type="button"
+            class="sample-chip"
+            :disabled="disabled || isIntaking || sampleBusy"
+            @click="loadSample(sample.kind)"
+          >
+            <el-icon
+              v-if="sampleBusyKind === sample.kind"
+              class="is-loading"
+              :size="12"
+            >
+              <Loading />
+            </el-icon>
+            <span class="sample-label">{{ t(sample.labelKey) }}</span>
+            <span
+              class="sample-arrow"
+              aria-hidden="true"
+              >→</span
+            >
+            <span class="sample-target">{{ getFormatLabel(SAMPLE_TARGETS[sample.kind]) }}</span>
+          </button>
+        </div>
+      </div>
+    </Transition>
     <input
       id="file-upload-input"
       ref="fileInput"
@@ -1090,6 +1215,120 @@ defineExpose({
   font-size: 12px;
 }
 
+/* The status line sits below the plate rather than inside it: the plate's children are
+   `pointer-events: none` so the whole surface stays one click target, and a spinner inside would
+   also inherit the dashed border's padding and make the plate jump when it appears. */
+.intake-status {
+  display: flex;
+  align-items: center;
+  gap: var(--fat-space-xs);
+  margin: 0;
+  padding: var(--fat-space-xs) var(--fat-space-xs) 0;
+  color: var(--fat-text-secondary);
+  font-size: 12px;
+}
+
+.intake-status .el-icon {
+  color: var(--fat-primary-ink);
+}
+
+/* Sample chips live outside the drop plate for the same pointer-events reason. The row is the
+   empty-state's second act: the plate asks for a file, this answers "what if I don't have one". */
+.sample-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--fat-space-sm) var(--fat-space-md);
+  margin-top: var(--fat-space-sm);
+  padding: 0 var(--fat-space-xs);
+}
+
+.sample-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.sample-title {
+  color: var(--fat-text-regular);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.sample-hint {
+  color: var(--fat-text-secondary);
+  font-size: 11px;
+}
+
+.sample-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--fat-space-xs);
+}
+
+.sample-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  padding: 4px 10px;
+  color: var(--fat-text-regular);
+  background: var(--fat-bg-card);
+  border: 1px solid var(--fat-border);
+  border-radius: var(--fat-radius-sm);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  transition: var(--fat-transition);
+  animation: fat-sample-in var(--fat-duration-slow) var(--fat-ease-enter) both;
+}
+
+.sample-chip:nth-child(2) {
+  animation-delay: 45ms;
+}
+
+.sample-chip:nth-child(3) {
+  animation-delay: 90ms;
+}
+
+.sample-chip:hover:not(:disabled) {
+  background: var(--fat-primary-bg);
+  border-color: var(--fat-primary);
+  transform: translateY(-1px);
+}
+
+.sample-chip:focus-visible {
+  outline: 2px solid var(--fat-focus-ring);
+  outline-offset: 2px;
+}
+
+.sample-chip:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.sample-arrow {
+  color: var(--fat-primary-ink);
+  font-weight: 600;
+}
+
+.sample-target {
+  color: var(--fat-text-secondary);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+/* One-shot, from-only: the row ends on its resting style, so a reduced-motion pass has nothing
+   left to undo beyond the collapsed duration and lift tokens in global.css. */
+@keyframes fat-sample-in {
+  from {
+    opacity: 0;
+    transform: translateY(var(--fat-lift-sm));
+  }
+}
+
 .drop-zone.disabled {
   cursor: not-allowed;
   opacity: 0.6;
@@ -1299,4 +1538,20 @@ defineExpose({
    the history rows that share it. What matters here is the *key*: these rows are keyed by file
    identity, not by index, because an index key remounts every row below a removed one — that is
    what used to flicker, and no transition can smooth a remount. */
+
+@media (width <= 640px) {
+  .sample-strip {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .sample-actions {
+    width: 100%;
+  }
+
+  .sample-chip {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+}
 </style>

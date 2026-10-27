@@ -92,6 +92,12 @@ export const SOCIAL_IMAGE_ALT =
  * GIF→JPEG, XLSX→HTML and PNG→HTML — so the date moves with them.
  */
 export const PAGES_UPDATED = '2026-10-21';
+/**
+ * The index page's own sitemap date. It shares `PAGES_UPDATED` until the index changes on its own
+ * (a copy correction, a new section) without touching any pair page; bumping the shared constant
+ * there would tell crawlers that all 116 pair pages changed too.
+ */
+export const INDEX_UPDATED = '2026-10-27';
 
 /**
  * The date the first conversion page entered the repository, used as `datePublished` for every entry that

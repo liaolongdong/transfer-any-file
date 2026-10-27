@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import { Download, View, CopyDocument } from '@element-plus/icons-vue';
+import { Download, View, CopyDocument, Search } from '@element-plus/icons-vue';
 import type { BatchResult, ConvertResult } from '~/utils/core/types';
 import type { ConversionFailure } from '~/composables/useConversion';
 import { useI18n } from '~/composables/useI18n';
@@ -42,6 +42,87 @@ const emit = defineEmits<{
 const { t } = useI18n();
 
 const hasFailures = computed(() => props.failures.length > 0);
+
+type ResultFilter = 'all' | 'ok' | 'fail';
+interface FilterOption {
+  value: ResultFilter;
+  label: string;
+  count: number;
+}
+
+/**
+ * A view filter over the finished batch, not a second result list.
+ *
+ * It appears once the card is long enough to need it — either a batch above eight rows or any
+ * failure, because failures sit after every success today and on a 200-file run that is a scroll
+ * no one makes. Defaults are inert: the first render is still "all rows, no query".
+ */
+const activeFilter = ref<ResultFilter>('all');
+const searchQuery = ref('');
+const normalizedQuery = computed(() => searchQuery.value.trim().toLowerCase());
+const totalEntries = computed(() => props.results.length + props.failures.length);
+const showFilter = computed(() => totalEntries.value > 8 || hasFailures.value);
+const filterActive = computed(() => activeFilter.value !== 'all' || normalizedQuery.value !== '');
+
+const visibleResults = computed(() => {
+  if (activeFilter.value === 'fail') return [];
+  const query = normalizedQuery.value;
+  return props.results
+    .map((entry, index) => ({ entry, index }))
+    .filter(row => {
+      if (query === '') return true;
+      // Search the source names as well as the produced name: a name template can replace the
+      // basename, so the file the user actually dropped would otherwise never match its own row.
+      const names = [row.entry.result.filename, ...row.entry.owners.map(owner => owner.name)];
+      return names.some(name => name.toLowerCase().includes(query));
+    });
+});
+
+const visibleFailures = computed(() => {
+  if (activeFilter.value === 'ok') return [];
+  const query = normalizedQuery.value;
+  return props.failures.filter(failure => query === '' || failure.fileName.toLowerCase().includes(query));
+});
+
+const visibleCount = computed(() => visibleResults.value.length + visibleFailures.value.length);
+
+const filterShowing = computed(() =>
+  filterActive.value ? t('result.filterShowing', { shown: visibleCount.value, total: totalEntries.value }) : '',
+);
+
+const filterOptions = computed<FilterOption[]>(() => {
+  const options: FilterOption[] = [
+    { value: 'all', label: t('result.filterAll'), count: totalEntries.value },
+    { value: 'ok', label: t('result.filterOk'), count: props.results.length },
+  ];
+  if (hasFailures.value) {
+    options.push({ value: 'fail', label: t('result.filterFail'), count: props.failures.length });
+  }
+  return options;
+});
+
+// A retry can turn the last failure into a success; a filter left on an empty category would then
+// keep the card blank with no visible cause.
+watch(
+  () => [props.results.length, props.failures.length] as const,
+  () => {
+    if (activeFilter.value === 'fail' && !hasFailures.value) activeFilter.value = 'all';
+  },
+);
+
+// Dropping rows can take the card below the threshold that shows the toolbar. Reset the controls
+// at the same moment they leave the screen: otherwise the remaining rows stay filtered with no
+// visible way to clear the query.
+watch(showFilter, visible => {
+  if (visible) return;
+  activeFilter.value = 'all';
+  searchQuery.value = '';
+});
+
+function clearFilter(): void {
+  activeFilter.value = 'all';
+  searchQuery.value = '';
+}
 const alertType = computed(() => {
   if (props.cancelled) return props.results.length > 0 ? 'warning' : 'info';
   if (props.results.length === 0) return 'error';
@@ -272,10 +353,63 @@ function openPreview(result: ConvertResult): void {
       :closable="true"
       @close="staleDismissed = true"
     />
+    <!-- The filter sits outside the alert on purpose: `el-alert` is a `role="alert"` live region,
+         and a text field inside it would make every keystroke a new announcement. -->
+    <div
+      v-if="showFilter"
+      class="result-filter"
+    >
+      <el-input
+        v-model="searchQuery"
+        class="result-filter-search"
+        size="small"
+        clearable
+        :prefix-icon="Search"
+        :placeholder="t('result.filterSearch')"
+        :aria-label="t('result.filterSearch')"
+      />
+      <div
+        class="result-filter-group"
+        role="group"
+        :aria-label="t('result.filterGroup')"
+      >
+        <button
+          v-for="option in filterOptions"
+          :key="option.value"
+          type="button"
+          class="result-filter-btn"
+          :class="{ active: activeFilter === option.value }"
+          :aria-pressed="activeFilter === option.value"
+          @click="activeFilter = option.value"
+        >
+          {{ option.label }}
+          <span class="result-filter-count">{{ option.count }}</span>
+        </button>
+      </div>
+      <span
+        v-if="filterShowing"
+        class="result-filter-showing"
+        >{{ filterShowing }}</span
+      >
+    </div>
+    <p
+      v-if="filterActive && visibleCount === 0"
+      class="result-filter-empty"
+    >
+      {{ t('result.filterEmpty') }}
+      <button
+        type="button"
+        class="result-filter-reset"
+        @click="clearFilter"
+      >
+        {{ t('result.filterReset') }}
+      </button>
+    </p>
     <el-alert
       :title="alertTitle"
       :type="alertType"
       :closable="false"
+      :class="{ 'result-alert--success': alertType === 'success' }"
       show-icon
     >
       <div class="result-list">
@@ -288,34 +422,34 @@ function openPreview(result: ConvertResult): void {
           class="result-rows"
         >
           <div
-            v-for="(entry, index) in results"
-            :key="resultKey(entry)"
+            v-for="row in visibleResults"
+            :key="resultKey(row.entry)"
             class="result-item"
           >
-            <span class="result-name">{{ entry.result.filename }}</span>
+            <span class="result-name">{{ row.entry.result.filename }}</span>
             <!-- The row says what its own bytes are, which the selector above cannot: after a
                  target switch the two deliberately disagree until the next run. -->
-            <span class="result-target">{{ getFormatLabel(entry.target) }}</span>
-            <span class="result-size">{{ formatSize(entry.result.blob.size) }}</span>
+            <span class="result-target">{{ getFormatLabel(row.entry.target) }}</span>
+            <span class="result-size">{{ formatSize(row.entry.result.blob.size) }}</span>
             <el-button
-              v-if="formatFromFilename(entry.result.filename)"
+              v-if="formatFromFilename(row.entry.result.filename)"
               :icon="View"
               size="small"
               text
               type="primary"
               :title="t('result.preview')"
               :aria-label="t('a11y.preview')"
-              @click="openPreview(entry.result)"
+              @click="openPreview(row.entry.result)"
             />
             <el-button
-              v-if="isTextResult(entry.result)"
+              v-if="isTextResult(row.entry.result)"
               :icon="CopyDocument"
               size="small"
               text
               type="primary"
               :title="t('result.copy')"
               :aria-label="t('a11y.copy')"
-              @click="copyResult(entry.result)"
+              @click="copyResult(row.entry.result)"
             />
             <el-button
               v-if="results.length > 1"
@@ -325,7 +459,7 @@ function openPreview(result: ConvertResult): void {
               type="primary"
               :title="t('result.download')"
               :aria-label="t('a11y.download')"
-              @click="emit('download', index)"
+              @click="emit('download', row.index)"
             />
           </div>
         </TransitionGroup>
@@ -342,7 +476,7 @@ function openPreview(result: ConvertResult): void {
           {{ summaryLine }}
         </p>
         <template
-          v-for="failure in failures"
+          v-for="failure in visibleFailures"
           :key="failureKey(failure)"
         >
           <FailureDiagnosticItem :failure="failure" />
@@ -411,6 +545,112 @@ function openPreview(result: ConvertResult): void {
   display: flex;
   flex-direction: column;
   gap: var(--fat-space-xs);
+}
+
+/* The toolbar is a view control, so it stays on the alert's own tint: neutral borders and
+   `--fat-text-primary` ink keep it readable over every semantic hue the alert can take. The active
+   filter uses the accent as ink on its soft fill instead of a solid accent block, because white on
+   the light-theme blue is the known 2.54:1 pair. */
+.result-filter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--fat-space-xs) var(--fat-space-sm);
+}
+
+.result-filter-search {
+  flex: 1 1 160px;
+  max-width: 240px;
+}
+
+.result-filter-group {
+  display: inline-flex;
+  overflow: hidden;
+  border: 1px solid var(--fat-border);
+  border-radius: var(--fat-radius-sm);
+}
+
+.result-filter-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 24px;
+  padding: 2px 8px;
+  color: var(--fat-text-primary);
+  background: transparent;
+  border: 0;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  transition: var(--fat-transition-fast);
+}
+
+.result-filter-btn + .result-filter-btn {
+  border-left: 1px solid var(--fat-border);
+}
+
+.result-filter-btn:hover,
+.result-filter-btn.active {
+  color: var(--fat-primary-ink);
+  background: var(--fat-primary-bg);
+}
+
+.result-filter-btn.active {
+  font-weight: 600;
+}
+
+.result-filter-btn:focus-visible {
+  outline: 2px solid var(--fat-focus-ring);
+  outline-offset: -2px;
+}
+
+.result-filter-count {
+  color: var(--fat-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.result-filter-btn.active .result-filter-count {
+  color: inherit;
+}
+
+.result-filter-showing {
+  color: var(--fat-text-primary);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.result-filter-empty {
+  margin: 0;
+  color: var(--fat-text-primary);
+  font-size: 12px;
+}
+
+.result-filter-reset {
+  padding: 0;
+  color: var(--fat-primary-ink);
+  background: none;
+  border: 0;
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.result-filter-reset:focus-visible {
+  outline: 2px solid var(--fat-focus-ring);
+  outline-offset: 2px;
+}
+
+/* A one-shot arrival for the success state. The check already carries the meaning; this only lets
+   the eye land on it without a full-card animation, and it ends on the resting style. */
+.result-alert--success :deep(.el-alert__icon) {
+  animation: fat-success-pop var(--fat-duration-slow) var(--fat-ease-enter) both;
+}
+
+@keyframes fat-success-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
 }
 
 /* The rows sit inside a `<TransitionGroup>` so a retry's recovered files can animate in, which adds

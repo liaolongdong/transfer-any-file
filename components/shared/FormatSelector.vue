@@ -5,6 +5,7 @@ import type { FileFormat as FileFormatType, FileCategory } from '~/utils/core/ty
 import { getFormatLabel, getFormatCategory, FORMAT_INFO } from '~/utils/core/format-labels';
 import { converterRegistry } from '~/utils/core/registry';
 import { getBlockedReason } from '~/utils/core/conversion-policy';
+import { suggestTargets } from '~/utils/core/target-suggestions';
 import { useI18n } from '~/composables/useI18n';
 
 const props = withDefaults(
@@ -59,6 +60,17 @@ function disabledReason(format: FileFormatType): string {
 const recentOptions = computed<FileFormatType[]>(() => {
   return props.recentTargets.filter(f => selectableSet.value.has(f));
 });
+
+/**
+ * Targets offered while the picker is still empty.
+ *
+ * Deliberately not a pre-selection: the row disappears the moment a target exists, and every chip
+ * goes through the same `handleChange` the dropdown uses. It exists because the first screen has
+ * no "recently used" group yet, which is exactly the state in which a newcomer stalls.
+ */
+const suggestedTargets = computed(() =>
+  props.targetFormat === null && !props.disabled ? suggestTargets(props.sourceFormats, props.availableTargets, 3) : [],
+);
 
 /** A format lives in exactly one group. Element Plus caches options by value, so rendering the same
  *  value twice (recent + category) leaves the category copy unregistered once the recent copy
@@ -203,6 +215,29 @@ const noTargetTitle = computed(() => (hasSource.value ? t('format.noTarget') : t
     </div>
     <Transition name="fat-expand">
       <div
+        v-if="suggestedTargets.length > 0"
+        class="fat-expand suggestion-expand"
+      >
+        <div
+          class="suggestion-row"
+          role="group"
+          :aria-label="t('format.suggested')"
+        >
+          <span class="suggestion-label">{{ t('format.suggested') }}</span>
+          <button
+            v-for="format in suggestedTargets"
+            :key="format"
+            type="button"
+            class="suggestion-chip"
+            @click="handleChange(format)"
+          >
+            {{ getFormatLabel(format) }}
+          </button>
+        </div>
+      </div>
+    </Transition>
+    <Transition name="fat-expand">
+      <div
         v-if="conversionPathLabels.length > 0"
         class="fat-expand path-hint-expand"
       >
@@ -326,6 +361,46 @@ const noTargetTitle = computed(() => (hasSource.value ? t('format.noTarget') : t
    where the closed hint sits. See the note on `.fat-expand` in global.css. */
 .path-hint-expand {
   margin-top: var(--fat-space-sm);
+}
+
+.suggestion-expand {
+  margin-top: var(--fat-space-sm);
+}
+
+.suggestion-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--fat-space-xs);
+}
+
+.suggestion-label {
+  color: var(--fat-text-secondary);
+  font-size: 12px;
+}
+
+.suggestion-chip {
+  min-height: 26px;
+  padding: 3px 10px;
+  color: var(--fat-primary-ink);
+  background: var(--fat-primary-bg);
+  border: 1px solid var(--fat-primary-border);
+  border-radius: var(--fat-radius-sm);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  transition: var(--fat-transition);
+}
+
+.suggestion-chip:hover {
+  background: var(--fat-primary-border);
+  border-color: var(--fat-primary);
+  transform: translateY(-1px);
+}
+
+.suggestion-chip:focus-visible {
+  outline: 2px solid var(--fat-focus-ring);
+  outline-offset: 2px;
 }
 
 .path-hint {

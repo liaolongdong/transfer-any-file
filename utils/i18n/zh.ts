@@ -58,6 +58,14 @@ export default {
     /** Rendered in the empty drop zone, not the page footer: the doubt it answers ("我这格式能不能转")
      arises before a file is placed, and the footer sits below the fold on a 900px window. */
     stats: '支持 {formats} 种格式，{paths}+ 转换路径',
+    sampleTitle: '没有现成文件？先用示例试一次',
+    sampleHint: '示例在本机生成，不会上传',
+    sampleMarkdown: 'Markdown 文档',
+    sampleCsv: 'CSV 表格',
+    sampleImage: '示例图片',
+    sampleFailed: '示例生成失败，请直接拖入文件',
+    sampleReady: '已载入示例，目标已选为 {target}；点「开始转换」即可',
+    reading: '正在读取文件…',
     selectedCount: '已选择 {count} 个文件',
     unknownFormat: '未知格式',
     unknownFormatNotice: '有 {count} 个文件无法识别格式，将无法转换',
@@ -172,6 +180,7 @@ export default {
     disabledImageNoText: '图片无法转换为文本或表格数据（需 OCR，暂不支持）',
     disabledPdfNoData: 'PDF 无法可靠转换为表格/结构化数据',
     recentUsed: '最近使用',
+    suggested: '推荐',
     sourceTitle: '源格式',
     targetTitle: '目标格式',
   },
@@ -300,6 +309,14 @@ export default {
     copyDiagnostic: '复制诊断信息',
     diagnosticCopied: '诊断信息已复制',
     diagnosticCopyFail: '复制失败，请手动选择文本',
+    filterAll: '全部',
+    filterOk: '成功',
+    filterFail: '失败',
+    filterSearch: '按文件名搜索',
+    filterEmpty: '没有匹配的结果',
+    filterGroup: '筛选结果',
+    filterReset: '清除筛选',
+    filterShowing: '显示 {shown} / {total} 项',
   },
 
   // History

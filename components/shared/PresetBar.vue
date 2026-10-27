@@ -47,6 +47,16 @@ const optionsToCapture = computed(() =>
 
 const canSave = computed(() => hasRoom.value && props.targetFormat !== null && !props.disabled);
 
+/**
+ * A second line for a chip whose name does not already spell out its target and parameters.
+ * An auto-named preset (the save box left blank) is exactly `describePreset`, so repeating it
+ * would be noise; a hand-named one gains the one piece of information its label cannot carry.
+ */
+function presetMeta(preset: ConversionPreset): string {
+  const description = describePreset(preset.target, preset.options, t);
+  return description === preset.name ? '' : description;
+}
+
 const saveTitle = computed(() => {
   if (props.targetFormat === null) return t('preset.needTarget');
   if (!hasRoom.value) return t('preset.limit', { max: MAX_PRESETS });
@@ -163,7 +173,12 @@ async function handleRename(): Promise<void> {
           :title="describePreset(preset.target, preset.options, t)"
           @click="emit('apply', preset)"
         >
-          {{ preset.name }}
+          <span class="preset-chip-name">{{ preset.name }}</span>
+          <span
+            v-if="presetMeta(preset)"
+            class="preset-meta"
+            >{{ presetMeta(preset) }}</span
+          >
         </button>
         <button
           type="button"
@@ -326,6 +341,11 @@ async function handleRename(): Promise<void> {
 }
 
 .preset-apply {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 1px;
   max-width: 220px;
 
   /* WCAG 2.5.8 asks for a 24×24 pointer target; a one-character preset name is narrower than that
@@ -339,9 +359,21 @@ async function handleRename(): Promise<void> {
   color: var(--fat-text-regular);
   font: inherit;
   font-size: 12px;
+  text-align: left;
   cursor: pointer;
+}
+
+.preset-chip-name,
+.preset-meta {
+  max-width: 100%;
+  overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.preset-meta {
+  color: var(--fat-text-secondary);
+  font-size: 11px;
 }
 
 .preset-apply:disabled {

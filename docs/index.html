@@ -211,7 +211,7 @@
       · 143 combinations -> BFS closure over the same graph (utils/core/registry.ts)
       · 116 selectable   -> 143 minus the 27 pairs utils/core/conversion-policy.ts greys out
                             (24 image -> text/data + 3 PDF -> data)
-      · 3.88 MB          -> `pnpm build` total output size
+      · 3.90 MB          -> `pnpm build` total output size
     -->
     <script
       type="application/ld+json"
@@ -227,7 +227,7 @@
             "alternateName": ["Transfer Any File — Offline File Format Converter", "文件格式任意转换助手"],
             "softwareVersion": "1.3.0",
             "datePublished": "2026-09-07",
-            "dateModified": "2026-10-25",
+            "dateModified": "2026-10-27",
             "applicationCategory": "UtilitiesApplication",
             "applicationSubCategory": "File Format Converter",
             "keywords": "offline file format converter, file converter chrome extension, markdown to pdf, word to pdf, csv to excel, json to csv, png to webp, svg to png, html to docx, batch file conversion, convert files without uploading, local-first, privacy",
@@ -263,6 +263,10 @@
             "featureList": [
               "14 file formats and 48 direct conversion routes (143 combinations reachable, 116 selectable)",
               "Batch conversion of mixed source formats, up to 200 files",
+              "Built-in Markdown, CSV and image samples, plus suggested targets while the picker is empty",
+              "Result search and All / Succeeded / Failed filters for long batches",
+              "Reading status while a dropped folder or ZIP is unpacked",
+              "Preset chips show their target and output parameters",
               "Automatic multi-step conversion chains found by BFS, with the route shown before you convert",
               "Per-file error isolation with expandable, copyable failure diagnostics",
               "Cancellable batches with undo",
@@ -4477,7 +4481,7 @@
               class="metric metric-size"
               data-onview="in"
             >
-              <b>3.88&nbsp;MB</b>
+              <b>3.90&nbsp;MB</b>
               <span class="label"><span lang="zh-CN">完整包体</span><span lang="en">whole bundle</span></span>
               <span
                 class="size-bar"
@@ -6518,6 +6522,71 @@
               </p>
             </article>
             <article class="card reveal">
+              <div class="icon">
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M12 3v4M12 17v4M3 12h4M17 12h4" />
+                  <path d="m5.6 5.6 2.8 2.8M15.6 15.6l2.8 2.8M18.4 5.6l-2.8 2.8M8.4 15.6l-2.8 2.8" />
+                  <circle
+                    cx="12"
+                    cy="12"
+                    r="2.5"
+                  />
+                </svg>
+              </div>
+              <h3><span lang="zh-CN">内置示例与目标建议</span><span lang="en">Samples and suggested targets</span></h3>
+              <p>
+                <span lang="zh-CN"
+                  >空工作台自带 Markdown / CSV /
+                  图片三个示例，点一下直接载入并选好对应目标；还没选目标时，按源格式给出最多 3
+                  个推荐目标。推荐不会自动生效，点一下才等于一次普通的目标选择。</span
+                >
+                <span lang="en"
+                  >The empty workbench ships three samples (Markdown / CSV / image); one click stages one and picks its
+                  target. While the picker is empty, up to three targets are suggested for the source format — a
+                  suggestion never applies on its own, and clicking one is an ordinary target selection.</span
+                >
+              </p>
+            </article>
+            <article class="card reveal">
+              <div class="icon amber">
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M3 5h18l-7 8v6l-4 2v-8L3 5Z" />
+                </svg>
+              </div>
+              <h3><span lang="zh-CN">长批次也能找到那一条</span><span lang="en">Find one row in a long batch</span></h3>
+              <p>
+                <span lang="zh-CN"
+                  >结果超过 8 条或出现失败时，结果卡顶部出现按文件名搜索与「全部 / 成功 /
+                  失败」筛选。搜索同时匹配输出名与源文件名；失败视图只留失败，下载与 ZIP 仍按整批计算。</span
+                >
+                <span lang="en"
+                  >Once a batch has more than eight rows or any failure, the result card gains a file-name search and
+                  All / Succeeded / Failed filters. Search matches the produced name and the source name; the failure
+                  view hides successes, while downloads and the ZIP still count the whole batch.</span
+                >
+              </p>
+            </article>
+            <article class="card reveal">
               <div class="icon violet">
                 <svg
                   width="20"
@@ -7190,14 +7259,17 @@
                   src="assets/screenshots/workbench-empty.png"
                   width="1280"
                   height="800"
-                  alt="The empty workbench: a drop zone inviting files, a target-format picker beside it, and the history card below."
+                  alt="The empty workbench: a drop zone, three sample buttons (Markdown / CSV / image), and the presets and history cards below."
                   loading="lazy"
                 />
                 <figcaption>
-                  <span lang="zh-CN">起点：一屏内完成选文件、选目标格式、开始转换；点图标就在新标签页打开它。</span>
+                  <span lang="zh-CN"
+                    >起点：空态自带 Markdown / CSV /
+                    图片示例，点一下就能跑通第一次转换；也可以直接拖入自己的文件。</span
+                  >
                   <span lang="en"
-                    >The starting point: pick files, pick a target and convert, all on one screen — the toolbar icon
-                    opens it in a new tab.</span
+                    >The starting point: the empty workbench offers Markdown / CSV / image samples, so one click runs a
+                    first conversion; or drop your own files.</span
                   >
                 </figcaption>
               </figure>
@@ -8873,8 +8945,8 @@ pnpm build</code><button
               <p>
                 <span lang="zh-CN"
                   >一套 Playwright 端到端套件加载真正的构建产物，用仓库内的夹具跑完各类转换场景、批量与
-                  ZIP、取消与改键、预览与编辑、图片输出参数与转换预设、PDF 选页、输出文件名模板、历史与偏好，共 489
-                  项断言全部通过（1.3.0 构建，2026-10-25 实测）；另在 6 主题 × 浅/深共 12
+                  ZIP、取消与改键、预览与编辑、图片输出参数与转换预设、PDF 选页、输出文件名模板、历史与偏好，共 501
+                  项断言全部通过（1.3.0 构建，2026-10-27 实测）；另在 6 主题 × 浅/深共 12
                   种组合下逐项校验五组对比度：主按钮文字（常态 / 悬停 / 按下）、焦点环、正文信息文字，以及 Element Plus
                   浅色效果的警示框与格式标签。顶栏品牌字除晴空蓝外均达标；晴空蓝按另外两个扩展的同款白字配色
                   呈现（2.78:1），作为已知限制单列，断言为其钉了下限。CI 每次推送跑 lint + build + e2e。</span
@@ -8883,8 +8955,8 @@ pnpm build</code><button
                   >A Playwright end-to-end suite drives the actual build output over the repository fixtures — every
                   conversion scenario, batching and ZIP handling, cancellation and shortcut rebinding, preview and
                   editing, image output parameters and conversion presets, PDF page selection, output file-name
-                  patterns, history and preferences — with 489/489 assertions passing (the 1.3.0 build, measured
-                  2026-10-25). It also checks five contrast pairs — the primary button's label in its rest, hover and
+                  patterns, history and preferences — with 501/501 assertions passing (the 1.3.0 build, measured
+                  2026-10-27). It also checks five contrast pairs — the primary button's label in its rest, hover and
                   pressed states, the focus ring, informational text such as the drop hint and file sizes, and the ink
                   Element Plus paints on its light-effect alerts and per-file format tags — in all 12 theme × light/dark
                   combinations. Topbar brand text clears the threshold in 11 of them; light sky blue carries the sibling
@@ -8911,9 +8983,9 @@ pnpm build</code><button
           </div>
           <p class="updated">
             <span lang="zh-CN"
-              ><strong>版本 1.3.0 · 本页最后更新 2026-10-25。</strong>文中全部数字从代码取证：14 种格式来自
+              ><strong>版本 1.3.0 · 本页最后更新 2026-10-27。</strong>文中全部数字从代码取证：14 种格式来自
               <code>FileFormat</code> 枚举，48 条路径与 143 个可达组合来自转换器注册表的邻接图，116 个可选组合是 143
-              减去 <code>utils/core/conversion-policy.ts</code> 置灰的 27 个，3.88 MB 来自
+              减去 <code>utils/core/conversion-policy.ts</code> 置灰的 27 个，3.90 MB 来自
               <code>pnpm build</code> 输出，权限与上限来自 manifest 与源码常量。截图与推广图由
               <code>pnpm assets:capture</code> 从构建产物生成；<code>docs/convert/</code> 的 116 张配对页、14
               张来源格式页与 1 个索引页由 <code>pnpm pages:render</code> 生成，与
@@ -8921,10 +8993,10 @@ pnpm build</code><button
               <code>tools/file-diff.html</code> 的逐字节副本，由同一条命令发布到 <code>docs/diff/</code>。</span
             >
             <span lang="en"
-              ><strong>Version 1.3.0 · page last updated 2026-10-25.</strong> Every number on this page is taken from
+              ><strong>Version 1.3.0 · page last updated 2026-10-27.</strong> Every number on this page is taken from
               the code: 14 formats from the <code>FileFormat</code> enum, 48 routes and 143 reachable combinations from
               the converter registry's adjacency graph, and 116 selectable combinations — that is 143 minus the 27 pairs
-              <code>utils/core/conversion-policy.ts</code> greys out. 3.88 MB comes from <code>pnpm build</code> output,
+              <code>utils/core/conversion-policy.ts</code> greys out. 3.90 MB comes from <code>pnpm build</code> output,
               permissions and limits from the manifest and source constants. Screenshots are generated from the built
               bundle by <code>pnpm assets:capture</code>, and the per-pair pages — 116 of them, plus 14 source-format
               hub pages and an index — come from <code>pnpm pages:render</code>, which writes the sitemap they are
@@ -9248,7 +9320,7 @@ pnpm build</code><button
               </a>
             </span>
             <span>
-              <span lang="zh-CN">最后更新 2026-10-25 · </span><span lang="en">Last updated 2026-10-25 · </span
+              <span lang="zh-CN">最后更新 2026-10-27 · </span><span lang="en">Last updated 2026-10-27 · </span
               ><a
                 href="https://github.com/liaolongdong/transfer-any-file/blob/main/CHANGELOG.md"
                 rel="noopener"
@@ -9645,7 +9717,7 @@ pnpm build</code><button
         }
 
         // ---- Roll the metric band up, once, as it comes into view ----------
-        // Only bare integers are touched: "3.88 MB" is a measurement with a unit, not a tally, and
+        // Only bare integers are touched: "3.90 MB" is a measurement with a unit, not a tally, and
         // rolling it would advertise a precision the build does not have. The real value stays in the
         // HTML, so crawlers, no-JS readers and reduced-motion readers all see the answer immediately.
         var metricNums = Array.prototype.slice.call(document.querySelectorAll('.metric b')).filter(function (el) {
@@ -9810,7 +9882,7 @@ pnpm build</code><button
 
         // ---- One-pass scroll reveals declared in the markup -------------------
         // data-onview names the class an element gains the first time it is 35% in view:
-        // the size bar under "3.88 MB" (in) and the light sweep over the comparison column
+        // the size bar under "3.90 MB" (in) and the light sweep over the comparison column
         // (shine). Both classes only arm finite animations, so reduced-motion readers get
         // the end state directly and there is nothing to unsee.
         var onView = Array.prototype.slice.call(document.querySelectorAll('[data-onview]'));

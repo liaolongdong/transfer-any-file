@@ -344,6 +344,20 @@ function handleReorder(files: File[], name: string, position: number, total: num
 }
 
 /**
+ * Adopt the route a built-in sample was made to demonstrate.
+ *
+ * The sample's `update:files` lands one microtask later; setting the target first is what makes
+ * `setFiles` accept it instead of dropping it as unreachable. The toast names the target because
+ * the picker is below the drop plate on a short window and the change would otherwise be silent.
+ */
+function handleSampleLoaded(target: FileFormat): void {
+  setTargetFormat(target);
+  const message = t('upload.sampleReady', { target: getFormatLabel(target) });
+  ElMessage.info(message);
+  announce(message);
+}
+
+/**
  * Adopt a remembered target, and with it any output parameters and name pattern it carried.
  *
  * Returns whether the target was reachable. The callers decide how to say so: a pending request
@@ -591,6 +605,7 @@ onUnmounted(() => {
             :paths="pathCount"
             @update:files="handleFilesUpdate"
             @reorder="handleReorder"
+            @sample-loaded="handleSampleLoaded"
           />
 
           <!-- F10 — live region for status. Visually hidden, but announced by screen readers
