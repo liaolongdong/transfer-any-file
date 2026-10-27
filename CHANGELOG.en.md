@@ -11,6 +11,15 @@ Release PR is not by itself a release.
 
 ## [Unreleased]
 
+### Added
+
+- **site**: The image compressor now opens on a before/after comparison — a slider between the original and the result, a saving percentage that counts up from zero, two size bars normalised against the larger file, and quick 100 KB / 200 KB / 500 KB / 1 MB targets. The compressor is also linked from the generated pages' footer and from the 39 image-output pair pages
+- **ui**: Once a target is chosen, the selector states the losses this batch can already know about — PDF output has no text layer, a pure SVG source is rasterised on an image, PDF, Word or Markdown target, and an animated GIF keeps only its first frame when the target is an image or PDF; a one-frame GIF and a vector-preserving route say nothing. Result rows print their reduction against the source after the size, only when the output is smaller, and a multi-file batch adds the overall saving to its summary; growth prints no badge
+
+### Fixed
+
+- **site**: The image compressor no longer paints an empty download button and a broken preview before a file is chosen — `hidden` was being overridden by the `display` rules on `.tool-preview img` and `.tool-result`
+
 ## [1.8.0] - 2026-10-27
 
 ### Added

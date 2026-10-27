@@ -18,6 +18,8 @@ import { converterRegistry } from '~/utils/core/registry';
 import { isImageOutputFormat } from '~/utils/core/output-options';
 import { MAX_MERGED_PAGES } from '~/utils/core/image-pdf';
 import { getFormatLabel } from '~/utils/core/format-labels';
+import { hasMultipleFrames } from '~/utils/core/animated-image';
+import { detectFormat } from '~/utils/core/file-detect';
 import { GITHUB_RELEASES_PAGE_URL } from '~/utils/urls';
 import { FileFormat } from '~/utils/core/types';
 import type { ConversionPreset, ConvertResult, ImageOutputOptions } from '~/utils/core/types';
@@ -156,6 +158,50 @@ const pendingApplication = ref<PendingApplication | null>(null);
 const hasFiles = computed(() => sourceFiles.value.length > 0);
 const hasResults = computed(() => batchResults.value.length > 0);
 const hasFailures = computed(() => batchFailures.value.length > 0);
+
+/**
+ * Whether a staged GIF actually has a second frame. The preflight caveat must not fire on a
+ * single-frame GIF — the same distinction the post-run disclosure already makes — so the bytes are
+ * read here, not inferred from the extension.
+ *
+ * Results are cached per `File` (a reorder re-runs this watcher over the same objects), and the scan
+ * stops at the first animated file. The byte budget keeps a 200-file GIF batch from reading hundreds
+ * of megabytes before the user has pressed anything: a file that does not fit is skipped and the
+ * smaller files after it are still examined.
+ */
+const hasAnimatedGif = ref(false);
+const gifFrameCache = new WeakMap<File, boolean>();
+const GIF_PREFLIGHT_BYTE_BUDGET = 32 * 1024 * 1024;
+/** The first pass `hasMultipleFrames` reads before it may read the whole stream. */
+const GIF_PREFLIGHT_READ_HEAD = 4 * 1024 * 1024;
+let gifScanToken = 0;
+
+watch(
+  sourceFiles,
+  async files => {
+    const token = ++gifScanToken;
+    hasAnimatedGif.value = false;
+    let budget = GIF_PREFLIGHT_BYTE_BUDGET;
+    for (const file of files) {
+      if (token !== gifScanToken) return;
+      if (detectFormat(file) !== FileFormat.GIF) continue;
+      let animated = gifFrameCache.get(file);
+      if (animated === undefined) {
+        const cost = file.size + GIF_PREFLIGHT_READ_HEAD;
+        if (cost > budget) continue;
+        budget -= cost;
+        animated = await hasMultipleFrames(file).catch(() => false);
+        if (token !== gifScanToken) return;
+        gifFrameCache.set(file, animated);
+      }
+      if (animated) {
+        hasAnimatedGif.value = true;
+        return;
+      }
+    }
+  },
+  { immediate: true },
+);
 // Only "done" once the whole batch finished, so progress UI stays visible. A cancelled
 // batch counts even with nothing in it, otherwise the cancel leaves no trace on screen.
 const isDone = computed(() => !isConverting.value && (hasResults.value || hasFailures.value || cancelled.value));
@@ -634,6 +680,7 @@ onUnmounted(() => {
                 :target-format="targetFormat"
                 :recent-targets="recentTargets"
                 :disabled="isConverting"
+                :has-animated-gif="hasAnimatedGif"
                 @update:target-format="setTargetFormat"
               >
                 <template #actions>

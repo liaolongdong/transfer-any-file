@@ -64,11 +64,34 @@ const totalEntries = computed(() => props.results.length + props.failures.length
 const showFilter = computed(() => totalEntries.value > 8 || hasFailures.value);
 const filterActive = computed(() => activeFilter.value !== 'all' || normalizedQuery.value !== '');
 
+/**
+ * Bytes the row was produced from. A merged PDF has several owners; every other row has one, and
+ * the sum is the figure the row's own `−N%` is computed against.
+ */
+function sourceBytes(entry: BatchResult): number {
+  return entry.owners.reduce((sum, owner) => sum + owner.size, 0);
+}
+
+/**
+ * The saving a row can honestly claim. Growth and equality print nothing — a badge is a claim that
+ * the output is smaller, and a 1% rounding of two near-equal files would not be worth the space.
+ */
+function savingLabel(entry: BatchResult): string | null {
+  const source = sourceBytes(entry);
+  const result = entry.result.blob.size;
+  if (source <= 0 || result >= source) return null;
+  const raw = Math.round((1 - result / source) * 100);
+  // A non-empty result must not round to −100%; that reads as a zero-byte file. The compressor page
+  // caps the same number at the same place.
+  const percent = result > 0 ? Math.min(99, raw) : raw;
+  return percent >= 1 ? t('result.savedPercent', { percent }) : null;
+}
+
 const visibleResults = computed(() => {
   if (activeFilter.value === 'fail') return [];
   const query = normalizedQuery.value;
   return props.results
-    .map((entry, index) => ({ entry, index }))
+    .map((entry, index) => ({ entry, index, saving: savingLabel(entry) }))
     .filter(row => {
       if (query === '') return true;
       // Search the source names as well as the produced name: a name template can replace the
@@ -171,7 +194,9 @@ const sizeSummary = computed(() => {
     resultSize += entry.result.blob.size;
   }
   if (sourceSize === 0 || resultSize === sourceSize) return null;
-  return { source: formatSize(sourceSize), result: formatSize(resultSize) };
+  const raw = Math.round((1 - resultSize / sourceSize) * 100);
+  const percent = resultSize > 0 ? Math.min(99, raw) : raw;
+  return { source: formatSize(sourceSize), result: formatSize(resultSize), percent: percent >= 1 ? percent : null };
 });
 
 /**
@@ -233,6 +258,9 @@ const summaryLine = computed(() => {
   const parts: string[] = [];
   if (sizeSummary.value) {
     parts.push(t('result.sizeTotals', { source: sizeSummary.value.source, result: sizeSummary.value.result }));
+    if (sizeSummary.value.percent !== null) {
+      parts.push(t('result.savedTotal', { percent: sizeSummary.value.percent }));
+    }
   }
   if (elapsedText.value) parts.push(elapsedText.value);
   return parts.join(' · ');
@@ -430,7 +458,14 @@ function openPreview(result: ConvertResult): void {
             <!-- The row says what its own bytes are, which the selector above cannot: after a
                  target switch the two deliberately disagree until the next run. -->
             <span class="result-target">{{ getFormatLabel(row.entry.target) }}</span>
-            <span class="result-size">{{ formatSize(row.entry.result.blob.size) }}</span>
+            <span class="result-size"
+              >{{ formatSize(row.entry.result.blob.size)
+              }}<span
+                v-if="row.saving"
+                class="result-save"
+                >{{ row.saving }}</span
+              ></span
+            >
             <el-button
               v-if="formatFromFilename(row.entry.result.filename)"
               :icon="View"
@@ -724,6 +759,17 @@ function openPreview(result: ConvertResult): void {
 .result-size {
   flex-shrink: 0;
   color: var(--fat-text-secondary);
+  white-space: nowrap;
+}
+
+/* A saving is a property of this row's bytes, so it sits inside the size cell instead of adding a
+   fourth flex item that would squeeze the filename. `--fat-state-ink-success` is the token measured
+   for semantic text on a 10% tint (worst pair 5.13:1), which is exactly this alert. */
+.result-save {
+  margin-left: 4px;
+  color: var(--fat-state-ink-success);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
 }
 
 /* Same ink as `.result-item` and for the same reason: this sits on the alert's own 10 % tint, which

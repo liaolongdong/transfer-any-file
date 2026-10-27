@@ -18,8 +18,11 @@ const props = withDefaults(
     /** Blocks target switching while a batch is running — mid-batch changes would clear the
      *  in-flight results and leave them re-labelled under the new target. */
     disabled?: boolean;
+    /** Whether a staged GIF has more than one frame. Detected by the parent from the bytes, because
+     *  a GIF with one frame loses nothing when a raster target keeps the first frame. */
+    hasAnimatedGif?: boolean;
   }>(),
-  { recentTargets: () => [], disabled: false },
+  { recentTargets: () => [], disabled: false, hasAnimatedGif: false },
 );
 
 const emit = defineEmits<{
@@ -101,6 +104,37 @@ const conversionPathLabels = computed(() => {
   const steps = converterRegistry.findConversionPath(source, props.targetFormat);
   if (!steps || steps.length <= 1) return [];
   return steps.map(s => getFormatLabel(s.to));
+});
+
+/** A target that writes a bitmap container — where an animated GIF's frames are lost. */
+const isRasterTarget = computed(() => {
+  const target = props.targetFormat;
+  return target !== null && (target === FileFormat.PDF || getFormatCategory(target) === 'image');
+});
+
+/**
+ * A target that rasterises a pure SVG source. DOCX and Markdown join the raster family because both
+ * routes run `replaceInlineSvgWithPng` (`html-to-docx.ts` / `html-to-md.ts`), so the vector is gone
+ * even though the container is not an image.
+ */
+const rasterisesSvg = computed(() => {
+  const target = props.targetFormat;
+  return target !== null && (isRasterTarget.value || target === FileFormat.DOCX || target === FileFormat.MD);
+});
+
+/**
+ * Losses that are already knowable before the run, so the reader can pick another target instead
+ * of discovering them on the result card. Deliberately narrow: a document with inline SVG is not
+ * a document-level fact we can claim here, and a one-frame GIF loses nothing.
+ */
+const caveats = computed<string[]>(() => {
+  const target = props.targetFormat;
+  if (!target) return [];
+  const list: string[] = [];
+  if (target === FileFormat.PDF) list.push(t('format.caveatPdfNoText'));
+  if (props.sourceFormats.includes(FileFormat.SVG) && rasterisesSvg.value) list.push(t('format.caveatSvgRaster'));
+  if (props.hasAnimatedGif && isRasterTarget.value) list.push(t('format.caveatGifFirstFrame'));
+  return list;
 });
 
 function handleChange(format: FileFormat): void {
@@ -249,6 +283,28 @@ const noTargetTitle = computed(() => (hasSource.value ? t('format.noTarget') : t
         </div>
       </div>
     </Transition>
+    <Transition name="fat-expand">
+      <div
+        v-if="caveats.length > 0"
+        class="fat-expand caveat-expand"
+      >
+        <div
+          class="target-caveats"
+          role="note"
+          :aria-label="t('format.caveats')"
+        >
+          <span class="caveat-label">{{ t('format.caveats') }}</span>
+          <ul class="caveat-list">
+            <li
+              v-for="caveat in caveats"
+              :key="caveat"
+            >
+              {{ caveat }}
+            </li>
+          </ul>
+        </div>
+      </div>
+    </Transition>
   </div>
   <div
     v-else
@@ -361,6 +417,44 @@ const noTargetTitle = computed(() => (hasSource.value ? t('format.noTarget') : t
    where the closed hint sits. See the note on `.fat-expand` in global.css. */
 .path-hint-expand {
   margin-top: var(--fat-space-sm);
+}
+
+.caveat-expand {
+  margin-top: var(--fat-space-sm);
+}
+
+.target-caveats {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 10px;
+  padding: var(--fat-space-xs) var(--fat-space-sm);
+  color: var(--fat-text-secondary);
+  background: var(--fat-surface-2);
+  border: 1px solid var(--fat-border);
+  border-radius: var(--fat-radius-sm);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.caveat-label {
+  flex-shrink: 0;
+  color: var(--fat-text-primary);
+  font-weight: 600;
+}
+
+.caveat-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 12px;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.caveat-list li::before {
+  margin-right: 4px;
+  content: '·';
 }
 
 .suggestion-expand {

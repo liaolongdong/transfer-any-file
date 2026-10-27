@@ -136,7 +136,7 @@
             "alternateName": ["图片压缩到指定 KB", "Compress an image to a target size"],
             "url": "https://liaolongdong.github.io/transfer-any-file/compress/",
             "datePublished": "2026-10-27",
-            "dateModified": "2026-10-27",
+            "dateModified": "2026-10-28",
             "inLanguage": ["zh-CN", "en"],
             "applicationCategory": "UtilitiesApplication",
             "operatingSystem": "Any modern browser",
@@ -146,6 +146,7 @@
             "featureList": [
               "Compress one PNG, JPEG, WebP, BMP or GIF in the browser",
               "Set a quality, a longest edge or a target file size in KB",
+              "Compare the original and the compressed result with a slider",
               "Files never leave the page; nothing is uploaded and the conversion runs locally"
             ],
             "description": [
@@ -179,7 +180,7 @@
             "isPartOf": { "@id": "https://liaolongdong.github.io/transfer-any-file/#website" },
             "about": { "@id": "https://liaolongdong.github.io/transfer-any-file/compress/#app" },
             "datePublished": "2026-10-27",
-            "dateModified": "2026-10-27",
+            "dateModified": "2026-10-28",
             "description": "在浏览器本地把一张图片压到指定 KB 或最长边。可调质量与目标体积，图片不上传；压缩在本页完成。"
           },
           {
@@ -295,6 +296,13 @@
       })();
     </script>
     <style>
+      /* The `hidden` attribute is UA-origin `display: none`, so any author `display` on the same
+         element wins. Every panel below toggles `hidden`, and two of them are flex containers —
+         without this the empty result box and a broken preview image paint before a file is picked. */
+      [hidden] {
+        display: none !important;
+      }
+
       .tool-section {
         margin: 24px 0 8px;
       }
@@ -493,7 +501,7 @@
         text-align: center;
       }
 
-      .tool-preview img {
+      .tool-preview > img {
         display: block;
         max-width: 100%;
         max-height: 420px;
@@ -535,6 +543,229 @@
         border-radius: var(--radius-sm);
       }
 
+      .target-presets {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: -2px;
+      }
+
+      .preset-chip {
+        min-height: 28px;
+        padding: 3px 10px;
+        color: var(--ink-soft);
+        background: var(--paper);
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        font: inherit;
+        font-size: 12px;
+        cursor: pointer;
+        transition:
+          border-color var(--dur-fast) var(--ease-out),
+          background-color var(--dur-fast) var(--ease-out),
+          color var(--dur-fast) var(--ease-out);
+      }
+
+      .preset-chip:hover:not(:disabled) {
+        color: var(--brand-dark);
+        border-color: var(--brand-line);
+      }
+
+      .preset-chip[aria-pressed='true'] {
+        color: var(--brand-dark);
+        background: var(--brand-soft);
+        border-color: var(--brand);
+      }
+
+      .preset-chip:focus-visible {
+        outline: 2px solid var(--brand);
+        outline-offset: 2px;
+      }
+
+      .preset-chip:disabled {
+        cursor: not-allowed;
+        opacity: 0.55;
+      }
+
+      .compare {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .compare-stage {
+        position: relative;
+        width: 100%;
+        max-height: 420px;
+        overflow: hidden;
+        border-radius: 8px;
+        background: repeating-conic-gradient(#eef1f6 0 25%, #fff 0 50%) 50% / 18px 18px;
+        touch-action: pan-y;
+      }
+
+      .compare-stage img {
+        position: absolute;
+        inset: 0;
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        pointer-events: none;
+        user-select: none;
+      }
+
+      .compare-result-clip {
+        position: absolute;
+        inset: 0;
+        clip-path: inset(0 0 0 var(--compare, 50%));
+      }
+
+      .compare-divider {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: var(--compare, 50%);
+        width: 2px;
+        background: #fff;
+        box-shadow: 0 0 0 1px rgb(16 24 40 / 22%);
+        transform: translateX(-1px);
+        pointer-events: none;
+      }
+
+      .compare-tag {
+        position: absolute;
+        top: 8px;
+        padding: 2px 8px;
+        color: #fff;
+        background: rgb(16 24 40 / 72%);
+        border-radius: 999px;
+        font-size: 11px;
+        line-height: 18px;
+        pointer-events: none;
+      }
+
+      .compare-tag--before {
+        left: 8px;
+      }
+
+      .compare-tag--after {
+        right: 8px;
+      }
+
+      .compare-control {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        color: var(--ink-soft);
+        font-size: 13px;
+      }
+
+      .compare-control input {
+        flex: 1;
+        accent-color: var(--brand);
+      }
+
+      .compare-hint {
+        margin: 0;
+      }
+
+      .save-head {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+      }
+
+      .save-percent {
+        color: var(--ok);
+        font-size: 26px;
+        font-variant-numeric: tabular-nums;
+        line-height: 1.1;
+      }
+
+      .save-percent.is-grow {
+        color: var(--warn);
+      }
+
+      .save-percent.is-same {
+        color: var(--ink-soft);
+      }
+
+      .save-caption {
+        color: var(--ink-soft);
+        font-size: 12px;
+      }
+
+      .size-bars {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        margin: 2px 0 0;
+      }
+
+      .size-bar-row {
+        display: grid;
+        grid-template-columns: 48px minmax(0, 1fr) 64px;
+        align-items: center;
+        gap: 8px;
+        color: var(--ink-soft);
+        font-size: 11px;
+      }
+
+      .size-bar-track {
+        height: 6px;
+        overflow: hidden;
+        background: var(--line);
+        border-radius: 999px;
+      }
+
+      .size-bar-fill {
+        display: block;
+        width: 0;
+        height: 100%;
+        background: var(--ink-faint);
+        border-radius: inherit;
+        transition: width var(--dur-slow) var(--ease-out);
+      }
+
+      .size-bar-fill.is-after {
+        background: var(--ok);
+      }
+
+      .size-bar-fill.is-after.is-grow {
+        background: var(--warn);
+      }
+
+      .size-bar-fill.is-after.is-same {
+        background: var(--brand);
+      }
+
+      .size-bar-value {
+        font-variant-numeric: tabular-nums;
+        text-align: right;
+      }
+
+      @keyframes tool-card-in {
+        from {
+          opacity: 0;
+          transform: translateY(6px);
+        }
+      }
+
+      .tool-ready .tool-card {
+        animation: tool-card-in var(--dur-slow) var(--ease-out) both;
+      }
+
+      @keyframes tool-result-in {
+        from {
+          opacity: 0;
+          transform: translateY(6px);
+        }
+      }
+
+      .tool-result {
+        animation: tool-result-in var(--dur-mid) var(--ease-out) both;
+      }
+
       .tool-limited {
         margin: 0;
         color: var(--ink-soft);
@@ -548,6 +779,10 @@
 
         .tool-fields {
           grid-template-columns: 1fr;
+        }
+
+        .compare-stage {
+          max-height: 340px;
         }
       }
     </style>
@@ -706,6 +941,47 @@
                       />
                     </label>
                   </div>
+                  <div
+                    class="target-presets"
+                    role="group"
+                    aria-label="快捷目标体积 / Quick target sizes"
+                  >
+                    <button
+                      class="preset-chip"
+                      type="button"
+                      data-kb="100"
+                    >
+                      100 KB
+                    </button>
+                    <button
+                      class="preset-chip"
+                      type="button"
+                      data-kb="200"
+                    >
+                      200 KB
+                    </button>
+                    <button
+                      class="preset-chip"
+                      type="button"
+                      data-kb="500"
+                    >
+                      500 KB
+                    </button>
+                    <button
+                      class="preset-chip"
+                      type="button"
+                      data-kb="1024"
+                    >
+                      1 MB
+                    </button>
+                    <button
+                      class="preset-chip"
+                      type="button"
+                      data-kb="0"
+                    >
+                      <span lang="zh-CN">不限</span><span lang="en">No limit</span>
+                    </button>
+                  </div>
                   <p
                     class="tool-note"
                     id="formatNote"
@@ -754,14 +1030,103 @@
                     hidden
                   ></p>
                   <div
+                    class="compare"
+                    id="compareBox"
+                    hidden
+                  >
+                    <div
+                      class="compare-stage"
+                      id="compareStage"
+                      style="--compare: 50%"
+                    >
+                      <img
+                        id="compareOriginal"
+                        alt=""
+                      />
+                      <div class="compare-result-clip">
+                        <img
+                          id="compareResult"
+                          alt=""
+                        />
+                      </div>
+                      <span
+                        class="compare-divider"
+                        aria-hidden="true"
+                      ></span>
+                      <span class="compare-tag compare-tag--before"
+                        ><span lang="zh-CN">原图</span><span lang="en">Original</span></span
+                      >
+                      <span class="compare-tag compare-tag--after"
+                        ><span lang="zh-CN">压缩后</span><span lang="en">Compressed</span></span
+                      >
+                    </div>
+                    <label class="compare-control">
+                      <span><span lang="zh-CN">对比位置</span><span lang="en">Compare</span></span>
+                      <input
+                        id="compareRange"
+                        type="range"
+                        min="0"
+                        max="100"
+                        step="1"
+                        value="50"
+                        aria-label="对比位置 / Compare position"
+                      />
+                    </label>
+                    <p class="compare-hint fine">
+                      <span lang="zh-CN">拖动滑块，左侧是原图，右侧是压缩结果。</span>
+                      <span lang="en"
+                        >Drag the slider: the original is on the left, the compressed result on the right.</span
+                      >
+                    </p>
+                  </div>
+                  <div
                     class="tool-result"
                     id="resultBox"
                     hidden
                   >
+                    <div class="save-head">
+                      <strong
+                        class="save-percent"
+                        id="savePercent"
+                        >0%</strong
+                      >
+                      <span
+                        class="save-caption"
+                        id="saveCaption"
+                      ></span>
+                    </div>
                     <p
                       class="tool-result-line"
                       id="sizeLine"
                     ></p>
+                    <div class="size-bars">
+                      <div class="size-bar-row">
+                        <span><span lang="zh-CN">原图</span><span lang="en">Original</span></span>
+                        <span class="size-bar-track"
+                          ><span
+                            class="size-bar-fill"
+                            id="barBeforeFill"
+                          ></span
+                        ></span>
+                        <span
+                          class="size-bar-value"
+                          id="barBeforeValue"
+                        ></span>
+                      </div>
+                      <div class="size-bar-row">
+                        <span><span lang="zh-CN">结果</span><span lang="en">Result</span></span>
+                        <span class="size-bar-track"
+                          ><span
+                            class="size-bar-fill is-after"
+                            id="barAfterFill"
+                          ></span
+                        ></span>
+                        <span
+                          class="size-bar-value"
+                          id="barAfterValue"
+                        ></span>
+                      </div>
+                    </div>
                     <p
                       class="fine"
                       id="detailLine"
@@ -791,8 +1156,11 @@
                 <span lang="en">Pick an output format, quality, longest edge or target size, then press Compress.</span>
               </li>
               <li>
-                <span lang="zh-CN">预览结果并下载；文件只在本页生成。</span>
-                <span lang="en">Preview the result and download it; the file is produced in this tab.</span>
+                <span lang="zh-CN">拖动对比滑块查看原图与结果，再下载；文件只在本页生成。</span>
+                <span lang="en"
+                  >Drag the comparison slider between the original and the result, then download; the file is produced
+                  in this tab.</span
+                >
               </li>
             </ol>
           </section>
@@ -971,9 +1339,9 @@
           </section>
 
           <p class="fine">
-            <span lang="zh-CN">最后更新 2026-10-27 · 本页只处理你放入的那一张图片，不上传；处理在本页完成。</span>
+            <span lang="zh-CN">最后更新 2026-10-28 · 本页只处理你放入的那一张图片，不上传；处理在本页完成。</span>
             <span lang="en"
-              >Last updated: 2026-10-27 · This page only processes the image you give it; nothing is uploaded and
+              >Last updated: 2026-10-28 · This page only processes the image you give it; nothing is uploaded and
               processing happens here.</span
             >
           </p>
@@ -1018,7 +1386,7 @@
             '目标 {target} KB 未达成，结果偏大。',
             'Target {target} KB was not reached; the result is larger.',
           ],
-          sizeLine: ['{before} → {after}（{change}）', '{before} → {after} ({change})'],
+          sizeLine: ['{before} → {after}', '{before} → {after}'],
           detailLine: [
             '{width} × {height} · {format} · 质量 {quality}',
             '{width} × {height} · {format} · quality {quality}',
@@ -1027,6 +1395,9 @@
           originalLabel: ['原图', 'Original'],
           resultLabel: ['压缩结果', 'Compressed result'],
           previewAlt: ['压缩结果预览', 'Compressed image preview'],
+          smaller: ['更小', 'smaller'],
+          larger: ['更大', 'larger'],
+          same: ['持平', 'same size'],
           dropTitle: ['拖入一张图片，或点击选择', 'Drop an image here, or click to choose one'],
           pngNote: [
             'PNG 没有质量参数，目标体积会置灰；用最长边控制大小，或改选 JPEG / WebP。',
@@ -1080,6 +1451,19 @@
         var detailLine = $('detailLine');
         var download = $('download');
         var card = $('toolCard');
+        var compareBox = $('compareBox');
+        var compareStage = $('compareStage');
+        var compareOriginal = $('compareOriginal');
+        var compareResult = $('compareResult');
+        var compareRange = $('compareRange');
+        var savePercent = $('savePercent');
+        var saveCaption = $('saveCaption');
+        var barBeforeFill = $('barBeforeFill');
+        var barAfterFill = $('barAfterFill');
+        var barBeforeValue = $('barBeforeValue');
+        var barAfterValue = $('barAfterValue');
+        var presetChips = Array.prototype.slice.call(document.querySelectorAll('.preset-chip'));
+        var countFrame = 0;
 
         var MAX_INPUT_BYTES = 50 * 1024 * 1024;
         var MAX_CANVAS_EDGE = 4096;
@@ -1140,6 +1524,73 @@
           status.className = 'tool-status' + (kind ? ' is-' + kind : '');
         }
 
+        function prefersReducedMotion() {
+          return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+        }
+
+        function setComparePercent(value) {
+          var percent = Math.max(0, Math.min(100, Number(value) || 0));
+          compareStage.style.setProperty('--compare', percent + '%');
+        }
+
+        function stopCount() {
+          if (countFrame) {
+            cancelAnimationFrame(countFrame);
+            countFrame = 0;
+          }
+        }
+
+        /* The sign is part of the number: a saving reads −62%, not 62%. The count-up is skipped
+           under reduced motion, where the final text lands on the first frame. */
+        function paintPercent(change) {
+          stopCount();
+          var magnitude = Math.abs(change);
+          var sign = change < 0 ? '−' : change > 0 ? '+' : '';
+          var finalText = sign + magnitude + '%';
+          savePercent.classList.toggle('is-grow', change > 0);
+          savePercent.classList.toggle('is-same', change === 0);
+          if (prefersReducedMotion() || magnitude === 0) {
+            savePercent.textContent = finalText;
+            return;
+          }
+          var started = performance.now();
+          var step = function (now) {
+            var progress = Math.min(1, (now - started) / 520);
+            var eased = 1 - Math.pow(1 - progress, 3);
+            savePercent.textContent = sign + Math.round(magnitude * eased) + '%';
+            countFrame = progress < 1 ? requestAnimationFrame(step) : 0;
+          };
+          countFrame = requestAnimationFrame(step);
+        }
+
+        /* Bars are normalised against the larger of the two files, so a result that grew still has
+           a readable shape instead of being clipped at full width. */
+        function paintBars(before, after) {
+          var max = Math.max(before, after, 1);
+          barBeforeValue.textContent = formatBytes(before);
+          barAfterValue.textContent = formatBytes(after);
+          barBeforeFill.style.width = '0%';
+          barAfterFill.style.width = '0%';
+          barAfterFill.classList.toggle('is-grow', after > before);
+          barAfterFill.classList.toggle('is-same', after === before);
+          requestAnimationFrame(function () {
+            // A real saving can round to 0% of the original; keep a sliver so the bar does not read
+            // as an empty track.
+            barBeforeFill.style.width = Math.max(2, Math.round((before / max) * 100)) + '%';
+            barAfterFill.style.width = Math.max(2, Math.round((after / max) * 100)) + '%';
+          });
+        }
+
+        function paintPresets() {
+          var png = format.value === 'image/png';
+          var current = Number(targetKB.value) || 0;
+          presetChips.forEach(function (chip) {
+            var kb = Number(chip.getAttribute('data-kb')) || 0;
+            chip.disabled = state.busy || png;
+            chip.setAttribute('aria-pressed', current === kb ? 'true' : 'false');
+          });
+        }
+
         function syncControls() {
           var png = format.value === 'image/png';
           format.disabled = state.busy;
@@ -1151,6 +1602,7 @@
           input.disabled = state.busy;
           drop.classList.toggle('is-busy', state.busy);
           drop.setAttribute('aria-disabled', state.busy ? 'true' : 'false');
+          paintPresets();
         }
 
         function updateFormatNote() {
@@ -1165,6 +1617,18 @@
             URL.revokeObjectURL(state.resultUrl);
             state.resultUrl = '';
           }
+          stopCount();
+          compareBox.hidden = true;
+          compareRange.value = '50';
+          setComparePercent(50);
+          savePercent.textContent = '0%';
+          savePercent.className = 'save-percent';
+          saveCaption.textContent = '';
+          barBeforeFill.style.width = '0%';
+          barAfterFill.className = 'size-bar-fill is-after';
+          barAfterFill.style.width = '0%';
+          barBeforeValue.textContent = '';
+          barAfterValue.textContent = '';
           resultBox.hidden = true;
           download.removeAttribute('href');
           download.removeAttribute('download');
@@ -1185,6 +1649,7 @@
         function settingsChanged() {
           if (!state.file || state.busy) return;
           clearResult();
+          syncControls();
           setStatus(t('settingsChanged'));
         }
 
@@ -1269,7 +1734,8 @@
           var before = state.file.size;
           var after = blob.size;
           var change = before > 0 ? Math.round((after / before - 1) * 100) : 0;
-          var changed = (change < 0 ? String(change) : '+' + change) + '%';
+          // A non-empty result rounded to −100% would claim the file vanished; −99% is the honest ceiling.
+          if (change === -100 && after > 0) change = -99;
           var targetText =
             target > 0
               ? result.targetMet
@@ -1279,7 +1745,6 @@
           sizeLine.textContent = t('sizeLine', {
             before: formatBytes(before),
             after: formatBytes(after),
-            change: changed,
           });
           if (targetText) sizeLine.textContent += ' · ' + targetText;
           detailLine.textContent = t('detailLine', {
@@ -1288,13 +1753,21 @@
             format: formatName(format.value),
             quality: result.quality === null ? t('noQuality') : Math.round(result.quality * 100) + '%',
           });
+          saveCaption.textContent = change < 0 ? t('smaller') : change > 0 ? t('larger') : t('same');
+          paintPercent(change);
+          paintBars(before, after);
           if (state.resultUrl) URL.revokeObjectURL(state.resultUrl);
           state.resultUrl = URL.createObjectURL(blob);
-          preview.src = state.resultUrl;
-          preview.hidden = false;
-          preview.alt = t('previewAlt');
-          previewLabel.hidden = false;
-          previewLabel.textContent = t('resultLabel');
+          compareOriginal.src = state.originalUrl;
+          compareOriginal.alt = t('originalLabel');
+          compareResult.src = state.resultUrl;
+          compareResult.alt = t('previewAlt');
+          compareStage.style.setProperty('aspect-ratio', result.width + ' / ' + result.height);
+          compareRange.value = '50';
+          setComparePercent(50);
+          compareBox.hidden = false;
+          preview.hidden = true;
+          previewLabel.hidden = true;
           previewEmpty.hidden = true;
           resultBox.hidden = false;
           download.href = state.resultUrl;
@@ -1451,7 +1924,23 @@
           settingsChanged();
         });
         maxEdge.addEventListener('change', settingsChanged);
-        targetKB.addEventListener('change', settingsChanged);
+        targetKB.addEventListener('input', paintPresets);
+        targetKB.addEventListener('change', function () {
+          paintPresets();
+          settingsChanged();
+        });
+        compareRange.addEventListener('input', function () {
+          setComparePercent(compareRange.value);
+        });
+        presetChips.forEach(function (chip) {
+          chip.addEventListener('click', function () {
+            if (state.busy || format.value === 'image/png') return;
+            var kb = Number(chip.getAttribute('data-kb')) || 0;
+            targetKB.value = kb > 0 ? String(kb) : '';
+            paintPresets();
+            settingsChanged();
+          });
+        });
         compressBtn.addEventListener('click', function () {
           void compress();
         });

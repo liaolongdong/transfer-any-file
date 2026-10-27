@@ -1379,6 +1379,7 @@ function chrome(depth) {
       <p class="fine">
         <a href="${up}">${bi('产品说明', 'Product page')}</a>
         <a href="${up}convert/">${bi(CONVERT_CRUMB.zh, CONVERT_CRUMB.en)}</a>
+        <a href="${up}compress/">${bi('图片压缩', 'Image compressor')}</a>
         <a href="${up}privacy.html">${bi('隐私政策', 'Privacy policy')}</a>
         <a href="${SITE.repo}" rel="noopener" target="_blank">${bi('源码 (MIT)', 'Source (MIT)')}</a>
       </p>
@@ -1433,6 +1434,13 @@ ${related}
             </ul>
             <p class="fine">${bi('完整一览见', 'The full set is on the')} <a href="../convert/">${bi('转换一览页', 'conversions index')}</a>${bi('。', '.')}</p>
           </section>
+`
+    : '';
+
+  // A page whose output is a re-encodable raster has a second, more specific door: the standalone
+  // compressor. Text-output pages do not get it — the tool would have nothing to accept.
+  const compressorLink = ['png', 'jpg', 'webp'].includes(pair.to)
+    ? `          <p class="fine tool-crosslink">${bi('要把它压到指定体积？', 'Need it under a target size? The ')}<a href="../compress/">${bi('图片压缩工具', 'image compressor')}</a>${bi('可以在浏览器里重编码 PNG / JPEG / WebP。', ' re-encodes PNG / JPEG / WebP in the browser.')}</p>
 `
     : '';
 
@@ -1647,7 +1655,7 @@ ${faq}
               <a class="btn ghost" href="${SITE.repo}">${bi('GitHub 源码', 'Source on GitHub')}</a>
             </p>
           </section>
-${relatedSection}        </article>
+${relatedSection}${compressorLink}        </article>
       </div>
     </main>
     ${foot}
@@ -2215,7 +2223,7 @@ ${lists}
 const STATIC_PAGES = {
   home: {
     path: '/',
-    updated: '2026-10-27',
+    updated: '2026-10-28',
     changefreq: 'monthly',
     priority: '1.0',
     file: 'docs/index.html',
@@ -2229,7 +2237,7 @@ const STATIC_PAGES = {
   },
   blog: {
     path: '/blog/',
-    updated: '2026-10-27',
+    updated: '2026-10-28',
     changefreq: 'monthly',
     priority: '0.8',
     file: 'docs/blog/index.html',
@@ -2263,7 +2271,7 @@ const STATIC_PAGES = {
   },
   compress: {
     path: '/compress/',
-    updated: '2026-10-27',
+    updated: '2026-10-28',
     changefreq: 'monthly',
     priority: '0.8',
     file: 'tools/image-compressor.html',
@@ -2577,6 +2585,13 @@ function validateCompressPage() {
   }
   if (!source.includes("classList.add('tool-ready')")) {
     fail('tools/image-compressor.html no longer marks the page tool-ready, so the form would never become visible');
+  }
+  // `hidden` is UA-origin, so the flex containers below it need this explicit override; without it
+  // the empty result box and a broken preview paint before a file is chosen.
+  if (!/\[hidden\]\s*\{[^}]*display:\s*none\s*!important/.test(source)) {
+    fail(
+      'tools/image-compressor.html no longer forces [hidden] off, so empty panels can paint before a file is chosen',
+    );
   }
 
   const ld = /<script\s+type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/.exec(source);

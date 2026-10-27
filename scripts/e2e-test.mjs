@@ -639,6 +639,14 @@ async function convertFile(page, fixture, targetText, timeout = 30000, prepare) 
   // page-range box only mounts once an image target is selected, so it cannot be set up earlier.
   if (prepare) await prepare();
 
+  // The caveat is inside a `fat-expand` Transition. A switch from a target that had one to a target
+  // that does not leaves the old block in the DOM for one duration, so read only after that leave
+  // has finished — otherwise the next route can see the previous answer.
+  await page
+    .waitForFunction(() => !document.querySelector('.fat-expand-leave-active'), undefined, { timeout: 2000 })
+    .catch(() => {});
+  const caveats = await page.$eval('.target-caveats', el => el.textContent.trim()).catch(() => '');
+
   const cb = await page.waitForSelector('.convert-btn', { timeout: 10000 });
   await cb.click();
 
@@ -655,7 +663,8 @@ async function convertFile(page, fixture, targetText, timeout = 30000, prepare) 
   const alertTitle = await page.$eval('.el-alert__title', el => el.textContent).catch(() => '');
   const resultName = await page.$eval('.result-item .result-name', el => el.textContent).catch(() => '');
   const resultSize = await page.$eval('.result-item .result-size', el => el.textContent).catch(() => '');
-  return { alertTitle, resultName, resultSize, formatDetected: formatTag };
+  const saving = await page.$eval('.result-item .result-save', el => el.textContent.trim()).catch(() => '');
+  return { alertTitle, resultName, resultSize, saving, caveats, formatDetected: formatTag };
 }
 
 /** Reset the workbench for a new conversion.
@@ -692,6 +701,34 @@ async function resetWorkbench(page) {
 }
 
 /** Choose a conversion target from the workbench's format dropdown. */
+/**
+ * A solid 24-bit BMP. BMP is the one input the browser only decodes, so it is the cheapest way to
+ * hand the suite a file whose PNG/WebP result is guaranteed to be far smaller than its source.
+ */
+function solidBmp(width, height) {
+  const row = Math.ceil((width * 3) / 4) * 4;
+  const data = row * height;
+  const buffer = Buffer.alloc(54 + data);
+  buffer.write('BM', 0);
+  buffer.writeUInt32LE(54 + data, 2);
+  buffer.writeUInt32LE(54, 10);
+  buffer.writeUInt32LE(40, 14);
+  buffer.writeInt32LE(width, 18);
+  buffer.writeInt32LE(height, 22);
+  buffer.writeUInt16LE(1, 26);
+  buffer.writeUInt16LE(24, 28);
+  buffer.writeUInt32LE(data, 34);
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const offset = 54 + y * row + x * 3;
+      buffer[offset] = 40;
+      buffer[offset + 1] = 80;
+      buffer[offset + 2] = 200;
+    }
+  }
+  return buffer;
+}
+
 async function pickTarget(page, text) {
   const sel = await page.waitForSelector('.action-row .el-select', { timeout: 10000 });
   await sel.click();
@@ -1519,7 +1556,17 @@ async function run() {
     try {
       await resetWorkbench(page);
       const result = await convertFile(page, fixture, target);
-      if (result.alertTitle.includes('完成')) {
+      // Preflight claims folded into the route's own assertion: a PDF target always writes raster
+      // pages, a pure SVG source is rasterised on an image/PDF target, and SVG→HTML must not carry
+      // the SVG warning. Reading `caveats` from the same run keeps the existing assertion contract intact.
+      const expectsPdfCaveat = target === 'PDF (.pdf)';
+      const svgToRaster = fixture === 'sample.svg' && (target === 'PNG (.png)' || target === 'PDF (.pdf)');
+      const svgToHtml = fixture === 'sample.svg' && target === 'HTML (.html)';
+      const caveatsOk =
+        (!expectsPdfCaveat || result.caveats.includes('文字层')) &&
+        (!svgToRaster || result.caveats.includes('栅格化')) &&
+        (!svgToHtml || !result.caveats.includes('栅格化'));
+      if (result.alertTitle.includes('完成') && caveatsOk) {
         ok(`${label}: ${result.formatDetected} → ${target} (${result.resultSize})`);
         const shotName = `${String(shotIdx).padStart(2, '0')}-${label
           .toLowerCase()
@@ -1527,8 +1574,10 @@ async function run() {
           .replace(/[^a-z0-9]/g, '-')}.png`;
         await page.screenshot({ path: shot(shotName), fullPage: true });
         shotIdx++;
-      } else {
+      } else if (!result.alertTitle.includes('完成')) {
         fail(label, `alert: "${result.alertTitle}"`);
+      } else {
+        fail(label, `preflight caveats "${result.caveats}" for ${target}`);
       }
     } catch (e) {
       fail(label, e.message);
@@ -1564,6 +1613,44 @@ async function run() {
   }
 
   // ═══════════════════════════════════════════
+  //  Result rows claim a saving only when one exists
+  // ═══════════════════════════════════════════
+
+  // A solid BMP is almost all redundant bytes, while its PNG is a few hundred; the negative case
+  // uses TXT→HTML, where the wrapper makes the result larger. Both halves read the same
+  // `.result-save` cell the screenshot and a user see.
+  if (section('Result savings badge')) {
+    try {
+      await resetWorkbench(page);
+      const shrunk = await convertFile(
+        page,
+        { name: 'solid.bmp', mimeType: 'image/bmp', buffer: solidBmp(400, 400) },
+        'PNG (.png)',
+      );
+      if (!shrunk.resultName) {
+        fail('Result savings badge', `no result row: alert "${shrunk.alertTitle}"`);
+      } else if (shrunk.saving.startsWith('−') && shrunk.saving.endsWith('%')) {
+        ok(`A smaller result shows its saving (${shrunk.saving})`);
+        await page.screenshot({ path: shot('result-saving.png'), fullPage: true });
+      } else {
+        fail('Result savings badge', `expected a negative percentage, got "${shrunk.saving}"`);
+      }
+
+      await resetWorkbench(page);
+      const grown = await convertFile(page, 'sample.txt', 'HTML (.html)');
+      if (!grown.resultName) {
+        fail('No saving badge on growth', `no result row: alert "${grown.alertTitle}"`);
+      } else if (grown.saving === '') {
+        ok('A larger result shows no saving badge');
+      } else {
+        fail('No saving badge on growth', `unexpected saving "${grown.saving}"`);
+      }
+    } catch (e) {
+      fail('Result savings badge', e.message);
+    }
+  }
+
+  // ═══════════════════════════════════════════
   //  F-5a0 — a route that flattened the animation says so in the result card
   // ═══════════════════════════════════════════
 
@@ -1581,10 +1668,10 @@ async function run() {
       const flattened = await page.$$eval('.result-note', els => els.map(el => el.textContent.trim()));
       if (!flattenedTo.resultName) {
         fail('animated GIF→PNG disclosure', `no result row: alert "${flattenedTo.alertTitle}"`);
-      } else if (flattened.some(text => text.includes('第一帧'))) {
-        ok('animated GIF→PNG discloses that only the first frame survives');
+      } else if (flattened.some(text => text.includes('第一帧')) && flattenedTo.caveats.includes('第一帧')) {
+        ok('animated GIF→PNG warns before and discloses after that only the first frame survives');
       } else {
-        fail('animated GIF→PNG disclosure', `notes rendered: ${JSON.stringify(flattened)}`);
+        fail('animated GIF→PNG disclosure', `notes ${JSON.stringify(flattened)}; caveats "${flattenedTo.caveats}"`);
       }
 
       await resetWorkbench(page);
@@ -1592,10 +1679,13 @@ async function run() {
       const still = await page.$$eval('.result-note', els => els.map(el => el.textContent.trim()));
       if (!stillTo.resultName) {
         fail('single-frame GIF→PNG disclosure', `no result row: alert "${stillTo.alertTitle}"`);
-      } else if (still.some(text => text.includes('第一帧'))) {
-        fail('single-frame GIF→PNG disclosure', `unexpected note: ${JSON.stringify(still)}`);
+      } else if (still.some(text => text.includes('第一帧')) || stillTo.caveats.includes('第一帧')) {
+        fail(
+          'single-frame GIF→PNG disclosure',
+          `unexpected note ${JSON.stringify(still)} or caveat "${stillTo.caveats}"`,
+        );
       } else {
-        ok('a one-frame GIF gets no loss note — there was no frame to lose');
+        ok('a one-frame GIF gets no preflight warning or loss note — there was no frame to lose');
       }
 
       await resetWorkbench(page);
@@ -1603,10 +1693,10 @@ async function run() {
       const kept = await page.$$eval('.result-note', els => els.map(el => el.textContent.trim()));
       if (!keptTo.resultName) {
         fail('GIF→HTML disclosure', `no result row: alert "${keptTo.alertTitle}"`);
-      } else if (kept.some(text => text.includes('第一帧'))) {
-        fail('GIF→HTML disclosure', `unexpected note: ${JSON.stringify(kept)}`);
+      } else if (kept.some(text => text.includes('第一帧')) || keptTo.caveats.includes('第一帧')) {
+        fail('GIF→HTML disclosure', `unexpected note ${JSON.stringify(kept)} or caveat "${keptTo.caveats}"`);
       } else {
-        ok('GIF→HTML stays silent — that route keeps the animation');
+        ok('GIF→HTML stays silent before and after — that route keeps the animation');
       }
       await page.screenshot({
         path: shot(`${String(shotIdx++).padStart(2, '0')}-gif-html-keeps-animation.png`),
@@ -2871,10 +2961,18 @@ async function run() {
         // The disclosure has to travel with the artifact: nothing on a `sample_docx_….docx` name says
         // the diagram inside it stopped being vector artwork, and this is where the user finds out.
         const notes = await page.$$eval('.result-note', els => els.map(el => el.textContent.trim()));
-        if (notes.some(text => text.includes('矢量图'))) {
-          ok(`${label} discloses that inline SVG became a bitmap`);
+        // The preflight side is folded into this assertion: a pure SVG source should warn before the
+        // run as well as disclose after it, while the Markdown source (whose inline-SVG presence is a
+        // document-level fact the selector cannot know) must not. Same statement count, both halves.
+        const caveatsOk = fixture === 'sample.svg' ? r.caveats.includes('栅格化') : !r.caveats.includes('栅格化');
+        if (notes.some(text => text.includes('矢量图')) && caveatsOk) {
+          const timing =
+            fixture === 'sample.svg'
+              ? 'warns before and discloses after'
+              : 'discloses after, without a preflight claim (the source is Markdown)';
+          ok(`${label} ${timing} that inline SVG became a bitmap`);
         } else {
-          fail(`${label} svg disclosure`, `notes rendered: ${JSON.stringify(notes)}`);
+          fail(`${label} svg disclosure`, `notes ${JSON.stringify(notes)}; caveats "${r.caveats}"`);
         }
         const head = pngHead(...dims);
         // The `<title>` probe is encoding-agnostic on purpose: it asks whether the words are still in
