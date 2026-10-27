@@ -827,31 +827,38 @@ involves no secrecy at all — `gh secret set CHROME_EXTENSION_ID_TAF` and paste
 
 ### Q18: I merged the Release PR and there is neither a tag nor a `release.yml` run?
 
-`RELEASE_PAT` is missing. GitHub has a hard rule: **events created by `GITHUB_TOKEN` do not trigger other
-workflows**, so a tag pushed with the built-in token yields the silent half-failure "the tag exists, the downstream
-workflow never ran". How to configure it is in 1.2 of `.github/RELEASE_AUTOMATION.md` (fine-grained token, this one
-repository only, Contents + Pull requests permissions).
+**As of 2026-10-27 this is no longer "missing `RELEASE_PAT`"**: the tag is created with the job token, and the
+`publish` job of `release-prepare.yml` then **explicitly** calls `release.yml` through `workflow_call`. The chain no
+longer bets on "a tag triggers a workflow", so GitHub's hard rule (**events created by `GITHUB_TOKEN` do not trigger
+other workflows**) is routed around rather than satisfied. `RELEASE_PAT` now only decides who authors the Release
+PR, i.e. whether that PR carries status checks (configuration in 1.2 of `.github/RELEASE_AUTOMATION.md`; releasing
+works without it).
 
-Without it the chain is not broken, it **steps back one**: `Push the tag` only reports a warning and the summary
-prints the three local commands, and completing them in a terminal triggers `release.yml` just the same. Reading ⑤
-of 3.0 shows this shape — an empty tag list while `main` already has a version section.
+So there are two shapes now, and they read in opposite directions. `Push the tag` is **red**: the tag was not
+created, most often because Settings → Actions → General sets Workflow permissions to Read repository, which
+overrides the `contents: write` the job declares; the summary prints the three local commands, and running them
+takes the `push: tags` path instead. `Push the tag` is **green while `publish` shows skipped**: the tag already
+existed (a human pushed it), so that push owns the release — to catch up, run `release.yml` manually and fill in
+`tag`. Reading ⑤ of 3.0 shows the first shape — an empty tag list while `main` already has a version section.
 
 ### Q19: I wanted a dry run to check the artifact and the very first step failed?
 
 If reading ⑤ of 3.0 returns `0`, then depths 1 / 2 / 3 **cannot run at all right now**, and the failure has nothing
-to do with credentials: the `release` job's `Check out the tag` uses
-`ref: ${{ github.event.inputs.tag || github.ref }}`, so a tag you type that does not exist in the repository fails
-at the checkout. A dry run starts from that same step — "creates no Release, touches no store" happens later and does
-not change the need for a real ref.
+to do with credentials: the first step of the `release` job, `Resolve which tag to build`, collapses the three
+signals into one value (the ref name of a tag event, the `tag` input of a manual run, the `tag` handed over by the
+relay), and it **fails immediately unless the shape starts with `v`**; the checkout then uses the
+`refs/tags/<tag>` it computed, so a tag you type that does not exist in the repository fails at the checkout rather
+than silently building another tree. A dry run starts from that same step — "creates no Release, touches no store"
+happens later and does not change the need for a real tag.
 
 Each thing you might want verified has its own entry point:
 
-| What you want to verify                                                   | Use                                                                                                                       | Needs a tag |
-| ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | ----------- |
-| The artifact itself is compliant (build + every guard + package contents) | Locally `pnpm build && pnpm verify:offline && pnpm verify:remote-code`; on CI the build job of `ci.yml` already does this | No          |
-| The verdict logic and the seams to `release.yml` were not broken          | `pnpm verify:release-ci` (zero network)                                                                                   | No          |
-| Whether the credential chain works                                        | Depth 0, `store_status_only` — it checks out the ref the dispatch started from                                            | No          |
-| The whole release chain                                                   | First get a tag per Q18 (configure `RELEASE_PAT` or run the three local lines), then talk about depths 1 / 2 / 3          | **Yes**     |
+| What you want to verify                                                   | Use                                                                                                                                                                                                                                 | Needs a tag |
+| ------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| The artifact itself is compliant (build + every guard + package contents) | Locally `pnpm build && pnpm verify:offline && pnpm verify:remote-code`; on CI the build job of `ci.yml` already does this                                                                                                           | No          |
+| The verdict logic and the seams to `release.yml` were not broken          | `pnpm verify:release-ci` (zero network)                                                                                                                                                                                             | No          |
+| Whether the credential chain works                                        | Depth 0, `store_status_only` — it checks out the ref the dispatch started from                                                                                                                                                      | No          |
+| The whole release chain                                                   | Merging the Release PR is enough (the job token creates the tag and `publish` relays the release — see Q18); if the tag already exists but nothing was released, run the three local lines or run `release.yml` manually with `tag` | **Yes**     |
 
 ### Q20: What happens while `uploadState=IN_PROGRESS` — could it submit the previous version?
 
@@ -966,7 +973,9 @@ Before publishing, ensure:
 - [ ] **The five read-only commands of 3.0 were just run**, and that table says which pieces are missing — the
       three causes of "pipeline green, store received nothing" (missing credential, fake gate, variable unset) all
       look like success, and only those five readings tell them apart
-- [ ] GitHub Secrets configured completely (3 publisher-level values + 1 extension-specific ID; add `RELEASE_PAT` too if the tag should start the release on its own)
+- [ ] GitHub Secrets configured completely (3 publisher-level values + 1 extension-specific ID; since 2026-10-27
+      `RELEASE_PAT` is **optional** — it only decides whether the Release PR has status checks, and neither the tag
+      nor the release goes through it)
 - [ ] **Those four are under Repository secrets**, not the `cws-release` environment's secrets (wrong scope
       raises no error — it silences both store steps together, the fourth ⚠️ bullet of 3.2 plus Q6)
 - [ ] Those four are **the new chain's four names**, not the three old ones `CWS_CLIENT_ID` / `CWS_CLIENT_SECRET`

@@ -7,10 +7,13 @@
 # 机会。Release PR 就是那次机会：版本号的算法、双语 changelog 的正文、还缺哪几条英文说明，
 # 全在 diff 里，approve 之后才轮到打标签与出包。
 #
-# 为什么标签要单独推：GitHub 的 `GITHUB_TOKEN` 创建的 push 事件**不会**再触发任何工作流，
-# 所以用 `GITHUB_TOKEN` 打标签会得到一个「标签有了、发布没跑」的静默半成品。这一步要么用
-# 一个细粒度 PAT（`RELEASE_PAT`，见 `.github/RELEASE_AUTOMATION.md`），要么由人在本机推标签；
-# 本工作流两种情况都写清楚，且缺 PAT 时**只警告不失败**——半条链路比红着的门禁更容易让人收尾。
+# 为什么标签之后还有一格 `publish`：GitHub 的 `GITHUB_TOKEN` 创建的 push 事件**不会**再触发任何工作流，
+# 所以「推完标签就等 `release.yml` 自己起跑」会得到一个「标签有了、发布从没跑」的静默半成品——它是绿的。
+# 现在这条链路不赌那个事件：标签用作业令牌推，紧接着由 `publish` 作业**显式调用** `release.yml`
+# （`workflow_call`）。人从本机补推标签那条退路仍然有效（它走 `push: tags`），所以标签已存在时
+# `Push the tag` 什么都不做、也不接力——同一个版本号发两次不是「更稳妥」，是重传包。
+# `RELEASE_PAT` 因此从「链路必需」降级成「可选增强」：它只决定 Release PR 的作者是谁，
+# 也就是那条 PR 有没有 CI 状态检查（见下面 `Open the release PR` 那一步留下的 notice）。
 #
 # 同一条限制也管着 PR：用 `GITHUB_TOKEN` 开的 PR 不会触发 `pull_request` 事件，于是那条 PR 上
 # 一个状态检查都不会跑——分支保护若要求检查通过，这个 PR 就永远点不下 Merge。所以拿到
@@ -189,6 +192,12 @@ jobs:
         startsWith(github.event.pull_request.head.ref, 'release/v')) ||
       (github.event_name == 'workflow_dispatch' && github.event.inputs.mode == 'tag')
     runs-on: ubuntu-latest
+    # 这两个输出就是 `publish` 那一格的唯一入口：`tag` 是接力要发布的版本号，
+    # `created` 只在**这一次运行真的建出了标签**时为 true。后者存在理由是同一个版本号不能发两次：
+    # 人已从本机推过标签时，push 事件自己就把 `release.yml` 叫醒了，这里再接力就是一次重传包。
+    outputs:
+      tag: ${{ steps.want.outputs.tag }}
+      created: ${{ steps.push.outputs.created }}
     steps:
       # 标签必须打在 main 上而不是 PR 头上：合并可能产生 squash 或 rebase，
       # 那个 commit 只存在于分支里，而 release.yml 检出的是标签指向的对象。
@@ -237,57 +246,75 @@ jobs:
         run: |
           if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
-            echo "标签 $TAG 已存在，什么都不做。" >> "$GITHUB_STEP_SUMMARY"
+            {
+              echo "标签 \`$TAG\` 已经存在，这一步什么都不做，也**不接力发布**——那枚标签是谁推的，"
+              echo "发布就该由那一次推送自己负责（人从本机推的标签会触发 \`release.yml\`；作业令牌推的不会，"
+              echo "那种情形请手动跑 \`release.yml\` 并在 \`tag\` 里填这一版）。"
+            } >> "$GITHUB_STEP_SUMMARY"
           fi
 
-      # `GITHUB_TOKEN` 推的标签不触发工作流，所以只有拿到 PAT 时才真的推；完全没配 PAT 时这一步只报
-      # warning，把本机补上的三行命令写进任务摘要——发版确实还没发生，但那是待办而不是故障，让它红起来会把
-      # 「链路坏了」和「还没配令牌」两件事混成一件。配了却被 GitHub 拒掉是另一种情形，那一步是红的。
-      #
-      # 这一步故意**不**在 env 里映射 `GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}`。`gh` 读 GH_TOKEN 优先于
-      # GITHUB_TOKEN，所以只要那一行在，PAT 分支里的 `gh api` 用的仍是工作流自带的令牌：标签照建、
-      # 摘要照写「release.yml 随即开始」，而那条工作流永远不会被触发——正是本文件开头警告的静默半成品。
-      # 令牌只在真要调 API 的那个分支里 export，「用了谁的身份」就没有第二种来源。
+      # 标签用作业令牌推，推完之后由下一格 `publish` 显式调用 release.yml——不指望这枚标签去触发什么，
+      # 因为 GitHub 规定作业令牌产生的事件不再起跑新工作流。这一格失败就是**红**：发版没发生，
+      # 而它是这条链路里唯一一处「绿色对勾不等于已发布」曾经藏身的地方。
+      # 常见红法有三种，错误信息里都点名：仓库把 Actions 的默认权限收成只读（作业声明的
+      # `contents: write` 会被它压掉）、同名标签已被别人推走（上面那一格已经短路，走到这里说明不是）、
+      # 或 SHA 不属于这个仓库。真要退回本机，摘要里给的就是那三行。
       - name: Push the tag
         if: steps.exists.outputs.exists != 'true'
+        id: push
         env:
-          RELEASE_PAT: ${{ secrets.RELEASE_PAT }}
+          WORKFLOW_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ steps.want.outputs.tag }}
           SHA: ${{ steps.want.outputs.sha }}
           REPOSITORY: ${{ github.repository }}
         run: |
           set -uo pipefail
-          # 摘要里那段「本机补那三行命令」在两种情形里都要出现：没配 PAT 是一次跳过（warning 就过），
-          # 配了却被 GitHub 拒绝是一次失败（这一步是红的），而对用户来说未完成的动作是同一个。
-          manual_hint() {
+          # 令牌只在这里 export，且不映射成 GH_TOKEN 之外的第二个来源：这一步用的身份
+          # 必须和摘要里写的那一句是同一个人。
+          export GH_TOKEN="$WORKFLOW_TOKEN"
+          # 走 `gh api` 而不是改 remote URL：后者会把令牌写进命令行与 .git/config，
+          # 而 run 步骤的命令行是会进日志的。GitHub 的拒绝原因本来就打在 stderr，
+          # 会进日志，所以这里只把成功的 stdout 丢掉，不在 shell 里翻译它的原话。
+          if ! gh api --method POST "repos/$REPOSITORY/git/refs" -f "ref=refs/tags/$TAG" -f "sha=$SHA" >/dev/null; then
+            echo "::error::用作业令牌创建标签 $TAG 失败（GitHub 的原话见上方日志）。这一版没有发布。最常见的原因是仓库 Settings → Actions → General 把 Workflow permissions 设成了 Read repository ——本作业声明的 contents: write 会被它压掉；其次是那枚标签其实已经存在。"
             {
-              echo "### 差一步：${TAG} 还没推"
+              echo "### 差一步：\`${TAG}\` 还没落地"
               echo
-              echo "GitHub 不允许 \`GITHUB_TOKEN\` 推的标签再去触发工作流，所以这一步只能由人、或由一个有仓库写入权限的令牌完成。"
+              echo "自动创建标签失败了，所以 \`publish\` 那一格不会跑，这一版仍然没发。"
               echo
-              echo "\`\`\`bash"
+              echo '```bash'
               echo "# 标签指向刚合并的那个提交"
               echo "git fetch origin main"
               echo "git tag ${TAG} ${SHA}"
               echo "git push origin ${TAG}"
-              echo "\`\`\`"
+              echo '```'
               echo
-              echo "或配置 \`RELEASE_PAT\`（Settings → Secrets and variables → Actions），之后重跑本工作流的 \`tag\` 模式；"
-              echo "权限怎么勾、失败怎么读，见 \`.github/RELEASE_AUTOMATION.md\`。"
+              echo "人从本机推的标签会**自己**触发 \`release.yml\`；如果只是想重跑接力，手动运行本工作流的 \`tag\` 模式即可（那一版已存在时它不重复推、也不接力，需要直接手动跑 \`release.yml\` 并填 \`tag\`）。"
             } >> "$GITHUB_STEP_SUMMARY"
-          }
-          if [ -n "${RELEASE_PAT:-}" ]; then
-            export GH_TOKEN="$RELEASE_PAT"
-            # 走 `gh api` 而不是改 remote URL：后者会把令牌写进命令行与 .git/config，
-            # 而 run 步骤的命令行是会进日志的。GitHub 的拒绝原因本来就打在 stderr，
-            # 会进日志，所以这里只把成功的 stdout 丢掉，不在 shell 里翻译它的原话。
-            if gh api --method POST "repos/$REPOSITORY/git/refs" -f "ref=refs/tags/$TAG" -f "sha=$SHA" >/dev/null; then
-              echo "已创建标签 $TAG → ${SHA:0:7}，release.yml 随即开始。" >> "$GITHUB_STEP_SUMMARY"
-              exit 0
-            fi
-            echo "::error::用 RELEASE_PAT 创建标签失败（GitHub 的原话见上方日志）。可能是令牌过期或被撤销、只对别的仓库生效，或缺少**仓库内容**写入权限——创建 ref 写的是仓库内容，不是 Actions。"
-            manual_hint
             exit 1
           fi
-          echo "::warning title=标签未推送::仓库还没有配置 RELEASE_PAT，自动打标签这一步已跳过。"
-          manual_hint
+          echo "created=true" >> "$GITHUB_OUTPUT"
+          echo "已创建标签 \`$TAG\` → \`${SHA:0:7}\`。接着由 \`publish\` 作业显式调用 \`release.yml\`：构建 → 校验产物 → GitHub Release → 商店上传。" >> "$GITHUB_STEP_SUMMARY"
+
+  # ── 3. 接力：把发布实现叫起来，而不是等那枚标签自己触发 ──────────────────────────────
+  # 这一格存在的唯一理由是那条 GitHub 规则：作业令牌产生的事件不再起跑新工作流。少它，
+  # 「合并 Release PR」的结果就是 main 上多一枚标签、GitHub Release 与商店那边什么都没发生，
+  # 而两条工作流都是绿的——本仓为这个形状付过学费（见文件头第二段）。
+  #
+  # 为什么用 `workflow_call` 而不是「手动触发 release.yml」那一步：dispatch 要一枚能调 Actions API 的
+  # 令牌（又是 PAT），而且它是异步的——调用方不知道那次运行成没成。`uses:` 会把被调作业挂在
+  # 这次运行里，红了就在同一页看得出来，商店那四件凭据由 `secrets: inherit` 传下去。
+  #
+  # `if` 只看 `created`：标签已存在（人已推过）时不接力，同一个版本号发两次不是更稳妥而是重传包。
+  # 提审仍然排在 `release.yml` 自己的第二格 `store_submit` 后面，那道 environment 门没被这一格绕过——
+  # 被调作业里挂的 `environment: cws-release` 与原工作流完全同形，批准发生在这一页的运行里。
+  publish:
+    name: Run the release (relayed)
+    needs: tag
+    if: needs.tag.outputs.created == 'true'
+    permissions:
+      contents: write
+    uses: ./.github/workflows/release.yml
+    with:
+      tag: ${{ needs.tag.outputs.tag }}
+    secrets: inherit

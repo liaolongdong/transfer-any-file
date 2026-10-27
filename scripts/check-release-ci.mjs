@@ -31,6 +31,17 @@
  *   **之前**、它失败时真的 `exit 1`、以及它读的环境名就是 `store_submit` 挂着的那个 `environment.name`。
  *   这一组防的是同一类静默：引用一个不存在的环境不会失败，GitHub 会建一个不带保护规则的同名环境。
  *
+ * 第六组钉的是「标签落地 → 发布起跑」这一棒（`checkReleaseRelay`），跨 `release-prepare.yml` 与
+ * `release.yml` 两份文件：`workflow_call` 入口在、标签的形状校验落在**检出之前**、`Push the tag` 仍写着
+ * `created=true` 且带着 `id: push`、`publish` 那五处（`needs: tag` / 只认 `created` / 调的是 release.yml /
+ * 把 tag 传下去 / `secrets: inherit`）。这一棒上的静默比红灯贵：`id:` 被顺手删掉时接力的 `if` 读一个
+ * 不存在的输出，于是合并 Release PR 只剩一枚标签，而两份工作流各自都还是绿的。
+ *
+ * 最后一组不是文本匹配而是**临时 git 树**的夹具（`checkReleaseStartPoint`），钉 `scripts/release.mjs`
+ * 的统计起点：标签落后于 changelog 里最高的版本小节时，起点必须是写下那一小节的提交。这组必须自己造树，
+ * 因为缺陷长在两路信号的优先关系上——商店侧停在旧版、`main` 连发几版而中间那些标签没人推时，
+ * 每次合并 Release PR 都会把上一版收录的提交再列一遍并算出更高的下一版（2026-10-27 的现实形态）。
+ *
  * 调用方式：`pnpm verify:release-ci`，以及 CI 的 lint job。
  */
 import fs from 'node:fs';
@@ -40,13 +51,16 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 /**
- * 被钉的那两份文件从哪里读。默认是仓库根；`CHECK_CI_ROOT` 指向一棵临时树时，守卫读的是那棵树里的
- * `scripts/release-ci.mjs` 与 `release.yml`——这是给守卫自己做变异验证用的（与 `verify-extension.mjs`
- * 的 `VERIFY_EXT_PATH` 同一手法）：不这样就得就地改坏 `release.yml` 再改回来。CI 里不设这个变量。
+ * 被钉的那几份文件从哪里读。默认是仓库根；`CHECK_CI_ROOT` 指向一棵临时树时，守卫读的是那棵树里的
+ * `scripts/release-ci.mjs`、`scripts/release.mjs` 与两份发布工作流——这是给守卫自己做变异验证用的
+ * （与 `verify-extension.mjs` 的 `VERIFY_EXT_PATH` 同一手法）：不这样就得就地改坏 `release.yml` 再改回来。
+ * CI 里不设这个变量。
  */
 const ROOT = path.resolve(process.env.CHECK_CI_ROOT || path.join(path.dirname(fileURLToPath(import.meta.url)), '..'));
 const CI_SCRIPT = 'scripts/release-ci.mjs';
 const WORKFLOW = '.github/workflows/release.yml';
+/** 接力那一棒的调用方：推标签的那一格与 `publish` 那一格都在这里。 */
+const PREPARE = '.github/workflows/release-prepare.yml';
 
 const ch = v => ({ crxVersion: v, deployPercentage: 100 });
 const published = (...versions) => ({ publishedItemRevisionStatus: { distributionChannels: versions.map(ch) } });
@@ -692,6 +706,291 @@ function checkWorkflow(failures) {
   }
 }
 
+/**
+ * 「标签落地 → 发布起跑」这一棒的形状，钉的是两份文件的接缝，命令侧的守卫看不见它们。
+ *
+ * 这一棒上有三种静默，每一种都比红灯贵：
+ * - 被调方读不到标签时退回 `github.ref`（那是调用方的 main 或 PR ref），于是**发出去的是工作区那一版**；
+ *   `Resolve version` 里那道 package.json 比对只有在「已经检出正确那棵树」的前提下才有意义，
+ *   所以形状校验必须落在检出**之前**，而不是之后。
+ * - `publish` 那格的 `if` 读的是一个**作业输出**，而那个输出来自 `id: push` 那一步。谁顺手删掉那行的
+ *   `id:`、或改掉写 `created=true` 的那一行，接力就永远不跑，而 `release-prepare.yml` 整条仍是绿的——
+ *   这正是本仓为「标签有了、发布从没跑」付过学费的那个形状，只是换了藏身处。
+ * - 少 `secrets: inherit` 时 `release.yml` **不会失败**：它的商店那两格在凭据缺失时报跳过并且是绿的，
+ *   于是「发了」与「什么都没传」在运行页上长得一样。
+ *
+ * 每条判据都只匹配 GitHub 真会解析的那几行，不匹配注释——否则改一句说明就能把守卫关掉。
+ *
+ * @param {string[]} failures
+ */
+function checkReleaseRelay(failures) {
+  const wf = fs.readFileSync(path.join(ROOT, WORKFLOW), 'utf8');
+  const prepare = fs.readFileSync(path.join(ROOT, PREPARE), 'utf8');
+  const w = wf.split('\n');
+  const p = prepare.split('\n');
+
+  /** 取从 from 开始、直到下一条同缩进 `- name:` 之前的那段（步骤正文的边界）。 */
+  const stepBlock = (lines, from) => {
+    const end = lines.findIndex((line, i) => i > from && /^ {6}- name:/.test(line));
+    return lines.slice(from, end === -1 ? lines.length : end).join('\n');
+  };
+
+  // ── 被调方：workflow_call 入口与标签收敛在哪一步 ──────────────
+  const callAt = w.findIndex(line => line === '  workflow_call:');
+  if (callAt === -1) {
+    failures.push(
+      `release.yml：没有 workflow_call 入口——release-prepare.yml 的 publish 那格会解析失败，` +
+        '自动发布整条退回「等人补推标签」，而两份工作流各自都还是绿的。',
+    );
+  } else {
+    const end = w.findIndex((line, i) => i > callAt && /^ {2}\S/.test(line));
+    const block = w.slice(callAt, end === -1 ? w.length : end).join('\n');
+    if (!/^ {6}tag:$/m.test(block) || !/^ {8}required: true$/m.test(block))
+      failures.push(
+        'release.yml：workflow_call 的 tag 输入不见了，或不再是 required——接力方可以什么都不传，' +
+          '被调方就只能猜，而猜错的那一版会照常上商店。',
+      );
+  }
+
+  const wantAt = w.findIndex(line => /id: want$/.test(line));
+  if (wantAt === -1) {
+    failures.push(
+      'release.yml：找不到 id: want 那一步（把 push / dispatch / workflow_call 三种信号的标签收敛成唯一事实的地方）——' +
+        '检出的 ref 又得由各步自己从事件里拼。',
+    );
+  } else {
+    const want = stepBlock(w, wantAt);
+    if (!/echo "ref=refs\/tags\/\$tag"/.test(want))
+      failures.push('release.yml：want 那一步不再产出 ref=refs/tags/$tag——「发哪一版」失去了唯一的落点。');
+    if (!/v\[0-9\]\*\)/.test(want) || !/exit 1/.test(want))
+      failures.push(
+        'release.yml：want 那一步不再校验 v 前缀并不再当场失败——一次读不出标签的运行会静默检出一棵别的树，' +
+          '而 package.json 的比对在检出之后，拦不住它。',
+      );
+    const checkoutAt = w.findIndex((line, i) => i > wantAt && /uses: actions\/checkout@/.test(line));
+    const checkout = checkoutAt === -1 ? '' : w.slice(checkoutAt, checkoutAt + 4).join('\n');
+    if (!/ref: \$\{\{ steps\.want\.outputs\.ref \}\}/.test(checkout))
+      failures.push(
+        `release.yml：release 作业的检出不再用 steps.want.outputs.ref（这一格读到的是：${JSON.stringify(
+          checkout.split('\n').find(l => l.includes('ref:')) || '（没有 ref 行）',
+        )}）——接力那一路会退回调用方的 ref。`,
+      );
+  }
+  if (/ref: \$\{\{ github\.event\.inputs\.tag \|\| github\.ref \}\}/.test(wf))
+    failures.push(
+      'release.yml：还留着一处 `ref: github.event.inputs.tag || github.ref`——workflow_call 时那个 ref 是调用方的' +
+        '（main 或 PR ref），发出去的包与标签就不是同一棵树。',
+    );
+  if (!/TAG: \$\{\{ steps\.want\.outputs\.tag \}\}/.test(wf))
+    failures.push(
+      'release.yml：Resolve version 不再从 want 那一步取标签，而是自己再从事件里拼一次——' +
+        '「发哪一版」就有了第二个实现，两处可以不一致。',
+    );
+
+  // ── 调用方：标签那一格与 publish 那一格 ────────────────────────
+  const pushAt = p.findIndex(line => /- name: Push the tag$/.test(line));
+  if (pushAt === -1) {
+    failures.push('release-prepare.yml：找不到 Push the tag 那一步——下面四条钉因此没有生效，先去修这条守卫。');
+  } else {
+    const push = stepBlock(p, pushAt);
+    if (!/^ {8}id: push$/m.test(push))
+      failures.push(
+        'release-prepare.yml：Push the tag 没有 id: push——tag 作业的 created 输出读不到值，' +
+          'publish 那格的 if 永远不成立，合并 Release PR 只剩一枚标签，而整条链路是绿的。',
+      );
+    if (!/echo "created=true"/.test(push))
+      failures.push('release-prepare.yml：Push the tag 不再写 created=true——同一个静默，只是从改 id 换成删这一行。');
+    if (/RELEASE_PAT/.test(push))
+      failures.push(
+        'release-prepare.yml：Push the tag 又分叉到 RELEASE_PAT 上了——这枚标签由作业令牌推、由 publish 显式接力，' +
+          '所以这里不该再有「没配 PAT 就只报 warning」那条退路（那正是把「没发」写成绿的那一步）。',
+      );
+    if (!/exit 1/.test(push)) failures.push('release-prepare.yml：Push the tag 失败时没有 exit 1——发版没发生却报绿。');
+  }
+  if (!/created: \$\{\{ steps\.push\.outputs\.created \}\}/.test(prepare))
+    failures.push(
+      'release-prepare.yml：tag 作业不再把 created 透传成作业输出——publish 那格读的是作业输出，' +
+        '读不到就当没批准，于是永远不发。',
+    );
+
+  const pubAt = p.findIndex(line => /^ {2}publish:$/.test(line));
+  if (pubAt === -1) {
+    failures.push(
+      'release-prepare.yml：没有 publish 作业——标签是作业令牌推的，GitHub 不会再为它起跑任何工作流，' +
+        '合并 Release PR 的结果就是 main 上多一枚标签。',
+    );
+  } else {
+    const nextJob = p.findIndex((line, i) => i > pubAt && /^ {2}[a-z_]+:$/.test(line));
+    const pub = p.slice(pubAt, nextJob === -1 ? p.length : nextJob).join('\n');
+    if (!/^ {4}needs: tag$/m.test(pub))
+      failures.push('release-prepare.yml：publish 没有 needs: tag——它可能在那枚标签还不存在时就去发布。');
+    if (!/^ {4}if: needs\.tag\.outputs\.created == 'true'$/m.test(pub))
+      failures.push(
+        'release-prepare.yml：publish 的作业级 if 不再只认 created——人已补推过标签时再接力一次，' +
+          '就是同一个版本号重传一次包。',
+      );
+    if (!/^ {4}uses: \.\/\.github\/workflows\/release\.yml$/m.test(pub))
+      failures.push('release-prepare.yml：publish 调用的不是 release.yml——发布实现出现第二份，两处会漂移。');
+    if (!/^ {6}tag: \$\{\{ needs\.tag\.outputs\.tag \}\}$/m.test(pub))
+      failures.push('release-prepare.yml：publish 没有把 tag 传给被调方——那一版发不出去，或被调方自己去猜。');
+    if (!/^ {4}secrets: inherit$/m.test(pub))
+      failures.push(
+        'release-prepare.yml：publish 没有 secrets: inherit——release.yml 的商店那两格在缺凭据时报跳过并且是绿的，' +
+          '于是「已上传」与「什么都没传」看起来一模一样。',
+      );
+  }
+}
+
+/**
+ * `release.mjs` 统计起点的夹具——这一组钉的不是命令，而是那个纯函数在三棵树上的取值。
+ *
+ * 为什么必须是夹具而不是文本匹配：缺陷长在「标签」与「changelog 最高小节」这两路信号的优先关系上，
+ * 只有真 git 树能同时给出 `git describe` 的答案和 `-S` 找不找得到那一笔提交。2026-10-27 的现实形态是
+ * 商店侧还停在旧版、`main` 已经连发四版而中间那些标签没人推（`RELEASE_PAT` 未配），于是每次合并
+ * Release PR 都让起点仍停在那枚旧标签上，把上一版已经收录的提交再列一遍、算出更高的下一版、开下一个 PR。
+ *
+ * 三条判据互相是对照组，少任何一条都可能是量具没干活：
+ * - **落后**：标签 `v1.0.0` 之后又有一笔 `feat`，再一笔 `chore(release)` 把 `## [1.1.0]` 写进 changelog。
+ *   起点必须是那笔发布提交（`startSource=changelog-heading`、收录 0 条、无可发布内容），
+ *   而不是那枚标签（那就是上面那个循环）。标签名写进 `range` 里，所以「夹具没建起来、只是没标签」
+ *   和「真的判定标签落后」在这里是分得开的两种绿。
+ * - **有牙**：同一棵树再加一笔 `feat`，必须重新变成可发布、且**只**收录这一笔。
+ *   缺这一条，「什么都不报」也能满足上一条。
+ * - **抢回来**：把 `v1.1.0` 补在那笔发布提交上，起点必须回到标签路径——钉的是修正没有把标签一路降级，
+ *   配好 `RELEASE_PAT` 之后链路照旧按标签走。
+ *
+ * @param {string[]} failures
+ */
+function checkReleaseStartPoint(failures) {
+  const base = fs.mkdtempSync(path.join(os.tmpdir(), 'taf-release-plan-'));
+  try {
+    const repo = path.join(base, 'repo');
+    fs.mkdirSync(path.join(repo, 'scripts'), { recursive: true });
+    // 复制的是 ROOT 里那份脚本，不是 `release-ci.mjs`：被钉的必须是待验证的那棵树里真正会跑的实现，
+    // 否则 CHECK_CI_ROOT 指到临时树时，这条守卫会拿仓库里的旧脚本去验一棵新造的树。
+    fs.copyFileSync(path.join(ROOT, 'scripts', 'release.mjs'), path.join(repo, 'scripts', 'release.mjs'));
+
+    const zh = sections => ['# 更新日志', '', '## [未发布]', '', ...sections].join('\n');
+    const en = sections => ['# Changelog', '', '## [Unreleased]', '', ...sections].join('\n');
+    const releaseSection = (version, bullets) => [
+      `## [${version}] - 2026-01-01`,
+      '',
+      '### 新增',
+      '',
+      ...bullets.map(subject => `- ${subject}`),
+      '',
+    ];
+    /** 写这几份文件与 package.json，提交，返回新 HEAD——每一步都必须真的有改动，空提交会让 git 报错。 */
+    const commit = (message, files, version) => {
+      for (const [name, text] of Object.entries(files)) fs.writeFileSync(path.join(repo, name), text, 'utf8');
+      const pkg = `${JSON.stringify({ name: 'fixture', version }, null, 2)}\n`;
+      fs.writeFileSync(path.join(repo, 'package.json'), pkg, 'utf8');
+      g(repo, ['add', '-A']);
+      g(repo, ['commit', '-m', message]);
+      return g(repo, ['rev-parse', 'HEAD']);
+    };
+
+    g(repo, ['init']);
+    g(repo, ['config', 'user.name', 'guard']);
+    g(repo, ['config', 'user.email', 'guard@example.invalid']);
+    commit('feat: 甲功能', { 'CHANGELOG.md': zh([]), 'CHANGELOG.en.md': en([]) }, '1.0.0');
+    g(repo, ['tag', 'v1.0.0']);
+    commit('feat: 乙功能', { 'feature.txt': '乙\n' }, '1.0.0');
+    // 这一笔就是「发布提交」：它把 `## [1.1.0]` 写进两份 changelog、把 package.json 抬到 1.1.0，
+    // 而 `## [未发布]` 留在空的状态——与合并 Release PR 之后的 main 同形。
+    const releaseCommit = commit(
+      'chore(release): 1.1.0 —— 双语 changelog 提升与版本 bump',
+      {
+        'CHANGELOG.md': zh(releaseSection('1.1.0', ['甲功能', '乙功能'])),
+        'CHANGELOG.en.md': en(releaseSection('1.1.0', ['Feature A', 'Feature B'])),
+      },
+      '1.1.0',
+    );
+
+    // ── 1. 标签落后 ────────────────────────────────────────────
+    const behind = plan(repo, base, 'behind');
+    if (behind.startSource !== 'changelog-heading')
+      failures.push(
+        `起点-标签落后：startSource=${behind.startSource} 应为 changelog-heading（起点仍是 ${behind.range}，` +
+          '于是上一版收录的提交会被再列一遍，每次合并都多开一个 Release PR）。',
+      );
+    if (behind.releasable !== false || behind.counts.listed !== 0)
+      failures.push(
+        `起点-标签落后：releasable=${String(behind.releasable)} listed=${String(behind.counts.listed)}，` +
+          `应为 false / 0（收录的正是 ${JSON.stringify(behind.entries.map(entry => entry.zh))}）。`,
+      );
+    if (!behind.range.includes('标签 v1.0.0 已落后'))
+      failures.push(
+        `起点-标签落后：range=${JSON.stringify(behind.range)} 里没有「标签 v1.0.0 已落后」——` +
+          '这棵树大概根本没建出标签，那条 changelog-heading 是「无 tag」的回落，不是本条要钉的修正。',
+      );
+
+    // ── 2. 有牙：新工作仍要报可发布，而且只报这一笔 ──────────────
+    const newWork = commit('feat: 丙功能', { 'feature.txt': '丙\n' }, '1.1.0');
+    const armed = plan(repo, base, 'armed');
+    if (armed.releasable !== true || armed.counts.listed !== 1 || armed.entries[0].hash !== newWork.slice(0, 7))
+      failures.push(
+        `起点-有牙：releasable=${String(armed.releasable)} listed=${String(armed.counts.listed)} ` +
+          `entries=${JSON.stringify(armed.entries.map(entry => entry.hash))}，应为 true / 1 / [${newWork.slice(0, 7)}]` +
+          '——修正把该报的也一起压住了，那条 changelog-heading 就成了沉默。',
+      );
+
+    // ── 3. 抢回来：标签补到最新版本时，起点回到标签路径 ──────────
+    g(repo, ['tag', 'v1.1.0', releaseCommit]);
+    const tagged = plan(repo, base, 'tagged');
+    if (tagged.startSource !== 'tag' || tagged.range !== 'v1.1.0..HEAD')
+      failures.push(
+        `起点-标签优先：startSource=${tagged.startSource} range=${JSON.stringify(tagged.range)}，` +
+          '应为 tag 与 `v1.1.0..HEAD`——配好 RELEASE_PAT 之后这条链路得按标签走。',
+      );
+    if (tagged.releasable !== true || tagged.counts.listed !== 1)
+      failures.push(
+        `起点-标签优先：releasable=${String(tagged.releasable)} listed=${String(tagged.counts.listed)}，` +
+          '应为 true / 1（标签路径也要能看见那一笔新 feat，否则两条路都瞎）。',
+      );
+  } catch (error) {
+    failures.push(
+      `起点夹具没能跑完（量具自己出错等于这一组没有守卫）：${error && error.message ? error.message : error}`,
+    );
+  } finally {
+    fs.rmSync(base, { recursive: true, force: true });
+  }
+}
+
+/** 在夹具树里跑一次只读计划，返回 `--json` 的那份报告。 */
+function plan(repo, base, name) {
+  const out = path.join(base, `plan-${name}.json`);
+  const r = spawnSync('node', [path.join(repo, 'scripts', 'release.mjs'), '--json', out], {
+    cwd: repo,
+    encoding: 'utf8',
+    env: gitEnv(),
+  });
+  if (r.status !== 0)
+    throw new Error(`release.mjs（${name}）exit=${String(r.status)}：${(r.stderr || r.stdout || '').trim()}`);
+  return JSON.parse(fs.readFileSync(out, 'utf8'));
+}
+
+/** 夹具里跑 git：去掉继承来的 worktree 指针，并禁掉签名——本机或 runner 的全局配置不该改变这条守卫。 */
+function g(repo, args) {
+  const r = spawnSync('git', ['-c', 'commit.gpgsign=false', '-c', 'tag.gpgsign=false', ...args], {
+    cwd: repo,
+    encoding: 'utf8',
+    env: gitEnv(),
+  });
+  if (r.status !== 0) throw new Error(`git ${args.join(' ')} exit=${String(r.status)}：${(r.stderr || '').trim()}`);
+  return (r.stdout || '').trim();
+}
+
+/** `GIT_DIR` 之类由外层传进来的指针会把临时树当成别人的工作区来操作，一律摘掉。 */
+function gitEnv() {
+  const env = { ...process.env };
+  delete env.GIT_DIR;
+  delete env.GIT_WORK_TREE;
+  delete env.GIT_INDEX_FILE;
+  delete env.GIT_COMMON_DIR;
+  return env;
+}
+
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'taf-release-ci-'));
 const failures = [];
 try {
@@ -703,6 +1002,8 @@ try {
     check(caseDef, dir, failures);
   }
   checkWorkflow(failures);
+  checkReleaseRelay(failures);
+  checkReleaseStartPoint(failures);
 } finally {
   fs.rmSync(dir, { recursive: true, force: true });
 }
@@ -718,5 +1019,7 @@ if (failures.length) {
 }
 console.log(
   `OK  release-ci：${String(CASES.length)} 条判定与契约句子一致，` +
-    '外加 release.yml 的接缝钉四组（标签拼接 / submit-check 的 case 形状 / 只读档 / 审批门自证，形状清单见本文件头）',
+    '外加 release.yml 的接缝钉四组（标签拼接 / submit-check 的 case 形状 / 只读档 / 审批门自证，形状清单见本文件头），' +
+    '标签→发布那一棒的接力钉（workflow_call 入口 / 标签收敛在检出之前 / created 输出与 publish 五处），' +
+    '再加 release.mjs 统计起点夹具三棵树（标签落后 / 有牙 / 标签优先）',
 );
