@@ -38,7 +38,7 @@
 </div>
 
 <p align="center">
-  <a href="docs/assets/demo/demo-zh.gif"><img src="docs/assets/demo/demo-zh.gif" alt="12 秒演示：离线文件格式转换——把 Markdown、CSV、Excel 三个混合格式文件拖入工作台，目标格式选为 HTML，一次转换得到三个 HTML，并整批打包下载 ZIP，全程零上传、零网络请求" width="100%" /></a>
+  <a href="docs/assets/demo/demo-zh.gif"><img src="docs/assets/demo/demo-zh.gif" alt="14 秒演示：离线文件格式转换——把 Markdown、CSV、Excel 三个混合格式文件拖入工作台，目标格式选为 HTML，一次转换得到三个 HTML，并整批打包下载 ZIP，全程零上传、零网络请求" width="100%" /></a>
   <br />
   <sub>一批混合格式走完一遍：拖入 3 个文件 → 选 HTML → 一次转换 → 逐个下载或打包 ZIP。全部在你自己的电脑上完成，没有一次网络请求。</sub>
 </p>

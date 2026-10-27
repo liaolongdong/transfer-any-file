@@ -39,7 +39,7 @@ A Chrome extension (Manifest V3) that does every conversion inside a tab on your
 </div>
 
 <p align="center">
-  <a href="docs/assets/demo/demo-en.gif"><img src="docs/assets/demo/demo-en.gif" alt="A 12-second demo of an offline file format converter: Markdown, CSV and Excel files are dropped into the workbench, HTML is chosen as the target format, one run produces three HTML files and a ZIP of the whole batch — zero uploads, zero network requests" width="100%" /></a>
+  <a href="docs/assets/demo/demo-en.gif"><img src="docs/assets/demo/demo-en.gif" alt="A 14-second demo of an offline file format converter: Markdown, CSV and Excel files are dropped into the workbench, HTML is chosen as the target format, one run produces three HTML files and a ZIP of the whole batch — zero uploads, zero network requests" width="100%" /></a>
   <br />
   <sub>One mixed batch end to end: drop in 3 files → pick HTML → convert once → download each or take the ZIP. It all happens on your own machine, with no network request.</sub>
 </p>
