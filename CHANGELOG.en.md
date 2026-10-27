@@ -13,6 +13,8 @@ Release PR is not by itself a release.
 
 ### Added
 
+- **site**: The image compressor now opens on a before/after comparison — a slider between the original and the result, a saving percentage that counts up from zero, two size bars normalised against the larger file, and quick 100 KB / 200 KB / 500 KB / 1 MB targets. The compressor is also linked from the generated pages' footer and from the 39 image-output pair pages
+- **ui**: Once a target is chosen, the selector states the losses this batch can already know about — PDF output has no text layer, a pure SVG source is rasterised on an image, PDF, Word or Markdown target, and an animated GIF keeps only its first frame when the target is an image or PDF; a one-frame GIF and a vector-preserving route say nothing. Result rows print their reduction against the source after the size, only when the output is smaller, and a multi-file batch adds the overall saving to its summary; growth prints no badge
 - **ui**: The staged file list can be reordered — drag a row's handle, or focus it and use ↑ / ↓ / Home / End. A merged PDF writes its pages in that order, and in a windowed long list the scroll follows the move so focus stays on the row that moved; reordering locks once results exist, and the handle stays focusable while locked so its name carries the reason
 - **site**: An offline image demo on the product page: pick a PNG / JPEG / WebP / BMP / GIF, choose WebP / JPEG / PNG and a quality, re-encode it with a canvas inside the page and download the result, with a thumbnail and the size delta in the result card
 - **ui**: A new About drawer in the top bar gathers ten off-site addresses in one place — the full usage guide, format conversion guides, the store listing and rating, the GitHub repository, the feedback entry point, the privacy policy, the full license, the latest release and the author's profile — each labelled with its destination host, alongside three offline facts (network, permissions, account and telemetry) and the loaded version. Every address now lives in `utils/urls.ts`, and the top bar's former "Store update" and "Download latest" shortcuts are gone: the store entry moved into the drawer (rating and listing share one address), while the latest release now sits on the version chip — it shows the build you have, and a click takes you to the latest GitHub release. That chip is the header's only off-site link, and the extension still issues no request
@@ -28,6 +30,7 @@ Release PR is not by itself a release.
 
 ### Fixed
 
+- **site**: The image compressor no longer paints an empty download button and a broken preview before a file is chosen — `hidden` was being overridden by the `display` rules on `.tool-preview img` and `.tool-result`
 - **site**: The product page's version, last-updated date and pair-page count now match 1.3.0 (version 1.3.0, 116 pair pages)
 
 ## [1.3.0] - 2026-10-23

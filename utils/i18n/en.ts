@@ -167,6 +167,10 @@ const en: typeof zh = {
     suggested: 'Suggested',
     sourceTitle: 'Source format',
     targetTitle: 'Target format',
+    caveats: 'Before you convert',
+    caveatPdfNoText: 'Each PDF page is an image; the result has no text layer.',
+    caveatSvgRaster: 'SVG will be rasterised into a bitmap.',
+    caveatGifFirstFrame: 'GIF animations in this batch keep only their first frame.',
   },
 
   output: {
@@ -256,6 +260,8 @@ const en: typeof zh = {
     doneMulti: 'Conversion complete! {count} files',
     donePartial: '{ok} succeeded, {fail} failed',
     sizeTotals: 'Combined size: {source} → {result}',
+    savedPercent: '−{percent}%',
+    savedTotal: 'saved {percent}%',
     elapsed: 'Elapsed: {time}',
     doneNone: 'Conversion failed',
     staleNotice:

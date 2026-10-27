@@ -183,6 +183,10 @@ export default {
     suggested: '推荐',
     sourceTitle: '源格式',
     targetTitle: '目标格式',
+    caveats: '转换前须知',
+    caveatPdfNoText: 'PDF 结果每页是一张图像，不含文字层。',
+    caveatSvgRaster: 'SVG 会被栅格化成位图。',
+    caveatGifFirstFrame: '批次中的 GIF 动图只保留第一帧。',
   },
 
   // Image output parameters
@@ -277,6 +281,8 @@ export default {
     doneMulti: '转换完成！共 {count} 个文件',
     donePartial: '完成 {ok} 个，失败 {fail} 个',
     sizeTotals: '合计 {source} → {result}',
+    savedPercent: '−{percent}%',
+    savedTotal: '省 {percent}%',
     elapsed: '耗时 {time}',
     doneNone: '转换失败',
     staleNotice:
