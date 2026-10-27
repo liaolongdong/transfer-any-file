@@ -11,6 +11,8 @@ Release PR is not by itself a release.
 
 ## [Unreleased]
 
+## [1.9.0] - 2026-10-27
+
 ### Added
 
 - **site**: The image compressor now opens on a before/after comparison — a slider between the original and the result, a saving percentage that counts up from zero, two size bars normalised against the larger file, and quick 100 KB / 200 KB / 500 KB / 1 MB targets. The compressor is also linked from the generated pages' footer and from the 39 image-output pair pages
