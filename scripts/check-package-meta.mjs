@@ -243,6 +243,28 @@ if (siteApp) {
     siteApp.softwareVersion === pkg.version,
     `docs/index.html #app softwareVersion is ${JSON.stringify(siteApp.softwareVersion)} but package.json#version is ${JSON.stringify(pkg.version)} — the product page advertises a release that is not the current one`,
   );
+
+  // The same version is also prose on the page: the matrix caption, the e2e evidence sentence, the
+  // "version / last updated" line and the footer's changelog link. The release script updates all of
+  // them (`writeSiteVersionClaims`), so a release that leaves one behind is a bug, not a judgement
+  // call — and the 1.3.0 drift proved no other gate sees it.
+  const siteSource = fs.readFileSync(path.join(ROOT, 'docs', 'index.html'), 'utf8');
+  const visibleVersionClaims = [
+    `文件格式任意转换助手 ${pkg.version} 的实际转换能力`,
+    `Actual conversion capability in Transfer Any File ${pkg.version}`,
+    `（${pkg.version} 构建`,
+    `(the ${pkg.version} build`,
+    `<strong>版本 ${pkg.version} ·`,
+    `<strong>Version ${pkg.version} ·`,
+    `>v${pkg.version}</a`,
+  ];
+  for (const claim of visibleVersionClaims) {
+    const hits = siteSource.split(claim).length - 1;
+    check(
+      hits === 1,
+      `docs/index.html visible version claim ${JSON.stringify(claim)} occurs ${hits} time(s), expected exactly 1 — a release bump must update every visible version claim, not just the JSON-LD softwareVersion`,
+    );
+  }
 }
 
 if (failures.length > 0) {

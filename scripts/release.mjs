@@ -559,29 +559,43 @@ function writePackage(currentVersion, nextVersion) {
 }
 
 /**
- * Sync the one version claim on the product page that is a value rather than prose.
+ * Sync every version claim on the product page, not just the machine-readable one.
  *
- * `docs/index.html` states its `SoftwareApplication` node by hand, and `pnpm verify:meta` asserts that
- * node's `softwareVersion` equals `package.json#version`. A bump that leaves this line behind therefore
- * turns `main`'s lint job red on the very push that carries it — which is a worse outcome than the
- * `1.1.0` drift this check was written to catch, because it lands on a release commit.
+ * `pnpm verify:meta` pins the `SoftwareApplication` node's `softwareVersion` to `package.json#version`,
+ * but the page also says the version in prose: the matrix caption, the e2e evidence sentence, the
+ * "version / last updated" line and the footer's changelog link. A bump that updates only the JSON-LD
+ * leaves those six claims one release behind — the 1.3.0 drift in October 2026 shipped without turning
+ * any gate red, and was fixed by hand afterwards. Each claim is now replaced here and checked by the
+ * same guard, so a release commit either updates all of them or fails before writing.
  *
- * Only this line is auto-edited. The sibling mentions on that page (matrix captions, the evidence
- * paragraph, the footer's `vX.Y.Z` link) are sentences with numbers in them, and those stay in
- * `findStaleMentions` for a human to re-evidence.
+ * Every needle must occur exactly once. A page restructure that removes or duplicates one therefore
+ * stops the bump instead of leaving a half-updated page behind; update this list together with the page.
  */
-function writeSiteAppVersion(currentVersion, nextVersion) {
+function writeSiteVersionClaims(currentVersion, nextVersion) {
   const file = path.join(ROOT, 'docs', 'index.html');
   const text = fs.readFileSync(file, 'utf8');
-  const needle = `"softwareVersion": "${currentVersion}"`;
-  const hits = text.split(needle).length - 1;
-  if (hits !== 1) {
-    fail(
-      `docs/index.html 里 ${needle} 出现 ${hits} 次（应当正好 1 次）：这一行由 pnpm verify:meta 与 package.json 比对，` +
-        `bump 必须带着它一起走。页面结构改过的话，同步改这里的 needle。`,
-    );
+  const claims = [
+    `"softwareVersion": "${currentVersion}"`,
+    `文件格式任意转换助手 ${currentVersion} 的实际转换能力`,
+    `Actual conversion capability in Transfer Any File ${currentVersion}`,
+    `（${currentVersion} 构建`,
+    `(the ${currentVersion} build`,
+    `<strong>版本 ${currentVersion} ·`,
+    `<strong>Version ${currentVersion} ·`,
+    `>v${currentVersion}</a`,
+  ];
+  for (const needle of claims) {
+    const hits = text.split(needle).length - 1;
+    if (hits !== 1) {
+      fail(
+        `docs/index.html 里 ${needle} 出现 ${hits} 次（应当正好 1 次）：这一行由 pnpm verify:meta 与 package.json 比对，` +
+          `bump 必须带着它一起走。页面结构改过的话，同步改这里的 needle。`,
+      );
+    }
   }
-  fs.writeFileSync(file, text.replace(needle, `"softwareVersion": "${nextVersion}"`), 'utf8');
+  let next = text;
+  for (const needle of claims) next = next.replace(needle, needle.replace(currentVersion, nextVersion));
+  fs.writeFileSync(file, next, 'utf8');
 }
 
 /**
@@ -727,7 +741,7 @@ function main() {
   const changelogs = [];
   if (releasable && OPTS.write) {
     // First, because it reads a hand-edited page: if the line is gone, nothing else should have moved.
-    writeSiteAppVersion(currentVersion, version);
+    writeSiteVersionClaims(currentVersion, version);
     changelogs.push(writeChangelog('zh', plan), writeChangelog('en', plan));
     writePackage(currentVersion, version);
     renderGeneratedPages();
