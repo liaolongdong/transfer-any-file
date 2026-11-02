@@ -1,9 +1,9 @@
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
-import type { Zippable } from 'fflate';
 import { FileFormat } from '~/utils/core/types';
 import type { ConvertContext, Converter, ConvertResult } from '~/utils/core/types';
 import { throwIfAborted } from '~/utils/core/abort';
 import { loadFflate } from '~/utils/core/zip';
+import { isZipCompressible } from '~/utils/core/format';
 import { MAX_DIM, encodeCanvas, releaseCanvas } from '~/utils/core/image-utils';
 import { clampDpi, DEFAULT_PDF_DPI } from '~/utils/core/output-options';
 import { parsePageRange } from '~/utils/core/pdf-pages';
@@ -101,7 +101,7 @@ function createPdfToImageConverter(to: FileFormat): Converter {
         throw new Error('errors.pdfTooManyImagePages');
       }
 
-      const pageImages: Array<Uint8Array> = [];
+      const pageImages: Blob[] = [];
 
       try {
         const renderScale = pageScale(ctx?.options?.dpi);
@@ -131,7 +131,7 @@ function createPdfToImageConverter(to: FileFormat): Converter {
             await page.render({ canvas, viewport }).promise;
 
             const blob = await encodeCanvas(canvas, mimeType, ctx?.options);
-            pageImages.push(new Uint8Array(await blob.arrayBuffer()));
+            pageImages.push(blob);
           } finally {
             // The page is done with: its pixel buffer is the largest thing alive in this loop, and
             // `page.cleanup()` releases the font and image objects pdf.js caches per page.
@@ -154,22 +154,48 @@ function createPdfToImageConverter(to: FileFormat): Converter {
         throw new Error('errors.imageEncode');
       }
 
-      if (pageImages.length === 1) {
-        const blob = new Blob([pageImages[0] as BlobPart], { type: mimeType });
-        return { blob, filename: `converted.${to}`, containerExt: to };
+      const single = pageImages[0];
+      if (pageImages.length === 1 && single) {
+        return { blob: single, filename: `converted.${to}`, containerExt: to };
       }
 
-      // Multi-page PDFs export one image per page inside a ZIP
-      const { zipSync } = await loadFflate();
-      const entries: Zippable = {};
-      // Named by *document* page, not by position in this array: `pages` pushes exactly one image per
-      // iteration, so `page-3.png` means page 3 of the PDF whether the user converted all of them or
-      // asked for 3 alone. Numbering by index would silently renumber an excerpt.
-      pageImages.forEach((bytes, index) => {
-        entries[`page-${pages[index]}.${to}`] = bytes;
+      // Multi-page PDFs export one image per page inside a ZIP.
+      //
+      // Streamed rather than `zipSync`, for the same reason `downloadAllZip` streams (`useConversion`):
+      // deflating a whole document's worth of pages in one synchronous call holds the thread for
+      // seconds — 10.6 MB of PNG measured 1.36 s — and a page-sized entry leaves a turn of the event
+      // loop between pages, which is also the only place a cancel can take effect once rendering is
+      // done. Entries keep the page's own `Blob` until now, so the bytes are read once, here.
+      const { Zip, ZipDeflate, ZipPassThrough } = await loadFflate();
+      const chunks: BlobPart[] = [];
+      await new Promise<void>((resolve, reject) => {
+        const zipStream = new Zip((err, chunk, final) => {
+          if (err) {
+            reject(err);
+            return;
+          }
+          if (chunk) chunks.push(chunk);
+          if (final) resolve();
+        });
+        (async () => {
+          try {
+            for (const [index, page] of pageImages.entries()) {
+              // Named by *document* page, not by position in this array: `pages` pushes exactly one
+              // image per iteration, so `page-3.png` means page 3 of the PDF whether the user
+              // converted all of them or asked for 3 alone. Numbering by index would renumber an excerpt.
+              const name = `page-${pages[index]}.${to}`;
+              const entry = isZipCompressible(name) ? new ZipDeflate(name, { level: 6 }) : new ZipPassThrough(name);
+              zipStream.add(entry);
+              entry.push(new Uint8Array(await page.arrayBuffer()), true);
+              throwIfAborted(ctx?.signal);
+            }
+            zipStream.end();
+          } catch (error) {
+            reject(error);
+          }
+        })();
       });
-      const zipped = zipSync(entries, { level: 6 });
-      const blob = new Blob([zipped as BlobPart], { type: 'application/zip' });
+      const blob = new Blob(chunks, { type: 'application/zip' });
       // Declared rather than inferred: the nominal target is an image format, so without this the
       // caller would have to notice the ZIP by reading the extension out of `filename`.
       return { blob, filename: 'converted.zip', containerExt: 'zip' };

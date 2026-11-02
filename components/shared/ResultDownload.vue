@@ -5,7 +5,7 @@ import type { BatchResult, ConvertResult } from '~/utils/core/types';
 import type { ConversionFailure } from '~/composables/useConversion';
 import { useI18n } from '~/composables/useI18n';
 import { formatFromFilename } from '~/utils/core/file-detect';
-import { formatDuration, formatSize, TEXT_FORMATS } from '~/utils/core/format';
+import { formatDuration, formatSize, savingPercent, TEXT_FORMATS } from '~/utils/core/format';
 import { getFormatLabel } from '~/utils/core/format-labels';
 import { copyText } from '~/utils/core/clipboard';
 import { createRowKey } from '~/utils/core/row-key';
@@ -75,16 +75,11 @@ function sourceBytes(entry: BatchResult): number {
 /**
  * The saving a row can honestly claim. Growth and equality print nothing — a badge is a claim that
  * the output is smaller, and a 1% rounding of two near-equal files would not be worth the space.
+ * The same rules govern the batch summary, so both live in `savingPercent`.
  */
 function savingLabel(entry: BatchResult): string | null {
-  const source = sourceBytes(entry);
-  const result = entry.result.blob.size;
-  if (source <= 0 || result >= source) return null;
-  const raw = Math.round((1 - result / source) * 100);
-  // A non-empty result must not round to −100%; that reads as a zero-byte file. The compressor page
-  // caps the same number at the same place.
-  const percent = result > 0 ? Math.min(99, raw) : raw;
-  return percent >= 1 ? t('result.savedPercent', { percent }) : null;
+  const percent = savingPercent(sourceBytes(entry), entry.result.blob.size);
+  return percent === null ? null : t('result.savedPercent', { percent });
 }
 
 const visibleResults = computed(() => {
@@ -194,9 +189,11 @@ const sizeSummary = computed(() => {
     resultSize += entry.result.blob.size;
   }
   if (sourceSize === 0 || resultSize === sourceSize) return null;
-  const raw = Math.round((1 - resultSize / sourceSize) * 100);
-  const percent = resultSize > 0 ? Math.min(99, raw) : raw;
-  return { source: formatSize(sourceSize), result: formatSize(resultSize), percent: percent >= 1 ? percent : null };
+  return {
+    source: formatSize(sourceSize),
+    result: formatSize(resultSize),
+    percent: savingPercent(sourceSize, resultSize),
+  };
 });
 
 /**
@@ -454,7 +451,11 @@ function openPreview(result: ConvertResult): void {
             :key="resultKey(row.entry)"
             class="result-item"
           >
-            <span class="result-name">{{ row.entry.result.filename }}</span>
+            <span
+              class="result-name"
+              :title="row.entry.result.filename"
+              >{{ row.entry.result.filename }}</span
+            >
             <!-- The row says what its own bytes are, which the selector above cannot: after a
                  target switch the two deliberately disagree until the next run. -->
             <span class="result-target">{{ getFormatLabel(row.entry.target) }}</span>

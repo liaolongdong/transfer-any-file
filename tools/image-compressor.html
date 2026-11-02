@@ -766,6 +766,22 @@
         animation: tool-result-in var(--dur-mid) var(--ease-out) both;
       }
 
+      /* Reduced motion is an outward promise of this site — `tools/file-diff.html` carries the blanket,
+         and this page's own JS already skips the count-up under it. The CSS has to say the same thing,
+         and zeroing the duration is not enough on its own: `both` keeps painting the `from` frame, so a
+         reader in this mode would watch an invisible card snap into view. Kill the two entrances and the
+         bar transition outright instead, leaving every element on the state it animates toward. */
+      @media (prefers-reduced-motion: reduce) {
+        .tool-ready .tool-card,
+        .tool-result {
+          animation: none;
+        }
+
+        .size-bar-fill {
+          transition: none;
+        }
+      }
+
       .tool-limited {
         margin: 0;
         color: var(--ink-soft);
@@ -1464,6 +1480,7 @@
         var barAfterValue = $('barAfterValue');
         var presetChips = Array.prototype.slice.call(document.querySelectorAll('.preset-chip'));
         var countFrame = 0;
+        var barsFrame = 0;
 
         var MAX_INPUT_BYTES = 50 * 1024 * 1024;
         var MAX_CANVAS_EDGE = 4096;
@@ -1540,6 +1557,15 @@
           }
         }
 
+        /* Paired with `stopCount()` for the same reason: the bar widths are written a frame later, so
+           anything that resets the result area has to un-queue that frame first. */
+        function stopBars() {
+          if (barsFrame) {
+            cancelAnimationFrame(barsFrame);
+            barsFrame = 0;
+          }
+        }
+
         /* The sign is part of the number: a saving reads −62%, not 62%. The count-up is skipped
            under reduced motion, where the final text lands on the first frame. */
         function paintPercent(change) {
@@ -1573,7 +1599,11 @@
           barAfterFill.style.width = '0%';
           barAfterFill.classList.toggle('is-grow', after > before);
           barAfterFill.classList.toggle('is-same', after === before);
-          requestAnimationFrame(function () {
+          /* Tracked, not fire-and-forget: `clearResult()` zeroes both bars, and a frame still queued
+             when that happens would paint the previous result's widths back over the reset. */
+          if (barsFrame) cancelAnimationFrame(barsFrame);
+          barsFrame = requestAnimationFrame(function () {
+            barsFrame = 0;
             // A real saving can round to 0% of the original; keep a sliver so the bar does not read
             // as an empty track.
             barBeforeFill.style.width = Math.max(2, Math.round((before / max) * 100)) + '%';
@@ -1612,12 +1642,12 @@
           syncControls();
         }
 
+        /* Clears the result half of the page. The order is the one the design states: hide the
+           comparison, hand the preview back to the original, and only then revoke — a revoked URL that
+           is still the `src` of a visible `<img>` is the shape that paints a broken image. */
         function clearResult() {
-          if (state.resultUrl) {
-            URL.revokeObjectURL(state.resultUrl);
-            state.resultUrl = '';
-          }
           stopCount();
+          stopBars();
           compareBox.hidden = true;
           compareRange.value = '50';
           setComparePercent(50);
@@ -1643,6 +1673,10 @@
             preview.hidden = true;
             previewLabel.hidden = true;
             previewEmpty.hidden = false;
+          }
+          if (state.resultUrl) {
+            URL.revokeObjectURL(state.resultUrl);
+            state.resultUrl = '';
           }
         }
 
@@ -1842,7 +1876,14 @@
               throw new Error('pixels');
             }
             if (state.bitmap) state.bitmap.close();
-            if (state.originalUrl) URL.revokeObjectURL(state.originalUrl);
+            if (state.originalUrl) {
+              URL.revokeObjectURL(state.originalUrl);
+              /* Cleared before `clearResult()` reads it: that function hands the preview element back
+                 to `state.originalUrl`, and a revoked-but-still-truthy string would point the `<img>`
+                 at a dead URL until the fresh one lands two lines below. Nothing paints in between
+                 today, but the ordering the page documents is hide-first, revoke-second. */
+              state.originalUrl = '';
+            }
             clearResult();
             state.file = file;
             state.bitmap = bitmap;

@@ -5,6 +5,7 @@ import type { ConversionPreset, ImageOutputOptions } from '~/utils/core/types';
 import { FileFormat } from '~/utils/core/types';
 import { isImageOutputFormat } from '~/utils/core/output-options';
 import { MAX_PRESETS, PRESET_NAME_MAX, createPreset, describePreset } from '~/utils/core/presets';
+import { offerUndo as offerUndoToast } from '~/utils/core/undo-toast';
 import { useOutputOptions } from '~/composables/useOutputOptions';
 import { usePresets } from '~/composables/usePresets';
 import { useI18n } from '~/composables/useI18n';
@@ -79,12 +80,23 @@ async function handleSave(): Promise<void> {
   }
 }
 
+/**
+ * Deleting a chip stays single-click and offers the same undo toast the history rows and the staged
+ * file list use. A preset is cheap to lose and expensive to rebuild: its name is typed, and its
+ * target plus output options are whatever the workbench happened to be set to when it was saved.
+ * The chip comes back with the same id, so nothing else about the list moves.
+ */
 async function handleRemove(preset: ConversionPreset): Promise<void> {
-  if (await removePreset(preset.id)) {
-    ElMessage.info(t('preset.removed', { name: preset.name }));
-  } else {
+  if (!(await removePreset(preset.id))) {
     ElMessage.warning(t('preset.removeFailed', { name: preset.name }));
+    return;
   }
+  offerUndoToast({
+    removedText: t('preset.removed', { name: preset.name }),
+    undoText: t('common.undo'),
+    restoredText: t('preset.restored', { name: preset.name }),
+    restore: () => void addPreset(preset),
+  });
 }
 
 /**

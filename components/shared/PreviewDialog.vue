@@ -27,6 +27,14 @@ const emit = defineEmits<{
 
 const { t } = useI18n();
 
+/**
+ * Zoom bounds for an image preview. Named because the two stepper buttons now also *disable* at them:
+ * a control that clamps to the value it already holds looks broken at the ends of the range, and the
+ * only honest signal there is the button going inert.
+ */
+const MIN_SCALE = 0.25;
+const MAX_SCALE = 3;
+
 const scale = ref(1);
 const textContent = ref('');
 const imageUrl = ref('');
@@ -311,18 +319,20 @@ async function copyAll(): Promise<void> {
           <ElButton
             v-if="isImage"
             text
+            :disabled="scale <= MIN_SCALE"
             :title="t('preview.zoomOut')"
             :aria-label="t('preview.zoomOut')"
-            @click="scale = Math.max(scale - 0.25, 0.25)"
+            @click="scale = Math.max(scale - 0.25, MIN_SCALE)"
           >
             <ZoomOut />
           </ElButton>
           <ElButton
             v-if="isImage"
             text
+            :disabled="scale >= MAX_SCALE"
             :title="t('preview.zoomIn')"
             :aria-label="t('preview.zoomIn')"
-            @click="scale = Math.min(scale + 0.25, 3)"
+            @click="scale = Math.min(scale + 0.25, MAX_SCALE)"
           >
             <ZoomIn />
           </ElButton>
