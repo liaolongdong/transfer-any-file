@@ -8,10 +8,16 @@ import { throwIfAborted } from '~/utils/core/abort';
 /**
  * Shared image → PDF page pipeline.
  *
- * Both single-image converters and the merged-PDF builder go through here, so the encoding decision
- * per format exists exactly once: PNG keeps its own pixels, JPEG is passed through as a DCT, and the
- * three formats the browser cannot hand to jsPDF directly (WebP / BMP / GIF) are decoded and
- * re-encoded on a white-filled canvas.
+ * Both single-image converters and the merged-PDF builder go through here, so the encoding decision per
+ * format exists exactly once: PNG keeps its own pixels, and every other format — JPEG included — is
+ * decoded and re-encoded on a white-filled canvas, JPEG as `image/jpeg` at 0.92. The canvas is what
+ * applies a JPEG's EXIF orientation, which is why a JPEG is not handed over as the bytes it arrived
+ * with: passing them straight through would write a phone photo sideways.
+ *
+ * What "passed through as a DCT" describes is jsPDF's step, not this one: once the canvas has produced
+ * a JPEG stream, jsPDF embeds that stream with `DCTDecode` and does not compress it again (see
+ * {@linkcode appendPdfImagePage}). Read as "a JPG→PDF costs no lossy pass", the phrase is wrong and has
+ * always been — a JPEG entering this pipeline is re-encoded once, so a JPG→PDF is a second generation.
  */
 
 /** Ceiling for one merged document; the file list itself is capped at the same number. */
@@ -143,6 +149,13 @@ export async function preparePdfImagePage(blob: Blob, from: FileFormat): Promise
     // `from` is the contract the converter is registered under. `blob.type` is sniffed from the
     // uploaded file and can be empty or wrong, and in a multi-step chain the intermediate blob
     // carries no type at all — either miss re-encodes a JPEG as lossless PNG and inflates the PDF.
+    //
+    // A JPEG therefore pays one lossy pass here (0.92) even though it arrived already compressed. It
+    // goes through the canvas rather than straight to jsPDF's `DCTDecode` because the decode is what
+    // normalises the things a raw stream would carry into the document: the EXIF orientation a phone
+    // photo stores as metadata (Chrome applies it while decoding, jsPDF never would), and the pixel
+    // grid when the source exceeds `MAX_DIM`. The cost is a second generation on JPG→PDF; the
+    // alternative is a document whose pages are rotated by whatever the camera decided.
     const isJpeg = from === FileFormat.JPG;
     const dataUrl = canvas.toDataURL(isJpeg ? 'image/jpeg' : 'image/png', 0.92);
     releaseCanvas(canvas);
@@ -173,9 +186,11 @@ export async function preparePdfImagePage(blob: Blob, from: FileFormat): Promise
  * five repo PNGs measured for the single-image path. 'FAST' rather than 'SLOW': a fixed Paeth filter
  * plus a level-9 deflate wins on flat pictures, loses on busy ones (20–35 % larger on a synthetic
  * grain pattern), and costs several times the synchronous encode time at sizes people actually
- * convert (4.2 s against 1.1 s over those files). Harmless on the JPEG branch, which is a DCT
- * pass-through and never reads the argument — measured on a real JPEG, the two PDFs differ only in
- * the 60 bytes of the trailer's `/ID`, image stream included.
+ * convert (4.2 s against 1.1 s over those files). Irrelevant on the JPEG branch, which is not because
+ * a JPEG reaches the document untouched — {@linkcode preparePdfImagePage} re-encodes it once on a
+ * canvas — but because jsPDF embeds a JPEG payload with `DCTDecode` and never reads the compression
+ * argument for it: measured on a real JPEG, the two PDFs differ only in the 60 bytes of the trailer's
+ * `/ID`, image stream included.
  */
 export function appendPdfImagePage(pdf: jsPDF, page: PdfImagePage, first: boolean): void {
   try {

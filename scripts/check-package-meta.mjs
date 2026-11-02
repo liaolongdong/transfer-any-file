@@ -28,6 +28,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { APP } from './conversion-pages/pairs.mjs';
+import { visibleVersionClaims } from './site-version-claims.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -247,18 +248,10 @@ if (siteApp) {
   // The same version is also prose on the page: the matrix caption, the e2e evidence sentence, the
   // "version / last updated" line and the footer's changelog link. The release script updates all of
   // them (`writeSiteVersionClaims`), so a release that leaves one behind is a bug, not a judgement
-  // call — and the 1.3.0 drift proved no other gate sees it.
+  // call — and the 1.3.0 drift proved no other gate sees it. Both sides read one list
+  // (`scripts/site-version-claims.mjs`), which is what stops writer and guard from disagreeing.
   const siteSource = fs.readFileSync(path.join(ROOT, 'docs', 'index.html'), 'utf8');
-  const visibleVersionClaims = [
-    `文件格式任意转换助手 ${pkg.version} 的实际转换能力`,
-    `Actual conversion capability in Transfer Any File ${pkg.version}`,
-    `（${pkg.version} 构建`,
-    `(the ${pkg.version} build`,
-    `<strong>版本 ${pkg.version} ·`,
-    `<strong>Version ${pkg.version} ·`,
-    `>v${pkg.version}</a`,
-  ];
-  for (const claim of visibleVersionClaims) {
+  for (const claim of visibleVersionClaims(pkg.version)) {
     const hits = siteSource.split(claim).length - 1;
     check(
       hits === 1,

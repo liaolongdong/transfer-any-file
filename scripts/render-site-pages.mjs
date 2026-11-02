@@ -2223,7 +2223,7 @@ ${lists}
 const STATIC_PAGES = {
   home: {
     path: '/',
-    updated: '2026-10-28',
+    updated: '2026-11-03',
     changefreq: 'monthly',
     priority: '1.0',
     file: 'docs/index.html',
@@ -2237,7 +2237,7 @@ const STATIC_PAGES = {
   },
   blog: {
     path: '/blog/',
-    updated: '2026-10-28',
+    updated: '2026-11-03',
     changefreq: 'monthly',
     priority: '0.8',
     file: 'docs/blog/index.html',
@@ -2271,7 +2271,7 @@ const STATIC_PAGES = {
   },
   compress: {
     path: '/compress/',
-    updated: '2026-10-28',
+    updated: '2026-11-03',
     changefreq: 'monthly',
     priority: '0.8',
     file: 'tools/image-compressor.html',

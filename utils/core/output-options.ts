@@ -99,6 +99,38 @@ export function isLossyImageFormat(format: FileFormat | null): boolean {
   return format !== null && LOSSY_IMAGE_FORMATS.has(format);
 }
 
+/**
+ * Targets whose container holds pixels rather than the source's own drawing commands — so a multi-frame
+ * GIF arrives as one frame.
+ *
+ * This is deliberately the same set the converters measure the loss on: `image-convert.ts` and
+ * `image-pdf.ts` are the only two places that compute `lostFrames`, both for `from === GIF` only, and
+ * they are the routes the preflight caveat has to agree with. A caveat that named a route these
+ * converters do not travel would tell the reader about a loss that never happens; one that omitted a
+ * route they do travel would be a surprise on the result card instead of before the run.
+ *
+ * Written against {@linkcode IMAGE_OUTPUT_FORMATS} rather than a category lookup because only these
+ * three containers can be produced at all — BMP, GIF and SVG are input-only, so asking whether one of
+ * them is a raster target has no reachable answer.
+ */
+export function isBitmapContainerTarget(format: FileFormat | null): boolean {
+  if (format === null) return false;
+  return format === FileFormat.PDF || IMAGE_OUTPUT_FORMATS.has(format);
+}
+
+/**
+ * Targets that flatten a vector source (SVG) into a bitmap.
+ *
+ * The image and PDF families above already rasterise an SVG source; DOCX and Markdown join because both
+ * routes pass the document through `replaceInlineSvgWithPng` (`html-to-docx.ts`, `html-to-md.ts`) and
+ * report it as `svgRasterized`, so the vector is gone even though the container is not an image. HTML is
+ * the one target that keeps the `<svg>` element and therefore keeps the vector — it says nothing.
+ */
+export function rasterisesVectorSource(format: FileFormat | null): boolean {
+  if (format === null) return false;
+  return isBitmapContainerTarget(format) || format === FileFormat.DOCX || format === FileFormat.MD;
+}
+
 /** True when any parameter is set, which is what the reset control is gated on. */
 export function hasOutputOptions(options: ImageOutputOptions): boolean {
   return (

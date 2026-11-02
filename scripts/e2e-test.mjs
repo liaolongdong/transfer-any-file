@@ -7305,6 +7305,11 @@ async function run() {
     await page.waitForTimeout(300);
 
     const cb = await page.$('.convert-btn');
+    // History is read out of storage, not off the panel: whether a batch was recorded is a fact about
+    // the write path, and the panel is collapsed by default in this walk.
+    const historyRecords = () =>
+      page.evaluate(() => window.chrome.storage.local.get('fat:history')).then(r => r['fat:history'] ?? []);
+    const historyBefore = (await historyRecords()).length;
     // Both waiters are armed before the click and consumed after it. A waiter armed in advance sees
     // the batch card and the cancel affordance however briefly they are on screen, so neither how
     // fast nor how loaded this machine is decides which checks this section runs. Clicking from
@@ -7381,6 +7386,23 @@ async function run() {
     const batchFile = await batchCard;
     if (/sample\.\w+/.test(batchFile)) ok(`Batch progress names the file in flight (${batchFile})`);
     else fail('Batch current file', `the batch card read "${batchFile}"`);
+    // 6. And the log keeps AGENTS.md's rule: only a batch that ran to the end is recorded. The merged
+    //    path already refuses a cancelled one (`useConversion.ts`'s merged branch), and a per-file
+    //    batch used to write its finished subset anyway — a history row that is indistinguishable
+    //    from a completed one, which the trend chart counts and 再次使用 replays as if it had been
+    //    the whole batch. One assertion either way, judged on what actually happened, so this
+    //    section's contribution to the suite total still does not depend on how loaded the machine is.
+    const recordsAdded = (await historyRecords()).length - historyBefore;
+    if (truncated ? recordsAdded === 0 : recordsAdded === 1) {
+      ok(
+        `History follows the batch outcome (${truncated ? 'cancelled batch wrote no record' : 'completed batch wrote 1'})`,
+      );
+    } else {
+      fail(
+        'Cancelled batch writes no history',
+        `truncated=${String(truncated)} but ${String(recordsAdded)} record(s) were added (${convertedCount}/3 converted)`,
+      );
+    }
     await page.screenshot({ path: shot(`${String(shotIdx++).padStart(2, '0')}-cancel-test.png`), fullPage: true });
   } catch (e) {
     fail('Conversion cancel', e.message);

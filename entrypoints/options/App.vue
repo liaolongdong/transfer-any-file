@@ -29,7 +29,6 @@ import ConversionProgress from '~/components/shared/ConversionProgress.vue';
 import CurrentFileHint from '~/components/shared/CurrentFileHint.vue';
 import StepProgressHint from '~/components/shared/StepProgressHint.vue';
 import CollapsibleCard from '~/components/shared/CollapsibleCard.vue';
-import PreferencesMenu from '~/components/shared/PreferencesMenu.vue';
 import PresetBar from '~/components/shared/PresetBar.vue';
 import HistoryPanel from '~/components/options/HistoryPanel.vue';
 
@@ -39,6 +38,11 @@ const FormatSelector = defineAsyncComponent(() => import('~/components/shared/Fo
 const OutputOptions = defineAsyncComponent(() => import('~/components/shared/OutputOptions.vue'));
 const ResultDownload = defineAsyncComponent(() => import('~/components/shared/ResultDownload.vue'));
 const ComparisonView = defineAsyncComponent(() => import('~/components/shared/ComparisonView.vue'));
+// The settings dialog carries `destroy-on-close`, so this subtree is created on first open — as an
+// eager import its own code and its four composables (`useTheme`, `useShortcuts`, `useNotification`,
+// `useNameTemplate`) sat in the startup graph for a panel most sessions never open. Same reasoning as
+// `AboutDrawer`, which went lazy for exactly this.
+const PreferencesMenu = defineAsyncComponent(() => import('~/components/shared/PreferencesMenu.vue'));
 
 initConverters();
 

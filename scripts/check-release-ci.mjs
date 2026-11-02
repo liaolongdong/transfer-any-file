@@ -875,7 +875,22 @@ function checkReleaseStartPoint(failures) {
     fs.mkdirSync(path.join(repo, 'scripts'), { recursive: true });
     // 复制的是 ROOT 里那份脚本，不是 `release-ci.mjs`：被钉的必须是待验证的那棵树里真正会跑的实现，
     // 否则 CHECK_CI_ROOT 指到临时树时，这条守卫会拿仓库里的旧脚本去验一棵新造的树。
+    const releaseScript = fs.readFileSync(path.join(ROOT, 'scripts', 'release.mjs'), 'utf8');
     fs.copyFileSync(path.join(ROOT, 'scripts', 'release.mjs'), path.join(repo, 'scripts', 'release.mjs'));
+    // 带脚本，就得带它自己的相对 import——而这串路径从脚本正文现读，不再在这里抄第二份清单：
+    // 「release.mjs import 了什么」与「夹具带了什么」一旦分成两处手写，加一个兄弟模块就会让这条
+    // 守卫在临时树里 `ERR_MODULE_NOT_FOUND`（1.9.0 之后给版本声明抽出 `site-version-claims.mjs`
+    // 时正是这个形状），而红灯读起来像发布链路坏了，其实坏的是量具。
+    for (const rel of new Set([...releaseScript.matchAll(/from\s+['"](\.[^'"]+)['"]/g)].map(m => m[1]))) {
+      const src = path.join(ROOT, 'scripts', rel);
+      if (!fs.existsSync(src)) {
+        failures.push(`release.mjs 里 import 了 ${rel}，但 ${path.join('scripts', rel)} 不存在——临时树带不出它。`);
+        continue;
+      }
+      const dest = path.join(repo, 'scripts', rel);
+      fs.mkdirSync(path.dirname(dest), { recursive: true });
+      fs.copyFileSync(src, dest);
+    }
 
     const zh = sections => ['# 更新日志', '', '## [未发布]', '', ...sections].join('\n');
     const en = sections => ['# Changelog', '', '## [Unreleased]', '', ...sections].join('\n');
