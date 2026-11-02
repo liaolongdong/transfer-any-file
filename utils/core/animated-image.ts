@@ -18,8 +18,14 @@
  * and a read nobody can exercise is not something to ship in front of users.
  */
 
-/** Bytes read by the first pass; a decisive answer there costs no more than this. */
-const SNIFF_LIMIT = 4 * 1024 * 1024;
+/**
+ * Bytes read by the first pass; a decisive answer there costs no more than this.
+ *
+ * Exported because the workbench's preflight budget is written against exactly this number: it decides
+ * how many files it can afford to look at before the user presses anything, and a second copy of the
+ * constant would drift the moment this window changed.
+ */
+export const SNIFF_LIMIT = 4 * 1024 * 1024;
 
 /** `GIF87a` / `GIF89a` — a GIF's own label, checked because an uploaded file's name is not evidence. */
 function isGifStream(bytes: Uint8Array): boolean {

@@ -762,10 +762,17 @@ function checkReleaseRelay(failures) {
     const want = stepBlock(w, wantAt);
     if (!/echo "ref=refs\/tags\/\$tag"/.test(want))
       failures.push('release.yml：want 那一步不再产出 ref=refs/tags/$tag——「发哪一版」失去了唯一的落点。');
-    if (!/v\[0-9\]\*\)/.test(want) || !/exit 1/.test(want))
+    // Both ends of the anchor are pinned separately so this guard does not have to reproduce the
+    // escaped dots of the shell regex it is checking — only that the check is anchored at all.
+    if (!/=~ \^v\[0-9\]/.test(want) || !/\[0-9\]\+\$/.test(want) || !/exit 1/.test(want))
       failures.push(
-        'release.yml：want 那一步不再校验 v 前缀并不再当场失败——一次读不出标签的运行会静默检出一棵别的树，' +
+        'release.yml：want 那一步不再按 ^vX.Y.Z$ 校验标签并不再当场失败——一次读不出标签的运行会静默检出一棵别的树，' +
           '而 package.json 的比对在检出之后，拦不住它。',
+      );
+    if (/v\[0-9\]\*\)/.test(want))
+      failures.push(
+        'release.yml：want 那一步又用回了 `case v[0-9]*)`——那是只锚前缀的形状，' +
+          '带换行的 dispatch 值能在 $GITHUB_OUTPUT 里追加一个键，把检出 ref 指向别的树。',
       );
     const checkoutAt = w.findIndex((line, i) => i > wantAt && /uses: actions\/checkout@/.test(line));
     const checkout = checkoutAt === -1 ? '' : w.slice(checkoutAt, checkoutAt + 4).join('\n');

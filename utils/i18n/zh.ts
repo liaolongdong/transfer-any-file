@@ -3,6 +3,8 @@ export default {
   common: {
     close: '关闭',
     cancel: '取消',
+    /** Label of the take-it-back button in every undo toast (`~/utils/core/undo-toast`). */
+    undo: '撤销',
     /** Joins a list of formats in running text, e.g. "PNG、JPG". */
     listSeparator: '、',
   },
@@ -80,6 +82,9 @@ export default {
     folderTruncated: '文件夹层级过深或条目过多，部分文件未导入',
     addMore: '追加文件',
     clearAll: '清空',
+    /** Undo toast after the staged list is cleared — the whole list comes back if it is used. */
+    cleared: '已移除 {count} 个文件',
+    restoredFiles: '已恢复 {count} 个文件',
     batchCap: '一次最多处理 {max} 个文件，超出部分已忽略',
     ariaLabel: '选择文件',
     preview: '预览',
@@ -229,6 +234,8 @@ export default {
     saveName: '保存名称',
     saved: '已保存预设「{name}」',
     removed: '已删除预设「{name}」',
+    /** Undo toast after a preset chip is deleted; using it puts the same chip back with its settings. */
+    restored: '已恢复预设「{name}」',
     updated: '已更新预设「{name}」',
     // 卡片是先进内存再写盘的，写盘失败时页面看起来和成功一模一样，刷新后卡片消失才露出来。
     saveFailed: '预设「{name}」已加到本页，但未能写入本地存储，刷新后会消失',
@@ -479,6 +486,7 @@ export default {
     // Accessible names for controls with no visible label (el-select, etc.)
     targetFormat: '目标格式',
     historyFormatFilter: '按格式筛选历史记录',
+    historySearch: '搜索历史记录',
   },
 
   // Footer

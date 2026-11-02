@@ -4,6 +4,8 @@ const en: typeof zh = {
   common: {
     close: 'Close',
     cancel: 'Cancel',
+    /** Label of the take-it-back button in every undo toast (`~/utils/core/undo-toast`). */
+    undo: 'Undo',
     /** Joins a list of formats in running text, e.g. "PNG, JPG". */
     listSeparator: ', ',
   },
@@ -69,6 +71,9 @@ const en: typeof zh = {
     folderTruncated: 'The folder is nested too deeply or holds too many entries; some files were skipped',
     addMore: 'Add files',
     clearAll: 'Clear',
+    /** Undo toast after the staged list is cleared — the whole list comes back if it is used. */
+    cleared: 'Removed {count} file(s)',
+    restoredFiles: 'Restored {count} file(s)',
     batchCap: 'Up to {max} files per batch; extra files were ignored',
     ariaLabel: 'Select files',
     preview: 'Preview',
@@ -212,6 +217,8 @@ const en: typeof zh = {
     saveName: 'Save name',
     saved: 'Preset “{name}” saved',
     removed: 'Preset “{name}” deleted',
+    /** Undo toast after a preset chip is deleted; using it puts the same chip back with its settings. */
+    restored: 'Preset “{name}” restored',
     updated: 'Preset “{name}” updated',
     // The chip lands in memory before the write, so a failed write looks exactly like a success until
     // the page is reloaded and the chip disappears — the only moment the user would otherwise find out.
@@ -454,6 +461,7 @@ const en: typeof zh = {
     // Accessible names for controls with no visible label (el-select, etc.)
     targetFormat: 'Target format',
     historyFormatFilter: 'Filter history by format',
+    historySearch: 'Search history',
   },
 };
 

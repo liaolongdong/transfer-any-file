@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch, onBeforeUnmount } from 'vue';
+import { ref, computed, watch, nextTick, onBeforeUnmount } from 'vue';
 import { Check } from '@element-plus/icons-vue';
 import { useTheme } from '~/composables/useTheme';
 import type { ThemeName, ColorMode } from '~/composables/useTheme';
@@ -32,6 +32,24 @@ const shortcuts = useShortcuts();
 /** F16 — shortcut recording state. Only one action can be recorded at a time;
  *  while recording, the next keydown is captured globally. */
 const recording = ref<ShortcutAction | null>(null);
+
+/** The two elements that occupy the same slot, one while idle and one while recording. */
+const shortcutButtonEl = ref<HTMLElement | null>(null);
+const shortcutRecordingEl = ref<HTMLElement | null>(null);
+
+/**
+ * Keeps the keyboard where the user left it.
+ *
+ * Recording swaps the focused `<button>` for a `<span>`; if focus is not handed over, it falls to
+ * `<body>` and the next Tab restarts from the top of the dialog — the reader loses their place twice,
+ * once going in and once coming out. The recording element is therefore focusable (`tabindex="-1"`)
+ * and focus travels with the swap in both directions. `nextTick` because the elements only change
+ * places after this render.
+ */
+watch(recording, async active => {
+  await nextTick();
+  (active ? shortcutRecordingEl.value : shortcutButtonEl.value)?.focus();
+});
 
 function startRecording(action: ShortcutAction): void {
   recording.value = action;
@@ -221,7 +239,11 @@ const notifyStatusKey = computed<string>(() => {
                 </el-icon>
               </span>
             </span>
-            <span class="swatch-label">{{ t('prefs.themeNames.' + item.value) }}</span>
+            <span
+              class="swatch-label"
+              :title="t('prefs.themeNames.' + item.value)"
+              >{{ t('prefs.themeNames.' + item.value) }}</span
+            >
           </button>
         </div>
       </div>
@@ -335,6 +357,7 @@ const notifyStatusKey = computed<string>(() => {
           <div class="shortcut-controls">
             <button
               v-if="recording !== 'convert'"
+              ref="shortcutButtonEl"
               type="button"
               class="shortcut-key"
               :aria-label="t('prefs.shortcutChange') + ': ' + shortcuts.formatAction('convert')"
@@ -344,8 +367,10 @@ const notifyStatusKey = computed<string>(() => {
             </button>
             <span
               v-else
+              ref="shortcutRecordingEl"
               class="shortcut-key recording"
               role="status"
+              tabindex="-1"
               aria-live="polite"
               >{{ t('prefs.shortcutRecording') }}</span
             >

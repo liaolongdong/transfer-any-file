@@ -385,17 +385,18 @@ body {
   cursor: pointer;
 }
 
-/* Undo affordance inside the history toast. Same reason as above: the node is built with `h()`
-   in HistoryPanel.vue and ElMessage renders it in the message layer, outside the component's
-   scope. A plain button rather than an el-button, because el-button needs the app context that
+/* Undo affordance inside the app's undo toast (`utils/core/undo-toast.ts`), used by history, the
+   staged file list and the preset bar. The node is built with `h()` and ElMessage renders it in the
+   message layer, outside any component's scope — which is why these rules live here rather than in a
+   scoped block. A plain button rather than an el-button, because el-button needs the app context that
    a detached VNode in a teleported message does not reliably carry. */
-.history-undo {
+.undo-toast {
   display: inline-flex;
   gap: var(--fat-space-sm);
   align-items: center;
 }
 
-.history-undo__btn {
+.undo-toast__btn {
   padding: 0;
   border: none;
   font: inherit;

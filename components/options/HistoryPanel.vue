@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { ref, computed, h } from 'vue';
+import { ref, computed } from 'vue';
 import { Delete, Download, Right, Search, Upload } from '@element-plus/icons-vue';
 import { saveAs } from 'file-saver';
 import { useHistory, MAX_IMPORT_BYTES, HISTORY_IMPORT_ERROR_KEYS, searchableFileNames } from '~/composables/useHistory';
 import type { HistoryRecord } from '~/composables/useHistory';
 import { useI18n } from '~/composables/useI18n';
+import { offerUndo as offerUndoToast } from '~/utils/core/undo-toast';
 import { formatDuration, formatSize } from '~/utils/core/format';
 import { getFormatLabel } from '~/utils/core/format-labels';
 import type { FileFormat } from '~/utils/core/types';
@@ -17,10 +18,6 @@ const emit = defineEmits<{
 
 const { records, removeRecord, clear, restoreRecords, exportData, importData } = useHistory();
 const { t } = useI18n();
-
-/** How long the undo affordance stays on screen — long enough to notice and click, short enough
- *  that a stale click never resurrects a record the user has already moved on from. */
-const UNDO_WINDOW = 5000;
 
 const importInput = ref<HTMLInputElement | null>(null);
 
@@ -107,32 +104,16 @@ function handleReuse(record: HistoryRecord): void {
 }
 
 /**
- * Toast that offers to put `removed` back.
- *
- * Delete and clear stay single-click — an extra confirmation step on every row would be a worse
- * trade than a mistake that is recoverable for a few seconds. ElMessage renders as `role="alert"`,
- * so the same toast is the screen-reader announcement, and `h()` builds the node instead of
- * `dangerouslyUseHTMLString`, which would route the text through innerHTML.
+ * Delete and clear stay single-click; the safety net is the shared undo toast
+ * (`~/utils/core/undo-toast`), the same one the staged file list and the preset bar use, so the three
+ * destructive-lite surfaces cannot drift apart on how long a mistake stays recoverable.
  */
 function offerUndo(count: number, removed: HistoryRecord[]): void {
-  ElMessage({
-    type: 'success',
-    duration: UNDO_WINDOW,
-    message: h('span', { class: 'history-undo' }, [
-      t('history.removed', { count }),
-      h(
-        'button',
-        {
-          type: 'button',
-          class: 'history-undo__btn',
-          onClick: () => {
-            void restoreRecords(removed);
-            ElMessage.success(t('history.restored', { count: removed.length }));
-          },
-        },
-        t('history.undo'),
-      ),
-    ]),
+  offerUndoToast({
+    removedText: t('history.removed', { count }),
+    undoText: t('history.undo'),
+    restoredText: t('history.restored', { count: removed.length }),
+    restore: () => restoreRecords(removed),
   });
 }
 
@@ -271,6 +252,7 @@ async function handleImportChange(e: Event): Promise<void> {
         size="small"
         clearable
         :prefix-icon="Search"
+        :aria-label="t('a11y.historySearch')"
         :placeholder="t('history.searchPlaceholder')"
         class="history-search"
       />

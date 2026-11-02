@@ -700,7 +700,6 @@ async function resetWorkbench(page) {
   if (!settled) throw new Error('the results card did not clear before the next scenario');
 }
 
-/** Choose a conversion target from the workbench's format dropdown. */
 /**
  * A solid 24-bit BMP. BMP is the one input the browser only decodes, so it is the cheapest way to
  * hand the suite a file whose PNG/WebP result is guaranteed to be far smaller than its source.
@@ -729,6 +728,7 @@ function solidBmp(width, height) {
   return buffer;
 }
 
+/** Choose a conversion target from the workbench's format dropdown. */
 async function pickTarget(page, text) {
   const sel = await page.waitForSelector('.action-row .el-select', { timeout: 10000 });
   await sel.click();
@@ -7189,7 +7189,7 @@ async function run() {
     if (afterDelete !== before - 1) throw new Error(`delete removed ${before - afterDelete} rows, expected 1`);
 
     // Delete stays single-click; the safety net is the 5 s undo in the toast.
-    const undoBtn = await page.$('.history-undo__btn');
+    const undoBtn = await page.$('.undo-toast__btn');
     if (!undoBtn) throw new Error('undo affordance missing from the delete toast');
     await undoBtn.click();
     await page.waitForTimeout(400);

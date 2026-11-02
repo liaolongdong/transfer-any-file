@@ -5,6 +5,7 @@ import { UploadFilled, Delete, Plus, Picture, Document, Grid, View, Loading } fr
 import { FileFormat } from '~/utils/core/types';
 import { getFormatLabel, getFormatCategory } from '~/utils/core/format-labels';
 import { formatSize } from '~/utils/core/format';
+import { offerUndo as offerUndoToast } from '~/utils/core/undo-toast';
 import { loadFflate, declaredEntryCount, MAX_ZIP_ENTRIES } from '~/utils/core/zip';
 import { isMac } from '~/utils/core/platform';
 import { detectFormat, SUPPORTED_EXTENSIONS } from '~/utils/core/file-detect';
@@ -256,11 +257,41 @@ function handleFileSelect(event: Event): void {
   input.value = '';
 }
 
+/**
+ * Clearing the staged list stays single-click, with the shared undo toast as the safety net.
+ *
+ * The list is the expensive thing to rebuild: a ZIP or a folder drop can stage two hundred entries
+ * through a picker that cannot select them again, so a misclick on 清空 used to cost a re-pick with no
+ * way back. Confirming instead was measured against this suite — eight scenarios click this button —
+ * and an undo keeps every one of them working unchanged.
+ *
+ * The restore writes the same state `expandAndApply` would have produced, rather than routing back
+ * through it: the snapshot may already hold archive entries, and re-running the expansion over them
+ * would add a second copy of everything the first one unpacked.
+ */
 function clearAll(): void {
   if (props.disabled) return;
+  const removed = [...selectedFiles.value];
+  const removedFormats = [...detectedFormats.value];
+  if (removed.length === 0) return;
   selectedFiles.value = [];
   detectedFormats.value = [];
   emit('update:files', []);
+  offerUndoToast({
+    removedText: t('upload.cleared', { count: removed.length }),
+    undoText: t('common.undo'),
+    restoredText: t('upload.restoredFiles', { count: removed.length }),
+    restore: () => {
+      // A batch that started inside the undo window owns the list positionally — the same reason
+      // `expandAndApply` refuses late writes — so the offer expires with it rather than landing under
+      // a run that is reading the list by index.
+      if (props.disabled) return;
+      selectedFiles.value = removed;
+      detectedFormats.value = removedFormats;
+      primeWindow(removed.length);
+      emit('update:files', removed);
+    },
+  });
 }
 
 /** The `DataTransfer` already consumed by {@link intakeDrop}, see the deduplication note there. */
@@ -1035,7 +1066,11 @@ defineExpose({
                 <component :is="getFileIcon(row.format)" />
               </el-icon>
               <div class="file-details">
-                <span class="file-name">{{ row.file.name }}</span>
+                <span
+                  class="file-name"
+                  :title="row.file.name"
+                  >{{ row.file.name }}</span
+                >
                 <span class="file-meta">
                   {{ formatSize(row.file.size) }}
                   <el-tag

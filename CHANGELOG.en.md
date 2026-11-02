@@ -11,6 +11,17 @@ Release PR is not by itself a release.
 
 ## [Unreleased]
 
+### Fixed
+
+- **security**: The remote-code guard only recognised URLs carrying a scheme, so all four code-fetching shapes written scheme-relative (`//host/x.js`) passed it — they are now caught, and the four hand-authored public pages under `docs/` (home, privacy, blog, 404) are inside both source-layer guards. `.html` is scanned on its executable surface (script bodies, `on*` attributes, `javascript:` URLs), and the artifact layer now also asserts the package declares no `web_accessible_resources`
+- **ui**: Clearing the staged file list and deleting a preset became undoable, sharing one undo toast with history (extracted to `utils/core/undo-toast.ts`, used by all three) — wiping a list of up to 200 files is no longer the cost of one misclick
+- **ui**: With a preview dialog or a confirmation box on screen, ⌘/Ctrl+Enter no longer starts a batch behind it and the page-wide drop veil no longer paints over the modal; the lock previously knew only the two overlays the workbench itself opens
+- **ui**: The image preview's zoom buttons now disable at their 0.25× and 3× bounds instead of looking live and doing nothing; focus survives the shortcut recorder's swap between button and status; truncated result names and theme names carry a title, and the history search field has an accessible name
+- **site**: The image compressor got the `prefers-reduced-motion` CSS fallback it was missing (only the count-up honoured it in JS, while the entrance animations and size bars still moved); swapping images now returns the preview before revoking the object URL, and the bar-width frame is cancellable
+- **ci**: `release.yml` validates the whole tag against `^vX.Y.Z$` — the previous prefix-only `case v[0-9]*)` let a dispatched value carrying a newline append a key to `$GITHUB_OUTPUT` and repoint the checkout; `repo-meta.yml` passes its token through a `chmod 600` curl config file instead of the process argument list
+- **perf**: The multi-page PDF→image ZIP streams instead of one synchronous `zipSync`, yielding the event loop between pages and honouring cancellation there; JSON tree search is debounced by 150 ms (it re-scanned the whole tree per keystroke) and its rows gained `content-visibility`
+- **types**: The comparison view's stored split position is now type-checked — a boolean used to pass the `>= 0 && <= 100` range test and write `width: true%` into the panels
+
 ## [1.9.0] - 2026-10-27
 
 ### Added
