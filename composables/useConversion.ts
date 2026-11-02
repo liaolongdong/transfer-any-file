@@ -833,7 +833,14 @@ export function useConversion() {
       // Record successful conversions in history (metadata only, no blob); a storage failure
       // must never leave the UI stuck in "converting". The accounting runs over `converted`, not
       // the input list, so failed files cannot inflate a record of an otherwise good batch.
-      if (converted.length > 0) {
+      //
+      // Not for a cancelled run: AGENTS.md limits history to 成功批次, and the merged path already
+      // refuses (`if (signal.aborted) return` above). A partial record here was worse than the merged
+      // path's silence, because it is indistinguishable from a completed one — the row says
+      // "3 files", the trend chart counts it, and 再次使用 replays three of the five files the batch
+      // was given. What the reader keeps from an abandoned run is the result card, which is still
+      // assigned above and still downloadable.
+      if (converted.length > 0 && !signal.aborted) {
         try {
           const totalSourceSize = converted.reduce((sum, c) => sum + c.size, 0);
           const totalResultSize = results.reduce((sum, entry) => sum + entry.result.blob.size, 0);

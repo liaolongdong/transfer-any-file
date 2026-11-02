@@ -274,8 +274,20 @@ body {
 }
 
 .el-input__wrapper:focus-visible,
-.el-textarea__inner:focus-visible,
-.el-select__wrapper:focus-visible {
+.el-textarea__inner:focus-visible {
+  outline: 2px solid var(--fat-focus-ring) !important;
+  outline-offset: 1px !important;
+}
+
+/* The select needs its own rule, and not the `:focus-visible` one above: `tabindex` is placed on
+   Element Plus's inner `<input>` (`select2.mjs` sets it on `inputRef`), while `.el-select__wrapper`
+   is a `<div>` with no focusability — so `.el-select__wrapper:focus-visible` could never match, and
+   the wrapper only looked covered because the selector was written. The focus node itself cannot
+   carry the ring either: for a non-filterable select the shipped bundle keeps it in
+   `.el-select__input-wrapper.is-hidden { opacity: 0 }`, so anything drawn on it is invisible.
+   `:has()` is how the ring gets back to the box the reader actually sees, and only for a keyboard
+   focus — a click keeps Element Plus's own 1px `is-focused` inset, unchanged. */
+.el-select__wrapper:has(.el-select__input:focus-visible) {
   outline: 2px solid var(--fat-focus-ring) !important;
   outline-offset: 1px !important;
 }

@@ -52,6 +52,7 @@ import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { versionClaims } from './site-version-claims.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -569,21 +570,13 @@ function writePackage(currentVersion, nextVersion) {
  * same guard, so a release commit either updates all of them or fails before writing.
  *
  * Every needle must occur exactly once. A page restructure that removes or duplicates one therefore
- * stops the bump instead of leaving a half-updated page behind; update this list together with the page.
+ * stops the bump instead of leaving a half-updated page behind; update the list in
+ * `scripts/site-version-claims.mjs` together with the page — the guard reads the same list.
  */
 function writeSiteVersionClaims(currentVersion, nextVersion) {
   const file = path.join(ROOT, 'docs', 'index.html');
   const text = fs.readFileSync(file, 'utf8');
-  const claims = [
-    `"softwareVersion": "${currentVersion}"`,
-    `文件格式任意转换助手 ${currentVersion} 的实际转换能力`,
-    `Actual conversion capability in Transfer Any File ${currentVersion}`,
-    `（${currentVersion} 构建`,
-    `(the ${currentVersion} build`,
-    `<strong>版本 ${currentVersion} ·`,
-    `<strong>Version ${currentVersion} ·`,
-    `>v${currentVersion}</a`,
-  ];
+  const claims = versionClaims(currentVersion);
   for (const needle of claims) {
     const hits = text.split(needle).length - 1;
     if (hits !== 1) {
