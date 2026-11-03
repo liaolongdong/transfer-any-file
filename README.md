@@ -27,11 +27,14 @@
 ![License MIT](https://img.shields.io/badge/license-MIT-blue?style=for-the-badge)
 
 [![CWS 版本](https://img.shields.io/chrome-web-store/v/blkdmpkcaceicinkhindniepbbbaekkb?label=CWS&logo=googlechrome&logoColor=white&color=4285F4&style=for-the-badge)](https://chromewebstore.google.com/detail/blkdmpkcaceicinkhindniepbbbaekkb)
+&nbsp;
+[![CWS 用户数](https://img.shields.io/chrome-web-store/users/blkdmpkcaceicinkhindniepbbbaekkb?label=Users&logo=googlechrome&logoColor=white&color=4285F4&style=for-the-badge)](https://chromewebstore.google.com/detail/blkdmpkcaceicinkhindniepbbbaekkb)
 
-<!-- 另两枚 shields 徽章（users / rating）实测恒返回 not found——还没有评分，用户数未达展示门槛——
-     挂上去就是一块红色的"条目不存在"，比不挂更糟。有值之后再启用：
-[![CWS users](https://img.shields.io/chrome-web-store/users/blkdmpkcaceicinkhindniepbbbaekkb?label=Users&logo=googlechrome&logoColor=white&color=4285F4&style=for-the-badge)](https://chromewebstore.google.com/detail/blkdmpkcaceicinkhindniepbbbaekkb)
-[![CWS rating](https://img.shields.io/chrome-web-store/rating/blkdmpkcaceicinkhindniepbbbaekkb?label=Rating&color=4285F4&style=for-the-badge)](https://chromewebstore.google.com/detail/blkdmpkcaceicinkhindniepbbbaekkb) -->
+<!-- 用户数这枚 2026-11-03 起启用：shields 抓的是商店列表页上那个去重后的用户数（当天实测渲染为 5）。
+     它不是开发者后台的「安装次数」——那个数按 Chrome Profile 累计安装事件，禁用再启用、第二个 Profile、
+     同步到新设备都各算一次安装，却不自增用户；而且它没有公开接口，挂不出徽章。
+     评分那枚实测仍是 not found（一条评分都还没有），挂上去就是一块红色的"条目不存在"，比不挂更糟，有值之后再启用：
+[![CWS 评分](https://img.shields.io/chrome-web-store/rating/blkdmpkcaceicinkhindniepbbbaekkb?label=Rating&color=4285F4&style=for-the-badge)](https://chromewebstore.google.com/detail/blkdmpkcaceicinkhindniepbbbaekkb) -->
 
 [核心优势](#-核心优势) · [功能演示](#-功能演示) · [工作原理](#-工作原理) · [支持的格式](#-支持的转换) · [横向对比](#-横向对比) · [功能全览](#-功能全览) · [隐私](#-隐私) · [安装与上手](#-安装与上手) · [常见问题](#-常见问题) · [参与贡献](#-参与贡献) · [联系方式](#-联系方式) · [产品说明页](https://liaolongdong.github.io/transfer-any-file/) · [转换说明](https://liaolongdong.github.io/transfer-any-file/convert/) · [博客](https://liaolongdong.github.io/transfer-any-file/blog/)
 
