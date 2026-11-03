@@ -11,6 +11,8 @@ Release PR is not by itself a release.
 
 ## [Unreleased]
 
+## [1.9.1] - 2026-11-03
+
 ### Fixed
 
 - **security**: The remote-code guard only recognised URLs carrying a scheme, so all four code-fetching shapes written scheme-relative (`//host/x.js`) passed it — they are now caught, and the four hand-authored public pages under `docs/` (home, privacy, blog, 404) are inside both source-layer guards. `.html` is scanned on its executable surface (script bodies, `on*` attributes, `javascript:` URLs), and the artifact layer now also asserts the package declares no `web_accessible_resources`
