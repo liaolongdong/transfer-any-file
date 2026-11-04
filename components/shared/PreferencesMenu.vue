@@ -214,7 +214,7 @@ const notifyStatusKey = computed<string>(() => {
                 class="swatch-check"
               >
                 <el-icon
-                  :size="12"
+                  :size="10"
                   :color="item.color"
                 >
                   <Check />
@@ -433,8 +433,8 @@ const notifyStatusKey = computed<string>(() => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
-  padding: var(--fat-space-xs) 2px;
+  gap: var(--fat-space-xs);
+  padding: 2px;
   border: none;
   border-radius: var(--fat-radius-sm);
   background: none;
@@ -451,16 +451,19 @@ const notifyStatusKey = computed<string>(() => {
   outline-offset: 2px;
 }
 
+/* 24px is enough to read a colour and hold the check badge; at 28px the disc plus its selection
+   ring (below) reached 32px and out-shouted the label it belongs to. The ring sits 1px off the
+   disc so it reads as a state on the swatch rather than a second circle around it. */
 .swatch {
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
   outline: 2px solid transparent;
-  outline-offset: 2px;
+  outline-offset: 1px;
   transition: var(--fat-transition-fast);
 }
 
@@ -481,8 +484,8 @@ const notifyStatusKey = computed<string>(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 18px;
-  height: 18px;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
 
   /* Deliberately not a token: the plate is a cut-out in the swatch's own colour, so it has to stay

@@ -132,6 +132,21 @@ body {
   transform: translateY(-1px);
 }
 
+/* Element Plus puts `margin-left: 12px` on every `.el-button + .el-button`. Where a container
+   already spaces its children with `gap`, the two add up: measured on the built bundle, the header
+   buttons, the file rows, the result rows and both history toolbars showed 20px or 16px between two
+   icons while their own text cells sat 8px or 4px apart. Listed containers use `gap` as their only
+   spacing, so the margin is pure surplus; the ones that rely on it (`.history-actions`, the dialog
+   footers) are deliberately absent. Three class selectors outrank Element Plus's two, so this holds
+   whatever the stylesheet order turns out to be. */
+.topbar-actions .el-button + .el-button,
+.header-actions .el-button + .el-button,
+.file-item .el-button + .el-button,
+.result-item .el-button + .el-button,
+.history-head-actions .el-button + .el-button {
+  margin-left: 0;
+}
+
 /* The filled-button scale lives in tokens.css (--fat-btn-solid*), because which shade a
    state takes depends on the label colour, and that differs per theme and mode. Keeping the
    three states here as plain token references means no mode-specific selector is needed.
@@ -276,6 +291,23 @@ body {
 .el-input__wrapper:focus-visible,
 .el-textarea__inner:focus-visible,
 .el-select__wrapper:focus-visible {
+  outline: 2px solid var(--fat-focus-ring) !important;
+  outline-offset: 1px !important;
+}
+
+/* A filterable select is the one control whose real input is *inside* the box it sits in: the
+   `<input>` is 376px of a 420px field, so the ring above lands on the input and the field reads as
+   two boxes — a square-cornered outline around the left, Element Plus's own 1px inset around the
+   whole (measured on the built bundle, 目标格式 opened). The ring belongs on the control the user
+   sees, so it moves to the wrapper and the inner input keeps none of it. `:has()` is the only
+   selector that reaches that ancestor; it is Chromium 105+, older than the 111+ this skin already
+   needs for the `color-mix()` in tokens.css, so no browser that paints these tokens can miss the
+   wrapper rule while honouring the suppression above. */
+.el-select__input:focus-visible {
+  outline: none;
+}
+
+.el-select__wrapper:has(.el-select__input:focus-visible) {
   outline: 2px solid var(--fat-focus-ring) !important;
   outline-offset: 1px !important;
 }

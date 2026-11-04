@@ -703,9 +703,15 @@ function openPreview(result: ConvertResult): void {
 /* The alert's content box is a flex item, and its default `min-width: auto` let the file row set a
    floor the whole card had to obey — from ~460px down the download buttons hung past the right edge
    of the tab, clipped rather than scrollable. `0` hands shrinking to `.result-name`, which already
-   ellipsizes, and changes nothing while there is room. */
+   ellipsizes, and changes nothing while there is room.
+   `flex-grow` is the other half of the same box: with the default `0` it stayed at its own
+   max-content width — measured 461px inside a 1022px alert — so every row ended mid-card, the
+   preview / copy / download icons floated where the text happened to run out instead of at the
+   right edge like the file rows above them, and the summary line wrapped early. The leftover width
+   goes to `.result-name`, which flexes and ellipsizes, so nothing is clipped at any width. */
 .result-download :deep(.el-alert__content) {
   min-width: 0;
+  flex-grow: 1;
 }
 
 /* Element Plus centres the status icon against the whole alert, and this alert grows with its
