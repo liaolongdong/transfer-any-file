@@ -132,6 +132,21 @@ body {
   transform: translateY(-1px);
 }
 
+/* Element Plus puts `margin-left: 12px` on every `.el-button + .el-button`. Where a container
+   already spaces its children with `gap`, the two add up: measured on the built bundle, the header
+   buttons, the file rows, the result rows and both history toolbars showed 20px or 16px between two
+   icons while their own text cells sat 8px or 4px apart. Listed containers use `gap` as their only
+   spacing, so the margin is pure surplus; the ones that rely on it (`.history-actions`, the dialog
+   footers) are deliberately absent. Three class selectors outrank Element Plus's two, so this holds
+   whatever the stylesheet order turns out to be. */
+.topbar-actions .el-button + .el-button,
+.header-actions .el-button + .el-button,
+.file-item .el-button + .el-button,
+.result-item .el-button + .el-button,
+.history-head-actions .el-button + .el-button {
+  margin-left: 0;
+}
+
 /* The filled-button scale lives in tokens.css (--fat-btn-solid*), because which shade a
    state takes depends on the label colour, and that differs per theme and mode. Keeping the
    three states here as plain token references means no mode-specific selector is needed.
@@ -290,6 +305,16 @@ body {
 .el-select__wrapper:has(.el-select__input:focus-visible) {
   outline: 2px solid var(--fat-focus-ring) !important;
   outline-offset: 1px !important;
+}
+
+/* The other half of that rule: the ring now sits on the box the reader sees, but the focus node
+   still carries the global one. A filterable select's `<input>` is what actually holds focus and it
+   wears `tabindex="0"` (measured on the built bundle: 376px of a 420px field), so the blanket
+   `:focus-visible:not([tabindex='-1'])` above matches it and the field draws as two boxes — a
+   square-cornered ring around the input, inside Element Plus's own 1px inset. The wrapper owns the
+   ring, so the input keeps none of it. */
+.el-select__input:focus-visible {
+  outline: none;
 }
 
 /* Element Plus draws its own rings for the controls whose real input is visually hidden — the

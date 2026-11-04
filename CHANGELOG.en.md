@@ -11,6 +11,16 @@ Release PR is not by itself a release.
 
 ## [Unreleased]
 
+### Changed
+
+- **ui**: Adjacent buttons now take their spacing from the container's own `gap` again — Element Plus adds 12px to every pair of sibling buttons, and stacked on the declared gap it measured 20px between two header or row icons where the design said 8px, and 16px where it said 4px. The containers that rely on that margin (the history action row, the dialog footers) are unchanged
+- **ui**: The theme picker in Preferences is one size smaller — swatch 28→24px, its selection ring 36→30px, the check badge 18→14px and the check glyph 12→10px, so a theme item is 45.2px tall instead of 55.2px
+
+### Fixed
+
+- **ui**: The filterable select no longer draws as two boxes while it is open — the previous round handed the keyboard ring to the whole control through `:has()`, but the inner `<input>` that actually holds focus (`tabindex` is 0) still matched the blanket `:focus-visible` rule, so two rings stacked on one 420px field; the input now carries none of it
+- **ui**: A result row's format badge, size and three action icons no longer stop in the middle of the card — `el-alert`'s content box never grew (measured 461px inside a 1022px alert), so the row ended where its text ran out instead of at the right edge like the file rows above it; `min-width: 0` still keeps the narrow case from overflowing
+
 ## [1.9.1] - 2026-11-03
 
 ### Fixed
