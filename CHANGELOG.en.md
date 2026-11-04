@@ -11,6 +11,8 @@ Release PR is not by itself a release.
 
 ## [Unreleased]
 
+## [1.9.2] - 2026-11-04
+
 ### Changed
 
 - **ui**: Adjacent buttons now take their spacing from the container's own `gap` again — Element Plus adds 12px to every pair of sibling buttons, and stacked on the declared gap it measured 20px between two header or row icons where the design said 8px, and 16px where it said 4px. The containers that rely on that margin (the history action row, the dialog footers) are unchanged
