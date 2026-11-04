@@ -61,10 +61,17 @@ jobs:
           fi
           body="$(jq -c '{description, homepage, topics}' .github/repo-metadata.json)"
           response="$(mktemp)"
+          # 令牌走 curl 的 `--config` 文件（600 权限，退出即删），不走进程参数列表：与 `release.yml`
+          # 里商店那几步同一条理由。今天这个作业里没有第三方代码会去读 /proc，所以这不是正在漏什么，
+          # 而是别让「把密钥写进 argv」变成这个仓库里唯一的写法——一旦成为惯例，下一个加进来的东西
+          # 未必这么干净。
+          cfg="$(mktemp)"
+          trap 'rm -f "$cfg" "$response"' EXIT
+          chmod 600 "$cfg"
+          printf 'header = "Authorization: Bearer %s"\n' "$TOKEN" > "$cfg"
           # `|| true` 是为了把传输失败留给下面的 `if` 判断，而不是在 runner 的 `bash -e` 下直接中断
           # 这一步；收不到响应时 curl 报 "000"。
-          status="$(curl -sS -o "$response" -w '%{http_code}' -X PATCH \
-            -H "Authorization: Bearer $TOKEN" \
+          status="$(curl -sS --config "$cfg" -o "$response" -w '%{http_code}' -X PATCH \
             -H 'Accept: application/vnd.github+json' \
             -H 'X-GitHub-Api-Version: 2022-11-28' \
             -H 'Content-Type: application/json' \

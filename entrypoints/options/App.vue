@@ -14,12 +14,12 @@ import { useOutputOptions } from '~/composables/useOutputOptions';
 import { useNameTemplate } from '~/composables/useNameTemplate';
 import { useShortcuts } from '~/composables/useShortcuts';
 import { useWorkspaceFileDrop } from '~/composables/useWorkspaceFileDrop';
+import { useAnimatedGifPreflight } from '~/composables/useAnimatedGifPreflight';
 import { converterRegistry } from '~/utils/core/registry';
 import { isImageOutputFormat } from '~/utils/core/output-options';
 import { MAX_MERGED_PAGES } from '~/utils/core/image-pdf';
 import { getFormatLabel } from '~/utils/core/format-labels';
-import { hasMultipleFrames } from '~/utils/core/animated-image';
-import { detectFormat } from '~/utils/core/file-detect';
+import { isPageLockedByModal } from '~/utils/core/modal-lock';
 import { GITHUB_RELEASES_PAGE_URL } from '~/utils/urls';
 import { FileFormat } from '~/utils/core/types';
 import type { ConversionPreset, ConvertResult, ImageOutputOptions } from '~/utils/core/types';
@@ -29,7 +29,6 @@ import ConversionProgress from '~/components/shared/ConversionProgress.vue';
 import CurrentFileHint from '~/components/shared/CurrentFileHint.vue';
 import StepProgressHint from '~/components/shared/StepProgressHint.vue';
 import CollapsibleCard from '~/components/shared/CollapsibleCard.vue';
-import PreferencesMenu from '~/components/shared/PreferencesMenu.vue';
 import PresetBar from '~/components/shared/PresetBar.vue';
 import HistoryPanel from '~/components/options/HistoryPanel.vue';
 
@@ -39,6 +38,11 @@ const FormatSelector = defineAsyncComponent(() => import('~/components/shared/Fo
 const OutputOptions = defineAsyncComponent(() => import('~/components/shared/OutputOptions.vue'));
 const ResultDownload = defineAsyncComponent(() => import('~/components/shared/ResultDownload.vue'));
 const ComparisonView = defineAsyncComponent(() => import('~/components/shared/ComparisonView.vue'));
+// The settings dialog carries `destroy-on-close`, so this subtree is created on first open — as an
+// eager import its own code and its four composables (`useTheme`, `useShortcuts`, `useNotification`,
+// `useNameTemplate`) sat in the startup graph for a panel most sessions never open. Same reasoning as
+// `AboutDrawer`, which went lazy for exactly this.
+const PreferencesMenu = defineAsyncComponent(() => import('~/components/shared/PreferencesMenu.vue'));
 
 initConverters();
 
@@ -160,48 +164,11 @@ const hasResults = computed(() => batchResults.value.length > 0);
 const hasFailures = computed(() => batchFailures.value.length > 0);
 
 /**
- * Whether a staged GIF actually has a second frame. The preflight caveat must not fire on a
- * single-frame GIF — the same distinction the post-run disclosure already makes — so the bytes are
- * read here, not inferred from the extension.
- *
- * Results are cached per `File` (a reorder re-runs this watcher over the same objects), and the scan
- * stops at the first animated file. The byte budget keeps a 200-file GIF batch from reading hundreds
- * of megabytes before the user has pressed anything: a file that does not fit is skipped and the
- * smaller files after it are still examined.
+ * Whether a staged GIF actually has more than one frame, which is what decides the preflight caveat.
+ * The scan, its cache, its byte budget and its cancellation live in `~/composables/useAnimatedGifPreflight`.
  */
-const hasAnimatedGif = ref(false);
-const gifFrameCache = new WeakMap<File, boolean>();
-const GIF_PREFLIGHT_BYTE_BUDGET = 32 * 1024 * 1024;
-/** The first pass `hasMultipleFrames` reads before it may read the whole stream. */
-const GIF_PREFLIGHT_READ_HEAD = 4 * 1024 * 1024;
-let gifScanToken = 0;
+const hasAnimatedGif = useAnimatedGifPreflight(sourceFiles);
 
-watch(
-  sourceFiles,
-  async files => {
-    const token = ++gifScanToken;
-    hasAnimatedGif.value = false;
-    let budget = GIF_PREFLIGHT_BYTE_BUDGET;
-    for (const file of files) {
-      if (token !== gifScanToken) return;
-      if (detectFormat(file) !== FileFormat.GIF) continue;
-      let animated = gifFrameCache.get(file);
-      if (animated === undefined) {
-        const cost = file.size + GIF_PREFLIGHT_READ_HEAD;
-        if (cost > budget) continue;
-        budget -= cost;
-        animated = await hasMultipleFrames(file).catch(() => false);
-        if (token !== gifScanToken) return;
-        gifFrameCache.set(file, animated);
-      }
-      if (animated) {
-        hasAnimatedGif.value = true;
-        return;
-      }
-    }
-  },
-  { immediate: true },
-);
 // Only "done" once the whole batch finished, so progress UI stays visible. A cancelled
 // batch counts even with nothing in it, otherwise the cancel leaves no trace on screen.
 const isDone = computed(() => !isConverting.value && (hasResults.value || hasFailures.value || cancelled.value));
@@ -522,8 +489,11 @@ async function handleRetryFailed(): Promise<void> {
 }
 
 function handleGlobalKeydown(event: KeyboardEvent): void {
-  // Both overlays are modal; a batch must not start behind either.
-  if (overlayOpen.value) return;
+  // Every open modal, not just the two this component owns. The preview dialog belongs to `FileUpload`
+  // and `ElMessageBox.confirm` is created imperatively by whoever needs it, so neither appears in
+  // `overlayOpen` — and a batch started from behind either one lands its results under a dialog the
+  // user is still reading.
+  if (overlayOpen.value || isPageLockedByModal()) return;
   if (!shortcutMatches('convert', event)) return;
   const target = event.target as HTMLElement | null;
   // Don't steal the shortcut while the user is typing somewhere
@@ -536,7 +506,9 @@ function handleGlobalKeydown(event: KeyboardEvent): void {
 // The overlay markup lives with this state below; the counter, the `Files`-type guard and the
 // four document-level listeners are all in the composable.
 const { isWorkspaceDragging } = useWorkspaceFileDrop({
-  isLocked: computed(() => isConverting.value || overlayOpen.value),
+  // A getter, not a computed: the modal answer lives in the DOM (see `~/utils/core/modal-lock`), and a
+  // computed would cache a read it has no reactive reason to re-evaluate. Each drag event asks again.
+  isLocked: () => isConverting.value || overlayOpen.value || isPageLockedByModal(),
   onFilesDropped: dataTransfer => void fileUploadRef.value?.intakeDrop(dataTransfer),
 });
 

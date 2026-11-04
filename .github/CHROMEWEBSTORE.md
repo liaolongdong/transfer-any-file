@@ -9,7 +9,7 @@
 > 代码**，与文案无关：被扫出来的是两份第三方依赖里的死代码路径。按本文件自己 09-15 那条笔记的判据（「如果第三次
 > 裁决落在一份**不带列表**的文案上，那时才轮到那个表单」），关键字那条模式这次可以判定为已走完——它没能再拦住我们，
 > 而这次也没得申诉，因为被点名的代码确实在包里。
-> **现网状态（2026-10-02 用浏览器实测 listing 页）**：条目**已上线**，值如下——
+> **现网状态（2026-11-03 公开页实测；上一轮 2026-10-28 那次另有 CWS 只读回执）**：条目**已上线 1.9.1**，值如下——
 >
 > - item ID：`blkdmpkcaceicinkhindniepbbbaekkb`
 > - listing：`https://chromewebstore.google.com/detail/blkdmpkcaceicinkhindniepbbbaekkb`（短形式即可，商店自己重定向到带标题 slug 的长地址）
@@ -18,8 +18,13 @@
 >   兄弟仓库的互链卡与 hub 工具箱页（`liaolongdong.github.io/_data/tools.yml`），那里必须用长形式：`cross-origin-proxy`
 >   的 `tests/docs-consistency.test.ts` 有一条「所有商店链接共用同一个扩展 ID」，它按 `detail/<32位子小写字符>` 认链接，
 >   短形式的 TAF 链接会被它当成自己那条写错的 ID。slug 跟着现网标题走，标题改了它就该重新取——但 ID 不变，链接不会断。
-> - 详情区：版本 **1.0.0**、上次更新 **2026-09-30**、大小 **1.11 MiB**、语言 **2 种**、网站字段是 Pages 根地址
-> - 评分 **0 条**（页面渲染的是空的「0 星」控件），listing 上不显示用户数
+> - 详情区：版本 **1.9.1**、上次更新 **2026-11-03**、大小 **1.15 MiB**、语言 **2 种**、网站字段是 Pages 根地址
+> - 2026-10-28：1.9.0 已上传、经 `cws-release` 审批门批准并提审；CWS 只读回执读回 `crxVersion=1.9.0`，公开页版本 1.9.0。listing 商品文案与截图仍是 1.0.0 期，发布 API 写不了，需在后台按本文件的粘贴块与 `docs/assets/store/screens` 手工替换。
+> - 2026-11-03（公开页实测，美国出口、英文 listing；未跑只读回执）：线上已是 **1.9.1**，`Updated November 3, 2026`、`Size 1.15MiB`、`Languages 2`。
+>   用户数从「不显示」变成 **`5 users`**——评分仍是 0 条（页面渲染的还是空的「0 星」控件），但用户数已达展示门槛，README 的徽章因此启用
+>   （见[上架后的运营](#上架后的运营)）。**这个数字是 Google 去重后的装机用户数，不是后台「安装次数」那张表**：后者按 Chrome Profile 累计安装事件，
+>   两份后台导出（安装 10-03～11-01 合计 **120**；卸载 10-03～10-31 合计 **1**，只有 10-05 那天有 1 次）之间的差，就是「禁用再启用 /
+>   第二个 Profile / 同步到新设备」各算一次安装而不自增用户数。安装事件数没有公开接口，挂不出徽章。
 > - 现网中文名 `文件格式任意转换助手 — 离线转换无上传` 与 `public/_locales/zh_CN/messages.json → extensionName`
 >   **逐字一致**，「默认语言是中文」这条已经生效；概述那段就是 `extensionDescription` 的值
 > - **一处待核对**：listing 的数据披露写的是「会处理以下数据：**网站内容**」，而下面[数据处理](#数据处理)那张表里
@@ -29,7 +34,7 @@
 >   「1.0.0 版本——首次提交商店。」）。下面的粘贴块已经没有那两行：详情区自己就显示版本号，而那一行是对**这一次提交**
 >   的陈述，一旦再传新包就成了公开 listing 上的错账——发布 API 写不了商品文案，所以它不会自己变对，只能等下一次
 >   手工编辑后台时按这里的块替换掉。
-> - **一处待提交**：流水线已经**两次把包传到商店、两次都成功，而一次都没提审**。2026-10-18 传的是 1.2.1，
+> - **历史（1.2.1 / 1.3.0 上传未提审；1.9.0 已于 2026-10-28 提审并上线）**：流水线曾经**两次把包传到商店、两次都成功，而一次都没提审**。2026-10-18 传的是 1.2.1，
 >   2026-10-23 传的是 1.3.0，两次的回执都是 `uploadState=SUCCEEDED`（商店各自从包里读出的版本号就是 1.2.1 / 1.3.0），
 >   而两次版本预检读回的线上版本**都还是 1.0.0**——也就是说条目自 2026-09-30 起没有收到过一次审核请求。
 >   原因不是故障：那两次跑的时候仓库变量 `CWS_AUTO_SUBMIT` 还没设（2026-10-23 实测：变量列表为空），
@@ -807,14 +812,19 @@ rm -f /tmp/cws.cfg
 
 - 在任何地方宣布这个扩展**之前**记下当天基线（曝光、详情页浏览、安装），第一周的波动才有参照。
 - 两份 README 的 Chrome 应用商店徽章**已于 2026-10-02 启用**（此前那行什么都没有，原因是还没有 listing 可指，
-  而一个指向不存在条目的徽章比没有徽章更糟）。**只挂了版本那一枚**，三个都用 item ID、都链向 listing：
+  而一个指向不存在条目的徽章比没有徽章更糟）。版本枚 2026-10-02 挂上，用户数枚 **2026-11-03 挂上**，
+  评分枚仍注释。三个都用 item ID、都链向 listing：
   - 已启用 `https://img.shields.io/chrome-web-store/v/blkdmpkcaceicinkhindniepbbbaekkb?label=CWS&logo=googlechrome&logoColor=white&color=4285F4&style=for-the-badge`
-  - 暂以注释留在原地 `https://img.shields.io/chrome-web-store/users/blkdmpkcaceicinkhindniepbbbaekkb?label=Users&logo=googlechrome&logoColor=white&color=4285F4&style=for-the-badge`
+  - 已启用 `https://img.shields.io/chrome-web-store/users/blkdmpkcaceicinkhindniepbbbaekkb?label=Users&logo=googlechrome&logoColor=white&color=4285F4&style=for-the-badge`
   - 暂以注释留在原地 `https://img.shields.io/chrome-web-store/rating/blkdmpkcaceicinkhindniepbbbaekkb?label=Rating&color=4285F4&style=for-the-badge`
 
-  **今天实测**：`v` 返回 `v1.0.0`，`users` 与 `rating` 都是 `not found`（还没有评分，用户数未达展示门槛），
-  后两枚渲染出来是红色的 `not found`——那块红读的仍是「条目不存在」，正是当初没挂徽章要避开的那个误导，
-  所以它们注释掉、有值再启用。**去掉注释是唯一动作**，两条 URL 已经写对。
+  **实测记录**：2026-10-02 三枚里只有 `v` 有值（`v1.0.0`），`users` 与 `rating` 都是 `not found`。2026-11-03 复看：
+  `v` 返回 `v1.9.1`，`users` 返回 `5`（SVG 实际渲染出 `USERS: 5`，与公开页那句 `Tools 5 users` 同源），`rating` 与
+  `rating-count` 仍是 `not found`（一条评分都还没有）。`not found` 渲染出来是一块红，读的仍是「条目不存在」，正是
+  当初没挂徽章要避开的那个误导，所以评分枚继续注释、有值再启用——**去掉注释是唯一动作**，URL 已经写对。
+  另外两枚 shields 端点顺带记一笔，免得下次重探：`size` 返回 `1.15 MiB`（Google 按 listing 口径算的，与我们
+  `pnpm build` 报的字节数不是同一个量具，别拿来当包体证据）；`d`（daily users）**301 重定向到 `users`**，
+  也就是说 shields 没有独立的日活数据源，想展示「每天多少人在用」得走后台导出，公开接口给不了。
 
 - README 指向商店的链接（徽章与「安装」小节）用**裸 listing 地址，不带 UTM**：这一路的引荐 GitHub 自己的
   **Insights → Traffic → Referrers** 报得出。加了 UTM 反而把同一批安装拆成两个来源，第一周的基线就没法对着看了。
@@ -1027,6 +1037,18 @@ PDF → ZIP 解码）。跑这一步的纪律：**`.output/chrome-mv3` 在被测
 ## 本文件的变更记录
 
 > 这些是关于**本文件**的修订记录，不是产品发布说明（产品在 `CHANGELOG.md`）。数字全部由 `pnpm verify:listing` 实测。
+
+- **2026-11-03（启用用户数徽章，并把「现网状态」里三格过期读数换掉）** —— 本文件与两份 README 各动两处，**没有任何粘贴字段改字**，
+  `verify:listing` 照旧绿（本轮实测英文详描 9,737 字符 / 中文 3,405）。上面那两格是 10-20 的档案读数，`4dd7233`
+  「同步商店文案」之后粘贴块本身又长过，按本文件的老规矩：旧记录里的读数不改。
+  **起因**：用户要求 README 挂上用户数或安装数。先探再挂：`users` 已从 `not found` 变成 `5`（SVG 里渲染出 `USERS: 5`，
+  与公开页 `Tools 5 users` 同源），所以启用；`rating` 与 `rating-count` 仍是 `not found`，继续注释；**安装数挂不了**——
+  shields 没有这个端点，`d` 还 301 回 `users`，后台那张「安装次数」表只在导出里，10-03～11-01 合计 120 次事件对 10-03～10-31
+  合计 1 次卸载，差值全是「禁用再启用 / 第二个 Profile / 同步到新设备」这类重复事件，与 listing 上那个去重数不是一回事。
+  这两条口径写进了两份 README 的注释块，避免下一个人把徽章上的数字读成安装数。
+  **顺带结的账**：顶部「现网状态」那格还写着 1.9.0 / 2026-10-28 / 1.14 MiB / 不显示用户数，公开页今天已经是
+  1.9.1 / November 3, 2026 / 1.15MiB / `5 users`。这轮补的是**公开页实测**，没有跑只读回执，所以那一行的取证方法在原文里点明了；
+  下次 `store_status` 手动跑一轮回执再回填的读数是另一个口径，别把两者混成一句。历史读数（10-28 那行、`## 版本历史` 与下面每条旧记录）按档案留下，不动。
 
 - **2026-10-20（多图合并进两份详细介绍）** —— 英文与中文粘贴块各加一条 bullet，位置同为「PDF 选页 / PDF page selection」之后：
   整批都是 PNG / JPEG / WebP / BMP / GIF 且目标为 PDF 时出现合并开关，勾上后按列表顺序写成一份（每张一页、最多 200 页），

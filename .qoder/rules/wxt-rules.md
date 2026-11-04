@@ -58,6 +58,7 @@ trigger: always_on
 - 保持完全离线：无网络请求、无遥测、无数据收集；权限仅 `storage`。新增任何权限、`host_permissions` 或数据外传前，必须停下说明并获用户确认。
 - 「离线」与「包里没有远程托管代码」是两条主张：后者由商店按**产物内容**判定，与代码是否可达无关，所以第三方依赖里的远程取码死路径也算违规，只能在构建期把它从产物里删掉（详见 §12），运行期加判断不是修法。
 - 这两条主张说的是**发出去的代码**，不是「哪个文件进了扩展产物」。`tools/` 下的独立离线页面（如 `file-diff.html`、`image-compressor.html`）与供生成页内联的脚本（如 `route-finder.js`）永远不进 `.output/chrome-mv3`，但它们的内联脚本同样不许出现网络调用与远程取码形状，所以两道**源码层**守卫都把 `tools/` 列进扫描范围（`check-offline.mjs` 的 `HTML_SOURCE_DIRS`、`check-remote-code.mjs` 的 `SOURCE_DIRS`；后者按扩展名递归覆盖 `tools/*.js`）。新增这类页面必须同批加进那两个列表——否则守卫会对一个它从没打开过的文件报 OK；新增 `tools/` 下的 `.js` 沿用已有的递归扫描。
+- `docs/` 同样在两道源码层守卫的射程里（`HTML_SOURCE_DIRS` / `SOURCE_DIRS` 都列了它），因为**它发在公网上，而 https 页面里 `//host/x.js` 就是真的远程取码**。分工是：`docs/diff|compress|convert` 是 `tools/` 与 `scripts/` 的逐字节副本或生成物，扫它们只是冗余；`docs/index.html`、`docs/privacy.html`、`docs/blog/index.html`、`docs/404.html` 是手写的、自带首帧内联脚本的公网页，只有把它们列进射程才有人替它们把关。为此 `check-offline.mjs` 对 `.html` 只取**可执行面**（`<script>` 体、`on*` 属性、`javascript:` URL）并把字符串字面量的内容抹白——隐私页用 `<code>` 点名 `fetch` / `XMLHttpRequest` 正是在陈述不发请求，整行扫必然假红；抹白之所以安全是因为被扫的三面都没有 `eval`（MV3 禁 eval、站点 CSP 无 `unsafe-eval`，而 `check-remote-code.mjs` 见到任何 `eval(` 就红），字符串回不到代码。该收窄自带阳性对照：`entrypoints/options/index.html` 与 `tools/file-diff.html` 若抽不出任何可执行片段，守卫自己报红（「量具静默不干活」就是它要防的形状）。
 - 上传文件、剪贴板内容、ZIP 条目、storage 数据均视为**不可信输入**：边界处校验类型/大小/格式，失败安全降级。
 - 渲染或转换不可信的 HTML/SVG/Markdown 前必须用 **DOMPurify 净化**；禁止对不可信内容使用 `v-html`、向实时 DOM 写 `innerHTML`、`eval` 或 `new Function`。
 

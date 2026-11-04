@@ -13,6 +13,28 @@ export function formatSize(bytes: number): string {
   return `${(bytes / Math.pow(k, i)).toFixed(1)} ${sizes[i]}`;
 }
 
+/**
+ * How much smaller a result is than its source, in whole percent — or null when there is nothing
+ * honest to say.
+ *
+ * Shared by the per-row badge and the batch summary because both are claims of the same shape, and
+ * they must round, cap and suppress identically or the two numbers on screen contradict each other:
+ *
+ * - no source bytes, or a result that is not smaller → null. Growth is not a saving, and a badge on a
+ *   row that got bigger would read as a bug in the badge rather than in the conversion.
+ * - a non-empty result never claims −100%: that reads as an empty file. It caps at 99.
+ * - a saving that rounds below 1% prints nothing. Two near-equal files are not worth the space.
+ *
+ * The standalone `/compress/` page applies the same three rules in its own script; it ships no module
+ * graph, so the copy there is deliberate and is capped at the same place.
+ */
+export function savingPercent(sourceSize: number, resultSize: number): number | null {
+  if (sourceSize <= 0 || resultSize >= sourceSize) return null;
+  const raw = Math.round((1 - resultSize / sourceSize) * 100);
+  const percent = resultSize > 0 ? Math.min(99, raw) : raw;
+  return percent >= 1 ? percent : null;
+}
+
 /** Formats that can be safely read as text and copied to the clipboard. */
 export const TEXT_FORMATS = new Set<FileFormat>([
   FileFormat.MD,

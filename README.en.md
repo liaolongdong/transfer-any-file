@@ -27,11 +27,15 @@ A Chrome extension (Manifest V3) that does every conversion inside a tab on your
 ![License MIT](https://img.shields.io/badge/license-MIT-blue?style=for-the-badge)
 
 [![CWS version](https://img.shields.io/chrome-web-store/v/blkdmpkcaceicinkhindniepbbbaekkb?label=CWS&logo=googlechrome&logoColor=white&color=4285F4&style=for-the-badge)](https://chromewebstore.google.com/detail/blkdmpkcaceicinkhindniepbbbaekkb)
-
-<!-- The other two shields badges (users / rating) measurably return "not found" — no ratings yet, and the
-     user count is below the display threshold — so mounting them would show a red "listing does not exist",
-     which is worse than mounting nothing. Enable them once they carry a value:
+&nbsp;
 [![CWS users](https://img.shields.io/chrome-web-store/users/blkdmpkcaceicinkhindniepbbbaekkb?label=Users&logo=googlechrome&logoColor=white&color=4285F4&style=for-the-badge)](https://chromewebstore.google.com/detail/blkdmpkcaceicinkhindniepbbbaekkb)
+
+<!-- The users badge went live on 2026-11-03: shields scrapes the deduplicated user count shown on the store
+     listing (it rendered 5 that day). It is not the developer dashboard's install total — that one counts install
+     *events* per Chrome profile, so re-enabling the extension, a second profile or a sync to a new device adds an
+     event without adding a user, and it has no public endpoint, so it cannot be badged.
+     The rating badge still measurably returns "not found" (there are no ratings yet), which renders as a red
+     "listing does not exist" — worse than mounting nothing. Enable it once it carries a value:
 [![CWS rating](https://img.shields.io/chrome-web-store/rating/blkdmpkcaceicinkhindniepbbbaekkb?label=Rating&color=4285F4&style=for-the-badge)](https://chromewebstore.google.com/detail/blkdmpkcaceicinkhindniepbbbaekkb) -->
 
 [Core advantages](#-core-advantages) · [In action](#-in-action) · [How it works](#-how-it-works) · [Supported formats](#-supported-conversions) · [How it compares](#-how-it-compares) · [Feature overview](#-feature-overview) · [Privacy](#-privacy) · [Installation and usage](#-installation-and-usage) · [FAQ](#-faq) · [Contributing](#-contributing) · [Contact](#-contact) · [Product page](https://liaolongdong.github.io/transfer-any-file/) · [Conversions](https://liaolongdong.github.io/transfer-any-file/convert/) · [Blog](https://liaolongdong.github.io/transfer-any-file/blog/)

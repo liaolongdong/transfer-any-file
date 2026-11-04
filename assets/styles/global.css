@@ -289,8 +289,20 @@ body {
 }
 
 .el-input__wrapper:focus-visible,
-.el-textarea__inner:focus-visible,
-.el-select__wrapper:focus-visible {
+.el-textarea__inner:focus-visible {
+  outline: 2px solid var(--fat-focus-ring) !important;
+  outline-offset: 1px !important;
+}
+
+/* The select needs its own rule, and not the `:focus-visible` one above: `tabindex` is placed on
+   Element Plus's inner `<input>` (`select2.mjs` sets it on `inputRef`), while `.el-select__wrapper`
+   is a `<div>` with no focusability — so `.el-select__wrapper:focus-visible` could never match, and
+   the wrapper only looked covered because the selector was written. The focus node itself cannot
+   carry the ring either: for a non-filterable select the shipped bundle keeps it in
+   `.el-select__input-wrapper.is-hidden { opacity: 0 }`, so anything drawn on it is invisible.
+   `:has()` is how the ring gets back to the box the reader actually sees, and only for a keyboard
+   focus — a click keeps Element Plus's own 1px `is-focused` inset, unchanged. */
+.el-select__wrapper:has(.el-select__input:focus-visible) {
   outline: 2px solid var(--fat-focus-ring) !important;
   outline-offset: 1px !important;
 }
@@ -417,17 +429,18 @@ body {
   cursor: pointer;
 }
 
-/* Undo affordance inside the history toast. Same reason as above: the node is built with `h()`
-   in HistoryPanel.vue and ElMessage renders it in the message layer, outside the component's
-   scope. A plain button rather than an el-button, because el-button needs the app context that
+/* Undo affordance inside the app's undo toast (`utils/core/undo-toast.ts`), used by history, the
+   staged file list and the preset bar. The node is built with `h()` and ElMessage renders it in the
+   message layer, outside any component's scope — which is why these rules live here rather than in a
+   scoped block. A plain button rather than an el-button, because el-button needs the app context that
    a detached VNode in a teleported message does not reliably carry. */
-.history-undo {
+.undo-toast {
   display: inline-flex;
   gap: var(--fat-space-sm);
   align-items: center;
 }
 
-.history-undo__btn {
+.undo-toast__btn {
   padding: 0;
   border: none;
   font: inherit;

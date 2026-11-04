@@ -41,8 +41,16 @@ const BUNDLE_DIR = path.join(ROOT, '.output', 'chrome-mv3');
  * guard looks for — a remote URL that becomes executable — is exactly what a reviewer would find there
  * if one were ever written. Listing it costs nothing; leaving it out means printing OK about a file the
  * scan never opened.
+ *
+ * `docs/` is listed for the same reason and with the same exemption: `docs/diff/index.html`,
+ * `docs/compress/index.html` and `docs/convert/**` are byte-copies of something already in this list
+ * (`tools/`) or rendered from `scripts/`, so scanning them again is redundant but harmless — while
+ * `docs/index.html`, `docs/privacy.html`, `docs/blog/index.html` and `docs/404.html` are hand-authored,
+ * carry inline scripts of their own, and are published verbatim by `static.yml`. Those four reach a
+ * browser over https with the scheme-relative shape live, and before this line they were covered by no
+ * guard at all.
  */
-const SOURCE_DIRS = ['entrypoints', 'components', 'composables', 'utils', 'tools'];
+const SOURCE_DIRS = ['entrypoints', 'components', 'composables', 'utils', 'tools', 'docs'];
 
 /**
  * File types that can carry executable code. CSS and JSON are excluded on purpose: a documentation
@@ -60,7 +68,15 @@ const FORBIDDEN = [
     id: 'remote-code-url',
     // `wasm` belongs here as much as `js` does: streamed into `WebAssembly`, a remote binary is
     // hosted code with the same status, and it is the one shape a text scan can still name.
-    pattern: /https?:\/\/[^\s"'`)]+\.(?:m?js|wasm)(?:[?#][^\s"'`)])?/,
+    //
+    // The scheme is optional on purpose. `//host/x.js` is a hosted script on any page served over
+    // http(s) — which is what this guard also covers, since `tools/` and `docs/` below are the
+    // bytes this repository publishes — and `html-sanitize.ts:stripRemoteResources` already treats
+    // the scheme-less form as remote, so a scan that required `https?:` would disagree with the
+    // sanitizer it is supposed to back up. Inside `chrome-extension://` the same string resolves to
+    // a same-scheme host and nothing reaches the network; this is belt-and-braces for the surface
+    // where it does.
+    pattern: /(?:https?:)?\/\/[^\s"'`)]+\.(?:m?js|wasm)(?:[?#][^\s"'`)])?/,
     why: 'a URL literal naming a JavaScript or WebAssembly file, i.e. code hosted somewhere other than this package',
   },
   {
@@ -69,19 +85,23 @@ const FORBIDDEN = [
     // `import("https://esm.sh/pkg")` is hosted code by the store's definition just the same. This is
     // also the shape a bundler emits when it decides to fetch a dependency at runtime, which is
     // exactly what `stripRemotelyHostedCode()` in `wxt.config.ts` deletes in pdf.js.
-    pattern: /\bimport\s*\(\s*["'`]https?:/,
+    //
+    // The opening quote is required, unlike the two patterns around it: `import( // note` with the
+    // specifier on the next line is a plain local import, and matching a comment's `//` here would
+    // spend this rule on the wrong thing.
+    pattern: /\bimport\s*\(\s*["'`](?:https?:)?\/\//,
     why: 'a module fetched from the network by dynamic import, extension or no extension',
   },
   {
     id: 'remote-worker',
-    pattern: /new\s+(?:Shared)?Worker\s*\(\s*["'`]https?:/,
+    pattern: /new\s+(?:Shared)?Worker\s*\(\s*["'`](?:https?:)?\/\//,
     why: 'a worker script loaded over the network',
   },
   {
     id: 'external-script-src',
     // Anchored on the tag, not on `src`: `html-sanitize.ts` quotes `<img src="https://…">` in its
     // JSDoc to explain what it strips, and a loose `src=` rule reads that prose as a finding.
-    pattern: /<script\b[^>]*\bsrc\s*=\s*["'`]?https?:/i,
+    pattern: /<script\b[^>]*\bsrc\s*=\s*["'`]?(?:https?:)?\/\//i,
     why: 'a script tag loaded over the network',
   },
   {

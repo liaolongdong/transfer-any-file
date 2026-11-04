@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, reactive, ref, watch } from 'vue';
+import { computed, nextTick, onScopeDispose, reactive, ref, watch } from 'vue';
 import { ArrowDown, ArrowUp, CopyDocument, Grid } from '@element-plus/icons-vue';
 import {
   ancestorsOf,
@@ -43,7 +43,35 @@ const needle = computed(() => query.value.trim());
 const activeIndex = ref(0);
 const bodyRef = ref<HTMLElement | null>(null);
 
-const matches = computed(() => searchJson(props.tree, needle.value, searchFields.value, caseSensitive.value));
+/**
+ * `searchJson` walks the whole flattened model — up to `JSON_VIEW_LIMITS.maxNodes` nodes — and
+ * lowercases three fields per node on the default case-insensitive path, so binding it to the raw
+ * input made every keystroke re-scan the document and re-render the row list. 150 ms is shorter than
+ * the pause a reader takes between words and longer than the gap between two keystrokes, so the cost
+ * is paid once per search instead of once per character.
+ *
+ * Clearing is not deferred: an empty query is not a search, and a result set that hung around for
+ * 150 ms after the box was emptied would read as a filter that would not let go.
+ */
+const SEARCH_DEBOUNCE_MS = 150;
+const deferredNeedle = ref(needle.value);
+let searchTimer: ReturnType<typeof setTimeout> | undefined;
+
+watch(needle, value => {
+  if (searchTimer) clearTimeout(searchTimer);
+  if (value === '') {
+    deferredNeedle.value = '';
+    return;
+  }
+  searchTimer = setTimeout(() => {
+    deferredNeedle.value = value;
+  }, SEARCH_DEBOUNCE_MS);
+});
+onScopeDispose(() => {
+  if (searchTimer) clearTimeout(searchTimer);
+});
+
+const matches = computed(() => searchJson(props.tree, deferredNeedle.value, searchFields.value, caseSensitive.value));
 const cappedMatches = computed(() => matches.value.length >= JSON_VIEW_LIMITS.maxMatches);
 const activeMatch = computed(() => matches.value[activeIndex.value] ?? null);
 
@@ -85,7 +113,9 @@ function segmentsOf(id: number, field: JsonField): JsonSegment[] {
   const node = props.tree.nodes[id];
   const text = field === 'key' ? node.key : node.text;
   const hit = matchById.value.get(id)?.includes(field) ?? false;
-  return segmentMatch(text, needle.value, hit, caseSensitive.value);
+  // The deferred needle, not the live one: a highlight computed from characters that have not been
+  // searched yet would mark runs the match set disagrees with, for the length of the debounce.
+  return segmentMatch(text, deferredNeedle.value, hit, caseSensitive.value);
 }
 
 function summaryOf(id: number): string {
@@ -440,6 +470,13 @@ watch(
   padding-right: var(--fat-space-sm);
   padding-left: var(--fat-indent, 0);
   border-radius: var(--fat-radius-sm);
+
+  /* Same protection the file list and the result rows carry: a capped render is still up to
+     `JSON_VIEW_LIMITS.maxRows` rows, and a row laid out off-screen is work nobody asked for.
+     `contain-intrinsic-block-size` states the row height so the scrollbar reflects the whole list
+     rather than whatever has been measured so far. */
+  content-visibility: auto;
+  contain-intrinsic-block-size: 20px;
 }
 
 .json-row:hover {

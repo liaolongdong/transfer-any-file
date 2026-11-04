@@ -5,6 +5,7 @@ import type { FileFormat as FileFormatType, FileCategory } from '~/utils/core/ty
 import { getFormatLabel, getFormatCategory, FORMAT_INFO } from '~/utils/core/format-labels';
 import { converterRegistry } from '~/utils/core/registry';
 import { getBlockedReason } from '~/utils/core/conversion-policy';
+import { isBitmapContainerTarget, rasterisesVectorSource } from '~/utils/core/output-options';
 import { suggestTargets } from '~/utils/core/target-suggestions';
 import { useI18n } from '~/composables/useI18n';
 
@@ -106,34 +107,23 @@ const conversionPathLabels = computed(() => {
   return steps.map(s => getFormatLabel(s.to));
 });
 
-/** A target that writes a bitmap container — where an animated GIF's frames are lost. */
-const isRasterTarget = computed(() => {
-  const target = props.targetFormat;
-  return target !== null && (target === FileFormat.PDF || getFormatCategory(target) === 'image');
-});
-
-/**
- * A target that rasterises a pure SVG source. DOCX and Markdown join the raster family because both
- * routes run `replaceInlineSvgWithPng` (`html-to-docx.ts` / `html-to-md.ts`), so the vector is gone
- * even though the container is not an image.
- */
-const rasterisesSvg = computed(() => {
-  const target = props.targetFormat;
-  return target !== null && (isRasterTarget.value || target === FileFormat.DOCX || target === FileFormat.MD);
-});
-
 /**
  * Losses that are already knowable before the run, so the reader can pick another target instead
  * of discovering them on the result card. Deliberately narrow: a document with inline SVG is not
- * a document-level fact we can claim here, and a one-frame GIF loses nothing.
+ * a document-level fact we can claim here, and a one-frame GIF loses nothing. The two route families
+ * come from `~/utils/core/output-options` so the preflight states them once; they are written to
+ * match the only two places that compute the post-run flags (`image-convert.ts`, `image-pdf.ts`),
+ * and a new route that flattens or drops frames has to be added to all three.
  */
 const caveats = computed<string[]>(() => {
   const target = props.targetFormat;
   if (!target) return [];
   const list: string[] = [];
   if (target === FileFormat.PDF) list.push(t('format.caveatPdfNoText'));
-  if (props.sourceFormats.includes(FileFormat.SVG) && rasterisesSvg.value) list.push(t('format.caveatSvgRaster'));
-  if (props.hasAnimatedGif && isRasterTarget.value) list.push(t('format.caveatGifFirstFrame'));
+  if (props.sourceFormats.includes(FileFormat.SVG) && rasterisesVectorSource(target)) {
+    list.push(t('format.caveatSvgRaster'));
+  }
+  if (props.hasAnimatedGif && isBitmapContainerTarget(target)) list.push(t('format.caveatGifFirstFrame'));
   return list;
 });
 

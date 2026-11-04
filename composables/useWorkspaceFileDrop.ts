@@ -1,15 +1,20 @@
-import { onMounted, onUnmounted, ref } from 'vue';
-import type { Ref } from 'vue';
+import { onMounted, onUnmounted, ref, toValue } from 'vue';
+import type { MaybeRefOrGetter } from 'vue';
 
 /**
  * Options for {@linkcode useWorkspaceFileDrop}.
  */
 export interface WorkspaceFileDropOptions {
   /**
-   * Whether a batch is in flight. While it is, the overlay is never shown and a drop is swallowed
-   * instead of reaching the uploader — the file list is frozen for the duration of a run.
+   * Whether a drop must be swallowed. While it is true the overlay is never shown and nothing reaches
+   * the uploader — a batch in flight freezes the file list, and a modal on screen must not have a
+   * `z-index: 9999` veil painted over it.
+   *
+   * A getter is accepted alongside a ref because part of that answer lives in the DOM rather than in
+   * reactive state: see `~/utils/core/modal-lock`. Every read here happens inside a drag event, so a
+   * getter is evaluated on demand instead of caching a stale answer the way a `computed` would.
    */
-  isLocked: Ref<boolean>;
+  isLocked: MaybeRefOrGetter<boolean>;
   /**
    * Receives the dropped `DataTransfer` itself rather than a file list, because folders are read
    * through the `DataTransfer`; whatever consumes it decides what can actually be taken in.
@@ -45,14 +50,14 @@ export function useWorkspaceFileDrop({ isLocked, onFilesDropped }: WorkspaceFile
     if (!isFileDrag(event)) return;
     event.preventDefault();
     dragCounter += 1;
-    if (!isLocked.value) isWorkspaceDragging.value = true;
+    if (!toValue(isLocked)) isWorkspaceDragging.value = true;
   }
 
   function handleDragOver(event: DragEvent): void {
     if (!isFileDrag(event)) return;
     // Without preventDefault the browser refuses the drop
     event.preventDefault();
-    if (event.dataTransfer) event.dataTransfer.dropEffect = isLocked.value ? 'none' : 'copy';
+    if (event.dataTransfer) event.dataTransfer.dropEffect = toValue(isLocked) ? 'none' : 'copy';
   }
 
   function handleDragLeave(event: DragEvent): void {
@@ -67,7 +72,7 @@ export function useWorkspaceFileDrop({ isLocked, onFilesDropped }: WorkspaceFile
     event.preventDefault();
     dragCounter = 0;
     isWorkspaceDragging.value = false;
-    if (isLocked.value) return;
+    if (toValue(isLocked)) return;
     // The drop zone's own handler has already seen this event if the drop landed on it; the guard
     // inside `intakeDrop` is what makes the second visit a no-op.
     onFilesDropped(event.dataTransfer);

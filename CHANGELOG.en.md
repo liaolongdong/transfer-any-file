@@ -11,6 +11,27 @@ Release PR is not by itself a release.
 
 ## [Unreleased]
 
+## [1.9.1] - 2026-11-03
+
+### Fixed
+
+- **security**: The remote-code guard only recognised URLs carrying a scheme, so all four code-fetching shapes written scheme-relative (`//host/x.js`) passed it — they are now caught, and the four hand-authored public pages under `docs/` (home, privacy, blog, 404) are inside both source-layer guards. `.html` is scanned on its executable surface (script bodies, `on*` attributes, `javascript:` URLs), and the artifact layer now also asserts the package declares no `web_accessible_resources`
+- **ui**: Clearing the staged file list and deleting a preset became undoable, sharing one undo toast with history (extracted to `utils/core/undo-toast.ts`, used by all three) — wiping a list of up to 200 files is no longer the cost of one misclick
+- **ui**: With a preview dialog or a confirmation box on screen, ⌘/Ctrl+Enter no longer starts a batch behind it and the page-wide drop veil no longer paints over the modal; the lock previously knew only the two overlays the workbench itself opens
+- **ui**: The image preview's zoom buttons now disable at their 0.25× and 3× bounds instead of looking live and doing nothing; focus survives the shortcut recorder's swap between button and status; truncated result names and theme names carry a title, and the history search field has an accessible name
+- **site**: The image compressor got the `prefers-reduced-motion` CSS fallback it was missing (only the count-up honoured it in JS, while the entrance animations and size bars still moved); swapping images now returns the preview before revoking the object URL, and the bar-width frame is cancellable
+- **ci**: `release.yml` validates the whole tag against `^vX.Y.Z$` — the previous prefix-only `case v[0-9]*)` let a dispatched value carrying a newline append a key to `$GITHUB_OUTPUT` and repoint the checkout; `repo-meta.yml` passes its token through a `chmod 600` curl config file instead of the process argument list
+- **perf**: The multi-page PDF→image ZIP streams instead of one synchronous `zipSync`, yielding the event loop between pages and honouring cancellation there; JSON tree search is debounced by 150 ms (it re-scanned the whole tree per keystroke) and its rows gained `content-visibility`
+- **types**: The comparison view's stored split position is now type-checked — a boolean used to pass the `>= 0 && <= 100` range test and write `width: true%` into the panels
+- **ui**: A cancelled per-file batch no longer writes a history record. It had looked identical to a completed one in both the list and the trend chart, while 再次使用 / **Reuse** replayed only the files that had finished and the rest vanished without a trace; the merged path already refused, so both paths now follow the rule AGENTS.md states (history records successful batches)
+- **ui**: The `el-select` keyboard focus ring was hanging on a selector that can never match — `.el-select__wrapper` is a `<div>` without a tabindex, the inner `<input>` takes focus, and in a non-searchable select that input sits in an `opacity: 0` wrapper. Rewritten with `:has()`, so the ring lands on the box the reader actually sees
+- **perf**: The preferences dialog now fetches its chunk on first open (the same route the about drawer takes), keeping it and its four composables out of the startup graph
+- **ci**: The product page's visible-version needle list moved to one module, `scripts/site-version-claims.mjs`, read by both the bump writer and the `verify:meta` guard — two hand-copied lists were exactly the shape where one stale mention ships without any gate turning red
+- **docs**: Three claims that "JPEG is a DCT pass-through" are corrected. jsPDF's own step really is an untouched `DCTDecode` that ignores the compression argument, but the source image is re-encoded once on a canvas (0.92) before it gets there, so a JPG→PDF is a second generation; the canvas is what normalises EXIF orientation. The decoder's boundary is recorded too: UTF-16 without a BOM whose every byte is already printable ASCII (`水火山` → `4lkpq\`) is not caught by the control-character gate, deliberately rather than by oversight
+- **test**: One end-to-end assertion added (a cancelled batch writes no history), taking the suite total from 503 to 504 with the outward prose kept in step
+
+## [1.9.0] - 2026-10-27
+
 ### Added
 
 - **site**: The image compressor now opens on a before/after comparison — a slider between the original and the result, a saving percentage that counts up from zero, two size bars normalised against the larger file, and quick 100 KB / 200 KB / 500 KB / 1 MB targets. The compressor is also linked from the generated pages' footer and from the 39 image-output pair pages

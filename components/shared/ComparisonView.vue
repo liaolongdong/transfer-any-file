@@ -384,7 +384,11 @@ onMounted(() => {
   isStacked.value = stackQuery.matches;
   stackQuery.addEventListener('change', handleStackChange);
   void storageGet<number>(STORAGE_KEYS.splitPosition, 50).then(saved => {
-    if (saved >= 0 && saved <= 100) {
+    // A type check, not just a range check: `storage` is untrusted input (§9), and a bare comparison
+    // admits anything that coerces — `true >= 0 && true <= 100` holds, and `splitPercent` would then
+    // hand the panels a `width: true%`. Every other storage read in this project narrows first
+    // (`useTheme`, `useNotification`, `useRecentTargets`); this was the one that didn't.
+    if (typeof saved === 'number' && Number.isFinite(saved) && saved >= 0 && saved <= 100) {
       splitPercent.value = saved;
     }
   });

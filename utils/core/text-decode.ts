@@ -115,6 +115,17 @@ function countControlChars(text: string): number {
  * never there is the failure mode this whole function exists to avoid, so the count is applied even
  * though the sniff declines that shape.
  *
+ * The count is not a general UTF-16 detector, and the boundary is worth stating exactly because the
+ * sentence above reads like one. It catches a UTF-16 file once *some* unit has a byte the UTF-8 leg
+ * refuses, which is how the sample above ends up in GB18030's hands with NULs left behind. A file
+ * whose every byte is already ASCII printable never trips anything: `水火山` in UTF-16LE is
+ * `34 6c 6b 70 71 5c` — six printable bytes, zero NULs — so the UTF-8 leg accepts and the result is
+ * `4lkpq\` with no control characters to count. That is mojibake accepted as text. It is left to fail
+ * that way deliberately: the only thing that could separate it from legitimate short ASCII is a
+ * heuristic over byte parity and character ranges, and a guess that rejects real CSV to catch a rare
+ * renamed file is the worse trade. `fixtures/` and the store-facing copy both describe the chain by
+ * what it refuses, not by every shape it can name.
+ *
  * Not a binary sniffer: `fixtures/sample.pdf` decodes as GB18030 with *zero* control characters, so a
  * PDF renamed `.csv` would come out as mojibake rather than being refused here. It does not reach this
  * function under that name in practice — `detectFormat` reads the extension first, so a `.pdf` goes
