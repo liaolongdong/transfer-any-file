@@ -11,6 +11,16 @@ Release PR is not by itself a release.
 
 ## [Unreleased]
 
+### Changed
+
+- **ui**: Adjacent buttons now take their spacing from the container's own `gap` again — Element Plus adds 12px to every pair of sibling buttons, and stacked on the declared gap it measured 20px between two header or row icons where the design said 8px, and 16px where it said 4px. The containers that rely on that margin (the history action row, the dialog footers) are unchanged
+- **ui**: The theme picker in Preferences is one size smaller — swatch 28→24px, its selection ring 36→30px, the check badge 18→14px and the check glyph 12→10px, so a theme item is 45.2px tall instead of 55.2px
+
+### Fixed
+
+- **ui**: The filterable select no longer draws as two boxes while it is open — the previous round handed the keyboard ring to the whole control through `:has()`, but the inner `<input>` that actually holds focus (`tabindex` is 0) still matched the blanket `:focus-visible` rule, so two rings stacked on one 420px field; the input now carries none of it
+- **ui**: A result row's format badge, size and three action icons no longer stop in the middle of the card — `el-alert`'s content box never grew (measured 461px inside a 1022px alert), so the row ended where its text ran out instead of at the right edge like the file rows above it; `min-width: 0` still keeps the narrow case from overflowing
+
 ## [1.9.1] - 2026-11-03
 
 ### Fixed
@@ -37,16 +47,9 @@ Release PR is not by itself a release.
 - **site**: The image compressor now opens on a before/after comparison — a slider between the original and the result, a saving percentage that counts up from zero, two size bars normalised against the larger file, and quick 100 KB / 200 KB / 500 KB / 1 MB targets. The compressor is also linked from the generated pages' footer and from the 39 image-output pair pages
 - **ui**: Once a target is chosen, the selector states the losses this batch can already know about — PDF output has no text layer, a pure SVG source is rasterised on an image, PDF, Word or Markdown target, and an animated GIF keeps only its first frame when the target is an image or PDF; a one-frame GIF and a vector-preserving route say nothing. Result rows print their reduction against the source after the size, only when the output is smaller, and a multi-file batch adds the overall saving to its summary; growth prints no badge
 
-### Changed
-
-- **ui**: Adjacent buttons now take their spacing from the container's own `gap` again — Element Plus adds 12px to every pair of sibling buttons, and stacked on the declared gap it measured 20px between two header or row icons where the design said 8px, and 16px where it said 4px. The containers that rely on that margin (the history action row, the dialog footers) are unchanged
-- **ui**: The theme picker in Preferences is one size smaller — swatch 28→24px, its selection ring 36→30px, the check badge 18→14px and the check glyph 12→10px, so a theme item is 45.2px tall instead of 55.2px
-
 ### Fixed
 
 - **site**: The image compressor no longer paints an empty download button and a broken preview before a file is chosen — `hidden` was being overridden by the `display` rules on `.tool-preview img` and `.tool-result`
-- **ui**: The target-format select no longer draws as two boxes while it is open — the global focus ring was landing on the filter `<input>` inside the field (376px of a 420px control, square corners); the ring now belongs to the whole control and the inner input carries none of it
-- **ui**: A result row's format badge, size and three action icons no longer stop in the middle of the card — `el-alert`'s content box never grew (measured 461px inside a 1022px alert), so the row ended where its text ran out instead of at the right edge like the file rows above it; `min-width: 0` still keeps the narrow case from overflowing
 
 ## [1.8.0] - 2026-10-27
 
