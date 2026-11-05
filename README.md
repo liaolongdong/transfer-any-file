@@ -13,6 +13,8 @@
        从 docs/ 构建的 GitHub Pages 站点。 -->
 
 [![给这个项目加星](https://img.shields.io/github/stars/liaolongdong/transfer-any-file?style=for-the-badge&logo=github&label=%E2%AD%90%20Star%20this%20repo&color=yellow)](https://github.com/liaolongdong/transfer-any-file/stargazers)
+&nbsp;
+[![在 Chrome 应用商店安装](https://img.shields.io/badge/%E5%9C%A8_Chrome_%E5%BA%94%E7%94%A8%E5%95%86%E5%BA%97%E5%AE%89%E8%A3%85-4285F4?style=for-the-badge&logo=googlechrome&logoColor=white)](https://chromewebstore.google.com/detail/blkdmpkcaceicinkhindniepbbbaekkb)
 
 [![Manifest V3](https://img.shields.io/badge/Manifest_V3-ready-blue?style=for-the-badge&logo=googlechrome&logoColor=white)](https://developer.chrome.com/docs/extensions/get-started)
 &nbsp;

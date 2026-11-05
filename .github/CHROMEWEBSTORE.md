@@ -9,7 +9,7 @@
 > 代码**，与文案无关：被扫出来的是两份第三方依赖里的死代码路径。按本文件自己 09-15 那条笔记的判据（「如果第三次
 > 裁决落在一份**不带列表**的文案上，那时才轮到那个表单」），关键字那条模式这次可以判定为已走完——它没能再拦住我们，
 > 而这次也没得申诉，因为被点名的代码确实在包里。
-> **现网状态（2026-11-03 公开页实测；上一轮 2026-10-28 那次另有 CWS 只读回执）**：条目**已上线 1.9.1**，值如下——
+> **现网状态（2026-11-05 公开页实测；11-03 与 10-28 两轮读数一并保留在下面）**：条目**已上线 1.9.1**，值如下——
 >
 > - item ID：`blkdmpkcaceicinkhindniepbbbaekkb`
 > - listing：`https://chromewebstore.google.com/detail/blkdmpkcaceicinkhindniepbbbaekkb`（短形式即可，商店自己重定向到带标题 slug 的长地址）
@@ -25,6 +25,13 @@
 >   （见[上架后的运营](#上架后的运营)）。**这个数字是 Google 去重后的装机用户数，不是后台「安装次数」那张表**：后者按 Chrome Profile 累计安装事件，
 >   两份后台导出（安装 10-03～11-01 合计 **120**；卸载 10-03～10-31 合计 **1**，只有 10-05 那天有 1 次）之间的差，就是「禁用再启用 /
 >   第二个 Profile / 同步到新设备」各算一次安装而不自增用户数。安装事件数没有公开接口，挂不出徽章。
+> - 2026-11-05（公开页实测，美国出口；这一轮页面按**默认语言**渲染，标题是现网中文名，与 11-03 那轮的英文 listing 不同）：
+>   版本仍 **1.9.1**、`Size 1.15MiB`、语言 `["English","中文（中国）"]`、详情区更新日期仍是 11-03，评分依旧渲染为空控件。
+>   用户数 **`7 users`**（11-03 为 5），README 与商店徽章那两条链路不变。
+> - **商品文案与线上包的差距是此刻最贵的一笔债**：线上 listing 的详描与截图仍是 1.0.0 期，而包已到 1.9.1；本文件的粘贴块
+>   从那一刻起陆续多出压缩包解包、PDF 选页、多图合并为一份 PDF、转换预设、文件名模板、撤销与桌面通知、空态示例与目标建议、
+>   长批次搜索与筛选、顺序自己定、省了多少看得见、转换前须知等条目。**发布 API 写不了商品文案**，所以这笔差距只能靠后台手工
+>   替换闭合——替换时按[提交速查](#提交速查)的 Tab 1 与 Tab 2 一次做完，截图取 `docs/assets/store/screens/` 的那五张。
 > - 现网中文名 `文件格式任意转换助手 — 离线转换无上传` 与 `public/_locales/zh_CN/messages.json → extensionName`
 >   **逐字一致**，「默认语言是中文」这条已经生效；概述那段就是 `extensionDescription` 的值
 > - **一处待核对**：listing 的数据披露写的是「会处理以下数据：**网站内容**」，而下面[数据处理](#数据处理)那张表里
@@ -118,7 +125,7 @@ curl -Is https://liaolongdong.github.io/transfer-any-file/privacy.html | head -1
 | ----------------------------- | ----------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
 | 名称 Extension Name           | `Transfer Any File — Offline File Format Converter` (49/75)                                                 | `文件格式任意转换助手 — 离线转换无上传` (20/75)                                                                                        |
 | 简介 Short description        | `Convert between 14 common document, spreadsheet and image file formats right in your browser...` (127/132) | `在本机浏览器内互转 14 种常见的文档、表格与图片格式。支持混合批量、多步链路、预览编辑与 ZIP 打包，全程离线，不上传、无账号。` (66/132) |
-| 详描 Full description         | [英文详细介绍](#英文详细介绍) (9,737 字符)                                                                  | [中文详细介绍](#中文详细介绍) (3,405 字符)                                                                                             |
+| 详描 Full description         | [英文详细介绍](#英文详细介绍) (10,495 字符)                                                                 | [中文详细介绍](#中文详细介绍) (3,642 字符)                                                                                             |
 | 类别 Category                 | `Productivity`                                                                                              | `Productivity`                                                                                                                         |
 | 主要语言 Primary Language     | -                                                                                                           | `Chinese (China)`                                                                                                                      |
 | 附加语言 Additional Languages | `English (United States)`                                                                                   | -                                                                                                                                      |
@@ -132,7 +139,7 @@ Transfer Any File — Offline File Format Converter
 Convert between 14 common document, spreadsheet and image file formats right in your browser — offline, in batches, no uploads.
 ```
 
-**Chinese (China) —— 默认语言标签页，先贴这一套。** 三个字段（名称 20/75、简介 66/132、详描 3,405 字符）在
+**Chinese (China) —— 默认语言标签页，先贴这一套。** 三个字段（名称 20/75、简介 66/132、详描 3,642 字符）在
 [商店文案](#商店文案)里；名称与简介同时活在 `public/_locales/zh_CN/messages.json`，`pnpm verify:listing` 逐字比对两边。
 那个标签页要等**带 `_locales/zh_CN/` 的包上传之后**才出现——先传包再填表，手上那份旧草稿看不到它是正常的。
 
@@ -314,7 +321,7 @@ Convert between 14 common document, spreadsheet and image file formats right in 
 扩展真正具备的能力（混格式批量、多步链路、预览与编辑、ZIP 下载），而不是文件扩展名。依旧不写 PDF 转 Word、PDF 转 Excel，
 因为这个扩展做不到无损的 PDF 转换。
 
-**详细介绍（Detailed Description）** [必填] —— 纯文本，本仓库自设上限 16,000 字符（英文块实测 9,737；下面的中文块实测 3,405）
+**详细介绍（Detailed Description）** [必填] —— 纯文本，本仓库自设上限 16,000 字符（英文块实测 10,495；下面的中文块实测 3,642）
 
 _Google 没有为这个字段公布长度_——75 与 132 是写在文档里的，16,000 不是。把它当成本仓库自己的守卫
 （`pnpm verify:listing`），按后台计数器设定，提交时以那个计数器为准，不要把 16,000 背给审核员。
@@ -349,10 +356,13 @@ BUILT FOR REAL WORKLOADS
 • ZIP download: convert forty files, download one archive. A multi-page source and a multi-sheet workbook are automatically split into one output per page / per sheet
 • Paste to convert: copy an image or a block of text and press Ctrl+V (⌘V on Mac)
 • Preview and edit: view the source and the result side by side, and correct a text result before downloading it
+• Savings on every result: each result prints how much smaller it came out than its source, and a batch of several totals the saving in its summary line — a result that grew prints no badge, so growth is never dressed as a saving
 • Recent targets: the formats you convert to most often are grouped at the top of the target picker
 • Built-in samples and suggested targets: the empty workbench offers three locally generated samples, and while no target is selected it suggests up to three targets for the current source format — a suggestion only applies when you click it. Long batches gain a file-name search and All / Succeeded / Failed result filters
+• Before you convert: once the target is chosen, the picker lists what this batch will lose — a page that arrives as an image, a vector flattened into a bitmap, an animation kept to one frame — and stays quiet on the routes that keep everything, so a limitation is never something you find after the download
 • Image output parameters: an image target exposes a longest edge (800–4096 px), and a compressed image target additionally takes encoder quality (40–90%) and a target file size (20 KB–2 MB); a source that is rendered page by page takes a render density of 96–300 DPI — every knob starts untouched
 • PDF page selection: converting a PDF to images can be limited to the pages you name (1-3, 5) instead of the whole document; that choice belongs to the batch in front of you and is never stored, so it cannot silently truncate the next PDF
+• Order you control: every staged file carries a drag handle — pull it, or focus it and press the arrow keys, Home or End — and that order is the output order, so the file you put first is the file that comes out first
 • Merge images into one PDF: when every file in a batch is a PNG, JPEG, WebP, BMP or GIF and the target is PDF, a merge box appears — ticked, the batch becomes one document in list order, one page per image (up to 200 pages), named with a -merged suffix; it is off by default, so a single conversion is unchanged, and an image that will not decode fails the whole group rather than leaving a partial file
 • Conversion presets: save a target format together with its parameters as a named shortcut (up to 12) and restore the whole setup in one click; a preset works for any batch that can reach that format
 • Output names you can write: a result is named after its source file plus the date and time to the second by default, and Preferences takes a pattern of your own; the extension always comes from the real output, so a customised name never claims a format it is not
@@ -429,10 +439,13 @@ Found a bug, or need a format added? Open an issue at https://github.com/liaolon
 • 打包下载：转换 40 个文件，下载 1 个 ZIP 压缩包。多页的源文件与多工作表的表格文件会自动按"每页一个 / 每表一个"拆分输出
 • 粘贴即转换：复制一张图片或一段文字，按 Ctrl+V（Mac 上为 ⌘V）即可
 • 预览与编辑：源文件与结果左右对照显示，文本类结果可在下载前就地修改
+• 省了多少看得见：每条结果在体积之后标出它比源文件小了多少，多个文件的批次再于摘要行给出整批的节省；结果变大时不做任何标记，免得把增长说成节省
 • 最近使用：你常转的目标格式会以下拉顶部的「最近使用」分组呈现
 • 内置示例与目标建议：空工作台提供三个本机生成的示例；还没选目标时，按源格式给出最多三个推荐目标，只有点击才生效。长批次结果还支持按文件名搜索与全部 / 成功 / 失败筛选
+• 转换前须知：目标选定之后，选择器会先列出这一批会丢什么——某一页会变成图像、矢量会被展平成位图、动图只保留一帧——而对什么都不丢的路线保持安静，所以限制不会等到下载之后才被发现
 • 图片输出参数：目标为图片时可设最长边（800–4096 px）；目标为压缩图片格式时还可设质量（40–90%）与目标体积（20 KB–2 MB）；逐页渲染的源文件另可按「清晰度」选 96–300 DPI；不设置即保持默认
 • PDF 选页：把 PDF 转成图片时可以只点名要渲染的页（如 1-3, 5），不必整份出图；这个选择只属于眼前这一批、不落存储，所以不会悄悄截断下一份 PDF
+• 顺序自己定：每个文件左侧都有拖拽手柄——拖动它，或把它聚焦后按方向键、Home、End——而这个顺序就是输出顺序，你排在最前的文件第一个产出
 • 多图合并为一份 PDF：整批都是 PNG / JPEG / WebP / BMP / GIF 且目标为 PDF 时会出现合并开关——勾上后整批按列表顺序写成一份，每张一页（最多 200 页），文件名带 -merged；默认关闭，单张转换与以前完全一样；任一张解码失败整批都不产出，而不是给出残缺文档
 • 转换预设：把目标格式连同输出参数存成一个命名快捷方式（最多 12 个），下次一键套用；预设不绑定源格式，凡能转到该格式的批次都能直接用
 • 输出文件名：结果默认叫「源文件名 + 精确到秒的日期与时间」，偏好设置里这一串写法可以自定义；扩展名始终取自真实产物，自定义过的名字因此不会与实际格式不符
