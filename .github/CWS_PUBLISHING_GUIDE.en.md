@@ -60,8 +60,8 @@ In Developer Dashboard:
 
 - **Full Description**:
   - See "Store Copy" section in `CHROMEWEBSTORE.md`
-  - Chinese detailed description: 3,642 characters (limit 16,000)
-  - English detailed description: 10,495 characters (limit 16,000)
+  - Chinese detailed description: 3,647 characters (limit 16,000)
+  - English detailed description: 10,512 characters (limit 16,000)
   - ✅ **Avoids keyword stuffing risk**: No format name lists separated by commas/colons in any field
 
 - **Category**: Productivity

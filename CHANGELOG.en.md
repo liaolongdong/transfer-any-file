@@ -11,7 +11,14 @@ Release PR is not by itself a release.
 
 ## [Unreleased]
 
+### Added
+
+- **site**: The site has a new decision page, `/compare/`, which puts the offline extension, an online conversion site and a command-line tool on one table and compares them on three things you can check — whether bytes leave the machine, what a batch can hold, and whether a result can be edited before download — while stating plainly which jobs do belong to an online site or a CLI. It is wired into the site navigation (the 131 generated pages and the blog page updated in the same change), `docs/sitemap.xml`, `docs/llms.txt`, the 404 page and both READMEs, and it is named into `verify:numbers`' document list (138 → 139 documents compared); the offline guard's HTML scope went from 141 files to 142.
+
 ### Changed
+
+- **site**: All 14 source-format hub pages have rewritten titles and descriptions. The 14 titles were one template sentence — "X conversions: every available target" — carrying neither the word converter nor any reason to click. Each now names the targets that format actually offers (for example "PDF converter — page images, text, Word, Markdown" and "JPEG (JPG) converter — PNG, WebP, PDF & documents"), and the ten descriptions that never stated the offline / no-upload claim now do. Every English title is held to ≤ 60 characters and every description to ≤ 160 by `validateHub`.
+- **docs**: Each README gains one naturally-phrased sentence (Chinese 图片转换 / 批量转换, English "offline converter") and links `/compare/` from the top navigation and the per-route paragraph; the blog page's `twitter:title` now matches its `og:title` (the two strings differed); the 404 page links `/blog/` and `/compare/`.
 
 - **ui**: Adjacent buttons now take their spacing from the container's own `gap` again — Element Plus adds 12px to every pair of sibling buttons, and stacked on the declared gap it measured 20px between two header or row icons where the design said 8px, and 16px where it said 4px. The containers that rely on that margin (the history action row, the dialog footers) are unchanged
 - **ui**: The theme picker in Preferences is one size smaller — swatch 28→24px, its selection ring 36→30px, the check badge 18→14px and the check glyph 12→10px, so a theme item is 45.2px tall instead of 55.2px

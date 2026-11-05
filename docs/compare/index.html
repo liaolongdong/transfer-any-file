@@ -1,0 +1,1001 @@
+<!doctype html>
+<!-- Hand-written, and bilingual the same way the product page and the blog are: every sentence ships in
+     both languages and CSS shows the one the document element selects, so a crawler that runs no
+     JavaScript still reads the whole page. Styles come from the shared `docs/assets/content.css`, the
+     file the generated conversion pages use, so a reader moving between them stays in one visual
+     language. Every number here is a fact of the code and `pnpm verify:numbers` checks it against
+     `FileFormat`, the route baseline and `conversion-policy.ts`. -->
+<html
+  lang="zh-CN"
+  id="top"
+>
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1"
+    />
+    <script>
+      window.__FAT_META__ = {
+        'zh-CN': {
+          t: '离线文件转换器 vs 在线转换网站：敏感文件该选哪个',
+          d: '在线转换站要先把文件传上去，离线工具不用。按三件能验证的事比较：字节有没有离开本机、一批能承受多少、结果能不能在下载前改。也说清哪几种活该交给在线站或命令行。',
+        },
+        en: {
+          t: 'Offline vs Online File Converters: Which for Private Files',
+          d: 'Online converters upload your file first. Compared on three things: whether bytes leave your machine, batch and size limits, and whether the result can be edited.',
+        },
+      };
+    </script>
+    <script>
+      (function () {
+        var KEY = 'fat-docs-lang';
+        var lang = null;
+        try {
+          var q = new URLSearchParams(location.search).get('lang');
+          if (q === 'zh' || q === 'zh-CN') lang = 'zh-CN';
+          else if (q === 'en') lang = 'en';
+          else {
+            var saved = localStorage.getItem(KEY);
+            if (saved === 'zh' || saved === 'zh-CN') lang = 'zh-CN';
+            else if (saved === 'en') lang = 'en';
+          }
+        } catch (e) {
+          /* private mode: fall through to browser detection */
+        }
+        if (!lang) lang = (navigator.language || 'zh-CN').toLowerCase().indexOf('zh') === 0 ? 'zh-CN' : 'en';
+        document.documentElement.setAttribute('lang', lang);
+        var copy = window.__FAT_META__[lang] || window.__FAT_META__.en;
+        if (copy) {
+          document.title = copy.t;
+          [
+            ['meta[name="description"]', copy.d],
+            ['meta[property="og:title"]', copy.t],
+            ['meta[property="og:description"]', copy.d],
+            ['meta[name="twitter:title"]', copy.t],
+            ['meta[name="twitter:description"]', copy.d],
+          ].forEach(function (pair) {
+            var el = document.querySelector(pair[0]);
+            if (el) el.setAttribute('content', pair[1]);
+          });
+        }
+      })();
+    </script>
+    <title>
+      离线文件转换器 vs 在线转换网站：敏感文件该选哪个 | Offline vs Online File Converters: Which for Private Files
+    </title>
+    <meta
+      name="description"
+      content="在线转换站要先把文件传上去，离线工具不用。按三件能验证的事比较：字节有没有离开本机、一批能承受多少、结果能不能在下载前改。也说清哪几种活该交给在线站或命令行。 | Online converters upload your file first. Compared on three things: whether bytes leave your machine, batch and size limits, and whether the result can be edited."
+    />
+    <meta
+      name="author"
+      content="Better"
+    />
+    <meta
+      name="robots"
+      content="index, follow, max-image-preview:large, max-snippet:-1"
+    />
+    <link
+      rel="canonical"
+      href="https://liaolongdong.github.io/transfer-any-file/compare/"
+    />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="64x64"
+      href="../assets/icon-mark.png"
+    />
+    <link
+      rel="apple-touch-icon"
+      sizes="512x512"
+      href="../assets/icon.png"
+    />
+    <meta
+      name="theme-color"
+      content="#2563eb"
+    />
+    <meta
+      name="color-scheme"
+      content="light"
+    />
+    <link
+      rel="stylesheet"
+      href="../assets/content.css"
+    />
+    <style>
+      /* The shared sheet styles `table.matrix` for a format grid: centred, nowrap, one glyph per cell.
+         A comparison table holds sentences, so only these three properties differ. */
+      table.vs {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13.5px;
+      }
+      .vs th,
+      .vs td {
+        padding: 8px 10px;
+        border-right: 1px solid var(--line);
+        border-bottom: 1px solid var(--line);
+        text-align: left;
+        vertical-align: top;
+        white-space: normal;
+      }
+      .vs thead th {
+        background: var(--brand-soft);
+        color: var(--brand-dark);
+        font-weight: 650;
+      }
+      .vs tbody th {
+        color: var(--ink-soft);
+        font-weight: 600;
+      }
+      .vs td.pick {
+        background: var(--brand-soft);
+      }
+      .vs tr:last-child td,
+      .vs tr:last-child th {
+        border-bottom: 0;
+      }
+      .vs-scroll {
+        overflow-x: auto;
+        margin: 18px 0 6px;
+        border: 1px solid var(--line);
+        border-radius: var(--radius-sm);
+        background: var(--paper);
+        box-shadow: var(--shadow-sm);
+      }
+    </style>
+    <meta
+      property="og:type"
+      content="article"
+    />
+    <meta
+      property="og:site_name"
+      content="Transfer Any File"
+    />
+    <meta
+      property="og:locale"
+      content="zh_CN"
+    />
+    <meta
+      property="og:locale:alternate"
+      content="en_US"
+    />
+    <meta
+      property="og:url"
+      content="https://liaolongdong.github.io/transfer-any-file/compare/"
+    />
+    <meta
+      property="og:title"
+      content="离线文件转换器 vs 在线转换网站：敏感文件该选哪个 | Offline vs Online File Converters: Which for Private Files"
+    />
+    <meta
+      property="og:description"
+      content="在线转换站要先把文件传上去，离线工具不用。按三件能验证的事比较：字节有没有离开本机、一批能承受多少、结果能不能在下载前改。 | Online converters upload your file first. Compared on whether bytes leave your machine, batch limits, and editing the result."
+    />
+    <meta
+      property="og:image"
+      content="https://liaolongdong.github.io/transfer-any-file/assets/store/github-social-preview.png"
+    />
+    <meta
+      property="og:image:width"
+      content="1280"
+    />
+    <meta
+      property="og:image:height"
+      content="640"
+    />
+    <meta
+      property="og:image:alt"
+      content='Transfer Any File brand mark and the headline "Convert 14 file formats without uploading a byte" beside a screenshot of the workbench converting a Markdown file to HTML.'
+    />
+    <meta
+      name="article:published_time"
+      content="2026-11-05"
+    />
+    <meta
+      name="article:modified_time"
+      content="2026-11-05"
+    />
+    <meta
+      name="twitter:card"
+      content="summary_large_image"
+    />
+    <meta
+      name="twitter:title"
+      content="离线文件转换器 vs 在线转换网站：敏感文件该选哪个 | Offline vs Online File Converters: Which for Private Files"
+    />
+    <meta
+      name="twitter:description"
+      content="在线转换站要先把文件传上去，离线工具不用。按三件能验证的事比较：字节有没有离开本机、一批能承受多少、结果能不能在下载前改。 | Online converters upload your file first. Compared on whether bytes leave your machine, batch limits, and editing the result."
+    />
+    <meta
+      name="twitter:image"
+      content="https://liaolongdong.github.io/transfer-any-file/assets/store/github-social-preview.png"
+    />
+    <meta
+      name="twitter:image:alt"
+      content='Transfer Any File brand mark and the headline "Convert 14 file formats without uploading a byte" beside a screenshot of the workbench converting a Markdown file to HTML.'
+    />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebPage",
+            "@id": "https://liaolongdong.github.io/transfer-any-file/compare/#webpage",
+            "url": "https://liaolongdong.github.io/transfer-any-file/compare/",
+            "name": "离线文件转换器 vs 在线转换网站：敏感文件该选哪个",
+            "inLanguage": ["zh-CN", "en"],
+            "isPartOf": {
+              "@id": "https://liaolongdong.github.io/transfer-any-file/#website"
+            },
+            "datePublished": "2026-11-05",
+            "dateModified": "2026-11-05"
+          },
+          {
+            "@type": "Article",
+            "@id": "https://liaolongdong.github.io/transfer-any-file/compare/#article",
+            "headline": "离线文件转换器 vs 在线转换网站：敏感文件该选哪个",
+            "description": "按三件能验证的事比较离线转换器与在线转换网站：字节有没有离开本机、一批能承受多少、结果能不能在下载前改。",
+            "datePublished": "2026-11-05",
+            "dateModified": "2026-11-05",
+            "author": {
+              "@type": "Person",
+              "name": "Better",
+              "url": "https://github.com/liaolongdong"
+            },
+            "publisher": {
+              "@type": "Organization",
+              "name": "Transfer Any File",
+              "url": "https://liaolongdong.github.io/transfer-any-file/"
+            },
+            "image": "https://liaolongdong.github.io/transfer-any-file/assets/store/github-social-preview.png",
+            "mainEntityOfPage": {
+              "@id": "https://liaolongdong.github.io/transfer-any-file/compare/#webpage"
+            }
+          },
+          {
+            "@type": "FAQPage",
+            "mainEntity": [
+              {
+                "@type": "Question",
+                "name": "离线转换器怎么证明它不上传我的文件？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "三件可以当场查的事：扩展清单里 permissions 只有 storage，没有 host 权限，浏览器会拦下任何离开本机的请求；第一方源码里没有网络调用，仓库用两道守卫分别断言源码层与构建产物层；历史与偏好只写 chrome.storage.local。在线站靠隐私政策承诺删除，而离线这条不需要你相信任何承诺。"
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "在线站说文件一小时后删除，这可信吗？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "问题是它无法验证。传输已经发生，之后的留存、是否交给子处理方、有没有事故，都不在你的控制范围内——而那正是敏感文件要避免的那一件事。这不是说在线站都在撒谎，而是说这条主张只能靠对方；离线那条主张你可以自己查。"
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "设备受管控、装不了扩展，有别的办法吗？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "这个站点上有两张完全不需要装东西的页面：图片压缩工具把单张 PNG / JPEG / WebP / BMP / GIF 压到指定体积或最长边，文件对比页把两个文件做行级与词级差异。文件读进页面自己的内存，随页发布的代码里没有任何请求会把文件带出本机，也不从别处取代码。其余格式仍得交给桌面软件，或者——在文件不敏感的前提下——在线站。"
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "PDF 转 Word 该用离线还是在线？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "看你要的是文字还是版式。这个扩展把 PDF 当作文本来源：先提取文字，再写成 Word 或 Markdown——文字可编辑、可选中，但版式、图片位置与表格边框不保留。要贴近原排版的还原是专门的桌面工具或在线服务的活。扫描件还需要 OCR，而这个扩展不内置：内置就得联网取模型，离线保证随之失效。这条路线的取舍单独写在一页上：PDF 转 Word。"
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "只有 14 种格式，算不算硬伤？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "要看你手上实际有几种。这 14 种覆盖日常往来的三类：Markdown、HTML、Word、PDF、TXT、CSV、Excel、JSON，加上 PNG、JPEG、WebP、BMP、GIF、SVG。在线站的几百种里有大量是视频与音频，而那正是浏览器编不动、这个扩展明确不做的部分。按你要转的那几种选工具，比按总数选可靠——总数大的那一边，通常也是要把文件交出去的那一边。"
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "我已经在用在线站，换过来有什么好处？",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "三件：一，文件不出本机，从此不需要评估任何一家的留存政策；二，断网可用，也没有每日配额与排队；三，结果能在下载前看见、能改。代价也写清楚：格式广度小、没有 OCR、要装一次扩展，而且第一次用 Chrome 的「加载已解压的扩展程序」那条路对非开发者有点陌生。"
+                }
+              }
+            ]
+          },
+          {
+            "@type": "BreadcrumbList",
+            "itemListElement": [
+              {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "产品说明",
+                "item": "https://liaolongdong.github.io/transfer-any-file/"
+              },
+              {
+                "@type": "ListItem",
+                "position": 2,
+                "name": "离线 vs 在线",
+                "item": "https://liaolongdong.github.io/transfer-any-file/compare/"
+              }
+            ]
+          }
+        ]
+      }
+    </script>
+  </head>
+  <body>
+    <header class="site-head">
+      <div class="wrap">
+        <a
+          class="brand"
+          href="../"
+        >
+          <img
+            src="../assets/icon-mark.png"
+            width="26"
+            height="26"
+            alt=""
+          />
+          <span lang="zh-CN">文件格式任意转换助手</span><span lang="en">Transfer Any File</span>
+        </a>
+        <nav
+          class="site-nav"
+          aria-label="Site"
+        >
+          <a href="../"><span lang="zh-CN">产品说明</span><span lang="en">Product</span></a>
+          <a href="../convert/"><span lang="zh-CN">转换一览</span><span lang="en">Conversions</span></a>
+          <a href="../compare/"><span lang="zh-CN">离线 vs 在线</span><span lang="en">Offline vs online</span></a>
+          <a href="../diff/"><span lang="zh-CN">文件对比</span><span lang="en">File diff</span></a>
+          <a href="../blog/"><span lang="zh-CN">博客</span><span lang="en">Blog</span></a>
+          <a
+            href="https://github.com/liaolongdong/transfer-any-file"
+            rel="noopener"
+            target="_blank"
+            >GitHub</a
+          >
+        </nav>
+      </div>
+    </header>
+    <main class="page">
+      <div class="wrap">
+        <nav
+          class="crumbs"
+          aria-label="Breadcrumb"
+        >
+          <a href="../"><span lang="zh-CN">产品说明</span><span lang="en">Product</span></a>
+          <span aria-hidden="true">/</span>
+          <span><span lang="zh-CN">离线 vs 在线</span><span lang="en">Offline vs online</span></span>
+        </nav>
+        <article>
+          <p class="eyebrow">
+            <span lang="zh-CN">选型 · 隐私优先</span><span lang="en">Choosing · privacy-first</span>
+          </p>
+          <h1>
+            <span lang="zh-CN">离线文件转换器 vs 在线转换网站：敏感文件该选哪个</span>
+            <span lang="en">Offline file converter vs online conversion site: which one for sensitive files</span>
+          </h1>
+          <p class="byline">
+            <span lang="zh-CN">写于 <time datetime="2026-11-05">2026-11-05</time> · 约 8 分钟 · 作者 Better</span>
+            <span lang="en">Written <time datetime="2026-11-05">2026-11-05</time> · about 8 minutes · by Better</span>
+          </p>
+          <p class="lede">
+            <span lang="zh-CN"
+              >「能不能转」几乎不是这类选择的分歧点——在线站支持的格式确实更多，命令行也确实更好脚本化。真正的分歧只有一条：你的文件要不要先交给别人。这一页把三种做法放在同一张桌子上，只按三件当场能验证的事比：字节有没有离开本机、一批能承受多少、结果能不能在下载前改。反向结论也写清楚——哪几种活就该交给在线站或命令行，这个扩展不该被当成那两样的替身。</span
+            >
+            <span lang="en"
+              >Whether a format can be converted at all is rarely where these choices differ — online sites genuinely
+              support more formats, and a command line genuinely scripts better. There is one real fork: does your file
+              have to be handed over first. This page puts the three approaches on one table and compares them on three
+              things you can check on the spot — whether bytes leave the machine, what a batch can hold, and whether a
+              result can be edited before you download it. The reverse conclusions are stated too: some jobs belong to
+              an online site or a CLI, and this extension should not stand in for them.</span
+            >
+          </p>
+          <blockquote>
+            <p>
+              <span lang="zh-CN"
+                >先说结论：文件属于你自己、属于客户、属于在职或在校材料、属于还没公开给任何人的稿子——选离线那条路，前提是它真的不发请求；要转的是视频音频、一个冷门格式、或者上千个文件的流水线——离线扩展不是那件工具。</span
+              >
+              <span lang="en"
+                >The short answer: if the file is yours, a client's, an employer's or a draft nobody has seen yet, take
+                the offline route — provided it really sends nothing. If it is video, audio, an exotic format or a
+                thousand-file pipeline, an offline extension is not the tool for that job.</span
+              >
+            </p>
+          </blockquote>
+          <ul class="stats">
+            <li>
+              <b><span lang="zh-CN">14 种</span><span lang="en">14 formats</span></b>
+              <span lang="zh-CN">文档、表格与图片三类日常格式</span
+              ><span lang="en">document, data and image formats</span>
+            </li>
+            <li>
+              <b><span lang="zh-CN">0 个</span><span lang="en">0 requests</span></b>
+              <span lang="zh-CN">第一方源码里的网络调用数</span
+              ><span lang="en">network calls in first-party source</span>
+            </li>
+            <li>
+              <b><span lang="zh-CN">100 MB</span><span lang="en">100 MB</span></b>
+              <span lang="zh-CN">单个文件上限，一批 200 个</span><span lang="en">per file, 200 files a batch</span>
+            </li>
+            <li>
+              <b><span lang="zh-CN">1 项</span><span lang="en">1 permission</span></b>
+              <span lang="zh-CN">清单里只要 storage，没有 host 权限</span
+              ><span lang="en">manifest asks storage, no host permission</span>
+            </li>
+          </ul>
+
+          <section
+            id="bytes"
+            class="reveal"
+          >
+            <h2>
+              <span lang="zh-CN">一、字节有没有离开本机</span
+              ><span lang="en">1. Whether the bytes leave your machine</span>
+            </h2>
+            <p>
+              <span lang="zh-CN"
+                >在线转换站不是「顺便」需要上传，它的工作方式就是把文件收过来、在别人的机器上转、再把结果还给你。这意味着隐私政策上那句「文件一小时内自动删除」描述的是一个你无法验证的后续过程，而传输本身已经发生了。离线工具不是更安全一点的在线服务，它把这条路径整段去掉：文件从磁盘直接读进浏览器的页面，转完再从内存交回磁盘。</span
+              >
+              <span lang="en"
+                >An online conversion site does not need your file as an incidental detail — receiving it is how it
+                works. The file is collected, converted on someone else's machine, and handed back. So the "your file is
+                deleted within an hour" line in a privacy policy describes a follow-up process you cannot verify, while
+                the transfer itself has already happened. An offline tool is not a slightly safer online service; it
+                removes the path entirely. The file is read from disk into the page, converted, and written back from
+                memory.</span
+              >
+            </p>
+            <p>
+              <span lang="zh-CN"
+                >「离线」这个词也常被说成一句信念宣言，所以值得给出可查的三条：扩展清单的 permissions 只有 storage，没有
+                host
+                权限，浏览器会直接拦下任何离开本机的请求；第一方源码里没有网络调用，仓库用两道守卫分别断言源码层与构建产物层；历史与偏好只写
+                chrome.storage.local。这三条不依赖任何人守信，而在线站那条主张依赖。</span
+              >
+              <span lang="en"
+                >"Offline" is often stated as a belief rather than a checkable claim, so here are three that can be
+                checked: the manifest's permissions list holds only storage and no host permission, which makes the
+                browser block any request leaving the machine; first-party source contains no network calls, asserted by
+                two guards that read the source and the built artefact separately; and history plus preferences go only
+                to chrome.storage.local. None of the three depends on anyone keeping a promise, which is exactly what
+                the online side's claim does depend on.</span
+              >
+            </p>
+          </section>
+
+          <section
+            id="batch"
+            class="reveal"
+          >
+            <h2><span lang="zh-CN">二、一批能承受多少</span><span lang="en">2. What a batch can hold</span></h2>
+            <p>
+              <span lang="zh-CN"
+                >真实工作很少是「一个文件」。把一份合同、一张考勤表和三张现场照片一起转成同一种格式，才是一批。在线站的免费档通常在这一步开始收钱：每日配额、单个体积上限、超出后排队或加水印、混合格式要你逐个再传一遍。这个扩展一批最多
+                200 个文件、单个上限 100 MB（两个上限各自独立：超过 100 MB 的文件被拒收，20 MB
+                以上只是提示可能慢，仍然照转）；混合格式批次只提供对全部文件都成立的目标，每个文件独立执行自己的路线，一个失败不阻断其余。文件数超过
+                5 个、或整批合计超过 20
+                MB，会先弹一次确认——那是防止你误把整个文件夹拖进来，不是配额，而且这个开关可以在偏好设置里关掉。</span
+              >
+              <span lang="en"
+                >Real work is rarely one file. A contract, a timesheet and three photos from the field all going to the
+                same format at once is what a batch looks like. Free tiers at online sites start charging at exactly
+                this step: a daily quota, a per-file size cap, a queue or a watermark past it, and a mixed folder you
+                end up uploading one file at a time. Here a batch holds up to 200 files at 100 MB each — two separate
+                caps, where a file over 100 MB is refused while one over 20 MB only gets a may-be-slow warning and still
+                converts. A mixed-format batch only offers targets that work for every file in it, and each file walks
+                its own route so one failure does not stop the rest. Past 5 files, or 20 MB for the batch as a whole, it
+                asks once first — a prompt you can switch off in Preferences, and a guard against dropping a whole
+                folder by mistake rather than a quota.</span
+              >
+            </p>
+          </section>
+
+          <section
+            id="preview"
+            class="reveal"
+          >
+            <h2>
+              <span lang="zh-CN">三、结果能不能在下载前改</span
+              ><span lang="en">3. Whether you can fix the result first</span>
+            </h2>
+            <p>
+              <span lang="zh-CN"
+                >格式转换的损往往不在「成不成功」，而在「成功了你没细看」：PDF 出来是整页图像而不是文字层，SVG
+                被展平成位图，GIF
+                只留第一帧，文档引用的网络图片取不到字节。在线站一般只给你一张缩略图，你要等到下载完、打开、才发现不对——那时文件已经在别人的机器上过了一遍。这个扩展把源文件和结果左右对照显示，文本类结果可以在下载前就地改再复制出去；并且目标格式选定之后，选择器会先把此刻就能定下来的那三类损失提前列出——PDF
+                结果是整页图像、矢量源被展平成位图、动图只留一帧——它刻意只做这三类，其余的披露写在结果卡片上。限制不该是下载之后才被发现的东西。</span
+              >
+              <span lang="en"
+                >The loss in format conversion is usually not "did it work" but "it worked and you did not look": a PDF
+                comes out as page images with no text layer, an SVG is flattened into a bitmap, a GIF keeps one frame,
+                and images a document references over the network have no bytes to carry. An online site gives you a
+                thumbnail and lets you discover the rest after download — by which time the file has already been
+                through someone else's machine. This workbench shows the source and the result side by side, lets you
+                correct a text result before downloading it, and once you pick a target it flags the three losses that
+                can already be settled — a PDF result is page images, a vector source is flattened, an animated GIF
+                keeps one frame — and stops there on purpose, with the rest disclosed on the result card. A limitation
+                should not be something you find after the download.</span
+              >
+            </p>
+          </section>
+
+          <section
+            id="table"
+            class="reveal"
+          >
+            <h2><span lang="zh-CN">逐项对比</span><span lang="en">Row by row</span></h2>
+            <div class="vs-scroll">
+              <table class="vs">
+                <caption>
+                  <span lang="zh-CN"
+                    >按每类工具的典型行为整理，不针对某一家厂商；命令行那一列以 Pandoc 与 ImageMagick 作为代表。</span
+                  >
+                  <span lang="en"
+                    >Summarised from the typical behaviour of each class of tool, not from one vendor; Pandoc and
+                    ImageMagick stand in for the command-line column.</span
+                  >
+                </caption>
+                <thead>
+                  <tr>
+                    <th scope="col"><span lang="zh-CN">比较项</span><span lang="en">Dimension</span></th>
+                    <th scope="col"><span lang="zh-CN">离线扩展</span><span lang="en">Offline extension</span></th>
+                    <th scope="col"><span lang="zh-CN">在线转换站</span><span lang="en">Online converter</span></th>
+                    <th scope="col"><span lang="zh-CN">命令行工具</span><span lang="en">CLI tool</span></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <th scope="row">
+                      <span lang="zh-CN">文件离开设备</span><span lang="en">File leaves the device</span>
+                    </th>
+                    <td class="pick"><span lang="zh-CN">✅ 从不</span><span lang="en">✅ Never</span></td>
+                    <td>
+                      <span lang="zh-CN">❌ 必然，那是它的机制</span
+                      ><span lang="en">❌ Always, that is the mechanism</span>
+                    </td>
+                    <td><span lang="zh-CN">✅ 从不</span><span lang="en">✅ Never</span></td>
+                  </tr>
+                  <tr>
+                    <th scope="row"><span lang="zh-CN">断网时可用</span><span lang="en">Works offline</span></th>
+                    <td class="pick"><span lang="zh-CN">✅ 是</span><span lang="en">✅ Yes</span></td>
+                    <td><span lang="zh-CN">❌ 否</span><span lang="en">❌ No</span></td>
+                    <td><span lang="zh-CN">✅ 是</span><span lang="en">✅ Yes</span></td>
+                  </tr>
+                  <tr>
+                    <th scope="row"><span lang="zh-CN">价格与账号</span><span lang="en">Price and account</span></th>
+                    <td class="pick">
+                      <span lang="zh-CN">✅ 免费、无注册、无付费档</span
+                      ><span lang="en">✅ Free, no sign-up, no paid tier</span>
+                    </td>
+                    <td>
+                      <span lang="zh-CN">⚠️ 免费配额，超出要订阅</span
+                      ><span lang="en">⚠️ Free quota, a plan lifts it</span>
+                    </td>
+                    <td><span lang="zh-CN">✅ 通常免费</span><span lang="en">✅ Usually free</span></td>
+                  </tr>
+                  <tr>
+                    <th scope="row">
+                      <span lang="zh-CN">下载前预览并编辑结果</span
+                      ><span lang="en">Preview and edit before download</span>
+                    </th>
+                    <td class="pick">
+                      <span lang="zh-CN">✅ 左右对照 + 就地编辑 + 一键复制</span>
+                      <span lang="en">✅ Split view, inline editing, one-click copy</span>
+                    </td>
+                    <td><span lang="zh-CN">❌ 多数只有缩略图</span><span lang="en">❌ A thumbnail at best</span></td>
+                    <td><span lang="zh-CN">❌ 无</span><span lang="en">❌ None</span></td>
+                  </tr>
+                  <tr>
+                    <th scope="row"><span lang="zh-CN">混合格式批量</span><span lang="en">Mixed-format batch</span></th>
+                    <td class="pick">
+                      <span lang="zh-CN">✅ 一个目标、逐文件错误隔离</span>
+                      <span lang="en">✅ One target, per-file error isolation</span>
+                    </td>
+                    <td><span lang="zh-CN">⚠️ 常见为付费或排队</span><span lang="en">⚠️ Often paid or queued</span></td>
+                    <td><span lang="zh-CN">✅ 可脚本化</span><span lang="en">✅ Yes, and scriptable</span></td>
+                  </tr>
+                  <tr>
+                    <th scope="row">
+                      <span lang="zh-CN">体积与数量限制</span><span lang="en">Size and count limits</span>
+                    </th>
+                    <td class="pick">
+                      <span lang="zh-CN">✅ 单个 100 MB、一批 200 个</span
+                      ><span lang="en">✅ 100 MB per file, 200 files</span>
+                    </td>
+                    <td>
+                      <span lang="zh-CN">❌ 每日配额、体积上限、水印</span>
+                      <span lang="en">❌ Daily quotas, size caps, watermarks</span>
+                    </td>
+                    <td><span lang="zh-CN">✅ 无</span><span lang="en">✅ None</span></td>
+                  </tr>
+                  <tr>
+                    <th scope="row"><span lang="zh-CN">中文编码处理</span><span lang="en">Chinese encoding</span></th>
+                    <td class="pick">
+                      <span lang="zh-CN">✅ 先识别 UTF-16，再退 UTF-8 → GB18030 → GBK；CSV 带 UTF-8 BOM</span>
+                      <span lang="en"
+                        >✅ Detects UTF-16 first, falls back UTF-8 → GB18030 → GBK; CSV carries a UTF-8 BOM</span
+                      >
+                    </td>
+                    <td><span lang="zh-CN">⚠️ 看具体服务</span><span lang="en">⚠️ Depends on the service</span></td>
+                    <td>
+                      <span lang="zh-CN">⚠️ 得自己传对参数</span><span lang="en">⚠️ You pass the flag yourself</span>
+                    </td>
+                  </tr>
+                  <tr>
+                    <th scope="row">
+                      <span lang="zh-CN">能否自查实现</span><span lang="en">Implementation you can read</span>
+                    </th>
+                    <td class="pick">
+                      <span lang="zh-CN">✅ 开源（MIT）</span><span lang="en">✅ Open source (MIT)</span>
+                    </td>
+                    <td><span lang="zh-CN">❌ 闭源</span><span lang="en">❌ Closed</span></td>
+                    <td><span lang="zh-CN">✅ 多为开源</span><span lang="en">✅ Mostly open source</span></td>
+                  </tr>
+                  <tr>
+                    <th scope="row"><span lang="zh-CN">上手成本</span><span lang="en">Setup cost</span></th>
+                    <td class="pick">
+                      <span lang="zh-CN">⚠️ 装一次扩展，点图标即开工作台</span>
+                      <span lang="en">⚠️ Install once, the icon opens the workbench</span>
+                    </td>
+                    <td>
+                      <span lang="zh-CN">✅ 零安装，一个网页</span
+                      ><span lang="en">✅ Nothing to install, a web page</span>
+                    </td>
+                    <td>
+                      <span lang="zh-CN">⚠️ 包管理器、PATH、参数</span
+                      ><span lang="en">⚠️ Package manager, PATH, flags</span>
+                    </td>
+                  </tr>
+                  <tr>
+                    <th scope="row"><span lang="zh-CN">格式广度</span><span lang="en">Format breadth</span></th>
+                    <td class="pick">
+                      <span lang="zh-CN">⚠️ 14 种文档 / 表格 / 图片</span
+                      ><span lang="en">⚠️ 14 document, data and image formats</span>
+                    </td>
+                    <td>
+                      <span lang="zh-CN">✅ 几百种，含视频音频</span
+                      ><span lang="en">✅ Hundreds, including audio and video</span>
+                    </td>
+                    <td>
+                      <span lang="zh-CN">✅ Pandoc 几十种文档格式，ImageMagick 几百种图片格式</span>
+                      <span lang="en">✅ Pandoc dozens of document formats, ImageMagick hundreds of image formats</span>
+                    </td>
+                  </tr>
+                  <tr>
+                    <th scope="row">
+                      <span lang="zh-CN">OCR 与复杂版式还原</span><span lang="en">OCR and complex layout repair</span>
+                    </th>
+                    <td class="pick">
+                      <span lang="zh-CN">❌ 不内置（内置就得联网）</span>
+                      <span lang="en">❌ Not bundled (bundling it would break the offline guarantee)</span>
+                    </td>
+                    <td><span lang="zh-CN">⚠️ 常见卖点</span><span lang="en">⚠️ Commonly offered</span></td>
+                    <td><span lang="zh-CN">⚠️ 需另装引擎</span><span lang="en">⚠️ Needs a separate engine</span></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <p class="fine">
+              <span lang="zh-CN"
+                >「✅」是这一类工具通常做得到，「⚠️」是有条件，「❌」是做不到或代价明显。第一列全部可以从扩展自己的清单与源码查起，后两列按典型行为整理。</span
+              >
+              <span lang="en"
+                >✅ means the class of tool normally does this, ⚠️ means it comes with conditions, ❌ means it does not
+                or costs clearly more. Every cell in the first column is checkable from the extension's own manifest and
+                source; the other two are typical behaviour of each class.</span
+              >
+            </p>
+          </section>
+
+          <section
+            id="choose-online"
+            class="reveal"
+          >
+            <h2>
+              <span lang="zh-CN">什么时候就该选在线转换站</span>
+              <span lang="en">When an online conversion site is the right call</span>
+            </h2>
+            <ul class="limits">
+              <li>
+                <span lang="zh-CN"
+                  >要转的是视频或音频，或任何浏览器解码不动的格式——这个扩展一个都不做，因为它不联网取解码器。</span
+                >
+                <span lang="en"
+                  >It is video or audio, or any format a browser cannot decode — this extension does none of those, and
+                  it will not fetch a decoder over the network to fake one.</span
+                >
+              </li>
+              <li>
+                <span lang="zh-CN"
+                  >只有一个冷门格式的一次性需求，而且文件本身不敏感（一份公开数据集、一张无版权争议的图）。上传一次的成本确实比装一个扩展低。</span
+                >
+                <span lang="en"
+                  >A single exotic format, once, and the file is genuinely public — a dataset anyone can fetch, a
+                  picture with no rights on it. One upload really is cheaper than installing something.</span
+                >
+              </li>
+              <li>
+                <span lang="zh-CN"
+                  >需要 OCR、复杂 PDF
+                  版式还原或云端排版引擎。这类能力要么依赖模型、要么依赖服务器，离线保证和它不能同时成立。</span
+                >
+                <span lang="en"
+                  >You need OCR, real PDF layout recovery, or a cloud typesetting engine. Those depend on a model or a
+                  server, and the offline guarantee cannot stand next to either.</span
+                >
+              </li>
+              <li>
+                <span lang="zh-CN"
+                  >设备受管控、装不了扩展，而且要转的格式不在站点那两张免安装的页面（图片压缩、文件对比）覆盖范围内。</span
+                >
+                <span lang="en"
+                  >The device is managed and cannot take an extension, and the format is outside the two pages on this
+                  site that need no install at all — the image compressor and the file diff.</span
+                >
+              </li>
+            </ul>
+          </section>
+
+          <section
+            id="choose-cli"
+            class="reveal"
+          >
+            <h2><span lang="zh-CN">什么时候该选命令行</span><span lang="en">When to use a command-line tool</span></h2>
+            <ul class="limits">
+              <li>
+                <span lang="zh-CN"
+                  >上千个文件、定时任务或 CI
+                  流水线里的一步骤：批量就该由脚本与构建系统负责，而不是由一个界面负责。</span
+                >
+                <span lang="en"
+                  >A thousand files, a scheduled job, or one step inside CI: at that volume the batch belongs to a
+                  script and a build system, not to an interface.</span
+                >
+              </li>
+              <li>
+                <span lang="zh-CN">需要精确参数与可复现管线——同一份输入在三个月后还要产出同一份字节。</span>
+                <span lang="en"
+                  >You need exact flags and a reproducible pipeline, where the same input must produce the same bytes in
+                  three months.</span
+                >
+              </li>
+              <li>
+                <span lang="zh-CN">需要 Pandoc 那种文档格式广度，或 ImageMagick 那种图片格式广度。</span>
+                <span lang="en">You need the breadth of Pandoc for documents or of ImageMagick for images.</span>
+              </li>
+            </ul>
+            <p>
+              <span lang="zh-CN"
+                >反过来说：如果你只是想「把这个文件转成那个格式」，而且不想记参数、不想开终端、想在转完之前先看一眼结果——这正是界面比命令行省事的地方，也是这个扩展存在的理由。</span
+              >
+              <span lang="en"
+                >The converse: if the job is "this file into that format", and you would rather not remember flags, open
+                a terminal, or find out only after the fact that the result was wrong — that is exactly where an
+                interface beats a command line, and why this extension exists.</span
+              >
+            </p>
+          </section>
+
+          <section
+            id="faq"
+            class="reveal"
+          >
+            <h2><span lang="zh-CN">常见问题</span><span lang="en">Questions people actually arrive with</span></h2>
+            <details>
+              <summary>
+                <span lang="zh-CN">离线转换器怎么证明它不上传我的文件？</span>
+                <span lang="en">How does an offline converter prove it does not upload my file?</span>
+              </summary>
+              <p>
+                <span lang="zh-CN"
+                  >三件可以当场查的事：扩展清单里 permissions 只有 storage，没有 host
+                  权限，浏览器会拦下任何离开本机的请求；第一方源码里没有网络调用，仓库用两道守卫分别断言源码层与构建产物层；历史与偏好只写
+                  chrome.storage.local。在线站靠隐私政策承诺删除，而离线这条不需要你相信任何承诺。</span
+                >
+                <span lang="en"
+                  >Three checks you can run: the manifest's permissions list holds only storage with no host permission,
+                  so the browser blocks anything leaving the machine; first-party source has no network calls, asserted
+                  by two guards reading the source and the built artefact separately; and history plus preferences go
+                  only to chrome.storage.local. An online site asks you to believe a deletion promise; this side asks
+                  you to read a manifest.</span
+                >
+              </p>
+            </details>
+            <details>
+              <summary>
+                <span lang="zh-CN">在线站说文件一小时后删除，这可信吗？</span>
+                <span lang="en">An online site says it deletes files within an hour. Is that credible?</span>
+              </summary>
+              <p>
+                <span lang="zh-CN"
+                  >问题是它无法验证。传输已经发生，之后的留存、是否交给子处理方、有没有事故，都不在你的控制范围内——而那正是敏感文件要避免的那一件事。这不是说在线站都在撒谎，而是说这条主张只能靠对方；离线那条主张你可以自己查。</span
+                >
+                <span lang="en"
+                  >The issue is verification, not honesty. The transfer has already happened; what is retained
+                  afterwards, whether a subprocessor sees it, and whether there is an incident are all outside your
+                  control — and that is the one thing sensitive files need to avoid. It is not that online sites lie; it
+                  is that their claim rests on them, while the offline claim can be checked by you.</span
+                >
+              </p>
+            </details>
+            <details>
+              <summary>
+                <span lang="zh-CN">设备受管控、装不了扩展，有别的办法吗？</span>
+                <span lang="en">My device is managed and I cannot install an extension. Any other way?</span>
+              </summary>
+              <p>
+                <span lang="zh-CN"
+                  >这个站点上有两张完全不需要装东西的页面：<a href="../compress/">图片压缩工具</a>把单张 PNG / JPEG /
+                  WebP / BMP / GIF 压到指定体积或最长边，<a href="../diff/">文件对比页</a
+                  >把两个文件做行级与词级差异。文件读进页面自己的内存，随页发布的代码里没有任何请求会把文件带出本机，也不从别处取代码。其余格式仍得交给桌面软件，或者——在文件不敏感的前提下——在线站。</span
+                >
+                <span lang="en"
+                  >Two pages on this site need nothing installed: the <a href="../compress/">image compressor</a>
+                  takes one PNG / JPEG / WebP / BMP / GIF down to a target size or longest edge, and the
+                  <a href="../diff/">file diff</a> compares two files line by line and word by word. Files are read into
+                  the page's own memory, and nothing served with those pages carries your file off the machine or
+                  fetches code from elsewhere. For other formats it is a desktop app, or — if the file is not sensitive
+                  — an online site.</span
+                >
+              </p>
+            </details>
+            <details>
+              <summary>
+                <span lang="zh-CN">PDF 转 Word 该用离线还是在线？</span>
+                <span lang="en">For PDF to Word, should I go offline or online?</span>
+              </summary>
+              <p>
+                <span lang="zh-CN"
+                  >看你要的是文字还是版式。这个扩展把 PDF 当作文本来源：先提取文字，再写成 Word 或
+                  Markdown——文字可编辑、可选中，但版式、图片位置与表格边框不保留。要贴近原排版的还原是专门的桌面工具或在线服务的活。扫描件还需要
+                  OCR，而这个扩展不内置：内置就得联网取模型，离线保证随之失效。这条路线的取舍单独写在一页上：<a
+                    href="../convert/pdf-to-docx.html"
+                    >PDF 转 Word</a
+                  >。</span
+                >
+                <span lang="en"
+                  >It depends on whether you want the words or the layout. The extension treats a PDF as a text source:
+                  it extracts text and writes Word or Markdown, so the wording is editable and selectable while layout,
+                  image placement and table borders are not. Recovery close to the original layout is a specialist
+                  desktop tool or an online service. A scan also needs OCR, which this extension does not bundle —
+                  bundling it means fetching a model, and the offline guarantee goes with it. That route's trade-offs
+                  have their own page: <a href="../convert/pdf-to-docx.html">PDF to Word</a>.</span
+                >
+              </p>
+            </details>
+            <details>
+              <summary>
+                <span lang="zh-CN">只有 14 种格式，算不算硬伤？</span>
+                <span lang="en">Is fourteen formats a real weakness?</span>
+              </summary>
+              <p>
+                <span lang="zh-CN"
+                  >要看你手上实际有几种。这 14
+                  种覆盖日常往来的三类：Markdown、HTML、Word、PDF、TXT、CSV、Excel、JSON，加上
+                  PNG、JPEG、WebP、BMP、GIF、SVG。在线站的几百种里有大量是视频与音频，而那正是浏览器编不动、这个扩展明确不做的部分。按你要转的那几种选工具，比按总数选可靠——总数大的那一边，通常也是要把文件交出去的那一边。</span
+                >
+                <span lang="en"
+                  >It depends on how many you actually have. The fourteen cover the three groups people trade in daily:
+                  Markdown, HTML, Word, PDF, TXT, CSV, Excel, JSON, and PNG, JPEG, WebP, BMP, GIF, SVG. A large part of
+                  an online site's hundreds is audio and video, which is exactly what a browser cannot encode and this
+                  extension says it does not do. Choosing by the formats you need is more reliable than choosing by the
+                  total — and the larger total usually belongs to the side that wants your file.</span
+                >
+              </p>
+            </details>
+            <details>
+              <summary>
+                <span lang="zh-CN">我已经在用在线站，换过来有什么好处？</span>
+                <span lang="en">I already use an online site. What do I gain by switching?</span>
+              </summary>
+              <p>
+                <span lang="zh-CN"
+                  >三件：一，文件不出本机，从此不需要评估任何一家的留存政策；二，断网可用，也没有每日配额与排队；三，结果能在下载前看见、能改。代价也写清楚：格式广度小、没有
+                  OCR、要装一次扩展，而且第一次用 Chrome 的「加载已解压的扩展程序」那条路对非开发者有点陌生。</span
+                >
+                <span lang="en"
+                  >Three things: the file never leaves the machine, so no retention policy has to be evaluated again; it
+                  works with the network off, with no daily quota and no queue; and you can see and correct the result
+                  before downloading it. The costs are stated too: less breadth, no OCR, one install, and the
+                  unpacked-extension route being a little unfamiliar if you have never loaded one.</span
+                >
+              </p>
+            </details>
+          </section>
+
+          <section
+            id="next"
+            class="reveal"
+          >
+            <h2><span lang="zh-CN">接着看</span><span lang="en">Where to go next</span></h2>
+            <p class="tool-crosslink">
+              <span lang="zh-CN"
+                >不想先装东西就能试：本页上方那两张免安装的页面，或者<a href="../">产品说明页</a
+                >上那张单图试用——在浏览器本地把一张图片转成另一种格式，转完再决定要不要装。要看具体某条路线丢什么：<a
+                  href="../convert/"
+                  >转换一览</a
+                >
+                列出 14 种格式之间实际提供的组合，每个组合都有自己的页面。</span
+              >
+              <span lang="en"
+                >Try it before installing anything: the two no-install pages linked above, or the one-image trial on the
+                <a href="../">product page</a> — it converts a picture in your browser and lets you decide afterwards.
+                To see what one route gives up, the <a href="../convert/">conversion index</a> lists the combinations
+                the workbench actually offers across the fourteen formats, each with its own page.</span
+              >
+            </p>
+            <p class="cta-links">
+              <a
+                class="btn"
+                href="https://chromewebstore.google.com/detail/blkdmpkcaceicinkhindniepbbbaekkb"
+                rel="noopener"
+                target="_blank"
+              >
+                <span lang="zh-CN">从 Chrome 应用商店安装</span><span lang="en">Install from the Chrome Web Store</span>
+              </a>
+              <a
+                class="btn"
+                href="../"
+                ><span lang="zh-CN">看产品说明</span><span lang="en">See the product page</span></a
+              >
+              <a
+                class="btn"
+                href="https://github.com/liaolongdong/transfer-any-file"
+                rel="noopener"
+                target="_blank"
+              >
+                <span lang="zh-CN">源码 (MIT)</span><span lang="en">Source (MIT)</span>
+              </a>
+            </p>
+            <p class="fine">
+              <span lang="zh-CN"
+                >本页最后更新：2026-11-05。文中所有数字都取自代码与构建产物，由 pnpm verify:numbers
+                现推比对；后两列是在同类工具常见行为基础上的整理，不针对某一家厂商。</span
+              >
+              <span lang="en"
+                >Page last updated: 2026-11-05. Every figure on this page is derived from the code and the build output
+                and re-checked by pnpm verify:numbers; the other two columns describe typical behaviour of each class of
+                tool rather than one specific vendor.</span
+              >
+            </p>
+          </section>
+        </article>
+      </div>
+    </main>
+    <footer class="site-foot">
+      <div class="wrap">
+        <p>
+          <span lang="zh-CN"
+            >文件格式任意转换助手 —— 完全离线的 Chrome 文件格式转换扩展。文件不出本机，无遥测，只申请 storage
+            权限。</span
+          >
+          <span lang="en"
+            >Transfer Any File — an offline Chrome file format converter. Files never leave the machine, no telemetry,
+            and the storage permission is all it asks for.</span
+          >
+        </p>
+        <p class="fine">
+          <a href="../"><span lang="zh-CN">产品说明</span><span lang="en">Product page</span></a>
+          <a href="../convert/"><span lang="zh-CN">转换一览</span><span lang="en">Conversions</span></a>
+          <a href="../compress/"><span lang="zh-CN">图片压缩</span><span lang="en">Image compressor</span></a>
+          <a href="../diff/"><span lang="zh-CN">文件对比</span><span lang="en">File diff</span></a>
+          <a href="../blog/"><span lang="zh-CN">博客</span><span lang="en">Blog</span></a>
+          <a href="../privacy.html"><span lang="zh-CN">隐私政策</span><span lang="en">Privacy policy</span></a>
+          <a
+            href="https://github.com/liaolongdong/transfer-any-file"
+            rel="noopener"
+            target="_blank"
+            ><span lang="zh-CN">源码 (MIT)</span><span lang="en">Source (MIT)</span></a
+          >
+        </p>
+      </div>
+    </footer>
+  </body>
+</html>
