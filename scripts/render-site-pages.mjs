@@ -2267,7 +2267,11 @@ const STATIC_PAGES = {
     changefreq: 'yearly',
     priority: '0.6',
     file: 'docs/privacy.html',
-    dateClaims: [/最后更新[：:]?\s*(\d{4}-\d{2}-\d{2})/g, /Last updated:\s*(\d{4}-\d{2}-\d{2})/g],
+    dateClaims: [
+      /"dateModified":\s*"(\d{4}-\d{2}-\d{2})"/g,
+      /最后更新[：:]?\s*(\d{4}-\d{2}-\d{2})/g,
+      /Last updated:\s*(\d{4}-\d{2}-\d{2})/g,
+    ],
   },
   // The date claims are read out of `tools/file-diff.html` rather than out of the copy, because the two are
   // byte-identical and `--check` already enforces that — pointing here is what lets a tree without
