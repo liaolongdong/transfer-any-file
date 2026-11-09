@@ -17,12 +17,12 @@ export const HUBS = [
     slug: 'markdown',
     shot: 'workbench-empty',
     title: {
-      zh: 'Markdown 转换：全部可用目标',
-      en: 'Markdown conversions: every available target',
+      zh: 'Markdown 转换器：转 HTML、Word、PDF（离线不上传）',
+      en: 'Markdown converter — to HTML, Word & PDF, offline',
     },
     desc: {
-      zh: '在浏览器本地把 Markdown 转成 HTML、Word、PDF、图片或表格数据。每条路线写清保留什么、丢掉什么。',
-      en: 'Turn Markdown into HTML, Word, PDF, images or tabular data locally in Chrome. Each route says what it keeps and what it drops.',
+      zh: '在浏览器本地把 Markdown 转成 HTML、Word、PDF、图片或表格数据，不上传一个字节。每条路线写清保留什么、丢掉什么。',
+      en: 'Turn Markdown into HTML, Word, PDF, images or tabular data in your browser — no uploads. Each route says what it keeps and what it drops.',
     },
     lede: {
       zh: 'Markdown 是这组路线里最像「源文件」的格式：它只有结构，没有版式。所以每条出路的差别不在能不能转，而在目标格式肯不肯接住这些结构——Word 与 HTML 会保留标题、列表与表格，PDF 与图片只留下渲染后的样子，表格数据则要求文档里真的有一张表。',
@@ -82,12 +82,12 @@ export const HUBS = [
     slug: 'html',
     shot: 'workbench-empty',
     title: {
-      zh: 'HTML 转换：全部可用目标',
-      en: 'HTML conversions: every available target',
+      zh: 'HTML 转换器：转 PDF、Word、图片与表格',
+      en: 'HTML converter — PDF, Word, images & spreadsheets',
     },
     desc: {
-      zh: '把 HTML 文件转成 Word、Markdown、PDF、图片或表格数据，全部在浏览器本地完成。表格与正文各有自己的出路。',
-      en: 'Convert HTML to Word, Markdown, PDF, images or tabular data in the browser. Tables and prose each have their own route.',
+      zh: '把 HTML 文件转成 Word、Markdown、PDF、图片或表格数据，全部在浏览器本地完成、不上传。表格与正文各有自己的出路。',
+      en: 'Convert HTML to Word, Markdown, PDF, images or tabular data offline in the browser, with no uploads. Tables and prose each have their own route.',
     },
     lede: {
       zh: 'HTML 同时带着结构和呈现：标签说这是什么，CSS 说这看起来怎样。文档类目标接住标签与文字，图片类目标接住呈现，数据类目标只接住 `<table>`。想清楚你要的是哪一种，比选格式更重要。',
@@ -147,12 +147,12 @@ export const HUBS = [
     slug: 'word',
     shot: 'workbench-empty',
     title: {
-      zh: 'Word 文档转换：全部可用目标',
-      en: 'Word conversions: every available target',
+      zh: 'Word 转换器：转 Markdown、HTML、PDF 或图片',
+      en: 'Word (.docx) converter — Markdown, HTML, PDF, images',
     },
     desc: {
-      zh: '把 .docx 转成 HTML、Markdown、PDF、图片或表格数据，在浏览器里离线完成。文档里的表格与正文各走各的路。',
-      en: 'Convert .docx to HTML, Markdown, PDF, images or table data offline in Chrome. Tables and body text take separate routes.',
+      zh: '把 .docx 转成 HTML、Markdown、PDF、图片或表格数据，在浏览器里离线完成、不上传。文档里的表格与正文各走各的路。',
+      en: 'Convert .docx to HTML, Markdown, PDF, images or table data offline in Chrome — no uploads, no account. Tables and body text take separate routes.',
     },
     lede: {
       zh: 'Word 文档的价值常常在结构里：标题层级、列表、表格。mammoth 把 .docx 还原成语义 HTML，之后每条路线再决定保留哪一部分。分页、页眉页脚与批注属于 Word 的版式层，离开 Word 后基本不保留。',
@@ -209,12 +209,12 @@ export const HUBS = [
     slug: 'pdf',
     shot: 'workbench-empty',
     title: {
-      zh: 'PDF 转换：全部可用目标',
-      en: 'PDF conversions: every available target',
+      zh: 'PDF 转换器：逐页出图、提取文本、转 Word',
+      en: 'PDF converter — page images, text, Word, Markdown',
     },
     desc: {
-      zh: '把 PDF 转成页面图片、HTML、Word、Markdown 或纯文本，本地完成。扫描件没有文字层，数据类目标会被置灰。',
-      en: 'Turn a PDF into page images, HTML, Word, Markdown or plain text locally. Scanned files have no text layer, and data targets are greyed out.',
+      zh: '把 PDF 转成页面图片、HTML、Word、Markdown 或纯文本，本地完成、不上传。扫描件没有文字层，数据类目标会被置灰。',
+      en: 'Turn a PDF into page images, HTML, Word, Markdown or plain text with no uploads. Scanned files have no text layer, and data targets are greyed out.',
     },
     lede: {
       zh: '本扩展把 PDF 当作两种东西看：有文字层的文档，或一叠页面图像。要文字时它只提取文字层，要样子时它把每一页渲染成图。没有 OCR，所以扫描件不会凭空长出文字；PDF 也没有表格结构，Excel、CSV 与 JSON 在界面上会被置灰。',
@@ -271,12 +271,12 @@ export const HUBS = [
     slug: 'excel',
     shot: 'batch-files',
     title: {
-      zh: 'Excel 转换：全部可用目标',
-      en: 'Excel conversions: every available target',
+      zh: 'Excel 转换器：转 CSV、JSON、PDF 或图片',
+      en: 'Excel converter — CSV, JSON, PDF, Word or images',
     },
     desc: {
-      zh: '把 .xlsx 转成 CSV、JSON、HTML、Markdown、Word、PDF 或图片。多工作表按表名分组，值优先于显示格式。',
-      en: 'Convert .xlsx to CSV, JSON, HTML, Markdown, Word, PDF or images. Sheets are grouped by name, and values win over display formatting.',
+      zh: '把 .xlsx 不上传地转成 CSV、JSON、HTML、Markdown、Word、PDF 或图片，全在浏览器本地。多工作表按表名分组，值优先于显示格式。',
+      en: 'Convert .xlsx to CSV, JSON, HTML, Markdown, Word, PDF or images without uploading it. Sheets group by name, and values win over display format.',
     },
     lede: {
       zh: 'Excel 文件不只是一张表：它有多个工作表、公式、日期格式与显示规则。这份工具在数据类路线上坚持「值优先」——日期与数字先恢复成存储值，再序列化；在文档与图片路线上则把每个工作表摊成一张带标题的表格。公式本身不保留，留下的是它算出来的值。',
@@ -333,12 +333,12 @@ export const HUBS = [
     slug: 'csv',
     shot: 'batch-files',
     title: {
-      zh: 'CSV 转换：全部可用目标',
-      en: 'CSV conversions: every available target',
+      zh: 'CSV 转换器：转 Excel、JSON、PDF、Word 与图片',
+      en: 'CSV converter — Excel, JSON, PDF, Word & images',
     },
     desc: {
-      zh: '把 CSV 转成 Excel、JSON、HTML、Markdown、Word、PDF、TXT 或图片。按值读取，日期与长数字不被显示格式改写。',
-      en: 'Convert CSV to Excel, JSON, HTML, Markdown, Word, PDF, TXT or images. Values are read as values, so dates and long numbers keep their digits.',
+      zh: '把 CSV 离线转成 Excel、JSON、HTML、Markdown、Word、PDF、TXT 或图片，不上传。按值读取，日期与长数字不被显示格式改写。',
+      en: 'Convert CSV offline to Excel, JSON, HTML, Markdown, Word, PDF, TXT or images. Values are read as values, so dates and long numbers keep their digits.',
     },
     lede: {
       zh: 'CSV 看起来只是一堆逗号，真正麻烦的是解析前的类型判断：`1/2` 是日期还是分数，`00123` 是邮编还是数字。这条管线先按 `raw` 读入，再把明确是数字的字段恢复成数字，其余保持原字符——这是它能被信任的原因，也是它不会替你做更多猜测的原因。',
@@ -395,12 +395,12 @@ export const HUBS = [
     slug: 'txt',
     shot: 'workbench-empty',
     title: {
-      zh: 'TXT 转换：全部可用目标',
-      en: 'TXT conversions: every available target',
+      zh: 'TXT 转换器：转 Markdown、HTML、表格数据或图片',
+      en: 'TXT converter — Markdown, HTML, tabular data, images',
     },
     desc: {
-      zh: '把纯文本转成 HTML、Word、PDF、图片，或把其中的 JSON 变成表格。换行与空格保留，不推断 Markdown 语法。',
-      en: 'Turn plain text into HTML, Word, PDF or images, or turn JSON text into a table. Line breaks and spaces stay; Markdown syntax is not inferred.',
+      zh: '在浏览器本地把纯文本转成 HTML、Word、PDF、图片，或把其中的 JSON 变成表格，不上传。换行与空格保留，不推断 Markdown 语法。',
+      en: 'Turn plain text into HTML, Word, PDF or images in your browser — or JSON text into a table — without uploading. Line breaks stay; Markdown is not inferred.',
     },
     lede: {
       zh: '纯文本没有结构，只有字符与换行。这条管线因此不假装认得标题或列表：转成 HTML 时整段放进 `<pre>`，转成文档时保留空白与等宽排版。唯一的例外是文本本身就是 JSON——那时它才有行列可谈，数据类目标也才成立。',
@@ -457,12 +457,12 @@ export const HUBS = [
     slug: 'json',
     shot: 'batch-files',
     title: {
-      zh: 'JSON 转换：全部可用目标',
-      en: 'JSON conversions: every available target',
+      zh: 'JSON 转换器：转 CSV、Excel、HTML、PDF 或图片',
+      en: 'JSON converter — CSV, Excel, HTML, PDF or images',
     },
     desc: {
-      zh: '把 JSON 转成 Excel、CSV、HTML、Markdown、Word、PDF、TXT 或图片。数组变成行，对象变成列，值保持原类型。',
-      en: 'Convert JSON to Excel, CSV, HTML, Markdown, Word, PDF, TXT or images. Arrays become rows, objects become columns, and values keep their type.',
+      zh: '把 JSON 不上传地转成 Excel、CSV、HTML、Markdown、Word、PDF、TXT 或图片。数组变成行，对象变成列，值保持原类型。',
+      en: 'Convert JSON to Excel, CSV, HTML, Markdown, Word, PDF, TXT or images without uploading it. Arrays become rows, objects become columns, types keep.',
     },
     lede: {
       zh: 'JSON 的麻烦不在语法，而在形状：顶层是对象还是数组，元素是不是都有同一组键。这条管线把对象数组当作表格，把嵌套对象序列化成单元格文本，把没有键的元素放进合成 `_value` 列——宁可多一列，也不静默丢行。',
@@ -519,12 +519,12 @@ export const HUBS = [
     slug: 'png',
     shot: 'batch-results',
     title: {
-      zh: 'PNG 转换：全部可用目标',
-      en: 'PNG conversions: every available target',
+      zh: 'PNG 转换器：转 WebP、JPEG、PDF 与文档',
+      en: 'PNG converter — WebP, JPEG, PDF & documents',
     },
     desc: {
-      zh: '把 PNG 转成 JPEG、WebP、PDF、HTML 或 Markdown。图片没有文字层，所以文本与表格目标会被置灰并说明。',
-      en: 'Convert PNG to JPEG, WebP, PDF, HTML or Markdown. An image has no text layer, so text and table targets are greyed out with a reason.',
+      zh: '把 PNG 离线转成 JPEG、WebP、PDF、HTML 或 Markdown，整批在本地完成。图片没有文字层，所以文本与表格目标会被置灰并说明。',
+      en: 'Convert PNG to JPEG, WebP, PDF, HTML or Markdown offline, in batches. An image has no text layer, so text and table targets are greyed out with a reason.',
     },
     lede: {
       zh: 'PNG 是像素，不是文字。要让图片进入文档世界，这份工具提供的是「把原始字节或重新编码的像素嵌进去」，不是 OCR。PNG 自身带透明度：转 JPEG 时铺白底，转 WebP 时保留 alpha，写进 PDF 时连同透明通道一起嵌入。',
@@ -581,12 +581,12 @@ export const HUBS = [
     slug: 'jpg',
     shot: 'batch-results',
     title: {
-      zh: 'JPEG 转换：全部可用目标',
-      en: 'JPEG conversions: every available target',
+      zh: 'JPEG（JPG）转换器：转 PNG、WebP、PDF',
+      en: 'JPEG (JPG) converter — PNG, WebP, PDF & documents',
     },
     desc: {
-      zh: '把 JPEG 转成 PNG、WebP、PDF、HTML 或 Markdown。没有文字层，也没有透明通道；文本与表格目标会被置灰。',
-      en: 'Convert JPEG to PNG, WebP, PDF, HTML or Markdown. There is no text layer and no alpha channel; text and table targets are greyed out.',
+      zh: '把 JPEG 不上传地转成 PNG、WebP、PDF、HTML 或 Markdown，重编码时可调质量与目标体积。没有文字层，也没有透明通道。',
+      en: 'Convert JPEG to PNG, WebP, PDF, HTML or Markdown without uploading, re-encoding at a quality or target size you set. No text layer and no alpha channel.',
     },
     lede: {
       zh: 'JPEG 在拍摄那一刻就丢掉了透明与一部分高频细节，之后的每条路线只能决定要不要再丢一次。转 PNG 或 WebP 不会恢复细节；写进 PDF 会按图片自身尺寸建页，不套 A4。若需要图里的文字，唯一诚实的答案是先做 OCR。',
@@ -643,12 +643,12 @@ export const HUBS = [
     slug: 'webp',
     shot: 'batch-results',
     title: {
-      zh: 'WebP 转换：全部可用目标',
-      en: 'WebP conversions: every available target',
+      zh: 'WebP 转换器：转 JPG、PNG、PDF 与文档',
+      en: 'WebP converter — JPG, PNG, PDF & documents',
     },
     desc: {
-      zh: '把 WebP 转成 PNG、JPEG、PDF、HTML 或 Markdown。浏览器能解码，也能把它作为目标格式重新编码。',
-      en: 'Convert WebP to PNG, JPEG, PDF, HTML or Markdown. The browser decodes it and can also re-encode it as a target format.',
+      zh: '把 WebP 在本机转成 PNG、JPEG、PDF、HTML 或 Markdown，不上传。浏览器能解码，也能把它作为目标格式重新编码。',
+      en: 'Convert WebP to PNG, JPEG, PDF, HTML or Markdown on your own machine, with no upload. The browser decodes it and can also re-encode it as a target.',
     },
     lede: {
       zh: 'WebP 是浏览器原生支持的现代图片格式，可以是无损也可以是有损，还可能是多帧动画。这份工具能把它当作源：解码成画布后转成 PNG / JPEG / PDF；但写进文档的路线只嵌入原始字节，接收方能不能显示取决于那个工具。',
@@ -705,12 +705,12 @@ export const HUBS = [
     slug: 'bmp',
     shot: 'batch-results',
     title: {
-      zh: 'BMP 转换：全部可用目标',
-      en: 'BMP conversions: every available target',
+      zh: 'BMP 转换器：转 PNG、JPG、WebP 与 PDF',
+      en: 'BMP converter — PNG, JPG, WebP, PDF & documents',
     },
     desc: {
-      zh: '把 BMP 转成 PNG、JPEG、WebP、PDF、HTML、Markdown 或 Word。BMP 只能作为输入，浏览器没有它的编码器。',
-      en: 'Convert BMP to PNG, JPEG, WebP, PDF, HTML, Markdown or Word. BMP is input-only: the browser ships no BMP encoder.',
+      zh: '把 BMP 离线转成 PNG、JPEG、WebP、PDF、HTML、Markdown 或 Word，不上传。BMP 只能作为输入，浏览器没有它的编码器。',
+      en: 'Convert BMP to PNG, JPEG, WebP, PDF, HTML, Markdown or Word without an upload. BMP is input-only: the browser ships no BMP encoder.',
     },
     lede: {
       zh: 'BMP 是接近原始像素的容器，文件大、没有压缩、通常也没有透明通道。它能被浏览器读进来，却不能被浏览器写出去，所以它只出现在源格式这一侧。转 PNG 是最接近无损的出路，转 JPEG 或 WebP 则用体积换细节。',
@@ -767,12 +767,12 @@ export const HUBS = [
     slug: 'gif',
     shot: 'batch-results',
     title: {
-      zh: 'GIF 转换：全部可用目标',
-      en: 'GIF conversions: every available target',
+      zh: 'GIF 转换器：转 PNG、JPG、WebP 与 PDF（取首帧）',
+      en: 'GIF converter — PNG, JPG, WebP & PDF (first frame)',
     },
     desc: {
-      zh: '把 GIF 转成 PNG、JPEG、WebP、PDF、HTML、Markdown 或 Word。只取首帧，动画不保留，结果会明确披露。',
-      en: 'Convert GIF to PNG, JPEG, WebP, PDF, HTML, Markdown or Word. Only the first frame is used, the animation is not kept, and the result says so.',
+      zh: '把 GIF 在本地转成 PNG、JPEG、WebP、PDF、HTML、Markdown 或 Word，不上传。只取首帧，动画不保留，结果会明确披露。',
+      en: 'Convert GIF to PNG, JPEG, WebP, PDF, HTML, Markdown or Word offline. Only the first frame is used, the animation is not kept, and the result says so.',
     },
     lede: {
       zh: 'GIF 既能是静态图，也能是动画。这份工具按静态图处理：解码第一帧，丢掉其余帧。是否真的丢帧由 `hasMultipleFrames` 读取块结构后决定，所以单帧 GIF 不会被误报成有损。需要动画本身时，正确的做法是继续用 GIF 或改用视频格式。',
@@ -829,12 +829,12 @@ export const HUBS = [
     slug: 'svg',
     shot: 'batch-results',
     title: {
-      zh: 'SVG 转换：全部可用目标',
-      en: 'SVG conversions: every available target',
+      zh: 'SVG 转换器：栅格化为 PNG、JPG、WebP 或 PDF',
+      en: 'SVG converter — rasterised to PNG, JPG, WebP & PDF',
     },
     desc: {
-      zh: '把 SVG 转成 PNG、JPEG、WebP、PDF、HTML、Markdown 或 Word。矢量输出不可写，栅格化后才有图片与文档。',
-      en: 'Convert SVG to PNG, JPEG, WebP, PDF, HTML, Markdown or Word. Vector output is not writable, so images and documents come from rasterising it.',
+      zh: '把 SVG 在浏览器里栅格化成 PNG、JPEG、WebP 或 PDF，也可进 HTML、Markdown 与 Word，不上传。矢量输出不可写。',
+      en: 'Rasterise SVG to PNG, JPEG, WebP or PDF in the browser, or carry it into HTML, Markdown and Word — no upload. Vector output is not writable.',
     },
     lede: {
       zh: 'SVG 是代码描述的图形，不是像素。写进 HTML 时它保持矢量，但脚本、事件处理器与远程引用会在净化时被剥离；转成图片、PDF 或 Word 时先栅格化成 PNG，于是缩放不再无损。浏览器不能写 SVG，所以它只能作为源格式。',

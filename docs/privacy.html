@@ -169,11 +169,72 @@
       .zh {
         color: #344054;
       }
+
+      /* Both languages on this page are visible at once — there is no `[lang]` switching rule here — so the
+         Chinese title sits under the English one in the same H1 instead of in a hidden span. The Chinese half
+         previously had no H1 of its own at all: its header was an <h2>, so anything reading headings for
+         structure saw an English-only page. */
+      .zh-title {
+        display: block;
+        margin-top: 6px;
+        color: #344054;
+        font-size: 0.76em;
+        font-weight: 600;
+      }
     </style>
+    <!-- Structured data was the one thing every other page of this site carries and this page did not. The
+         `dateModified` below is deliberately the policy's own 「Last updated」 date, not the date the markup was
+         touched: the text of the policy has not changed, and a fresher date here would answer "when was this
+         written" twice in one document. `STATIC_PAGES.privacy.dateClaims` now cross-checks this very value. -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebPage",
+            "@id": "https://liaolongdong.github.io/transfer-any-file/privacy.html",
+            "url": "https://liaolongdong.github.io/transfer-any-file/privacy.html",
+            "name": "Privacy Policy · 隐私政策 — Transfer Any File",
+            "inLanguage": ["en", "zh-CN"],
+            "isPartOf": { "@id": "https://liaolongdong.github.io/transfer-any-file/#website" },
+            "about": {
+              "@type": "SoftwareApplication",
+              "name": "Transfer Any File",
+              "url": "https://liaolongdong.github.io/transfer-any-file/"
+            },
+            "dateModified": "2026-10-19"
+          },
+          {
+            "@type": "BreadcrumbList",
+            "itemListElement": [
+              {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "Transfer Any File",
+                "item": "https://liaolongdong.github.io/transfer-any-file/"
+              },
+              {
+                "@type": "ListItem",
+                "position": 2,
+                "name": "Privacy Policy",
+                "item": "https://liaolongdong.github.io/transfer-any-file/privacy.html"
+              }
+            ]
+          }
+        ]
+      }
+    </script>
   </head>
   <body>
     <main class="wrap">
-      <h1>Privacy Policy — Transfer Any File</h1>
+      <h1>
+        Privacy Policy — Transfer Any File
+        <span
+          class="zh-title"
+          lang="zh-CN"
+          >隐私政策 — 文件格式任意转换助手</span
+        >
+      </h1>
       <p class="updated">
         Effective date: 2026-09-06 · Last updated: 2026-10-19 · Applies to extension version 1.0.0 and later
       </p>
@@ -237,6 +298,13 @@
         ordinary HTTPS request to GitHub, which serves them and keeps request metadata (IP address, user agent) in its
         own logs; this site deploys no analytics, and we receive none of it.
       </p>
+      <p>
+        The rest of the site is listed here so this page is not a dead end: the
+        <a href="./">product page</a>, the <a href="convert/">conversion index</a> with its per-format pages,
+        <a href="compare/">offline vs online converters</a>, the two pages that need nothing installed —
+        <a href="diff/">file diff</a> and <a href="compress/">image compressor</a> — and the
+        <a href="blog/">design notes</a>. Nothing on those pages sets a cookie, and this site deploys no analytics.
+      </p>
 
       <h2>Children, minors and sensitive data</h2>
       <p>
@@ -268,21 +336,24 @@
         <h2>隐私政策（简体中文）</h2>
         <p class="updated">生效日期：2026-09-06 · 最后更新：2026-10-19 · 适用于扩展 1.0.0 及后续版本</p>
 
+        <h2>摘要</h2>
         <p>
-          <strong>摘要：</strong>文件格式任意转换助手（Transfer Any File）是一款离线的 Chrome
+          文件格式任意转换助手（Transfer Any File）是一款离线的 Chrome
           文件格式转换扩展。它<strong>不收集、不上报、不共享任何个人数据</strong>；无账号、无统计埋点、无广告，也没有可接收数据的后台服务。它确实会在你的设备上<em>处理</em>数据——读取你所选的文件，并保存下文中列出的历史与偏好——而应用商店的披露表单询问的正是「处理」，因此该项按要求如实勾选。这些数据不由开发者收集。
         </p>
 
+        <h2>工作方式</h2>
         <p>
-          <strong>工作方式：</strong>所有转换由打包在扩展内的 JavaScript
+          所有转换由打包在扩展内的 JavaScript
           在你自己的设备上完成。所选文件被读入该页面的内存、在本地转换、再以下载形式交还给你。因此不存在上传路径：扩展自身的代码中不发起
           <code>fetch</code>、<code>XMLHttpRequest</code>、<code>WebSocket</code>、<code>sendBeacon</code>
           等任何网络调用，这是项目在每次推送时自动断言的保障；扩展同时不声明任何 host 权限、也不注册 content
           script，所以转换库里那些从未被调用的请求路径即使被走到，也读不到任何响应、碰不到任何网站的数据。
         </p>
 
+        <h2>保存在本机的数据</h2>
         <p>
-          <strong>保存在本机的数据：</strong>（1）转换历史——最近 50
+          （1）转换历史——最近 50
           条，仅包含文件<em>名称</em>、源/目标格式、体积与时间戳，绝不写入文件<em>内容</em>；可在界面中单条删除、清空，或导出/导入
           JSON。（2）偏好设置——主题色、明暗模式、界面语言、通知与确认开关、快捷键、自定义的输出文件名写法、图片输出参数（最长边、质量、目标体积与
           PDF 渲染清晰度）、转换预设（包含你自己输入的预设名称，以及它记录的目标格式与输出参数）、面板布局、最近使用的 6
@@ -293,35 +364,41 @@
           两者都通过浏览器扩展存储接口（<code>chrome.storage.local</code>）保存在本机，不做云同步、不由我们备份、我们也无法读取——本扩展没有服务器。
         </p>
 
+        <h2>权限</h2>
         <p>
-          <strong>权限：</strong>仅申请
+          仅申请
           <code>storage</code>
           一项，只用于上述两类数据。不申请浏览记录、标签页、Cookie、网页内容、下载或任何站点的访问权限。
         </p>
 
+        <h2>本站的页面</h2>
         <p>
-          <strong>本站的页面：</strong>本仓库同时发布你所读到的这些静态页面，其中有一张会请你放入自己的文件：<code
-            >/diff/</code
-          >
+          本仓库同时发布你所读到的这些静态页面，其中有一张会请你放入自己的文件：<code>/diff/</code>
           比较两个文件或两段粘贴的文本，并把差异显示出来。这些文件由该页面自己的脚本读入它自己的内存，<strong>不会被送到任何地方</strong>——那张页面上不存在上传路径，交付的代码里也没有任何一处网络调用（与扩展同一套自动断言，扫描范围同样覆盖
           <code>tools/</code>）。它只在这台浏览器的 <code>localStorage</code>
           里记住三项界面偏好：语言、深浅色配色、以及并排或统一的视图模式，此外什么都不存：无
           Cookie、无统计埋点、无账号，也不保存任何文件内容。打开这些页面是一次普通的 HTTPS 请求，由 GitHub
           提供服务并依其在自己的日志里保留请求元数据（IP 地址、User-Agent）；本站不部署任何统计，我们也收不到这些数据。
         </p>
-
         <p>
-          <strong>儿童、未成年人与敏感数据：</strong
-          >由于不收集任何数据，也不存在此类数据被滥用的可能；本扩展不面向儿童，也不向任何人索取个人信息。
+          这个站点的其余页面在这里列出，免得这一页成了死胡同：<a href="./">产品说明页</a>、<a href="convert/"
+            >转换一览</a
+          >及其按格式分的页面、<a href="compare/">离线 vs 在线</a>、两张不用装任何东西的页面——<a href="diff/"
+            >文件对比</a
+          >与<a href="compress/">图片压缩</a>——还有<a href="blog/">设计手记</a>。这些页面不下
+          Cookie，本站也不部署任何统计。
         </p>
 
+        <h2>儿童、未成年人与敏感数据</h2>
+        <p>由于不收集任何数据，也不存在此类数据被滥用的可能；本扩展不面向儿童，也不向任何人索取个人信息。</p>
+
+        <h2>政策变更</h2>
         <p>
-          <strong>政策变更：</strong
-          >若未来版本改变数据收集范围或处理位置，本页会更新，并在该版本发布前于商店列表中披露；数据模型的实质性变更会在此处标注新的生效日期。
+          若未来版本改变数据收集范围或处理位置，本页会更新，并在该版本发布前于商店列表中披露；数据模型的实质性变更会在此处标注新的生效日期。
         </p>
 
+        <h2>联系方式</h2>
         <p>
-          <strong>联系方式：</strong>
           <a href="https://github.com/liaolongdong/transfer-any-file/issues"
             >github.com/liaolongdong/transfer-any-file/issues</a
           >。功能与用法详见<a href="./">扩展产品页</a>。
