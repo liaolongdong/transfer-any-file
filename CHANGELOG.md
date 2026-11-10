@@ -15,6 +15,7 @@ manifest 的版本号。一次发布 = 在 `main` 上打 `vX.Y.Z` 标签，由 `
 - **site**：站点多了一张「离线 vs 在线」选型页（`/compare/`）：把离线扩展、在线转换站与命令行放在一张表上，只按三件当场能验证的事比——字节有没有离开本机、一批能承受多少、结果能不能在下载前改；同时写明哪几种活就该交给在线站或命令行。它接进了站点导航（131 张生成页与博客页同批更新）、`docs/sitemap.xml`、`docs/llms.txt`、404 页与两份 README，并点名收进 `verify:numbers` 的文档清单（比对份数 138 → 139），离线守卫的 HTML 射程也从 141 张涨到 142 张
 - **site**：博客页接进了与转换页同一套滚动入场——正文六个小节随滚动渐显，目录随阅读位置高亮当前小节（`aria-current`）；`prefers-reduced-motion` 与没有 IntersectionObserver 的客户端直接落到终态，降级保险不撤，首屏前由头脚本加 `.js` 类门控初始隐藏态，渲染 CSS 但不跑 JS 的爬虫不会看到空白小节
 - **ui**：多 sheet XLSX→CSV 与多页 PDF→图片产出的 ZIP 现在能在下载前看内容——结果行的预览按钮此前只看识别表（`.zip` 从来不在里面），现在命中容器后缀就展开「压缩包内容」对话框，按中央目录列出每一条（文件名 / 目录 / 格式 / 体积），点某一条才单独解压那一项并进入既有单文件预览——走的是下载后打开完全同一条 sanitizer 路（HTML / Markdown 过 DOMPurify，远程引用被 `stripRemoteResources` 剥掉）；条目数沿用 `declaredEntryCount` 与 `MAX_ZIP_ENTRIES` 的闸门，渲染另按 2000 条封顶，超出如实说「共 N 条，此处仅列出前若干条」；零新依赖、零新权限，产物层两条离线守卫都过
+- **ui**：首屏空态与历史迷你图各补一段一次性入场动效——空的拖放主板在挂载时随样例 chip 同一拍淡入上浮（复用 `--fat-lift-sm` + `--fat-ease-enter` + `--fat-duration-slow`，250 ms，from-only 且 `both` 回填）；转换历史的趋势迷你图首次攒够 ≥2 条记录时描线并淡入面积与端点（`pathLength="100"` + `stroke-dashoffset` 从满到 0），此后追加只更新 `d`、不重放——一个每次转换都重画一遍的迷你图正是动效规则说的「一天看上百次就别动」那一类。两者都只动 opacity / transform，落定态即动画终态，`prefers-reduced-motion` 由 `global.css` 那条 `*` 毯式规则把时长与位移一并收成终态，不会停在半透明或半画
 
 ### 变更
 

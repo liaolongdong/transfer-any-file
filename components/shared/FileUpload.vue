@@ -1165,6 +1165,7 @@ defineExpose({
     padding var(--fat-duration-base) var(--fat-ease-standard),
     var(--fat-transition);
   background: var(--fat-surface-2);
+  animation: fat-board-in var(--fat-duration-slow) var(--fat-ease-enter) both;
 }
 
 .drop-zone > .el-icon {
@@ -1358,6 +1359,18 @@ defineExpose({
 /* One-shot, from-only: the row ends on its resting style, so a reduced-motion pass has nothing
    left to undo beyond the collapsed duration and lift tokens in global.css. */
 @keyframes fat-sample-in {
+  from {
+    opacity: 0;
+    transform: translateY(var(--fat-lift-sm));
+  }
+}
+
+/* The empty plate fades up once, when the workbench first paints — the same one-beat entrance the
+   sample chips already use, so the surface the user is about to drop onto does not appear inert while
+   its chips animate. `both` holds the starting state for the frame before the animation begins rather
+   than flashing the settled plate first; the element is never recreated (it stays through the staged
+   state), so this plays at mount and only there. Reduced motion collapses the duration and the lift. */
+@keyframes fat-board-in {
   from {
     opacity: 0;
     transform: translateY(var(--fat-lift-sm));
