@@ -869,6 +869,10 @@ function revealScript() {
  *
  * The swap travels with the figure because the head script that narrows the title and the meta tags
  * cannot reach this `<img>`: it has not been parsed yet when that script runs.
+ *
+ * This figure sits right under the h1 and lede and spans the content width, so it is the page's LCP
+ * candidate: it loads eagerly with `fetchpriority="high"`, never `loading="lazy"` — lazy-loading the
+ * largest above-fold image is the anti-pattern the product page documents for its own hero.
  * @param {object} shot a `SCREENSHOTS` entry
  * @param {number} depth how many directories down from the site root the page sits
  * @returns {string} markup for the `<figure>` and its swap
@@ -880,9 +884,8 @@ function shotFigure(shot, depth) {
               src="${'../'.repeat(depth)}assets/screenshots/${esc(shot.file)}"
               width="${shot.w}"
               height="${shot.h}"
-              loading="lazy"
               decoding="async"
-              fetchpriority="low"
+              fetchpriority="high"
               alt="${esc(shot.alt.zh)}"
             />
             <figcaption>${bi(shot.caption.zh, shot.caption.en)}</figcaption>

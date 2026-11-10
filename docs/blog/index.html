@@ -47,6 +47,9 @@
         }
         if (!lang) lang = (navigator.language || 'zh-CN').toLowerCase().indexOf('zh') === 0 ? 'zh-CN' : 'en';
         document.documentElement.setAttribute('lang', lang);
+        /* Scroll reveals start at opacity 0, so they must never apply unless this script ran:
+           a client that renders CSS but not JavaScript would otherwise see blank sections. */
+        document.documentElement.classList.add('js');
         var copy = window.__FAT_META__[lang] || window.__FAT_META__.en;
         if (copy) {
           document.title = copy.t;
@@ -93,6 +96,14 @@
       rel="stylesheet"
       href="../assets/content.css"
     />
+    <style>
+      /* Blog-only reading-position highlight on the contents list. The scroll-spy below toggles .active
+         and aria-current; without JavaScript the anchors still jump, so nothing here gates content. */
+      .toc a.active {
+        color: var(--brand-dark);
+        font-weight: 600;
+      }
+    </style>
     <meta
       property="og:type"
       content="article"
@@ -345,7 +356,10 @@
             </ol>
           </nav>
 
-          <section id="why">
+          <section
+            id="why"
+            class="reveal"
+          >
             <h2>
               <span lang="zh-CN">一、「免费在线转换」免费的是什么</span
               ><span lang="en">1. What "free online conversion" is free of</span>
@@ -407,7 +421,10 @@
             </p>
           </section>
 
-          <section id="browser">
+          <section
+            id="browser"
+            class="reveal"
+          >
             <h2>
               <span lang="zh-CN">二、浏览器早就是一个转换器，只是没人用它转文件</span
               ><span lang="en">2. Your browser was already a converter — nobody used it for that</span>
@@ -515,7 +532,10 @@
             </p>
           </section>
 
-          <section id="graph">
+          <section
+            id="graph"
+            class="reveal"
+          >
             <h2>
               <span lang="zh-CN">三、真正的杠杆：把转换对当成一张图</span
               ><span lang="en">3. The real leverage: treat conversion pairs as a graph</span>
@@ -600,7 +620,10 @@ SVG      ──► HTML ──► PNG</code></pre>
             </p>
           </section>
 
-          <section id="batch">
+          <section
+            id="batch"
+            class="reveal"
+          >
             <h2>
               <span lang="zh-CN">四、批量场景才见真章：几个踩过的坑</span
               ><span lang="en">4. Batch is where it earns its keep</span>
@@ -883,7 +906,10 @@ SVG      ──► HTML ──► PNG</code></pre>
             </p>
           </section>
 
-          <section id="install">
+          <section
+            id="install"
+            class="reveal"
+          >
             <h2>
               <span lang="zh-CN">五、它现在在哪、怎么装</span
               ><span lang="en">5. Where it is and how to install it</span>
@@ -962,7 +988,10 @@ pnpm install &amp;&amp; pnpm build</code></pre>
             </p>
           </section>
 
-          <section id="not-for">
+          <section
+            id="not-for"
+            class="reveal"
+          >
             <h2><span lang="zh-CN">六、谁不该用它</span><span lang="en">6. Who shouldn't use it</span></h2>
             <ul class="limits">
               <li>
@@ -1134,5 +1163,73 @@ pnpm install &amp;&amp; pnpm build</code></pre>
         </p>
       </div>
     </footer>
+    <script>
+      (function () {
+        var revealables = document.querySelectorAll('.reveal');
+        var reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        if (reduced || !('IntersectionObserver' in window)) {
+          Array.prototype.forEach.call(revealables, function (el) {
+            el.classList.add('in');
+          });
+        } else {
+          var io = new IntersectionObserver(
+            function (entries) {
+              var shown = 0;
+              entries.forEach(function (entry) {
+                if (!entry.isIntersecting) {
+                  /* An anchor jump or restored scroll never lets the observer watch the sections in
+                     between; anything already above the top edge is shown at once, with no movement. */
+                  if (entry.boundingClientRect.top < 0) {
+                    entry.target.classList.add('in');
+                    io.unobserve(entry.target);
+                  }
+                  return;
+                }
+                entry.target.style.transitionDelay = (shown++ % 6) * 40 + 'ms';
+                entry.target.classList.add('in');
+                io.unobserve(entry.target);
+              });
+            },
+            { rootMargin: '0px 0px -10% 0px', threshold: 0.1 },
+          );
+          Array.prototype.forEach.call(revealables, function (el) {
+            io.observe(el);
+          });
+        }
+
+        /* Reading-position highlight: whichever section crosses the middle band of the viewport owns it.
+           The anchors still jump without JavaScript; this only colours the contents list. */
+        if ('IntersectionObserver' in window) {
+          var links = Array.prototype.slice.call(document.querySelectorAll('.toc a[href^="#"]'));
+          var pairs = links
+            .map(function (a) {
+              var node = document.getElementById(a.getAttribute('href').slice(1));
+              return node ? { node: node, link: a } : null;
+            })
+            .filter(Boolean);
+          var spy = new IntersectionObserver(
+            function (entries) {
+              entries.forEach(function (entry) {
+                if (!entry.isIntersecting) return;
+                var hit = pairs.filter(function (p) {
+                  return p.node === entry.target;
+                })[0];
+                if (!hit) return;
+                links.forEach(function (a) {
+                  var on = a === hit.link;
+                  a.classList.toggle('active', on);
+                  if (on) a.setAttribute('aria-current', 'true');
+                  else a.removeAttribute('aria-current');
+                });
+              });
+            },
+            { rootMargin: '-45% 0px -50% 0px', threshold: 0 },
+          );
+          pairs.forEach(function (p) {
+            spy.observe(p.node);
+          });
+        }
+      })();
+    </script>
   </body>
 </html>
