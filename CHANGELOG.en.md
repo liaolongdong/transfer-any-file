@@ -11,9 +11,11 @@ Release PR is not by itself a release.
 
 ## [Unreleased]
 
+## [1.9.2] - 2026-11-10
+
 ### Added
 
-- **site**: The site has a new decision page, `/compare/`, which puts the offline extension, an online conversion site and a command-line tool on one table and compares them on three things you can check — whether bytes leave the machine, what a batch can hold, and whether a result can be edited before download — while stating plainly which jobs do belong to an online site or a CLI. It is wired into the site navigation (the 131 generated pages and the blog page updated in the same change), `docs/sitemap.xml`, `docs/llms.txt`, the 404 page and both READMEs, and it is named into `verify:numbers`' document list (138 → 139 documents compared); the offline guard's HTML scope went from 141 files to 142.
+- **site**: The site has a new decision page, `/compare/`, which puts the offline extension, an online conversion site and a command-line tool on one table and compares them on three things you can check — whether bytes leave the machine, what a batch can hold, and whether a result can be edited before download — while stating plainly which jobs do belong to an online site or a CLI. It is wired into the site navigation (the 131 generated pages and the blog page updated in the same change), `docs/sitemap.xml`, `docs/llms.txt`, the 404 page and both READMEs, and it is named into `verify:numbers`' document list (138 → 139 documents compared); the offline guard's HTML scope went from 140 files to 141.
 
 ### Changed
 
