@@ -1368,6 +1368,57 @@ async function run() {
   await page.waitForTimeout(1000);
 
   // ═══════════════════════════════════════════
+  //  FILTERED DOWNLOAD PACKS ONLY THE VISIBLE ROWS
+  // ═══════════════════════════════════════════
+  //
+  // The filter is a view, but until now the 「打包下载 ZIP」 button still bundled the whole batch, so a
+  // search that left two rows on the screen delivered ten files. Ten rows are used here (not the nine
+  // above) because the filter toolbar only appears once the card crosses that threshold — with fewer,
+  // the search box the narrowing depends on is not rendered at all. 'keep' matches exactly two of the
+  // ten sources, so the archive the button offers must be those two and nothing else.
+  section('Filtered download packs only the visible rows');
+  try {
+    const keepInput = await page.$('#file-upload-input');
+    await keepInput.setInputFiles([
+      { name: 'keep-a.md', mimeType: 'text/markdown', buffer: Buffer.from('# Keep A\n') },
+      { name: 'keep-b.md', mimeType: 'text/markdown', buffer: Buffer.from('# Keep B\n') },
+      ...Array.from({ length: 8 }, (_, i) => ({
+        name: `noise-${i + 1}.md`,
+        mimeType: 'text/markdown',
+        buffer: Buffer.from(`# Noise ${i + 1}\n`),
+      })),
+    ]);
+    await page.waitForFunction(() => document.querySelectorAll('.result-item, .file-item').length >= 10, undefined, {
+      timeout: 10000,
+    });
+    await page.waitForTimeout(400);
+    await page.locator('.suggestion-chip').filter({ hasText: 'HTML' }).click();
+    await page.click('.convert-btn');
+    // Ten files cross the large-batch confirmation threshold; the default preference is on.
+    const keepConfirm = await page.waitForSelector('.el-message-box', { timeout: 2500 }).catch(() => null);
+    if (keepConfirm) {
+      await page.locator('.el-message-box__btns .el-button--primary').click();
+      await page.waitForTimeout(300);
+    }
+    await page.waitForFunction(() => document.querySelectorAll('.result-item').length === 10, undefined, {
+      timeout: 20000,
+    });
+    await page.waitForSelector('.result-filter', { timeout: 5000 });
+    await page.fill('.result-filter-search input', 'keep');
+    await page.waitForTimeout(300);
+    const { names } = await zipBundle(page);
+    const kept = names.filter(n => n.includes('keep')).length;
+    const noise = names.filter(n => n.includes('noise')).length;
+    if (names.length === 2 && kept === 2 && noise === 0) ok('Filtered ZIP packs only the two visible rows');
+    else fail('Filtered download', JSON.stringify({ names, kept, noise }));
+  } catch (e) {
+    fail('Filtered download', e.message);
+  }
+
+  await page.reload();
+  await page.waitForTimeout(1000);
+
+  // ═══════════════════════════════════════════
   //  EVERY CARD'S COLLAPSE STATE SURVIVES THE OTHER'S
   // ═══════════════════════════════════════════
   //
@@ -2104,6 +2155,49 @@ async function run() {
   } catch (e) {
     fail('Multi-sheet XLSX→CSV', e.message);
   }
+
+  // ═══════════════════════════════════════════
+  //  ZIP PRODUCT PREVIEW (entry list → single-file preview)
+  // ═══════════════════════════════════════════
+  //
+  // A multi-sheet workbook lands as a `.zip`, which the recognition table does not know, so until the
+  // archive preview existed the only action on that row was a blind download. The entry list reads the
+  // central directory (no inflate) and one entry is decoded on demand, opening in the same preview a
+  // downloaded file uses — so the assertion below that the opened body is non-empty is really checking
+  // that the per-entry bytes reached the shared sanitizer path, not a bespoke one.
+  section('ZIP product preview lists entries');
+  try {
+    await resetWorkbench(page);
+    const zipResult = await convertFile(page, 'sample.xlsx', 'CSV (.csv)');
+    if (!zipResult.resultName.endsWith('.zip')) {
+      fail('ZIP preview setup', `expected a ZIP result, got "${zipResult.resultName}"`);
+    } else {
+      const archiveBtn = await page.$('.result-item button[title="预览"]');
+      if (!archiveBtn) throw new Error('no preview button offered on the ZIP result row');
+      await archiveBtn.click();
+      await page.waitForSelector('.archive-dialog .archive-entry', { timeout: 5000 });
+      const entryNames = await page.$$eval('.archive-dialog .archive-entry', els =>
+        els.map(el => el.querySelector('.archive-entry-base')?.textContent?.trim() ?? ''),
+      );
+      const csv = entryNames.filter(n => n.endsWith('.csv')).length;
+      if (entryNames.length >= 2 && csv === entryNames.length) {
+        ok(`ZIP preview lists ${entryNames.length} CSV entries`);
+      } else {
+        fail('ZIP preview list', JSON.stringify(entryNames));
+      }
+      // Open the first entry: the file preview paints the decoded sheet as text.
+      await page.click('.archive-dialog .archive-entry button[title="预览"]');
+      await page.waitForSelector('.preview-dialog .text-preview', { timeout: 5000 });
+      const entryText = await page.$eval('.preview-dialog .text-preview', el => el.textContent).catch(() => '');
+      if (entryText.trim().length > 0) ok('Archive entry opens in the file preview');
+      else fail('Archive entry preview', 'entry preview body is blank');
+    }
+    await page.screenshot({ path: shot(`${String(shotIdx++).padStart(2, '0')}-zip-preview.png`), fullPage: true });
+  } catch (e) {
+    fail('ZIP product preview', e.message);
+  }
+  await page.reload();
+  await page.waitForTimeout(1000);
 
   // ═══════════════════════════════════════════
   //  ZIP ARCHIVE EXPANSION

@@ -15,6 +15,7 @@ Release PR is not by itself a release.
 
 - **site**: The site has a new decision page, `/compare/`, which puts the offline extension, an online conversion site and a command-line tool on one table and compares them on three things you can check — whether bytes leave the machine, what a batch can hold, and whether a result can be edited before download — while stating plainly which jobs do belong to an online site or a CLI. It is wired into the site navigation (the 131 generated pages and the blog page updated in the same change), `docs/sitemap.xml`, `docs/llms.txt`, the 404 page and both READMEs, and it is named into `verify:numbers`' document list (138 → 139 documents compared); the offline guard's HTML scope went from 141 files to 142.
 - **site**: The blog page now uses the same scroll reveals as the conversion pages — its six sections fade in on scroll and the contents list highlights the section being read (`aria-current`). `prefers-reduced-motion` and clients without IntersectionObserver land straight on the final state, the fallbacks are kept, and a `.js` class added before first paint gates the initial-hidden state so a crawler that renders CSS but runs no JavaScript never sees blank sections
+- **ui**: A ZIP result (multi-sheet XLSX→CSV, multi-page PDF→image) is now readable before you download it. The preview button used to key off the recognition table alone — `.zip` was never in it, so the row offered no preview at all — and now a container suffix also opens the Archive contents dialog, which lists every entry (name / directory / format / size) from the central directory without inflating any of them; clicking an entry inflates just that one and hands it to the ordinary single-file preview, which is the same sanitizer path a downloaded file goes through (DOMPurify for HTML / Markdown, remote references stripped by `stripRemoteResources`). The entry count walks through the same `declaredEntryCount` / `MAX_ZIP_ENTRIES` gate the upload path uses; the render caps at 2000 rows and says so when it trims ("N entries, showing the first 2000"). No new dependencies, no new permissions, and both offline-guard layers stay green
 
 ### Changed
 
@@ -24,6 +25,11 @@ Release PR is not by itself a release.
 
 - **ui**: Adjacent buttons now take their spacing from the container's own `gap` again — Element Plus adds 12px to every pair of sibling buttons, and stacked on the declared gap it measured 20px between two header or row icons where the design said 8px, and 16px where it said 4px. The containers that rely on that margin (the history action row, the dialog footers) are unchanged
 - **ui**: The theme picker in Preferences is one size smaller — swatch 28→24px, its selection ring 36→30px, the check badge 18→14px and the check glyph 12→10px, so a theme item is 45.2px tall instead of 55.2px
+- **ui**: The result list's filter and search now narrow the download. The 打包下载 ZIP / "Download ZIP" button used to bundle the whole batch regardless of how many rows were on screen; it now delivers the ZIP over the visible rows' indices, and when only one row is visible it downloads that file directly — a one-entry ZIP is a strictly worse download. The count in the button label and the disabled state follow the visible set, and the failure view now reads "No downloadable files in this view" rather than showing a fake number.
+
+### Tests
+
+- **test**: End-to-end assertions 504 → 507. The three new ones each pin one thing: a filtered ZIP carries only the two visible rows; the preview button on a `.zip` result really opens the archive listing; and clicking an entry hands those bytes back to the file preview. The outward prose (both halves of `docs/index.html`, both promo article drafts, both community-posts drafts, and the visibility checklist) tracks the new total.
 
 ### Fixed
 

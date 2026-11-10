@@ -152,6 +152,19 @@ export default {
     jsonCellAbsent: '这一项没有该字段',
   },
 
+  // 压缩包产物预览（多 sheet XLSX→CSV、多页 PDF→图片产出的 .zip）：只读中央目录列出条目，
+  // 点某一条才单独解压，走与下载文件完全相同的净化路径。
+  archive: {
+    /** 表头「共 N 个文件」——N 取压缩包自己声明的条目数（含未列出的），与下方「仅列出前 …」一致。 */
+    entryCount: '共 {count} 个文件',
+    readFailed: '无法读取这个压缩包',
+    empty: '这个压缩包里没有被识别的文件',
+    /** 条目行上的下载按钮：单独解压并保存这一项。 */
+    extract: '提取此文件',
+    /** 条目数超过渲染上限时的说明：宁可承认「只列了前若干条」，也不让一个短列表冒充整个压缩包。 */
+    truncated: '此处仅列出前 {shown} 个条目，共 {total} 个',
+  },
+
   // Comparison view
   comparison: {
     sourceTitle: '原始文件',
@@ -299,6 +312,7 @@ export default {
     cancelledNone: '转换已取消，未转换任何文件',
     download: '下载文件',
     downloadZip: '打包下载 ZIP ({count})',
+    downloadAllNone: '当前视图没有可下载的文件',
     retryFailed: '重试失败项 ({count})',
     retrySummary: '重试完成：{ok} 个已恢复，{fail} 个仍失败',
     preview: '预览',

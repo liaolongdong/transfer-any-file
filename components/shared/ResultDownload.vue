@@ -11,6 +11,7 @@ import { copyText } from '~/utils/core/clipboard';
 import { createRowKey } from '~/utils/core/row-key';
 import { FileFormat } from '~/utils/core/types';
 import PreviewDialog from '~/components/shared/PreviewDialog.vue';
+import ArchivePreviewDialog from '~/components/shared/ArchivePreviewDialog.vue';
 import FailureDiagnosticItem from '~/components/shared/FailureDiagnosticItem.vue';
 
 const props = withDefaults(
@@ -36,7 +37,8 @@ const props = withDefaults(
 
 const emit = defineEmits<{
   (e: 'download', index: number): void;
-  (e: 'downloadAll'): void;
+  /** Positions into `results` to bundle — the visible subset when a filter or search is active. */
+  (e: 'downloadAll', indices: number[]): void;
 }>();
 
 const { t } = useI18n();
@@ -161,8 +163,12 @@ const alertTitle = computed(() => {
   return t('result.doneMulti', { count: props.results.length });
 });
 const downloadButtonText = computed(() => {
-  if (props.results.length === 1) return t('result.download');
-  return t('result.downloadZip', { count: props.results.length });
+  // Count what the button will actually deliver — the rows still on screen — not the whole batch, so
+  // a filter or search that hides files is not contradicted by a "(9)" on a download that yields 2.
+  const n = visibleResults.value.length;
+  if (n === 0) return t('result.downloadAllNone');
+  if (n === 1) return t('result.download');
+  return t('result.downloadZip', { count: n });
 });
 
 /**
@@ -282,11 +288,17 @@ const resultKey = (entry: BatchResult): string => rowKey(entry.owners[0] ?? entr
 const failureKey = createRowKey('fail');
 
 function handleDownload(): void {
-  if (props.results.length === 1) {
-    emit('download', 0);
-  } else {
-    emit('downloadAll');
+  // A single visible row downloads as one file rather than a one-entry ZIP, whether that is the whole
+  // batch or one row left standing after a search — the ZIP of one is a strictly worse download.
+  const visible = visibleResults.value;
+  if (visible.length === 1) {
+    emit('download', visible[0].index);
+    return;
   }
+  emit(
+    'downloadAll',
+    visible.map(row => row.index),
+  );
 }
 
 function isTextResult(result: ConvertResult): boolean {
@@ -353,12 +365,53 @@ const previewBlob = ref<Blob | null>(null);
 const previewFormat = ref(FileFormat.HTML);
 const previewFilename = ref('');
 
+const zipVisible = ref(false);
+const zipBlob = ref<Blob | null>(null);
+const zipFilename = ref('');
+
+/**
+ * A ZIP is a container, not a previewable leaf, so it is keyed off the produced name rather than the
+ * recognition table — `formatFromFilename` answers `null` for `.zip` by design (a ZIP never converts).
+ * The orchestrator folds a converter's `containerExt` into the output name, so a name ending in
+ * `.zip` is the signal that the bytes are an archive of the per-sheet / per-page results.
+ */
+function isZipResult(result: ConvertResult): boolean {
+  return result.filename.toLowerCase().endsWith('.zip');
+}
+
+/** Whether the row offers any preview at all: a recognised leaf, or an archive to list. */
+function canPreview(result: ConvertResult): boolean {
+  return formatFromFilename(result.filename) !== null || isZipResult(result);
+}
+
 function openPreview(result: ConvertResult): void {
+  if (isZipResult(result)) {
+    zipBlob.value = result.blob;
+    zipFilename.value = result.filename;
+    zipVisible.value = true;
+    return;
+  }
   const format = formatFromFilename(result.filename);
   if (!format) return;
   previewBlob.value = result.blob;
   previewFormat.value = format;
   previewFilename.value = result.filename;
+  previewVisible.value = true;
+}
+
+/**
+ * Open one archive entry in the ordinary preview. The dialog hands back already-decoded bytes and a
+ * basename; the entry's own extension — not the archive's — is what selects the renderer, and every
+ * sanitizer that guard applies (DOMPurify on HTML / Markdown, remote-resource stripping) runs the same
+ * way it does for a downloaded file. The archive list stays open behind it, so closing the entry returns
+ * to the directory rather than to the result card.
+ */
+function openArchiveEntry(payload: { blob: Blob; filename: string }): void {
+  const format = formatFromFilename(payload.filename);
+  if (!format) return;
+  previewBlob.value = payload.blob;
+  previewFormat.value = format;
+  previewFilename.value = payload.filename;
   previewVisible.value = true;
 }
 </script>
@@ -468,7 +521,7 @@ function openPreview(result: ConvertResult): void {
               ></span
             >
             <el-button
-              v-if="formatFromFilename(row.entry.result.filename)"
+              v-if="canPreview(row.entry.result)"
               :icon="View"
               size="small"
               text
@@ -552,7 +605,7 @@ function openPreview(result: ConvertResult): void {
         type="primary"
         :icon="Download"
         :loading="packaging"
-        :disabled="packaging"
+        :disabled="packaging || visibleResults.length === 0"
         style="width: 100%"
         @click="handleDownload"
       >
@@ -565,6 +618,13 @@ function openPreview(result: ConvertResult): void {
       :blob="previewBlob"
       :format="previewFormat"
       :filename="previewFilename"
+    />
+
+    <ArchivePreviewDialog
+      v-model:visible="zipVisible"
+      :blob="zipBlob"
+      :filename="zipFilename"
+      @preview-entry="openArchiveEntry"
     />
   </div>
 </template>
