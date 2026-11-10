@@ -536,6 +536,10 @@ const DOCS = [
   // source that moved without a rebuild — it says nothing about whether the source is *true*, so
   // these pages need the fact check as much as the hand-written ones do.
   'docs/blog/index.html',
+  // The comparison page quotes the same batch ceilings (100 MB / 200 files / 5 files / 20 MB) and the format
+  // count as the product page does, and it is hand-written outside `generatedPages('convert')` — naming it here
+  // is the only way those figures enter the fact check instead of ageing in silence.
+  'docs/compare/index.html',
   ...generatedPages('convert'),
   'docs/promo/wechat-article.md',
   'docs/promo/blog-article.en.md',

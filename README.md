@@ -13,6 +13,8 @@
        从 docs/ 构建的 GitHub Pages 站点。 -->
 
 [![给这个项目加星](https://img.shields.io/github/stars/liaolongdong/transfer-any-file?style=for-the-badge&logo=github&label=%E2%AD%90%20Star%20this%20repo&color=yellow)](https://github.com/liaolongdong/transfer-any-file/stargazers)
+&nbsp;
+[![在 Chrome 应用商店安装](https://img.shields.io/badge/%E5%9C%A8_Chrome_%E5%BA%94%E7%94%A8%E5%95%86%E5%BA%97%E5%AE%89%E8%A3%85-4285F4?style=for-the-badge&logo=googlechrome&logoColor=white)](https://chromewebstore.google.com/detail/blkdmpkcaceicinkhindniepbbbaekkb)
 
 [![Manifest V3](https://img.shields.io/badge/Manifest_V3-ready-blue?style=for-the-badge&logo=googlechrome&logoColor=white)](https://developer.chrome.com/docs/extensions/get-started)
 &nbsp;
@@ -36,7 +38,7 @@
      评分那枚实测仍是 not found（一条评分都还没有），挂上去就是一块红色的"条目不存在"，比不挂更糟，有值之后再启用：
 [![CWS 评分](https://img.shields.io/chrome-web-store/rating/blkdmpkcaceicinkhindniepbbbaekkb?label=Rating&color=4285F4&style=for-the-badge)](https://chromewebstore.google.com/detail/blkdmpkcaceicinkhindniepbbbaekkb) -->
 
-[核心优势](#-核心优势) · [功能演示](#-功能演示) · [工作原理](#-工作原理) · [支持的格式](#-支持的转换) · [横向对比](#-横向对比) · [功能全览](#-功能全览) · [隐私](#-隐私) · [安装与上手](#-安装与上手) · [常见问题](#-常见问题) · [参与贡献](#-参与贡献) · [联系方式](#-联系方式) · [产品说明页](https://liaolongdong.github.io/transfer-any-file/) · [转换说明](https://liaolongdong.github.io/transfer-any-file/convert/) · [博客](https://liaolongdong.github.io/transfer-any-file/blog/)
+[核心优势](#-核心优势) · [功能演示](#-功能演示) · [工作原理](#-工作原理) · [支持的格式](#-支持的转换) · [横向对比](#-横向对比) · [功能全览](#-功能全览) · [隐私](#-隐私) · [安装与上手](#-安装与上手) · [常见问题](#-常见问题) · [参与贡献](#-参与贡献) · [联系方式](#-联系方式) · [产品说明页](https://liaolongdong.github.io/transfer-any-file/) · [转换说明](https://liaolongdong.github.io/transfer-any-file/convert/) · [博客](https://liaolongdong.github.io/transfer-any-file/blog/) · [离线 vs 在线](https://liaolongdong.github.io/transfer-any-file/compare/)
 
 </div>
 
@@ -50,7 +52,7 @@
 
 ## ✨ 核心优势
 
-绝大多数"免费在线转换"网站第一步就是让你上传文件。公开数据集无所谓，但 HR 表格、客户合同、体检报告、还没告诉任何人的草稿就不一样了——它们还附带账号墙、每日额度与体积上限，为了一个你的电脑不联网也能做完的事，白白付出一趟上传往返。文件格式任意转换助手把整件事留在本地：一个 3 MB 的 Word 文件变成 Markdown，不需要有一个数据包离开你的机器。
+绝大多数"免费在线转换"网站第一步就是让你上传文件。公开数据集无所谓，但 HR 表格、客户合同、体检报告、还没告诉任何人的草稿就不一样了——它们还附带账号墙、每日额度与体积上限，为了一个你的电脑不联网也能做完的事，白白付出一趟上传往返。文件格式任意转换助手把整件事留在本地：一个 3 MB 的 Word 文件变成 Markdown，不需要有一个数据包离开你的机器。文档、表格与图片转换共用同一个工作台——一次拖入混合格式，一批转完，每个文件独立执行自己的路线。
 
 | 优势                                        | 与其他工具的差异                                                                                                                                     |
 | ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -161,7 +163,7 @@ _图上可达但语义不成立，因此置灰并说明原因，而不是等你�
 [PNG 转 PDF](https://liaolongdong.github.io/transfer-any-file/convert/png-to-pdf.html) ·
 [JPEG 转 PDF](https://liaolongdong.github.io/transfer-any-file/convert/jpg-to-pdf.html) ·
 [SVG 转 PNG](https://liaolongdong.github.io/transfer-any-file/convert/svg-to-png.html)。
-另有[转换总览](https://liaolongdong.github.io/transfer-any-file/convert/)（含完整格式矩阵）与博客长文[我把「文件格式转换」做成了一个不联网的 Chrome 扩展](https://liaolongdong.github.io/transfer-any-file/blog/)。
+另有[转换总览](https://liaolongdong.github.io/transfer-any-file/convert/)（含完整格式矩阵）与博客长文[我把「文件格式转换」做成了一个不联网的 Chrome 扩展](https://liaolongdong.github.io/transfer-any-file/blog/)。如果问题不是「能不能转」而是「该不该把文件交出去」，[离线文件转换器 vs 在线转换网站](https://liaolongdong.github.io/transfer-any-file/compare/)把离线扩展、在线站与命令行放在一张桌子上，按三件当场能验证的事比。
 
 ## 🆚 横向对比
 
@@ -189,7 +191,7 @@ _图上可达但语义不成立，因此置灰并说明原因，而不是等你�
 
 ### 📦 批量与规模
 
-- **混合源格式批次** — 一次拖入 40 个不同类型的文件，每个文件各自求出到公共目标的路径；下拉只提供对**所有**已选文件都可达的格式
+- **混合源格式批量转换** — 一次拖入 40 个不同类型的文件，每个文件各自求出到公共目标的路径；下拉只提供对**所有**已选文件都可达的格式
 - **内置示例与目标建议** — 空工作台自带 Markdown / CSV / 图片三个示例，点一下直接载入并选好对应目标（PDF / JSON / WebP）；还没选目标时，按源格式给出最多 3 个推荐目标。推荐不会自动生效，点一下才等于一次普通的目标选择；示例在本机生成，不会上传
 - **长批次结果筛选** — 结果超过 8 条或出现失败时，结果卡顶部出现按文件名搜索与「全部 / 成功 / 失败」筛选；搜索同时匹配输出文件名与源文件名，失败视图只留失败，下载与 ZIP 仍按整批计算
 - **逐文件错误隔离** — 单个损坏文件不会阻塞整批，失败文件连同原因单独列出；每条失败可展开查看诊断（完整转换路径与出错的那一步），并一键复制成纯文本，方便提 issue；也可以只重跑失败的那几个文件

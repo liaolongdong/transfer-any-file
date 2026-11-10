@@ -2138,9 +2138,10 @@ curl -sS -o /dev/null -w '%{http_code}\n' $base/convert/pdf-to-png.html
 
 ## 6. GitHub 侧的曝光动作
 
-1. **topics 落地**——20 个名字目前**只存在于 `.github/repo-metadata.json`，GitHub 搜索拿不到**，这是仓库可发现性上唯一还欠的一项。
-   两条 curl（About 与 topics 是两个端点，topics 那次是**整表替换**，别拆开发）在
-   [`repo-metadata.md`](repo-metadata.md) 的「两条能走通的路径」小节，直接复制那一段；或者配好
+1. **topics 已落地**（2026-11-05 实测：`GET /repos/liaolongdong/transfer-any-file/topics` 返回 20 个名字，About 描述与
+   `.github/repo-metadata.json → description` 逐字一致）——所以这一条从此是**核对**，不再是欠项。下面那两条 curl 只在
+   **下一次改** topics 或描述时才需要走（About 与 topics 是两个端点，topics 那次是**整表替换**，别拆开发），路径见
+   [`repo-metadata.md`](repo-metadata.md) 的「两条能走通的路径」小节；或者配好
    `REPO_METADATA_TOKEN` 后到 **Actions → Sync repository metadata → Run workflow**。
    落地后不带凭证即可核对：
    ```bash
@@ -2150,13 +2151,16 @@ curl -sS -o /dev/null -w '%{http_code}\n' $base/convert/pdf-to-png.html
    2026-09-18 已定稿并同意使用）。这个字段**没有任何 API**，只能在设置页点。它决定分享到 X / Slack / 微信时有没有卡片图。
 3. **README 的可见面**：顶部导航现在多了「转换说明 / Conversions」与「博客 / Blog」两个入口，仓库首页渲染即可看到；
    不需要额外动作，但值得在发布后自己开一次 `https://github.com/liaolongdong/transfer-any-file` 确认锚点不跳空。
-4. **tag 的拦路石换了**：仓库仍然没有任何 tag（2026-10-02 实测 GitHub API `/repos/…/tags` 为空）。原先「先别打」的理由是
-   标签一推出 `release.yml` 就会上传新包，把那个「待裁决的样本」换掉，第三次判定再也无法归因——**裁决已经回来了**
-   （2026-10-02 实测条目在架、详情区版本 1.0.0、上次更新 2026-09-30），这条约束随之解除。现在压着发版的只有一件：
-   商店自动化要的四个 secret（`CHROME_EXTENSION_ID_TAF` 与发布商级的 `CWS_PUBLISHER_ID` /
-   `CWS_SERVICE_ACCOUNT_EMAIL` / `CWS_SERVICE_ACCOUNT_PRIVATE_KEY`）配了没有——item ID 现在已知，配齐即可，
-   不配则 `release.yml` 照旧只跳过上传、GitHub Release 正常发。取这三项的步骤见 `.github/CWS_PUBLISHING_GUIDE.md`
-   的 3.1（Chrome Web Store API v2 + 服务账号；旧的 OAuth 桌面客户端与 refresh token 那条链路已断，别照着配）。见第 8 节。
+4. **tag 与 Release 的台阶有洞，补洞要先算商店那笔账**：2026-11-05 实测 `/repos/…/tags` 返回
+   `v1.9.1 / v1.9.0 / v1.3.0 / v1.2.1` 四枚，GitHub Release 也是这四个，每个带一份 zip 附件——「仓库没有任何 tag」
+   那句是 10-02 的档案，已不成立。但 `CHANGELOG.md` 里的 **1.4.0 到 1.8.0 五个版本既无 tag 也无 Release**，
+   那正是「合了 Release PR 而标签没人推」那个洞留下的台阶（链路与修法见 `CHROMEWEBSTORE.md` 顶部「现网状态」的
+   历史那格与 `RELEASE_AUTOMATION.md` 第二节第 7 条）。**别顺手补**：`release.yml` 认 `push: tags`，而商店那四项凭据
+   （`CHROME_EXTENSION_ID_TAF` 加三个 `CWS_*`）已配齐（1.9.0 于 10-28 上传并提审、1.9.1 于 11-03 上线），所以推一枚旧标签会真构建、真发
+   GitHub Release，并把**那份旧包上传到商店**当成本仓库当前 revision——提审还停在 `cws-release` 批准门后面，
+   包却已经递过去了。手动触发的 `dry_run` 挡的是**整条**（连 Release 一起不写），帮不上这个忙。
+   要补那五版，只能走「不碰流水线」的路：用 `gh release create` 从 `CHANGELOG.md` 抽区块手写，事先确认这样建出来的
+   tag 会不会触发 `release.yml`——这一点本仓库**没有实测过**，先拿一版试并盯住 Actions，再决定要不要做剩下四版。
 
 ## 7. 让搜索与 AI 答案引擎看见
 
@@ -2168,9 +2172,14 @@ curl -sS -o /dev/null -w '%{http_code}\n' $base/convert/pdf-to-png.html
    GSC 给的 `<meta name="google-site-verification" content="…">` 加到 `docs/index.html` 的 `<head>`（其他 meta 之后），
    然后 `pnpm lint:all && pnpm pages:check` → 提交 → 等部署 → 回 GSC 点「验证」。
    这条改动只碰一个 meta 标签，不进任何守卫的射程；把 content 值给我，我可以连这一步一起提交。
-2. **提交 sitemap**：GSC → sitemap → 添加 `https://liaolongdong.github.io/transfer-any-file/sitemap.xml`（39 条）。
-3. **逐条请求收录**，优先级按「新页面 + 有搜索意图」排：首页 → `/convert/` → 35 张配对页 → `/blog/`。
-   `privacy.html` 不必提交。
+2. **提交 sitemap**：GSC → sitemap → 添加 `https://liaolongdong.github.io/transfer-any-file/sitemap.xml`
+   （2026-11-05 实测 137 条 `<loc>`，每条都带 `<lastmod>`；上一轮记的 136 条是 `/compare/` 进 STATIC_PAGES 之前，
+   再早那个 39 条是它上一次被手工数出来的那一轮）。
+3. **逐条请求收录**，优先级按「新页面 + 有搜索意图」排：首页 → `/compare/`（本轮新增，比较型查询的着陆页）→
+   `/convert/` → 14 个按源格式分的枢纽页 → 116 张配对页 → `/compress/` → `/diff/` → `/blog/`。那两张工具页是
+   **访客不装扩展也能直接用**的输入型页面，装机意图比说明页高，别只交静态页。`privacy.html` 不必提交。
+   枢纽页这一轮值得重交一次：14 张标题从同一句模板「X 转换：全部可用目标」换成了带 converter 与实际目标的写法，
+   标题是 Google 用来判断这页能不能答「PDF converter」这类头词的第一层信号，旧标题在那批查询里根本没被召回的理由。
 4. **Bing Webmaster Tools**：直接从 GSC 导入站点即可。IndexNow 属可做可不做，如果要做得把 key 文件放站点根
    （`docs/`），`static.yml` 只挡 `.md`，一个 `.txt` 能发出去。
 5. **预期**：GitHub Pages 子路径的新页面从「抓到」到「有展示」通常是数周量级；`png to webp` 这类头词竞争极强，
@@ -2191,13 +2200,22 @@ curl -sS -o /dev/null -w '%{http_code}\n' $base/convert/pdf-to-png.html
 实测条目在架（详情区版本 1.0.0、上次更新 2026-09-30）。但上面三条取舍**不作废**：它们约束的是下一次提交，
 而理由（两次拒审引用的就是那个形状）不会因为过审而消失。
 
-现在商店这一侧真正剩下的动作只有三件，全部是后台写操作、由所有者执行：
+商店这一侧的动作，2026-11-05 实测之后从三件收敛成「一件半」：
 
-1. 配齐 `CHROME_EXTENSION_ID_TAF` 与三个 `CWS_*` secret，让 `release.yml` 在标签事件里真的上传（不配则只跳过、
-   GitHub Release 照发）；item ID 与 listing 见 `CHROMEWEBSTORE.md` 顶部「现网状态」。
-2. 按 [`CWS_PUBLISHING_GUIDE.md`](CWS_PUBLISHING_GUIDE.md) 补「最近变更」文案，并把新截图与新页面带来的变化写进
-   详描更新——改任何一个商店字段前先 `pnpm verify:listing`。
-3. 记下上线当天的后台基线（曝光 / 详情页浏览 / 安装），第一周的波动才有参照。
+1. ~~配齐 secret~~ **已完成，别再照这条做**：`CHROME_EXTENSION_ID_TAF` 与三个 `CWS_*` 都配好了，而且整条链走通过——
+   1.9.0 于 10-28 上传、经 `cws-release` 批准门提审，1.9.1 于 11-03 上线（读数见 `CHROMEWEBSTORE.md` 顶部「现网状态」）。
+2. **商品文案与截图的手工替换，是此刻唯一还开着的大口子**：线上 listing 仍是 1.0.0 期的详描与截图，而包已到 1.9.1。
+   本文件的粘贴块从那时起累计多出压缩包解包、PDF 选页、多图合并为一份 PDF、转换预设、文件名模板、撤销与桌面通知、
+   空态示例与目标建议、长批次搜索与筛选、顺序自己定、省了多少看得见、转换前须知（2026-11-05 实测英文详描 10,512
+   字符 / 中文 3,647，上限 16,000）。**发布 API 写不了商品文案**，所以这笔差距只能靠后台按
+   [`CHROMEWEBSTORE.md`](CHROMEWEBSTORE.md) 的提交速查 Tab 1 与 Tab 2 一次贴完、截图取
+   `docs/assets/store/screens/` 那五张；改任何商店字段前先 `pnpm verify:listing`。同一次后台编辑里顺手清掉
+   现网详描结尾那行 `Version 1.0.0 — first store submission.` 脚注，并核对数据披露里「网站内容」的勾选。
+   **贴的是本轮改过的「转换前须知」那条**：原文写「对什么都不丢的路线保持安静」，而 `components/shared/FormatSelector.vue`
+   的 `caveats` 只要目标是 PDF 就提示无文字层（图片→PDF 也算），那句话站不住；现在写成「先把此刻就能定下来的三类损失
+   提前列出，除此之外不多话」，与代码一致。
+3. 半件：记下后台基线（曝光 / 详情页浏览 / 安装）。上线当天没记，现在补一次并在数旁边写明「起点晚于上线」，
+   否则第一周的波动没有参照。
 
 安装率这一侧真正能动的杠杆是**评分条数**与**外部导流**，不是文案再压一遍关键词。
 

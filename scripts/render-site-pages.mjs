@@ -1362,6 +1362,7 @@ function chrome(depth) {
       <nav class="site-nav" aria-label="Site">
         <a href="${up}">${bi('产品说明', 'Product')}</a>
         <a href="${up}convert/">${bi(CONVERT_CRUMB.zh, CONVERT_CRUMB.en)}</a>
+        <a href="${up}compare/">${bi('离线 vs 在线', 'Offline vs online')}</a>
         <a href="${up}diff/">${bi('文件对比', 'File diff')}</a>
         <a href="${up}blog/">${bi('博客', 'Blog')}</a>
         <a href="${SITE.repo}" rel="noopener" target="_blank">GitHub</a>
@@ -2246,13 +2247,31 @@ const STATIC_PAGES = {
       /article:modified_time[\s\S]{0,60}?content="(\d{4}-\d{2}-\d{2})"/g,
     ],
   },
+  // The comparison page is hand-written like the blog, but it is registered here so the sitemap lists it and
+  // `validateStaticDates()` holds its in-page 「最后更新」 line to the same date the sitemap declares.
+  compare: {
+    path: '/compare/',
+    updated: '2026-11-05',
+    changefreq: 'monthly',
+    priority: '0.9',
+    file: 'docs/compare/index.html',
+    dateClaims: [
+      /"dateModified":\s*"(\d{4}-\d{2}-\d{2})"/g,
+      /最后更新[：:]?\s*(\d{4}-\d{2}-\d{2})/g,
+      /Last updated:?\s*(\d{4}-\d{2}-\d{2})/gi,
+    ],
+  },
   privacy: {
     path: '/privacy.html',
     updated: '2026-10-19',
     changefreq: 'yearly',
     priority: '0.6',
     file: 'docs/privacy.html',
-    dateClaims: [/最后更新[：:]?\s*(\d{4}-\d{2}-\d{2})/g, /Last updated:\s*(\d{4}-\d{2}-\d{2})/g],
+    dateClaims: [
+      /"dateModified":\s*"(\d{4}-\d{2}-\d{2})"/g,
+      /最后更新[：:]?\s*(\d{4}-\d{2}-\d{2})/g,
+      /Last updated:\s*(\d{4}-\d{2}-\d{2})/g,
+    ],
   },
   // The date claims are read out of `tools/file-diff.html` rather than out of the copy, because the two are
   // byte-identical and `--check` already enforces that — pointing here is what lets a tree without
@@ -2981,6 +3000,7 @@ function renderSitemap() {
     ...hubs,
     ...pairs,
     STATIC_PAGES.blog,
+    STATIC_PAGES.compare,
     STATIC_PAGES.privacy,
     STATIC_PAGES.diff,
     STATIC_PAGES.compress,
