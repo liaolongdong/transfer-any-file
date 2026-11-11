@@ -11,6 +11,8 @@ Release PR is not by itself a release.
 
 ## [Unreleased]
 
+## [1.10.0] - 2026-11-11
+
 ### Added
 
 - **site**: The blog page now uses the same scroll reveals as the conversion pages — its six sections fade in on scroll and the contents list highlights the section being read (`aria-current`). `prefers-reduced-motion` and clients without IntersectionObserver land straight on the final state, the fallbacks are kept, and a `.js` class added before first paint gates the initial-hidden state so a crawler that renders CSS but runs no JavaScript never sees blank sections
