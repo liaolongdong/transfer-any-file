@@ -931,7 +931,12 @@ export function useConversion() {
     saveAs(entry.result.blob, entry.result.filename);
   }
 
-  /** Bundle all results into a single ZIP so the browser fires one download.
+  /** Bundle results into a single ZIP so the browser fires one download.
+   *
+   *  `indices`, when given, restricts the archive to that subset of `batchResults` — the visible rows
+   *  after a filter or search. Omitted means the whole batch, which is what the button does with no
+   *  filter active, so the common path is unchanged.
+   *
    *  Uses fflate's streaming Zip so entries are fed one at a time rather than building
    *  the whole entry map up front; the library itself is loaded here, not at module scope,
    *  so it stays off the first screen (see `~/utils/core/zip`).
@@ -945,11 +950,16 @@ export function useConversion() {
    *  result can stall it (fflate deflates ~7 MB in roughly a second on desktop).
    *  Note the emitted chunks are still accumulated into a single Blob, so peak memory
    *  is roughly the final archive size. */
-  async function downloadAllZip(): Promise<void> {
-    const items = batchResults.value;
+  async function downloadAllZip(indices?: number[]): Promise<void> {
+    // Keep only indices that still resolve: a retry that reindexes the batch between the click and
+    // this await must drop the stale positions rather than throw on an `undefined` entry.
+    const items =
+      indices === undefined
+        ? batchResults.value
+        : indices.map(i => batchResults.value[i]).filter((entry): entry is BatchResult => Boolean(entry));
     if (items.length === 0) return;
     if (items.length === 1) {
-      downloadResult(0);
+      saveAs(items[0].result.blob, items[0].result.filename);
       return;
     }
     // Only the multi-entry path can block long enough to need telling the user about; a single

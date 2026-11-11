@@ -83,6 +83,7 @@ const headHit = computed(() => {
       <path
         :d="linePath"
         class="trend-line"
+        pathLength="100"
         fill="none"
       />
       <circle
@@ -130,16 +131,43 @@ const headHit = computed(() => {
   stroke-width: 1.25;
   stroke-linecap: round;
   stroke-linejoin: round;
+
+  /* The path is normalised to `pathLength="100"`, so one dash of 100 covers it exactly and
+     `stroke-dashoffset: 100` hides the whole thing. The draw-in is the only animation; the resting
+     style — solid line, dot on — is the 100 % keyframe, so a reduced-motion pass (or any client that
+     never runs the animation) simply shows the finished chart. */
+  stroke-dasharray: 100;
+  animation: trend-draw var(--fat-duration-slow) var(--fat-ease-standard) both;
 }
 
 .trend-area {
   fill: var(--fat-primary);
   fill-opacity: 0.12;
   stroke: none;
+  animation: trend-fade var(--fat-duration-base) var(--fat-ease-standard) both;
 }
 
 .trend-head {
   fill: var(--fat-primary-ink);
+
+  /* The dot marks the newest record, so it lands after the line has run out to it rather than
+     sitting on a point the stroke has not reached yet. */
+  animation: trend-fade var(--fat-duration-base) var(--fat-ease-standard) var(--fat-duration-base) both;
+}
+
+/* The chart is drawn once when it first has enough history to show a line; appending the next
+   record updates `d` in place and does not replay this, which is the point — a sparkline that
+   redrew on every batch would be the 100-times-a-day animation the motion rules say to leave alone. */
+@keyframes trend-draw {
+  from {
+    stroke-dashoffset: 100;
+  }
+}
+
+@keyframes trend-fade {
+  from {
+    opacity: 0;
+  }
 }
 
 .trend-hit {

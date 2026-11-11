@@ -11,6 +11,21 @@ Release PR is not by itself a release.
 
 ## [Unreleased]
 
+### Added
+
+- **site**: The blog page now uses the same scroll reveals as the conversion pages — its six sections fade in on scroll and the contents list highlights the section being read (`aria-current`). `prefers-reduced-motion` and clients without IntersectionObserver land straight on the final state, the fallbacks are kept, and a `.js` class added before first paint gates the initial-hidden state so a crawler that renders CSS but runs no JavaScript never sees blank sections
+- **ui**: A ZIP result (multi-sheet XLSX→CSV, multi-page PDF→image) is now readable before you download it. The preview button used to key off the recognition table alone — `.zip` was never in it, so the row offered no preview at all — and now a container suffix also opens the Archive contents dialog, which lists every entry (name / directory / format / size) from the central directory without inflating any of them; clicking an entry inflates just that one and hands it to the ordinary single-file preview, the same sanitizer path a downloaded file goes through (DOMPurify for HTML / Markdown, remote references stripped by `stripRemoteResources`). The entry count walks the same `declaredEntryCount` / `MAX_ZIP_ENTRIES` gate the upload path uses; the render caps at 2000 rows and says so when it trims. No new dependencies, no new permissions, and both offline-guard layers stay green
+- **ui**: The empty state and the history sparkline each gained a one-time entrance. The empty drop plate fades up one beat with the sample chips at mount (`--fat-lift-sm` + `--fat-ease-enter` + `--fat-duration-slow`, 250 ms, from-only with `both` fill); the trend sparkline draws its line and fades in its area and head-dot the first time there are ≥2 records (`pathLength="100"`, `stroke-dashoffset` running full to 0), and a later record only updates `d` without replaying — a sparkline that redrew every batch is the hundred-times-a-day animation the motion rules say to leave alone. Both animate opacity / transform only, and the resting style is the animation's final keyframe, so `prefers-reduced-motion` — via the blanket `*` rule in `global.css` collapsing the duration and lift — lands on the finished state
+
+### Changed
+
+- **site**: The above-fold figure on the 131 generated pages moved from `loading="lazy" fetchpriority="low"` to eager with `fetchpriority="high"`. It sits right under the h1 and lede and spans the content width, making it the page's LCP candidate; lazy-loading it is the anti-pattern the product page documents against its own hero. One `shotFigure` change covers the pair, hub and index pages, re-rendered by `pages:render` and byte-guarded by `pages:check`
+- **ui**: The result list's filter and search now narrow the download. The "Download ZIP" button used to bundle the whole batch regardless of how many rows were visible; it now delivers the ZIP over the visible rows' indices, and a single visible row downloads as one file rather than a one-entry ZIP. The label count and the disabled state follow the visible set, and the failure view reads "No downloadable files in this view" instead of a fake number.
+
+### Tests
+
+- **test**: End-to-end assertions 504 → 507. The three new ones each pin one thing: a filtered ZIP carries only the two visible rows; the preview button on a `.zip` result opens the archive listing; clicking an entry hands those bytes to the file preview. The outward prose (both halves of `docs/index.html`, both promo articles, both community-posts drafts, and the visibility checklist) tracks the new total.
+
 ## [1.9.2] - 2026-11-10
 
 ### Added

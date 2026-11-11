@@ -138,6 +138,22 @@ const en: typeof zh = {
     jsonCellAbsent: 'This item has no such field',
   },
 
+  // Archive-product preview (the `.zip` a multi-sheet XLSX→CSV or a multi-page PDF→image produces):
+  // only the central directory is read to list entries, and one entry is inflated on click, so each
+  // opens through the same sanitizer path as a downloaded file.
+  archive: {
+    /** The header "N files" line — N is the archive's own declared count (including unlisted rows).
+     *  An archive is only produced for a multi-sheet / multi-page batch, so `count` is never 1 and the
+     *  plain plural is correct; `t()` does simple `{param}` substitution, not ICU plurals. */
+    entryCount: '{count} files',
+    readFailed: 'Could not read this archive',
+    empty: 'No recognizable files in this archive',
+    /** The row's download button — inflate and save just that entry. */
+    extract: 'Extract this file',
+    /** Shown when `truncated` — a short list must not pretend to be the whole archive. */
+    truncated: 'Showing the first {shown} of {total} entries',
+  },
+
   comparison: {
     sourceTitle: 'Source File',
     resultTitle: 'Result',
@@ -278,6 +294,7 @@ const en: typeof zh = {
     cancelledNone: 'Conversion cancelled before any file was converted',
     download: 'Download',
     downloadZip: 'Download ZIP ({count})',
+    downloadAllNone: 'No downloadable files in this view',
     retryFailed: 'Retry failed files ({count})',
     retrySummary: 'Retry finished: {ok} recovered, {fail} still failing',
     preview: 'Preview',
