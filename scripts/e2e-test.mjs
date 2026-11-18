@@ -2486,6 +2486,16 @@ async function run() {
       // Open the first entry: the file preview paints the decoded sheet as text.
       await page.click('.archive-dialog .archive-entry button[title="预览"]');
       await page.waitForSelector('.preview-dialog .text-preview', { timeout: 5000 });
+      // The pane mounts as soon as the format is known, one tick before `await blob.text()` lands, so
+      // the element alone can be there while still empty. Wait for the bytes; a pane that never fills
+      // falls through to the assertion below, which is what keeps this from becoming a silent pass.
+      await page
+        .waitForFunction(
+          () => (document.querySelector('.preview-dialog .text-preview')?.textContent ?? '').trim().length > 0,
+          undefined,
+          { timeout: 5000 },
+        )
+        .catch(() => {});
       const entryText = await page.$eval('.preview-dialog .text-preview', el => el.textContent).catch(() => '');
       if (entryText.trim().length > 0) ok('Archive entry opens in the file preview');
       else fail('Archive entry preview', 'entry preview body is blank');
