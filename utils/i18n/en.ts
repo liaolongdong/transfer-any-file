@@ -194,6 +194,19 @@ const en: typeof zh = {
     caveatGifFirstFrame: 'GIF animations in this batch keep only their first frame.',
   },
 
+  catalog: {
+    title: 'Format lookup',
+    hint: 'Pick a format you already have and see what it can become — no upload needed.',
+    sourceLabel: 'Choose a source format',
+    targetCount: 'Converts to {count} formats',
+    ariaTargets: 'Available target formats',
+    pickHint: 'Set {target} as the target; it applies once you add files',
+    steps: '{count} steps',
+    foot: 'Only combinations that really work: image-to-text needs OCR and PDF-to-table cannot stay faithful, so neither is listed.',
+    pending: 'Target “{target}” selected; it applies once you add files',
+    unavailable: 'These files cannot be converted to that target format',
+  },
+
   output: {
     title: 'Output',
     hint: 'Applies to image output only; the source file is never modified',

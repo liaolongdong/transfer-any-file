@@ -1278,6 +1278,304 @@ async function run() {
   await page.waitForTimeout(1000);
 
   // ═══════════════════════════════════════════
+  //  FORMAT LOOKUP BEFORE UPLOAD
+  // ═══════════════════════════════════════════
+  //
+  // The empty-state card answers "what can this become?" before there is a batch to ask it about.
+  // Its whole claim is that the answer is the *same* one the picker gives after an upload, so the
+  // load-bearing check below is a set comparison against the real dropdown rather than a list of
+  // expected formats: a hardcoded expectation would keep passing after the registry or the policy
+  // changed, which is exactly the drift this card must not introduce.
+  section('Format Lookup Before Upload');
+
+  const lookup = await page.evaluate(() => {
+    const card = document.querySelector('.catalog');
+    if (!card) return null;
+    const active = card.querySelector('.source-chip.active');
+    return {
+      active: active?.textContent?.trim() ?? '',
+      pressed: active?.getAttribute('aria-pressed') ?? '',
+      live: card.querySelector('.answer-head')?.getAttribute('aria-live') ?? '',
+      // The label is the chip's first span; the hop badge is `.chip-steps` and the tick is an <i>.
+      targets: [...card.querySelectorAll('.target-chip')].map(el => ({
+        label: el.querySelector('span')?.textContent?.trim() ?? '',
+        steps: el.querySelector('.chip-steps')?.textContent?.trim() ?? '',
+        title: el.getAttribute('title') ?? '',
+      })),
+    };
+  });
+  if (!lookup) throw new Error('the format lookup card is missing from the empty state');
+  if (lookup.active === 'Markdown' && lookup.pressed === 'true' && lookup.targets.length > 0) {
+    ok(`Format lookup opens on Markdown with ${lookup.targets.length} targets and no upload`);
+  } else {
+    fail('Format lookup initial state', JSON.stringify(lookup));
+  }
+  // Switching a source replaces the whole target row. Announcing the row would read ten new chips
+  // aloud; the count line is the part worth saying, and it is the part that changes.
+  if (lookup.live === 'polite') ok('The answer count is a live region, the replaced chip row is not');
+  else fail('Format lookup live region', `aria-live="${lookup.live}"`);
+
+  // Markdown → PNG is two hops, so it is the chip that must carry a count *before* it is chosen and
+  // a written route after. A badge that only appeared on selection would label the route too late.
+  const pngBefore = await page.evaluate(() => {
+    const chip = [...document.querySelectorAll('.catalog .target-chip')].find(
+      el => (el.querySelector('span')?.textContent ?? '').trim() === 'PNG',
+    );
+    if (!chip) return null;
+    return {
+      steps: chip.querySelector('.chip-steps')?.textContent?.trim() ?? '',
+      pathShown: !!document.querySelector('.catalog .path-steps'),
+    };
+  });
+  if (pngBefore && pngBefore.steps.includes('2') && !pngBefore.pathShown) {
+    ok(`A two-hop target is labelled before it is chosen (${pngBefore.steps})`);
+  } else {
+    fail('Format lookup hop badge', JSON.stringify(pngBefore));
+  }
+
+  await page.locator('.catalog .target-chip').filter({ hasText: 'PNG' }).first().click();
+  await page.waitForTimeout(500);
+  const pngAfter = await page.evaluate(() => ({
+    path: document.querySelector('.catalog .path-steps')?.textContent?.trim() ?? '',
+    chosen: document.querySelectorAll('.catalog .target-chip.chosen').length,
+  }));
+  if (pngAfter.path === 'Markdown → HTML → PNG' && pngAfter.chosen === 1) {
+    ok(`Choosing it writes the whole route (${pngAfter.path})`);
+  } else {
+    fail('Format lookup route', JSON.stringify(pngAfter));
+  }
+  await page.screenshot({ path: shot('format-lookup.png'), fullPage: true });
+
+  // The hold-then-apply path: the real picker is not mounted yet, so a target set here has to survive
+  // the upload rather than be dropped by it.
+  const lookupInput = await page.$('#file-upload-input');
+  await lookupInput.setInputFiles(path.join(FIXTURE_PATH, 'sample.md'));
+  await page.waitForSelector('.file-item', { timeout: 10000 });
+  await page.waitForTimeout(700);
+  const heldTarget = await page.$eval('.action-row .el-select', el => el.textContent.trim()).catch(() => '');
+  if (heldTarget.includes('PNG')) ok(`The held target applies once files arrive (${heldTarget})`);
+  else fail('Format lookup hold-then-apply', `picker reads "${heldTarget}"`);
+  if (!(await page.$('.catalog'))) ok('The lookup card steps aside once there is a batch to ask about');
+  else fail('Format lookup after upload', 'still mounted alongside the real picker');
+
+  // The cross-check the card lives or dies by. Short labels are derived from the full ones on the
+  // catalog side only, so splitting the picker's labels here still catches a broken derivation.
+  const lookupSelect = await page.waitForSelector('.action-row .el-select', { timeout: 10000 });
+  await lookupSelect.click();
+  // Scoped to the format picker's own popper class: an image target also mounts the output-options
+  // panel, whose max-dimension select teleports its options into the same document. An unscoped query
+  // reads "800 px" / "原图" as offered formats.
+  await page.waitForSelector('.fat-format-popper .el-select-dropdown__item:visible', { timeout: 10000 });
+  const pickerLabels = await page.$$eval('.fat-format-popper .el-select-dropdown__item', els => [
+    ...new Set(
+      els
+        .filter(el => !el.classList.contains('is-disabled'))
+        // The "recently used" group renders its label as plain text, the category groups wrap it in
+        // `.option-label` alongside the disabled reason. Both are the same format name.
+        .map(el => (el.querySelector('.option-label')?.textContent ?? el.textContent ?? '').trim().split(' (')[0]),
+    ),
+  ]);
+  const lookupLabels = lookup.targets.map(t => t.label).sort();
+  const offeredLabels = pickerLabels.sort();
+  if (lookupLabels.length > 0 && JSON.stringify(lookupLabels) === JSON.stringify(offeredLabels)) {
+    ok(`Lookup and picker offer the same ${lookupLabels.length} targets for Markdown`);
+  } else {
+    fail('Format lookup vs picker', `lookup=${JSON.stringify(lookupLabels)} picker=${JSON.stringify(offeredLabels)}`);
+  }
+  // Image → text/data is reachable in the graph and blocked by policy. Switching the source to PNG
+  // must drop those rather than offer a chip the picker would grey out.
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(300);
+  await page.reload();
+  await page.waitForTimeout(1000);
+  await page.locator('.catalog .source-chip').filter({ hasText: 'PNG' }).first().click();
+  await page.waitForTimeout(500);
+  const pngSource = await page.evaluate(() => ({
+    targets: [...document.querySelectorAll('.catalog .target-chip')].map(
+      el => el.querySelector('span')?.textContent?.trim() ?? '',
+    ),
+    chosen: document.querySelectorAll('.catalog .target-chip.chosen').length,
+  }));
+  const forbidden = ['Text', 'CSV', 'JSON', 'Excel'].filter(f => pngSource.targets.includes(f));
+  if (forbidden.length === 0 && pngSource.targets.length > 0) {
+    ok(`PNG source lists no image-to-text/data target (${pngSource.targets.join(' / ')})`);
+  } else {
+    fail(
+      'Format lookup policy filter',
+      `forbidden=${JSON.stringify(forbidden)} of ${JSON.stringify(pngSource.targets)}`,
+    );
+  }
+  // The chosen target belonged to Markdown's list; keeping it would label a route PNG may not have.
+  if (pngSource.chosen === 0) ok('Switching source clears the target chosen under the previous one');
+  else fail('Format lookup source switch', `${pngSource.chosen} chip(s) still chosen`);
+
+  // The category column is shared by all three chip rows so they line up on their first chip, which
+  // means it cannot be sized per row. In English "Document" measures 56px against a 44px column, so
+  // the word ran past its box and into the gap onto the first chip — a defect the Chinese labels
+  // (two characters, 24px) can never surface. Measured on a page pinned to English for that reason.
+  const catPage = await browser.newPage();
+  trackPageErrors(catPage);
+  await catPage.setViewportSize({ width: 1280, height: 900 });
+  await catPage.addInitScript(mockChromeStorage({ 'fat:locale': 'en' }));
+  await catPage.goto(`http://localhost:${PORT}/options.html`);
+  await catPage.waitForSelector('.catalog .source-groups .group-label', { timeout: 20000 });
+  await catPage.waitForTimeout(900);
+  const catCols = await catPage.evaluate(() => {
+    const wrap = document.querySelector('.catalog .source-groups');
+    const labels = [...wrap.querySelectorAll('.group-label')];
+    return {
+      cols: getComputedStyle(wrap).gridTemplateColumns,
+      labels: labels.map(el => ({
+        text: el.textContent.trim(),
+        box: el.clientWidth,
+        ink: el.scrollWidth,
+        chipX: Math.round(el.nextElementSibling.querySelector('.source-chip').getBoundingClientRect().left),
+      })),
+    };
+  });
+  const spilling = catCols.labels.filter(l => l.ink > l.box + 1);
+  if (catCols.labels.length === 3 && spilling.length === 0) {
+    ok(
+      `English category labels fit their column (${catCols.labels.map(l => `${l.text} ${l.ink}/${l.box}`).join(', ')})`,
+    );
+  } else {
+    fail('Format lookup category column', `cols=${catCols.cols} spilling=${JSON.stringify(spilling)}`);
+  }
+  const chipXs = new Set(catCols.labels.map(l => l.chipX));
+  if (chipXs.size === 1) ok(`All three chip rows start at one x (${[...chipXs][0]}) under a ${catCols.cols} grid`);
+  else fail('Format lookup chip alignment', `first-chip x values ${JSON.stringify([...chipXs])}`);
+  await catPage.close();
+
+  await page.reload();
+  await page.waitForTimeout(1000);
+
+  // ═══════════════════════════════════════════
+  //  CONVERT BAR DOCKS UNTIL THE BATCH ENDS
+  // ═══════════════════════════════════════════
+  //
+  // The bar sits *after* the file list in flow, so its position used to be the list's height: a
+  // batch long enough to scroll put the only control that starts the work below the fold. The pair
+  // of readings below is what makes this a real check rather than a tautology — the list must run
+  // past the viewport bottom (so a flow-positioned bar really would be off-screen) *and* the button
+  // must be fully inside it.
+  section('Convert Bar Docks Until The Batch Ends');
+
+  const dockInput = await page.$('#file-upload-input');
+  await dockInput.setInputFiles(
+    Array.from({ length: 14 }, (_, i) => ({
+      name: `dock-${i + 1}.md`,
+      mimeType: 'text/markdown',
+      buffer: Buffer.from(`# Dock ${i + 1}\n\nsample\n`),
+    })),
+  );
+  await page.waitForSelector('.file-item', { timeout: 10000 });
+  await page.waitForTimeout(800);
+  // A reload can restore the previous scroll offset, and the claim is about the top of the page.
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.waitForTimeout(300);
+  const dockState = await page.evaluate(() => {
+    const bar = document.querySelector('.action-bar');
+    const btn = document.querySelector('.convert-btn');
+    const list = document.querySelector('.file-list');
+    if (!bar || !btn || !list) return null;
+    const btnRect = btn.getBoundingClientRect();
+    const barRect = bar.getBoundingClientRect();
+    const style = getComputedStyle(bar);
+    return {
+      position: style.position,
+      zIndex: Number(style.zIndex),
+      dockable: bar.classList.contains('is-dockable'),
+      docked: bar.classList.contains('is-docked'),
+      shadow: style.boxShadow,
+      gap: Number.parseFloat(style.bottom),
+      barTop: Math.round(barRect.top),
+      barBottom: Math.round(barRect.bottom),
+      btnTop: Math.round(btnRect.top),
+      btnBottom: Math.round(btnRect.bottom),
+      listBottom: Math.round(list.getBoundingClientRect().bottom),
+      innerHeight: window.innerHeight,
+      scrollY: Math.round(window.scrollY),
+    };
+  });
+  if (!dockState) throw new Error('the action bar or the file list is missing while a batch is staged');
+  if (
+    dockState.scrollY === 0 &&
+    dockState.listBottom > dockState.innerHeight &&
+    dockState.btnTop >= 0 &&
+    dockState.btnBottom <= dockState.innerHeight
+  ) {
+    ok(
+      `Convert stays on screen unscrolled while the list runs to y=${dockState.listBottom} (button ${dockState.btnTop}–${dockState.btnBottom} of ${dockState.innerHeight})`,
+    );
+  } else {
+    fail('Convert bar reachability', JSON.stringify(dockState));
+  }
+  if (dockState.position === 'sticky' && dockState.dockable && dockState.docked && dockState.shadow !== 'none') {
+    ok('The floating bar is sticky and marked docked, so it reads as a surface above the list');
+  } else {
+    fail('Convert bar docked state', JSON.stringify(dockState));
+  }
+  await page.screenshot({ path: shot('convert-dock.png') });
+
+  // The dock is page content, not an overlay: a select opened *from* it has to paint above it.
+  await pickTarget(page, 'HTML (.html)');
+  const dockSelect = await page.waitForSelector('.action-row .el-select', { timeout: 10000 });
+  await dockSelect.click();
+  await page.waitForSelector('.el-select-dropdown__item:visible', { timeout: 10000 });
+  const stack = await page.evaluate(() => {
+    const bar = document.querySelector('.action-bar');
+    const popper = document.querySelector('.el-select__popper');
+    if (!bar || !popper) return null;
+    return { bar: Number(getComputedStyle(bar).zIndex), popper: Number(getComputedStyle(popper).zIndex) };
+  });
+  if (stack && stack.popper > stack.bar && stack.bar < 2000) {
+    ok(`The dock stays under the library's overlay stack (bar ${stack.bar} < popper ${stack.popper})`);
+  } else {
+    fail('Convert bar stacking', JSON.stringify(stack));
+  }
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(300);
+
+  await page.click('.convert-btn');
+  const dockConfirm = await page.waitForSelector('.el-message-box', { timeout: 2500 }).catch(() => null);
+  if (dockConfirm) {
+    await page.locator('.el-message-box__btns .el-button--primary').click();
+    await page.waitForTimeout(300);
+  }
+  await page.waitForFunction(() => document.querySelectorAll('.result-item').length === 14, undefined, {
+    timeout: 30000,
+  });
+  await page.waitForTimeout(1400);
+  // Once the batch is done the thing to reach is the result card *below* the bar, so the bar must
+  // stop docking rather than sit on top of it — and the card must be in view without a scroll.
+  const afterRun = await page.evaluate(() => {
+    const bar = document.querySelector('.action-bar');
+    const card = document.querySelector('.result-download');
+    if (!bar || !card) return null;
+    const rect = card.getBoundingClientRect();
+    return {
+      dockable: bar.classList.contains('is-dockable'),
+      position: getComputedStyle(bar).position,
+      cardTop: Math.round(rect.top),
+      cardBottom: Math.round(rect.bottom),
+      innerHeight: window.innerHeight,
+    };
+  });
+  if (!afterRun) throw new Error('the result card is missing after a finished batch');
+  if (!afterRun.dockable && afterRun.position !== 'sticky') {
+    ok('The bar stops docking once the batch is done, so it cannot cover the results');
+  } else {
+    fail('Convert bar after the batch', JSON.stringify(afterRun));
+  }
+  if (afterRun.cardTop < afterRun.innerHeight && afterRun.cardBottom > 0) {
+    ok(`The result card is in view on its own (${afterRun.cardTop}–${afterRun.cardBottom})`);
+  } else {
+    fail('Result card auto-scroll', JSON.stringify(afterRun));
+  }
+  await page.reload();
+  await page.waitForTimeout(1200);
+
+  // ═══════════════════════════════════════════
   //  RESULT FILTER & SEARCH
   // ═══════════════════════════════════════════
   //
@@ -2188,6 +2486,16 @@ async function run() {
       // Open the first entry: the file preview paints the decoded sheet as text.
       await page.click('.archive-dialog .archive-entry button[title="预览"]');
       await page.waitForSelector('.preview-dialog .text-preview', { timeout: 5000 });
+      // The pane mounts as soon as the format is known, one tick before `await blob.text()` lands, so
+      // the element alone can be there while still empty. Wait for the bytes; a pane that never fills
+      // falls through to the assertion below, which is what keeps this from becoming a silent pass.
+      await page
+        .waitForFunction(
+          () => (document.querySelector('.preview-dialog .text-preview')?.textContent ?? '').trim().length > 0,
+          undefined,
+          { timeout: 5000 },
+        )
+        .catch(() => {});
       const entryText = await page.$eval('.preview-dialog .text-preview', el => el.textContent).catch(() => '');
       if (entryText.trim().length > 0) ok('Archive entry opens in the file preview');
       else fail('Archive entry preview', 'entry preview body is blank');

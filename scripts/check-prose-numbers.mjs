@@ -427,7 +427,7 @@ const FACTS = [
     patterns: [
       /共\s*(\d+)\s*项断言/,
       /跑\s*(\d+)\s*条断言/,
-      /with (\d+)\/\d+\s+assertions/,
+      /with\s+(\d+)\/\d+\s+assertions/,
       /through\s+(\d+)\s+assertions/,
     ],
   },

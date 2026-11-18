@@ -52,7 +52,7 @@
 以后再补跑的成本（本机需要手动装过 ffmpeg 与 chromium 二进制）：
 
 ```bash
-pnpm test:e2e        # = wxt build + node scripts/e2e-test.mjs，断言基线 507 条
+pnpm test:e2e        # = wxt build + node scripts/e2e-test.mjs，断言基线 523 条
 ```
 
 **2026-09-29 这一轮（JSON 预览的树 / 数组表 / 搜索 + 仓库外的对比页）跑满了 e2e，改在 `E2E_HEADLESS=true` 下跑**：
@@ -2206,8 +2206,8 @@ curl -sS -o /dev/null -w '%{http_code}\n' $base/convert/pdf-to-png.html
    1.9.0 于 10-28 上传、经 `cws-release` 批准门提审，1.9.1 于 11-03 上线（读数见 `CHROMEWEBSTORE.md` 顶部「现网状态」）。
 2. **商品文案与截图的手工替换，是此刻唯一还开着的大口子**：线上 listing 仍是 1.0.0 期的详描与截图，而包已到 1.9.1。
    本文件的粘贴块从那时起累计多出压缩包解包、PDF 选页、多图合并为一份 PDF、转换预设、文件名模板、撤销与桌面通知、
-   空态示例与目标建议、长批次搜索与筛选、顺序自己定、省了多少看得见、转换前须知（2026-11-05 实测英文详描 10,512
-   字符 / 中文 3,647，上限 16,000）。**发布 API 写不了商品文案**，所以这笔差距只能靠后台按
+   空态示例与目标建议、长批次搜索与筛选、顺序自己定、省了多少看得见、转换前须知、上传前的格式速查、操作条贴底停靠（2026-11-16 实测英文详描 11,329
+   字符 / 中文 3,878，上限 16,000）。**发布 API 写不了商品文案**，所以这笔差距只能靠后台按
    [`CHROMEWEBSTORE.md`](CHROMEWEBSTORE.md) 的提交速查 Tab 1 与 Tab 2 一次贴完、截图取
    `docs/assets/store/screens/` 那五张；改任何商店字段前先 `pnpm verify:listing`。同一次后台编辑里顺手清掉
    现网详描结尾那行 `Version 1.0.0 — first store submission.` 脚注，并核对数据披露里「网站内容」的勾选。

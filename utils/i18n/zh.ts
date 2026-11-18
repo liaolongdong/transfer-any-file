@@ -207,6 +207,20 @@ export default {
     caveatGifFirstFrame: '批次中的 GIF 动图只保留第一帧。',
   },
 
+  // 空态的格式速查：上传之前就能回答「我的格式能转成什么」
+  catalog: {
+    title: '格式速查',
+    hint: '先挑一个你手上有的格式，看看它能转成什么——不必先上传文件。',
+    sourceLabel: '选择源格式',
+    targetCount: '可转成 {count} 种格式',
+    ariaTargets: '可选的目标格式',
+    pickHint: '把 {target} 设为目标格式，上传文件后自动应用',
+    steps: '{count} 步',
+    foot: '只列出真正可用的组合：图片转文本需要 OCR、PDF 转表格无法保真，都不在其中。',
+    pending: '已选定目标「{target}」，上传文件后自动应用',
+    unavailable: '这批文件无法转换为该目标格式',
+  },
+
   // Image output parameters
   output: {
     title: '输出参数',

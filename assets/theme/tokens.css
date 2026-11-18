@@ -249,6 +249,13 @@
   --fat-z-drop-overlay: 9999;
   --fat-z-skip-link: 10000;
 
+  /* The action bar while it is docked to the bottom of the viewport. It has to paint over the staged
+     file rows it floats above, but it is ordinary page content — every Element Plus overlay starts at
+     2000, so a select opened from the dock, a preview dialog and a toast all still land on top of it.
+     Named rather than written as `z-index: 5` at the one rule that uses it, so the next surface that
+     needs to sit between page content and the library's stack has a rung to reason about. */
+  --fat-z-dock: 20;
+
   /* The two shorthands most surfaces want.
      These used to say `all`, which silently tweened whatever else happened to change — including
      layout properties, each of which costs a reflow per frame — and left "what moves?" to luck.

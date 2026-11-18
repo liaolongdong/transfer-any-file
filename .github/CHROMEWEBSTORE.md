@@ -30,7 +30,7 @@
 >   用户数 **`7 users`**（11-03 为 5），README 与商店徽章那两条链路不变。
 > - **商品文案与线上包的差距是此刻最贵的一笔债**：线上 listing 的详描与截图仍是 1.0.0 期，而包已到 1.9.1；本文件的粘贴块
 >   从那一刻起陆续多出压缩包解包、PDF 选页、多图合并为一份 PDF、转换预设、文件名模板、撤销与桌面通知、空态示例与目标建议、
->   长批次搜索与筛选、顺序自己定、省了多少看得见、转换前须知等条目。**发布 API 写不了商品文案**，所以这笔差距只能靠后台手工
+>   长批次搜索与筛选、顺序自己定、省了多少看得见、转换前须知、上传前的格式速查、操作条贴底停靠等条目。**发布 API 写不了商品文案**，所以这笔差距只能靠后台手工
 >   替换闭合——替换时按[提交速查](#提交速查)的 Tab 1 与 Tab 2 一次做完，截图取 `docs/assets/store/screens/` 的那五张。
 > - 现网中文名 `文件格式任意转换助手 — 离线转换无上传` 与 `public/_locales/zh_CN/messages.json → extensionName`
 >   **逐字一致**，「默认语言是中文」这条已经生效；概述那段就是 `extensionDescription` 的值
@@ -125,7 +125,7 @@ curl -Is https://liaolongdong.github.io/transfer-any-file/privacy.html | head -1
 | ----------------------------- | ----------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
 | 名称 Extension Name           | `Transfer Any File — Offline File Format Converter` (49/75)                                                 | `文件格式任意转换助手 — 离线转换无上传` (20/75)                                                                                        |
 | 简介 Short description        | `Convert between 14 common document, spreadsheet and image file formats right in your browser...` (127/132) | `在本机浏览器内互转 14 种常见的文档、表格与图片格式。支持混合批量、多步链路、预览编辑与 ZIP 打包，全程离线，不上传、无账号。` (66/132) |
-| 详描 Full description         | [英文详细介绍](#英文详细介绍) (10,512 字符)                                                                 | [中文详细介绍](#中文详细介绍) (3,647 字符)                                                                                             |
+| 详描 Full description         | [英文详细介绍](#英文详细介绍) (11,329 字符)                                                                 | [中文详细介绍](#中文详细介绍) (3,878 字符)                                                                                             |
 | 类别 Category                 | `Productivity`                                                                                              | `Productivity`                                                                                                                         |
 | 主要语言 Primary Language     | -                                                                                                           | `Chinese (China)`                                                                                                                      |
 | 附加语言 Additional Languages | `English (United States)`                                                                                   | -                                                                                                                                      |
@@ -139,7 +139,7 @@ Transfer Any File — Offline File Format Converter
 Convert between 14 common document, spreadsheet and image file formats right in your browser — offline, in batches, no uploads.
 ```
 
-**Chinese (China) —— 默认语言标签页，先贴这一套。** 三个字段（名称 20/75、简介 66/132、详描 3,647 字符）在
+**Chinese (China) —— 默认语言标签页，先贴这一套。** 三个字段（名称 20/75、简介 66/132、详描 3,878 字符）在
 [商店文案](#商店文案)里；名称与简介同时活在 `public/_locales/zh_CN/messages.json`，`pnpm verify:listing` 逐字比对两边。
 那个标签页要等**带 `_locales/zh_CN/` 的包上传之后**才出现——先传包再填表，手上那份旧草稿看不到它是正常的。
 
@@ -321,7 +321,7 @@ Convert between 14 common document, spreadsheet and image file formats right in 
 扩展真正具备的能力（混格式批量、多步链路、预览与编辑、ZIP 下载），而不是文件扩展名。依旧不写 PDF 转 Word、PDF 转 Excel，
 因为这个扩展做不到无损的 PDF 转换。
 
-**详细介绍（Detailed Description）** [必填] —— 纯文本，本仓库自设上限 16,000 字符（英文块实测 10,512；下面的中文块实测 3,647）
+**详细介绍（Detailed Description）** [必填] —— 纯文本，本仓库自设上限 16,000 字符（英文块实测 11,329；下面的中文块实测 3,878）
 
 _Google 没有为这个字段公布长度_——75 与 132 是写在文档里的，16,000 不是。把它当成本仓库自己的守卫
 （`pnpm verify:listing`），按后台计数器设定，提交时以那个计数器为准，不要把 16,000 背给审核员。
@@ -359,10 +359,12 @@ BUILT FOR REAL WORKLOADS
 • Savings on every result: each result prints how much smaller it came out than its source, and a batch of several totals the saving in its summary line — a result that grew prints no badge, so growth is never dressed as a saving
 • Recent targets: the formats you convert to most often are grouped at the top of the target picker
 • Built-in samples and suggested targets: the empty workbench offers three locally generated samples, and while no target is selected it suggests up to three targets for the current source format — a suggestion only applies when you click it. Long batches gain a file-name search and All / Succeeded / Failed result filters
+• Format lookup before you upload: with nothing staged, the first screen already answers "what can this become" — pick a format you have and its targets appear at once, multi-step routes carry a step count, and choosing one writes out the whole chain (Markdown → HTML → PNG). The click is remembered and applied when your files arrive; the list is exactly the one the post-upload picker offers, and the card steps aside once there is a batch to ask about
 • Before you convert: once the target is chosen, the picker names the three losses it can already settle before the run — a PDF result that comes out as page images, a vector flattened into a bitmap, an animation kept to one frame — and says nothing beyond them, so a limitation is never something you find after the download
 • Image output parameters: an image target exposes a longest edge (800–4096 px), and a compressed image target additionally takes encoder quality (40–90%) and a target file size (20 KB–2 MB); a source that is rendered page by page takes a render density of 96–300 DPI — every knob starts untouched
 • PDF page selection: converting a PDF to images can be limited to the pages you name (1-3, 5) instead of the whole document; that choice belongs to the batch in front of you and is never stored, so it cannot silently truncate the next PDF
 • Order you control: every staged file carries a drag handle — pull it, or focus it and press the arrow keys, Home or End — and that order is the output order, so the file you put first is the file that comes out first
+• Convert stays within reach: on a long list the action bar docks to the bottom of the window instead of sitting after the last file — a 150-file batch no longer means scrolling nine screens to find the one button that starts the work. It settles back into place once you scroll that far, and stops docking when the batch finishes so it never covers the results
 • Merge images into one PDF: when every file in a batch is a PNG, JPEG, WebP, BMP or GIF and the target is PDF, a merge box appears — ticked, the batch becomes one document in list order, one page per image (up to 200 pages), named with a -merged suffix; it is off by default, so a single conversion is unchanged, and an image that will not decode fails the whole group rather than leaving a partial file
 • Conversion presets: save a target format together with its parameters as a named shortcut (up to 12) and restore the whole setup in one click; a preset works for any batch that can reach that format
 • Output names you can write: a result is named after its source file plus the date and time to the second by default, and Preferences takes a pattern of your own; the extension always comes from the real output, so a customised name never claims a format it is not
@@ -442,10 +444,12 @@ Found a bug, or need a format added? Open an issue at https://github.com/liaolon
 • 省了多少看得见：每条结果在体积之后标出它比源文件小了多少，多个文件的批次再于摘要行给出整批的节省；结果变大时不做任何标记，免得把增长说成节省
 • 最近使用：你常转的目标格式会以下拉顶部的「最近使用」分组呈现
 • 内置示例与目标建议：空工作台提供三个本机生成的示例；还没选目标时，按源格式给出最多三个推荐目标，只有点击才生效。长批次结果还支持按文件名搜索与全部 / 成功 / 失败筛选
+• 格式速查：还没上传文件时，首屏就能先挑一个手上已有的格式，看它能转成哪些目标——多步链路标出步数，选中后写出整条路径（如 Markdown → HTML → PNG）；点一个目标就记下来，文件到位自动应用。列出的组合与上传后下拉里的完全一致，有文件后这张卡即收起
 • 转换前须知：目标选定之后，选择器会先把此刻就能定下来的三类损失提前列出——PDF 结果是整页图像、矢量会被展平成位图、动图只保留一帧——除此之外它不多话，所以限制不会等到下载之后才被发现
 • 图片输出参数：目标为图片时可设最长边（800–4096 px）；目标为压缩图片格式时还可设质量（40–90%）与目标体积（20 KB–2 MB）；逐页渲染的源文件另可按「清晰度」选 96–300 DPI；不设置即保持默认
 • PDF 选页：把 PDF 转成图片时可以只点名要渲染的页（如 1-3, 5），不必整份出图；这个选择只属于眼前这一批、不落存储，所以不会悄悄截断下一份 PDF
 • 顺序自己定：每个文件左侧都有拖拽手柄——拖动它，或把它聚焦后按方向键、Home、End——而这个顺序就是输出顺序，你排在最前的文件第一个产出
+• 开始转换始终在手边：文件列表很长时，操作条贴在窗口底部而不是排在列表末尾——150 个文件的批次不必先滚过九屏才找得到那颗按钮；滚到它本来的位置就自然归位，批次结束后不再贴底，免得挡住结果
 • 多图合并为一份 PDF：整批都是 PNG / JPEG / WebP / BMP / GIF 且目标为 PDF 时会出现合并开关——勾上后整批按列表顺序写成一份，每张一页（最多 200 页），文件名带 -merged；默认关闭，单张转换与以前完全一样；任一张解码失败整批都不产出，而不是给出残缺文档
 • 转换预设：把目标格式连同输出参数存成一个命名快捷方式（最多 12 个），下次一键套用；预设不绑定源格式，凡能转到该格式的批次都能直接用
 • 输出文件名：结果默认叫「源文件名 + 精确到秒的日期与时间」，偏好设置里这一串写法可以自定义；扩展名始终取自真实产物，自定义过的名字因此不会与实际格式不符
@@ -1050,6 +1054,16 @@ PDF → ZIP 解码）。跑这一步的纪律：**`.output/chrome-mv3` 在被测
 ## 本文件的变更记录
 
 > 这些是关于**本文件**的修订记录，不是产品发布说明（产品在 `CHANGELOG.md`）。数字全部由 `pnpm verify:listing` 实测。
+
+- **2026-11-16（上传前的格式速查与操作条贴底停靠进两份详细介绍）** —— 英文与中文粘贴块各加两条 bullet：
+  「格式速查 / Format lookup before you upload」放在「内置示例与目标建议 / Built-in samples and suggested targets」之后
+  （两条都是空工作台的事），「开始转换始终在手边 / Convert stays within reach」放在「顺序自己定 / Order you control」之后
+  （两条都是暂存列表的事）。**为什么现在补**：这两处是本轮工作台的改动，界面、`README*` 与产品页都已改口，
+  商店这份此前只字未提；而「150 个文件要先滚九屏才找得到开始按钮」正是 listing 该回答的可用性疑问。
+  顶部「现网状态」里那份差距清单同批补上这两项。**副作用**：两个粘贴块变长，速查表、字段标签与上架手册（中英两份）
+  里被引用的字符数按 `pnpm verify:listing` 重测为英文 11,329 / 中文 3,878；更早记录里的读数按档案留下，不动。
+  **仍需手工**：这四条只进了粘贴块，现网 listing 要等下一次在后台手工整块替换（发布 API 写不了商品文案）。
+  名称、简介、单一目的与隐私披露逐字节未动。
 
 - **2026-11-03（启用用户数徽章，并把「现网状态」里三格过期读数换掉）** —— 本文件与两份 README 各动两处，**没有任何粘贴字段改字**，
   `verify:listing` 照旧绿（本轮实测英文详描 9,737 字符 / 中文 3,405）。上面那两格是 10-20 的档案读数，`4dd7233`

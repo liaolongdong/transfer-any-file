@@ -29,6 +29,7 @@ import ConversionProgress from '~/components/shared/ConversionProgress.vue';
 import CurrentFileHint from '~/components/shared/CurrentFileHint.vue';
 import StepProgressHint from '~/components/shared/StepProgressHint.vue';
 import CollapsibleCard from '~/components/shared/CollapsibleCard.vue';
+import FormatCatalog from '~/components/shared/FormatCatalog.vue';
 import PresetBar from '~/components/shared/PresetBar.vue';
 import HistoryPanel from '~/components/options/HistoryPanel.vue';
 
@@ -173,6 +174,91 @@ const hasAnimatedGif = useAnimatedGifPreflight(sourceFiles);
 // batch counts even with nothing in it, otherwise the cancel leaves no trace on screen.
 const isDone = computed(() => !isConverting.value && (hasResults.value || hasFailures.value || cancelled.value));
 const isSingleFile = computed(() => sourceFiles.value.length === 1);
+
+/**
+ * The action bar docks to the bottom of the viewport while a batch is staged and has not finished.
+ *
+ * Measured on the built page with the bar forced back to `position: static`, which is where it lived
+ * before this existed: *after* the file list in flow, so its position is the list's height. Twelve
+ * Markdown files at 1440×900 put the Convert button at y=889 with its bottom at 921 — already clipped
+ * by a 900px window — and a 150-file batch put it at y=8479, nine screenfuls below the only control
+ * that starts the work. At 390×844 the same twelve files put it at y=933, entirely below the fold.
+ * Docking is what makes the primary action reachable without scrolling past the batch first.
+ *
+ * It stops docking once the batch is done, because from that moment the thing to reach is the result
+ * card *below* the bar, and a pinned bar would sit on top of it.
+ */
+const dockActive = computed(() => hasFiles.value && !isDone.value);
+const actionBarEl = ref<HTMLElement | null>(null);
+const resultCardEl = ref<HTMLElement | null>(null);
+const isDocked = ref(false);
+let dockFrame = 0;
+let dockObserver: ResizeObserver | null = null;
+
+/**
+ * Sticky positioning exposes no state to style against, so the docked look is derived from geometry:
+ * a docked bar's bottom edge sits exactly at the scrollport bottom less its own `bottom` offset, while
+ * an undocked one has scrolled up to its place in flow and sits higher. The offset is read from the
+ * computed style rather than repeated as a literal, so the CSS stays the single source of the gap.
+ *
+ * The basis is `clientHeight`, not `innerHeight`: sticky resolves against the scrollport, which excludes
+ * a horizontal scrollbar, while `innerHeight` includes one. Measured at 1440×900 with a 15px horizontal
+ * scrollbar, a docked bar rests at 873 against a clientHeight of 885 and an innerHeight of 900 — the
+ * latter calls it undocked and strips its border and shadow while it is in fact pinned.
+ */
+function measureDock(): void {
+  const bar = actionBarEl.value;
+  if (!bar || !dockActive.value) {
+    isDocked.value = false;
+    return;
+  }
+  const gap = Number.parseFloat(getComputedStyle(bar).bottom) || 0;
+  isDocked.value = bar.getBoundingClientRect().bottom >= document.documentElement.clientHeight - gap - 1;
+}
+
+function scheduleDockMeasure(): void {
+  if (dockFrame) return;
+  dockFrame = requestAnimationFrame(() => {
+    dockFrame = 0;
+    measureDock();
+  });
+}
+
+/**
+ * Scroll and resize are not the only things that move the bar. The file list enters through a
+ * `grid-template-rows` transition, so on the tick the bar mounts the list above it is still
+ * collapsed and the bar genuinely is not docked yet. Measuring only on scroll/resize therefore left
+ * the elevation stale on the very interaction that creates the dock — pinned by `sticky`, but drawn
+ * as an ordinary card until the reader happened to scroll. Observing the column catches the list
+ * expanding, and every later height change above or inside the bar.
+ */
+watch([dockActive, actionBarEl], () => {
+  void nextTick(() => {
+    measureDock();
+    dockObserver?.disconnect();
+    dockObserver = null;
+    const column = actionBarEl.value?.parentElement;
+    if (!column || !dockActive.value) return;
+    dockObserver = new ResizeObserver(scheduleDockMeasure);
+    dockObserver.observe(column);
+  });
+});
+
+/**
+ * Bring the result card into view when it appears below the fold.
+ *
+ * Watching the template ref rather than `isDone` is deliberate: the card sits in a `mode="out-in"`
+ * transition, so on the tick the batch finishes the *progress* card may still be leaving and this
+ * element does not exist yet. The ref flips when it actually mounts. Only fires when the card is
+ * entirely off-screen — a result the user can already see must not move under them.
+ */
+watch(resultCardEl, el => {
+  if (!el) return;
+  const rect = el.getBoundingClientRect();
+  if (rect.top < window.innerHeight && rect.bottom > 0) return;
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  el.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'nearest' });
+});
 const showBatchProgress = computed(
   // Two new conjuncts, both about a bar that would be reading nothing:
   // - `plannedSteps > 1` is the half that lets a single file on a multi-step chain show a bar at all —
@@ -464,6 +550,25 @@ function handleApplyPreset(preset: ConversionPreset): void {
   ElMessage.info(t('preset.pending'));
 }
 
+/**
+ * A target picked in the empty-state lookup, before any file exists.
+ *
+ * It takes the same hold-then-apply path a preset does: the real picker is not mounted until files
+ * arrive, so without the hold the click would set a target that the next upload immediately drops.
+ * No output parameters or name pattern come with it — the lookup is about the route, not settings.
+ */
+function handleCatalogPick(target: FileFormat): void {
+  pendingApplication.value = {
+    target,
+    options: null,
+    nameTemplate: null,
+    unavailableKey: 'catalog.unavailable',
+  };
+  const message = t('catalog.pending', { target: getFormatLabel(target) });
+  ElMessage.info(message);
+  announce(message);
+}
+
 function handleUndo(): void {
   if (undo()) {
     ElMessage.success(t('convert.undone'));
@@ -514,11 +619,17 @@ const { isWorkspaceDragging } = useWorkspaceFileDrop({
 
 onMounted(() => {
   document.addEventListener('keydown', handleGlobalKeydown);
+  window.addEventListener('scroll', scheduleDockMeasure, { passive: true });
+  window.addEventListener('resize', scheduleDockMeasure);
 });
 
 onUnmounted(() => {
   window.removeEventListener('beforeunload', warnBeforeLeave);
   document.removeEventListener('keydown', handleGlobalKeydown);
+  window.removeEventListener('scroll', scheduleDockMeasure);
+  window.removeEventListener('resize', scheduleDockMeasure);
+  dockObserver?.disconnect();
+  if (dockFrame) cancelAnimationFrame(dockFrame);
 });
 </script>
 
@@ -644,7 +755,9 @@ onUnmounted(() => {
             <div
               v-if="hasFiles"
               key="action-bar"
+              ref="actionBarEl"
               class="card action-bar"
+              :class="{ 'is-dockable': dockActive, 'is-docked': isDocked }"
             >
               <FormatSelector
                 :source-formats="uniqueSourceFormats"
@@ -730,6 +843,21 @@ onUnmounted(() => {
             </div>
           </Transition>
 
+          <!-- Only in the empty state: once files are staged the picker below answers the same
+               question about the actual batch, and two answers to one question is a worse UI than
+               either alone. It is also what the first screen was missing — the drop plate plus two
+               collapsed cards left roughly half of a 900px window empty. -->
+          <Transition name="card">
+            <CollapsibleCard
+              v-if="!hasFiles"
+              key="catalog"
+              card-id="catalog"
+              :title="t('catalog.title')"
+            >
+              <FormatCatalog @pick="handleCatalogPick" />
+            </CollapsibleCard>
+          </Transition>
+
           <CollapsibleCard
             card-id="presets"
             :title="t('preset.title')"
@@ -769,6 +897,7 @@ onUnmounted(() => {
             <div
               v-if="isDone"
               key="result-download"
+              ref="resultCardEl"
               class="card"
             >
               <ResultDownload
@@ -1062,7 +1191,39 @@ onUnmounted(() => {
 }
 
 .action-bar {
-  padding: var(--fat-space-md);
+  padding: var(--fat-space-lg);
+}
+
+/* The dock. `bottom` rather than `top` is what makes it wait at the foot of the screen while its own
+   place in flow is still below the fold, and settle back into the column once the reader scrolls that
+   far — no fixed positioning, so nothing has to reserve height for it and the cards after it stay
+   reachable at the end of the page. The class is applied only while the batch is unfinished: after
+   that the result card below is the thing to reach, and a pinned bar would cover it.
+   `--fat-z-dock` (20) clears the file rows it floats over and stays far below Element Plus's own
+   stack, so the target select's popper, a preview dialog and every toast still open above it. */
+.action-bar.is-dockable {
+  position: sticky;
+  bottom: var(--fat-space-md);
+  z-index: var(--fat-z-dock);
+}
+
+/* Elevation is the only thing that says "this is floating above the list" rather than "this is the
+   next card". It arrives on the same rung as the theme recolour, and the accent hairline picks up the
+   primary tint so the dock reads as the active control surface in all six themes. */
+.action-bar.is-docked {
+  border-color: var(--fat-primary-border);
+  box-shadow: var(--fat-shadow-lg);
+}
+
+/* box-shadow is not in the three-property list `.card` carries below, and adding it there would put a
+   shadow tween on every card in the column for a state only this one has. Two classes so this outranks
+   that later `.card` rule rather than losing to it on source order. */
+.card.action-bar {
+  transition:
+    box-shadow var(--fat-duration-slow) var(--fat-ease-standard),
+    background-color var(--fat-duration-slow) var(--fat-ease-standard),
+    border-color var(--fat-duration-slow) var(--fat-ease-standard),
+    color var(--fat-duration-slow) var(--fat-ease-standard);
 }
 
 /* Sits between the target row and the output parameters, which is where the decision it changes
