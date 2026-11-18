@@ -10,6 +10,28 @@
       name="color-scheme"
       content="light dark"
     />
+    <!-- Unlike the other pages on this site, the first band this one paints is its own surface, not a
+         brand-coloured hero — and it has a real dark tier. So the browser chrome is told the surface
+         colour rather than one brand blue that would sit as a bright strip above a dark page. The
+         value is `--fd-surface`, and light is what is baked in because `html[data-theme='dark']` is the
+         only dark tier and the script sets it: with no JS this page is light.
+         A `media="(prefers-color-scheme: …)"` pair is deliberately NOT used here. It follows the OS,
+         while this page follows `data-theme` — which the toggle button and a stored preference can both
+         move away from the OS. Such a pair paints a light strip above a dark page for a reader on a
+         light OS who toggles dark, and the reverse for one who toggles light; the head script keeps
+         this single meta in step with the attribute instead. -->
+    <meta
+      name="theme-color"
+      content="#f8fafc"
+    />
+    <meta
+      name="author"
+      content="Better"
+    />
+    <meta
+      name="robots"
+      content="index, follow, max-image-preview:large, max-snippet:-1"
+    />
     <title>文件差异对比 · 离线，不上传 | Compare Two Files — Offline</title>
     <meta
       name="description"
@@ -38,6 +60,14 @@
     <meta
       property="og:site_name"
       content="Transfer Any File"
+    />
+    <meta
+      property="og:locale"
+      content="zh_CN"
+    />
+    <meta
+      property="og:locale:alternate"
+      content="en_US"
     />
     <meta
       property="og:url"
@@ -82,6 +112,10 @@
     <meta
       name="twitter:image"
       content="https://liaolongdong.github.io/transfer-any-file/assets/store/github-social-preview.png"
+    />
+    <meta
+      name="twitter:image:alt"
+      content='Transfer Any File brand mark and the headline "Convert 14 file formats without uploading a byte" beside a screenshot of the workbench converting a Markdown file to HTML.'
     />
     <script type="application/ld+json">
       {
@@ -200,6 +234,19 @@
           theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
         }
         document.documentElement.dataset.theme = theme;
+        // The chrome colour follows `data-theme`, not the OS query, because the toggle button and a
+        // stored preference can both disagree with the OS. One observer covers all three writers of
+        // that attribute (this script, the toggle, the OS-change listener) so none of them has to
+        // remember to repaint the chrome. Values are `--fd-surface` in each tier.
+        var SURFACE = { light: '#f8fafc', dark: '#0f172a' };
+        function paintChrome() {
+          setMeta('meta[name="theme-color"]', SURFACE[document.documentElement.dataset.theme] || SURFACE.light);
+        }
+        paintChrome();
+        new MutationObserver(paintChrome).observe(document.documentElement, {
+          attributes: true,
+          attributeFilter: ['data-theme'],
+        });
         // Every entrance state is gated on `.js`, the same gate `docs/index.html` and `content.css` use:
         // a client that parses the CSS but never runs the script must not be shown an invisible page.
         // Search and AI crawlers are exactly that kind of client.
@@ -233,6 +280,8 @@
         }
         setMeta('meta[property="og:title"]', copy.title);
         setMeta('meta[property="og:description"]', copy.description);
+        setMeta('meta[property="og:locale"]', locale === 'en' ? 'en_US' : 'zh_CN');
+        setMeta('meta[property="og:locale:alternate"]', locale === 'en' ? 'zh_CN' : 'en_US');
         setMeta('meta[name="twitter:title"]', copy.title);
         setMeta('meta[name="twitter:description"]', copy.description);
         setMeta('meta[name="description"]', copy.description);

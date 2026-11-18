@@ -34,6 +34,15 @@ export function getFormatLabel(format: FileFormat): string {
   return FORMAT_INFO[format]?.label ?? format.toUpperCase();
 }
 
+/**
+ * The name without its extension, for dense lists of formats where every entry would otherwise
+ * repeat a suffix the reader already knows. Derived from `label` rather than stored beside it so a
+ * new format cannot ship with one of the two spellings missing.
+ */
+export function getFormatShortLabel(format: FileFormat): string {
+  return getFormatLabel(format).split(' (')[0];
+}
+
 /** Get category for a format */
 export function getFormatCategory(format: FileFormat): FileCategory {
   return FORMAT_INFO[format]?.category ?? 'document';
