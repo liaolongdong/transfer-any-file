@@ -4370,7 +4370,10 @@
         .carousel-ctl,
         .copy-btn,
         .scroll-rail,
-        .lightbox {
+        .lightbox,
+        /* Fixed to the viewport, so on a narrow print box it would paste a blue band across every
+           page — the one install instruction a reader cannot click on paper anyway. */
+        .install-bar {
           display: none !important;
         }
 
