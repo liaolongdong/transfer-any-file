@@ -19,6 +19,7 @@ import { converterRegistry } from '~/utils/core/registry';
 import { isImageOutputFormat } from '~/utils/core/output-options';
 import { MAX_MERGED_PAGES } from '~/utils/core/image-pdf';
 import { getFormatLabel } from '~/utils/core/format-labels';
+import { buildPreflight } from '~/utils/core/preflight';
 import { isPageLockedByModal } from '~/utils/core/modal-lock';
 import { GITHUB_RELEASES_PAGE_URL } from '~/utils/urls';
 import { FileFormat } from '~/utils/core/types';
@@ -31,6 +32,7 @@ import StepProgressHint from '~/components/shared/StepProgressHint.vue';
 import CollapsibleCard from '~/components/shared/CollapsibleCard.vue';
 import FormatCatalog from '~/components/shared/FormatCatalog.vue';
 import PresetBar from '~/components/shared/PresetBar.vue';
+import PreflightSummary from '~/components/shared/PreflightSummary.vue';
 import HistoryPanel from '~/components/options/HistoryPanel.vue';
 
 // Rendered only after files are uploaded / conversion finishes, so their code
@@ -304,6 +306,21 @@ const mergeHint = computed(() => t('convert.mergeImagesHint', { max: MAX_MERGED_
 const canConvert = computed(
   () => !isConverting.value && uniqueSourceFormats.value.length > 0 && targetFormat.value !== null,
 );
+
+/**
+ * The plan for the staged batch, computed the same way the run will compute it (`resolvePath` per
+ * file), so the numbers here cannot disagree with the bar that follows. Reading it costs one BFS per
+ * file on a graph this project measures at 0.28 µs a lookup, and it never touches file bytes — the
+ * format comes from the name and MIME type alone.
+ *
+ * Hidden once the batch is done: at that point the results below are the answer, and a dry run of
+ * "what would happen" sitting above them would describe a run nobody is about to start.
+ */
+const preflight = computed(() => buildPreflight(sourceFiles.value, targetFormat.value));
+const showPreflight = computed(
+  () => hasFiles.value && targetFormat.value !== null && !isConverting.value && !isDone.value,
+);
+const preflightMergedPages = computed(() => (canMergeImages.value ? sourceFiles.value.length : null));
 
 // Comparison view: shown when single file conversion is done.
 // A stale result is deliberately excluded: the selector has moved on to another target, and the
@@ -795,6 +812,16 @@ onUnmounted(() => {
                   </Transition>
                 </template>
               </FormatSelector>
+              <!-- Beside the picker rather than above the button: it reports the decision that picker
+                   just made, and every number in it comes from the same `resolvePath` the run uses. -->
+              <Transition name="reveal">
+                <PreflightSummary
+                  v-if="showPreflight"
+                  :report="preflight"
+                  :merged-pages="preflightMergedPages"
+                  :animated-gif="hasAnimatedGif"
+                />
+              </Transition>
               <!-- Hidden when the batch cannot merge (non-PDF target, one file, an SVG in the
                    mix). The choice itself stays in memory, so switching back to PDF restores it. -->
               <Transition name="reveal">

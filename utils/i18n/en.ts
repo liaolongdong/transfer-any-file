@@ -82,6 +82,15 @@ const en: typeof zh = {
     reorderHandleLocked: 'Reorder {name}, item {position} of {total}. Clear the current results before reordering',
     reorderHint: 'Drag, or press the arrow keys, to reorder. Merged PDFs follow this order',
     reorderLocked: 'Clear the current results before reordering',
+    filterLabel: 'Filter files',
+    filterPlaceholder: 'Filter by file name',
+    filterFormatAll: 'All formats',
+    filterShowing: '{shown} of {total} shown',
+    filterEmpty: 'No matching files',
+    filterReset: 'Clear filters',
+    removeFiltered: 'Remove the {count} shown',
+    removedFiltered: 'Removed {count} files',
+    reorderFiltered: 'Reordering is off while a filter is active; clear it first',
   },
 
   // Workspace drop overlay (F9)
@@ -289,6 +298,15 @@ const en: typeof zh = {
     confirmDontAsk: "Don't ask again",
     confirmCancelled: 'Conversion cancelled',
     targetDropped: 'Some files in the updated list cannot reach the current target — target and results were reset',
+  },
+
+  preflight: {
+    title: 'Preflight',
+    ready: '{count} ready',
+    unreachable: '{count} cannot convert',
+    multiStep: '{count} take a multi-step chain (up to {max})',
+    merged: 'Merged into one PDF · {pages} pages',
+    animatedGif: 'The batch has an animated GIF — first frame only',
   },
 
   result: {
