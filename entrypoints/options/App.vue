@@ -320,7 +320,16 @@ const preflight = computed(() => buildPreflight(sourceFiles.value, targetFormat.
 const showPreflight = computed(
   () => hasFiles.value && targetFormat.value !== null && !isConverting.value && !isDone.value,
 );
-const preflightMergedPages = computed(() => (canMergeImages.value ? sourceFiles.value.length : null));
+/**
+ * Pages the merge will actually write, or `null` when it will not write one.
+ *
+ * `canMergeImages` only says merging is *legal* for this batch; the run merges on
+ * `mergeImages && canMergeImages`. Reading the former alone made the line promise a single
+ * N-page PDF while the checkbox sat unticked and the batch produced N separate files.
+ */
+const preflightMergedPages = computed(() =>
+  mergeImages.value && canMergeImages.value ? sourceFiles.value.length : null,
+);
 
 // Comparison view: shown when single file conversion is done.
 // A stale result is deliberately excluded: the selector has moved on to another target, and the
@@ -819,7 +828,6 @@ onUnmounted(() => {
                   v-if="showPreflight"
                   :report="preflight"
                   :merged-pages="preflightMergedPages"
-                  :animated-gif="hasAnimatedGif"
                 />
               </Transition>
               <!-- Hidden when the batch cannot merge (non-PDF target, one file, an SVG in the

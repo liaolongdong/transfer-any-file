@@ -895,6 +895,10 @@ function themeScript() {
       function apply(mode, persist) {
         root.setAttribute('data-theme', mode);
         if (btn) btn.setAttribute('aria-pressed', String(mode === 'dark'));
+        // The mobile browser's chrome colour is a meta tag, not a CSS value, so the palette switch
+        // has to carry it too.
+        var meta = document.querySelector('meta[name="theme-color"]');
+        if (meta) meta.setAttribute('content', mode === 'dark' ? '#0c1221' : '${SITE.themeColor}');
         if (!persist) return;
         try {
           localStorage.setItem(KEY, mode);

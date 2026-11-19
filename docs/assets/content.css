@@ -1351,6 +1351,25 @@ table.matrix {
    all. The reading rail is scroll-driven, so it is removed rather than frozen wherever the paper
    happens to land. Screen behaviour is untouched: these declarations are print-only. */
 @media print {
+  /* Paper is white whatever the screen palette was, and browsers drop background colours by
+     default — printed dark ink would be near-white on white. Only the text and surface tokens need
+     restating; everything else in the dark block is a shadow or a tint that never prints. */
+  :root[data-theme='dark'] {
+    color-scheme: light;
+    --ink: #101828;
+    --ink-soft: #475467;
+    --ink-faint: #667085;
+    --paper: #fff;
+    --paper-alt: #fff;
+    --card: #fff;
+    --line: #e4e7ec;
+    --brand-dark: #1d4ed8;
+  }
+
+  :root[data-theme='dark'] .site-head {
+    background: #fff;
+  }
+
   .js .reveal,
   .js .route-steps > * {
     opacity: 1;

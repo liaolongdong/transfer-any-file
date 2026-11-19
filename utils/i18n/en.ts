@@ -85,6 +85,7 @@ const en: typeof zh = {
     filterLabel: 'Filter files',
     filterPlaceholder: 'Filter by file name',
     filterFormatAll: 'All formats',
+    filterFormatLabel: 'Filter by format',
     filterShowing: '{shown} of {total} shown',
     filterEmpty: 'No matching files',
     filterReset: 'Clear filters',
@@ -306,7 +307,6 @@ const en: typeof zh = {
     unreachable: '{count} cannot convert',
     multiStep: '{count} take a multi-step chain (up to {max})',
     merged: 'Merged into one PDF · {pages} pages',
-    animatedGif: 'The batch has an animated GIF — first frame only',
   },
 
   result: {

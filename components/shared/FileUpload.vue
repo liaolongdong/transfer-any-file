@@ -96,8 +96,15 @@ const filterQuery = ref('');
 const filterFormat = ref<FileFormat | ''>('');
 
 const filterActive = computed(() => filterQuery.value.trim() !== '' || filterFormat.value !== '');
-/** The tools row costs a line, so it only appears once the list is long enough to scan by eye. */
-const showTools = computed(() => props.multiple && selectedFiles.value.length >= FILTER_MIN_FILES);
+/**
+ * The tools row costs a line, so it only appears once the list is long enough to scan by eye — and
+ * it stays while a filter is active, because the controls in it are the only way back out. Removing
+ * rows one by one until fewer than `FILTER_MIN_FILES` remained used to hide the row while the query
+ * still applied, leaving a list with no visible cause and no control to clear it.
+ */
+const showTools = computed(
+  () => props.multiple && (selectedFiles.value.length >= FILTER_MIN_FILES || filterActive.value),
+);
 
 const filteredIndices = computed<number[]>(() => {
   const count = selectedFiles.value.length;
@@ -1108,12 +1115,15 @@ defineExpose({
               role="group"
               :aria-label="t('upload.filterLabel')"
             >
+              <!-- A placeholder is a hint, not a name: both controls carry the same label the
+                   result list's search box does, so the two rows announce themselves alike. -->
               <el-input
                 v-model="filterQuery"
                 class="filter-input"
                 size="small"
                 :prefix-icon="Search"
                 :placeholder="t('upload.filterPlaceholder')"
+                :aria-label="t('upload.filterPlaceholder')"
                 clearable
               />
               <el-select
@@ -1121,6 +1131,7 @@ defineExpose({
                 class="filter-format"
                 size="small"
                 :placeholder="t('upload.filterFormatAll')"
+                :aria-label="t('upload.filterFormatLabel')"
                 @update:model-value="filterFormat = $event ?? ''"
               >
                 <el-option

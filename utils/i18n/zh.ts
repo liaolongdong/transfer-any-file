@@ -98,6 +98,7 @@ export default {
     filterLabel: '筛选文件',
     filterPlaceholder: '按文件名筛选',
     filterFormatAll: '全部格式',
+    filterFormatLabel: '按格式筛选',
     filterShowing: '筛出 {shown} / {total} 个',
     filterEmpty: '没有匹配的文件',
     filterReset: '清除筛选',
@@ -328,7 +329,6 @@ export default {
     unreachable: '{count} 个无法转换',
     multiStep: '{count} 个走多步链路（最多 {max} 步）',
     merged: '合并为 1 份 PDF，共 {pages} 页',
-    animatedGif: '批次含 GIF 动图，只保留第一帧',
   },
 
   // Result / download

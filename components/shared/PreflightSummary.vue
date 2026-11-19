@@ -18,15 +18,13 @@ const props = withDefaults(
     report: PreflightReport;
     /** Pages the merged PDF will have, or `null` when merge is off / unavailable. */
     mergedPages?: number | null;
-    /** A staged GIF has more than one frame, so raster routes keep the first one only. */
-    animatedGif?: boolean;
   }>(),
-  { mergedPages: null, animatedGif: false },
+  { mergedPages: null },
 );
 
 const { t } = useI18n();
 
-const hasWarning = computed(() => props.report.unreachable > 0 || props.animatedGif);
+const hasWarning = computed(() => props.report.unreachable > 0);
 </script>
 
 <template>
@@ -64,13 +62,6 @@ const hasWarning = computed(() => props.report.unreachable > 0 || props.animated
     >
       {{ t('preflight.merged', { pages: mergedPages }) }}
     </span>
-    <span
-      v-if="animatedGif"
-      class="pf-chip pf-chip--warn"
-    >
-      <el-icon :size="12"><WarningFilled /></el-icon>
-      {{ t('preflight.animatedGif') }}
-    </span>
   </div>
 </template>
 
@@ -95,6 +86,12 @@ const hasWarning = computed(() => props.report.unreachable > 0 || props.animated
   gap: 4px;
   font-weight: 600;
   color: var(--fat-text-regular);
+}
+
+/* The title icon is the one element that can carry the "something here will not convert" state at
+   a glance; the chip below already says it in words, so this is reinforcement, not the only signal. */
+.preflight.is-warning .preflight-title .el-icon {
+  color: var(--fat-state-ink-warning);
 }
 
 .pf-chip {

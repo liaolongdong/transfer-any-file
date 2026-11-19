@@ -17,6 +17,12 @@
          never sees the bilingual string in the tab. The bilingual values baked into the markup
          stay as the no-JavaScript fallback, and `setLang()` at the end of the document reuses the
          same table for the toggle. -->
+    <!-- Above the head script on purpose: that script repaints it before the first frame, and a
+         lookup of a tag later in the document would find nothing. -->
+    <meta
+      name="theme-color"
+      content="#2563eb"
+    />
     <script>
       (function () {
         var KEY = 'fat-docs-lang';
@@ -51,6 +57,9 @@
           theme = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
         }
         document.documentElement.setAttribute('data-theme', theme);
+        /* Mobile browser chrome follows this tag, and it is not part of the CSS palette. */
+        var themeColor = document.querySelector('meta[name="theme-color"]');
+        if (themeColor) themeColor.setAttribute('content', theme === 'dark' ? '#0c1221' : '#2563eb');
         /* Scroll reveals start at opacity 0, so they must never apply unless this script ran:
            a client that renders CSS but not JavaScript would otherwise see blank sections. */
         document.documentElement.classList.add('js');
@@ -4335,6 +4344,28 @@
       }
 
       @media print {
+        /* Paper is white whatever the screen palette was. Browsers drop background colours by
+           default, so a dark page prints its near-white ink onto white — the whole guide in one
+           tone. Restating the text and surface tokens here is the whole fix: the dark blocks only
+           ever chose values for these names. */
+        :root[data-theme='dark'] {
+          color-scheme: light;
+          --ink: #101828;
+          --ink-soft: #475467;
+          --ink-faint: #667085;
+          --paper: #fff;
+          --paper-alt: #fbfcfe;
+          --card: #fff;
+          --line: #e4e7ec;
+          --brand-soft: #f2f7ff;
+          --brand-line: #d6e4ff;
+        }
+
+        /* The two gradient surfaces are restated in the dark block, so they need one too. */
+        :root[data-theme='dark'] .hero {
+          background: none;
+        }
+
         .nav,
         .carousel-ctl,
         .copy-btn,
@@ -10140,6 +10171,9 @@ pnpm build</code><button
           root.setAttribute('data-theme', mode);
           // The button says what it *is*, so a screen reader learns the state without reading the icon.
           if (themeBtn) themeBtn.setAttribute('aria-pressed', String(mode === 'dark'));
+          // Mobile browser chrome is painted from this tag, and it is not part of the CSS palette:
+          // left at the brand blue, a dark page keeps a blue status bar and a light one loses it.
+          setMeta('meta[name="theme-color"]', mode === 'dark' ? '#0c1221' : '#2563eb');
           if (!persist) return;
           try {
             localStorage.setItem(THEME_KEY, mode);
