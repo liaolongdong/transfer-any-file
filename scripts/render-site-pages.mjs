@@ -753,6 +753,22 @@ function headScripts(meta) {
         if (!lang) lang = (navigator.language || 'zh-CN').toLowerCase().indexOf('zh') === 0 ? 'zh-CN' : 'en';
         document.documentElement.setAttribute('lang', lang);
         window.__FAT_LANG__ = lang;
+        /* Theme, resolved before the first paint for the same reason the language is: a light page
+           that swaps to dark flashes a white sheet at someone reading at night. The stored value is
+           written only by the toggle, so its absence means "follow the OS". */
+        var themeKey = 'fat-docs-theme';
+        var theme = null;
+        try {
+          var savedTheme = localStorage.getItem(themeKey);
+          if (savedTheme === 'light' || savedTheme === 'dark') theme = savedTheme;
+        } catch (e) {
+          /* private mode: fall through to the OS preference */
+        }
+        if (!theme) {
+          theme =
+            window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        }
+        document.documentElement.setAttribute('data-theme', theme);
         /* Scroll reveals start at opacity 0, so they must never apply unless this script ran:
            a client that renders CSS but not JavaScript would otherwise see blank sections. */
         document.documentElement.classList.add('js');
@@ -855,6 +871,66 @@ function revealScript() {
       Array.prototype.forEach.call(revealables, function (el) {
         io.observe(el);
       });
+    })();
+  </script>`;
+}
+
+/**
+ * The theme switch.
+ *
+ * The palette itself was decided before first paint (see `headScripts`); this only flips it and keeps
+ * the button's `aria-pressed` honest. `fat-docs-theme` is written when the reader presses it, which is
+ * also what stops a later OS change from overriding their choice — an unset key means "follow the OS",
+ * and the media query listener below is only for that case.
+ *
+ * @returns {string} markup for the script tag
+ */
+function themeScript() {
+  return `<script>
+    (function () {
+      var KEY = 'fat-docs-theme';
+      var root = document.documentElement;
+      var btn = document.getElementById('themeBtn');
+      var media = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+      function apply(mode, persist) {
+        root.setAttribute('data-theme', mode);
+        if (btn) btn.setAttribute('aria-pressed', String(mode === 'dark'));
+        if (!persist) return;
+        try {
+          localStorage.setItem(KEY, mode);
+        } catch (e) {
+          /* storage unavailable: the choice still holds for this page view */
+        }
+      }
+      if (btn) {
+        btn.addEventListener('click', function () {
+          var next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+          // A palette swap repaints the page; the default View Transition cross-fades that repaint.
+          // Chrome-only by definition, and skipped for anyone who asked for reduced motion.
+          if (
+            document.startViewTransition &&
+            !(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches)
+          ) {
+            document.startViewTransition(function () {
+              apply(next, true);
+            });
+            return;
+          }
+          apply(next, true);
+        });
+      }
+      apply(root.getAttribute('data-theme') === 'dark' ? 'dark' : 'light', false);
+      if (media) {
+        media.addEventListener('change', function (event) {
+          var stored = null;
+          try {
+            stored = localStorage.getItem(KEY);
+          } catch (e) {
+            /* treat as "no explicit choice" */
+          }
+          if (!stored) apply(event.matches ? 'dark' : 'light', false);
+        });
+      }
     })();
   </script>`;
 }
@@ -1370,6 +1446,16 @@ function chrome(depth) {
         <a href="${up}blog/">${bi('博客', 'Blog')}</a>
         <a href="${SITE.repo}" rel="noopener" target="_blank">GitHub</a>
       </nav>
+      <button class="theme-btn" type="button" id="themeBtn" aria-pressed="false">
+        <span class="sr-only">${bi('切换深色外观', 'Toggle dark theme')}</span>
+        <svg class="theme-moon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z" />
+        </svg>
+        <svg class="theme-sun" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="4" />
+          <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
+        </svg>
+      </button>
     </div>
   </header>`;
   const foot = `<footer class="site-foot">
@@ -1568,7 +1654,7 @@ ${related}
     <link rel="icon" type="image/png" sizes="64x64" href="../assets/icon-mark.png" />
     <link rel="apple-touch-icon" sizes="512x512" href="../assets/icon.png" />
     <meta name="theme-color" content="${SITE.themeColor}" />
-    <meta name="color-scheme" content="light" />
+    <meta name="color-scheme" content="light dark" />
     <link rel="stylesheet" href="../assets/content.css" />
     <meta property="og:type" content="article" />
     <meta property="og:site_name" content="Transfer Any File" />
@@ -1664,6 +1750,7 @@ ${relatedSection}${compressorLink}        </article>
     </main>
     ${foot}
     ${revealScript()}
+    ${themeScript()}
   </body>
 </html>
 `;
@@ -1832,7 +1919,7 @@ ${blocked
     <link rel="icon" type="image/png" sizes="64x64" href="../../assets/icon-mark.png" />
     <link rel="apple-touch-icon" sizes="512x512" href="../../assets/icon.png" />
     <meta name="theme-color" content="${SITE.themeColor}" />
-    <meta name="color-scheme" content="light" />
+    <meta name="color-scheme" content="light dark" />
     <link rel="stylesheet" href="../../assets/content.css" />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Transfer Any File" />
@@ -1914,6 +2001,7 @@ ${otherHubs}
     </main>
     ${foot}
     ${revealScript()}
+    ${themeScript()}
   </body>
 </html>
 `;
@@ -2112,7 +2200,7 @@ ${extra}
     <link rel="icon" type="image/png" sizes="64x64" href="../assets/icon-mark.png" />
     <link rel="apple-touch-icon" sizes="512x512" href="../assets/icon.png" />
     <meta name="theme-color" content="${SITE.themeColor}" />
-    <meta name="color-scheme" content="light" />
+    <meta name="color-scheme" content="light dark" />
     <link rel="stylesheet" href="../assets/content.css" />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Transfer Any File" />
@@ -2188,6 +2276,7 @@ ${lists}
     ${matrixScript()}
     ${routeFinderScript()}
     ${revealScript()}
+    ${themeScript()}
   </body>
 </html>
 `;
