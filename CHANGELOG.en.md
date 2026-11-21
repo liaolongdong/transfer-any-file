@@ -11,6 +11,8 @@ Release PR is not by itself a release.
 
 ## [Unreleased]
 
+## [1.11.0] - 2026-11-18
+
 ### Added
 
 - **ui**: The empty workbench gained a "Format lookup" card on its first screen — pick a format you already have and see what it can become without uploading anything. Multi-step targets carry a hop badge, and selecting one prints the whole route below (`Markdown → HTML → PNG`). The list comes straight from `getAllSupportedTargets` filtered through `conversion-policy`, so it is exactly what the target picker offers after an upload; clicking a target takes the same hold-then-apply path a preset does (`pendingApplication`) and applies once files arrive, stating the reason when the batch cannot take it. The card steps aside as soon as there are files — two answers to one question is worse than either alone. It also fills the hole the first screen had: measured at 1440×900 with this card hidden (`display: none`) in the current tree, the content ends at y=471, leaving 429px — 47.7% of the window — blank
