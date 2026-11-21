@@ -93,6 +93,18 @@ export default {
     reorderHandleLocked: '调整顺序：{name}，第 {position} 项，共 {total} 项。已有转换结果，清空结果后才能调整顺序',
     reorderHint: '拖动或按上下方向键调整顺序；合并 PDF 时按这个顺序排页',
     reorderLocked: '已有转换结果，清空结果后才能调整顺序',
+    // 筛选是长批次的入口：200 个文件时逐行找或逐行删都不现实。筛选期间顺序锁定，
+    // 因为屏幕上的行号不再是列表里的位置，拖动能落到哪一行就没有诚实的答案了。
+    filterLabel: '筛选文件',
+    filterPlaceholder: '按文件名筛选',
+    filterFormatAll: '全部格式',
+    filterFormatLabel: '按格式筛选',
+    filterShowing: '筛出 {shown} / {total} 个',
+    filterEmpty: '没有匹配的文件',
+    filterReset: '清除筛选',
+    removeFiltered: '移除筛出的 {count} 个',
+    removedFiltered: '已移除 {count} 个文件',
+    reorderFiltered: '筛选状态下不能调整顺序，先清除筛选',
   },
 
   // Workspace drop overlay (F9)
@@ -307,6 +319,16 @@ export default {
     confirmCancelled: '已取消本次转换',
     // 增删文件后当前目标不再可达时才触发：混批只提供对所有文件有效的目标，留着等于让人点一次必失败
     targetDropped: '调整后的文件里有无法转换为当前目标的，已重置目标与结果',
+  },
+
+  // 转换前检查（~/utils/core/preflight）：只报这批文件会走多少步、有几个到不了目标。
+  // 与 FormatSelector 的「转换前须知」分工不同——那边讲会丢什么，这边讲会跑什么。
+  preflight: {
+    title: '转换前检查',
+    ready: '{count} 个可转换',
+    unreachable: '{count} 个无法转换',
+    multiStep: '{count} 个走多步链路（最多 {max} 步）',
+    merged: '合并为 1 份 PDF，共 {pages} 页',
   },
 
   // Result / download

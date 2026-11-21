@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick, onMounted, onUnmounted, defineAsyncComponent } from 'vue';
 import type { Component } from 'vue';
-import { UploadFilled, Delete, Plus, Picture, Document, Grid, View, Loading } from '@element-plus/icons-vue';
+import { UploadFilled, Delete, Plus, Picture, Document, Grid, View, Loading, Search } from '@element-plus/icons-vue';
 import { FileFormat } from '~/utils/core/types';
 import { getFormatLabel, getFormatCategory } from '~/utils/core/format-labels';
 import { formatSize } from '~/utils/core/format';
@@ -77,18 +77,84 @@ const windowStart = ref(0);
 const windowEnd = ref(0);
 let windowFrame = 0;
 
-const windowed = computed(() => selectedFiles.value.length > WINDOW_THRESHOLD);
+/**
+ * Filtering the staged list.
+ *
+ * A batch may hold two hundred files from a folder drop, and until now the only way to find one —
+ * or to drop every `.png` from a mixed batch — was to scroll and click row by row. The result list
+ * already had a search box; this is the same affordance one step earlier, where it changes what will
+ * be converted rather than what is shown afterward.
+ *
+ * The filter is a *view* over `selectedFiles`, never a second list: `filteredIndices` maps each shown
+ * position back to its real index, so removal, preview and the row key all keep pointing at the same
+ * `File`. Reordering is the one thing that cannot survive it — a drop target names a position on
+ * screen, and under a filter that position is not the file's position in the merged-PDF order — so
+ * it turns off while a filter is active and says why.
+ */
+const FILTER_MIN_FILES = 6;
+const filterQuery = ref('');
+const filterFormat = ref<FileFormat | ''>('');
+
+const filterActive = computed(() => filterQuery.value.trim() !== '' || filterFormat.value !== '');
+/**
+ * The tools row costs a line, so it only appears once the list is long enough to scan by eye — and
+ * it stays while a filter is active, because the controls in it are the only way back out. Removing
+ * rows one by one until fewer than `FILTER_MIN_FILES` remained used to hide the row while the query
+ * still applied, leaving a list with no visible cause and no control to clear it.
+ */
+const showTools = computed(
+  () => props.multiple && (selectedFiles.value.length >= FILTER_MIN_FILES || filterActive.value),
+);
+
+const filteredIndices = computed<number[]>(() => {
+  const count = selectedFiles.value.length;
+  if (!filterActive.value) return Array.from({ length: count }, (_, i) => i);
+  const query = filterQuery.value.trim().toLowerCase();
+  const wanted = filterFormat.value;
+  const out: number[] = [];
+  for (let i = 0; i < count; i++) {
+    if (query && !selectedFiles.value[i].name.toLowerCase().includes(query)) continue;
+    if (wanted && detectedFormats.value[i] !== wanted) continue;
+    out.push(i);
+  }
+  return out;
+});
+
+const displayCount = computed(() => (filterActive.value ? filteredIndices.value.length : selectedFiles.value.length));
+
+/** Formats actually present, with counts, for the filter's own option list. */
+const availableFormats = computed(() => {
+  const counts = new Map<FileFormat, number>();
+  for (const format of detectedFormats.value) {
+    if (format) counts.set(format, (counts.get(format) ?? 0) + 1);
+  }
+  return [...counts.entries()]
+    .sort((a, b) => getFormatLabel(a[0]).localeCompare(getFormatLabel(b[0])))
+    .map(([format, count]) => ({ format, count }));
+});
+
+const windowed = computed(() => displayCount.value > WINDOW_THRESHOLD);
 
 const visibleStart = computed(() => (windowed.value ? windowStart.value : 0));
-const visibleEnd = computed(() => (windowed.value ? windowEnd.value : selectedFiles.value.length));
+const visibleEnd = computed(() => (windowed.value ? windowEnd.value : displayCount.value));
 
+/**
+ * `index` is the position in `selectedFiles` (what removal and preview act on); `slot` is the
+ * position on screen (what `file-item--divided` and the spacer arithmetic count). They differ only
+ * while a filter is active, which is exactly when they must not be confused.
+ */
 const visibleRows = computed(() => {
   const start = visibleStart.value;
-  return selectedFiles.value.slice(start, visibleEnd.value).map((file, index) => ({
-    file,
-    index: start + index,
-    format: detectedFormats.value[start + index] ?? null,
-  }));
+  const end = visibleEnd.value;
+  const shown = filterActive.value ? filteredIndices.value : null;
+  const rows: { file: File; index: number; slot: number; format: FileFormat | null }[] = [];
+  for (let slot = start; slot < end; slot++) {
+    const index = shown ? shown[slot] : slot;
+    const file = selectedFiles.value[index];
+    if (!file) continue;
+    rows.push({ file, index, slot, format: detectedFormats.value[index] ?? null });
+  }
+  return rows;
 });
 
 /** Border-box height of `count` rows starting at index 0, separator included. */
@@ -97,7 +163,7 @@ function rowsHeight(count: number): number {
 }
 
 const topSpacer = computed(() => rowsHeight(visibleStart.value));
-const bottomSpacer = computed(() => Math.max(0, rowsHeight(selectedFiles.value.length) - rowsHeight(visibleEnd.value)));
+const bottomSpacer = computed(() => Math.max(0, rowsHeight(displayCount.value) - rowsHeight(visibleEnd.value)));
 
 function windowSpan(): number {
   return Math.ceil(window.innerHeight / ROW_HEIGHT) + 1 + WINDOW_OVERSCAN * 2;
@@ -109,7 +175,7 @@ function windowSpan(): number {
  * and keep the position the full list would have.
  */
 function updateWindow(): void {
-  const count = selectedFiles.value.length;
+  const count = displayCount.value;
   if (count <= WINDOW_THRESHOLD) {
     windowStart.value = 0;
     windowEnd.value = count;
@@ -157,6 +223,19 @@ watch(
     updateWindow();
   },
 );
+
+/**
+ * A filter change is a new list as far as the window is concerned: the old `windowStart` points at a
+ * position that may no longer exist, and the row count above the viewport changed. Reset to the top
+ * and re-measure after the DOM has the shorter list, otherwise the first frame shows spacer only.
+ */
+watch([filterQuery, filterFormat], async () => {
+  windowStart.value = 0;
+  windowEnd.value = displayCount.value;
+  clearDragState();
+  await nextTick();
+  updateWindow();
+});
 
 const acceptExtensions = [...SUPPORTED_EXTENSIONS, '.zip'].join(',');
 // Shared platform detection — see ~/utils/core/platform for why UA sniffing alone is
@@ -274,6 +353,7 @@ function clearAll(): void {
   const removed = [...selectedFiles.value];
   const removedFormats = [...detectedFormats.value];
   if (removed.length === 0) return;
+  clearFilters();
   selectedFiles.value = [];
   detectedFormats.value = [];
   emit('update:files', []);
@@ -499,6 +579,9 @@ async function expandAndApply(files: File[]): Promise<boolean> {
     // name in the progress row, and the file a failure row blames. Refusing late costs the user the
     // drop they could not make while the panel was disabled anyway.
     if (props.disabled) return false;
+    // A filter describes the old list; a new drop must land visible rather than behind a query the
+    // user typed for something else.
+    clearFilters();
     const validFiles: File[] = [];
     for (const file of expanded) {
       if (file.size > MAX_REJECT_SIZE) {
@@ -608,8 +691,11 @@ async function removeFile(index: number): Promise<void> {
 // therefore locked while results exist, because those results were produced from the old order
 // and nothing on screen would say so — the user would download a PDF whose page order no longer
 // matches the list they can see. A plain batch has no such coupling, so only results lock it.
-const canReorder = computed(() => props.multiple && !props.disabled && !props.reorderDisabled);
-const reorderHint = computed(() => (props.reorderDisabled ? t('upload.reorderLocked') : t('upload.reorderHint')));
+const canReorder = computed(() => props.multiple && !props.disabled && !props.reorderDisabled && !filterActive.value);
+const reorderHint = computed(() => {
+  if (filterActive.value) return t('upload.reorderFiltered');
+  return props.reorderDisabled ? t('upload.reorderLocked') : t('upload.reorderHint');
+});
 
 /**
  * Accessible name for a row's handle.
@@ -629,6 +715,55 @@ const dropSlot = ref<number | null>(null);
 function clearDragState(): void {
   draggingIndex.value = null;
   dropSlot.value = null;
+}
+
+/** Every entry point that replaces the list clears the filter, so a drop is never hidden by an old query. */
+function clearFilters(): void {
+  filterQuery.value = '';
+  filterFormat.value = '';
+}
+
+/**
+ * Drop every row the filter is currently showing.
+ *
+ * Snapshot-then-restore rather than a second `clearAll`: the undo has to put the original *order*
+ * back, and the undo toast already carries exactly one restore callback. The snapshot is taken by
+ * reference because both arrays below are rebuilt, never mutated in place.
+ */
+async function removeFiltered(): Promise<void> {
+  if (props.disabled) return;
+  await pendingApply;
+  if (props.disabled) return;
+  const doomed = new Set(filteredIndices.value);
+  if (doomed.size === 0) return;
+  const before = selectedFiles.value;
+  const beforeFormats = detectedFormats.value;
+  const keep: File[] = [];
+  const keepFormats: (FileFormat | null)[] = [];
+  before.forEach((file, i) => {
+    if (doomed.has(i)) return;
+    keep.push(file);
+    keepFormats.push(beforeFormats[i] ?? null);
+  });
+  if (keep.length === before.length) return;
+  const removedCount = before.length - keep.length;
+  selectedFiles.value = keep;
+  detectedFormats.value = keepFormats;
+  clearFilters();
+  emit('update:files', keep);
+  offerUndoToast({
+    removedText: t('upload.removedFiltered', { count: removedCount }),
+    undoText: t('common.undo'),
+    restoredText: t('upload.restoredFiles', { count: before.length }),
+    restore: () => {
+      // Same rule as `clearAll`: a batch started inside the undo window owns the list by position.
+      if (props.disabled) return;
+      selectedFiles.value = before;
+      detectedFormats.value = beforeFormats;
+      primeWindow(before.length);
+      emit('update:files', before);
+    },
+  });
 }
 
 function onDragStart(index: number, event: DragEvent): void {
@@ -971,7 +1106,77 @@ defineExpose({
                 {{ t('upload.clearAll') }}
               </el-button>
             </span>
+            <!-- Inside the header element on purpose: `updateWindow` measures `header.offsetHeight`
+                 to find where the rows start, so a tools row outside it would shift every spacer by
+                 its own height. `flex-basis: 100%` is what wraps it onto its own line. -->
+            <div
+              v-if="showTools"
+              class="file-list-tools"
+              role="group"
+              :aria-label="t('upload.filterLabel')"
+            >
+              <!-- A placeholder is a hint, not a name: both controls carry the same label the
+                   result list's search box does, so the two rows announce themselves alike. -->
+              <el-input
+                v-model="filterQuery"
+                class="filter-input"
+                size="small"
+                :prefix-icon="Search"
+                :placeholder="t('upload.filterPlaceholder')"
+                :aria-label="t('upload.filterPlaceholder')"
+                clearable
+              />
+              <el-select
+                :model-value="filterFormat"
+                class="filter-format"
+                size="small"
+                :placeholder="t('upload.filterFormatAll')"
+                :aria-label="t('upload.filterFormatLabel')"
+                @update:model-value="filterFormat = $event ?? ''"
+              >
+                <el-option
+                  :label="t('upload.filterFormatAll')"
+                  value=""
+                />
+                <el-option
+                  v-for="item in availableFormats"
+                  :key="item.format"
+                  :label="`${getFormatLabelSafe(item.format)} · ${item.count}`"
+                  :value="item.format"
+                />
+              </el-select>
+              <span
+                v-if="filterActive"
+                class="filter-summary"
+                >{{ t('upload.filterShowing', { shown: displayCount, total: selectedFiles.length }) }}</span
+              >
+              <el-button
+                v-if="filterActive && displayCount > 0"
+                class="filter-remove"
+                size="small"
+                text
+                type="danger"
+                :disabled="disabled"
+                @click="removeFiltered"
+              >
+                {{ t('upload.removeFiltered', { count: displayCount }) }}
+              </el-button>
+              <el-button
+                v-if="filterActive"
+                size="small"
+                text
+                @click="clearFilters"
+              >
+                {{ t('upload.filterReset') }}
+              </el-button>
+            </div>
           </div>
+          <p
+            v-if="filterActive && displayCount === 0"
+            class="file-list-empty"
+          >
+            {{ t('upload.filterEmpty') }}
+          </p>
           <div
             v-if="topSpacer > 0"
             class="file-spacer"
@@ -994,7 +1199,7 @@ defineExpose({
               :key="rowKey(row.file)"
               class="file-item"
               :class="{
-                'file-item--divided': row.index > 0,
+                'file-item--divided': row.slot > 0,
                 'file-item--drag-source': draggingIndex === row.index,
                 'file-item--drop-before': dropSlot === row.index,
                 'file-item--drop-after': dropSlot === row.index + 1,
@@ -1406,6 +1611,7 @@ defineExpose({
 
 .file-list-header {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: var(--fat-space-sm);
@@ -1420,6 +1626,37 @@ defineExpose({
   display: inline-flex;
   align-items: center;
   gap: var(--fat-space-xs);
+}
+
+/* Full-width so it lands on its own line inside the header, whose first line keeps the count and the
+   two list-level buttons exactly where they were. `align-items: center` rather than stretch: an
+   Element Plus input and a text button have different intrinsic heights. */
+.file-list-tools {
+  display: flex;
+  flex-wrap: wrap;
+  flex-basis: 100%;
+  align-items: center;
+  gap: var(--fat-space-xs) var(--fat-space-sm);
+}
+
+.filter-input {
+  width: 180px;
+}
+
+.filter-format {
+  width: 132px;
+}
+
+.filter-summary {
+  font-variant-numeric: tabular-nums;
+}
+
+.file-list-empty {
+  margin: 0;
+  padding: var(--fat-space-xl) var(--fat-space-md);
+  text-align: center;
+  font-size: 12px;
+  color: var(--fat-text-secondary);
 }
 
 /* A batch can hold 200 rows, and every one of them used to be laid out and painted at insertion —
@@ -1591,6 +1828,13 @@ defineExpose({
   .sample-strip {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  /* The two controls take a line each rather than splitting 300px between them; the summary and the
+     actions stay under them and wrap on their own. */
+  .filter-input,
+  .filter-format {
+    width: 100%;
   }
 
   .sample-actions {

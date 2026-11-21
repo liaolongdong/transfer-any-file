@@ -37,6 +37,103 @@
   --ease-in: cubic-bezier(0.55, 0, 0.55, 0.2);
 }
 
+/**
+ * Dark theme.
+ *
+ * Chosen by `data-theme` on the root, which the pre-paint script sets from `fat-docs-theme` (written
+ * only by the toggle) and otherwise from the OS preference. One attribute rather than a media query,
+ * so a reader who overrides the OS keeps that choice here and the palette can never disagree with
+ * the button that announces it.
+ *
+ * `--brand` stays the saturated blue because it is a *surface*: `.btn` puts white ink on it, and the
+ * lighter tint this file needs for text measures 3.68:1 against white. Text therefore moves to
+ * `--brand-dark`, whose only background use (`.btn:hover`) is restated below.
+ */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --brand-dark: #8ab4ff;
+  --brand-soft: #16233a;
+  --brand-line: #2a3b55;
+  --ink: #e8edf7;
+  --ink-soft: #b9c3d3;
+  --ink-faint: #8d99ac;
+  --paper: #0c1221;
+  --paper-alt: #111a2b;
+  --line: #253147;
+  --ok: #4ade80;
+  --warn: #fbbf24;
+  --warn-soft: #2a1f10;
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 45%);
+  --shadow-md: 0 4px 24px -12px rgb(0 0 0 / 65%);
+}
+
+/* `a` links use `--brand` in the light theme; on this background that value is too dark to read. */
+:root[data-theme='dark'] a,
+:root[data-theme='dark'] .site-nav a:hover,
+:root[data-theme='dark'] .crumbs a:hover {
+  color: var(--brand-dark);
+}
+
+:root[data-theme='dark'] .btn {
+  border-color: #2563eb;
+  background: #2563eb;
+}
+
+:root[data-theme='dark'] .btn:hover {
+  border-color: #1d4ed8;
+  background: #1d4ed8;
+}
+
+/* The sticky bar is a translucent white wash in the light theme; on a dark page it has to be the
+   page colour or the header reads as a sheet of paper laid over it. */
+:root[data-theme='dark'] .site-head {
+  background: rgb(12 18 33 / 88%);
+}
+
+/* Theme switch, same 34px slot the product page uses so the two headers match. */
+.theme-btn {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  color: var(--ink-soft);
+  background: transparent;
+  transition:
+    color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    background-color var(--dur-fast) var(--ease-out);
+}
+
+.theme-btn:hover {
+  border-color: var(--brand-line);
+  background: var(--paper-alt);
+  color: var(--brand-dark);
+}
+
+.theme-btn:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+.theme-btn svg {
+  display: block;
+}
+
+.theme-btn .theme-sun {
+  display: none;
+}
+
+:root[data-theme='dark'] .theme-btn .theme-moon {
+  display: none;
+}
+
+:root[data-theme='dark'] .theme-btn .theme-sun {
+  display: block;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -66,6 +163,20 @@ body {
 /* One language visible, both present in the DOM. */
 html[lang='zh-CN'] [lang='en'] {
   display: none;
+}
+
+/* Bilingual accessible names: the theme button carries one label per language inside this, and the
+   `[lang]` rules above leave exactly the active one in the accessibility tree. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 html[lang='en'] [lang='zh-CN'] {
@@ -1240,6 +1351,25 @@ table.matrix {
    all. The reading rail is scroll-driven, so it is removed rather than frozen wherever the paper
    happens to land. Screen behaviour is untouched: these declarations are print-only. */
 @media print {
+  /* Paper is white whatever the screen palette was, and browsers drop background colours by
+     default — printed dark ink would be near-white on white. Only the text and surface tokens need
+     restating; everything else in the dark block is a shadow or a tint that never prints. */
+  :root[data-theme='dark'] {
+    color-scheme: light;
+    --ink: #101828;
+    --ink-soft: #475467;
+    --ink-faint: #667085;
+    --paper: #fff;
+    --paper-alt: #fff;
+    --card: #fff;
+    --line: #e4e7ec;
+    --brand-dark: #1d4ed8;
+  }
+
+  :root[data-theme='dark'] .site-head {
+    background: #fff;
+  }
+
   .js .reveal,
   .js .route-steps > * {
     opacity: 1;
